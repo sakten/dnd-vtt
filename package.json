@@ -1,0 +1,40 @@
+{
+  "name": "dnd-vtt",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "test": "npm run test -w shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "smoke": "node scripts/smoke.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "shots": "node scripts/check-screenshots.mjs",
+    "devcheck": "node scripts/check-dev.mjs"
+  },
+  "engines": {
+    "node": ">=18.19"
+  },
+  "overrides": {
+    "qs": "^6.16.0",
+    "express": {
+      "qs": "^6.16.0"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "puppeteer-core": "^25.10.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true
+  }
+}
