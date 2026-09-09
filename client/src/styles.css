@@ -527,7 +527,7 @@ button.icon {
 
 .roll-head-right {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .roll-formula {
