@@ -1,13 +1,26 @@
-import { ABILITIES, SKILLS, abilityMod, type AbilityKey, type CharacterSheet, type SkillLevel } from 'shared';
+import {
+  ABILITIES,
+  DEFAULT_ABILITIES,
+  SKILLS,
+  abilityMod,
+  type AbilityKey,
+  type AttackEntry,
+  type CharacterSheet,
+  type SkillLevel,
+} from 'shared';
 
 export function defaultSheet(): CharacterSheet {
   return {
     name: '',
-    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    abilities: { ...DEFAULT_ABILITIES },
     proficiencyBonus: '2',
     saves: {},
     skills: {},
-    attack: { name: '', hit: 'd20', damage: 'd6' },
+    attacks: [
+      { name: '', hit: 'd20', damage: 'd6' },
+      { name: '', hit: '', damage: '' },
+      { name: '', hit: '', damage: '' },
+    ],
   };
 }
 
@@ -44,14 +57,19 @@ export function checkExpression(sheet: CharacterSheet, skillKey: string): string
   return `d20${fmtMod(mod)}${bonusPart(sheet.proficiencyBonus, level)}`;
 }
 
-export function attackRolls(sheet: CharacterSheet): { expression: string; label: string }[] {
-  const name = sheet.attack.name.trim() || 'Атака';
-  const rolls: { expression: string; label: string }[] = [];
-  const hit = sheet.attack.hit.trim();
-  if (hit) rolls.push({ expression: hit, label: `Атака: ${name}` });
-  const damage = sheet.attack.damage.trim();
-  if (damage) rolls.push({ expression: damage, label: `Урон: ${name}` });
-  return rolls;
+export interface AttackRoll {
+  expression: string;
+  label: string;
+}
+
+export function weaponRolls(entry: AttackEntry): { hit: AttackRoll | null; damage: AttackRoll | null } {
+  const name = entry.name.trim() || 'Атака';
+  const hit = entry.hit.trim();
+  const damage = entry.damage.trim();
+  return {
+    hit: hit ? { expression: hit, label: `Атака: ${name}` } : null,
+    damage: damage ? { expression: damage, label: `Урон: ${name}` } : null,
+  };
 }
 
 export function skillPreview(sheet: CharacterSheet, skillKey: string): string {

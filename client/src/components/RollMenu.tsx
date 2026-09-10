@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ABILITIES, SKILLS, type AbilityKey } from 'shared';
+import { ABILITIES, SKILLS, activeAttacks, type AbilityKey, type AttackEntry } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { attackRolls, checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
+import { checkExpression, defaultSheet, saveExpression, weaponRolls } from '../lib/sheet';
 
-type MenuLevel = 'root' | 'save' | 'check' | `ability:${AbilityKey}`;
+type MenuLevel = 'root' | 'save' | 'check' | 'attack' | `ability:${AbilityKey}`;
 
 function applyAdvantage(expression: string, adv: boolean, dis: boolean): string {
   if (adv === dis) return expression;
@@ -14,6 +14,7 @@ function applyAdvantage(expression: string, adv: boolean, dis: boolean): string 
 export default function RollMenu() {
   const stored = useGameStore((s) => s.sheet);
   const rollDice = useGameStore((s) => s.rollDice);
+  const sendAttack = useGameStore((s) => s.rollAttack);
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<MenuLevel>('root');
   const [adv, setAdv] = useState(false);
@@ -33,13 +34,21 @@ export default function RollMenu() {
     close();
   };
 
-  const rollAttack = () => {
-    const rolls = attackRolls(sheet);
-    if (rolls.length === 0) return;
-    rolls.forEach((r) => rollDice(applyAdvantage(r.expression, adv, dis), r.label));
+  const doWeapon = (weapon: AttackEntry) => {
+    const { hit, damage } = weaponRolls(weapon);
+    if (!hit && !damage) return;
+    const hitRoll = hit ? { ...hit, expression: applyAdvantage(hit.expression, adv, dis) } : null;
+    sendAttack(hitRoll, damage);
     setAdv(false);
     setDis(false);
     close();
+  };
+
+  const chooseAttack = () => {
+    const weapons = activeAttacks(sheet);
+    if (weapons.length === 0) return;
+    if (weapons.length === 1) doWeapon(weapons[0]);
+    else setLevel('attack');
   };
 
   const back = (to: MenuLevel) => (e: React.MouseEvent) => {
@@ -86,7 +95,7 @@ export default function RollMenu() {
           <div className="roll-menu">
             {level === 'root' && (
               <>
-                <button className="roll-menu-item" onClick={rollAttack}>
+                <button className="roll-menu-item" onClick={chooseAttack}>
                   Attack
                 </button>
                 <button className="roll-menu-item" onClick={() => setLevel('save')}>
@@ -95,6 +104,18 @@ export default function RollMenu() {
                 <button className="roll-menu-item" onClick={() => setLevel('check')}>
                   Check
                 </button>
+              </>
+            )}
+            {level === 'attack' && (
+              <>
+                <button className="roll-menu-item back" onClick={back('root')}>
+                  ← назад
+                </button>
+                {activeAttacks(sheet).map((weapon, i) => (
+                  <button className="roll-menu-item" key={i} onClick={() => doWeapon(weapon)}>
+                    {weapon.name.trim() || `Оружие ${i + 1}`}
+                  </button>
+                ))}
               </>
             )}
             {level === 'save' && (

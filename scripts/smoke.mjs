@@ -104,6 +104,10 @@ const created = await joinAndAck(dm, (cb) =>
 console.log('room created:', created.room.code);
 
 check(created.room.code.length >= 10, `код комнаты длинный и случайный (${created.room.code.length} символов)`);
+check(
+  typeof created.room.name === 'string' && created.room.name.length > 0,
+  `у комнаты есть название (${created.room.name})`
+);
 
 const joined = await joinAndAck(player, (cb) =>
   player.emit('room:join', { code: created.room.code, name: 'Игрок', clientId: 'smoke-p1' }, cb)
@@ -218,13 +222,31 @@ player.emit('dice:roll', { expression: 'd20+3+d4', label: 'Атака: Меч' }
 const labeledMsg = await waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Атака: Меч');
 check(labeledMsg.roll.expression === 'd20+3+d4', 'бросок с кубом-бонусом и меткой');
 
+const attackHitP = waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Атака: Топор');
+const attackDmgP = waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Урон: Топор');
+player.emit('dice:attack', {
+  hit: { expression: 'd20+5', label: 'Атака: Топор' },
+  damage: { expression: '2d6+3', label: 'Урон: Топор' },
+});
+const attackHit = await attackHitP;
+const attackDmg = await attackDmgP;
+check(attackHit.roll.dice[0].sides === 20, 'dice:attack кидает попадание');
+check(
+  attackDmg.roll.total >= 5 && attackDmg.roll.total <= 27,
+  `dice:attack кидает урон (${attackDmg.roll.total})`
+);
+
 const testSheet = {
   name: 'Гоблин-игрок',
   abilities: { str: 16, dex: 12, con: 14, int: 8, wis: 13, cha: 10 },
   proficiencyBonus: 'd4',
   saves: { dex: true },
   skills: { stealth: 2 },
-  attack: { name: 'Кинжал', hit: 'd20+5', damage: 'd4+3' },
+  attacks: [
+    { name: 'Кинжал', hit: 'd20+5', damage: 'd4+3' },
+    { name: '', hit: '', damage: '' },
+    { name: '', hit: '', damage: '' },
+  ],
 };
 let dmGotSheet = false;
 dm.once('sheet:update', () => {
@@ -234,6 +256,7 @@ const sheetEchoPromise = eventOnce(player, 'sheet:update');
 player.emit('sheet:update', testSheet);
 const sheetEcho = await sheetEchoPromise;
 check(sheetEcho.sheet.name === 'Гоблин-игрок', 'лист сохраняется и возвращается владельцу');
+check(sheetEcho.sheet.attacks?.[0]?.name === 'Кинжал', 'в листе три поля оружия');
 await sleep(600);
 check(!dmGotSheet, 'лист игрока невидим другим игрокам');
 
@@ -258,7 +281,23 @@ const reMsg = await waitMsg(dm, (m) => m.kind === 'roll' && m.roll.expression ==
 check(true, 'броски работают после переподключения и возврата в комнату');
 
 const listRes = await ack((cb) => dm.emit('admin:list', { adminToken: '' }, cb));
-check(listRes.rooms.some((r) => r.code === created.room.code), 'admin:list показывает комнаты');
+check(
+  listRes.rooms.some((r) => r.code === created.room.code && typeof r.name === 'string' && r.name.length > 0),
+  'admin:list показывает комнаты с названиями'
+);
+
+const renamedEvent = eventOnce(player, 'room:renamed');
+const renameRes = await ack((cb) =>
+  dm.emit('admin:rename', { adminToken: '', code: created.room.code, name: 'Переименованная' }, cb)
+);
+check('ok' in renameRes, 'admin:rename переименовывает комнату');
+const renamedPayload = await renamedEvent;
+check(renamedPayload.name === 'Переименованная', 'игроки получают room:renamed');
+const listNamed = await ack((cb) => dm.emit('admin:list', { adminToken: '' }, cb));
+check(
+  listNamed.rooms.some((r) => r.code === created.room.code && r.name === 'Переименованная'),
+  'новое имя комнаты видно в списке'
+);
 
 const adminCreated = await joinAndAck(dm, (cb) =>
   dm.emit('admin:create', { adminToken: '', name: 'Ведущий-2', clientId: 'smoke-dm' }, cb)
@@ -275,6 +314,7 @@ let persisted = null;
 if (fs.existsSync(savedFile)) persisted = JSON.parse(fs.readFileSync(savedFile, 'utf8'));
 check(!!persisted, 'room persisted to disk');
 if (persisted) {
+  check(persisted.name === 'Переименованная', 'название комнаты persisted');
   check(persisted.scene.maps.length === 2, 'maps persisted');
   check(persisted.scene.maps[0].tokens.length === 3, 'tokens map1 persisted (3)');
   check(persisted.scene.maps[1].tokens.length === 0, 'tokens map2 persisted (0)');

@@ -15,6 +15,7 @@ export default function TableScreen() {
   const removeToken = useGameStore((s) => s.removeToken);
   const gridModalOpen = useGameStore((s) => s.gridModalOpen);
   const roomCode = useGameStore((s) => s.roomCode);
+  const roomName = useGameStore((s) => s.roomName);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
@@ -49,7 +50,8 @@ export default function TableScreen() {
           navigator.clipboard?.writeText(url).catch(() => void 0);
         }}
       >
-        Комната: <strong title={roomCode ?? ''}>{shortCode}</strong>{' '}
+        Комната: <strong>{roomName || shortCode}</strong>{' '}
+        {roomName && <span className="room-badge-code">{shortCode}</span>}{' '}
         <span className="room-badge-hint">— скопировать ссылку</span>
       </div>
       {gridModalOpen && <GridSettingsModal />}

@@ -9,6 +9,7 @@ import type {
   Scene,
   Token,
 } from 'shared';
+import { normalizeSheet } from 'shared';
 import { loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
@@ -17,6 +18,7 @@ export interface RoomPlayer extends Player {
 
 export interface Room {
   code: string;
+  name: string;
   scene: Scene;
   library: LibraryItem[];
   sheets: Record<string, CharacterSheet>;
@@ -72,11 +74,21 @@ export class RoomManager {
         if (typeof item.round !== 'boolean') item.round = false;
         if (typeof item.description !== 'string') item.description = '';
       }
+      const sheets: Record<string, CharacterSheet> = {};
+      if (p.sheets && typeof p.sheets === 'object') {
+        for (const [id, sheet] of Object.entries(p.sheets)) {
+          sheets[id] = normalizeSheet(sheet);
+        }
+      }
       this.rooms.set(p.code, {
         code: p.code,
+        name:
+          typeof p.name === 'string' && p.name.trim()
+            ? p.name.trim().slice(0, 60)
+            : `Игра ${p.code.slice(0, 6)}`,
         scene,
         library: Array.isArray(p.library) ? p.library : [],
-        sheets: p.sheets && typeof p.sheets === 'object' ? p.sheets : {},
+        sheets,
         chat: p.chat ?? [],
         players: p.players.map((pl) => ({ ...pl, isConnected: false, socketId: null })),
         nextZ: p.nextZ ?? 0,
@@ -91,6 +103,7 @@ export class RoomManager {
   listRooms() {
     return [...this.rooms.values()].map((r) => ({
       code: r.code,
+      name: r.name,
       players: r.players.length,
       maps: r.scene.maps.length,
     }));
@@ -103,14 +116,24 @@ export class RoomManager {
     return true;
   }
 
+  renameRoom(room: Room, name: string): string {
+    const trimmed = name.trim().slice(0, 60);
+    if (!trimmed) return room.name;
+    room.name = trimmed;
+    this.saveSoon(room);
+    return room.name;
+  }
+
   get(code: string) {
     return this.rooms.get(code);
   }
 
-  create(dmName: string): Room {
+  create(name?: string): Room {
     const code = this.generateCode();
+    const roomName = (name ?? '').trim().slice(0, 60) || `Игра ${code.slice(0, 6)}`;
     const room: Room = {
       code,
+      name: roomName,
       scene: {
         maps: [],
         activeMapId: null,
@@ -273,6 +296,7 @@ export class RoomManager {
   toState(room: Room): RoomState {
     return {
       code: room.code,
+      name: room.name,
       scene: room.scene,
       library: room.library,
       players: room.players.map((p) => ({ id: p.id, name: p.name, role: p.role, isConnected: p.isConnected })),
@@ -283,6 +307,7 @@ export class RoomManager {
   private toPersisted(room: Room): PersistedRoom {
     return {
       code: room.code,
+      name: room.name,
       scene: room.scene,
       library: room.library,
       sheets: room.sheets,

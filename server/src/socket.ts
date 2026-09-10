@@ -2,6 +2,8 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
   DiceParseError,
+  isCriticalHit,
+  normalizeSheet,
   rollDice,
   snapToGrid,
   type ChatMessage,
@@ -63,13 +65,13 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       cb({ rooms: manager.listRooms() });
     });
 
-    socket.on('admin:create', ({ adminToken, name, clientId }, cb) => {
+    socket.on('admin:create', ({ adminToken, name, clientId, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
         return;
       }
       const playerName = name.trim() || 'Ведущий';
-      const room = manager.create('Новая игра');
+      const room = manager.create(roomName);
       room.players.push({ id: clientId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
       manager.saveSoon(room);
       roomCode = room.code;
@@ -116,6 +118,25 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       broadcast('players:update', manager.toState(room).players);
     });
 
+    socket.on('admin:rename', ({ adminToken, code, name }, cb) => {
+      if (!adminTokenOk(adminToken)) {
+        cb({ error: 'Неверный пароль ведущего' });
+        return;
+      }
+      const room = manager.get(code.toUpperCase());
+      if (!room) {
+        cb({ error: 'Комната не найдена' });
+        return;
+      }
+      if (!name.trim()) {
+        cb({ error: 'Пустое название' });
+        return;
+      }
+      const renamed = manager.renameRoom(room, name);
+      io.to(room.code).emit('room:renamed', { name: renamed });
+      cb({ ok: true });
+    });
+
     socket.on('admin:delete', ({ adminToken, code }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
@@ -135,12 +156,12 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       });
     });
 
-    socket.on('room:create', ({ name, clientId, adminToken }, cb) => {
+    socket.on('room:create', ({ name, clientId, adminToken, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Нужен пароль ведущего' });
         return;
       }
-      const room = manager.create(name);
+      const room = manager.create(roomName);
       room.players.push({ id: clientId, name, role: 'dm', isConnected: true, socketId: socket.id });
       manager.saveSoon(room);
       roomCode = room.code;
@@ -362,9 +383,10 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!roomCode || !playerId) return;
       const room = manager.get(roomCode);
       if (!room) return;
-      room.sheets[playerId] = sheet;
+      const normalized = normalizeSheet(sheet);
+      room.sheets[playerId] = normalized;
       manager.saveSoon(room);
-      socket.emit('sheet:update', { sheet });
+      socket.emit('sheet:update', { sheet: normalized });
     });
 
     socket.on('dice:roll', ({ expression, label }) => {
@@ -384,6 +406,46 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
         };
         manager.addMessage(room, message);
         broadcastAll('chat:message', message);
+      } catch (e) {
+        socket.emit('chat:error', e instanceof DiceParseError ? e.message : 'Не удалось распознать бросок');
+      }
+    });
+
+    socket.on('dice:attack', ({ hit, damage }) => {
+      if (!roomCode || !playerId) return;
+      const room = manager.get(roomCode);
+      if (!room) return;
+      const player = room.players.find((p) => p.id === playerId);
+      const author = player?.name ?? '?';
+      try {
+        const hitRoll = rollDice(hit.expression);
+        const crit = isCriticalHit(hitRoll);
+        const hitMessage: ChatMessage = {
+          id: randomUUID(),
+          kind: 'roll',
+          author,
+          roll: hitRoll,
+          label: hit.label?.trim() ? hit.label.trim() : undefined,
+          ts: Date.now(),
+        };
+        manager.addMessage(room, hitMessage);
+        broadcastAll('chat:message', hitMessage);
+
+        const damageExpression = damage?.expression.trim();
+        if (damageExpression) {
+          const damageRoll = rollDice(damageExpression, Math.random, { doubleDice: crit });
+          const damageMessage: ChatMessage = {
+            id: randomUUID(),
+            kind: 'roll',
+            author,
+            roll: damageRoll,
+            label: damage?.label?.trim() ? damage.label.trim() : undefined,
+            crit,
+            ts: Date.now(),
+          };
+          manager.addMessage(room, damageMessage);
+          broadcastAll('chat:message', damageMessage);
+        }
       } catch (e) {
         socket.emit('chat:error', e instanceof DiceParseError ? e.message : 'Не удалось распознать бросок');
       }

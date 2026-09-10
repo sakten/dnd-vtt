@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DiceParseError, parseDiceExpression, rollDice } from './dice';
+import { DiceParseError, isCriticalHit, parseDiceExpression, rollDice } from './dice';
 
 function seq(values: number[]) {
   let i = 0;
@@ -92,5 +92,37 @@ describe('rollDice', () => {
     const r = rollDice('d20-5', () => 0.999);
     expect(r.total).toBe(15);
     expect(r.breakdown).toBe('20 - 5');
+  });
+});
+
+describe('isCriticalHit', () => {
+  it('крит при натуральной 20', () => {
+    expect(isCriticalHit(rollDice('d20', () => 0.999))).toBe(true);
+  });
+
+  it('не крит при других значениях', () => {
+    expect(isCriticalHit(rollDice('d20', () => 0))).toBe(false);
+    expect(isCriticalHit(rollDice('2d6', () => 0.999))).toBe(false);
+  });
+});
+
+describe('rollDice с удвоением кубов (крит)', () => {
+  it('удваивает все кубы урона, модификатор — один раз', () => {
+    const r = rollDice('2d6+3', seq([0, 0, 0, 0]), { doubleDice: true });
+    expect(r.dice[0].values).toHaveLength(4);
+    expect(r.total).toBe(4 * 1 + 3);
+    expect(r.modifier).toBe(3);
+  });
+
+  it('удваивает несколько групп кубов', () => {
+    const r = rollDice('1d8+2d6', seq([0, 0, 0, 0, 0, 0]), { doubleDice: true });
+    expect(r.dice[0].values).toHaveLength(2);
+    expect(r.dice[1].values).toHaveLength(4);
+    expect(r.total).toBe(6);
+  });
+
+  it('без флага количество кубов не меняется', () => {
+    const r = rollDice('2d6+3', seq([0, 0]), {});
+    expect(r.dice[0].values).toHaveLength(2);
   });
 });

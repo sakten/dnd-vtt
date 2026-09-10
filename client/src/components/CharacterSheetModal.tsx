@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ABILITIES, SKILLS, abilityMod, type AbilityKey, type CharacterSheet, type SkillLevel } from 'shared';
+import {
+  ABILITIES,
+  SKILLS,
+  abilityMod,
+  normalizeSheet,
+  type AbilityKey,
+  type AttackEntry,
+  type CharacterSheet,
+  type SkillLevel,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
 
@@ -15,7 +24,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
   const [draft, setDraft] = useState<CharacterSheet | null>(null);
 
   useEffect(() => {
-    if (open) setDraft(stored ?? defaultSheet());
+    if (open) setDraft(stored ? normalizeSheet(stored) : defaultSheet());
   }, [open]);
 
   useEffect(() => {
@@ -38,6 +47,12 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     const current: SkillLevel = draft.skills[key] ?? 0;
     const next: SkillLevel = ((current + 1) % 3) as SkillLevel;
     setDraft({ ...draft, skills: { ...draft.skills, [key]: next } });
+  };
+
+  const setWeapon = (index: number, patch: Partial<AttackEntry>) => {
+    setDraft((d) =>
+      d ? { ...d, attacks: d.attacks.map((w, i) => (i === index ? { ...w, ...patch } : w)) } : d
+    );
   };
 
   return createPortal(
@@ -125,36 +140,41 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           })}
         </div>
 
-        <div className="sheet-section-title">Атака</div>
-        <label className="field">
-          <span>Название оружия</span>
-          <input
-            type="text"
-            value={draft.attack.name}
-            maxLength={40}
-            onChange={(e) => setDraft({ ...draft, attack: { ...draft.attack, name: e.target.value } })}
-          />
-        </label>
-        <div className="field-row">
-          <label className="field">
-            <span>Формула попадания</span>
-            <input
-              type="text"
-              value={draft.attack.hit}
-              placeholder="d20+5"
-              onChange={(e) => setDraft({ ...draft, attack: { ...draft.attack, hit: e.target.value } })}
-            />
-          </label>
-          <label className="field">
-            <span>Формула урона</span>
-            <input
-              type="text"
-              value={draft.attack.damage}
-              placeholder="d8+3"
-              onChange={(e) => setDraft({ ...draft, attack: { ...draft.attack, damage: e.target.value } })}
-            />
-          </label>
-        </div>
+        <div className="sheet-section-title">Оружие (до 3)</div>
+        {draft.attacks.map((weapon, i) => (
+          <div className="weapon-block" key={i}>
+            <label className="field">
+              <span>Оружие {i + 1}: название</span>
+              <input
+                type="text"
+                value={weapon.name}
+                maxLength={40}
+                placeholder="Например: Меч"
+                onChange={(e) => setWeapon(i, { name: e.target.value })}
+              />
+            </label>
+            <div className="field-row">
+              <label className="field">
+                <span>Формула попадания</span>
+                <input
+                  type="text"
+                  value={weapon.hit}
+                  placeholder="d20+5"
+                  onChange={(e) => setWeapon(i, { hit: e.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>Формула урона</span>
+                <input
+                  type="text"
+                  value={weapon.damage}
+                  placeholder="d8+3"
+                  onChange={(e) => setWeapon(i, { damage: e.target.value })}
+                />
+              </label>
+            </div>
+          </div>
+        ))}
 
         <div className="modal-actions">
           <button

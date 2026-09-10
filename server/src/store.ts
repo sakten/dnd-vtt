@@ -4,6 +4,7 @@ import type { CharacterSheet, ChatMessage, LibraryItem, Role, Scene } from 'shar
 
 export interface PersistedRoom {
   code: string;
+  name?: string;
   scene: Scene;
   library: LibraryItem[];
   sheets: Record<string, CharacterSheet>;

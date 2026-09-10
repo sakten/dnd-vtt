@@ -42,6 +42,7 @@ interface GameState {
   connected: boolean;
   selfId: string | null;
   roomCode: string | null;
+  roomName: string | null;
   role: Role;
   players: Player[];
   scene: Scene;
@@ -60,10 +61,13 @@ interface GameState {
   fogMode: FogMode;
 
   init: () => void;
-  createRoom: (name: string, adminToken?: string) => void;
   joinRoom: (code: string, name: string) => void;
   sendChat: (text: string) => void;
   rollDice: (expression: string, label?: string) => void;
+  rollAttack: (
+    hit: { expression: string; label: string } | null,
+    damage: { expression: string; label: string } | null
+  ) => void;
   setSheet: (sheet: CharacterSheet) => void;
   addMap: (name: string, url: string, width: number, height: number) => void;
   removeMap: (id: string) => void;
@@ -132,6 +136,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     connected: false,
     selfId: null,
     roomCode: null,
+    roomName: null,
     role: 'player',
     players: [],
     scene: { maps: [], activeMapId: null, grid: DEFAULT_GRID },
@@ -193,6 +198,7 @@ export const useGameStore = create<GameState>()((set, get) => {
         }
         set({
           roomCode: room.code,
+          roomName: room.name,
           selfId,
           role: player?.role ?? 'player',
           players: room.players,
@@ -206,6 +212,8 @@ export const useGameStore = create<GameState>()((set, get) => {
       });
 
       socket.on('sheet:update', ({ sheet }) => set({ sheet }));
+
+      socket.on('room:renamed', ({ name }) => set({ roomName: name }));
 
       socket.on('maps:update', ({ maps, activeMapId }) => {
         set((s) => {
@@ -289,6 +297,7 @@ export const useGameStore = create<GameState>()((set, get) => {
       socket.on('room:deleted', () => {
         set({
           roomCode: null,
+          roomName: null,
           joinError: 'Комната удалена ведущим',
           selectedTokenId: null,
           tokenMenuId: null,
@@ -316,17 +325,6 @@ export const useGameStore = create<GameState>()((set, get) => {
       }
     },
 
-    createRoom: (name, adminToken) => {
-      const socket = get().socket;
-      if (!socket) return;
-      const playerId = localStorage.getItem('vtt-player') ?? crypto.randomUUID();
-      localStorage.setItem('vtt-player', playerId);
-      socket.emit('room:create', { name, clientId: playerId, adminToken }, (res) => {
-        if ('error' in res) set({ joinError: res.error });
-        else if (adminToken) localStorage.setItem('vtt-admin', adminToken);
-      });
-    },
-
     joinRoom: (code, name) => {
       const socket = get().socket;
       if (!socket) return;
@@ -350,6 +348,13 @@ export const useGameStore = create<GameState>()((set, get) => {
 
     rollDice: (expression, label) => {
       get().socket?.emit('dice:roll', { expression, label });
+    },
+
+    rollAttack: (hit, damage) => {
+      const socket = get().socket;
+      if (!socket) return;
+      if (hit) socket.emit('dice:attack', { hit, damage: damage ?? undefined });
+      else if (damage) socket.emit('dice:roll', { expression: damage.expression, label: damage.label });
     },
 
     setSheet: (sheet) => {

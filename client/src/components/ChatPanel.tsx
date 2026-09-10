@@ -81,7 +81,7 @@ function MessageView({ message }: { message: ChatMessage }) {
       </div>
     );
   }
-  const { crit } = formatRoll(message.roll);
+  const crit = message.crit ? 'crit' : formatRoll(message.roll).crit;
   const labelType = rollLabelType(message.label);
   const dice = buildTerms(message.roll)
     .filter((t): t is DieEntry => t.kind === 'die')
@@ -121,6 +121,7 @@ export default function ChatPanel() {
   const chatError = useGameStore((s) => s.chatError);
   const players = useGameStore((s) => s.players);
   const roomCode = useGameStore((s) => s.roomCode);
+  const roomName = useGameStore((s) => s.roomName);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
   const sendChat = useGameStore((s) => s.sendChat);
   const [text, setText] = useState('');
@@ -172,7 +173,7 @@ export default function ChatPanel() {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <strong title={roomCode ?? ''}>Комната: {shortCode}</strong>
+        <strong title={`${roomName ?? ''} (${roomCode ?? ''})`}>Комната: {roomName || shortCode}</strong>
         <div className="chat-header-actions">
           <button className="sheet-button" title="Карточка персонажа" onClick={() => setSheetOpen(true)}>
             Персонаж

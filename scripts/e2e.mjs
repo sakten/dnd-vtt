@@ -147,13 +147,16 @@ await page.screenshot({ path: path.join(OUT, '01-join.png') });
 
 const nameInputs = await page.$$('.join-card input');
 await nameInputs[0].type('Мастер');
-const createBtn = await findButton(page, '.join-actions button.primary', 'Создать');
+
+await page.goto(`${BASE}?admin=1`, { waitUntil: 'networkidle0' });
+await page.waitForSelector('.admin-card');
+const createBtn = await findButton(page, '.join-actions button', 'Создать новую игру');
 await createBtn.click();
 await page.waitForSelector('.table-screen');
 await page.waitForSelector('canvas');
 await sleep(800);
 await page.screenshot({ path: path.join(OUT, '02-empty-table.png') });
-check(true, 'DM создал комнату, стол открылся');
+check(true, 'DM создал комнату через страницу ведущего, стол открылся');
 check(page.url().includes('room='), 'ссылка после входа содержит код комнаты');
 
 const upStatus = await page.evaluate(async () => {
@@ -570,8 +573,8 @@ check(
     sheetState.proficiencyBonus === 'd4' &&
     sheetState.saves.dex === true &&
     sheetState.skills.stealth === 2 &&
-    sheetState.attack.hit === 'd20+5' &&
-    sheetState.attack.damage === 'd8+3',
+    sheetState.attacks[0].hit === 'd20+5' &&
+    sheetState.attacks[0].damage === 'd8+3',
   `карточка персонажа сохранилась (статы с клампом до 30) — ${JSON.stringify(sheetState?.abilities)}`
 );
 
@@ -747,7 +750,7 @@ await attachErrorLog(page2, 'Игрок');
 await page2.goto(`${BASE}?room=${code}`, { waitUntil: 'networkidle0' });
 await page2.waitForSelector('.join-card');
 const p2Inputs = await page2.$$('.join-card input');
-const prefilled = await p2Inputs[2].evaluate((el) => el.value);
+const prefilled = await p2Inputs[1].evaluate((el) => el.value);
 check(prefilled === code, `инвайт-ссылка предзаполнила код комнаты (${prefilled})`);
 await p2Inputs[0].type('Игрок');
 const joinBtn = await findButton(page2, '.join-actions button.primary', 'Войти');
@@ -905,6 +908,27 @@ for (const row of await page4.$$('.admin-room')) {
   }
 }
 check(!!targetRow, 'нашлась строка собственной тестовой комнаты для проверки удаления');
+const nameEl = await targetRow.$('.admin-room-name');
+await nameEl.evaluate((el) => el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })));
+await page4.waitForSelector('.admin-room-name-input');
+await page4.evaluate(() => {
+  const el = document.querySelector('.admin-room-name-input');
+  el.focus();
+  el.value = '';
+});
+await page4.keyboard.type('Переименовано', { delay: 30 });
+await page4.keyboard.press('Enter');
+await sleep(500);
+const renamedList = await page4.evaluate(
+  () =>
+    new Promise((resolve) =>
+      window.__vtt.getState().socket.emit('admin:list', { adminToken: '' }, (res) => resolve(res))
+    )
+);
+check(
+  renamedList.rooms.some((r) => r.code === codeY && r.name === 'Переименовано'),
+  'двойной клик по имени переименовывает комнату'
+);
 await targetRow.$eval('button.danger', (el) => el.click());
 await page4.waitForSelector('.modal');
 const confirmDeleteBtn = await findButton(page4, '.modal button', 'Удалить');

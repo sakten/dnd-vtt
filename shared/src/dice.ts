@@ -87,16 +87,31 @@ function rollOne(sides: number, rng: () => number): number {
   return Math.min(sides, Math.floor(Math.max(0, Math.min(1, v)) * sides) + 1);
 }
 
-export function rollDice(expression: string, rng: () => number = Math.random): DiceRollResult {
+export interface RollOptions {
+  doubleDice?: boolean;
+}
+
+export function isCriticalHit(roll: DiceRollResult): boolean {
+  return roll.dice.some((d) => d.sides === 20 && d.values.includes(20));
+}
+
+export function rollDice(
+  expression: string,
+  rng: () => number = Math.random,
+  options: RollOptions = {}
+): DiceRollResult {
   const { dice, modifier } = parseDiceExpression(expression);
+  const double = options.doubleDice === true;
 
   const results: DieResult[] = dice.map((d) => {
+    const count = double ? d.count * 2 : d.count;
+    const keep = double && d.keep !== null ? Math.min(d.keep * 2, count) : d.keep;
     if (d.advantage) {
-      const all = Array.from({ length: d.count * 2 }, () => rollOne(d.sides, rng));
+      const all = Array.from({ length: count * 2 }, () => rollOne(d.sides, rng));
       const sortedIdx = all
         .map((v, i) => i)
         .sort((a, b) => (d.advantage === 'a' ? all[b] - all[a] : all[a] - all[b]));
-      const keptIdx = new Set(sortedIdx.slice(0, d.count));
+      const keptIdx = new Set(sortedIdx.slice(0, count));
       return {
         sides: d.sides,
         values: all.filter((_, i) => keptIdx.has(i)),
@@ -104,12 +119,12 @@ export function rollDice(expression: string, rng: () => number = Math.random): D
         advantage: d.advantage,
       };
     }
-    const all = Array.from({ length: d.count }, () => rollOne(d.sides, rng));
-    if (d.keep === null) {
+    const all = Array.from({ length: count }, () => rollOne(d.sides, rng));
+    if (keep === null) {
       return { sides: d.sides, values: all, dropped: [], advantage: null };
     }
     const sortedIdx = all.map((v, i) => i).sort((a, b) => all[b] - all[a]);
-    const keptIdx = new Set(sortedIdx.slice(0, d.keep));
+    const keptIdx = new Set(sortedIdx.slice(0, keep));
     return {
       sides: d.sides,
       values: all.filter((_, i) => keptIdx.has(i)),

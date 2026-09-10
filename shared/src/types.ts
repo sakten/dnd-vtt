@@ -74,13 +74,76 @@ export interface AttackEntry {
   damage: string;
 }
 
+export const MAX_ATTACKS = 3;
+
+export const DEFAULT_ABILITIES: Record<AbilityKey, number> = {
+  str: 10,
+  dex: 10,
+  con: 10,
+  int: 10,
+  wis: 10,
+  cha: 10,
+};
+
 export interface CharacterSheet {
   name: string;
   abilities: Record<AbilityKey, number>;
   proficiencyBonus: string;
   saves: Partial<Record<AbilityKey, boolean>>;
   skills: Partial<Record<string, SkillLevel>>;
-  attack: AttackEntry;
+  attacks: AttackEntry[];
+}
+
+export function emptyAttack(): AttackEntry {
+  return { name: '', hit: '', damage: '' };
+}
+
+function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry {
+  return {
+    name: typeof raw?.name === 'string' ? raw.name : '',
+    hit: typeof raw?.hit === 'string' ? raw.hit : '',
+    damage: typeof raw?.damage === 'string' ? raw.damage : '',
+  };
+}
+
+export function attackIsEmpty(a: AttackEntry): boolean {
+  return !a.name.trim() && !a.hit.trim() && !a.damage.trim();
+}
+
+export function attackIsActive(a: AttackEntry): boolean {
+  return !!a.hit.trim() || !!a.damage.trim();
+}
+
+export function normalizeAttacks(
+  attacks: unknown,
+  legacy?: Partial<AttackEntry> | null
+): AttackEntry[] {
+  const list = Array.isArray(attacks) ? attacks : [];
+  const result: AttackEntry[] = [];
+  for (let i = 0; i < MAX_ATTACKS; i++) {
+    result.push(coerceAttack(list[i] as Partial<AttackEntry> | undefined));
+  }
+  if (result.every(attackIsEmpty) && legacy) {
+    result[0] = coerceAttack(legacy);
+  }
+  return result;
+}
+
+export function normalizeSheet(
+  raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
+): CharacterSheet {
+  return {
+    name: typeof raw.name === 'string' ? raw.name : '',
+    abilities: { ...DEFAULT_ABILITIES, ...(raw.abilities ?? {}) },
+    proficiencyBonus: typeof raw.proficiencyBonus === 'string' ? raw.proficiencyBonus : '2',
+    saves: raw.saves ?? {},
+    skills: raw.skills ?? {},
+    attacks: normalizeAttacks(raw.attacks, raw.attack),
+  };
+}
+
+export function activeAttacks(sheet: CharacterSheet): AttackEntry[] {
+  return sheet.attacks.filter(attackIsActive);
 }
 
 export const ABILITIES: { key: AbilityKey; name: string }[] = [
@@ -138,6 +201,7 @@ export interface RollMessage {
   author: string;
   roll: DiceRollResult;
   label?: string;
+  crit?: boolean;
   ts: number;
 }
 
@@ -151,6 +215,7 @@ export interface Scene {
 
 export interface RoomState {
   code: string;
+  name: string;
   scene: Scene;
   library: LibraryItem[];
   players: Player[];
@@ -159,6 +224,7 @@ export interface RoomState {
 
 export interface ServerToClientEvents {
   'room:joined': (payload: { room: RoomState; selfId: string; sheet: CharacterSheet | null }) => void;
+  'room:renamed': (payload: { name: string }) => void;
   'sheet:update': (payload: { sheet: CharacterSheet }) => void;
   'maps:update': (payload: { maps: MapInfo[]; activeMapId: string | null }) => void;
   'map:bring': (payload: { activeMapId: string }) => void;
@@ -177,7 +243,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'room:create': (
-    payload: { name: string; clientId: string; adminToken?: string },
+    payload: { name: string; clientId: string; adminToken?: string; roomName?: string },
     cb: (res: { ok: true } | { error: string }) => void
   ) => void;
   'room:join': (
@@ -209,13 +275,17 @@ export interface ClientToServerEvents {
   'token:remove': (payload: { mapId: string; id: string }) => void;
   'chat:send': (text: string) => void;
   'dice:roll': (payload: { expression: string; label?: string }) => void;
+  'dice:attack': (payload: {
+    hit: { expression: string; label?: string };
+    damage?: { expression: string; label?: string };
+  }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'admin:list': (
     payload: { adminToken: string },
-    cb: (res: { rooms: { code: string; players: number; maps: number }[] } | { error: string }) => void
+    cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: string }) => void
   ) => void;
   'admin:create': (
-    payload: { adminToken: string; name: string; clientId: string },
+    payload: { adminToken: string; name: string; clientId: string; roomName?: string },
     cb: (res: { code: string } | { error: string }) => void
   ) => void;
   'admin:join': (
@@ -224,6 +294,10 @@ export interface ClientToServerEvents {
   ) => void;
   'admin:delete': (
     payload: { adminToken: string; code: string },
+    cb: (res: { ok: true } | { error: string }) => void
+  ) => void;
+  'admin:rename': (
+    payload: { adminToken: string; code: string; name: string },
     cb: (res: { ok: true } | { error: string }) => void
   ) => void;
   'ping': () => void;

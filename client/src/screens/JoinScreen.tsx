@@ -6,20 +6,12 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
   const [code, setCode] = useState(
     () => new URLSearchParams(window.location.search).get('room')?.toUpperCase() ?? ''
   );
-  const [adminToken, setAdminToken] = useState(() => localStorage.getItem('vtt-admin') ?? '');
   const joinError = useGameStore((s) => s.joinError);
-  const createRoom = useGameStore((s) => s.createRoom);
   const joinRoom = useGameStore((s) => s.joinRoom);
 
   const saveName = (value: string) => {
     setName(value);
     localStorage.setItem('vtt-name', value);
-  };
-
-  const handleCreate = () => {
-    if (!name.trim()) return;
-    saveName(name.trim());
-    createRoom(name.trim(), adminToken.trim() || undefined);
   };
 
   const handleJoin = () => {
@@ -38,28 +30,11 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
           <input
             value={name}
             onChange={(e) => saveName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             placeholder="Например: Виктор"
             maxLength={30}
           />
         </label>
-        <div className="join-actions">
-          <button className="primary" onClick={handleCreate} disabled={!connected}>
-            Создать комнату (я — ведущий)
-          </button>
-        </div>
-        <label className="field">
-          <span>Пароль ведущего (если настроен на сервере)</span>
-          <input
-            type="password"
-            value={adminToken}
-            onChange={(e) => setAdminToken(e.target.value)}
-            placeholder="Пароль ведущего"
-          />
-        </label>
-        <div className="join-divider">
-          <span>или</span>
-        </div>
         <label className="field">
           <span>Код комнаты</span>
           <input
