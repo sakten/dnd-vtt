@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   clampCells,
   DEFAULT_GRID,
+  isCriticalHit,
   parseDiceExpression,
   snapToGrid,
   type CharacterSheet,
@@ -32,6 +33,13 @@ export interface FogMode {
   brush: number;
 }
 
+export interface CritHit {
+  id: string;
+  author: string;
+  label?: string;
+  total: number;
+}
+
 interface GameState {
   socket: AppSocket | null;
   connected: boolean;
@@ -56,6 +64,7 @@ interface GameState {
   gridModalOpen: boolean;
   tokenMenuId: string | null;
   fogMode: FogMode;
+  critHit: CritHit | null;
 
   init: () => void;
   joinRoom: (code: string, name: string) => void;
@@ -164,6 +173,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     gridModalOpen: false,
     tokenMenuId: null,
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },
+    critHit: null,
 
     init: () => {
       if (get().socket) return;
@@ -222,6 +232,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           resources: resources ?? null,
           chat: room.chat,
           joinError: null,
+          critHit: null,
         });
       });
 
@@ -301,7 +312,14 @@ export const useGameStore = create<GameState>()((set, get) => {
         })
       );
       socket.on('chat:message', (message) =>
-        set((s) => (s.chat.some((m) => m.id === message.id) ? s : { chat: [...s.chat, message] }))
+        set((s) => {
+          if (s.chat.some((m) => m.id === message.id)) return s;
+          const critHit =
+            message.kind === 'roll' && !!message.label?.startsWith('Атака') && isCriticalHit(message.roll)
+              ? { id: message.id, author: message.author, label: message.label, total: message.roll.total }
+              : s.critHit;
+          return { chat: [...s.chat, message], critHit };
+        })
       );
       socket.on('chat:error', (message) => {
         set({ chatError: message });
@@ -317,6 +335,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           roomName: null,
           joinError: 'Комната удалена ведущим',
           resources: null,
+          critHit: null,
           hoverTokenId: null,
           selectedTokenId: null,
           tokenMenuId: null,
@@ -333,6 +352,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           roomName: null,
           joinError: 'Ведущий удалил вас из комнаты',
           resources: null,
+          critHit: null,
           hoverTokenId: null,
           selectedTokenId: null,
           tokenMenuId: null,

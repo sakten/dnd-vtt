@@ -10,6 +10,7 @@ import TokenMenu from '../components/TokenMenu';
 import FogPanel from '../components/FogPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
+import CritOverlay from '../components/CritOverlay';
 
 export default function TableScreen() {
   const selected = useGameStore((s) => s.selectedTokenId);
@@ -60,6 +61,7 @@ export default function TableScreen() {
       </div>
       {gridModalOpen && <GridSettingsModal />}
       <TokenMenu />
+      <CritOverlay />
     </div>
   );
 }
