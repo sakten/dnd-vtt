@@ -2,16 +2,14 @@ import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from 'shared';
 import { RoomManager } from './rooms';
 import { registerSocket } from './socket';
-import { UPLOADS_DIR, ensureDirs } from './store';
+import { HERE, UPLOADS_DIR, ensureDirs } from './store';
 
 const PORT = Number(process.env.PORT ?? 3001);
-const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.resolve(HERE, '../../client/dist');
 
 await ensureDirs();

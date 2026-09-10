@@ -1,5 +1,4 @@
 import {
-  ABILITIES,
   DEFAULT_ABILITIES,
   SKILLS,
   abilityMod,
@@ -43,10 +42,18 @@ export function bonusPart(pb: string, level: SkillLevel | 0): string {
   return `+${trimmed}`;
 }
 
+function modExpr(mod: number, pb: string, level: SkillLevel | 0): string {
+  return `${fmtMod(mod)}${bonusPart(pb, level)}`;
+}
+
+function d20Expr(mod: number, pb: string, level: SkillLevel | 0): string {
+  return `d20${modExpr(mod, pb, level)}`;
+}
+
 export function saveExpression(sheet: CharacterSheet, ability: AbilityKey): string {
   const mod = abilityMod(sheet.abilities[ability] ?? 10);
   const prof = sheet.saves[ability] ? 1 : 0;
-  return `d20${fmtMod(mod)}${bonusPart(sheet.proficiencyBonus, prof)}`;
+  return d20Expr(mod, sheet.proficiencyBonus, prof);
 }
 
 export function checkExpression(sheet: CharacterSheet, skillKey: string): string {
@@ -54,7 +61,7 @@ export function checkExpression(sheet: CharacterSheet, skillKey: string): string
   if (!skill) return 'd20';
   const mod = abilityMod(sheet.abilities[skill.ability] ?? 10);
   const level = sheet.skills[skillKey] ?? 0;
-  return `d20${fmtMod(mod)}${bonusPart(sheet.proficiencyBonus, level)}`;
+  return d20Expr(mod, sheet.proficiencyBonus, level);
 }
 
 export interface AttackRoll {
@@ -77,9 +84,5 @@ export function skillPreview(sheet: CharacterSheet, skillKey: string): string {
   if (!skill) return '';
   const mod = abilityMod(sheet.abilities[skill.ability] ?? 10);
   const level = sheet.skills[skillKey] ?? 0;
-  return `${fmtMod(mod)}${bonusPart(sheet.proficiencyBonus, level)}`;
-}
-
-export function abilityName(key: AbilityKey): string {
-  return ABILITIES.find((a) => a.key === key)?.name ?? key;
+  return modExpr(mod, sheet.proficiencyBonus, level);
 }

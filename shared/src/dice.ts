@@ -107,6 +107,10 @@ export function isCriticalHit(roll: DiceRollResult): boolean {
   return roll.dice.some((d) => d.sides === 20 && d.sign === 1 && d.values.includes(20));
 }
 
+export function isCriticalFail(roll: DiceRollResult): boolean {
+  return roll.dice.some((d) => d.sides === 20 && d.sign === 1 && d.values.includes(1));
+}
+
 export function rollDice(
   expression: string,
   rng: () => number = Math.random,

@@ -73,22 +73,25 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
 
         <div className="sheet-section-title">Характеристики</div>
         <div className="ability-grid">
-          {ABILITIES.map((a) => (
-            <div className="ability-cell" key={a.key}>
-              <span className="ability-name">{a.name}</span>
-              <input
-                type="number"
-                min={0}
-                max={30}
-                value={draft.abilities[a.key]}
-                onChange={(e) => setAbility(a.key, e.target.valueAsNumber)}
-              />
-              <span className={`mod-badge ${abilityMod(draft.abilities[a.key]) >= 0 ? 'pos' : 'neg'}`}>
-                {abilityMod(draft.abilities[a.key]) >= 0 ? '+' : ''}
-                {abilityMod(draft.abilities[a.key])}
-              </span>
-            </div>
-          ))}
+          {ABILITIES.map((a) => {
+            const mod = abilityMod(draft.abilities[a.key]);
+            return (
+              <div className="ability-cell" key={a.key}>
+                <span className="ability-name">{a.name}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={draft.abilities[a.key]}
+                  onChange={(e) => setAbility(a.key, e.target.valueAsNumber)}
+                />
+                <span className={`mod-badge ${mod >= 0 ? 'pos' : 'neg'}`}>
+                  {mod >= 0 ? '+' : ''}
+                  {mod}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <label className="field">
@@ -103,23 +106,26 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
 
         <div className="sheet-section-title">Спасброски (профишенси)</div>
         <div className="save-grid">
-          {ABILITIES.map((a) => (
-            <label className="checkbox-row" key={a.key}>
-              <input
-                type="checkbox"
-                checked={draft.saves[a.key] === true}
-                onChange={(e) =>
-                  setDraft({ ...draft, saves: { ...draft.saves, [a.key]: e.target.checked } })
-                }
-              />
-              {a.name}{' '}
-              <span className="mod-badge pos">
-                {abilityMod(draft.abilities[a.key]) >= 0 ? '+' : ''}
-                {abilityMod(draft.abilities[a.key])}
-                {draft.saves[a.key] ? bonusPart(draft.proficiencyBonus, 1) : ''}
-              </span>
-            </label>
-          ))}
+          {ABILITIES.map((a) => {
+            const mod = abilityMod(draft.abilities[a.key]);
+            return (
+              <label className="checkbox-row" key={a.key}>
+                <input
+                  type="checkbox"
+                  checked={draft.saves[a.key] === true}
+                  onChange={(e) =>
+                    setDraft({ ...draft, saves: { ...draft.saves, [a.key]: e.target.checked } })
+                  }
+                />
+                {a.name}{' '}
+                <span className="mod-badge pos">
+                  {mod >= 0 ? '+' : ''}
+                  {mod}
+                  {draft.saves[a.key] ? bonusPart(draft.proficiencyBonus, 1) : ''}
+                </span>
+              </label>
+            );
+          })}
         </div>
 
         <div className="sheet-section-title">Навыки (клик: нет → профишенси → экспертиза)</div>
