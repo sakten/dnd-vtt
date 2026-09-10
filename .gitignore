@@ -10,3 +10,6 @@ test-images/
 !.env.example
 *.pem
 *.key
+PLAN.md
+SESSION.md
+DEPLOY.md
