@@ -1,9 +1,23 @@
-import { useState } from 'react';
-import { ABILITIES, SKILLS, activeAttacks, type AbilityKey, type AttackEntry } from 'shared';
+import { useMemo, useState } from 'react';
+import {
+  ABILITIES,
+  SKILLS,
+  attackIsActive,
+  type AbilityKey,
+  type AttackEntry,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { checkExpression, defaultSheet, saveExpression, weaponRolls } from '../lib/sheet';
+import { canControlWith } from '../lib/control';
+import { checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
 
-type MenuLevel = 'root' | 'save' | 'check' | 'attack' | `ability:${AbilityKey}`;
+type MenuLevel = 'root' | 'source' | 'attack' | 'save' | 'check' | `ability:${AbilityKey}`;
+
+interface AttackSource {
+  key: string;
+  label: string;
+  tokenId?: string;
+  attacks: AttackEntry[];
+}
 
 function applyAdvantage(expression: string, adv: boolean, dis: boolean): string {
   if (adv === dis) return expression;
@@ -13,6 +27,11 @@ function applyAdvantage(expression: string, adv: boolean, dis: boolean): string 
 
 export default function RollMenu() {
   const stored = useGameStore((s) => s.sheet);
+  const scene = useGameStore((s) => s.scene);
+  const viewMapId = useGameStore((s) => s.viewMapId);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const role = useGameStore((s) => s.role);
+  const library = useGameStore((s) => s.library);
   const rollDice = useGameStore((s) => s.rollDice);
   const sendAttack = useGameStore((s) => s.rollAttack);
   const rollDeathSave = useGameStore((s) => s.rollDeathSave);
@@ -20,37 +39,74 @@ export default function RollMenu() {
   const [level, setLevel] = useState<MenuLevel>('root');
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
+  const [sourceKey, setSourceKey] = useState<string | null>(null);
 
   const sheet = stored ?? defaultSheet();
+
+  const sources = useMemo(() => {
+    const out: AttackSource[] = [];
+    if (sheet.attacks.filter(attackIsActive).length > 0) {
+      out.push({ key: 'sheet', label: 'Мой персонаж', attacks: sheet.attacks });
+    }
+    const state = useGameStore.getState();
+    const map = scene.maps.find((m) => m.id === viewMapId);
+    for (const token of map?.tokens ?? []) {
+      if (token.libraryItemId === currentCharacterId) continue;
+      if (!canControlWith(state, token)) continue;
+      const attacks = token.attacks ?? [];
+      if (attacks.filter(attackIsActive).length === 0) continue;
+      out.push({ key: token.id, label: token.name || 'Токен', tokenId: token.id, attacks });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- состояние берём через getState()
+  }, [sheet, scene, viewMapId, currentCharacterId, role, library]);
+
+  const activeWithIndex = (attacks: AttackEntry[]) =>
+    attacks.map((attack, index) => ({ attack, index })).filter((x) => attackIsActive(x.attack));
 
   const close = () => {
     setOpen(false);
     setLevel('root');
+    setSourceKey(null);
+  };
+
+  const resetAdv = () => {
+    setAdv(false);
+    setDis(false);
   };
 
   const doRoll = (expression: string, label: string) => {
     rollDice(applyAdvantage(expression, adv, dis), label);
-    setAdv(false);
-    setDis(false);
+    resetAdv();
     close();
   };
 
-  const doWeapon = (weapon: AttackEntry) => {
-    const { hit, damage } = weaponRolls(weapon);
-    if (!hit && !damage) return;
-    const hitRoll = hit ? { ...hit, expression: applyAdvantage(hit.expression, adv, dis) } : null;
-    sendAttack(hitRoll, damage);
-    setAdv(false);
-    setDis(false);
+  const doWeapon = (source: AttackSource, index: number) => {
+    const mode = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
+    sendAttack({ tokenId: source.tokenId, attackIndex: index, advantage: mode });
+    resetAdv();
     close();
+  };
+
+  const pickSource = (source: AttackSource) => {
+    const active = activeWithIndex(source.attacks);
+    if (active.length === 0) return;
+    if (active.length === 1) {
+      doWeapon(source, active[0].index);
+      return;
+    }
+    setSourceKey(source.key);
+    setLevel('attack');
   };
 
   const chooseAttack = () => {
-    const weapons = activeAttacks(sheet);
-    if (weapons.length === 0) return;
-    if (weapons.length === 1) doWeapon(weapons[0]);
-    else setLevel('attack');
+    const list = sources.filter((s) => activeWithIndex(s.attacks).length > 0);
+    if (list.length === 0) return;
+    if (list.length === 1) pickSource(list[0]);
+    else setLevel('source');
   };
+
+  const currentSource = sources.find((s) => s.key === sourceKey) ?? null;
 
   const back = (to: MenuLevel) => (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,7 +141,7 @@ export default function RollMenu() {
       </div>
       <button
         className="roll-button"
-        title="Броски из карточки персонажа"
+        title="Броски персонажа и его призывов"
         onClick={() => setOpen((v) => !v)}
       >
         ROLL
@@ -107,14 +163,32 @@ export default function RollMenu() {
                 </button>
               </>
             )}
-            {level === 'attack' && (
+            {level === 'source' && (
               <>
                 <button className="roll-menu-item back" onClick={back('root')}>
                   ← назад
                 </button>
-                {activeAttacks(sheet).map((weapon, i) => (
-                  <button className="roll-menu-item" key={i} onClick={() => doWeapon(weapon)}>
-                    {weapon.name.trim() || `Оружие ${i + 1}`}
+                {sources
+                  .filter((s) => activeWithIndex(s.attacks).length > 0)
+                  .map((source) => (
+                    <button className="roll-menu-item" key={source.key} onClick={() => pickSource(source)}>
+                      {source.label}
+                    </button>
+                  ))}
+              </>
+            )}
+            {level === 'attack' && currentSource && (
+              <>
+                <button className="roll-menu-item back" onClick={back(sources.length > 1 ? 'source' : 'root')}>
+                  ← назад
+                </button>
+                {activeWithIndex(currentSource.attacks).map(({ attack, index }) => (
+                  <button
+                    className="roll-menu-item"
+                    key={index}
+                    onClick={() => doWeapon(currentSource, index)}
+                  >
+                    {attack.name.trim() || `Оружие ${index + 1}`}
                   </button>
                 ))}
               </>
@@ -128,8 +202,7 @@ export default function RollMenu() {
                   className="roll-menu-item"
                   onClick={() => {
                     rollDeathSave(applyAdvantage('d20', adv, dis));
-                    setAdv(false);
-                    setDis(false);
+                    resetAdv();
                     close();
                   }}
                 >

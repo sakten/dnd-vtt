@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { LibraryItem, TokenFields } from 'shared';
+import { emptyAttacks } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
 import { canAddLibraryItem, canSetAsCharacter } from '../lib/control';
@@ -34,6 +35,7 @@ export default function TokenPanel() {
         round: editing.round,
         isPlayerToken: editing.isPlayerToken,
         owner: editing.owner,
+        attacks: editing.attacks,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
@@ -73,6 +75,7 @@ export default function TokenPanel() {
         initiativeBonus: '',
         isPlayerToken: false,
         owner: '',
+        attacks: emptyAttacks(),
       });
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить токен');
@@ -157,7 +160,7 @@ export default function TokenPanel() {
         draft &&
         createPortal(
           <div className="modal-backdrop" onMouseDown={() => setEditingId(null)}>
-            <div className="modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+            <div className="modal token-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
               <h3>Свойства токена</h3>
               <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
               <div className="modal-actions spread">

@@ -17,6 +17,8 @@ import {
   spellSlotMaxes,
   subclassList,
   syncResources,
+  weaponRolls,
+  withAdvantage,
 } from './rules';
 
 const mods = (over: Partial<Record<AbilityKey, number>> = {}) =>
@@ -410,5 +412,34 @@ describe('initiativeBonus', () => {
 
   it('нет листа — пусто', () => {
     expect(initiativeBonus({ name: 'Статуя', initiativeBonus: '', ownerId: 'p2' }, players, sheets)).toBe('');
+  });
+});
+
+describe('weaponRolls', () => {
+  it('без префикса — просто название атаки', () => {
+    expect(weaponRolls({ name: 'Меч', hit: 'd20+5', damage: 'd8+3' })).toEqual({
+      hit: { expression: 'd20+5', label: 'Атака: Меч' },
+      damage: { expression: 'd8+3', label: 'Урон: Меч' },
+    });
+  });
+
+  it('с префиксом — имя источника в метке', () => {
+    const rolls = weaponRolls({ name: 'Коготь', hit: 'd20+4', damage: '' }, 'Волк');
+    expect(rolls.hit).toEqual({ expression: 'd20+4', label: 'Атака: Волк — Коготь' });
+    expect(rolls.damage).toBeNull();
+  });
+
+  it('пустая атака — оба null', () => {
+    expect(weaponRolls({ name: '', hit: '', damage: '' })).toEqual({ hit: null, damage: null });
+  });
+});
+
+describe('withAdvantage', () => {
+  it('навешивает преимущество/помеху только на первый d20', () => {
+    expect(withAdvantage('d20+5', 'a')).toBe('d20a+5');
+    expect(withAdvantage('d20+5', 'd')).toBe('d20d+5');
+    expect(withAdvantage('d20', 'a')).toBe('d20a');
+    expect(withAdvantage('2d20+5', 'a')).toBe('2d20+5');
+    expect(withAdvantage('d20+5', null)).toBe('d20+5');
   });
 });

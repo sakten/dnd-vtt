@@ -6,12 +6,16 @@ import {
   effectiveMaxHp,
   emptyResources,
   isCriticalHit,
+  normalizeAttacks,
   normalizeSheet,
   rollDice,
   sanitizeResources,
   sheetMods,
   snapToGrid,
   syncResources,
+  weaponRolls,
+  withAdvantage,
+  type AttackEntry,
   type ChatMessage,
   type ClassLevel,
   type ClientToServerEvents,
@@ -556,6 +560,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (isDm() || (playerId && manager.controlsToken(room, mapId, playerId, token))) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
         if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
+        if (Array.isArray(patch.attacks)) token.attacks = normalizeAttacks(patch.attacks);
       }
       manager.saveSoon(room);
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {
@@ -741,36 +746,65 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       }
     });
 
-    socket.on('dice:attack', ({ hit, damage }) => {
+    socket.on('dice:attack', ({ tokenId, attackIndex, advantage }) => {
       if (!playerId) return;
       const room = getRoom();
       if (!room) return;
-      if (!hit || typeof hit.expression !== 'string') return;
       const player = room.players.find((p) => p.id === playerId);
       const author = player?.name ?? '?';
-      try {
-        const hitRoll = rollDice(hit.expression);
-        const crit = isCriticalHit(hitRoll);
-        const hitMessage: ChatMessage = {
-          id: randomUUID(),
-          kind: 'roll',
-          author,
-          roll: hitRoll,
-          label: cleanLabel(hit.label),
-          ts: Date.now(),
-        };
-        manager.addMessage(room, hitMessage);
-        broadcastAll('chat:message', hitMessage);
 
-        const damageExpression = typeof damage?.expression === 'string' ? damage.expression.trim() : '';
-        if (damageExpression) {
-          const damageRoll = rollDice(damageExpression, Math.random, { doubleDice: crit });
+      let attacks: AttackEntry[] | undefined;
+      let prefix: string | undefined;
+      if (typeof tokenId === 'string' && tokenId) {
+        let found: { mapId: string; token: Token } | null = null;
+        for (const map of room.scene.maps) {
+          const token = map.tokens.find((t) => t.id === tokenId);
+          if (token) {
+            found = { mapId: map.id, token };
+            break;
+          }
+        }
+        if (!found) return;
+        if (!isDm() && !manager.controlsToken(room, found.mapId, playerId, found.token)) return;
+        const isCharacter = room.controllers[playerId] === found.token.libraryItemId;
+        attacks = isCharacter ? room.sheets[playerId]?.attacks : found.token.attacks;
+        prefix = found.token.name;
+      } else {
+        attacks = room.sheets[playerId]?.attacks;
+      }
+      if (!attacks) return;
+      const index = Math.round(Number(attackIndex));
+      if (!Number.isFinite(index) || index < 0 || index >= attacks.length) return;
+      const entry = attacks[index];
+      if (!entry) return;
+
+      const { hit, damage } = weaponRolls(entry, prefix);
+      if (!hit && !damage) return;
+      const adv = advantage === 'a' || advantage === 'd' ? advantage : undefined;
+      try {
+        let crit = false;
+        if (hit) {
+          const hitRoll = rollDice(withAdvantage(hit.expression, adv));
+          crit = isCriticalHit(hitRoll);
+          const hitMessage: ChatMessage = {
+            id: randomUUID(),
+            kind: 'roll',
+            author,
+            roll: hitRoll,
+            label: cleanLabel(hit.label),
+            ts: Date.now(),
+          };
+          manager.addMessage(room, hitMessage);
+          broadcastAll('chat:message', hitMessage);
+        }
+        if (damage) {
+          const damageRoll = rollDice(damage.expression, Math.random, { doubleDice: crit });
           const damageMessage: ChatMessage = {
             id: randomUUID(),
             kind: 'roll',
             author,
             roll: damageRoll,
-            label: cleanLabel(damage?.label),
+            label: cleanLabel(damage.label),
             crit,
             ts: Date.now(),
           };

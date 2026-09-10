@@ -1,6 +1,7 @@
 import {
   abilityMod,
   type AbilityKey,
+  type AttackEntry,
   type CharacterSheet,
   type ClassLevel,
   type PlayerResources,
@@ -944,6 +945,35 @@ export function initiativeBonus(
   if (!sheet) return '';
   const mod = abilityMod(sheet.abilities.dex ?? 10);
   return mod >= 0 ? `+${mod}` : `${mod}`;
+}
+
+/** Помечает нат. d20 преимуществом/помехой: 'd20+5' → 'd20a+5' / 'd20d+5'. */
+export function withAdvantage(expression: string, mode: 'a' | 'd' | null | undefined): string {
+  if (mode !== 'a' && mode !== 'd') return expression;
+  return expression.replace(/^d20(?![0-9])/, `d20${mode}`);
+}
+
+export interface WeaponRoll {
+  expression: string;
+  label: string;
+}
+
+/**
+ * Из записи атаки делает броски попадания/урона. prefix (например, имя токена)
+ * добавляется к названию атаки: `Атака: {prefix} — {name}`.
+ */
+export function weaponRolls(
+  entry: AttackEntry,
+  prefix?: string
+): { hit: WeaponRoll | null; damage: WeaponRoll | null } {
+  const name = entry.name.trim() || 'Атака';
+  const full = prefix ? `${prefix} — ${name}` : name;
+  const hit = entry.hit.trim();
+  const damage = entry.damage.trim();
+  return {
+    hit: hit ? { expression: hit, label: `Атака: ${full}` } : null,
+    damage: damage ? { expression: damage, label: `Урон: ${full}` } : null,
+  };
 }
 
 const clampCurrent = (current: number, max: number) => Math.min(max, Math.max(0, Math.round(current || 0)));

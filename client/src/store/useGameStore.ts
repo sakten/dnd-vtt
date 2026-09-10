@@ -71,10 +71,7 @@ interface GameState {
   joinRoom: (code: string, name: string) => void;
   sendChat: (text: string) => void;
   rollDice: (expression: string, label?: string) => void;
-  rollAttack: (
-    hit: { expression: string; label: string } | null,
-    damage: { expression: string; label: string } | null
-  ) => void;
+  rollAttack: (payload: { tokenId?: string; attackIndex: number; advantage?: 'a' | 'd' }) => void;
   setSheet: (sheet: CharacterSheet) => void;
   updateResources: (resources: PlayerResources) => void;
   setCurrentCharacter: (libraryItemId: string | null) => void;
@@ -414,11 +411,8 @@ export const useGameStore = create<GameState>()((set, get) => {
       get().socket?.emit('dice:roll', { expression, label });
     },
 
-    rollAttack: (hit, damage) => {
-      const socket = get().socket;
-      if (!socket) return;
-      if (hit) socket.emit('dice:attack', { hit, damage: damage ?? undefined });
-      else if (damage) socket.emit('dice:roll', { expression: damage.expression, label: damage.label });
+    rollAttack: (payload) => {
+      get().socket?.emit('dice:attack', payload);
     },
 
     setSheet: (sheet) => {

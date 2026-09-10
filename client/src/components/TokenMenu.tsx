@@ -25,6 +25,7 @@ export default function TokenMenu() {
         round: token.round,
         isPlayerToken: token.isPlayerToken,
         owner: token.owner,
+        attacks: token.attacks,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии меню
@@ -42,7 +43,7 @@ export default function TokenMenu() {
 
   return (
     <div className="modal-backdrop" onMouseDown={() => close(null)}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+      <div className="modal token-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <h3>Токен</h3>
         <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
         <div className="modal-actions spread">

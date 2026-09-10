@@ -14,7 +14,7 @@ import type {
   Token,
   TokenFields,
 } from 'shared';
-import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeSheet, rollDice } from 'shared';
+import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, normalizeSheet, rollDice } from 'shared';
 import { cancelRoomSave, loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
@@ -94,6 +94,7 @@ export class RoomManager {
         if (typeof token.isPlayerToken !== 'boolean') token.isPlayerToken = false;
         if (typeof token.owner !== 'string') token.owner = '';
         if (typeof token.libraryItemId !== 'string') token.libraryItemId = '';
+        token.attacks = normalizeAttacks((token as { attacks?: unknown }).attacks);
       }
     }
     const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
@@ -117,6 +118,7 @@ export class RoomManager {
       if (typeof item.initiativeBonus !== 'string') item.initiativeBonus = '';
       if (typeof item.isPlayerToken !== 'boolean') item.isPlayerToken = false;
       if (typeof item.owner !== 'string') item.owner = '';
+      item.attacks = normalizeAttacks((item as { attacks?: unknown }).attacks);
     }
     const controllers: Record<string, string> = {};
     if (p.controllers && typeof p.controllers === 'object') {
@@ -255,6 +257,7 @@ export class RoomManager {
       initiativeBonus: (input.initiativeBonus ?? '').slice(0, 10),
       isPlayerToken: input.isPlayerToken === true,
       owner: (input.owner ?? '').slice(0, 40),
+      attacks: normalizeAttacks(input.attacks),
     };
     room.library.push(item);
     this.saveSoon(room);
@@ -271,6 +274,7 @@ export class RoomManager {
     if (typeof patch.initiativeBonus === 'string') item.initiativeBonus = patch.initiativeBonus.slice(0, 10);
     if (typeof patch.isPlayerToken === 'boolean') item.isPlayerToken = patch.isPlayerToken;
     if (typeof patch.owner === 'string') item.owner = patch.owner.slice(0, 40);
+    if (Array.isArray(patch.attacks)) item.attacks = normalizeAttacks(patch.attacks);
     this.saveSoon(room);
   }
 
@@ -305,6 +309,7 @@ export class RoomManager {
       initiativeBonus: (item.initiativeBonus ?? '').slice(0, 10),
       isPlayerToken: item.isPlayerToken === true,
       owner: (item.owner ?? '').slice(0, 40),
+      attacks: normalizeAttacks(item.attacks),
       x,
       y,
       w: cells * room.scene.grid.size,

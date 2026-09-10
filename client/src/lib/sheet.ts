@@ -3,7 +3,6 @@ import {
   SKILLS,
   abilityMod,
   type AbilityKey,
-  type AttackEntry,
   type CharacterSheet,
   type SkillLevel,
 } from 'shared';
@@ -65,21 +64,6 @@ export function checkExpression(sheet: CharacterSheet, skillKey: string): string
   const mod = abilityMod(sheet.abilities[skill.ability] ?? 10);
   const level = sheet.skills[skillKey] ?? 0;
   return d20Expr(mod, sheet.proficiencyBonus, level);
-}
-
-export interface AttackRoll {
-  expression: string;
-  label: string;
-}
-
-export function weaponRolls(entry: AttackEntry): { hit: AttackRoll | null; damage: AttackRoll | null } {
-  const name = entry.name.trim() || 'Атака';
-  const hit = entry.hit.trim();
-  const damage = entry.damage.trim();
-  return {
-    hit: hit ? { expression: hit, label: `Атака: ${name}` } : null,
-    damage: damage ? { expression: damage, label: `Урон: ${name}` } : null,
-  };
 }
 
 export function skillPreview(sheet: CharacterSheet, skillKey: string): string {

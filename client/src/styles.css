@@ -1648,6 +1648,13 @@ select {
   border-color: var(--accent);
 }
 
+.token-modal {
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 420px;
+  max-width: 96vw;
+}
+
 .character-slot-label {
   color: var(--text-dim);
   font-size: 11px;

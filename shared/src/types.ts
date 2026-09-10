@@ -57,6 +57,7 @@ export interface TokenFields {
   initiativeBonus: string;
   isPlayerToken: boolean;
   owner: string;
+  attacks: AttackEntry[];
 }
 
 export interface LibraryItem extends TokenFields {
@@ -172,6 +173,10 @@ export interface CharacterSheet {
 
 export function emptyAttack(): AttackEntry {
   return { name: '', hit: '', damage: '' };
+}
+
+export function emptyAttacks(): AttackEntry[] {
+  return Array.from({ length: MAX_ATTACKS }, emptyAttack);
 }
 
 function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry {
@@ -395,8 +400,9 @@ export interface ClientToServerEvents {
   'chat:send': (text: string) => void;
   'dice:roll': (payload: { expression: string; label?: string }) => void;
   'dice:attack': (payload: {
-    hit: { expression: string; label?: string };
-    damage?: { expression: string; label?: string };
+    tokenId?: string;
+    attackIndex: number;
+    advantage?: 'a' | 'd';
   }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;

@@ -237,6 +237,35 @@ await sleep(400);
 dm.off('token:update', onLeak);
 check(!leaked, 'игрок не двигает чужой токен');
 
+const summonItem = await addLibrary('Волк', {
+  imageUrl: '/uploads/wolf.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+  isPlayerToken: true,
+  owner: 'Герой-Тест',
+  attacks: [
+    { name: 'Коготь', hit: 'd20+4', damage: 'd6+2' },
+    { name: '', hit: '', damage: '' },
+    { name: '', hit: '', damage: '' },
+  ],
+});
+const summonAddPromise = eventOnce(player, 'token:add');
+player.emit('token:add', { mapId: map1.id, libraryItemId: summonItem, x: 600, y: 600 });
+const summonAdd = await summonAddPromise;
+check(summonAdd.token.owner === 'Герой-Тест', 'игрок ставит призыв со владельцем-персонажем');
+const summonHitP = waitMsg(player, (m) => m.kind === 'roll' && m.label === 'Атака: Волк — Коготь');
+player.emit('dice:attack', { tokenId: summonAdd.token.id, attackIndex: 0 });
+const summonHit = await summonHitP;
+check(summonHit.roll.dice[0].sides === 20, 'призыв атакует своим модификатором');
+const summonRemoved = eventOnce(player, 'token:remove');
+dm.emit('token:remove', { mapId: map1.id, id: summonAdd.token.id });
+await summonRemoved;
+const summonLibRemoved = eventOnce(player, 'library:update');
+dm.emit('library:remove', summonItem);
+await summonLibRemoved;
+
 const heroRemoved = eventOnce(player, 'token:remove');
 dm.emit('token:remove', { mapId: map1.id, id: heroAdd.token.id });
 await heroRemoved;
@@ -366,17 +395,28 @@ const svgRes = await fetch(`${URL}/api/upload`, {
 });
 check(svgRes.status === 400, 'SVG-загрузки запрещены (400)');
 
+player.emit('sheet:update', {
+  name: 'Боец',
+  abilities: { str: 10, dex: 12, con: 10, int: 10, wis: 10, cha: 10 },
+  proficiencyBonus: '2',
+  saves: {},
+  skills: {},
+  attacks: [
+    { name: 'Топор', hit: 'd20+5', damage: '2d6+3' },
+    { name: '', hit: '', damage: '' },
+    { name: '', hit: '', damage: '' },
+  ],
+  classes: [],
+});
+await sleep(200);
 const attackHitP = waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Атака: Топор');
 const attackDmgP = waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Урон: Топор');
-player.emit('dice:attack', {
-  hit: { expression: 'd20+5', label: 'Атака: Топор' },
-  damage: { expression: '2d6+3', label: 'Урон: Топор' },
-});
+player.emit('dice:attack', { attackIndex: 0 });
 const attackHit = await attackHitP;
 const attackDmg = await attackDmgP;
 check(attackHit.roll.dice[0].sides === 20, 'dice:attack кидает попадание');
 check(
-  attackDmg.roll.total >= 5 && attackDmg.roll.total <= 27,
+  attackDmg.roll.total >= 5 && attackDmg.roll.total <= 30,
   `dice:attack кидает урон (${attackDmg.roll.total})`
 );
 

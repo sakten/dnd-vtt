@@ -1,4 +1,4 @@
-import type { TokenFields } from 'shared';
+import { emptyAttacks, type AttackEntry, type TokenFields } from 'shared';
 
 interface Props {
   value: TokenFields;
@@ -6,6 +6,11 @@ interface Props {
 }
 
 export default function TokenFieldsForm({ value, onChange }: Props) {
+  const attacks = value.attacks ?? emptyAttacks();
+  const setAttack = (index: number, patch: Partial<AttackEntry>) => {
+    onChange({ attacks: attacks.map((a, i) => (i === index ? { ...a, ...patch } : a)) });
+  };
+
   return (
     <>
       <label className="field">
@@ -70,6 +75,42 @@ export default function TokenFieldsForm({ value, onChange }: Props) {
           />
         </label>
       )}
+
+      <div className="sheet-section-title">Атаки (до 3)</div>
+      {attacks.map((attack, i) => (
+        <div className="weapon-block" key={i}>
+          <label className="field">
+            <span>Атака {i + 1}: название</span>
+            <input
+              type="text"
+              value={attack.name}
+              maxLength={40}
+              placeholder="Например: Укус"
+              onChange={(e) => setAttack(i, { name: e.target.value })}
+            />
+          </label>
+          <div className="field-row">
+            <label className="field">
+              <span>Формула попадания</span>
+              <input
+                type="text"
+                value={attack.hit}
+                placeholder="d20+5"
+                onChange={(e) => setAttack(i, { hit: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>Формула урона</span>
+              <input
+                type="text"
+                value={attack.damage}
+                placeholder="d6+3"
+                onChange={(e) => setAttack(i, { damage: e.target.value })}
+              />
+            </label>
+          </div>
+        </div>
+      ))}
     </>
   );
 }
