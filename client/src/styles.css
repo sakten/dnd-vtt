@@ -1641,70 +1641,61 @@ select {
   justify-content: center;
   overflow: hidden;
   pointer-events: none;
-  animation: crit-overlay-fade 2700ms ease-in forwards;
+  animation: crit-overlay-fade 2900ms ease-in forwards;
 }
 
 .crit-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 46%, rgba(255, 205, 90, 0.22), transparent 55%);
+  background: radial-gradient(circle at 50% 46%, rgba(255, 226, 130, 0.55), rgba(255, 170, 40, 0.18) 35%, transparent 62%);
   opacity: 0;
-  animation: crit-glow 2700ms ease-out forwards;
+  animation: crit-glow 2900ms ease-out forwards;
 }
 
-.crit-die {
+.crit-three {
   position: absolute;
-}
-
-.crit-die-svg {
-  width: clamp(130px, 24vw, 230px);
-  height: auto;
-  filter: drop-shadow(0 0 20px rgba(255, 200, 60, 0.8));
-  animation: crit-toss 900ms cubic-bezier(0.22, 0.9, 0.28, 1) forwards;
-}
-
-.crit-die-face {
-  fill: #2b3039;
-  stroke: #ffd75e;
-  stroke-width: 1.4;
-}
-
-.crit-die-num {
-  fill: #ffd75e;
-  font-size: 11px;
-  font-weight: 800;
+  inset: 0;
 }
 
 .crit-burst {
   position: absolute;
-  width: clamp(170px, 32vw, 340px);
+  width: clamp(220px, 42vw, 480px);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 230, 140, 0.95), rgba(255, 150, 0, 0.35) 45%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 252, 225, 1),
+    rgba(255, 205, 80, 0.85) 32%,
+    rgba(255, 140, 0, 0.35) 58%,
+    transparent 75%
+  );
+  mix-blend-mode: screen;
   opacity: 0;
-  animation: crit-burst 900ms ease-out 830ms forwards;
+  animation: crit-burst 900ms ease-out 1380ms forwards;
 }
 
 .crit-spark {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   border-radius: 2px;
-  background: #ffd75e;
-  box-shadow: 0 0 10px rgba(255, 200, 60, 0.9);
+  background: #fff3b8;
+  box-shadow:
+    0 0 12px rgba(255, 225, 120, 1),
+    0 0 26px rgba(255, 180, 40, 0.8);
   opacity: 0;
   transform: rotate(var(--a)) translateY(-20px);
-  animation: crit-spark 850ms ease-out 850ms forwards;
+  animation: crit-spark 850ms ease-out 1400ms forwards;
 }
 
 .crit-caption {
   position: absolute;
-  top: 63%;
+  top: 70%;
   left: 0;
   width: 100%;
   text-align: center;
   opacity: 0;
-  animation: crit-caption 1200ms cubic-bezier(0.2, 0.9, 0.3, 1) 900ms forwards;
+  animation: crit-caption 1200ms cubic-bezier(0.2, 0.9, 0.3, 1) 1500ms forwards;
 }
 
 .crit-title {
@@ -1748,34 +1739,17 @@ select {
   }
 }
 
-@keyframes crit-toss {
-  0% {
-    opacity: 0;
-    transform: translateY(42vh) scale(0.3) rotate(0deg);
-  }
-  12% {
-    opacity: 1;
-  }
-  55% {
-    transform: translateY(-7vh) scale(1.12) rotate(600deg);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(720deg);
-  }
-}
-
 @keyframes crit-burst {
   0% {
     opacity: 0;
     transform: scale(0.2);
   }
-  20% {
+  18% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: scale(1.6);
+    transform: scale(1.85);
   }
 }
 
@@ -1811,7 +1785,6 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .crit-overlay,
   .crit-glow,
-  .crit-die-svg,
   .crit-burst,
   .crit-spark,
   .crit-caption {
