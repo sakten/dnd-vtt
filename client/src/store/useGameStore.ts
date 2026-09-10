@@ -176,14 +176,16 @@ export const useGameStore = create<GameState>()((set, get) => {
         lastPong = Date.now();
       });
       window.setInterval(() => {
-        if (!socket.connected) return;
-        if (Date.now() - lastPong > 60000) {
+        // Не трогаем соединение в фоновой вкладке и проверяем реже, чтобы не
+        // провоцировать лишние переподключения (и сообщения «вышел»).
+        if (!socket.connected || document.hidden) return;
+        if (Date.now() - lastPong > 180000) {
           socket.disconnect();
           socket.connect();
         } else {
           socket.emit('ping');
         }
-      }, 30000);
+      }, 60000);
 
       socket.on('connect', () => {
         set({ connected: true });

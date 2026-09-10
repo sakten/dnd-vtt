@@ -17,6 +17,7 @@ import {
   type ClientToServerEvents,
   type PlayerResources,
   type ServerToClientEvents,
+  type Token,
 } from 'shared';
 import type { Room, RoomManager } from './rooms';
 
@@ -54,6 +55,17 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     };
 
     const getRoom = (): Room | null => (roomCode ? manager.get(roomCode) ?? null : null);
+
+    const LEAVE_GRACE_MS = 8000;
+    const pendingLeaves = new Map<string, ReturnType<typeof setTimeout>>();
+    const cancelPendingLeave = (code: string, id: string) => {
+      const key = `${code}:${id}`;
+      const t = pendingLeaves.get(key);
+      if (t) {
+        clearTimeout(t);
+        pendingLeaves.delete(key);
+      }
+    };
 
     const isDm = () => {
       const room = getRoom();
@@ -135,6 +147,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const playerName = name.trim() || 'Ведущий';
       const existing = room.players.find((p) => p.id === clientId);
       if (existing) {
+        cancelPendingLeave(room.code, clientId);
         existing.socketId = socket.id;
         existing.isConnected = true;
         existing.role = 'dm';
@@ -219,6 +232,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const displayName = safeName || 'Игрок';
       const existing = room.players.find((p) => p.id === clientId);
       if (existing) {
+        cancelPendingLeave(room.code, clientId);
         existing.socketId = socket.id;
         existing.isConnected = true;
       } else {
@@ -628,17 +642,43 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!room) return;
       const player = room.players.find((p) => p.id === playerId);
       if (!player || player.socketId !== socket.id) return;
-      player.isConnected = false;
+      const lockedTokens: { id: string; token: Token }[] = [];
+      for (const map of room.scene.maps) {
+        for (const token of map.tokens) {
+          if (token.lockedBy === playerId) lockedTokens.push({ id: map.id, token });
+        }
+      }
       player.socketId = null;
       manager.clearLocks(room, playerId);
       manager.saveSoon(room);
-      broadcast('players:update', manager.toState(room).players);
-      for (const map of room.scene.maps) {
-        for (const token of map.tokens) {
-          if (token.lockedBy === playerId) broadcastAll('token:update', { mapId: map.id, token });
-        }
-      }
-      systemMessage(room, `${player.name} вышел из комнаты`);
+      for (const { id, token } of lockedTokens) broadcastAll('token:update', { mapId: id, token });
+      // Не объявляем выход сразу: Socket.IO переподключения создают новый сокет,
+      // и игрок успевает вернуться. Даём грейс-период и отменяем при повторном входе.
+      const key = `${room.code}:${playerId}`;
+      const previous = pendingLeaves.get(key);
+      if (previous) clearTimeout(previous);
+      pendingLeaves.set(
+        key,
+        setTimeout(() => {
+          pendingLeaves.delete(key);
+          const r = manager.get(room.code);
+          if (!r) return;
+          const p = r.players.find((x) => x.id === playerId);
+          if (!p || p.socketId !== null) return;
+          p.isConnected = false;
+          manager.saveSoon(r);
+          io.to(r.code).emit('players:update', manager.toState(r).players);
+          const message: ChatMessage = {
+            id: randomUUID(),
+            kind: 'text',
+            author: 'Система',
+            text: `${p.name} вышел из комнаты`,
+            ts: Date.now(),
+          };
+          manager.addMessage(r, message);
+          io.to(r.code).emit('chat:message', message);
+        }, LEAVE_GRACE_MS)
+      );
     });
   });
 }
