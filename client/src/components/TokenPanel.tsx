@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { TokenFields } from 'shared';
+import type { LibraryItem, TokenFields } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
+import { canAddLibraryItem, canSetAsCharacter } from '../lib/control';
 import TokenFieldsForm from './TokenFieldsForm';
 
 export default function TokenPanel() {
@@ -10,12 +11,15 @@ export default function TokenPanel() {
   const addLibraryItem = useGameStore((s) => s.addLibraryItem);
   const updateLibraryItem = useGameStore((s) => s.updateLibraryItem);
   const removeLibraryItem = useGameStore((s) => s.removeLibraryItem);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const setCurrentCharacter = useGameStore((s) => s.setCurrentCharacter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
   const editing = items.find((i) => i.id === editingId) ?? null;
+  const currentItem = items.find((i) => i.id === currentCharacterId) ?? null;
 
   const [draft, setDraft] = useState<TokenFields | null>(null);
 
@@ -28,6 +32,8 @@ export default function TokenPanel() {
         initiativeBonus: editing.initiativeBonus ?? '',
         cells: editing.cells,
         round: editing.round,
+        isPlayerToken: editing.isPlayerToken,
+        owner: editing.owner,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
@@ -65,6 +71,8 @@ export default function TokenPanel() {
         round: false,
         description: '',
         initiativeBonus: '',
+        isPlayerToken: false,
+        owner: '',
       });
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить токен');
@@ -73,6 +81,46 @@ export default function TokenPanel() {
 
   return (
     <div className="token-panel">
+      <div
+        className={`character-slot ${currentItem ? 'filled' : ''}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const raw = e.dataTransfer.getData('application/x-vtt-token');
+          if (!raw) return;
+          let item: LibraryItem;
+          try {
+            item = JSON.parse(raw) as LibraryItem;
+          } catch {
+            return;
+          }
+          if (!canSetAsCharacter(item)) {
+            window.alert('Только токены с галкой «Это токен игрока» и без владельца');
+            return;
+          }
+          setCurrentCharacter(item.id);
+        }}
+      >
+        <span className="character-slot-label">Текущий Персонаж</span>
+        {currentItem ? (
+          <div className="character-slot-item">
+            <img src={currentItem.imageUrl} alt={currentItem.name} />
+            <span className="character-slot-name">{currentItem.name}</span>
+            <button
+              className="character-slot-clear"
+              title="Сбросить персонажа"
+              onClick={() => setCurrentCharacter(null)}
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div className="character-slot-empty">Перетащите сюда своего персонажа</div>
+        )}
+      </div>
       <div className="token-panel-header">
         <span>Токены</span>
         <button className="icon" title="Загрузить токен" onClick={() => fileRef.current?.click()}>
@@ -91,7 +139,7 @@ export default function TokenPanel() {
             <img
               src={item.imageUrl}
               alt={item.name}
-              draggable
+              draggable={canAddLibraryItem(item) || canSetAsCharacter(item)}
               onClick={() => handleItemClick(item.id)}
               onDragStart={(e) => {
                 e.dataTransfer.setData('application/x-vtt-token', JSON.stringify(item));

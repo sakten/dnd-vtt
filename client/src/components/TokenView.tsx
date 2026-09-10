@@ -4,6 +4,7 @@ import Konva from 'konva';
 import { snapToGrid, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
+import { canControlWith } from '../lib/control';
 
 export default function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
@@ -18,6 +19,7 @@ export default function TokenView({ token }: { token: Token }) {
   const setHoverToken = useGameStore((s) => s.setHoverToken);
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
+  const canMove = useGameStore((s) => canControlWith(s, token));
   const lastClickRef = useRef(0);
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
@@ -55,7 +57,7 @@ export default function TokenView({ token }: { token: Token }) {
       scaleY={token.scale}
       rotation={token.rotation}
       opacity={lockedByOther ? 0.5 : 1}
-      draggable={!lockedByOther && !fogActive}
+      draggable={!lockedByOther && !fogActive && canMove}
       onClick={(e) => {
         e.cancelBubble = true;
         setSelected(token.id);

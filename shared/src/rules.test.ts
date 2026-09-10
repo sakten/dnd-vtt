@@ -9,6 +9,7 @@ import {
   effectiveMaxHp,
   emptyResources,
   hitDiceMaxes,
+  initiativeBonus,
   pactMax,
   proficiencyBonus,
   sanitizeResources,
@@ -385,5 +386,29 @@ describe('applyRest', () => {
     expect(syncResources(res, [], mods(), 'soft').notes).toBe('про дракона');
     expect(applyRest(res, 'long').notes).toBe('про дракона');
     expect(sanitizeResources(res, [], mods()).notes).toBe('про дракона');
+  });
+});
+
+describe('initiativeBonus', () => {
+  const players = [
+    { id: 'p1', name: 'Игрок' },
+    { id: 'p2', name: 'Другой' },
+  ];
+  const sheets = { p1: normalizeSheet({ abilities: { ...DEFAULT_ABILITIES, dex: 16 } }) };
+
+  it('явный бонус токена важнее листа', () => {
+    expect(initiativeBonus({ name: 'Игрок', initiativeBonus: '+7', ownerId: 'p2' }, players, sheets)).toBe('+7');
+  });
+
+  it('имя токена совпадает с именем игрока — берём его Ловкость', () => {
+    expect(initiativeBonus({ name: 'Игрок', initiativeBonus: '', ownerId: 'p2' }, players, sheets)).toBe('+3');
+  });
+
+  it('нет совпадения — фолбэк на лист владельца', () => {
+    expect(initiativeBonus({ name: 'Волк', initiativeBonus: '', ownerId: 'p1' }, players, sheets)).toBe('+3');
+  });
+
+  it('нет листа — пусто', () => {
+    expect(initiativeBonus({ name: 'Статуя', initiativeBonus: '', ownerId: 'p2' }, players, sheets)).toBe('');
   });
 });

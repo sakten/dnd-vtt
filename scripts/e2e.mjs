@@ -169,6 +169,8 @@ check(codeLength >= 10, `длинный токен комнаты (${codeLength}
 
 const fileInputs = await page.$$('input[type=file]');
 check(fileInputs.length === 2, 'два файловых инпута (карты и токены)');
+const slotLabel = await page.$eval('.character-slot .character-slot-label', (el) => el.textContent);
+check(slotLabel === 'Текущий Персонаж', 'поле «Текущий Персонаж» есть над панелью токенов');
 await fileInputs[0].uploadFile(mapPath);
 await sleep(1500);
 await page.screenshot({ path: path.join(OUT, '03-map.png') });
@@ -380,6 +382,12 @@ await thumbs[1].click();
 await sleep(300);
 await thumbs[1].click();
 await page.waitForSelector('.modal');
+const hasPlayerTokenCheck = await page.evaluate(() =>
+  Array.from(document.querySelectorAll('.modal label')).some((l) =>
+    l.textContent?.includes('Это токен игрока')
+  )
+);
+check(hasPlayerTokenCheck, 'в свойствах предмета есть галка «Это токен игрока»');
 const roundCheck = await page.$('.modal input[type=checkbox]');
 await roundCheck.click();
 await sleep(200);

@@ -23,6 +23,8 @@ export default function TokenMenu() {
         initiativeBonus: token.initiativeBonus ?? '',
         cells: token.cells,
         round: token.round,
+        isPlayerToken: token.isPlayerToken,
+        owner: token.owner,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии меню

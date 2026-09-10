@@ -14,7 +14,7 @@ import type {
   Token,
   TokenFields,
 } from 'shared';
-import { abilityMod, clampCells, DEFAULT_GRID, defaultFog, normalizeSheet, rollDice } from 'shared';
+import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeSheet, rollDice } from 'shared';
 import { cancelRoomSave, loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
@@ -31,6 +31,7 @@ export interface Room {
   players: RoomPlayer[];
   nextZ: number;
   resources: Record<string, PlayerResources>;
+  controllers: Record<string, string>;
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -90,6 +91,9 @@ export class RoomManager {
         if (typeof token.round !== 'boolean') token.round = false;
         if (typeof token.description !== 'string') token.description = '';
         if (typeof token.initiativeBonus !== 'string') token.initiativeBonus = '';
+        if (typeof token.isPlayerToken !== 'boolean') token.isPlayerToken = false;
+        if (typeof token.owner !== 'string') token.owner = '';
+        if (typeof token.libraryItemId !== 'string') token.libraryItemId = '';
       }
     }
     const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
@@ -111,6 +115,14 @@ export class RoomManager {
       if (typeof item.round !== 'boolean') item.round = false;
       if (typeof item.description !== 'string') item.description = '';
       if (typeof item.initiativeBonus !== 'string') item.initiativeBonus = '';
+      if (typeof item.isPlayerToken !== 'boolean') item.isPlayerToken = false;
+      if (typeof item.owner !== 'string') item.owner = '';
+    }
+    const controllers: Record<string, string> = {};
+    if (p.controllers && typeof p.controllers === 'object') {
+      for (const [pid, lid] of Object.entries(p.controllers)) {
+        if (typeof lid === 'string' && lid) controllers[pid] = lid;
+      }
     }
     const sheets: Record<string, CharacterSheet> = {};
     if (p.sheets && typeof p.sheets === 'object') {
@@ -133,6 +145,7 @@ export class RoomManager {
         : [],
       nextZ: p.nextZ ?? 0,
       resources: p.resources && typeof p.resources === 'object' ? p.resources : {},
+      controllers,
     };
   }
 
@@ -186,6 +199,7 @@ export class RoomManager {
       players: [],
       nextZ: 0,
       resources: {},
+      controllers: {},
     };
     this.rooms.set(code, room);
     return room;
@@ -239,6 +253,8 @@ export class RoomManager {
       round: input.round === true,
       description: (input.description ?? '').slice(0, 200),
       initiativeBonus: (input.initiativeBonus ?? '').slice(0, 10),
+      isPlayerToken: input.isPlayerToken === true,
+      owner: (input.owner ?? '').slice(0, 40),
     };
     room.library.push(item);
     this.saveSoon(room);
@@ -253,6 +269,8 @@ export class RoomManager {
     if (typeof patch.round === 'boolean') item.round = patch.round;
     if (typeof patch.cells === 'number') item.cells = clampCells(patch.cells);
     if (typeof patch.initiativeBonus === 'string') item.initiativeBonus = patch.initiativeBonus.slice(0, 10);
+    if (typeof patch.isPlayerToken === 'boolean') item.isPlayerToken = patch.isPlayerToken;
+    if (typeof patch.owner === 'string') item.owner = patch.owner.slice(0, 40);
     this.saveSoon(room);
   }
 
@@ -270,26 +288,29 @@ export class RoomManager {
   addToken(
     room: Room,
     mapId: string,
-    fields: TokenFields,
+    item: LibraryItem,
     x: number,
     y: number,
     ownerId: string
   ): Token | null {
     const map = this.findMap(room, mapId);
     if (!map) return null;
-    const cells = clampCells(fields.cells || 1);
+    const cells = clampCells(item.cells || 1);
     const token: Token = {
-      ...fields,
+      ...item,
       id: randomUUID(),
-      name: fields.name.slice(0, 40),
-      description: (fields.description ?? '').slice(0, 200),
-      initiativeBonus: (fields.initiativeBonus ?? '').slice(0, 10),
+      libraryItemId: item.id,
+      name: item.name.slice(0, 40),
+      description: (item.description ?? '').slice(0, 200),
+      initiativeBonus: (item.initiativeBonus ?? '').slice(0, 10),
+      isPlayerToken: item.isPlayerToken === true,
+      owner: (item.owner ?? '').slice(0, 40),
       x,
       y,
       w: cells * room.scene.grid.size,
       h: cells * room.scene.grid.size,
       cells,
-      round: fields.round === true,
+      round: item.round === true,
       scale: 1,
       rotation: 0,
       z: ++room.nextZ,
@@ -300,6 +321,36 @@ export class RoomManager {
     map.tokens.push(token);
     this.saveSoon(room);
     return token;
+  }
+
+  characterName(room: Room, mapId: string, playerId: string): string {
+    const libId = room.controllers[playerId];
+    if (!libId) return '';
+    const placed = this.findMap(room, mapId)?.tokens.find((t) => t.libraryItemId === libId);
+    if (placed) return placed.name;
+    return room.library.find((i) => i.id === libId)?.name ?? '';
+  }
+
+  controlsToken(room: Room, mapId: string, playerId: string, token: Token): boolean {
+    const libId = room.controllers[playerId];
+    if (libId && token.libraryItemId === libId) return true;
+    if (token.owner) {
+      const name = this.characterName(room, mapId, playerId);
+      if (name && token.owner === name) return true;
+    }
+    return false;
+  }
+
+  clearControllersForItem(room: Room, libraryItemId: string): string[] {
+    const cleared: string[] = [];
+    for (const [pid, lid] of Object.entries(room.controllers)) {
+      if (lid === libraryItemId) {
+        delete room.controllers[pid];
+        cleared.push(pid);
+      }
+    }
+    if (cleared.length) this.saveSoon(room);
+    return cleared;
   }
 
   findToken(room: Room, mapId: string, id: string) {
@@ -330,12 +381,7 @@ export class RoomManager {
   }
 
   private initiativeBonusFor(room: Room, token: Token): string {
-    const raw = (token.initiativeBonus ?? '').trim();
-    if (raw) return raw;
-    const sheet = room.sheets[token.ownerId];
-    if (!sheet) return '';
-    const mod = abilityMod(sheet.abilities.dex ?? 10);
-    return mod >= 0 ? `+${mod}` : `${mod}`;
+    return initiativeBonus(token, room.players, room.sheets);
   }
 
   private rollInit(bonus: string): DiceRollResult {
@@ -521,6 +567,7 @@ export class RoomManager {
         };
       }),
       chat: room.chat,
+      controllers: room.controllers,
     };
   }
 
@@ -535,6 +582,7 @@ export class RoomManager {
       players: room.players.map((p) => ({ id: p.id, name: p.name, role: p.role })),
       nextZ: room.nextZ,
       resources: room.resources,
+      controllers: room.controllers,
     };
   }
 }

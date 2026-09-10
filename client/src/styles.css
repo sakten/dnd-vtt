@@ -1632,6 +1632,68 @@ select {
   flex: 0 0 auto;
 }
 
+.character-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 8px;
+  min-width: 200px;
+}
+
+.character-slot.filled {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.character-slot-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.character-slot-empty {
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 6px 2px;
+}
+
+.character-slot-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.character-slot-item img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #1c2026;
+  border: 1px solid var(--panel-border);
+}
+
+.character-slot-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.character-slot-clear {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .crit-overlay {
   position: fixed;
   inset: 0;

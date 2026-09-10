@@ -55,6 +55,8 @@ export interface TokenFields {
   cells: number;
   round: boolean;
   initiativeBonus: string;
+  isPlayerToken: boolean;
+  owner: string;
 }
 
 export interface LibraryItem extends TokenFields {
@@ -63,6 +65,7 @@ export interface LibraryItem extends TokenFields {
 
 export interface Token extends TokenFields {
   id: string;
+  libraryItemId: string;
   x: number;
   y: number;
   w: number;
@@ -321,6 +324,7 @@ export interface RoomState {
   library: LibraryItem[];
   players: Player[];
   chat: ChatMessage[];
+  controllers: Record<string, string>;
 }
 
 export interface ServerToClientEvents {
@@ -333,6 +337,7 @@ export interface ServerToClientEvents {
   'room:renamed': (payload: { name: string }) => void;
   'sheet:update': (payload: { sheet: CharacterSheet }) => void;
   'resources:update': (resources: PlayerResources) => void;
+  'character:update': (payload: { playerId: string; libraryItemId: string | null }) => void;
   'maps:update': (payload: { maps: MapInfo[]; activeMapId: string | null }) => void;
   'map:bring': (payload: { activeMapId: string }) => void;
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
@@ -395,6 +400,10 @@ export interface ClientToServerEvents {
   }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;
+  'player:setCharacter': (
+    payload: { libraryItemId: string | null },
+    cb: (res: { ok: true } | { error: string }) => void
+  ) => void;
   'resources:hitDie': (payload: { die?: number }) => void;
   'resources:deathSave': (payload?: { expression?: string }) => void;
   'admin:list': (

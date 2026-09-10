@@ -198,9 +198,51 @@ check(
   'свойства перетащенного токена наследуются из библиотеки'
 );
 
-player.emit('token:move', { mapId: map1.id, id: token.id, x: 250, y: 300 });
+dm.emit('token:move', { mapId: map1.id, id: token.id, x: 250, y: 300 });
 const moved = await eventOnce(dm, 'token:update');
 check(moved.token.id === token.id && moved.token.x === 250 && moved.token.y === 300, 'token move broadcast');
+
+const heroItem = await addLibrary('Герой-Тест', {
+  imageUrl: '/uploads/hero.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+  isPlayerToken: true,
+  owner: '',
+});
+const badSet = await new Promise((resolve) =>
+  player.emit('player:setCharacter', { libraryItemId: goblinItem }, resolve)
+);
+check('error' in badSet, 'нельзя назначить персонажем обычный токен');
+const setChar = await new Promise((resolve) =>
+  player.emit('player:setCharacter', { libraryItemId: heroItem }, resolve)
+);
+check('ok' in setChar, 'игрок назначает текущего персонажа');
+const heroAddPromise = eventOnce(player, 'token:add');
+player.emit('token:add', { mapId: map1.id, libraryItemId: heroItem, x: 500, y: 500 });
+const heroAdd = await heroAddPromise;
+check(heroAdd.token.libraryItemId === heroItem && heroAdd.token.isPlayerToken === true, 'игрок ставит своего персонажа на карту');
+player.emit('token:move', { mapId: map1.id, id: heroAdd.token.id, x: 550, y: 550 });
+const heroMoved = await eventOnce(dm, 'token:update');
+check(heroMoved.token.id === heroAdd.token.id && heroMoved.token.x === 550, 'игрок двигает своего персонажа');
+
+let leaked = false;
+const onLeak = (p) => {
+  if (p.token.id === token.id) leaked = true;
+};
+dm.on('token:update', onLeak);
+player.emit('token:move', { mapId: map1.id, id: token.id, x: 900, y: 900 });
+await sleep(400);
+dm.off('token:update', onLeak);
+check(!leaked, 'игрок не двигает чужой токен');
+
+const heroRemoved = eventOnce(player, 'token:remove');
+dm.emit('token:remove', { mapId: map1.id, id: heroAdd.token.id });
+await heroRemoved;
+const heroLibRemoved = eventOnce(player, 'library:update');
+dm.emit('library:remove', heroItem);
+await heroLibRemoved;
 
 dm.emit('map:add', { name: 'Лес', url: '/uploads/m2.png', width: 640, height: 480 });
 await waitFor(() => lastMaps && lastMaps.maps.length === 2);

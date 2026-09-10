@@ -76,6 +76,12 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
 
     const dmRoom = (): Room | null => (isDm() ? getRoom() : null);
 
+    const canControlToken = (room: Room, mapId: string, token: Token): boolean => {
+      if (isDm()) return true;
+      if (!playerId) return false;
+      return manager.controlsToken(room, mapId, playerId, token);
+    };
+
     const syncCombat = (room: Room, mapId: string) => {
       broadcastAll('combat:update', {
         mapId,
@@ -330,6 +336,12 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const room = getRoom();
       if (!room) return;
       manager.updateLibraryItem(room, id, patch);
+      const item = room.library.find((i) => i.id === id);
+      if (item && (!item.isPlayerToken || item.owner.trim())) {
+        for (const pid of manager.clearControllersForItem(room, id)) {
+          broadcastAll('character:update', { playerId: pid, libraryItemId: null });
+        }
+      }
       broadcastAll('library:update', room.library);
     });
 
@@ -337,7 +349,53 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const room = getRoom();
       if (!room) return;
       manager.removeLibraryItem(room, id);
+      for (const pid of manager.clearControllersForItem(room, id)) {
+        broadcastAll('character:update', { playerId: pid, libraryItemId: null });
+      }
       broadcastAll('library:update', room.library);
+    });
+
+    socket.on('player:setCharacter', ({ libraryItemId }, cb) => {
+      const room = getRoom();
+      if (!room || !playerId) {
+        cb({ error: 'Нет комнаты' });
+        return;
+      }
+      if (libraryItemId === null) {
+        delete room.controllers[playerId];
+        manager.saveSoon(room);
+        broadcastAll('character:update', { playerId, libraryItemId: null });
+        cb({ ok: true });
+        return;
+      }
+      if (typeof libraryItemId !== 'string') {
+        cb({ error: 'Некорректный персонаж' });
+        return;
+      }
+      const item = room.library.find((i) => i.id === libraryItemId);
+      if (!item) {
+        cb({ error: 'Токен не найден' });
+        return;
+      }
+      if (!item.isPlayerToken) {
+        cb({ error: 'Только токены с галкой «Это токен игрока»' });
+        return;
+      }
+      if (item.owner.trim()) {
+        cb({ error: 'Нельзя выбрать токен с владельцем' });
+        return;
+      }
+      const takenByOther = Object.entries(room.controllers).some(
+        ([pid, lid]) => lid === libraryItemId && pid !== playerId
+      );
+      if (takenByOther) {
+        cb({ error: 'Этот персонаж уже выбран другим игроком' });
+        return;
+      }
+      room.controllers[playerId] = libraryItemId;
+      manager.saveSoon(room);
+      broadcastAll('character:update', { playerId, libraryItemId });
+      cb({ ok: true });
     });
 
     socket.on('combat:start', ({ mapId }) => {
@@ -434,6 +492,16 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const item = room.library.find((i) => i.id === payload.libraryItemId);
       if (!item) return;
+      const map = manager.findMap(room, payload.mapId);
+      if (!map) return;
+      if (!isDm()) {
+        const characterId = room.controllers[playerId];
+        const characterName = manager.characterName(room, payload.mapId, playerId);
+        const ownCharacter = item.isPlayerToken && item.id === characterId;
+        const ownSummon = item.isPlayerToken && !!item.owner && item.owner === characterName;
+        if (!ownCharacter && !ownSummon) return;
+      }
+      if (item.isPlayerToken && map.tokens.some((t) => t.libraryItemId === item.id)) return;
       const token = manager.addToken(room, payload.mapId, item, x, y, playerId);
       if (!token) return;
       broadcastAll('token:add', { mapId: payload.mapId, token });
@@ -450,6 +518,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const token = manager.findToken(room, mapId, id);
       if (!token) return;
+      if (!canControlToken(room, mapId, token)) return;
       token.x = x;
       token.y = y;
       manager.saveSoon(room);
@@ -484,6 +553,10 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (typeof patch.scale === 'number' && Number.isFinite(patch.scale)) token.scale = patch.scale;
       if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;
       if (typeof patch.visible === 'boolean') token.visible = patch.visible;
+      if (isDm() || (playerId && manager.controlsToken(room, mapId, playerId, token))) {
+        if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
+        if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
+      }
       manager.saveSoon(room);
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {
         manager.renameCombatantByToken(room, mapId, id, token.name);

@@ -53,6 +53,7 @@ interface GameState {
   library: LibraryItem[];
   sheet: CharacterSheet | null;
   resources: PlayerResources | null;
+  currentCharacterId: string | null;
   chat: ChatMessage[];
   chatError: string | null;
   joinError: string | null;
@@ -76,6 +77,7 @@ interface GameState {
   ) => void;
   setSheet: (sheet: CharacterSheet) => void;
   updateResources: (resources: PlayerResources) => void;
+  setCurrentCharacter: (libraryItemId: string | null) => void;
   rollHitDie: (die: number) => void;
   rollDeathSave: (expression: string) => void;
   removePlayer: (id: string) => void;
@@ -162,6 +164,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     library: [],
     sheet: null,
     resources: null,
+    currentCharacterId: null,
     chat: [],
     chatError: null,
     joinError: null,
@@ -230,15 +233,19 @@ export const useGameStore = create<GameState>()((set, get) => {
           library: room.library ?? [],
           sheet: sheet ?? null,
           resources: resources ?? null,
+          currentCharacterId: room.controllers?.[selfId] ?? null,
           chat: room.chat,
           joinError: null,
-          critHit: null,
         });
       });
 
       socket.on('sheet:update', ({ sheet }) => set({ sheet }));
 
       socket.on('resources:update', (resources) => set({ resources }));
+
+      socket.on('character:update', ({ playerId, libraryItemId }) => {
+        if (playerId === get().selfId) set({ currentCharacterId: libraryItemId });
+      });
 
       socket.on('room:renamed', ({ name }) => set({ roomName: name }));
 
@@ -335,6 +342,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           roomName: null,
           joinError: 'Комната удалена ведущим',
           resources: null,
+          currentCharacterId: null,
           critHit: null,
           hoverTokenId: null,
           selectedTokenId: null,
@@ -352,6 +360,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           roomName: null,
           joinError: 'Ведущий удалил вас из комнаты',
           resources: null,
+          currentCharacterId: null,
           critHit: null,
           hoverTokenId: null,
           selectedTokenId: null,
@@ -419,6 +428,14 @@ export const useGameStore = create<GameState>()((set, get) => {
     updateResources: (resources) => {
       set({ resources });
       get().socket?.emit('resources:update', resources);
+    },
+
+    setCurrentCharacter: (libraryItemId) => {
+      const socket = get().socket;
+      if (!socket) return;
+      socket.emit('player:setCharacter', { libraryItemId }, (res) => {
+        if ('error' in res) window.alert(res.error);
+      });
     },
 
     rollHitDie: (die) => {

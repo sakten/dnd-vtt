@@ -5,6 +5,7 @@ import type { MapInfo } from 'shared';
 import { snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
+import { canAddLibraryItem } from '../lib/control';
 import GridLayer from './GridLayer';
 import TokenView from './TokenView';
 
@@ -185,13 +186,22 @@ export default function TableTop() {
     e.preventDefault();
     const raw = e.dataTransfer.getData('application/x-vtt-token');
     if (!raw) return;
-    let item: { id?: string; cells?: number };
+    let item: { id?: string; cells?: number; isPlayerToken?: boolean; owner?: string };
     try {
-      item = JSON.parse(raw) as { id?: string; cells?: number };
+      item = JSON.parse(raw) as { id?: string; cells?: number; isPlayerToken?: boolean; owner?: string };
     } catch {
       return;
     }
     if (!item.id) return;
+    if (
+      !canAddLibraryItem({
+        id: item.id,
+        isPlayerToken: item.isPlayerToken === true,
+        owner: item.owner ?? '',
+      })
+    ) {
+      return;
+    }
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const sx = e.clientX - rect.left;

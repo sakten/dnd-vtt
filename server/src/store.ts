@@ -13,6 +13,7 @@ export interface PersistedRoom {
   chat: ChatMessage[];
   players: { id: string; name: string; role: Role }[];
   nextZ: number;
+  controllers?: Record<string, string>;
 }
 
 export const HERE = path.dirname(fileURLToPath(import.meta.url));

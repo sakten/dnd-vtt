@@ -48,6 +48,28 @@ export default function TokenFieldsForm({ value, onChange }: Props) {
         <input type="checkbox" checked={value.round} onChange={(e) => onChange({ round: e.target.checked })} />
         Круглый токен
       </label>
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={value.isPlayerToken}
+          onChange={(e) =>
+            onChange({ isPlayerToken: e.target.checked, ...(e.target.checked ? {} : { owner: '' }) })
+          }
+        />
+        Это токен игрока
+      </label>
+      {value.isPlayerToken && (
+        <label className="field">
+          <span>Владелец (имя персонажа; пусто — сам персонаж)</span>
+          <input
+            type="text"
+            value={value.owner}
+            maxLength={40}
+            placeholder="Например: Гэндальф"
+            onChange={(e) => onChange({ owner: e.target.value })}
+          />
+        </label>
+      )}
     </>
   );
 }

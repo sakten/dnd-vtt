@@ -927,6 +927,25 @@ export function sheetMods(abilities: Record<AbilityKey, number>): Record<Ability
   };
 }
 
+/**
+ * Бонус инициативы токена: сначала явный initiativeBonus; иначе — модификатор
+ * Ловкости из листа игрока, чьё имя совпадает с именем токена; иначе из листа
+ * владельца (создателя). Пустая строка — если листа нет.
+ */
+export function initiativeBonus(
+  token: { name: string; initiativeBonus?: string; ownerId?: string },
+  players: { id: string; name: string }[],
+  sheets: Record<string, CharacterSheet>
+): string {
+  const raw = (token.initiativeBonus ?? '').trim();
+  if (raw) return raw;
+  const byName = players.find((p) => p.name === token.name);
+  const sheet = sheets[byName?.id ?? token.ownerId ?? ''];
+  if (!sheet) return '';
+  const mod = abilityMod(sheet.abilities.dex ?? 10);
+  return mod >= 0 ? `+${mod}` : `${mod}`;
+}
+
 const clampCurrent = (current: number, max: number) => Math.min(max, Math.max(0, Math.round(current || 0)));
 
 export function emptyResources(): PlayerResources {
