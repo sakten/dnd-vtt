@@ -15,6 +15,7 @@ import {
   type ChatMessage,
   type ClassLevel,
   type ClientToServerEvents,
+  type DiceRollResult,
   type PlayerResources,
   type ServerToClientEvents,
   type Token,
@@ -91,11 +92,15 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     };
 
     const emitJoined = (room: Room, selfId: string) => {
-      if (!room.resources[selfId] && room.sheets[selfId]) {
+      if (!room.resources[selfId]) {
         const sheet = room.sheets[selfId];
-        const created = syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full');
-        const hpMax = effectiveMaxHp(sheet);
-        created.hp = { ...created.hp, max: hpMax, current: hpMax };
+        const created = sheet
+          ? syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full')
+          : emptyResources();
+        if (sheet) {
+          const hpMax = effectiveMaxHp(sheet);
+          created.hp = { ...created.hp, max: hpMax, current: hpMax };
+        }
         room.resources[selfId] = created;
         manager.saveSoon(room);
       }
@@ -509,6 +514,12 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const previous = room.sheets[playerId];
       const normalized = normalizeSheet(sheet);
       room.sheets[playerId] = normalized;
+      // Имя персонажа из карточки — то же, что имя игрока в чате/списке.
+      const charName = normalized.name.trim();
+      const selfPlayer = room.players.find((p) => p.id === playerId);
+      if (selfPlayer && charName && selfPlayer.name !== charName) {
+        selfPlayer.name = charName.slice(0, 30);
+      }
       const mode = classIdentity(previous?.classes) === classIdentity(normalized.classes) ? 'soft' : 'full';
       const prevRes = room.resources[playerId];
       const synced = syncResources(
@@ -574,6 +585,50 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       socket.emit('resources:update', res);
       broadcastAll('chat:message', message);
       broadcastAll('players:update', manager.toState(room).players);
+    });
+
+    socket.on('resources:deathSave', (payload) => {
+      if (!playerId) return;
+      const room = getRoom();
+      if (!room) return;
+      const res = room.resources[playerId];
+      if (!res) return;
+      const expr = typeof payload?.expression === 'string' ? payload.expression : 'd20';
+      let roll: DiceRollResult;
+      try {
+        roll = rollDice(expr);
+      } catch {
+        roll = rollDice('d20');
+      }
+      const die = roll.dice.find((d) => d.sides === 20 && d.sign === 1);
+      const kept = die ? die.values.find((v) => !die.dropped.includes(v)) ?? die.values[0] : roll.total;
+      let outcome: string;
+      if (kept === 20) {
+        res.hp.deathSuccesses = Math.min(3, res.hp.deathSuccesses + 2);
+        outcome = 'критический успех';
+      } else if (kept === 1) {
+        res.hp.deathFailures = Math.min(3, res.hp.deathFailures + 2);
+        outcome = 'критический провал';
+      } else if (kept >= 10) {
+        res.hp.deathSuccesses = Math.min(3, res.hp.deathSuccesses + 1);
+        outcome = 'успех';
+      } else {
+        res.hp.deathFailures = Math.min(3, res.hp.deathFailures + 1);
+        outcome = 'провал';
+      }
+      manager.saveSoon(room);
+      const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
+      const message: ChatMessage = {
+        id: randomUUID(),
+        kind: 'roll',
+        author,
+        roll,
+        label: `Спасбросок от смерти: ${outcome} (успехи ${res.hp.deathSuccesses}/3, провалы ${res.hp.deathFailures}/3)`,
+        ts: Date.now(),
+      };
+      manager.addMessage(room, message);
+      socket.emit('resources:update', res);
+      broadcastAll('chat:message', message);
     });
 
     socket.on('dice:roll', ({ expression, label }) => {

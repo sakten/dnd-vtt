@@ -378,4 +378,12 @@ describe('applyRest', () => {
     expect(s.spellSlots[0].current).toBe(2);
     expect(s.resources[0].current).toBe(10);
   });
+
+  it('заметки сохраняются при sync/sanitize/отдыхе', () => {
+    const res = emptyResources();
+    res.notes = 'про дракона';
+    expect(syncResources(res, [], mods(), 'soft').notes).toBe('про дракона');
+    expect(applyRest(res, 'long').notes).toBe('про дракона');
+    expect(sanitizeResources(res, [], mods()).notes).toBe('про дракона');
+  });
 });

@@ -68,6 +68,7 @@ interface GameState {
   setSheet: (sheet: CharacterSheet) => void;
   updateResources: (resources: PlayerResources) => void;
   rollHitDie: (die: number) => void;
+  rollDeathSave: (expression: string) => void;
   addMap: (name: string, url: string, width: number, height: number) => void;
   removeMap: (id: string) => void;
   renameMap: (id: string, name: string) => void;
@@ -385,6 +386,10 @@ export const useGameStore = create<GameState>()((set, get) => {
 
     rollHitDie: (die) => {
       get().socket?.emit('resources:hitDie', { die });
+    },
+
+    rollDeathSave: (expression) => {
+      get().socket?.emit('resources:deathSave', { expression });
     },
 
     addMap: (name, url, width, height) => {

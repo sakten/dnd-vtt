@@ -15,6 +15,7 @@ export default function RollMenu() {
   const stored = useGameStore((s) => s.sheet);
   const rollDice = useGameStore((s) => s.rollDice);
   const sendAttack = useGameStore((s) => s.rollAttack);
+  const rollDeathSave = useGameStore((s) => s.rollDeathSave);
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<MenuLevel>('root');
   const [adv, setAdv] = useState(false);
@@ -122,6 +123,17 @@ export default function RollMenu() {
               <>
                 <button className="roll-menu-item back" onClick={back('root')}>
                   ← назад
+                </button>
+                <button
+                  className="roll-menu-item"
+                  onClick={() => {
+                    rollDeathSave(applyAdvantage('d20', adv, dis));
+                    setAdv(false);
+                    setDis(false);
+                    close();
+                  }}
+                >
+                  Death Save
                 </button>
                 {ABILITIES.map((a) => (
                   <button

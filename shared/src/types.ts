@@ -140,6 +140,7 @@ export interface PlayerResources {
   spellSlots: { level: number; current: number; max: number }[];
   pact: { current: number; max: number; level: number };
   resources: ResourceItem[];
+  notes: string;
 }
 
 export const MAX_CLASSES = 2;
@@ -393,6 +394,7 @@ export interface ClientToServerEvents {
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;
   'resources:hitDie': (payload: { die?: number }) => void;
+  'resources:deathSave': (payload?: { expression?: string }) => void;
   'admin:list': (
     payload: { adminToken: string },
     cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: string }) => void

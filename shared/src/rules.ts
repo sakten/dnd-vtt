@@ -936,6 +936,7 @@ export function emptyResources(): PlayerResources {
     spellSlots: [],
     pact: { current: 0, max: 0, level: 0 },
     resources: [],
+    notes: '',
   };
 }
 
@@ -984,6 +985,7 @@ export function syncResources(
     spellSlots,
     pact: { current: pactCurrent, max: pact.count, level: pact.level },
     resources: [...autoResources, ...custom],
+    notes: prev.notes ?? '',
   };
 }
 
@@ -1069,6 +1071,7 @@ export function sanitizeResources(
     spellSlots,
     pact: { current: clampCurrent(finiteInt(input.pact?.current, pact.count), pact.count), max: pact.count, level: pact.level },
     resources: [...autoResources, ...custom],
+    notes: typeof input.notes === 'string' ? input.notes.slice(0, 4000) : '',
   };
 }
 
@@ -1084,5 +1087,6 @@ export function applyRest(res: PlayerResources, type: 'short' | 'long'): PlayerR
     spellSlots: type === 'long' ? res.spellSlots.map((s) => ({ ...s, current: s.max })) : res.spellSlots,
     pact: { ...res.pact, current: res.pact.max },
     resources: res.resources.map((r) => (restore(r) ? { ...r, current: r.max } : r)),
+    notes: res.notes ?? '',
   };
 }

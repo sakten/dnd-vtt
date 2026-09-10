@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { applyRest, type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 
@@ -100,10 +100,17 @@ export default function ResourcesPanel() {
   const [newName, setNewName] = useState('');
   const [newMax, setNewMax] = useState('1');
   const [newReset, setNewReset] = useState<ResourceItem['reset']>('long');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (open && resources) setNotes(resources.notes ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик заметок сбрасываем только при открытии
+  }, [open]);
 
   if (!resources) return null;
   const r = resources;
   const ac = sheet?.ac?.trim() ?? '';
+  const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : 'Ресурсы';
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 
   const setHp = (patch: Partial<PlayerResources['hp']>) =>
@@ -141,7 +148,7 @@ export default function ResourcesPanel() {
       {open && (
         <div className="resources-panel">
           <div className="resources-head">
-            <strong>Ресурсы</strong>
+            <strong>{panelTitle}</strong>
             <button className="icon" title="Свернуть" onClick={() => setOpen(false)}>
               ◀
             </button>
@@ -317,6 +324,19 @@ export default function ResourcesPanel() {
           <div className="resources-rest">
             <button onClick={() => updateResources(applyRest(r, 'short'))}>Короткий отдых</button>
             <button onClick={() => updateResources(applyRest(r, 'long'))}>Долгий отдых</button>
+          </div>
+
+          <div className="resources-section">
+            <div className="resources-subtitle">Заметки</div>
+            <textarea
+              className="resources-notes"
+              placeholder="Заметки игрока…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={() => {
+                if ((r.notes ?? '') !== notes) updateResources({ ...r, notes });
+              }}
+            />
           </div>
         </div>
       )}

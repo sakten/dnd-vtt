@@ -517,9 +517,12 @@ check(
 await page.click('.sheet-button');
 await page.waitForSelector('.sheet-modal');
 await page.screenshot({ path: path.join(OUT, '10b-sheet.png') });
-const sheetInputs = await page.$$('.sheet-modal input[type=text]');
-await sheetInputs[0].click();
-await page.keyboard.type('Конан', { delay: 30 });
+  const sheetInputs = await page.$$('.sheet-modal input[type=text]');
+  await sheetInputs[0].click();
+  await page.keyboard.down('Control');
+  await page.keyboard.press('KeyA');
+  await page.keyboard.up('Control');
+  await page.keyboard.type('Конан', { delay: 30 });
 const abilityInputs = await page.$$('.sheet-modal .ability-cell input');
 await abilityInputs[0].click();
 await page.keyboard.down('Control');

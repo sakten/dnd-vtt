@@ -834,14 +834,22 @@ button.icon {
 
 .chat-input {
   display: flex;
-  gap: 6px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 12px;
   border-top: 1px solid var(--panel-border);
   align-items: center;
 }
 
 .chat-input input {
   flex: 1;
+  align-self: stretch;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.chat-input > button {
+  align-self: stretch;
+  padding: 0 16px;
 }
 
 .chat-header-actions {
@@ -872,8 +880,8 @@ button.icon {
 .adv-check {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 9px;
+  gap: 5px;
+  font-size: 11px;
   color: var(--text-dim);
   cursor: pointer;
   user-select: none;
@@ -882,13 +890,13 @@ button.icon {
 }
 
 .adv-check input {
-  width: 11px;
-  height: 11px;
+  width: 16px;
+  height: 16px;
   margin: 0;
 }
 
 .roll-button {
-  padding: 7px 10px;
+  padding: 9px 12px;
   font-weight: 700;
   letter-spacing: 1px;
   background: var(--accent);
@@ -938,7 +946,7 @@ button.icon {
   font-size: 12px;
 }
 
-.sheet-modal {
+.modal.sheet-modal {
   max-height: 90vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -991,10 +999,13 @@ button.icon {
   flex: 1;
   font-size: 13px;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ability-cell input {
-  flex: 1;
+  flex: 0 0 56px;
   min-width: 0;
   padding: 3px 6px;
   font-size: 13px;
@@ -1468,6 +1479,14 @@ select {
 .resources-rest button {
   flex: 1;
   padding: 8px;
+}
+
+.resources-notes {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
 }
 
 .class-row {

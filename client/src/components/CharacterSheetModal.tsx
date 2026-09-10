@@ -29,7 +29,14 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
   const [draft, setDraft] = useState<CharacterSheet | null>(null);
 
   useEffect(() => {
-    if (open) setDraft(stored ? normalizeSheet(stored) : defaultSheet());
+    if (!open) return;
+    const base = stored ? normalizeSheet(stored) : defaultSheet();
+    if (!base.name.trim()) {
+      const { players, selfId } = useGameStore.getState();
+      const me = players.find((p) => p.id === selfId);
+      if (me?.name) base.name = me.name;
+    }
+    setDraft(base);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- сбрасываем черновик только при открытии
   }, [open]);
 
