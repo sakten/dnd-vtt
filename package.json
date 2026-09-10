@@ -15,6 +15,8 @@
     "start": "npm run start -w server",
     "test": "npm run test -w shared",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "smoke": "node scripts/smoke.mjs",
     "e2e": "node scripts/e2e.mjs",
     "shots": "node scripts/check-screenshots.mjs",
@@ -30,8 +32,14 @@
     }
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "concurrently": "^9.1.0",
-    "puppeteer-core": "^25.10.0"
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "puppeteer-core": "^25.10.0",
+    "typescript-eslint": "^8.70.0"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
