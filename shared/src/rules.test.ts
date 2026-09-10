@@ -9,9 +9,11 @@ import {
   emptyResources,
   hitDiceMaxes,
   pactMax,
+  proficiencyBonus,
   sanitizeResources,
   sheetMods,
   spellSlotMaxes,
+  subclassList,
   syncResources,
 } from './rules';
 
@@ -107,6 +109,151 @@ describe('autoResourceDefs', () => {
   it('Light domain: Warding Flare = мод. Мудрости', () => {
     const d = autoResourceDefs([{ className: 'cleric', level: 3, subclass: 'light' }], mods({ wis: 16 }));
     expect(d.find((r) => r.key === 'cleric.light:wardingFlare')?.max).toBe(3);
+  });
+});
+
+describe('proficiencyBonus', () => {
+  it('по уровню персонажа', () => {
+    expect(proficiencyBonus(1)).toBe(2);
+    expect(proficiencyBonus(4)).toBe(2);
+    expect(proficiencyBonus(5)).toBe(3);
+    expect(proficiencyBonus(9)).toBe(4);
+    expect(proficiencyBonus(13)).toBe(5);
+    expect(proficiencyBonus(17)).toBe(6);
+  });
+});
+
+describe('subclass resources', () => {
+  it('Zealot: пул костей Воина богов растёт на 6/12/17', () => {
+    const key = 'barbarian.zealot:warriorOfTheGods';
+    const at = (level: number) =>
+      autoResourceDefs([{ className: 'barbarian', level, subclass: 'zealot' }], mods()).find((r) => r.key === key)?.max;
+    expect(at(3)).toBe(4);
+    expect(at(6)).toBe(5);
+    expect(at(12)).toBe(6);
+    expect(at(17)).toBe(7);
+  });
+
+  it('Battle Master: кости превосходства на 7/15, а не на 8', () => {
+    const at = (level: number) =>
+      autoResourceDefs([{ className: 'fighter', level, subclass: 'battleMaster' }], mods()).find(
+        (r) => r.key === 'fighter.battleMaster:superiorityDice'
+      )?.max;
+    expect(at(3)).toBe(4);
+    expect(at(6)).toBe(4);
+    expect(at(7)).toBe(5);
+    expect(at(15)).toBe(6);
+  });
+
+  it('Psi Warrior / Soulknife: кости пси-энергии по таблице', () => {
+    const psi = (level: number) =>
+      autoResourceDefs([{ className: 'fighter', level, subclass: 'psiWarrior' }], mods()).find(
+        (r) => r.key === 'fighter.psiWarrior:psionicEnergyDice'
+      )?.max;
+    expect(psi(3)).toBe(4);
+    expect(psi(5)).toBe(6);
+    expect(psi(11)).toBe(8);
+    expect(psi(17)).toBe(12);
+    const soul = autoResourceDefs([{ className: 'rogue', level: 9, subclass: 'soulknife' }], mods()).find(
+      (r) => r.key === 'rogue.soulknife:psionicEnergyDice'
+    );
+    expect(soul?.max).toBe(8);
+    expect(soul?.reset).toBe('short');
+  });
+
+  it('пулы по профишенси-бонусу используют суммарный уровень персонажа', () => {
+    const solo = autoResourceDefs([{ className: 'rogue', level: 3, subclass: 'phantom' }], mods()).find(
+      (r) => r.key === 'rogue.phantom:wailsFromTheGrave'
+    );
+    expect(solo?.max).toBe(2);
+    const multi = autoResourceDefs(
+      [{ className: 'rogue', level: 3, subclass: 'phantom' }, { className: 'fighter', level: 3 }],
+      mods()
+    ).find((r) => r.key === 'rogue.phantom:wailsFromTheGrave');
+    expect(multi?.max).toBe(3);
+  });
+
+  it('Light: Warding Flare перезаряжается на коротком отдыхе с 6 ур., Corona — по Мудрости', () => {
+    const at = (level: number) =>
+      autoResourceDefs([{ className: 'cleric', level, subclass: 'light' }], mods({ wis: 16 })).find(
+        (r) => r.key === 'cleric.light:wardingFlare'
+      );
+    expect(at(3)?.reset).toBe('long');
+    expect(at(6)?.reset).toBe('short');
+    const corona = autoResourceDefs([{ className: 'cleric', level: 17, subclass: 'light' }], mods({ wis: 18 })).find(
+      (r) => r.key === 'cleric.light:coronaOfLight'
+    );
+    expect(corona?.max).toBe(4);
+  });
+
+  it('War Domain: War Priest перезаряжается на коротком отдыхе', () => {
+    const def = autoResourceDefs([{ className: 'cleric', level: 3, subclass: 'war' }], mods({ wis: 14 })).find(
+      (r) => r.key === 'cleric.war:warPriest'
+    );
+    expect(def?.max).toBe(2);
+    expect(def?.reset).toBe('short');
+  });
+
+  it('Diviner: число предзнаменований 2, с 14 ур. — 3', () => {
+    const at = (level: number) =>
+      autoResourceDefs([{ className: 'wizard', level, subclass: 'diviner' }], mods()).find(
+        (r) => r.key === 'wizard.diviner:portent'
+      )?.max;
+    expect(at(3)).toBe(2);
+    expect(at(14)).toBe(3);
+  });
+
+  it('Circle of Dreams: пул костей равен уровню друида', () => {
+    const def = autoResourceDefs([{ className: 'druid', level: 6, subclass: 'dreams' }], mods()).find(
+      (r) => r.key === 'druid.dreams:balmOfTheSummerCourt'
+    );
+    expect(def?.max).toBe(6);
+  });
+});
+
+describe('subclassList', () => {
+  it('содержит источник подкласса', () => {
+    const rogue = subclassList('rogue');
+    expect(rogue.find((s) => s.key === 'soulknife')?.source).toBe('PHB');
+    expect(rogue.find((s) => s.key === 'swashbuckler')?.source).toBe('XGE');
+    expect(subclassList('artificer').every((s) => s.source === 'TCE')).toBe(true);
+  });
+});
+
+describe('одноразовые способности', () => {
+  const find = (classes: Parameters<typeof autoResourceDefs>[0], key: string) =>
+    autoResourceDefs(classes, mods()).find((r) => r.key === key);
+
+  it('max = 0 до уровня разблокировки и 1 после', () => {
+    expect(find([{ className: 'barbarian', level: 13, subclass: 'berserker' }], 'barbarian.berserker:intimidatingPresence')?.max).toBe(0);
+    const at14 = find([{ className: 'barbarian', level: 14, subclass: 'berserker' }], 'barbarian.berserker:intimidatingPresence');
+    expect(at14?.max).toBe(1);
+    expect(at14?.reset).toBe('long');
+  });
+
+  it('Hexblade: проклятие на коротком отдыхе с 1 ур.', () => {
+    const curse = find([{ className: 'warlock', level: 1, subclass: 'hexblade' }], 'warlock.hexblade:hexbladesCurse');
+    expect(curse?.max).toBe(1);
+    expect(curse?.reset).toBe('short');
+    expect(find([{ className: 'warlock', level: 5, subclass: 'hexblade' }], 'warlock.hexblade:accursedSpecter')?.max).toBe(0);
+    expect(find([{ className: 'warlock', level: 6, subclass: 'hexblade' }], 'warlock.hexblade:accursedSpecter')?.max).toBe(1);
+  });
+
+  it('Divine Soul: Favored by the Gods с 1 ур., короткий отдых', () => {
+    const d = find([{ className: 'sorcerer', level: 1, subclass: 'divineSoul' }], 'sorcerer.divineSoul:favoredByTheGods');
+    expect(d?.max).toBe(1);
+    expect(d?.reset).toBe('short');
+  });
+
+  it('капстоуны паладинов открываются на 20 ур.', () => {
+    expect(find([{ className: 'paladin', level: 19, subclass: 'devotion' }], 'paladin.devotion:holyNimbus')?.max).toBe(0);
+    expect(find([{ className: 'paladin', level: 20, subclass: 'devotion' }], 'paladin.devotion:holyNimbus')?.max).toBe(1);
+  });
+
+  it('переменный пул и одноразовая на одном подклассе сосуществуют', () => {
+    const keys = autoResourceDefs([{ className: 'fighter', level: 15, subclass: 'psiWarrior' }], mods()).map((r) => r.key);
+    expect(keys).toContain('fighter.psiWarrior:psionicEnergyDice');
+    expect(keys).toContain('fighter.psiWarrior:bulwarkOfForce');
   });
 });
 

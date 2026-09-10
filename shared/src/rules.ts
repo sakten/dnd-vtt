@@ -14,11 +14,14 @@ export interface ResourceDef {
   key: string;
   name: string;
   reset: (level: number) => RestType;
-  max: (level: number, mods: Record<AbilityKey, number>) => number;
+  /** level — уровень класса; mods — модификаторы характеристик; totalLevel — суммарный уровень персонажа (для ПБ). */
+  max: (level: number, mods: Record<AbilityKey, number>, totalLevel: number) => number;
 }
 
 export interface SubclassDef {
   name: string;
+  /** Источник правил: 'PHB' (2024), 'XGE', 'TCE'. */
+  source: string;
   caster?: 'third';
   resources?: ResourceDef[];
 }
@@ -93,8 +96,32 @@ const abilityModMax =
   (_level, mods) =>
     Math.max(min, mods[key]);
 
+/** Профишенси-бонус по суммарному уровню персонажа. */
+export function proficiencyBonus(level: number): number {
+  return Math.floor((clampLevel(level) - 1) / 4) + 2;
+}
+
+const pbMax =
+  (mult = 1, min = 0): ResourceDef['max'] =>
+  (_level, _mods, totalLevel) =>
+    Math.max(min, mult * proficiencyBonus(totalLevel));
+
 const always = () => 'long' as RestType;
 const shortRest = () => 'short' as RestType;
+
+const wisMax = abilityModMax('wis', 1);
+const chaMax = abilityModMax('cha', 1);
+const intMax = abilityModMax('int', 1);
+const strMax = abilityModMax('str', 1);
+const conMax = abilityModMax('con', 1);
+/** Пул использования = профишенси-бонус (по суммарному уровню персонажа). */
+const pbUses = pbMax(1);
+
+/** Одноразовая способность: 0 до уровня разблокировки, 1 — с него. */
+const unlockAt =
+  (level: number): ResourceDef['max'] =>
+  (lvl) =>
+    clampLevel(lvl) >= level ? 1 : 0;
 
 /**
  * Ресурсы классов/подклассов. Значения — по правилам D&D 2024 (PHB) с дополнением
@@ -109,10 +136,48 @@ export const CLASSES: Record<string, ClassDef> = {
       { key: 'rage', name: 'Ярость', reset: shortRest, max: perLevel([2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6]) },
     ],
     subclasses: {
-      berserker: { name: 'Путь берсерка' },
-      wildHeart: { name: 'Путь дикого сердца' },
-      worldTree: { name: 'Путь мирового древа' },
-      zealot: { name: 'Путь фанатика' },
+      berserker: {
+        name: 'Путь берсерка',
+        source: 'PHB',
+        resources: [
+          { key: 'intimidatingPresence', name: 'Внушающее присутствие', reset: always, max: unlockAt(14) },
+        ],
+      },
+      wildHeart: { name: 'Путь дикого сердца', source: 'PHB' },
+      worldTree: { name: 'Путь мирового древа', source: 'PHB' },
+      zealot: {
+        name: 'Путь фанатика',
+        source: 'PHB',
+        resources: [
+          {
+            key: 'warriorOfTheGods',
+            name: 'Воин богов',
+            reset: always,
+            max: perLevel([0, 0, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7]),
+          },
+          { key: 'zealousPresence', name: 'Фанатичное присутствие', reset: always, max: unlockAt(10) },
+          { key: 'rageOfTheGods', name: 'Ярость богов', reset: always, max: unlockAt(14) },
+        ],
+      },
+      ancestralGuardian: {
+        name: 'Путь предков-хранителей',
+        source: 'XGE',
+        resources: [{ key: 'consultTheSpirits', name: 'Совет с духами', reset: shortRest, max: unlockAt(10) }],
+      },
+      stormHerald: { name: 'Путь вестника бури', source: 'XGE' },
+      beast: {
+        name: 'Путь зверя',
+        source: 'TCE',
+        resources: [
+          { key: 'infectiousFury', name: 'Заразительная ярость', reset: always, max: pbUses },
+          { key: 'callTheHunt', name: 'Зов охоты', reset: always, max: pbUses },
+        ],
+      },
+      wildMagic: {
+        name: 'Путь дикой магии',
+        source: 'TCE',
+        resources: [{ key: 'bolsteringMagic', name: 'Укрепляющая магия', reset: always, max: pbUses }],
+      },
     },
   },
   bard: {
@@ -128,10 +193,43 @@ export const CLASSES: Record<string, ClassDef> = {
       },
     ],
     subclasses: {
-      dance: { name: 'Коллегия танца' },
-      glamour: { name: 'Коллегия обаяния' },
-      lore: { name: 'Коллегия знания' },
-      valor: { name: 'Коллегия доблести' },
+      dance: { name: 'Коллегия танца', source: 'PHB' },
+      glamour: {
+        name: 'Коллегия обаяния',
+        source: 'PHB',
+        resources: [
+          { key: 'beguilingMagic', name: 'Обольщающая магия', reset: always, max: unlockAt(3) },
+          { key: 'mantleOfMajesty', name: 'Мантия величества', reset: always, max: unlockAt(6) },
+          { key: 'unbreakableMajesty', name: 'Несокрушимое величество', reset: shortRest, max: unlockAt(14) },
+        ],
+      },
+      lore: { name: 'Коллегия знания', source: 'PHB' },
+      valor: { name: 'Коллегия доблести', source: 'PHB' },
+      swords: { name: 'Коллегия мечей', source: 'XGE' },
+      whispers: {
+        name: 'Коллегия шёпотов',
+        source: 'XGE',
+        resources: [
+          { key: 'wordsOfTerror', name: 'Слова ужаса', reset: shortRest, max: unlockAt(3) },
+          { key: 'shadowLore', name: 'Теневое знание', reset: always, max: unlockAt(14) },
+        ],
+      },
+      creation: {
+        name: 'Коллегия созидания',
+        source: 'TCE',
+        resources: [
+          { key: 'performanceOfCreation', name: 'Сотворение представления', reset: always, max: unlockAt(3) },
+          { key: 'animatingPerformance', name: 'Оживление представления', reset: always, max: unlockAt(6) },
+        ],
+      },
+      eloquence: {
+        name: 'Коллегия красноречия',
+        source: 'TCE',
+        resources: [
+          { key: 'infectiousInspiration', name: 'Заразительное вдохновение', reset: always, max: chaMax },
+          { key: 'universalSpeech', name: 'Универсальная речь', reset: always, max: unlockAt(6) },
+        ],
+      },
     },
   },
   cleric: {
@@ -147,18 +245,52 @@ export const CLASSES: Record<string, ClassDef> = {
       },
     ],
     subclasses: {
-      life: { name: 'Домен жизни' },
+      life: { name: 'Домен жизни', source: 'PHB' },
       light: {
         name: 'Домен света',
+        source: 'PHB',
         resources: [
-          { key: 'wardingFlare', name: 'Ослепляющая вспышка', reset: always, max: abilityModMax('wis', 1) },
+          {
+            key: 'wardingFlare',
+            name: 'Ослепляющая вспышка',
+            reset: (level) => (level >= 6 ? 'short' : 'long'),
+            max: wisMax,
+          },
+          { key: 'coronaOfLight', name: 'Корона света', reset: always, max: wisMax },
         ],
       },
-      trickery: { name: 'Домен обмана' },
+      trickery: { name: 'Домен обмана', source: 'PHB' },
       war: {
         name: 'Домен войны',
+        source: 'PHB',
+        resources: [{ key: 'warPriest', name: 'Военный жрец', reset: shortRest, max: wisMax }],
+      },
+      forge: {
+        name: 'Домен кузни',
+        source: 'XGE',
+        resources: [{ key: 'blessingOfTheForge', name: 'Благословение кузни', reset: always, max: unlockAt(1) }],
+      },
+      grave: {
+        name: 'Домен могилы',
+        source: 'XGE',
+        resources: [{ key: 'sentinelAtDeathsDoor', name: 'Страж у врат смерти', reset: always, max: wisMax }],
+      },
+      order: {
+        name: 'Домен порядка',
+        source: 'TCE',
+        resources: [{ key: 'embodimentOfTheLaw', name: 'Воплощение закона', reset: always, max: wisMax }],
+      },
+      peace: {
+        name: 'Домен мира',
+        source: 'TCE',
+        resources: [{ key: 'emboldeningBond', name: 'Укрепляющая связь', reset: always, max: pbUses }],
+      },
+      twilight: {
+        name: 'Домен сумерек',
+        source: 'TCE',
         resources: [
-          { key: 'warPriest', name: 'Военный жрец', reset: always, max: abilityModMax('wis', 1) },
+          { key: 'stepsOfNight', name: 'Шаги ночи', reset: always, max: pbUses },
+          { key: 'eyesOfNight', name: 'Очи ночи', reset: always, max: unlockAt(1) },
         ],
       },
     },
@@ -171,10 +303,55 @@ export const CLASSES: Record<string, ClassDef> = {
       { key: 'wildShape', name: 'Дикий облик', reset: shortRest, max: perLevel([0, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4]) },
     ],
     subclasses: {
-      land: { name: 'Круг земли' },
-      moon: { name: 'Круг луны' },
-      sea: { name: 'Круг моря' },
-      stars: { name: 'Круг звёзд' },
+      land: {
+        name: 'Круг земли',
+        source: 'PHB',
+        resources: [{ key: 'naturalRecovery', name: 'Природное восстановление', reset: always, max: unlockAt(6) }],
+      },
+      moon: {
+        name: 'Круг луны',
+        source: 'PHB',
+        resources: [{ key: 'moonlightStep', name: 'Лунный шаг', reset: always, max: wisMax }],
+      },
+      sea: { name: 'Круг моря', source: 'PHB' },
+      stars: {
+        name: 'Круг звёзд',
+        source: 'PHB',
+        resources: [
+          { key: 'starMap', name: 'Звёздная карта', reset: always, max: wisMax },
+          { key: 'cosmicOmen', name: 'Космическое знамение', reset: always, max: wisMax },
+        ],
+      },
+      dreams: {
+        name: 'Круг грёз',
+        source: 'XGE',
+        resources: [
+          { key: 'balmOfTheSummerCourt', name: 'Бальзам Летнего двора', reset: always, max: (level) => clampLevel(level) },
+          { key: 'hiddenPaths', name: 'Тайные тропы', reset: always, max: wisMax },
+          { key: 'walkerInDreams', name: 'Скиталец во снах', reset: always, max: unlockAt(14) },
+        ],
+      },
+      shepherd: {
+        name: 'Круг пастыря',
+        source: 'XGE',
+        resources: [
+          { key: 'spiritTotem', name: 'Тотем духа', reset: shortRest, max: unlockAt(2) },
+          { key: 'faithfulSummons', name: 'Верный зов', reset: always, max: unlockAt(14) },
+        ],
+      },
+      spores: {
+        name: 'Круг спор',
+        source: 'TCE',
+        resources: [{ key: 'fungalInfestation', name: 'Грибковое заражение', reset: always, max: wisMax }],
+      },
+      wildfire: {
+        name: 'Круг лесного пожара',
+        source: 'TCE',
+        resources: [
+          { key: 'cauterizingFlames', name: 'Прижигающее пламя', reset: always, max: pbUses },
+          { key: 'blazingRevival', name: 'Пламенное возрождение', reset: always, max: unlockAt(14) },
+        ],
+      },
     },
   },
   fighter: {
@@ -189,13 +366,53 @@ export const CLASSES: Record<string, ClassDef> = {
     subclasses: {
       battleMaster: {
         name: 'Мастер боевых искусств',
+        source: 'PHB',
         resources: [
-          { key: 'superiorityDice', name: 'Кости превосходства', reset: shortRest, max: perLevel([0, 0, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6]) },
+          { key: 'superiorityDice', name: 'Кости превосходства', reset: shortRest, max: perLevel([0, 0, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6]) },
+          { key: 'knowYourEnemy', name: 'Знай врага', reset: always, max: unlockAt(7) },
         ],
       },
-      champion: { name: 'Чемпион' },
-      eldritchKnight: { name: 'Мистический рыцарь', caster: 'third' },
-      psiWarrior: { name: 'Пси-воин' },
+      champion: { name: 'Чемпион', source: 'PHB' },
+      eldritchKnight: { name: 'Мистический рыцарь', source: 'PHB', caster: 'third' },
+      psiWarrior: {
+        name: 'Пси-воин',
+        source: 'PHB',
+        resources: [
+          { key: 'psionicEnergyDice', name: 'Кости пси-энергии', reset: shortRest, max: perLevel([0, 0, 4, 4, 6, 6, 6, 6, 8, 8, 8, 8, 10, 10, 10, 10, 12, 12, 12, 12]) },
+          { key: 'psiPoweredLeap', name: 'Пси-усиленный прыжок', reset: shortRest, max: unlockAt(7) },
+          { key: 'bulwarkOfForce', name: 'Оплот силы', reset: always, max: unlockAt(15) },
+          { key: 'telekineticMaster', name: 'Телекинетический мастер', reset: always, max: unlockAt(18) },
+        ],
+      },
+      arcaneArcher: {
+        name: 'Мистический лучник',
+        source: 'XGE',
+        resources: [{ key: 'arcaneShot', name: 'Мистический выстрел', reset: shortRest, max: constant(2) }],
+      },
+      cavalier: {
+        name: 'Кавалерист',
+        source: 'XGE',
+        resources: [
+          { key: 'unwaveringMark', name: 'Неотступная метка', reset: always, max: strMax },
+          { key: 'wardingManeuver', name: 'Защитный манёвр', reset: always, max: conMax },
+        ],
+      },
+      samurai: {
+        name: 'Самурай',
+        source: 'XGE',
+        resources: [
+          { key: 'fightingSpirit', name: 'Боевой дух', reset: always, max: constant(3) },
+          { key: 'strengthBeforeDeath', name: 'Сила прежде смерти', reset: always, max: unlockAt(18) },
+        ],
+      },
+      runeKnight: {
+        name: 'Рыцарь рун',
+        source: 'TCE',
+        resources: [
+          { key: 'giantsMight', name: 'Мощь великана', reset: always, max: pbUses },
+          { key: 'runicShield', name: 'Рунический щит', reset: always, max: pbUses },
+        ],
+      },
     },
   },
   monk: {
@@ -206,10 +423,25 @@ export const CLASSES: Record<string, ClassDef> = {
       { key: 'focus', name: 'Очки сосредоточения', reset: shortRest, max: (level) => clampLevel(level) },
     ],
     subclasses: {
-      openHand: { name: 'Воин открытой ладони' },
-      shadow: { name: 'Воин тени' },
-      fourElements: { name: 'Воин четырёх стихий' },
-      mercy: { name: 'Воин милосердия' },
+      openHand: {
+        name: 'Воин открытой ладони',
+        source: 'PHB',
+        resources: [{ key: 'wholenessOfBody', name: 'Целостность тела', reset: always, max: wisMax }],
+      },
+      shadow: { name: 'Воин тени', source: 'PHB' },
+      fourElements: { name: 'Воин четырёх стихий', source: 'PHB' },
+      mercy: {
+        name: 'Воин милосердия',
+        source: 'PHB',
+        resources: [
+          { key: 'flurryOfHealingAndHarm', name: 'Шквал исцеления и вреда', reset: always, max: wisMax },
+          { key: 'handOfUltimateMercy', name: 'Длань высшего милосердия', reset: always, max: unlockAt(17) },
+        ],
+      },
+      drunkenMaster: { name: 'Путь пьяного мастера', source: 'XGE' },
+      kensei: { name: 'Путь кэнсэя', source: 'XGE' },
+      sunSoul: { name: 'Путь солнечной души', source: 'XGE' },
+      astralSelf: { name: 'Путь астрального «я»', source: 'TCE' },
     },
   },
   paladin: {
@@ -221,10 +453,43 @@ export const CLASSES: Record<string, ClassDef> = {
       { key: 'channelDivinity', name: 'Проведение божественности', reset: shortRest, max: perLevel([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]) },
     ],
     subclasses: {
-      devotion: { name: 'Клятва преданности' },
-      glory: { name: 'Клятва славы' },
-      ancients: { name: 'Клятва древних' },
-      vengeance: { name: 'Клятва мести' },
+      devotion: {
+        name: 'Клятва преданности',
+        source: 'PHB',
+        resources: [{ key: 'holyNimbus', name: 'Священный нимб', reset: always, max: unlockAt(20) }],
+      },
+      glory: {
+        name: 'Клятва славы',
+        source: 'PHB',
+        resources: [
+          { key: 'gloriousDefense', name: 'Славная защита', reset: always, max: chaMax },
+          { key: 'livingLegend', name: 'Живая легенда', reset: always, max: unlockAt(20) },
+        ],
+      },
+      ancients: {
+        name: 'Клятва древних',
+        source: 'PHB',
+        resources: [
+          { key: 'undyingSentinel', name: 'Бессмертный страж', reset: always, max: unlockAt(15) },
+          { key: 'elderChampion', name: 'Древний чемпион', reset: always, max: unlockAt(20) },
+        ],
+      },
+      vengeance: {
+        name: 'Клятва мести',
+        source: 'PHB',
+        resources: [{ key: 'avengingAngel', name: 'Ангел возмездия', reset: always, max: unlockAt(20) }],
+      },
+      conquest: {
+        name: 'Клятва завоевания',
+        source: 'XGE',
+        resources: [{ key: 'invincibleConqueror', name: 'Непобедимый завоеватель', reset: always, max: unlockAt(20) }],
+      },
+      redemption: { name: 'Клятва искупления', source: 'XGE' },
+      watchers: {
+        name: 'Клятва наблюдателей',
+        source: 'TCE',
+        resources: [{ key: 'mortalBulwark', name: 'Смертный оплот', reset: always, max: unlockAt(20) }],
+      },
     },
   },
   ranger: {
@@ -233,10 +498,45 @@ export const CLASSES: Record<string, ClassDef> = {
     caster: 'half',
     resources: [],
     subclasses: {
-      beastMaster: { name: 'Повелитель зверей' },
-      feyWanderer: { name: 'Странник фей' },
-      gloomStalker: { name: 'Сумеречный охотник' },
-      hunter: { name: 'Охотник' },
+      beastMaster: { name: 'Повелитель зверей', source: 'PHB' },
+      feyWanderer: {
+        name: 'Странник фей',
+        source: 'PHB',
+        resources: [
+          { key: 'mistyWanderer', name: 'Туманный скиталец', reset: always, max: wisMax },
+          { key: 'feyReinforcements', name: 'Подкрепление фей', reset: always, max: unlockAt(11) },
+        ],
+      },
+      gloomStalker: {
+        name: 'Сумеречный охотник',
+        source: 'PHB',
+        resources: [{ key: 'dreadAmbusher', name: 'Ужасающий засадник', reset: always, max: wisMax }],
+      },
+      hunter: { name: 'Охотник', source: 'PHB' },
+      horizonWalker: {
+        name: 'Скиталец по горизонту',
+        source: 'XGE',
+        resources: [
+          { key: 'detectPortal', name: 'Обнаружение портала', reset: shortRest, max: unlockAt(3) },
+          { key: 'etherealStep', name: 'Эфирный шаг', reset: shortRest, max: unlockAt(7) },
+        ],
+      },
+      monsterSlayer: {
+        name: 'Истребитель монстров',
+        source: 'XGE',
+        resources: [
+          { key: 'slayersPrey', name: 'Добыча истребителя', reset: always, max: wisMax },
+          { key: 'magicUsersNemesis', name: 'Погибель магов', reset: shortRest, max: unlockAt(11) },
+        ],
+      },
+      swarmkeeper: {
+        name: 'Повелитель роя',
+        source: 'TCE',
+        resources: [
+          { key: 'writhingTide', name: 'Кишащий поток', reset: always, max: pbUses },
+          { key: 'swarmingDispersal', name: 'Роевое рассеивание', reset: always, max: pbUses },
+        ],
+      },
     },
   },
   rogue: {
@@ -245,10 +545,39 @@ export const CLASSES: Record<string, ClassDef> = {
     caster: 'none',
     resources: [],
     subclasses: {
-      arcaneTrickster: { name: 'Мистический ловкач', caster: 'third' },
-      assassin: { name: 'Убийца' },
-      swashbuckler: { name: 'Головорез' },
-      thief: { name: 'Вор' },
+      arcaneTrickster: {
+        name: 'Мистический ловкач',
+        source: 'PHB',
+        caster: 'third',
+        resources: [{ key: 'spellThief', name: 'Похититель заклинаний', reset: always, max: unlockAt(17) }],
+      },
+      assassin: { name: 'Убийца', source: 'PHB' },
+      soulknife: {
+        name: 'Клинок души',
+        source: 'PHB',
+        resources: [
+          { key: 'psionicEnergyDice', name: 'Кости пси-энергии', reset: shortRest, max: perLevel([0, 0, 4, 4, 6, 6, 6, 6, 8, 8, 8, 8, 10, 10, 10, 10, 12, 12, 12, 12]) },
+          { key: 'psychicVeil', name: 'Психическая вуаль', reset: always, max: unlockAt(13) },
+        ],
+      },
+      thief: { name: 'Вор', source: 'PHB' },
+      inquisitive: {
+        name: 'Дознаватель',
+        source: 'XGE',
+        resources: [{ key: 'unerringEye', name: 'Безошибочный глаз', reset: always, max: wisMax }],
+      },
+      mastermind: { name: 'Вдохновитель', source: 'XGE' },
+      scout: { name: 'Разведчик', source: 'XGE' },
+      swashbuckler: {
+        name: 'Головорез',
+        source: 'XGE',
+        resources: [{ key: 'masterDuelist', name: 'Мастер дуэлянт', reset: shortRest, max: unlockAt(17) }],
+      },
+      phantom: {
+        name: 'Призрак',
+        source: 'TCE',
+        resources: [{ key: 'wailsFromTheGrave', name: 'Стенания из могилы', reset: always, max: pbUses }],
+      },
     },
   },
   sorcerer: {
@@ -259,10 +588,51 @@ export const CLASSES: Record<string, ClassDef> = {
       { key: 'sorceryPoints', name: 'Очки чародейства', reset: always, max: (level) => clampLevel(level) },
     ],
     subclasses: {
-      draconic: { name: 'Драконье происхождение' },
-      wildMagic: { name: 'Дикая магия' },
-      aberrantMind: { name: 'Аберрантный разум' },
-      clockwork: { name: 'Механическое наследие' },
+      draconic: {
+        name: 'Драконье происхождение',
+        source: 'PHB',
+        resources: [
+          { key: 'dragonWings', name: 'Драконьи крылья', reset: always, max: unlockAt(14) },
+          { key: 'dragonCompanion', name: 'Дракон-спутник', reset: always, max: unlockAt(18) },
+        ],
+      },
+      wildMagic: {
+        name: 'Дикая магия',
+        source: 'PHB',
+        resources: [{ key: 'tamedSurge', name: 'Укрощённый всплеск', reset: always, max: unlockAt(18) }],
+      },
+      aberrantMind: {
+        name: 'Аберрантный разум',
+        source: 'PHB',
+        resources: [{ key: 'warpingImplosion', name: 'Искажающий взрыв', reset: always, max: unlockAt(18) }],
+      },
+      clockwork: {
+        name: 'Механическое наследие',
+        source: 'PHB',
+        resources: [
+          { key: 'restoreBalance', name: 'Восстановление равновесия', reset: always, max: chaMax },
+          { key: 'tranceOfOrder', name: 'Транс порядка', reset: always, max: unlockAt(14) },
+          { key: 'clockworkCavalcade', name: 'Кавалькада механизмов', reset: always, max: unlockAt(18) },
+        ],
+      },
+      divineSoul: {
+        name: 'Божественная душа',
+        source: 'XGE',
+        resources: [
+          { key: 'favoredByTheGods', name: 'Одарённый богами', reset: shortRest, max: unlockAt(1) },
+          { key: 'unearthlyRecovery', name: 'Небесное исцеление', reset: always, max: unlockAt(18) },
+        ],
+      },
+      shadow: {
+        name: 'Теневая магия',
+        source: 'XGE',
+        resources: [{ key: 'strengthOfTheGrave', name: 'Сила могилы', reset: always, max: unlockAt(1) }],
+      },
+      storm: {
+        name: 'Магия бури',
+        source: 'XGE',
+        resources: [{ key: 'windSoul', name: 'Душа ветра', reset: always, max: unlockAt(18) }],
+      },
     },
   },
   warlock: {
@@ -271,13 +641,60 @@ export const CLASSES: Record<string, ClassDef> = {
     caster: 'pact',
     resources: [],
     subclasses: {
-      archfey: { name: 'Архифея' },
+      archfey: {
+        name: 'Архифея',
+        source: 'PHB',
+        resources: [
+          { key: 'stepsOfTheFey', name: 'Шаги фей', reset: always, max: chaMax },
+          { key: 'beguilingDefenses', name: 'Обольщающая защита', reset: always, max: unlockAt(10) },
+        ],
+      },
       celestial: {
         name: 'Небожитель',
-        resources: [{ key: 'healingLight', name: 'Целительный свет', reset: always, max: (level) => clampLevel(level) + 1 }],
+        source: 'PHB',
+        resources: [
+          { key: 'healingLight', name: 'Целительный свет', reset: always, max: (level) => clampLevel(level) + 1 },
+          { key: 'searingVengeance', name: 'Обжигающая месть', reset: always, max: unlockAt(14) },
+        ],
       },
-      fiend: { name: 'Исчадие' },
-      greatOldOne: { name: 'Великий Древний' },
+      fiend: {
+        name: 'Исчадие',
+        source: 'PHB',
+        resources: [
+          { key: 'darkOnesOwnLuck', name: 'Удача тёмного покровителя', reset: always, max: chaMax },
+          { key: 'hurlThroughHell', name: 'Низвержение в ад', reset: always, max: unlockAt(14) },
+        ],
+      },
+      greatOldOne: {
+        name: 'Великий Древний',
+        source: 'PHB',
+        resources: [{ key: 'clairvoyantCombatant', name: 'Ясновидящий боец', reset: shortRest, max: unlockAt(6) }],
+      },
+      hexblade: {
+        name: 'Проклятый клинок',
+        source: 'XGE',
+        resources: [
+          { key: 'hexbladesCurse', name: 'Проклятие проклятого клинка', reset: shortRest, max: unlockAt(1) },
+          { key: 'accursedSpecter', name: 'Проклятый призрак', reset: always, max: unlockAt(6) },
+        ],
+      },
+      fathomless: {
+        name: 'Неведомый',
+        source: 'TCE',
+        resources: [
+          { key: 'tentacleOfTheDeeps', name: 'Щупальце глубин', reset: always, max: pbUses },
+          { key: 'graspingTentacles', name: 'Хватающие щупальца', reset: always, max: unlockAt(10) },
+          { key: 'fathomlessPlunge', name: 'Погружение в пучину', reset: shortRest, max: unlockAt(14) },
+        ],
+      },
+      genie: {
+        name: 'Джинн',
+        source: 'TCE',
+        resources: [
+          { key: 'elementalGift', name: 'Дар стихии', reset: always, max: pbUses },
+          { key: 'limitedWish', name: 'Ограниченное желание', reset: always, max: unlockAt(14) },
+        ],
+      },
     },
   },
   wizard: {
@@ -288,10 +705,45 @@ export const CLASSES: Record<string, ClassDef> = {
       { key: 'arcaneRecovery', name: 'Магическое восстановление', reset: always, max: constant(1) },
     ],
     subclasses: {
-      abjurer: { name: 'Школа ограждения' },
-      diviner: { name: 'Школа прорицания' },
-      evoker: { name: 'Школа воплощения' },
-      illusionist: { name: 'Школа иллюзии' },
+      abjurer: {
+        name: 'Школа ограждения',
+        source: 'PHB',
+        resources: [{ key: 'arcaneWard', name: 'Магический барьер', reset: always, max: unlockAt(3) }],
+      },
+      diviner: {
+        name: 'Школа прорицания',
+        source: 'PHB',
+        resources: [
+          { key: 'portent', name: 'Предзнаменование', reset: always, max: perLevel([0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3]) },
+          { key: 'thirdEye', name: 'Третий глаз', reset: shortRest, max: unlockAt(10) },
+        ],
+      },
+      evoker: { name: 'Школа воплощения', source: 'PHB' },
+      illusionist: {
+        name: 'Школа иллюзии',
+        source: 'PHB',
+        resources: [{ key: 'illusorySelf', name: 'Иллюзорное «я»', reset: shortRest, max: unlockAt(10) }],
+      },
+      warMagic: {
+        name: 'Школа военной магии',
+        source: 'XGE',
+        resources: [{ key: 'powerSurge', name: 'Всплески силы', reset: always, max: intMax }],
+      },
+      bladesinging: {
+        name: 'Пение клинков',
+        source: 'TCE',
+        resources: [{ key: 'bladesong', name: 'Пение клинка', reset: always, max: pbUses }],
+      },
+      scribes: {
+        name: 'Орден писцов',
+        source: 'TCE',
+        resources: [
+          { key: 'manifestMind', name: 'Проявление разума', reset: always, max: pbUses },
+          { key: 'ritualMastery', name: 'Мастерство ритуала', reset: always, max: unlockAt(2) },
+          { key: 'manifestMindConjure', name: 'Проявление разума (призыв)', reset: always, max: unlockAt(6) },
+          { key: 'oneWithTheWord', name: 'Единый со Словом', reset: always, max: unlockAt(14) },
+        ],
+      },
     },
   },
   artificer: {
@@ -300,10 +752,32 @@ export const CLASSES: Record<string, ClassDef> = {
     caster: 'half',
     resources: [],
     subclasses: {
-      alchemist: { name: 'Алхимик' },
-      armorer: { name: 'Бронник' },
-      artillerist: { name: 'Артиллерист' },
-      battleSmith: { name: 'Боевой кузнец' },
+      alchemist: {
+        name: 'Алхимик',
+        source: 'TCE',
+        resources: [
+          { key: 'restorativeReagents', name: 'Восстанавливающие реагенты', reset: always, max: intMax },
+          { key: 'chemicalMastery', name: 'Химическое мастерство', reset: always, max: unlockAt(15) },
+        ],
+      },
+      armorer: {
+        name: 'Бронник',
+        source: 'TCE',
+        resources: [
+          { key: 'arcaneArmor', name: 'Магическая броня', reset: always, max: pbUses },
+          { key: 'perfectedArmor', name: 'Совершенная броня', reset: always, max: pbUses },
+        ],
+      },
+      artillerist: {
+        name: 'Артиллерист',
+        source: 'TCE',
+        resources: [{ key: 'eldritchCannon', name: 'Мистическая пушка', reset: always, max: unlockAt(3) }],
+      },
+      battleSmith: {
+        name: 'Боевой кузнец',
+        source: 'TCE',
+        resources: [{ key: 'arcaneJolt', name: 'Магический толчок', reset: always, max: intMax }],
+      },
     },
   },
 };
@@ -353,10 +827,10 @@ export function effectiveMaxHp(sheet: CharacterSheet): number {
   return computedMaxHp(sheet.classes, sheet.abilities);
 }
 
-export function subclassList(className: string): { key: string; name: string }[] {
+export function subclassList(className: string): { key: string; name: string; source: string }[] {
   const def = CLASSES[className];
   if (!def) return [];
-  return Object.entries(def.subclasses).map(([key, sub]) => ({ key, name: sub.name }));
+  return Object.entries(def.subclasses).map(([key, sub]) => ({ key, name: sub.name, source: sub.source }));
 }
 
 function casterContribution(entry: ClassLevel): number {
@@ -406,9 +880,10 @@ interface AutoDef {
 
 export function autoResourceDefs(classes: ClassLevel[], mods: Record<AbilityKey, number>): AutoDef[] {
   const out: AutoDef[] = [];
+  const totalLevel = classes.reduce((acc, c) => acc + clampLevel(c.level), 0);
   const push = (prefix: string, defs: ResourceDef[] | undefined, level: number) => {
     for (const d of defs ?? []) {
-      out.push({ key: `${prefix}:${d.key}`, name: d.name, reset: d.reset(level), max: d.max(level, mods) });
+      out.push({ key: `${prefix}:${d.key}`, name: d.name, reset: d.reset(level), max: d.max(level, mods, totalLevel) });
     }
   };
   for (const entry of classes) {

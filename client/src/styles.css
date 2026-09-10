@@ -1191,7 +1191,7 @@ button.icon {
   display: block;
 }
 
-/* Панель ресурсов */
+/* пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ */
 select {
   background: #1c2026;
   color: var(--text);
@@ -1352,6 +1352,7 @@ select {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .resource-name {
@@ -1436,7 +1437,7 @@ select {
 }
 
 
-/* Панель ресурсов: числа с двойным кликом и иконки спасбросков */
+/* пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ */
 .number-edit {
   width: 64px;
   font-family: inherit;
@@ -1503,7 +1504,8 @@ select {
 }
 
 .resource-row .pips {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 

@@ -132,7 +132,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
                   <option value="">— не выбран —</option>
                   {subclassList(cl.className).map((s) => (
                     <option key={s.key} value={s.key}>
-                      {s.name}
+                      {s.name} ({s.source})
                     </option>
                   ))}
                 </select>

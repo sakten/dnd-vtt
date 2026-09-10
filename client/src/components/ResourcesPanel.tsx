@@ -244,7 +244,9 @@ export default function ResourcesPanel() {
 
           <div className="resources-section">
             <div className="resources-subtitle">Прочие ресурсы</div>
-            {r.resources.map((item) => {
+            {r.resources
+              .filter((item) => !item.auto || item.max > 0)
+              .map((item) => {
               const maxControl = item.auto ? (
                 <span className="resource-max-static" title="Задаётся правилами класса">
                   {item.max}
@@ -262,26 +264,12 @@ export default function ResourcesPanel() {
                   <span className="resource-name" title={item.name}>
                     {item.name}
                   </span>
-                  {item.max > 0 && item.max <= 5 ? (
-                    <>
-                      <Pips
-                        current={item.current}
-                        max={item.max}
-                        onSet={(n) => updateResource(item.id, { current: n })}
-                      />
-                      {maxControl}
-                    </>
-                  ) : (
-                    <>
-                      <EditableNumber
-                        className="resource-current"
-                        value={item.current}
-                        onCommit={(n) => updateResource(item.id, { current: Math.min(item.max, n) })}
-                      />
-                      <span className="dim">/</span>
-                      {maxControl}
-                    </>
-                  )}
+                  <Pips
+                    current={item.current}
+                    max={item.max}
+                    onSet={(n) => updateResource(item.id, { current: n })}
+                  />
+                  {maxControl}
                   {!item.auto && (
                     <button className="icon danger" title="Удалить" onClick={() => removeResource(item.id)}>
                       ✕
