@@ -616,6 +616,12 @@ button.icon {
   font-size: 14px;
 }
 
+.roll-minus {
+  color: #ff6b6b;
+  font-weight: 700;
+  font-size: 14px;
+}
+
 .roll-bonus {
   color: var(--text);
   font-weight: 700;

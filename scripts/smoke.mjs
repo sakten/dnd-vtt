@@ -222,6 +222,19 @@ player.emit('dice:roll', { expression: 'd20+3+d4', label: 'Атака: Меч' }
 const labeledMsg = await waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Атака: Меч');
 check(labeledMsg.roll.expression === 'd20+3+d4', 'бросок с кубом-бонусом и меткой');
 
+const svgForm = new FormData();
+svgForm.append(
+  'image',
+  new Blob(['<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>'], { type: 'image/svg+xml' }),
+  'evil.svg'
+);
+const svgRes = await fetch(`${URL}/api/upload`, {
+  method: 'POST',
+  headers: { 'X-Room': created.room.code, 'X-Player': 'smoke-p1' },
+  body: svgForm,
+});
+check(svgRes.status === 400, 'SVG-загрузки запрещены (400)');
+
 const attackHitP = waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Атака: Топор');
 const attackDmgP = waitMsg(dm, (m) => m.kind === 'roll' && m.label === 'Урон: Топор');
 player.emit('dice:attack', {
@@ -277,7 +290,7 @@ await joinAndAck(player, (cb) =>
   player.emit('room:join', { code: created.room.code, name: 'Игрок', clientId: 'smoke-p1' }, cb)
 );
 player.emit('dice:roll', { expression: 'd20' });
-const reMsg = await waitMsg(dm, (m) => m.kind === 'roll' && m.roll.expression === 'd20');
+await waitMsg(dm, (m) => m.kind === 'roll' && m.roll.expression === 'd20');
 check(true, 'броски работают после переподключения и возврата в комнату');
 
 const listRes = await ack((cb) => dm.emit('admin:list', { adminToken: '' }, cb));

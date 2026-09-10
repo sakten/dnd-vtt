@@ -31,6 +31,7 @@ export default function TokenPanel() {
         round: editing.round,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
   }, [editingId]);
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function TokenPanel() {
         <button className="icon" title="Загрузить токен" onClick={() => fileRef.current?.click()}>
           +
         </button>
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={handleFile} />
       </div>
       <div className="token-panel-list">
         {items.length === 0 && <div className="hint">Загрузите картинки токенов</div>}

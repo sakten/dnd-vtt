@@ -12,6 +12,7 @@ export default function GridSettingsModal() {
 
   useEffect(() => {
     if (open) setDraft({ ...grid });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- сбрасываем черновик только при открытии
   }, [open]);
 
   useEffect(() => {

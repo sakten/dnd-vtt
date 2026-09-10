@@ -24,6 +24,7 @@ export default function TokenMenu() {
     if (menuId && token) {
       setDraft({ name: token.name, description: token.description, cells: token.cells, round: token.round });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии меню
   }, [menuId]);
 
   useEffect(() => {

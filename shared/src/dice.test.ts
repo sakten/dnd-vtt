@@ -12,7 +12,16 @@ function seq(values: number[]) {
 describe('parseDiceExpression', () => {
   it('парсит простой d20', () => {
     const r = parseDiceExpression('d20');
-    expect(r.dice).toEqual([{ count: 1, sides: 20, keep: null, advantage: null }]);
+    expect(r.dice).toEqual([{ count: 1, sides: 20, keep: null, advantage: null, sign: 1 }]);
+    expect(r.modifier).toBe(0);
+  });
+
+  it('парсит отрицательный куб', () => {
+    const r = parseDiceExpression('d20-1d4');
+    expect(r.dice).toEqual([
+      { count: 1, sides: 20, keep: null, advantage: null, sign: 1 },
+      { count: 1, sides: 4, keep: null, advantage: null, sign: -1 },
+    ]);
     expect(r.modifier).toBe(0);
   });
 
@@ -93,6 +102,18 @@ describe('rollDice', () => {
     expect(r.total).toBe(15);
     expect(r.breakdown).toBe('20 - 5');
   });
+
+  it('вычитает отрицательные кубы', () => {
+    const r = rollDice('d20-1d4', seq([0.999, 0.999]));
+    expect(r.total).toBe(16);
+    expect(r.breakdown).toBe('20 - 4');
+  });
+
+  it('вычитает несколько отрицательных кубов', () => {
+    const r = rollDice('2d6-1d4+1', seq([0.999, 0.999, 0.999]));
+    expect(r.total).toBe(9);
+    expect(r.breakdown).toBe('[6, 6] - 4 + 1');
+  });
 });
 
 describe('isCriticalHit', () => {
@@ -103,6 +124,10 @@ describe('isCriticalHit', () => {
   it('не крит при других значениях', () => {
     expect(isCriticalHit(rollDice('d20', () => 0))).toBe(false);
     expect(isCriticalHit(rollDice('2d6', () => 0.999))).toBe(false);
+  });
+
+  it('отрицательный d20 не считается критом', () => {
+    expect(isCriticalHit(rollDice('1d4-1d20', seq([0, 0.999])))).toBe(false);
   });
 });
 

@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { CharacterSheet, ChatMessage, LibraryItem, Role, Scene } from 'shared';
 
 export interface PersistedRoom {
@@ -13,9 +14,11 @@ export interface PersistedRoom {
   nextZ: number;
 }
 
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
 export const DATA_DIR = process.env.DATA_DIR
   ? path.resolve(process.env.DATA_DIR)
-  : path.resolve(process.cwd(), 'data');
+  : path.resolve(HERE, '..', 'data');
 
 export const ROOMS_DIR = path.join(DATA_DIR, 'rooms');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
@@ -34,8 +37,8 @@ export async function loadPersistedRooms(): Promise<PersistedRoom[]> {
     try {
       const raw = await fs.readFile(path.join(ROOMS_DIR, file), 'utf8');
       rooms.push(JSON.parse(raw) as PersistedRoom);
-    } catch {
-      void 0;
+    } catch (e) {
+      console.warn(`Не удалось прочитать комнату ${file}:`, e);
     }
   }
   return rooms;
@@ -54,6 +57,14 @@ export function saveRoomSoon(room: () => PersistedRoom) {
       fs.writeFile(path.join(ROOMS_DIR, `${code}.json`), JSON.stringify(room(), null, 2)).catch(() => void 0);
     }, 1000)
   );
+}
+
+export function cancelRoomSave(code: string) {
+  const existing = saveTimers.get(code);
+  if (existing) {
+    clearTimeout(existing);
+    saveTimers.delete(code);
+  }
 }
 
 export async function saveRoomNow(room: PersistedRoom) {

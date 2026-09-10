@@ -25,6 +25,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (open) setDraft(stored ? normalizeSheet(stored) : defaultSheet());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- сбрасываем черновик только при открытии
   }, [open]);
 
   useEffect(() => {

@@ -132,10 +132,18 @@ export function normalizeAttacks(
 export function normalizeSheet(
   raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
 ): CharacterSheet {
+  const abilities = { ...DEFAULT_ABILITIES };
+  if (raw.abilities && typeof raw.abilities === 'object') {
+    const source = raw.abilities as Record<string, unknown>;
+    for (const key of Object.keys(DEFAULT_ABILITIES) as AbilityKey[]) {
+      const n = Number(source[key]);
+      if (Number.isFinite(n)) abilities[key] = Math.min(30, Math.max(0, Math.round(n)));
+    }
+  }
   return {
-    name: typeof raw.name === 'string' ? raw.name : '',
-    abilities: { ...DEFAULT_ABILITIES, ...(raw.abilities ?? {}) },
-    proficiencyBonus: typeof raw.proficiencyBonus === 'string' ? raw.proficiencyBonus : '2',
+    name: typeof raw.name === 'string' ? raw.name.slice(0, 40) : '',
+    abilities,
+    proficiencyBonus: typeof raw.proficiencyBonus === 'string' ? raw.proficiencyBonus.slice(0, 10) : '2',
     saves: raw.saves ?? {},
     skills: raw.skills ?? {},
     attacks: normalizeAttacks(raw.attacks, raw.attack),

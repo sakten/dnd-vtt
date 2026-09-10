@@ -12,8 +12,9 @@ export default function MapsPanel() {
   const switchMap = useGameStore((s) => s.switchMap);
   const bringMap = useGameStore((s) => s.bringMap);
   const fileRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const editingRef = useRef<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
 
   const isDm = role === 'dm';
 
@@ -30,9 +31,17 @@ export default function MapsPanel() {
     }
   };
 
-  const commitRename = () => {
-    if (editingId && editValue.trim()) renameMap(editingId, editValue.trim());
+  const startRename = (id: string) => {
+    setEditingId(id);
+    editingRef.current = id;
+  };
+
+  const finishRename = (save: boolean) => {
+    const id = editingRef.current;
+    const value = editInputRef.current?.value.trim() ?? '';
+    editingRef.current = null;
     setEditingId(null);
+    if (save && id && value) renameMap(id, value);
   };
 
   return (
@@ -44,7 +53,7 @@ export default function MapsPanel() {
             +
           </button>
         )}
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={handleFile} />
       </div>
       <div className="maps-panel-list">
         {maps.length === 0 && <div className="hint">Добавьте карту</div>}
@@ -59,16 +68,22 @@ export default function MapsPanel() {
             {editingId === m.id ? (
               <input
                 className="map-name-input"
-                value={editValue}
+                ref={editInputRef}
+                defaultValue={m.name}
                 autoFocus
                 maxLength={60}
-                onChange={(e) => setEditValue(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
+                onFocus={(e) => e.currentTarget.select()}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename();
-                  if (e.key === 'Escape') setEditingId(null);
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    finishRename(true);
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    finishRename(false);
+                  }
                 }}
-                onBlur={commitRename}
+                onBlur={() => finishRename(true)}
               />
             ) : (
               <span
@@ -76,10 +91,7 @@ export default function MapsPanel() {
                 title={isDm ? 'Двойной клик — переименовать' : undefined}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  if (isDm) {
-                    setEditingId(m.id);
-                    setEditValue(m.name);
-                  }
+                  if (isDm) startRename(m.id);
                 }}
               >
                 {m.name}

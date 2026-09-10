@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ChatMessage, DiceRollResult } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
@@ -35,6 +35,7 @@ interface DieEntry {
   sides: number;
   value: number;
   dropped: boolean;
+  negative: boolean;
 }
 
 type Term = DieEntry | { kind: 'bonus'; value: number };
@@ -42,8 +43,11 @@ type Term = DieEntry | { kind: 'bonus'; value: number };
 function buildTerms(roll: DiceRollResult): Term[] {
   const terms: Term[] = [];
   for (const group of roll.dice) {
-    for (const v of group.values) terms.push({ kind: 'die', sides: group.sides, value: v, dropped: false });
-    for (const v of group.dropped) terms.push({ kind: 'die', sides: group.sides, value: v, dropped: true });
+    const negative = group.sign === -1;
+    for (const v of group.values)
+      terms.push({ kind: 'die', sides: group.sides, value: v, dropped: false, negative });
+    for (const v of group.dropped)
+      terms.push({ kind: 'die', sides: group.sides, value: v, dropped: true, negative });
   }
   if (roll.modifier !== 0) terms.push({ kind: 'bonus', value: roll.modifier });
   return terms;
@@ -59,13 +63,18 @@ function rollLabelType(label?: string): 'attack' | 'save' | 'check' | 'plain' {
 
 function formulaFromRoll(roll: DiceRollResult): string {
   const groups = [...roll.dice].sort((a, b) => b.sides - a.sides);
-  const parts = groups.map((d) => {
-    if (d.advantage) return `${d.values.length}d${d.sides}${d.advantage}`;
-    const total = d.values.length + d.dropped.length;
-    if (d.dropped.length > 0) return `${total}d${d.sides}k${d.values.length}`;
-    return total === 1 ? `d${d.sides}` : `${total}d${d.sides}`;
-  });
-  let out = parts.join(' + ');
+  let out = '';
+  for (const d of groups) {
+    const core = d.advantage
+      ? `${d.values.length}d${d.sides}${d.advantage}`
+      : d.dropped.length > 0
+        ? `${d.values.length + d.dropped.length}d${d.sides}k${d.values.length}`
+        : d.values.length === 1
+          ? `d${d.sides}`
+          : `${d.values.length}d${d.sides}`;
+    if (!out) out = d.sign === -1 ? `-${core}` : core;
+    else out += d.sign === -1 ? ` - ${core}` : ` + ${core}`;
+  }
   if (roll.modifier > 0) out += ` + ${roll.modifier}`;
   else if (roll.modifier < 0) out += ` - ${Math.abs(roll.modifier)}`;
   return out;
@@ -81,7 +90,7 @@ function MessageView({ message }: { message: ChatMessage }) {
       </div>
     );
   }
-  const crit = message.crit ? 'crit' : formatRoll(message.roll).crit;
+  const crit = message.crit ? 'crit' : formatRoll(message.roll);
   const labelType = rollLabelType(message.label);
   const dice = buildTerms(message.roll)
     .filter((t): t is DieEntry => t.kind === 'die')
@@ -104,7 +113,10 @@ function MessageView({ message }: { message: ChatMessage }) {
         <div className="roll-formula">{formulaFromRoll(message.roll)}</div>
         <div className="roll-terms">
           {dice.map((d, i) => (
-            <DieIcon key={i} sides={d.sides} value={d.value} dropped={d.dropped} />
+            <Fragment key={i}>
+              {d.negative && <span className="roll-minus">−</span>}
+              <DieIcon sides={d.sides} value={d.value} dropped={d.dropped} />
+            </Fragment>
           ))}
           {message.roll.modifier > 0 && <span className="roll-plus">+</span>}
           {message.roll.modifier !== 0 && (

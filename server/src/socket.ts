@@ -177,18 +177,24 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     });
 
     socket.on('room:join', ({ code, name, clientId }, cb) => {
+      if (typeof code !== 'string' || typeof clientId !== 'string') {
+        cb({ error: 'Комната не найдена' });
+        return;
+      }
       const room = manager.get(code.toUpperCase());
       if (!room) {
         cb({ error: 'Комната не найдена' });
         return;
       }
+      const safeName = typeof name === 'string' ? name.trim().slice(0, 30) : '';
+      const displayName = safeName || 'Игрок';
       const existing = room.players.find((p) => p.id === clientId);
       if (existing) {
         existing.socketId = socket.id;
         existing.isConnected = true;
       } else {
-        room.players.push({ id: clientId, name, role: 'player', isConnected: true, socketId: socket.id });
-        systemMessage(room, `${name} вошёл в комнату`);
+        room.players.push({ id: clientId, name: displayName, role: 'player', isConnected: true, socketId: socket.id });
+        systemMessage(room, `${displayName} вошёл в комнату`);
       }
       manager.saveSoon(room);
       roomCode = room.code;
@@ -207,7 +213,12 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!roomCode || !isDm()) return;
       const room = manager.get(roomCode);
       if (!room) return;
-      manager.addMap(room, payload);
+      const name = typeof payload?.name === 'string' ? payload.name.trim().slice(0, 60) : '';
+      const url = typeof payload?.url === 'string' ? payload.url : '';
+      const width = Number(payload?.width);
+      const height = Number(payload?.height);
+      if (!url || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+      manager.addMap(room, { name: name || 'Карта', url, width, height });
       broadcastMaps(room);
     });
 
@@ -304,7 +315,22 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!roomCode || !playerId) return;
       const room = manager.get(roomCode);
       if (!room) return;
-      const token = manager.addToken(room, payload.mapId, { ...payload, ownerId: playerId });
+      const name = typeof payload?.name === 'string' ? payload.name.slice(0, 40) : '';
+      const imageUrl = typeof payload?.imageUrl === 'string' ? payload.imageUrl : '';
+      const x = Number(payload?.x);
+      const y = Number(payload?.y);
+      const cells = Number(payload?.cells ?? 1);
+      if (!imageUrl || !Number.isFinite(x) || !Number.isFinite(y)) return;
+      const token = manager.addToken(room, payload.mapId, {
+        name,
+        imageUrl,
+        x,
+        y,
+        cells: Number.isFinite(cells) ? cells : 1,
+        round: payload.round === true,
+        description: typeof payload.description === 'string' ? payload.description.slice(0, 200) : '',
+        ownerId: playerId,
+      });
       if (!token) return;
       broadcastAll('token:add', { mapId: payload.mapId, token });
     });
@@ -313,6 +339,8 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!roomCode) return;
       const room = manager.get(roomCode);
       if (!room) return;
+      if (typeof mapId !== 'string' || typeof id !== 'string') return;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const token = manager.findToken(room, mapId, id);
       if (!token) return;
       token.x = x;
@@ -337,18 +365,18 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const room = manager.get(roomCode);
       if (!room) return;
       const token = manager.findToken(room, mapId, id);
-      if (!token) return;
-      if (patch.name !== undefined) token.name = patch.name;
-      if (patch.description !== undefined) token.description = patch.description;
-      if (patch.cells !== undefined) {
+      if (!token || !patch || typeof patch !== 'object') return;
+      if (typeof patch.name === 'string') token.name = patch.name.slice(0, 40);
+      if (typeof patch.description === 'string') token.description = patch.description.slice(0, 200);
+      if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {
         token.cells = Math.min(4, Math.max(1, Math.round(patch.cells)));
         token.w = token.cells * room.scene.grid.size;
         token.h = token.cells * room.scene.grid.size;
       }
-      if (patch.round !== undefined) token.round = patch.round;
-      if (patch.scale !== undefined) token.scale = patch.scale;
-      if (patch.rotation !== undefined) token.rotation = patch.rotation;
-      if (patch.visible !== undefined) token.visible = patch.visible;
+      if (typeof patch.round === 'boolean') token.round = patch.round;
+      if (typeof patch.scale === 'number' && Number.isFinite(patch.scale)) token.scale = patch.scale;
+      if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;
+      if (typeof patch.visible === 'boolean') token.visible = patch.visible;
       manager.saveSoon(room);
       broadcastAll('token:update', { mapId, token });
     });
@@ -383,6 +411,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!roomCode || !playerId) return;
       const room = manager.get(roomCode);
       if (!room) return;
+      if (!sheet || typeof sheet !== 'object') return;
       const normalized = normalizeSheet(sheet);
       room.sheets[playerId] = normalized;
       manager.saveSoon(room);
@@ -401,7 +430,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
           kind: 'roll',
           author: player?.name ?? '?',
           roll,
-          label: label?.trim() ? label.trim() : undefined,
+          label: label?.trim() ? label.trim().slice(0, 80) : undefined,
           ts: Date.now(),
         };
         manager.addMessage(room, message);
@@ -415,6 +444,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!roomCode || !playerId) return;
       const room = manager.get(roomCode);
       if (!room) return;
+      if (!hit || typeof hit.expression !== 'string') return;
       const player = room.players.find((p) => p.id === playerId);
       const author = player?.name ?? '?';
       try {
@@ -425,13 +455,13 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
           kind: 'roll',
           author,
           roll: hitRoll,
-          label: hit.label?.trim() ? hit.label.trim() : undefined,
+          label: hit.label?.trim() ? hit.label.trim().slice(0, 80) : undefined,
           ts: Date.now(),
         };
         manager.addMessage(room, hitMessage);
         broadcastAll('chat:message', hitMessage);
 
-        const damageExpression = damage?.expression.trim();
+        const damageExpression = typeof damage?.expression === 'string' ? damage.expression.trim() : '';
         if (damageExpression) {
           const damageRoll = rollDice(damageExpression, Math.random, { doubleDice: crit });
           const damageMessage: ChatMessage = {
@@ -439,7 +469,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
             kind: 'roll',
             author,
             roll: damageRoll,
-            label: damage?.label?.trim() ? damage.label.trim() : undefined,
+            label: damage?.label?.trim() ? damage.label.trim().slice(0, 80) : undefined,
             crit,
             ts: Date.now(),
           };

@@ -40,6 +40,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- обновляем список при появлении сокета
   }, [socket]);
 
   const create = () => {

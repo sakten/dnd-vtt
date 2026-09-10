@@ -10,7 +10,7 @@ import type {
   Token,
 } from 'shared';
 import { normalizeSheet } from 'shared';
-import { loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
+import { cancelRoomSave, loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
   socketId: string | null;
@@ -35,65 +35,75 @@ export class RoomManager {
   async init() {
     const persisted = await loadPersistedRooms();
     for (const p of persisted) {
-      const scene = p.scene as Scene;
-      if (!Array.isArray(scene.maps)) {
-        const legacy = scene as unknown as {
-          map: { url: string; width: number; height: number } | null;
-          tokens?: Token[];
-        };
-        const maps: MapInfo[] = legacy.map
-          ? [
-              {
-                id: randomUUID(),
-                name: 'Карта 1',
-                url: legacy.map.url,
-                width: legacy.map.width,
-                height: legacy.map.height,
-                tokens: legacy.tokens ?? [],
-                fog: { size: scene.grid.size, offsetX: scene.grid.offsetX, offsetY: scene.grid.offsetY, hidden: [] },
-              },
-            ]
-          : [];
-        scene.maps = maps;
-        scene.activeMapId = maps[0]?.id ?? null;
+      try {
+        this.rooms.set(p.code, this.hydrateRoom(p));
+      } catch (e) {
+        console.warn(`Не удалось загрузить комнату ${p?.code ?? '?'}:`, e);
       }
-      for (const map of scene.maps) {
-        if (!Array.isArray(map.tokens)) map.tokens = [];
-        if (!map.fog || typeof map.fog !== 'object') {
-          map.fog = { size: scene.grid.size, offsetX: scene.grid.offsetX, offsetY: scene.grid.offsetY, hidden: [] };
-        }
-        if (!Array.isArray(map.fog.hidden)) map.fog.hidden = [];
-        for (const token of map.tokens) {
-          if (typeof token.cells !== 'number') token.cells = 1;
-          if (typeof token.round !== 'boolean') token.round = false;
-          if (typeof token.description !== 'string') token.description = '';
-        }
-      }
-      for (const item of p.library ?? []) {
-        if (typeof item.cells !== 'number') item.cells = 1;
-        if (typeof item.round !== 'boolean') item.round = false;
-        if (typeof item.description !== 'string') item.description = '';
-      }
-      const sheets: Record<string, CharacterSheet> = {};
-      if (p.sheets && typeof p.sheets === 'object') {
-        for (const [id, sheet] of Object.entries(p.sheets)) {
-          sheets[id] = normalizeSheet(sheet);
-        }
-      }
-      this.rooms.set(p.code, {
-        code: p.code,
-        name:
-          typeof p.name === 'string' && p.name.trim()
-            ? p.name.trim().slice(0, 60)
-            : `Игра ${p.code.slice(0, 6)}`,
-        scene,
-        library: Array.isArray(p.library) ? p.library : [],
-        sheets,
-        chat: p.chat ?? [],
-        players: p.players.map((pl) => ({ ...pl, isConnected: false, socketId: null })),
-        nextZ: p.nextZ ?? 0,
-      });
     }
+  }
+
+  private hydrateRoom(p: PersistedRoom): Room {
+    const scene = p.scene as Scene;
+    if (!Array.isArray(scene.maps)) {
+      const legacy = scene as unknown as {
+        map: { url: string; width: number; height: number } | null;
+        tokens?: Token[];
+      };
+      const maps: MapInfo[] = legacy.map
+        ? [
+            {
+              id: randomUUID(),
+              name: 'Карта 1',
+              url: legacy.map.url,
+              width: legacy.map.width,
+              height: legacy.map.height,
+              tokens: legacy.tokens ?? [],
+              fog: { size: scene.grid.size, offsetX: scene.grid.offsetX, offsetY: scene.grid.offsetY, hidden: [] },
+            },
+          ]
+        : [];
+      scene.maps = maps;
+      scene.activeMapId = maps[0]?.id ?? null;
+    }
+    for (const map of scene.maps) {
+      if (!Array.isArray(map.tokens)) map.tokens = [];
+      if (!map.fog || typeof map.fog !== 'object') {
+        map.fog = { size: scene.grid.size, offsetX: scene.grid.offsetX, offsetY: scene.grid.offsetY, hidden: [] };
+      }
+      if (!Array.isArray(map.fog.hidden)) map.fog.hidden = [];
+      for (const token of map.tokens) {
+        if (typeof token.cells !== 'number') token.cells = 1;
+        if (typeof token.round !== 'boolean') token.round = false;
+        if (typeof token.description !== 'string') token.description = '';
+      }
+    }
+    for (const item of p.library ?? []) {
+      if (typeof item.cells !== 'number') item.cells = 1;
+      if (typeof item.round !== 'boolean') item.round = false;
+      if (typeof item.description !== 'string') item.description = '';
+    }
+    const sheets: Record<string, CharacterSheet> = {};
+    if (p.sheets && typeof p.sheets === 'object') {
+      for (const [id, sheet] of Object.entries(p.sheets)) {
+        sheets[id] = normalizeSheet(sheet);
+      }
+    }
+    return {
+      code: p.code,
+      name:
+        typeof p.name === 'string' && p.name.trim()
+          ? p.name.trim().slice(0, 60)
+          : `Игра ${p.code.slice(0, 6)}`,
+      scene,
+      library: Array.isArray(p.library) ? p.library : [],
+      sheets,
+      chat: p.chat ?? [],
+      players: Array.isArray(p.players)
+        ? p.players.map((pl) => ({ ...pl, isConnected: false, socketId: null }))
+        : [],
+      nextZ: p.nextZ ?? 0,
+    };
   }
 
   has(code: string) {
@@ -112,6 +122,7 @@ export class RoomManager {
   deleteRoom(code: string): boolean {
     if (!this.rooms.has(code)) return false;
     this.rooms.delete(code);
+    cancelRoomSave(code);
     removeRoomFile(code);
     return true;
   }
@@ -154,12 +165,11 @@ export class RoomManager {
   }
 
   private generateCode(): string {
-    let code = '';
-    do {
+    for (;;) {
       const bytes = randomBytes(12);
-      code = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
-    } while (this.rooms.has(code));
-    return code;
+      const code = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+      if (!this.rooms.has(code)) return code;
+    }
   }
 
   addMap(room: Room, input: { name: string; url: string; width: number; height: number }): MapInfo {

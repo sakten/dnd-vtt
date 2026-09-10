@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import type { MapInfo } from 'shared';
+import { snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
 import GridLayer from './GridLayer';
@@ -34,6 +35,7 @@ export default function TableTop() {
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
   const activeMap = scene.maps.find((m) => m.id === viewMapId) ?? null;
+  const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -62,7 +64,7 @@ export default function TableTop() {
     if (!f) return false;
     const cx = Math.floor((x - f.offsetX) / f.size);
     const cy = Math.floor((y - f.offsetY) / f.size);
-    return f.hidden.includes(`${cx},${cy}`);
+    return hiddenSet.has(`${cx},${cy}`);
   };
 
   const cellKeysBetween = (a: WorldPoint, b: WorldPoint): string[] => {
@@ -196,15 +198,9 @@ export default function TableTop() {
     let wx = (sx - v.x) / v.scale;
     let wy = (sy - v.y) / v.scale;
     if (s.grid.snap) {
-      const g = s.grid.size;
-      const parity = (item.cells ?? 1) % 2 === 1;
-      if (parity) {
-        wx = Math.round((wx - s.grid.offsetX - g / 2) / g) * g + s.grid.offsetX + g / 2;
-        wy = Math.round((wy - s.grid.offsetY - g / 2) / g) * g + s.grid.offsetY + g / 2;
-      } else {
-        wx = Math.round((wx - s.grid.offsetX) / g) * g + s.grid.offsetX;
-        wy = Math.round((wy - s.grid.offsetY) / g) * g + s.grid.offsetY;
-      }
+      const cells = item.cells ?? 1;
+      wx = snapToGrid(wx, s.grid.offsetX, s.grid.size, cells);
+      wy = snapToGrid(wy, s.grid.offsetY, s.grid.size, cells);
     }
     useGameStore
       .getState()
@@ -230,9 +226,6 @@ export default function TableTop() {
         scaleY={view.scale}
         draggable={!fogMode.active}
         onWheel={handleWheel}
-        onDragStart={(e) => {
-          if (e.target !== e.currentTarget) return;
-        }}
         onDragMove={(e) => {
           if (e.target !== e.currentTarget) return;
           setView({ x: e.currentTarget.x(), y: e.currentTarget.y(), scale: view.scale });
@@ -250,7 +243,7 @@ export default function TableTop() {
       >
         <Layer>{activeMap && <MapSprite map={activeMap} />}</Layer>
         <Layer listening={false}>
-          {fogRects.map((r, i) => (
+          {fogRects.map((r) => (
             <Rect
               key={`${r.x},${r.y}`}
               x={r.x}

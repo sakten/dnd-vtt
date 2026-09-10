@@ -41,7 +41,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    cb(null, /\.(png|jpe?g|webp|gif|svg)$/i.test(file.originalname));
+    cb(null, /\.(png|jpe?g|webp|gif)$/i.test(file.originalname));
   },
 });
 
@@ -69,9 +69,23 @@ app.post(
   }
 );
 
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.use(
+  '/uploads',
+  (_req, res, next) => {
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
+    next();
+  },
+  express.static(UPLOADS_DIR)
+);
 app.use(express.static(CLIENT_DIST));
-app.get('*', (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io/')) {
+    next();
+    return;
+  }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+});
 
 server.listen(PORT, () => {
   console.log(`VTT server listening on http://localhost:${PORT}`);

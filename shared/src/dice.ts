@@ -1,8 +1,11 @@
+export type DieSign = 1 | -1;
+
 export interface ParsedDie {
   count: number;
   sides: number;
   keep: number | null;
   advantage: 'a' | 'd' | null;
+  sign: DieSign;
 }
 
 export interface DieResult {
@@ -10,6 +13,7 @@ export interface DieResult {
   values: number[];
   dropped: number[];
   advantage: 'a' | 'd' | null;
+  sign: DieSign;
 }
 
 export interface DiceRollResult {
@@ -38,11 +42,17 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
   let modifier = 0;
   let pos = 0;
 
-  const pushDie = (count: number, sides: number, keep: number | null, advantage: 'a' | 'd' | null) => {
+  const pushDie = (
+    count: number,
+    sides: number,
+    keep: number | null,
+    advantage: 'a' | 'd' | null,
+    sign: DieSign
+  ) => {
     if (count < 1 || count > MAX_DICE) throw new DiceParseError(`Количество кубиков должно быть от 1 до ${MAX_DICE}`);
     if (sides < 2 || sides > MAX_SIDES) throw new DiceParseError(`Граней должно быть от 2 до ${MAX_SIDES}`);
     if (keep !== null && (keep < 1 || keep > count)) throw new DiceParseError('k должно быть от 1 до количества кубиков');
-    dice.push({ count, sides, keep, advantage });
+    dice.push({ count, sides, keep, advantage, sign });
   };
 
   while (pos < s.length) {
@@ -53,7 +63,8 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
         m[1] ? parseInt(m[1], 10) : 1,
         parseInt(m[2], 10),
         m[4] ? parseInt(m[4], 10) : null,
-        (m[3] as 'a' | 'd' | undefined) ?? null
+        (m[3] as 'a' | 'd' | undefined) ?? null,
+        1
       );
       pos += m[0].length;
       continue;
@@ -64,7 +75,8 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
         m[2] ? parseInt(m[2], 10) : 1,
         parseInt(m[3], 10),
         m[5] ? parseInt(m[5], 10) : null,
-        (m[4] as 'a' | 'd' | undefined) ?? null
+        (m[4] as 'a' | 'd' | undefined) ?? null,
+        m[1] === '-' ? -1 : 1
       );
       pos += m[0].length;
       continue;
@@ -92,7 +104,7 @@ export interface RollOptions {
 }
 
 export function isCriticalHit(roll: DiceRollResult): boolean {
-  return roll.dice.some((d) => d.sides === 20 && d.values.includes(20));
+  return roll.dice.some((d) => d.sides === 20 && d.sign === 1 && d.values.includes(20));
 }
 
 export function rollDice(
@@ -117,11 +129,12 @@ export function rollDice(
         values: all.filter((_, i) => keptIdx.has(i)),
         dropped: all.filter((_, i) => !keptIdx.has(i)),
         advantage: d.advantage,
+        sign: d.sign,
       };
     }
     const all = Array.from({ length: count }, () => rollOne(d.sides, rng));
     if (keep === null) {
-      return { sides: d.sides, values: all, dropped: [], advantage: null };
+      return { sides: d.sides, values: all, dropped: [], advantage: null, sign: d.sign };
     }
     const sortedIdx = all.map((v, i) => i).sort((a, b) => all[b] - all[a]);
     const keptIdx = new Set(sortedIdx.slice(0, keep));
@@ -130,16 +143,23 @@ export function rollDice(
       values: all.filter((_, i) => keptIdx.has(i)),
       dropped: all.filter((_, i) => !keptIdx.has(i)),
       advantage: null,
+      sign: d.sign,
     };
   });
 
-  const diceSum = results.reduce((acc, r) => acc + r.values.reduce((a, b) => a + b, 0), 0);
+  const diceSum = results.reduce(
+    (acc, r) => acc + r.sign * r.values.reduce((a, b) => a + b, 0),
+    0
+  );
   const total = diceSum + modifier;
 
-  const parts = results.map((r) =>
-    r.values.length === 1 && r.dropped.length === 0 ? String(r.values[0]) : `[${r.values.join(', ')}]`
-  );
-  let breakdown = parts.join(' + ');
+  let breakdown = '';
+  for (const r of results) {
+    const inner =
+      r.values.length === 1 && r.dropped.length === 0 ? String(r.values[0]) : `[${r.values.join(', ')}]`;
+    if (!breakdown) breakdown = r.sign === -1 ? `-${inner}` : inner;
+    else breakdown += r.sign === -1 ? ` - ${inner}` : ` + ${inner}`;
+  }
   if (modifier > 0) breakdown += ` + ${modifier}`;
   else if (modifier < 0) breakdown += ` - ${Math.abs(modifier)}`;
 

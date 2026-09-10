@@ -232,7 +232,7 @@ export const useGameStore = create<GameState>()((set, get) => {
       });
 
       socket.on('map:bring', ({ activeMapId }) => {
-        set((s) => ({ viewMapId: activeMapId, selectedTokenId: null, tokenMenuId: null, draggingTokenId: null }));
+        set({ viewMapId: activeMapId, selectedTokenId: null, tokenMenuId: null, draggingTokenId: null });
         window.setTimeout(() => get().fitView(), 30);
       });
 

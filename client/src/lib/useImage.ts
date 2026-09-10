@@ -8,9 +8,18 @@ export function useImage(url: string | undefined): HTMLImageElement | undefined 
       setImage(undefined);
       return;
     }
+    let active = true;
     const el = new window.Image();
-    el.onload = () => setImage(el);
+    el.onload = () => {
+      if (active) setImage(el);
+    };
+    el.onerror = () => {
+      if (active) setImage(undefined);
+    };
     el.src = url;
+    return () => {
+      active = false;
+    };
   }, [url]);
 
   return image;
