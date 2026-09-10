@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import {
+  clampCells,
+  DEFAULT_GRID,
   parseDiceExpression,
   snapToGrid,
   type CharacterSheet,
   type ChatMessage,
+  type CombatState,
   type FogState,
   type GridSettings,
   type LibraryItem,
@@ -11,6 +14,7 @@ import {
   type Role,
   type Scene,
   type Token,
+  type TokenFields,
 } from 'shared';
 import { createSocket, type AppSocket } from '../net/socket';
 
@@ -26,16 +30,6 @@ export interface FogMode {
   action: 'hide' | 'reveal';
   brush: number;
 }
-
-const DEFAULT_GRID: GridSettings = {
-  size: 50,
-  color: '#ffffff',
-  opacity: 0.35,
-  visible: true,
-  offsetX: 0,
-  offsetY: 0,
-  snap: true,
-};
 
 interface GameState {
   socket: AppSocket | null;
@@ -53,6 +47,7 @@ interface GameState {
   chatError: string | null;
   joinError: string | null;
   selectedTokenId: string | null;
+  hoverTokenId: string | null;
   draggingTokenId: string | null;
   view: ViewState;
   viewport: { w: number; h: number };
@@ -74,27 +69,16 @@ interface GameState {
   renameMap: (id: string, name: string) => void;
   switchMap: (id: string) => void;
   bringMap: (id: string) => void;
-  addLibraryItem: (name: string, url: string, cells: number, round: boolean, description: string) => void;
+  addLibraryItem: (fields: TokenFields) => void;
   updateLibraryItem: (id: string, patch: Partial<LibraryItem>) => void;
   removeLibraryItem: (id: string) => void;
   updateGrid: (patch: Partial<GridSettings>) => void;
-  addTokenAt: (
-    name: string,
-    imageUrl: string,
-    x: number,
-    y: number,
-    cells: number,
-    round: boolean,
-    description: string
-  ) => void;
+  addTokenAt: (libraryItemId: string, x: number, y: number) => void;
   removeToken: (id: string) => void;
   moveToken: (id: string, x: number, y: number) => void;
   finalizeTokenMove: (id: string, x: number, y: number) => void;
   lockToken: (id: string, lock: boolean) => void;
-  setTokenCells: (id: string, cells: number) => void;
-  setTokenName: (id: string, name: string) => void;
-  setTokenDescription: (id: string, description: string) => void;
-  setTokenRound: (id: string, round: boolean) => void;
+  setTokenFields: (id: string, patch: Partial<TokenFields>) => void;
   setView: (view: ViewState) => void;
   setViewport: (v: { w: number; h: number }) => void;
   setSelected: (id: string | null) => void;
@@ -103,6 +87,16 @@ interface GameState {
   setTokenMenu: (id: string | null) => void;
   setFogMode: (patch: Partial<FogMode>) => void;
   updateFog: (mapId: string, fog: FogState) => void;
+  startCombat: () => void;
+  endCombat: () => void;
+  addCombatant: (tokenId: string) => void;
+  addMapCombatants: () => void;
+  removeCombatant: (id: string) => void;
+  updateCombatant: (id: string, patch: { name?: string; initiative?: number; bonus?: string }) => void;
+  moveCombatant: (id: string, toIndex: number) => void;
+  rollInitiative: (id?: string) => void;
+  clearCombat: () => void;
+  setHoverToken: (id: string | null) => void;
   fitView: () => void;
 }
 
@@ -129,6 +123,15 @@ export const useGameStore = create<GameState>()((set, get) => {
 
   const viewMapId = () => get().viewMapId;
 
+  const patchMapCombat = (mapId: string, combat: CombatState) =>
+    set((s) => {
+      const idx = s.scene.maps.findIndex((m) => m.id === mapId);
+      if (idx < 0) return s;
+      const maps = [...s.scene.maps];
+      maps[idx] = { ...maps[idx], combat };
+      return { scene: { ...s.scene, maps } };
+    });
+
   const clearTokenUi = () => set({ selectedTokenId: null, tokenMenuId: null, draggingTokenId: null });
 
   return {
@@ -139,7 +142,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     roomName: null,
     role: 'player',
     players: [],
-    scene: { maps: [], activeMapId: null, grid: DEFAULT_GRID },
+    scene: { maps: [], activeMapId: null, grid: { ...DEFAULT_GRID } },
     viewMapId: null,
     library: [],
     sheet: null,
@@ -147,6 +150,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     chatError: null,
     joinError: null,
     selectedTokenId: null,
+    hoverTokenId: null,
     draggingTokenId: null,
     view: { x: 0, y: 0, scale: 1 },
     viewport: { w: 0, h: 0 },
@@ -247,6 +251,7 @@ export const useGameStore = create<GameState>()((set, get) => {
       );
 
       socket.on('library:update', (library) => set({ library }));
+      socket.on('combat:update', ({ mapId, combat }) => patchMapCombat(mapId, combat));
       socket.on('grid:update', (grid) => set((s) => ({ scene: { ...s.scene, grid } })));
       socket.on('token:add', ({ mapId, token }) =>
         set((s) => {
@@ -299,6 +304,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           roomCode: null,
           roomName: null,
           joinError: 'Комната удалена ведущим',
+          hoverTokenId: null,
           selectedTokenId: null,
           tokenMenuId: null,
           draggingTokenId: null,
@@ -383,8 +389,8 @@ export const useGameStore = create<GameState>()((set, get) => {
       get().socket?.emit('map:bring', id);
     },
 
-    addLibraryItem: (name, url, cells, round, description) => {
-      get().socket?.emit('library:add', { name, url, cells, round, description });
+    addLibraryItem: (fields) => {
+      get().socket?.emit('library:add', fields);
     },
 
     updateLibraryItem: (id, patch) => {
@@ -427,10 +433,10 @@ export const useGameStore = create<GameState>()((set, get) => {
       throttled('grid', 150, () => socket.emit('grid:update', get().scene.grid));
     },
 
-    addTokenAt: (name, imageUrl, x, y, cells, round, description) => {
+    addTokenAt: (libraryItemId, x, y) => {
       const mapId = viewMapId();
       if (!mapId) return;
-      get().socket?.emit('token:add', { mapId, name, imageUrl, x, y, cells, round, description });
+      get().socket?.emit('token:add', { mapId, libraryItemId, x, y });
     },
 
     removeToken: (id) => {
@@ -462,38 +468,20 @@ export const useGameStore = create<GameState>()((set, get) => {
       get().socket?.emit('token:lock', { mapId, id, lock });
     },
 
-    setTokenCells: (id, cells) => {
+    setTokenFields: (id, patch) => {
       const socket = get().socket;
       const mapId = viewMapId();
       if (!socket || !mapId) return;
-      const clamped = Math.min(4, Math.max(1, Math.round(cells)));
-      const size = get().scene.grid.size;
-      patchTokenInMap(mapId, id, { cells: clamped, w: clamped * size, h: clamped * size });
-      socket.emit('token:update', { mapId, id, patch: { cells: clamped } });
-    },
-
-    setTokenName: (id, name) => {
-      const socket = get().socket;
-      const mapId = viewMapId();
-      if (!socket || !mapId) return;
-      patchTokenInMap(mapId, id, { name });
-      socket.emit('token:update', { mapId, id, patch: { name } });
-    },
-
-    setTokenDescription: (id, description) => {
-      const socket = get().socket;
-      const mapId = viewMapId();
-      if (!socket || !mapId) return;
-      patchTokenInMap(mapId, id, { description });
-      socket.emit('token:update', { mapId, id, patch: { description } });
-    },
-
-    setTokenRound: (id, round) => {
-      const socket = get().socket;
-      const mapId = viewMapId();
-      if (!socket || !mapId) return;
-      patchTokenInMap(mapId, id, { round });
-      socket.emit('token:update', { mapId, id, patch: { round } });
+      const local: Partial<Token> = { ...patch };
+      if (typeof patch.cells === 'number') {
+        const clamped = clampCells(patch.cells);
+        const size = get().scene.grid.size;
+        local.cells = clamped;
+        local.w = clamped * size;
+        local.h = clamped * size;
+      }
+      patchTokenInMap(mapId, id, local);
+      socket.emit('token:update', { mapId, id, patch: local });
     },
 
     setView: (view) => set({ view }),
@@ -520,6 +508,62 @@ export const useGameStore = create<GameState>()((set, get) => {
         if (latest) socket.emit('fog:update', { mapId, fog: latest });
       });
     },
+
+    startCombat: () => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:start', { mapId });
+    },
+
+    endCombat: () => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:end', { mapId });
+    },
+
+    addCombatant: (tokenId) => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:add', { mapId, tokenId });
+    },
+
+    addMapCombatants: () => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:addMap', { mapId });
+    },
+
+    removeCombatant: (id) => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:remove', { mapId, id });
+    },
+
+    updateCombatant: (id, patch) => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:update', { mapId, id, patch });
+    },
+
+    moveCombatant: (id, toIndex) => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:move', { mapId, id, toIndex });
+    },
+
+    rollInitiative: (id) => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:roll', id ? { mapId, id } : { mapId });
+    },
+
+    clearCombat: () => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:clear', { mapId });
+    },
+
+    setHoverToken: (hoverTokenId) => set({ hoverTokenId }),
 
     fitView: () => {
       const { scene, viewport } = get();

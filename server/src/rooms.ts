@@ -2,14 +2,18 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type {
   CharacterSheet,
   ChatMessage,
+  CombatState,
+  DiceRollResult,
+  InitiativeEntry,
   LibraryItem,
   MapInfo,
   Player,
   RoomState,
   Scene,
   Token,
+  TokenFields,
 } from 'shared';
-import { normalizeSheet } from 'shared';
+import { abilityMod, clampCells, DEFAULT_GRID, defaultFog, normalizeSheet, rollDice } from 'shared';
 import { cancelRoomSave, loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
@@ -58,9 +62,10 @@ export class RoomManager {
               url: legacy.map.url,
               width: legacy.map.width,
               height: legacy.map.height,
-              tokens: legacy.tokens ?? [],
-              fog: { size: scene.grid.size, offsetX: scene.grid.offsetX, offsetY: scene.grid.offsetY, hidden: [] },
-            },
+                tokens: legacy.tokens ?? [],
+                fog: defaultFog(scene.grid),
+                combat: { active: false, entries: [] },
+              },
           ]
         : [];
       scene.maps = maps;
@@ -69,19 +74,41 @@ export class RoomManager {
     for (const map of scene.maps) {
       if (!Array.isArray(map.tokens)) map.tokens = [];
       if (!map.fog || typeof map.fog !== 'object') {
-        map.fog = { size: scene.grid.size, offsetX: scene.grid.offsetX, offsetY: scene.grid.offsetY, hidden: [] };
+        map.fog = defaultFog(scene.grid);
       }
       if (!Array.isArray(map.fog.hidden)) map.fog.hidden = [];
+      map.combat =
+        map.combat && typeof map.combat === 'object'
+          ? { active: map.combat.active === true, entries: Array.isArray(map.combat.entries) ? map.combat.entries : [] }
+          : { active: false, entries: [] };
       for (const token of map.tokens) {
+        if (typeof token.name !== 'string') token.name = '';
+        if (typeof token.imageUrl !== 'string') token.imageUrl = '';
         if (typeof token.cells !== 'number') token.cells = 1;
         if (typeof token.round !== 'boolean') token.round = false;
         if (typeof token.description !== 'string') token.description = '';
+        if (typeof token.initiativeBonus !== 'string') token.initiativeBonus = '';
       }
     }
+    const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
+    const legacyMap = scene.maps.find((m) => m.id === scene.activeMapId) ?? scene.maps[0];
+    if (legacyCombat && typeof legacyCombat === 'object' && legacyMap) {
+      legacyMap.combat = {
+        active: legacyCombat.active === true,
+        entries: Array.isArray(legacyCombat.entries) ? legacyCombat.entries : [],
+      };
+    }
     for (const item of p.library ?? []) {
+      const legacy = item as LibraryItem & { url?: string };
+      if (typeof legacy.imageUrl !== 'string') {
+        legacy.imageUrl = typeof legacy.url === 'string' ? legacy.url : '';
+      }
+      delete legacy.url;
+      if (typeof item.name !== 'string') item.name = '';
       if (typeof item.cells !== 'number') item.cells = 1;
       if (typeof item.round !== 'boolean') item.round = false;
       if (typeof item.description !== 'string') item.description = '';
+      if (typeof item.initiativeBonus !== 'string') item.initiativeBonus = '';
     }
     const sheets: Record<string, CharacterSheet> = {};
     if (p.sheets && typeof p.sheets === 'object') {
@@ -148,7 +175,7 @@ export class RoomManager {
       scene: {
         maps: [],
         activeMapId: null,
-        grid: { size: 50, color: '#ffffff', opacity: 0.35, visible: true, offsetX: 0, offsetY: 0, snap: true },
+        grid: { ...DEFAULT_GRID },
       },
       library: [],
       sheets: {},
@@ -177,7 +204,8 @@ export class RoomManager {
       ...input,
       id: randomUUID(),
       tokens: [],
-      fog: { size: room.scene.grid.size, offsetX: room.scene.grid.offsetX, offsetY: room.scene.grid.offsetY, hidden: [] },
+      fog: defaultFog(room.scene.grid),
+      combat: { active: false, entries: [] },
     };
     room.scene.maps.push(map);
     room.scene.activeMapId = map.id;
@@ -198,17 +226,15 @@ export class RoomManager {
     this.saveSoon(room);
   }
 
-  addLibraryItem(
-    room: Room,
-    input: { name: string; url: string; cells: number; round: boolean; description: string }
-  ): LibraryItem {
+  addLibraryItem(room: Room, input: TokenFields): LibraryItem {
     const item: LibraryItem = {
+      ...input,
       id: randomUUID(),
-      name: input.name,
-      url: input.url,
-      cells: Math.min(4, Math.max(1, Math.round(input.cells ?? 1))),
-      round: input.round ?? false,
-      description: input.description ?? '',
+      name: input.name.slice(0, 60),
+      cells: clampCells(input.cells),
+      round: input.round === true,
+      description: (input.description ?? '').slice(0, 200),
+      initiativeBonus: (input.initiativeBonus ?? '').slice(0, 10),
     };
     room.library.push(item);
     this.saveSoon(room);
@@ -218,10 +244,11 @@ export class RoomManager {
   updateLibraryItem(room: Room, id: string, patch: Partial<LibraryItem>) {
     const item = room.library.find((i) => i.id === id);
     if (!item) return;
-    if (patch.name !== undefined) item.name = patch.name;
-    if (patch.description !== undefined) item.description = patch.description;
-    if (patch.round !== undefined) item.round = patch.round;
-    if (patch.cells !== undefined) item.cells = Math.min(4, Math.max(1, Math.round(patch.cells)));
+    if (typeof patch.name === 'string') item.name = patch.name.slice(0, 60);
+    if (typeof patch.description === 'string') item.description = patch.description.slice(0, 200);
+    if (typeof patch.round === 'boolean') item.round = patch.round;
+    if (typeof patch.cells === 'number') item.cells = clampCells(patch.cells);
+    if (typeof patch.initiativeBonus === 'string') item.initiativeBonus = patch.initiativeBonus.slice(0, 10);
     this.saveSoon(room);
   }
 
@@ -239,36 +266,31 @@ export class RoomManager {
   addToken(
     room: Room,
     mapId: string,
-    input: {
-      name: string;
-      imageUrl: string;
-      x: number;
-      y: number;
-      cells?: number;
-      round?: boolean;
-      description?: string;
-      ownerId: string;
-    }
+    fields: TokenFields,
+    x: number,
+    y: number,
+    ownerId: string
   ): Token | null {
     const map = this.findMap(room, mapId);
     if (!map) return null;
-    const cells = Math.min(4, Math.max(1, Math.round(input.cells ?? 1)));
+    const cells = clampCells(fields.cells || 1);
     const token: Token = {
+      ...fields,
       id: randomUUID(),
-      name: input.name,
-      description: input.description ?? '',
-      imageUrl: input.imageUrl,
-      x: input.x,
-      y: input.y,
+      name: fields.name.slice(0, 40),
+      description: (fields.description ?? '').slice(0, 200),
+      initiativeBonus: (fields.initiativeBonus ?? '').slice(0, 10),
+      x,
+      y,
       w: cells * room.scene.grid.size,
       h: cells * room.scene.grid.size,
       cells,
-      round: input.round ?? false,
+      round: fields.round === true,
       scale: 1,
       rotation: 0,
       z: ++room.nextZ,
       visible: true,
-      ownerId: input.ownerId,
+      ownerId,
       lockedBy: null,
     };
     map.tokens.push(token);
@@ -293,6 +315,178 @@ export class RoomManager {
         if (token.lockedBy === playerId) token.lockedBy = null;
       }
     }
+  }
+
+  private findTokenById(room: Room, id: string): Token | null {
+    for (const map of room.scene.maps) {
+      const found = map.tokens.find((t) => t.id === id);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private initiativeBonusFor(room: Room, token: Token): string {
+    const raw = (token.initiativeBonus ?? '').trim();
+    if (raw) return raw;
+    const sheet = room.sheets[token.ownerId];
+    if (!sheet) return '';
+    const mod = abilityMod(sheet.abilities.dex ?? 10);
+    return mod >= 0 ? `+${mod}` : `${mod}`;
+  }
+
+  private rollInit(bonus: string): DiceRollResult {
+    const b = bonus.trim();
+    const expression = !b ? 'd20' : /^[+-]/.test(b) ? `d20${b}` : `d20+${b}`;
+    try {
+      return rollDice(expression);
+    } catch {
+      return rollDice('d20');
+    }
+  }
+
+  private makeEntry(room: Room, token: Token): InitiativeEntry {
+    const bonus = this.initiativeBonusFor(room, token);
+    const roll = this.rollInit(bonus);
+    return {
+      id: randomUUID(),
+      tokenId: token.id,
+      name: token.name,
+      imageUrl: token.imageUrl,
+      initiative: roll.total,
+      bonus,
+      roll,
+    };
+  }
+
+  private reRollEntry(room: Room, entry: InitiativeEntry) {
+    const token = entry.tokenId ? this.findTokenById(room, entry.tokenId) : null;
+    const bonus = token ? this.initiativeBonusFor(room, token) : entry.bonus;
+    const roll = this.rollInit(bonus);
+    entry.bonus = bonus;
+    entry.initiative = roll.total;
+    entry.roll = roll;
+  }
+
+  combatOf(room: Room, mapId: string): CombatState | null {
+    return room.scene.maps.find((m) => m.id === mapId)?.combat ?? null;
+  }
+
+  startCombat(room: Room, mapId: string) {
+    const map = room.scene.maps.find((m) => m.id === mapId);
+    if (!map) return;
+    const entries = map.tokens.map((t) => this.makeEntry(room, t));
+    entries.sort((a, b) => b.initiative - a.initiative);
+    map.combat = { active: true, entries };
+    this.saveSoon(room);
+  }
+
+  endCombat(room: Room, mapId: string) {
+    const map = room.scene.maps.find((m) => m.id === mapId);
+    if (!map) return;
+    map.combat = { active: false, entries: [] };
+    this.saveSoon(room);
+  }
+
+  clearCombat(room: Room, mapId: string) {
+    const map = room.scene.maps.find((m) => m.id === mapId);
+    if (!map) return;
+    map.combat = { active: true, entries: [] };
+    this.saveSoon(room);
+  }
+
+  addTokenToCombat(room: Room, mapId: string, token: Token) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat) return;
+    const entry = this.makeEntry(room, token);
+    const at = combat.entries.findIndex((e) => e.initiative < entry.initiative);
+    if (at < 0) combat.entries.push(entry);
+    else combat.entries.splice(at, 0, entry);
+    this.saveSoon(room);
+  }
+
+  addCombatToken(room: Room, mapId: string, tokenId: string): boolean {
+    const combat = this.combatOf(room, mapId);
+    if (!combat || combat.entries.some((e) => e.tokenId === tokenId)) return false;
+    const token = this.findToken(room, mapId, tokenId);
+    if (!token) return false;
+    this.addTokenToCombat(room, mapId, token);
+    return true;
+  }
+
+  addMapTokensToCombat(room: Room, mapId: string) {
+    const map = room.scene.maps.find((m) => m.id === mapId);
+    if (!map) return;
+    const existing = new Set(map.combat.entries.map((e) => e.tokenId));
+    const additions = map.tokens.filter((t) => !existing.has(t.id)).map((t) => this.makeEntry(room, t));
+    if (additions.length === 0) return;
+    map.combat.entries = [...map.combat.entries, ...additions].sort((a, b) => b.initiative - a.initiative);
+    this.saveSoon(room);
+  }
+
+  removeTokenFromCombat(room: Room, mapId: string, tokenId: string) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat) return;
+    const before = combat.entries.length;
+    combat.entries = combat.entries.filter((e) => e.tokenId !== tokenId);
+    if (combat.entries.length !== before) this.saveSoon(room);
+  }
+
+  removeCombatant(room: Room, mapId: string, id: string) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat) return;
+    combat.entries = combat.entries.filter((e) => e.id !== id);
+    this.saveSoon(room);
+  }
+
+  updateCombatant(
+    room: Room,
+    mapId: string,
+    id: string,
+    patch: { name?: string; initiative?: number; bonus?: string }
+  ) {
+    const entry = this.combatOf(room, mapId)?.entries.find((e) => e.id === id);
+    if (!entry) return;
+    if (typeof patch.name === 'string') entry.name = patch.name.slice(0, 40);
+    if (typeof patch.bonus === 'string') entry.bonus = patch.bonus.slice(0, 10);
+    if (typeof patch.initiative === 'number' && Number.isFinite(patch.initiative)) {
+      entry.initiative = Math.round(patch.initiative);
+    }
+    this.saveSoon(room);
+  }
+
+  moveCombatant(room: Room, mapId: string, id: string, toIndex: number) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat) return;
+    const entries = combat.entries;
+    const from = entries.findIndex((e) => e.id === id);
+    if (from < 0) return;
+    const to = Math.min(Math.max(0, Math.round(toIndex)), entries.length - 1);
+    if (from === to) return;
+    const [entry] = entries.splice(from, 1);
+    entries.splice(to, 0, entry);
+    this.saveSoon(room);
+  }
+
+  rollCombat(room: Room, mapId: string, id?: string) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat) return;
+    if (id) {
+      const entry = combat.entries.find((e) => e.id === id);
+      if (entry) this.reRollEntry(room, entry);
+    } else {
+      for (const entry of combat.entries) this.reRollEntry(room, entry);
+      combat.entries.sort((a, b) => b.initiative - a.initiative);
+    }
+    this.saveSoon(room);
+  }
+
+  renameCombatantByToken(room: Room, mapId: string, tokenId: string, name: string) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat) return;
+    const entry = combat.entries.find((e) => e.tokenId === tokenId);
+    if (!entry) return;
+    entry.name = name.slice(0, 40);
+    this.saveSoon(room);
   }
 
   saveSoon(room: Room) {

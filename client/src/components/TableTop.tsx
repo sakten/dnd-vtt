@@ -19,6 +19,9 @@ interface WorldPoint {
   y: number;
 }
 
+const cellIndex = (v: number, offset: number, size: number) => Math.floor((v - offset) / size);
+const cellKey = (cx: number, cy: number) => `${cx},${cy}`;
+
 export default function TableTop() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -62,9 +65,7 @@ export default function TableTop() {
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;
     if (!f) return false;
-    const cx = Math.floor((x - f.offsetX) / f.size);
-    const cy = Math.floor((y - f.offsetY) / f.size);
-    return hiddenSet.has(`${cx},${cy}`);
+    return hiddenSet.has(cellKey(cellIndex(x, f.offsetX, f.size), cellIndex(y, f.offsetY, f.size)));
   };
 
   const cellKeysBetween = (a: WorldPoint, b: WorldPoint): string[] => {
@@ -75,13 +76,13 @@ export default function TableTop() {
     const minY = Math.min(a.y, b.y);
     const maxY = Math.max(a.y, b.y);
     const keys: string[] = [];
-    const cx0 = Math.floor((minX - f.offsetX) / f.size);
-    const cx1 = Math.floor((maxX - f.offsetX) / f.size);
-    const cy0 = Math.floor((minY - f.offsetY) / f.size);
-    const cy1 = Math.floor((maxY - f.offsetY) / f.size);
+    const cx0 = cellIndex(minX, f.offsetX, f.size);
+    const cx1 = cellIndex(maxX, f.offsetX, f.size);
+    const cy0 = cellIndex(minY, f.offsetY, f.size);
+    const cy1 = cellIndex(maxY, f.offsetY, f.size);
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
-        keys.push(`${cx},${cy}`);
+        keys.push(cellKey(cx, cy));
       }
     }
     return keys;
@@ -90,13 +91,13 @@ export default function TableTop() {
   const cellKeysAround = (w: WorldPoint, radius: number): string[] => {
     const f = activeMap?.fog;
     if (!f) return [];
-    const ccx = Math.floor((w.x - f.offsetX) / f.size);
-    const ccy = Math.floor((w.y - f.offsetY) / f.size);
+    const ccx = cellIndex(w.x, f.offsetX, f.size);
+    const ccy = cellIndex(w.y, f.offsetY, f.size);
     const keys: string[] = [];
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
         if (dx * dx + dy * dy <= radius * radius) {
-          keys.push(`${ccx + dx},${ccy + dy}`);
+          keys.push(cellKey(ccx + dx, ccy + dy));
         }
       }
     }
@@ -184,12 +185,13 @@ export default function TableTop() {
     e.preventDefault();
     const raw = e.dataTransfer.getData('application/x-vtt-token');
     if (!raw) return;
-    let item: { name: string; url: string; cells?: number; round?: boolean; description?: string };
+    let item: { id?: string; cells?: number };
     try {
-      item = JSON.parse(raw) as { name: string; url: string; cells?: number; round?: boolean; description?: string };
+      item = JSON.parse(raw) as { id?: string; cells?: number };
     } catch {
       return;
     }
+    if (!item.id) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const sx = e.clientX - rect.left;
@@ -202,9 +204,7 @@ export default function TableTop() {
       wx = snapToGrid(wx, s.grid.offsetX, s.grid.size, cells);
       wy = snapToGrid(wy, s.grid.offsetY, s.grid.size, cells);
     }
-    useGameStore
-      .getState()
-      .addTokenAt(item.name, item.url, wx, wy, item.cells ?? 1, item.round ?? false, item.description ?? '');
+    useGameStore.getState().addTokenAt(item.id, wx, wy);
   };
 
   return (

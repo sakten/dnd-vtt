@@ -15,6 +15,8 @@ export default function TokenView({ token }: { token: Token }) {
   const finalizeMove = useGameStore((s) => s.finalizeTokenMove);
   const lockToken = useGameStore((s) => s.lockToken);
   const setDragging = useGameStore((s) => s.setDragging);
+  const setHoverToken = useGameStore((s) => s.setHoverToken);
+  const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const lastClickRef = useRef(0);
 
@@ -81,6 +83,8 @@ export default function TokenView({ token }: { token: Token }) {
         setDragging(token.id);
         lockToken(token.id, true);
       }}
+      onMouseEnter={() => setHoverToken(token.id)}
+      onMouseLeave={() => setHoverToken(null)}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
     >
@@ -106,6 +110,18 @@ export default function TokenView({ token }: { token: Token }) {
           stroke="#7c9cff"
           strokeWidth={2 / token.scale}
           dash={[6 / token.scale, 4 / token.scale]}
+          listening={false}
+        />
+      )}
+      {hovered && !selected && (
+        <Rect
+          x={-token.w / 2 - 4}
+          y={-token.h / 2 - 4}
+          width={token.w + 8}
+          height={token.h + 8}
+          stroke="#ffd166"
+          strokeWidth={3 / token.scale}
+          cornerRadius={6}
           listening={false}
         />
       )}

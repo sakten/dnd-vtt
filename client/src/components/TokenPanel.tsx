@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { TokenFields } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
+import TokenFieldsForm from './TokenFieldsForm';
 
 export default function TokenPanel() {
   const items = useGameStore((s) => s.library);
@@ -15,18 +17,15 @@ export default function TokenPanel() {
 
   const editing = items.find((i) => i.id === editingId) ?? null;
 
-  const [draft, setDraft] = useState<{
-    name: string;
-    description: string;
-    cells: number;
-    round: boolean;
-  } | null>(null);
+  const [draft, setDraft] = useState<TokenFields | null>(null);
 
   useEffect(() => {
     if (editing) {
       setDraft({
         name: editing.name,
         description: editing.description,
+        imageUrl: editing.imageUrl,
+        initiativeBonus: editing.initiativeBonus ?? '',
         cells: editing.cells,
         round: editing.round,
       });
@@ -59,7 +58,14 @@ export default function TokenPanel() {
     if (!file) return;
     try {
       const url = await uploadImage(file);
-      addLibraryItem(file.name.replace(/\.[^.]+$/, ''), url, 1, false, '');
+      addLibraryItem({
+        name: file.name.replace(/\.[^.]+$/, ''),
+        imageUrl: url,
+        cells: 1,
+        round: false,
+        description: '',
+        initiativeBonus: '',
+      });
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить токен');
     }
@@ -83,7 +89,7 @@ export default function TokenPanel() {
             title={`${item.name} (${item.cells}×${item.cells}) — перетащите на карту, двойной клик — свойства`}
           >
             <img
-              src={item.url}
+              src={item.imageUrl}
               alt={item.name}
               draggable
               onClick={() => handleItemClick(item.id)}
@@ -105,44 +111,7 @@ export default function TokenPanel() {
           <div className="modal-backdrop" onMouseDown={() => setEditingId(null)}>
             <div className="modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
               <h3>Свойства токена</h3>
-              <label className="field">
-                <span>Название</span>
-                <input
-                  type="text"
-                  value={draft.name}
-                  maxLength={40}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                />
-              </label>
-              <label className="field">
-                <span>Описание</span>
-                <textarea
-                  value={draft.description}
-                  rows={3}
-                  maxLength={200}
-                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                />
-              </label>
-              <div className="size-row">
-                <span>Размер:</span>
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    className={draft.cells === n ? 'active' : ''}
-                    onClick={() => setDraft({ ...draft, cells: n })}
-                  >
-                    {n}×{n}
-                  </button>
-                ))}
-              </div>
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={draft.round}
-                  onChange={(e) => setDraft({ ...draft, round: e.target.checked })}
-                />
-                Круглый токен
-              </label>
+              <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
               <div className="modal-actions spread">
                 <button
                   className="danger"

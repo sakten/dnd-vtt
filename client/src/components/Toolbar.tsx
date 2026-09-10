@@ -6,6 +6,11 @@ export default function Toolbar() {
   const role = useGameStore((s) => s.role);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
+  const combatActive = useGameStore(
+    (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.combat.active ?? false
+  );
+  const startCombat = useGameStore((s) => s.startCombat);
+  const endCombat = useGameStore((s) => s.endCombat);
   const hasMap = useGameStore((s) => s.scene.maps.some((m) => m.id === s.viewMapId));
 
   return (
@@ -14,6 +19,15 @@ export default function Toolbar() {
       <button onClick={fitView} disabled={!hasMap}>
         По размеру
       </button>
+      {role === 'dm' && (
+        <button
+          className={combatActive ? 'active' : ''}
+          title="Начать или закончить бой"
+          onClick={() => (combatActive ? endCombat() : startCombat())}
+        >
+          {combatActive ? 'Конец боя' : 'Бой'}
+        </button>
+      )}
       {role === 'dm' && (
         <button
           className={fogActive ? 'active' : ''}

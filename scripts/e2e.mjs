@@ -866,6 +866,31 @@ await page2.screenshot({ path: path.join(OUT, '13-fog.png') });
 await (await findButton(page, '.fog-panel button', 'Готово')).click();
 await sleep(300);
 
+const combatBtn = await findButton(page, '.toolbar button', 'Бой');
+check(!!combatBtn, 'у ведущего есть кнопка боя');
+await combatBtn.click();
+await page.waitForSelector('.initiative-bar');
+await page2.waitForSelector('.initiative-bar');
+const chipCount = await page.$$eval('.initiative-bar .initiative-chip', (els) => els.length);
+check(chipCount >= 1, `полоса инициативы появилась (${chipCount} чипов)`);
+check((await page2.$('.initiative-bar')) !== null, 'игрок видит полосу инициативы');
+
+const firstChip = await page.$('.initiative-bar .initiative-chip');
+await firstChip.hover();
+await sleep(250);
+const hoverOk = await page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const combat = s.scene.maps.find((m) => m.id === s.viewMapId)?.combat;
+  return s.hoverTokenId !== null && !!combat && combat.entries.some((e) => e.tokenId === s.hoverTokenId);
+});
+check(hoverOk, 'наведение на чип подсвечивает токен');
+
+const endCombatBtn = await findButton(page, '.toolbar button', 'Конец боя');
+await endCombatBtn.click();
+await sleep(400);
+check((await page.$('.initiative-bar')) === null, 'после конца боя полоса исчезла у ведущего');
+check((await page2.$('.initiative-bar')) === null, 'после конца боя полоса исчезла у игрока');
+
 const ctx3 = await browser.createBrowserContext();
 const page3 = await ctx3.newPage();
 await page3.setViewport({ width: 1200, height: 800 });

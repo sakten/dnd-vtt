@@ -370,6 +370,116 @@ input[type='checkbox'] {
   margin-left: 2px;
 }
 
+.initiative-bar {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(64vw, 980px);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 10px 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 12;
+}
+
+.initiative-track {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  max-width: min(56vw, 860px);
+  padding: 3px;
+}
+
+.initiative-chip {
+  position: relative;
+  flex: 0 0 auto;
+  width: 74px;
+  height: 74px;
+  border-radius: 12px;
+  border: 2px solid var(--panel-border);
+  background: #1c2026;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.initiative-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.initiative-chip.hovered {
+  border-color: #ffd166;
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.5);
+}
+
+.initiative-chip.drop {
+  border-color: var(--accent);
+}
+
+.initiative-value {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-top-left-radius: 8px;
+}
+
+.initiative-remove {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 0 0 8px 0;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  background: #ff6b6b;
+  color: #fff;
+  border: none;
+  display: none;
+}
+
+.initiative-chip:hover .initiative-remove {
+  display: block;
+}
+
+.initiative-scroll,
+.initiative-action {
+  flex: 0 0 auto;
+  background: #1c2026;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 13px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.initiative-scroll:hover,
+.initiative-action:hover {
+  background: #2b3039;
+}
+
+.initiative-empty {
+  color: var(--text-dim);
+  font-size: 16px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
 .token-panel {
   position: absolute;
   bottom: 12px;

@@ -134,6 +134,12 @@ dm.on('grid:update', () => {
   gridUpdates++;
 });
 
+async function addLibrary(name, fields) {
+  dm.emit('library:add', { name, ...fields });
+  await waitFor(() => lastLibrary && lastLibrary.some((i) => i.name === name));
+  return lastLibrary.find((i) => i.name === name).id;
+}
+
 dm.emit('map:add', { name: 'Подземелье', url: '/uploads/m.png', width: 800, height: 600 });
 await waitFor(() => lastMaps && lastMaps.maps.length === 1);
 check(lastMaps.activeMapId === lastMaps.maps[0].id, 'карта добавлена и стала активной');
@@ -143,37 +149,53 @@ player.emit('map:add', { name: 'Hack', url: '/x.png', width: 10, height: 10 });
 await sleep(600);
 check(lastMaps.maps.length === 1, 'игрок не может добавлять карты');
 
-dm.emit('library:add', { name: 'Гоблин', url: '/uploads/goblin.png', cells: 2, round: true, description: 'Зелёный' });
+dm.emit('library:add', {
+  name: 'Гоблин',
+  imageUrl: '/uploads/goblin.png',
+  cells: 2,
+  round: true,
+  description: 'Зелёный',
+  initiativeBonus: '+2',
+});
 await waitFor(() => lastLibrary && lastLibrary.length === 1);
 check(
-  lastLibrary[0].name === 'Гоблин' && lastLibrary[0].cells === 2 && lastLibrary[0].description === 'Зелёный' && lastLibrary[0].round === true,
-  'библиотека общая: игрок получил токен от DM (с круглостью)'
+  lastLibrary[0].name === 'Гоблин' &&
+    lastLibrary[0].cells === 2 &&
+    lastLibrary[0].description === 'Зелёный' &&
+    lastLibrary[0].round === true &&
+    lastLibrary[0].initiativeBonus === '+2',
+  'библиотека общая: игрок получил токен от DM (со свойствами)'
 );
 player.emit('library:update', { id: lastLibrary[0].id, patch: { cells: 3 } });
 await waitFor(() => lastLibrary && lastLibrary[0]?.cells === 3);
 check(lastLibrary[0].cells === 3, 'игрок может менять свойства предмета в общей библиотеке');
 
-dm.emit('token:add', { mapId: map1.id, name: 'Гоблин', imageUrl: '/uploads/fake.png', x: 100, y: 100 });
+const goblinItem = await addLibrary('Гоблин-воин', {
+  imageUrl: '/uploads/fake.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+});
+dm.emit('token:add', { mapId: map1.id, libraryItemId: goblinItem, x: 100, y: 100 });
 const tokenAdd = await eventOnce(player, 'token:add');
-check(tokenAdd.token.name === 'Гоблин', 'token add broadcast');
+check(tokenAdd.token.name === 'Гоблин-воин', 'token add broadcast');
 check(tokenAdd.mapId === map1.id, 'токен попал на нужную карту');
 check(tokenAdd.token.cells === 1 && tokenAdd.token.w === 50, 'токен по умолчанию 1x1 (50px)');
 const token = tokenAdd.token;
 
-dm.emit('token:add', {
-  mapId: map1.id,
-  name: 'Дракон',
+const dragonItem = await addLibrary('Дракон', {
   imageUrl: '/uploads/fake.png',
-  x: 300,
-  y: 300,
   cells: 3,
   round: true,
   description: 'Большой',
+  initiativeBonus: '',
 });
+dm.emit('token:add', { mapId: map1.id, libraryItemId: dragonItem, x: 300, y: 300 });
 const bigAdd = await eventOnce(player, 'token:add');
 check(
   bigAdd.token.cells === 3 && bigAdd.token.w === 150 && bigAdd.token.round === true && bigAdd.token.description === 'Большой',
-  'токен 3x3 круглый с описанием'
+  'свойства перетащенного токена наследуются из библиотеки'
 );
 
 player.emit('token:move', { mapId: map1.id, id: token.id, x: 250, y: 300 });
@@ -193,9 +215,76 @@ dm.emit('map:bring', map1.id);
 await waitFor(() => lastBring && lastBring.activeMapId === map1.id);
 check(true, 'DM переносит всех игроков на карту');
 
-dm.emit('token:add', { mapId: map1.id, name: 'Третий', imageUrl: '/x.png', x: 50, y: 50 });
+const thirdItem = await addLibrary('Третий', {
+  imageUrl: '/x.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '+5',
+});
+dm.emit('token:add', { mapId: map1.id, libraryItemId: thirdItem, x: 50, y: 50 });
 const thirdAdd = await eventOnce(player, 'token:add');
 check(thirdAdd.token.name === 'Третий', 'токен добавляется на указанную карту');
+check(thirdAdd.token.initiativeBonus === '+5', 'бонус инициативы наследуется из библиотеки');
+
+let combatState = null;
+player.on('combat:update', (p) => {
+  if (p.mapId === map1.id) combatState = p.combat;
+});
+dm.emit('combat:start', { mapId: map1.id });
+await waitFor(() => combatState && combatState.active);
+check(combatState.entries.length === 3, `бой начался, все токены карты в очереди (${combatState.entries.length})`);
+check(
+  combatState.entries.every((e, i, a) => i === 0 || a[i - 1].initiative >= e.initiative),
+  'очередь отсортирована по инициативе'
+);
+check(
+  combatState.entries.every((e) => e.initiative >= 1 && e.initiative <= 21),
+  'инициатива = d20 + бонус'
+);
+check(
+  combatState.entries.find((e) => e.name === 'Третий')?.bonus === '+5',
+  'бонус инициативы токена учтён в бою'
+);
+
+const fifthItem = await addLibrary('Пятый', {
+  imageUrl: '/y.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+});
+dm.emit('token:add', { mapId: map1.id, libraryItemId: fifthItem, x: 70, y: 70 });
+await eventOnce(player, 'token:add');
+await waitFor(() => combatState.entries.length === 4);
+check(combatState.entries.length === 4, 'токен, добавленный в бою, попал в очередь');
+const addedEntry = combatState.entries.find((e) => e.name === 'Пятый');
+check(!!addedEntry, 'запись нового токена есть в очереди');
+
+dm.emit('token:remove', { mapId: map1.id, id: addedEntry.tokenId });
+await eventOnce(player, 'token:remove');
+await waitFor(() => combatState.entries.length === 3);
+check(combatState.entries.length === 3, 'удалённый токен выбыл из очереди');
+
+const combatCountBefore = combatState.entries.length;
+player.emit('combat:remove', { mapId: map1.id, id: combatState.entries[0].id });
+await sleep(400);
+check(combatState.entries.length === combatCountBefore, 'игрок не управляет очередью инициативы');
+
+dm.emit('combat:end', { mapId: map1.id });
+await waitFor(() => combatState && !combatState.active);
+check(!combatState.active && combatState.entries.length === 0, 'бой закончен, очередь очищена');
+
+let combat2 = null;
+player.on('combat:update', (p) => {
+  if (p.mapId === map2.id) combat2 = p.combat;
+});
+dm.emit('combat:start', { mapId: map2.id });
+await waitFor(() => combat2 && combat2.active);
+check(combat2.active && combat2.entries.length === 0, 'бой у второй карты свой (пока без токенов)');
+check(!combatState.active, 'бой первой карты не затронут');
+dm.emit('combat:end', { mapId: map2.id });
+await sleep(400);
 
 player.emit('grid:update', { ...joined.room.scene.grid, size: 100 });
 await sleep(800);
@@ -330,8 +419,9 @@ if (persisted) {
   check(persisted.name === 'Переименованная', 'название комнаты persisted');
   check(persisted.scene.maps.length === 2, 'maps persisted');
   check(persisted.scene.maps[0].tokens.length === 3, 'tokens map1 persisted (3)');
+  check(persisted.scene.maps[0].combat && persisted.scene.maps[0].combat.active === false, 'combat persisted');
   check(persisted.scene.maps[1].tokens.length === 0, 'tokens map2 persisted (0)');
-  check(persisted.library.length === 1 && persisted.library[0].cells === 3, 'library persisted');
+  check(persisted.library.length === 5 && persisted.library[0].cells === 3, 'library persisted');
   check(persisted.scene.maps[0].fog.hidden.length === 2, 'fog persisted');
   check(
     persisted.sheets && persisted.sheets['smoke-p1'] && persisted.sheets['smoke-p1'].name === 'Гоблин-игрок',

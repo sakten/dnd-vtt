@@ -14,7 +14,7 @@ export interface PersistedRoom {
   nextZ: number;
 }
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+export const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export const DATA_DIR = process.env.DATA_DIR
   ? path.resolve(process.env.DATA_DIR)

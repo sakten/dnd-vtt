@@ -8,6 +8,7 @@ import ChatPanel from '../components/ChatPanel';
 import GridSettingsModal from '../components/GridSettingsModal';
 import TokenMenu from '../components/TokenMenu';
 import FogPanel from '../components/FogPanel';
+import InitiativeBar from '../components/InitiativeBar';
 
 export default function TableScreen() {
   const selected = useGameStore((s) => s.selectedTokenId);
@@ -42,6 +43,7 @@ export default function TableScreen() {
       <MapsPanel />
       <TokenPanel />
       <ChatPanel />
+      <InitiativeBar />
       <div
         className="room-badge"
         title={`${roomCode} — нажмите, чтобы скопировать ссылку для игроков`}

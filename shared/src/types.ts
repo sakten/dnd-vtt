@@ -19,6 +19,24 @@ export interface FogState {
   hidden: string[];
 }
 
+export const DEFAULT_GRID: GridSettings = {
+  size: 50,
+  color: '#ffffff',
+  opacity: 0.35,
+  visible: true,
+  offsetX: 0,
+  offsetY: 0,
+  snap: true,
+};
+
+export function defaultFog(grid: GridSettings): FogState {
+  return { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY, hidden: [] };
+}
+
+export function clampCells(n: number): number {
+  return Math.min(4, Math.max(1, Math.round(n || 1)));
+}
+
 export interface MapInfo {
   id: string;
   name: string;
@@ -27,34 +45,49 @@ export interface MapInfo {
   height: number;
   tokens: Token[];
   fog: FogState;
+  combat: CombatState;
 }
 
-export interface LibraryItem {
-  id: string;
-  name: string;
-  url: string;
-  cells: number;
-  round: boolean;
-  description: string;
-}
-
-export interface Token {
-  id: string;
+export interface TokenFields {
   name: string;
   description: string;
   imageUrl: string;
+  cells: number;
+  round: boolean;
+  initiativeBonus: string;
+}
+
+export interface LibraryItem extends TokenFields {
+  id: string;
+}
+
+export interface Token extends TokenFields {
+  id: string;
   x: number;
   y: number;
   w: number;
   h: number;
-  cells: number;
-  round: boolean;
   scale: number;
   rotation: number;
   z: number;
   visible: boolean;
   ownerId: string;
   lockedBy: string | null;
+}
+
+export interface InitiativeEntry {
+  id: string;
+  tokenId: string | null;
+  name: string;
+  imageUrl: string;
+  initiative: number;
+  bonus: string;
+  roll?: DiceRollResult;
+}
+
+export interface CombatState {
+  active: boolean;
+  entries: InitiativeEntry[];
 }
 
 export interface Player {
@@ -238,6 +271,7 @@ export interface ServerToClientEvents {
   'map:bring': (payload: { activeMapId: string }) => void;
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
   'library:update': (library: LibraryItem[]) => void;
+  'combat:update': (payload: { mapId: string; combat: CombatState }) => void;
   'grid:update': (grid: GridSettings) => void;
   'token:add': (payload: { mapId: string; token: Token }) => void;
   'token:update': (payload: { mapId: string; token: Token }) => void;
@@ -263,20 +297,24 @@ export interface ClientToServerEvents {
   'map:rename': (payload: { id: string; name: string }) => void;
   'map:bring': (id: string) => void;
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
-  'library:add': (payload: { name: string; url: string; cells: number; round: boolean; description: string }) => void;
+  'library:add': (payload: TokenFields) => void;
   'library:update': (payload: { id: string; patch: Partial<LibraryItem> }) => void;
   'library:remove': (id: string) => void;
-  'grid:update': (grid: GridSettings) => void;
-  'token:add': (payload: {
+  'combat:start': (payload: { mapId: string }) => void;
+  'combat:end': (payload: { mapId: string }) => void;
+  'combat:add': (payload: { mapId: string; tokenId: string }) => void;
+  'combat:addMap': (payload: { mapId: string }) => void;
+  'combat:remove': (payload: { mapId: string; id: string }) => void;
+  'combat:update': (payload: {
     mapId: string;
-    name: string;
-    imageUrl: string;
-    x: number;
-    y: number;
-    cells?: number;
-    round?: boolean;
-    description?: string;
+    id: string;
+    patch: { name?: string; initiative?: number; bonus?: string };
   }) => void;
+  'combat:move': (payload: { mapId: string; id: string; toIndex: number }) => void;
+  'combat:roll': (payload: { mapId: string; id?: string }) => void;
+  'combat:clear': (payload: { mapId: string }) => void;
+  'grid:update': (grid: GridSettings) => void;
+  'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;
   'token:move': (payload: { mapId: string; id: string; x: number; y: number }) => void;
   'token:lock': (payload: { mapId: string; id: string; lock: boolean }) => void;
   'token:update': (payload: { mapId: string; id: string; patch: Partial<Token> }) => void;
