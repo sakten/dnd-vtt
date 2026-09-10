@@ -107,6 +107,39 @@ export interface AttackEntry {
   damage: string;
 }
 
+export interface ClassLevel {
+  className: string;
+  level: number;
+  subclass?: string;
+}
+
+export type RestType = 'short' | 'long' | 'never';
+
+export interface ResourceItem {
+  id: string;
+  key?: string;
+  name: string;
+  current: number;
+  max: number;
+  reset: RestType;
+  auto?: boolean;
+}
+
+export interface PlayerResources {
+  hp: {
+    current: number;
+    max: number;
+    temp: number;
+    deathSuccesses: number;
+    deathFailures: number;
+  };
+  hitDice: { die: number; current: number; max: number }[];
+  spellSlots: { level: number; current: number; max: number }[];
+  pact: { current: number; max: number; level: number };
+  resources: ResourceItem[];
+}
+
+export const MAX_CLASSES = 2;
 export const MAX_ATTACKS = 3;
 
 export const DEFAULT_ABILITIES: Record<AbilityKey, number> = {
@@ -125,6 +158,8 @@ export interface CharacterSheet {
   saves: Partial<Record<AbilityKey, boolean>>;
   skills: Partial<Record<string, SkillLevel>>;
   attacks: AttackEntry[];
+  classes: ClassLevel[];
+  hpMax: string;
 }
 
 export function emptyAttack(): AttackEntry {
@@ -162,6 +197,23 @@ export function normalizeAttacks(
   return result;
 }
 
+export function normalizeClasses(raw: unknown): ClassLevel[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ClassLevel[] = [];
+  for (const item of raw.slice(0, MAX_CLASSES)) {
+    if (!item || typeof item !== 'object') continue;
+    const c = item as Partial<ClassLevel>;
+    if (typeof c.className !== 'string' || !c.className) continue;
+    const n = Number(c.level);
+    out.push({
+      className: c.className,
+      level: Number.isFinite(n) ? Math.min(20, Math.max(1, Math.round(n))) : 1,
+      subclass: typeof c.subclass === 'string' && c.subclass ? c.subclass : undefined,
+    });
+  }
+  return out;
+}
+
 export function normalizeSheet(
   raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
 ): CharacterSheet {
@@ -180,6 +232,8 @@ export function normalizeSheet(
     saves: raw.saves ?? {},
     skills: raw.skills ?? {},
     attacks: normalizeAttacks(raw.attacks, raw.attack),
+    classes: normalizeClasses(raw.classes),
+    hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
   };
 }
 
@@ -264,9 +318,15 @@ export interface RoomState {
 }
 
 export interface ServerToClientEvents {
-  'room:joined': (payload: { room: RoomState; selfId: string; sheet: CharacterSheet | null }) => void;
+  'room:joined': (payload: {
+    room: RoomState;
+    selfId: string;
+    sheet: CharacterSheet | null;
+    resources: PlayerResources | null;
+  }) => void;
   'room:renamed': (payload: { name: string }) => void;
   'sheet:update': (payload: { sheet: CharacterSheet }) => void;
+  'resources:update': (resources: PlayerResources) => void;
   'maps:update': (payload: { maps: MapInfo[]; activeMapId: string | null }) => void;
   'map:bring': (payload: { activeMapId: string }) => void;
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
@@ -326,6 +386,8 @@ export interface ClientToServerEvents {
     damage?: { expression: string; label?: string };
   }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
+  'resources:update': (resources: PlayerResources) => void;
+  'resources:hitDie': (payload: { die?: number }) => void;
   'admin:list': (
     payload: { adminToken: string },
     cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: string }) => void

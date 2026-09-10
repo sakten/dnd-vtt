@@ -536,7 +536,7 @@ await abilityInputs[2].evaluate((el) => {
   setter.call(el, '-5');
   el.dispatchEvent(new Event('input', { bubbles: true }));
 });
-await sheetInputs[1].click();
+await sheetInputs[2].click();
 await page.keyboard.down('Control');
 await page.keyboard.press('KeyA');
 await page.keyboard.up('Control');
@@ -547,14 +547,14 @@ const stealthRow = await findButton(page, '.sheet-modal .skill-row', 'Скрыт
 await stealthRow.click();
 await sleep(150);
 await stealthRow.click();
-await sheetInputs[2].click();
-await page.keyboard.type('Меч', { delay: 30 });
 await sheetInputs[3].click();
+await page.keyboard.type('Меч', { delay: 30 });
+await sheetInputs[4].click();
 await page.keyboard.down('Control');
 await page.keyboard.press('KeyA');
 await page.keyboard.up('Control');
 await page.keyboard.type('d20+5', { delay: 30 });
-await sheetInputs[4].click();
+await sheetInputs[5].click();
 await page.keyboard.down('Control');
 await page.keyboard.press('KeyA');
 await page.keyboard.up('Control');

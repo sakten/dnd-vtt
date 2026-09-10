@@ -8,6 +8,7 @@ import type {
   LibraryItem,
   MapInfo,
   Player,
+  PlayerResources,
   RoomState,
   Scene,
   Token,
@@ -29,6 +30,7 @@ export interface Room {
   chat: ChatMessage[];
   players: RoomPlayer[];
   nextZ: number;
+  resources: Record<string, PlayerResources>;
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -130,6 +132,7 @@ export class RoomManager {
         ? p.players.map((pl) => ({ ...pl, isConnected: false, socketId: null }))
         : [],
       nextZ: p.nextZ ?? 0,
+      resources: p.resources && typeof p.resources === 'object' ? p.resources : {},
     };
   }
 
@@ -182,6 +185,7 @@ export class RoomManager {
       chat: [],
       players: [],
       nextZ: 0,
+      resources: {},
     };
     this.rooms.set(code, room);
     return room;
@@ -518,6 +522,7 @@ export class RoomManager {
       chat: room.chat,
       players: room.players.map((p) => ({ id: p.id, name: p.name, role: p.role })),
       nextZ: room.nextZ,
+      resources: room.resources,
     };
   }
 }

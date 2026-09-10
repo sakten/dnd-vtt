@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CharacterSheet, ChatMessage, LibraryItem, Role, Scene } from 'shared';
+import type { CharacterSheet, ChatMessage, LibraryItem, PlayerResources, Role, Scene } from 'shared';
 
 export interface PersistedRoom {
   code: string;
@@ -9,6 +9,7 @@ export interface PersistedRoom {
   scene: Scene;
   library: LibraryItem[];
   sheets: Record<string, CharacterSheet>;
+  resources?: Record<string, PlayerResources>;
   chat: ChatMessage[];
   players: { id: string; name: string; role: Role }[];
   nextZ: number;

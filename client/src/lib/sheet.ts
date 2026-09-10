@@ -20,6 +20,8 @@ export function defaultSheet(): CharacterSheet {
       { name: '', hit: '', damage: '' },
       { name: '', hit: '', damage: '' },
     ],
+    classes: [],
+    hpMax: '',
   };
 }
 

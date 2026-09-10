@@ -11,6 +11,7 @@ import {
   type GridSettings,
   type LibraryItem,
   type Player,
+  type PlayerResources,
   type Role,
   type Scene,
   type Token,
@@ -43,6 +44,7 @@ interface GameState {
   viewMapId: string | null;
   library: LibraryItem[];
   sheet: CharacterSheet | null;
+  resources: PlayerResources | null;
   chat: ChatMessage[];
   chatError: string | null;
   joinError: string | null;
@@ -64,6 +66,8 @@ interface GameState {
     damage: { expression: string; label: string } | null
   ) => void;
   setSheet: (sheet: CharacterSheet) => void;
+  updateResources: (resources: PlayerResources) => void;
+  rollHitDie: (die: number) => void;
   addMap: (name: string, url: string, width: number, height: number) => void;
   removeMap: (id: string) => void;
   renameMap: (id: string, name: string) => void;
@@ -146,6 +150,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     viewMapId: null,
     library: [],
     sheet: null,
+    resources: null,
     chat: [],
     chatError: null,
     joinError: null,
@@ -192,7 +197,7 @@ export const useGameStore = create<GameState>()((set, get) => {
       });
       socket.on('disconnect', () => set({ connected: false }));
 
-      socket.on('room:joined', ({ room, selfId, sheet }) => {
+      socket.on('room:joined', ({ room, selfId, sheet, resources }) => {
         const player = room.players.find((p) => p.id === selfId);
         const url = new URL(window.location.href);
         if (url.searchParams.get('room') !== room.code) {
@@ -210,12 +215,15 @@ export const useGameStore = create<GameState>()((set, get) => {
           viewMapId: room.scene.activeMapId,
           library: room.library ?? [],
           sheet: sheet ?? null,
+          resources: resources ?? null,
           chat: room.chat,
           joinError: null,
         });
       });
 
       socket.on('sheet:update', ({ sheet }) => set({ sheet }));
+
+      socket.on('resources:update', (resources) => set({ resources }));
 
       socket.on('room:renamed', ({ name }) => set({ roomName: name }));
 
@@ -304,6 +312,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           roomCode: null,
           roomName: null,
           joinError: 'Комната удалена ведущим',
+          resources: null,
           hoverTokenId: null,
           selectedTokenId: null,
           tokenMenuId: null,
@@ -365,6 +374,15 @@ export const useGameStore = create<GameState>()((set, get) => {
 
     setSheet: (sheet) => {
       get().socket?.emit('sheet:update', sheet);
+    },
+
+    updateResources: (resources) => {
+      set({ resources });
+      get().socket?.emit('resources:update', resources);
+    },
+
+    rollHitDie: (die) => {
+      get().socket?.emit('resources:hitDie', { die });
     },
 
     addMap: (name, url, width, height) => {

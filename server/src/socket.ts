@@ -1,13 +1,21 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
+  DEFAULT_ABILITIES,
   DiceParseError,
+  effectiveMaxHp,
+  emptyResources,
   isCriticalHit,
   normalizeSheet,
   rollDice,
+  sanitizeResources,
+  sheetMods,
   snapToGrid,
+  syncResources,
   type ChatMessage,
+  type ClassLevel,
   type ClientToServerEvents,
+  type PlayerResources,
   type ServerToClientEvents,
 } from 'shared';
 import type { Room, RoomManager } from './rooms';
@@ -70,6 +78,26 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       broadcastAll('chat:message', message);
     };
 
+    const emitJoined = (room: Room, selfId: string) => {
+      if (!room.resources[selfId] && room.sheets[selfId]) {
+        const sheet = room.sheets[selfId];
+        const created = syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full');
+        const hpMax = effectiveMaxHp(sheet);
+        created.hp = { ...created.hp, max: hpMax, current: hpMax };
+        room.resources[selfId] = created;
+        manager.saveSoon(room);
+      }
+      socket.emit('room:joined', {
+        room: manager.toState(room),
+        selfId,
+        sheet: room.sheets[selfId] ?? null,
+        resources: room.resources[selfId] ?? null,
+      });
+    };
+
+    const classIdentity = (classes?: ClassLevel[]) =>
+      (classes ?? []).map((c) => `${c.className}:${c.subclass ?? ''}`).join('|');
+
     socket.on('admin:list', ({ adminToken }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
@@ -90,11 +118,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       roomCode = room.code;
       playerId = clientId;
       socket.join(room.code);
-      socket.emit('room:joined', {
-        room: manager.toState(room),
-        selfId: clientId,
-        sheet: room.sheets[clientId] ?? null,
-      });
+      emitJoined(room, clientId);
       cb({ code: room.code });
     });
 
@@ -122,11 +146,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       roomCode = room.code;
       playerId = clientId;
       socket.join(room.code);
-      socket.emit('room:joined', {
-        room: manager.toState(room),
-        selfId: clientId,
-        sheet: room.sheets[clientId] ?? null,
-      });
+      emitJoined(room, clientId);
       cb({ ok: true });
       broadcast('players:update', manager.toState(room).players);
     });
@@ -180,11 +200,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       roomCode = room.code;
       playerId = clientId;
       socket.join(room.code);
-      socket.emit('room:joined', {
-        room: manager.toState(room),
-        selfId: clientId,
-        sheet: room.sheets[clientId] ?? null,
-      });
+      emitJoined(room, clientId);
       cb({ ok: true });
       broadcast('players:update', manager.toState(room).players);
     });
@@ -213,11 +229,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       roomCode = room.code;
       playerId = clientId;
       socket.join(room.code);
-      socket.emit('room:joined', {
-        room: manager.toState(room),
-        selfId: clientId,
-        sheet: room.sheets[clientId] ?? null,
-      });
+      emitJoined(room, clientId);
       cb({ ok: true });
       broadcast('players:update', manager.toState(room).players);
     });
@@ -480,10 +492,71 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const room = getRoom();
       if (!room) return;
       if (!sheet || typeof sheet !== 'object') return;
+      const previous = room.sheets[playerId];
       const normalized = normalizeSheet(sheet);
       room.sheets[playerId] = normalized;
+      const mode = classIdentity(previous?.classes) === classIdentity(normalized.classes) ? 'soft' : 'full';
+      const prevRes = room.resources[playerId];
+      const synced = syncResources(
+        prevRes ?? emptyResources(),
+        normalized.classes,
+        sheetMods(normalized.abilities),
+        mode
+      );
+      const hpMax = effectiveMaxHp(normalized);
+      synced.hp = {
+        ...synced.hp,
+        max: hpMax,
+        current: prevRes ? Math.min(synced.hp.current, hpMax) : hpMax,
+      };
+      room.resources[playerId] = synced;
       manager.saveSoon(room);
       socket.emit('sheet:update', { sheet: normalized });
+      socket.emit('resources:update', room.resources[playerId]);
+    });
+
+    socket.on('resources:update', (payload) => {
+      if (!playerId) return;
+      const room = getRoom();
+      if (!room) return;
+      if (!payload || typeof payload !== 'object') return;
+      const sheet = room.sheets[playerId];
+      const classes = sheet?.classes ?? [];
+      const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);
+      const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
+      room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
+      manager.saveSoon(room);
+      socket.emit('resources:update', room.resources[playerId]);
+    });
+
+    socket.on('resources:hitDie', (payload) => {
+      if (!playerId) return;
+      const room = getRoom();
+      if (!room) return;
+      const sheet = room.sheets[playerId];
+      const res = room.resources[playerId];
+      if (!sheet || !res) return;
+      const requested = Number(payload?.die);
+      const entry =
+        res.hitDice.find((h) => h.current > 0 && h.die === requested) ?? res.hitDice.find((h) => h.current > 0);
+      if (!entry) return;
+      const roll = rollDice(`1d${entry.die}`);
+      const heal = Math.max(0, roll.total + sheetMods(sheet.abilities).con);
+      entry.current -= 1;
+      res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
+      manager.saveSoon(room);
+      const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
+      const message: ChatMessage = {
+        id: randomUUID(),
+        kind: 'roll',
+        author,
+        roll,
+        label: `Хит дайс d${entry.die} (лечение ${heal})`,
+        ts: Date.now(),
+      };
+      manager.addMessage(room, message);
+      socket.emit('resources:update', res);
+      broadcastAll('chat:message', message);
     });
 
     socket.on('dice:roll', ({ expression, label }) => {

@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ABILITIES,
+  CLASS_LIST,
   SKILLS,
   abilityMod,
+  computedMaxHp,
   normalizeSheet,
+  subclassList,
   type AbilityKey,
   type AttackEntry,
   type CharacterSheet,
+  type ClassLevel,
   type SkillLevel,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -56,6 +60,27 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     );
   };
 
+  const setClassLevel = (index: number, patch: Partial<ClassLevel>) => {
+    setDraft((d) => {
+      if (!d) return d;
+      const classes = [...d.classes];
+      while (classes.length <= index) classes.push({ className: '', level: 1 });
+      const next = { ...classes[index], ...patch };
+      if (patch.className !== undefined) next.subclass = undefined;
+      if (next.level < 3) next.subclass = undefined;
+      classes[index] = next;
+      return { ...d, classes };
+    });
+  };
+
+  const addClassLevel = () =>
+    setDraft((d) =>
+      d && d.classes.length < 2 ? { ...d, classes: [...d.classes, { className: '', level: 1 }] } : d
+    );
+
+  const removeClassLevel = (index: number) =>
+    setDraft((d) => (d ? { ...d, classes: d.classes.filter((_, i) => i !== index) } : d));
+
   return createPortal(
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal sheet-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
@@ -68,6 +93,70 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             maxLength={40}
             placeholder="Необязательно"
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+        </label>
+
+        <div className="sheet-section-title">Классы (до 2)</div>
+        {draft.classes.map((cl, i) => (
+          <div className="class-row" key={i}>
+            <label className="field">
+              <span>Класс</span>
+              <select value={cl.className} onChange={(e) => setClassLevel(i, { className: e.target.value })}>
+                <option value="">— не выбран —</option>
+                {CLASS_LIST.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field class-level">
+              <span>Ур.</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={cl.level}
+                onChange={(e) =>
+                  setClassLevel(i, { level: Math.min(20, Math.max(1, Number(e.target.valueAsNumber) || 1)) })
+                }
+              />
+            </label>
+            {cl.className && cl.level >= 3 && subclassList(cl.className).length > 0 && (
+              <label className="field">
+                <span>Подкласс</span>
+                <select
+                  value={cl.subclass ?? ''}
+                  onChange={(e) => setClassLevel(i, { subclass: e.target.value || undefined })}
+                >
+                  <option value="">— не выбран —</option>
+                  {subclassList(cl.className).map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button className="class-remove" title="Убрать класс" onClick={() => removeClassLevel(i)}>
+              ✕
+            </button>
+          </div>
+        ))}
+        {draft.classes.length < 2 && (
+          <button className="class-add" onClick={addClassLevel}>
+            + Добавить класс
+          </button>
+        )}
+
+        <label className="field">
+          <span>Макс. хиты (пусто — авто: класс + Телосложение)</span>
+          <input
+            type="text"
+            value={draft.hpMax}
+            placeholder={String(computedMaxHp(draft.classes, draft.abilities))}
+            maxLength={10}
+            onChange={(e) => setDraft({ ...draft, hpMax: e.target.value })}
           />
         </label>
 
