@@ -507,7 +507,19 @@ export class RoomManager {
       name: room.name,
       scene: room.scene,
       library: room.library,
-      players: room.players.map((p) => ({ id: p.id, name: p.name, role: p.role, isConnected: p.isConnected })),
+      players: room.players.map((p) => {
+        const res = room.resources[p.id];
+        const sheet = room.sheets[p.id];
+        return {
+          id: p.id,
+          name: p.name,
+          role: p.role,
+          isConnected: p.isConnected,
+          hpCurrent: res ? res.hp.current : null,
+          hpMax: res ? res.hp.max : null,
+          classKey: sheet?.classes?.[0]?.className ?? null,
+        };
+      }),
       chat: room.chat,
     };
   }

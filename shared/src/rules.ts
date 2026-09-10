@@ -784,6 +784,27 @@ export const CLASSES: Record<string, ClassDef> = {
 
 export const CLASS_LIST = Object.values(CLASSES).map((c) => ({ key: c.key, name: c.name }));
 
+/** Спасброски, профишенси в которых даёт класс (по основному классу). */
+export const CLASS_SAVES: Record<string, AbilityKey[]> = {
+  barbarian: ['str', 'con'],
+  bard: ['dex', 'cha'],
+  cleric: ['wis', 'cha'],
+  druid: ['int', 'wis'],
+  fighter: ['str', 'con'],
+  monk: ['str', 'dex'],
+  paladin: ['wis', 'cha'],
+  ranger: ['str', 'dex'],
+  rogue: ['dex', 'int'],
+  sorcerer: ['con', 'cha'],
+  warlock: ['wis', 'cha'],
+  wizard: ['int', 'wis'],
+  artificer: ['con', 'int'],
+};
+
+export function classSaves(className: string): AbilityKey[] {
+  return CLASS_SAVES[className] ?? [];
+}
+
 /** Кость хитов класса. */
 export const HIT_DIE: Record<string, number> = {
   barbarian: 12,

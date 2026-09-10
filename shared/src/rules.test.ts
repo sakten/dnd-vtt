@@ -4,6 +4,7 @@ import {
   applyRest,
   autoResourceDefs,
   casterLevelOf,
+  classSaves,
   computedMaxHp,
   effectiveMaxHp,
   emptyResources,
@@ -217,6 +218,15 @@ describe('subclassList', () => {
     expect(rogue.find((s) => s.key === 'soulknife')?.source).toBe('PHB');
     expect(rogue.find((s) => s.key === 'swashbuckler')?.source).toBe('XGE');
     expect(subclassList('artificer').every((s) => s.source === 'TCE')).toBe(true);
+  });
+});
+
+describe('classSaves', () => {
+  it('даёт профишенси спасбросков класса', () => {
+    expect(classSaves('fighter')).toEqual(['str', 'con']);
+    expect(classSaves('wizard')).toEqual(['int', 'wis']);
+    expect(classSaves('paladin')).toEqual(['wis', 'cha']);
+    expect(classSaves('unknown')).toEqual([]);
   });
 });
 

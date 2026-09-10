@@ -45,6 +45,12 @@ describe('normalizeSheet', () => {
     });
     expect(sheet.attacks.map((a) => a.name)).toEqual(['A', 'B', 'C']);
   });
+
+  it('нормализует класс брони (AC)', () => {
+    expect(normalizeSheet({}).ac).toBe('');
+    expect(normalizeSheet({ ac: '18' }).ac).toBe('18');
+    expect(normalizeSheet({ ac: 'x'.repeat(20) }).ac).toHaveLength(10);
+  });
 });
 
 describe('activeAttacks', () => {

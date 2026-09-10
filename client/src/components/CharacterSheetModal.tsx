@@ -5,6 +5,7 @@ import {
   CLASS_LIST,
   SKILLS,
   abilityMod,
+  classSaves,
   computedMaxHp,
   normalizeSheet,
   subclassList,
@@ -69,7 +70,13 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
       if (patch.className !== undefined) next.subclass = undefined;
       if (next.level < 3) next.subclass = undefined;
       classes[index] = next;
-      return { ...d, classes };
+      // Профишенси спасбросков заполняем по основному (первому) классу; их можно менять вручную.
+      let saves = d.saves;
+      if (index === 0 && patch.className !== undefined) {
+        saves = {};
+        for (const key of classSaves(patch.className)) saves[key] = true;
+      }
+      return { ...d, classes, saves };
     });
   };
 
@@ -123,7 +130,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
               />
             </label>
             {cl.className && cl.level >= 3 && subclassList(cl.className).length > 0 && (
-              <label className="field">
+              <label className="field subclass-field">
                 <span>Подкласс</span>
                 <select
                   value={cl.subclass ?? ''}
@@ -160,6 +167,18 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
+        <label className="field">
+          <span>Класс брони (AC)</span>
+          <input
+            type="number"
+            min={0}
+            max={99}
+            value={draft.ac}
+            placeholder="10"
+            onChange={(e) => setDraft({ ...draft, ac: e.target.value })}
+          />
+        </label>
+
         <div className="sheet-section-title">Характеристики</div>
         <div className="ability-grid">
           {ABILITIES.map((a) => {
@@ -184,7 +203,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         </div>
 
         <label className="field">
-          <span>Профишенси бонус (число или куб, например 2 или d4)</span>
+          <span>Профишенси бонус (число или куб)</span>
           <input
             type="text"
             value={draft.proficiencyBonus}
@@ -193,7 +212,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
-        <div className="sheet-section-title">Спасброски (профишенси)</div>
+        <div className="sheet-section-title">Спасброски (по основному классу — можно менять)</div>
         <div className="save-grid">
           {ABILITIES.map((a) => {
             const mod = abilityMod(draft.abilities[a.key]);

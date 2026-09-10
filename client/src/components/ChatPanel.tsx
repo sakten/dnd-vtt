@@ -4,6 +4,7 @@ import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
 import RollMenu from './RollMenu';
 import CharacterSheetModal from './CharacterSheetModal';
+import PlayersDrawer from './PlayersDrawer';
 
 const DIE_POINTS: Record<number, string> = {
   4: '0,-14 13,10 -13,10',
@@ -138,6 +139,7 @@ export default function ChatPanel() {
   const sendChat = useGameStore((s) => s.sendChat);
   const [text, setText] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [playersOpen, setPlayersOpen] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const listRef = useRef<HTMLDivElement>(null);
@@ -190,16 +192,10 @@ export default function ChatPanel() {
           <button className="sheet-button" title="Карточка персонажа" onClick={() => setSheetOpen(true)}>
             Персонаж
           </button>
-          <span>{players.length} игрок(ов)</span>
+          <button className="sheet-button" title="Список игроков" onClick={() => setPlayersOpen(true)}>
+            Игроки ({players.length})
+          </button>
         </div>
-      </div>
-      <div className="chat-players">
-        {players.map((p) => (
-          <span key={p.id} className={`player-chip ${p.isConnected ? 'online' : 'offline'}`}>
-            {p.name}
-            {p.role === 'dm' ? ' (DM)' : ''}
-          </span>
-        ))}
       </div>
       <div className="chat-messages" ref={listRef}>
         {chat.map((m) => (
@@ -218,6 +214,7 @@ export default function ChatPanel() {
         />
         <button onClick={send}>→</button>
       </div>
+      <PlayersDrawer players={players} open={playersOpen} onClose={() => setPlayersOpen(false)} />
       <CharacterSheetModal open={sheetOpen} onClose={() => setSheetOpen(false)} />
     </div>
   );

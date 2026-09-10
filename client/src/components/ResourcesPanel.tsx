@@ -53,10 +53,12 @@ function EditableNumber({
   return (
     <input
       className={`${className ?? ''} number-edit`}
-      type="number"
+      type="text"
+      inputMode="numeric"
       autoFocus
       value={draft}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => setDraft(e.target.value.replace(/\D/g, ''))}
+      onFocus={(e) => e.currentTarget.select()}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit();
@@ -80,17 +82,18 @@ function HeartIcon() {
 function SkullIcon() {
   return (
     <svg className="death-icon fail" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-      <circle cx="12" cy="10" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="9.2" cy="9.5" r="1.6" fill="currentColor" />
-      <circle cx="14.8" cy="9.5" r="1.6" fill="currentColor" />
-      <path d="M9 15.5v2.2M12 15.5v2.2M15 15.5v2.2" stroke="currentColor" strokeWidth="1.6" fill="none" />
-      <path d="M6.5 18.5h11" stroke="currentColor" strokeWidth="1.6" fill="none" />
+      <circle cx="12" cy="10" r="8.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9.1" cy="9.6" r="1.9" fill="currentColor" />
+      <circle cx="14.9" cy="9.6" r="1.9" fill="currentColor" />
+      <path d="M9 15.2v2.6M12 15.2v2.6M15 15.2v2.6" stroke="currentColor" strokeWidth="1.8" fill="none" />
+      <path d="M6.8 18.6h10.4" stroke="currentColor" strokeWidth="1.8" fill="none" />
     </svg>
   );
 }
 
 export default function ResourcesPanel() {
   const resources = useGameStore((s) => s.resources);
+  const sheet = useGameStore((s) => s.sheet);
   const updateResources = useGameStore((s) => s.updateResources);
   const rollHitDie = useGameStore((s) => s.rollHitDie);
   const [open, setOpen] = useState(false);
@@ -100,6 +103,7 @@ export default function ResourcesPanel() {
 
   if (!resources) return null;
   const r = resources;
+  const ac = sheet?.ac?.trim() ?? '';
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 
   const setHp = (patch: Partial<PlayerResources['hp']>) =>
@@ -158,6 +162,12 @@ export default function ResourcesPanel() {
               <span className="hp-temp-wrap">
                 +<EditableNumber className="hp-temp" value={r.hp.temp} title="Временные хиты — двойной клик" onCommit={(n) => setHp({ temp: n })} /> вр.
               </span>
+              <div className="ac-shield" title="Класс брони (заполняется в карточке персонажа)">
+                <svg className="ac-shield-svg" viewBox="0 0 24 28" aria-hidden="true">
+                  <path d="M12 1.2 22 4.7v8.4c0 6.8-4.2 11.1-10 13.7C6.2 24.2 2 19.9 2 13.1V4.7Z" />
+                </svg>
+                <span className="ac-value">{ac || '—'}</span>
+              </div>
             </div>
             <div className="death-saves">
               <div className="death-group">

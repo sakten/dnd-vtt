@@ -527,6 +527,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       manager.saveSoon(room);
       socket.emit('sheet:update', { sheet: normalized });
       socket.emit('resources:update', room.resources[playerId]);
+      broadcastAll('players:update', manager.toState(room).players);
     });
 
     socket.on('resources:update', (payload) => {
@@ -541,6 +542,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
       manager.saveSoon(room);
       socket.emit('resources:update', room.resources[playerId]);
+      broadcastAll('players:update', manager.toState(room).players);
     });
 
     socket.on('resources:hitDie', (payload) => {
@@ -571,6 +573,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       manager.addMessage(room, message);
       socket.emit('resources:update', res);
       broadcastAll('chat:message', message);
+      broadcastAll('players:update', manager.toState(room).players);
     });
 
     socket.on('dice:roll', ({ expression, label }) => {

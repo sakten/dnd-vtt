@@ -95,6 +95,9 @@ export interface Player {
   name: string;
   role: Role;
   isConnected: boolean;
+  hpCurrent?: number | null;
+  hpMax?: number | null;
+  classKey?: string | null;
 }
 
 export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
@@ -160,6 +163,7 @@ export interface CharacterSheet {
   attacks: AttackEntry[];
   classes: ClassLevel[];
   hpMax: string;
+  ac: string;
 }
 
 export function emptyAttack(): AttackEntry {
@@ -234,6 +238,7 @@ export function normalizeSheet(
     attacks: normalizeAttacks(raw.attacks, raw.attack),
     classes: normalizeClasses(raw.classes),
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
+    ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
   };
 }
 

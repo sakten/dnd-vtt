@@ -22,6 +22,7 @@ export function defaultSheet(): CharacterSheet {
     ],
     classes: [],
     hpMax: '',
+    ac: '',
   };
 }
 
