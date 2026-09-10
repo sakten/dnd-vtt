@@ -345,6 +345,7 @@ export interface ServerToClientEvents {
   'chat:message': (message: ChatMessage) => void;
   'chat:error': (message: string) => void;
   'players:update': (players: Player[]) => void;
+  'player:kicked': () => void;
   'room:deleted': () => void;
   'pong': () => void;
 }
@@ -380,6 +381,7 @@ export interface ClientToServerEvents {
   'combat:roll': (payload: { mapId: string; id?: string }) => void;
   'combat:clear': (payload: { mapId: string }) => void;
   'grid:update': (grid: GridSettings) => void;
+  'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;
   'token:move': (payload: { mapId: string; id: string; x: number; y: number }) => void;
   'token:lock': (payload: { mapId: string; id: string; lock: boolean }) => void;

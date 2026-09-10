@@ -69,6 +69,7 @@ interface GameState {
   updateResources: (resources: PlayerResources) => void;
   rollHitDie: (die: number) => void;
   rollDeathSave: (expression: string) => void;
+  removePlayer: (id: string) => void;
   addMap: (name: string, url: string, width: number, height: number) => void;
   removeMap: (id: string) => void;
   renameMap: (id: string, name: string) => void;
@@ -326,6 +327,22 @@ export const useGameStore = create<GameState>()((set, get) => {
         window.history.replaceState(null, '', url.toString());
       });
 
+      socket.on('player:kicked', () => {
+        set({
+          roomCode: null,
+          roomName: null,
+          joinError: 'Ведущий удалил вас из комнаты',
+          resources: null,
+          hoverTokenId: null,
+          selectedTokenId: null,
+          tokenMenuId: null,
+          draggingTokenId: null,
+        });
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState(null, '', url.toString());
+      });
+
       const getPlayerId = () => {
         const id = localStorage.getItem('vtt-player') ?? crypto.randomUUID();
         localStorage.setItem('vtt-player', id);
@@ -390,6 +407,10 @@ export const useGameStore = create<GameState>()((set, get) => {
 
     rollDeathSave: (expression) => {
       get().socket?.emit('resources:deathSave', { expression });
+    },
+
+    removePlayer: (id) => {
+      get().socket?.emit('player:remove', { id });
     },
 
     addMap: (name, url, width, height) => {

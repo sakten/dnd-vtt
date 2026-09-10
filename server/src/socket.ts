@@ -253,6 +253,21 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       broadcast('players:update', manager.toState(room).players);
     });
 
+    socket.on('player:remove', ({ id }) => {
+      const room = dmRoom();
+      if (!room || typeof id !== 'string' || id === playerId) return;
+      const target = room.players.find((p) => p.id === id);
+      if (!target) return;
+      const targetSocket = target.socketId ? io.sockets.sockets.get(target.socketId) : undefined;
+      room.players = room.players.filter((p) => p.id !== id);
+      manager.saveSoon(room);
+      broadcastAll('players:update', manager.toState(room).players);
+      if (targetSocket) {
+        targetSocket.emit('player:kicked');
+        setTimeout(() => targetSocket.disconnect(true), 300);
+      }
+    });
+
     socket.on('map:add', (payload) => {
       const room = dmRoom();
       if (!room) return;

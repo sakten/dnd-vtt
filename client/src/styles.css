@@ -353,7 +353,6 @@ input[type='checkbox'] {
 
 .room-badge strong {
   color: var(--accent);
-  letter-spacing: 2px;
 }
 
 .room-badge-hint {
