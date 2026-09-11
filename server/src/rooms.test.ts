@@ -206,6 +206,57 @@ describe('RoomManager ход', () => {
     expect(combat.entries[0].id).toBe('e2');
   });
 
+  it('ре-ролл инициативы и добор токенов сохраняют активного', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0].tokens = [token('t1'), token('t2')];
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 20)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+
+    manager.addMapTokensToCombat(room, 'm1');
+    expect(combat.entries).toHaveLength(2);
+    expect(combat.entries[combat.currentIndex].id).toBe('e1');
+
+    manager.rollCombat(room, 'm1');
+    expect(combat.entries[combat.currentIndex].id).toBe('e1');
+  });
+
+  it('добор токена в активный бой создаёт ресурсы хода', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.currentIndex = -1;
+    room.scene.maps[0].tokens = [token('t1', { speed: 40 })];
+
+    manager.addTokenToCombat(room, 'm1', room.scene.maps[0].tokens[0]);
+
+    expect(combat.currentIndex).toBe(0);
+    const entry = combat.entries[0];
+    expect(combat.turns[entry.id]).toBeDefined();
+    expect(combat.turns[entry.id].movementMax).toBe(40);
+  });
+
+  it('setMovement фиксирует передвижение и не уходит в минус', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 20)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+
+    manager.setMovement(room, 'm1', 't1', 15, 3);
+    expect(combat.turns.e1.movementUsed).toBe(15);
+    expect(combat.turns.e1.diagonalsUsed).toBe(3);
+
+    manager.setMovement(room, 'm1', 't1', -5);
+    expect(combat.turns.e1.movementUsed).toBe(0);
+  });
+
   it('скорость берётся из листа контролёра, легендарные — из статблока', () => {
     const manager = setup();
     const sheet: CharacterSheet = {
@@ -290,6 +341,26 @@ describe('RoomManager HP', () => {
     manager.adjustTokenHp(room, 'm1', goblin, 10);
 
     expect(goblin.hpCurrent).toBe(20);
+  });
+
+  it('лечение персонажа не превышает максимум ресурсов и зеркалится', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 8) } });
+    room.scene.maps[0].tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 8 })];
+
+    manager.adjustTokenHp(room, 'm1', room.scene.maps[0].tokens[0], 5);
+
+    expect(room.resources.p1.hp.current).toBe(10);
+    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(10);
+  });
+
+  it('syncSheetToTokens без контролёра — no-op', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0].tokens = [token('t1', { hpCurrent: 3 })];
+
+    expect(manager.syncSheetToTokens(room, 'p1')).toEqual([]);
+    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(3);
   });
 
   it('syncSheetToTokens обновляет HP/AC/скорость связанного токена', () => {

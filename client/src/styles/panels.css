@@ -194,6 +194,11 @@
   margin-left: 2px;
 }
 
+.res-move.over {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+
 .initiative-end {
   margin-top: 2px;
   background: var(--accent);

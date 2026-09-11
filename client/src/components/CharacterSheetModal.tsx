@@ -196,6 +196,20 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
+        <label className="field">
+          <span>Скорость, фт</span>
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            value={draft.speed}
+            placeholder="30"
+            onChange={(e) =>
+              setDraft({ ...draft, speed: Math.max(0, Math.round(Number(e.target.valueAsNumber) || 0)) })
+            }
+          />
+        </label>
+
         <div className="sheet-section-title">Характеристики</div>
         <div className="ability-grid">
           {ABILITIES.map((a) => {

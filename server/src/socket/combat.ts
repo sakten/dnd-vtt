@@ -91,4 +91,19 @@ export function registerCombatHandlers(ctx: ConnCtx) {
       syncCombat(room, mapId);
     });
 
+    ctx.on('combat:setMovement', ({ mapId, tokenId, used, diagonals }) => {
+      const room = getRoom();
+      if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string' || typeof used !== 'number') return;
+      if (!isDm()) {
+        if (!ctx.playerId) return;
+        const combat = manager.combatOf(room, mapId);
+        const active = combat && combat.currentIndex >= 0 ? combat.entries[combat.currentIndex] : undefined;
+        if (!active || active.tokenId !== tokenId) return;
+        const token = manager.findToken(room, mapId, tokenId);
+        if (!token || !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
+      }
+      manager.setMovement(room, mapId, tokenId, used, typeof diagonals === 'number' ? diagonals : undefined);
+      syncCombat(room, mapId);
+    });
+
 }

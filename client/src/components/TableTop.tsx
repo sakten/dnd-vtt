@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { MapInfo } from 'shared';
-import { gridDistanceFeet, snapToGrid } from 'shared';
+import { gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
-import { canAddLibraryItem } from '../lib/control';
+import { canAddLibraryItem, canControlWith } from '../lib/control';
 import GridLayer from './GridLayer';
 import TokenView from './TokenView';
 
@@ -44,6 +44,39 @@ export default function TableTop() {
   const updateFog = useGameStore((s) => s.updateFog);
   const activeMap = useMemo(() => maps.find((m) => m.id === viewMapId) ?? null, [maps, viewMapId]);
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
+
+  // id активной записи инициативы, которой управляет текущий пользователь (для подсветки хода).
+  const activeControlId = useGameStore((s) => {
+    const map = s.scene.maps.find((m) => m.id === s.viewMapId);
+    if (!map || !map.combat.active || map.combat.currentIndex < 0) return null;
+    const entry = map.combat.entries[map.combat.currentIndex];
+    if (!entry?.tokenId) return null;
+    const token = map.tokens.find((t) => t.id === entry.tokenId);
+    if (!token || !canControlWith(s, token)) return null;
+    return entry.id;
+  });
+
+  const movementCells = useMemo(() => {
+    if (!activeMap || !activeControlId) return [];
+    const combat = activeMap.combat;
+    const entry = combat.entries.find((e) => e.id === activeControlId);
+    const token = entry?.tokenId ? activeMap.tokens.find((t) => t.id === entry.tokenId) : undefined;
+    const turn = combat.turns[activeControlId];
+    if (!entry || !token || !turn) return [];
+    const remaining = Math.max(0, turn.movementMax - turn.movementUsed);
+    const size = grid.size || 50;
+    const ccx = cellIndex(token.x, grid.offsetX, size);
+    const ccy = cellIndex(token.y, grid.offsetY, size);
+    const maxCx = Math.ceil(activeMap.width / size);
+    const maxCy = Math.ceil(activeMap.height / size);
+    const cells: { x: number; y: number; size: number }[] = [];
+    for (const { cx: gx, cy: gy } of reachableCells(ccx, ccy, remaining, turn.diagonalsUsed)) {
+      if (gx < 0 || gy < 0 || gx >= maxCx || gy >= maxCy) continue;
+      if (role === 'player' && hiddenSet.has(cellKey(gx, gy))) continue;
+      cells.push({ x: grid.offsetX + gx * size, y: grid.offsetY + gy * size, size });
+    }
+    return cells;
+  }, [activeMap, activeControlId, grid, role, hiddenSet]);
 
   const measure = useMemo(() => {
     if (!activeMap || !targetTokenId) return null;
@@ -301,6 +334,18 @@ export default function TableTop() {
           </Layer>
           <GridLayer grid={grid} view={view} viewport={size} />
           <Layer>
+            {movementCells.map((c) => (
+              <Rect
+                key={`mv-${c.x},${c.y}`}
+                x={c.x}
+                y={c.y}
+                width={c.size}
+                height={c.size}
+                fill="#7c9cff"
+                opacity={0.18}
+                listening={false}
+              />
+            ))}
             {activeMap?.tokens
               .filter((t) => !(role === 'player' && isCellHidden(t.x, t.y)))
               .map((token) => (

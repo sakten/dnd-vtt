@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { statNumber, statsPaired, type TokenFields } from 'shared';
+import { DEFAULT_SPEED, statNumber, statsPaired, type TokenFields } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { canControlWith } from '../lib/control';
 import TokenFieldsForm from './TokenFieldsForm';
@@ -20,6 +20,7 @@ export default function TokenMenu() {
 
   const [draft, setDraft] = useState<TokenFields | null>(null);
   const [hpCurrent, setHpCurrent] = useState(0);
+  const [speed, setSpeed] = useState(DEFAULT_SPEED);
 
   useEffect(() => {
     if (menuId && token) {
@@ -38,6 +39,7 @@ export default function TokenMenu() {
         showStats: token.showStats,
       });
       setHpCurrent(token.hpCurrent ?? 0);
+      setSpeed(token.speed ?? DEFAULT_SPEED);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии меню
   }, [menuId]);
@@ -70,6 +72,19 @@ export default function TokenMenu() {
           hpCurrent={showHp ? hpCurrent : undefined}
           onHpCurrentChange={showHp ? setHpCurrent : undefined}
         />
+        {isDm && (
+          <label className="field">
+            <span>Скорость, фт (для монстров)</span>
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              value={speed}
+              placeholder="30"
+              onChange={(e) => setSpeed(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+            />
+          </label>
+        )}
         <div className="modal-actions spread">
           {canEdit && (
             <button
@@ -86,7 +101,7 @@ export default function TokenMenu() {
             className="primary"
             disabled={!canEdit || invalidStats}
             onClick={() => {
-              setTokenFields(token.id, { ...draft, hpCurrent });
+              setTokenFields(token.id, isDm ? { ...draft, hpCurrent, speed } : { ...draft, hpCurrent });
               close(null);
             }}
           >

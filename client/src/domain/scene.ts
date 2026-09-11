@@ -48,6 +48,19 @@ export function setCombat(scene: Scene, mapId: string, combat: CombatState): Sce
   return updateMap(scene, mapId, (m) => ({ ...m, combat }));
 }
 
+export function patchCombatTurn(
+  scene: Scene,
+  mapId: string,
+  entryId: string,
+  patch: Partial<CombatState['turns'][string]>
+): Scene {
+  return updateMap(scene, mapId, (m) => {
+    const turn = m.combat.turns[entryId];
+    if (!turn) return m;
+    return { ...m, combat: { ...m.combat, turns: { ...m.combat.turns, [entryId]: { ...turn, ...patch } } } };
+  });
+}
+
 export function setFog(scene: Scene, mapId: string, fog: FogState): Scene {
   return updateMap(scene, mapId, (m) => ({ ...m, fog }));
 }

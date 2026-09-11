@@ -124,6 +124,8 @@ export interface TurnState {
   reactionUsed: boolean;
   /** Израсходовано передвижения, футы. */
   movementUsed: number;
+  /** Диагональных шагов за ход (для чередования стоимости диагоналей 5/10 фт). */
+  diagonalsUsed: number;
   /** Доступно передвижения в этом ходу, футы. */
   movementMax: number;
   /** Доп. действия/бонусные от эффектов (например, Haste). */
@@ -141,6 +143,7 @@ export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {
     bonusActionUsed: false,
     reactionUsed: false,
     movementUsed: 0,
+    diagonalsUsed: 0,
     movementMax,
     extraActions: 0,
     extraBonusActions: 0,
@@ -728,6 +731,7 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     bonusActionUsed: t.bonusActionUsed === true,
     reactionUsed: t.reactionUsed === true,
     movementUsed: clampInt(t.movementUsed, 0, 100000, 0),
+    diagonalsUsed: clampInt(t.diagonalsUsed, 0, 100000, 0),
     movementMax: clampInt(t.movementMax, 0, 100000, movementMax),
     extraActions: clampInt(t.extraActions, 0, 99, 0),
     extraBonusActions: clampInt(t.extraBonusActions, 0, 99, 0),
@@ -908,6 +912,7 @@ export interface ClientToServerEvents {
   'combat:clear': (payload: { mapId: string }) => void;
   'combat:endTurn': (payload: { mapId: string }) => void;
   'combat:setTurn': (payload: { mapId: string; id?: string; index?: number }) => void;
+  'combat:setMovement': (payload: { mapId: string; tokenId: string; used: number; diagonals?: number }) => void;
   'grid:update': (grid: GridSettings) => void;
   'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;

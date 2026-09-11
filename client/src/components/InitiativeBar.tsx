@@ -37,7 +37,7 @@ export default function InitiativeBar() {
     combat.currentIndex >= 0 && combat.currentIndex < combat.entries.length ? combat.currentIndex : -1;
   const activeEntry = activeIndex >= 0 ? combat.entries[activeIndex] : null;
   const turn = activeEntry ? combat.turns[activeEntry.id] : undefined;
-  const movementLeft = turn ? Math.max(0, turn.movementMax - turn.movementUsed) : 0;
+  const movementLeft = turn ? turn.movementMax - turn.movementUsed : 0;
 
   const scrollBy = (dir: number) => {
     scrollRef.current?.scrollBy({ left: dir * 240, behavior: 'smooth' });
@@ -73,8 +73,8 @@ export default function InitiativeBar() {
                 Л{turn.legendaryRemaining}
               </span>
             )}
-            <span className="res-move" title="Осталось передвижения">
-              {movementLeft} фт
+            <span className={`res-move${movementLeft < 0 ? ' over' : ''}`} title="Осталось передвижения">
+              {movementLeft < 0 ? `перерасход ${-movementLeft} фт` : `${movementLeft} фт`}
             </span>
           </span>
         )}

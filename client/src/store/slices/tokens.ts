@@ -1,8 +1,9 @@
 import {
   clampCells,
+  movementCost,
   type Token,
 } from 'shared';
-import { patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
+import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
 import { clearThrottled, throttled } from '../helpers';
 import type { GameState, Slice } from '../types';
 
@@ -20,6 +21,38 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
   const patchTokenInMap = (mapId: string, id: string, patch: Partial<Token>) =>
     set((s) => ({ scene: patchToken(s.scene, mapId, id, patch) }));
+
+  // Учёт передвижения активного бойца при drag (сумма сегментов по сетке).
+  const accountMovement = (mapId: string, id: string, x: number, y: number) => {
+    const map = get().scene.maps.find((m) => m.id === mapId);
+    if (!map || !map.combat.active || map.combat.currentIndex < 0) return;
+    const token = map.tokens.find((t) => t.id === id);
+    const entry = map.combat.entries[map.combat.currentIndex];
+    const turn = entry ? map.combat.turns[entry.id] : undefined;
+    if (!token || entry?.tokenId !== id || !turn) return;
+    const { feet, diagonals } = movementCost(
+      { x: token.x, y: token.y },
+      { x, y },
+      get().scene.grid.size || 50,
+      turn.diagonalsUsed
+    );
+    if (feet <= 0) return;
+    set((s) => ({
+      scene: patchCombatTurn(s.scene, mapId, entry.id, {
+        movementUsed: turn.movementUsed + feet,
+        diagonalsUsed: diagonals,
+      }),
+    }));
+  };
+
+  const reportMovement = (mapId: string, id: string) => {
+    const map = get().scene.maps.find((m) => m.id === mapId);
+    if (!map || !map.combat.active || map.combat.currentIndex < 0) return undefined;
+    const entry = map.combat.entries[map.combat.currentIndex];
+    const turn = entry ? map.combat.turns[entry.id] : undefined;
+    if (entry?.tokenId !== id || !turn) return undefined;
+    return { used: turn.movementUsed, diagonals: turn.diagonalsUsed };
+  };
 
   return {
     onTokenAdd: ({ mapId, token }) => set((s) => ({ scene: upsertToken(s.scene, mapId, token) })),
@@ -51,6 +84,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       const socket = get().socket;
       const mapId = viewMapId();
       if (!socket || !mapId) return;
+      accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
       throttled(`move:${id}`, 66, () => socket.emit('token:move', { mapId, id, x, y }));
     },
@@ -60,9 +94,19 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       const mapId = viewMapId();
       if (!socket || !mapId) return;
       clearThrottled(`move:${id}`);
+      accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
       socket.emit('token:move', { mapId, id, x, y });
       socket.emit('token:lock', { mapId, id, lock: false });
+      const moved = reportMovement(mapId, id);
+      if (moved) {
+        socket.emit('combat:setMovement', {
+          mapId,
+          tokenId: id,
+          used: moved.used,
+          diagonals: moved.diagonals,
+        });
+      }
     },
 
     lockToken: (id, lock) => {

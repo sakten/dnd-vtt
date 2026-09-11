@@ -44,7 +44,9 @@ export class RoomManager {
     const persisted = await loadPersistedRooms();
     for (const p of persisted) {
       try {
-        this.rooms.set(p.code, hydrateRoom(p));
+        const room = hydrateRoom(p);
+        this.rooms.set(p.code, room);
+        for (const map of room.scene.maps) this.ensureActiveTurn(room, map.id);
       } catch (e) {
         console.warn(`Не удалось загрузить комнату ${p?.code ?? '?'}:`, e);
       }
@@ -454,6 +456,21 @@ export class RoomManager {
     this.saveSoon(room);
   }
 
+  /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */
+  setMovement(room: Room, mapId: string, tokenId: string, used: number, diagonals?: number) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat || !Number.isFinite(used)) return;
+    const entry = combat.entries.find((e) => e.tokenId === tokenId);
+    if (!entry) return;
+    const turn = combat.turns[entry.id];
+    if (!turn) return;
+    turn.movementUsed = Math.max(0, Math.round(used));
+    if (typeof diagonals === 'number' && Number.isFinite(diagonals)) {
+      turn.diagonalsUsed = Math.max(0, Math.round(diagonals));
+    }
+    this.saveSoon(room);
+  }
+
   private restoreActive(combat: CombatState, entryId: string | undefined) {
     if (entryId) {
       const idx = combat.entries.findIndex((e) => e.id === entryId);
@@ -466,6 +483,21 @@ export class RoomManager {
     else combat.currentIndex = Math.min(combat.entries.length - 1, Math.max(0, combat.currentIndex));
   }
 
+  /**
+   * Гарантирует активную запись и её ресурсы хода: лечит легаси-бой без
+   * `currentIndex`/`turns` и добор токенов уже начатого боя.
+   */
+  private ensureActiveTurn(room: Room, mapId: string) {
+    const combat = this.combatOf(room, mapId);
+    if (!combat || !combat.active || combat.entries.length === 0) return;
+    if (combat.currentIndex < 0 || combat.currentIndex >= combat.entries.length) {
+      combat.currentIndex = 0;
+      combat.round = Math.max(1, combat.round);
+    }
+    const entry = combat.entries[combat.currentIndex];
+    if (!combat.turns[entry.id]) this.beginTurn(room, mapId, entry.id);
+  }
+
   addTokenToCombat(room: Room, mapId: string, token: Token) {
     const combat = this.combatOf(room, mapId);
     if (!combat) return;
@@ -475,6 +507,7 @@ export class RoomManager {
     if (at < 0) combat.entries.push(entry);
     else combat.entries.splice(at, 0, entry);
     this.restoreActive(combat, activeId);
+    this.ensureActiveTurn(room, mapId);
     this.saveSoon(room);
   }
 
@@ -497,6 +530,7 @@ export class RoomManager {
     const activeId = combat.entries[combat.currentIndex]?.id;
     combat.entries = [...combat.entries, ...additions].sort((a, b) => b.initiative - a.initiative);
     this.restoreActive(combat, activeId);
+    this.ensureActiveTurn(room, mapId);
     this.saveSoon(room);
   }
 

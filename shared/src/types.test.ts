@@ -107,6 +107,7 @@ describe('turn state', () => {
       bonusActionUsed: false,
       reactionUsed: false,
       movementUsed: 0,
+      diagonalsUsed: 0,
       movementMax: DEFAULT_SPEED,
       extraActions: 0,
       extraBonusActions: 0,
