@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { canControlWith } from '../lib/control';
 import TableTop from '../components/TableTop';
 import Toolbar from '../components/Toolbar';
 import MapsPanel from '../components/MapsPanel';
@@ -32,7 +33,12 @@ export default function TableScreen() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key === 'Delete' && selected) removeToken(selected);
+      if (e.key === 'Delete' && selected) {
+        const st = useGameStore.getState();
+        const map = st.scene.maps.find((m) => m.id === st.viewMapId);
+        const token = map?.tokens.find((t) => t.id === selected);
+        if (token && canControlWith(st, token)) removeToken(selected);
+      }
       if (e.key === 'Escape') {
         setSelected(null);
         setTargetToken(null);

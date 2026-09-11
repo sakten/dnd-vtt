@@ -57,6 +57,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (!room) return;
       const token = manager.findToken(room, mapId, id);
       if (!token) return;
+      if (!canControlToken(room, mapId, token)) return;
       token.lockedBy = lock ? ctx.playerId : null;
       manager.saveSoon(room);
       emitToken(room, 'token:update', mapId, token);
@@ -67,6 +68,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (!room) return;
       const token = manager.findToken(room, mapId, id);
       if (!token || !patch || typeof patch !== 'object') return;
+      if (!isDm() && !(ctx.playerId && manager.controlsToken(room, mapId, ctx.playerId, token))) return;
       if (typeof patch.name === 'string') token.name = patch.name.slice(0, 40);
       if (typeof patch.description === 'string') token.description = patch.description.slice(0, 200);
       if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {
@@ -79,40 +81,43 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (typeof patch.scale === 'number' && Number.isFinite(patch.scale)) token.scale = patch.scale;
       if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;
       if (typeof patch.visible === 'boolean') token.visible = patch.visible;
-      if (isDm() || (ctx.playerId && manager.controlsToken(room, mapId, ctx.playerId, token))) {
+      if (Array.isArray(patch.attacks)) token.attacks = normalizeAttacks(patch.attacks);
+      if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
+        if (statsPaired(patch.ac, patch.hpMax)) {
+          token.ac = patch.ac.slice(0, 10);
+          token.hpMax = patch.hpMax.slice(0, 10);
+        }
+      } else if (typeof patch.ac === 'string') {
+        const ac = patch.ac.slice(0, 10);
+        if (statsPaired(ac, token.hpMax)) token.ac = ac;
+      } else if (typeof patch.hpMax === 'string') {
+        const hp = patch.hpMax.slice(0, 10);
+        if (statsPaired(token.ac, hp)) token.hpMax = hp;
+      }
+      if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
+        token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
+      }
+      const maxHp = statNumber(token.hpMax);
+      if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
+      if (isDm()) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
         if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
-        if (Array.isArray(patch.attacks)) token.attacks = normalizeAttacks(patch.attacks);
-        if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
-          if (statsPaired(patch.ac, patch.hpMax)) {
-            token.ac = patch.ac.slice(0, 10);
-            token.hpMax = patch.hpMax.slice(0, 10);
-          }
-        } else if (typeof patch.ac === 'string') {
-          const ac = patch.ac.slice(0, 10);
-          if (statsPaired(ac, token.hpMax)) token.ac = ac;
-        } else if (typeof patch.hpMax === 'string') {
-          const hp = patch.hpMax.slice(0, 10);
-          if (statsPaired(token.ac, hp)) token.hpMax = hp;
-        }
-        if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
-          token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
-        }
-        const maxHp = statNumber(token.hpMax);
-        if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
+        if (typeof patch.showStats === 'boolean') token.showStats = patch.showStats;
       }
-      if (isDm() && typeof patch.showStats === 'boolean') token.showStats = patch.showStats;
       manager.saveSoon(room);
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {
         manager.renameCombatantByToken(room, mapId, id, token.name);
       }
-      broadcastAll('token:update', { mapId, token });
+      emitToken(room, 'token:update', mapId, token);
       if (manager.combatOf(room, mapId)?.active) syncCombat(room, mapId);
     });
 
     ctx.on('token:remove', ({ mapId, id }) => {
       const room = getRoom();
       if (!room) return;
+      const token = manager.findToken(room, mapId, id);
+      if (!token) return;
+      if (!canControlToken(room, mapId, token)) return;
       manager.removeToken(room, mapId, id);
       broadcastAll('token:remove', { mapId, id });
       if (manager.combatOf(room, mapId)?.active) {

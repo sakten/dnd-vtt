@@ -114,6 +114,38 @@ S.player.emit('dice:attack', { tokenId: summonAdd.token.id, attackIndex: 0 });
 const summonHit = await summonHitP;
 check(summonHit.roll.dice[0].sides === 20, 'призыв атакует своим модификатором');
 
+let foreignRemoved = false;
+const onForeignRemove = (p) => {
+  if (p.id === S.token.id) foreignRemoved = true;
+};
+let foreignUpdated = null;
+const onForeignUpdate = (p) => {
+  if (p.token.id === S.token.id) foreignUpdated = p.token;
+};
+S.dm.on('token:remove', onForeignRemove);
+S.dm.on('token:update', onForeignUpdate);
+S.player.emit('token:remove', { mapId: S.map1.id, id: S.token.id });
+S.player.emit('token:update', { mapId: S.map1.id, id: S.token.id, patch: { name: 'hack', ac: '99', showStats: true } });
+S.player.emit('token:lock', { mapId: S.map1.id, id: S.token.id, lock: true });
+await sleep(400);
+S.dm.off('token:remove', onForeignRemove);
+S.dm.off('token:update', onForeignUpdate);
+check(!foreignRemoved, 'игрок не удаляет чужой токен');
+check(!foreignUpdated, 'игрок не меняет и не лочит чужой токен');
+const ownStatP = new Promise((resolve) => {
+  const h = (p) => {
+    if (p.token.id === summonAdd.token.id) {
+      S.dm.off('token:update', h);
+      resolve(p.token);
+    }
+  };
+  S.dm.on('token:update', h);
+});
+S.player.emit('token:update', { mapId: S.map1.id, id: summonAdd.token.id, patch: { hpCurrent: 2, showStats: true } });
+const ownStat = await ownStatP;
+check(ownStat.hpCurrent === 2, 'контролёр меняет HP своего призыва');
+check(ownStat.showStats !== true, 'showStats переключает только DM');
+
 const statueItem = await addLibrary(S, 'Статуя', {
   imageUrl: '/uploads/statue.png',
   cells: 1,
@@ -124,6 +156,15 @@ const statueItem = await addLibrary(S, 'Статуя', {
 const statueAddP = eventOnce(S.player, 'token:add');
 S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: statueItem, x: 1100, y: 600 });
 const statueAdd = await statueAddP;
+let foreignAdded = false;
+const onForeignAdd = (p) => {
+  if (p.token.libraryItemId === statueItem) foreignAdded = true;
+};
+S.player.on('token:add', onForeignAdd);
+S.player.emit('token:add', { mapId: S.map1.id, libraryItemId: statueItem, x: 100, y: 100 });
+await sleep(400);
+S.player.off('token:add', onForeignAdd);
+check(!foreignAdded, 'игрок не ставит чужого NPC из библиотеки');
 const rangeErrP = eventOnce(S.player, 'chat:error');
 S.player.emit('dice:attack', { tokenId: summonAdd.token.id, targetId: statueAdd.token.id, attackIndex: 0 });
 const rangeErr = await rangeErrP;
@@ -148,6 +189,36 @@ const targetAddP = eventOnce(S.player, 'token:add');
 S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: targetItem, x: 650, y: 600 });
 const targetAdd = await targetAddP;
 check(targetAdd.token.ac === '' && targetAdd.token.hpMax === '', 'AC/HP врага скрыты от игрока');
+const statItem = await addLibrary(S, 'Стат-Предмет', {
+  imageUrl: '/uploads/stat.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+  ac: '12',
+  hpMax: '30',
+});
+const hiddenLib = S.lastLibrary.find((i) => i.id === statItem);
+check(hiddenLib?.ac === '' && hiddenLib?.hpMax === '', 'статы предмета скрыты от игрока без галки');
+S.dm.emit('library:update', { id: statItem, patch: { showStats: true } });
+await waitFor(() => S.lastLibrary?.find((i) => i.id === statItem)?.showStats === true);
+await waitFor(() => S.lastLibrary?.find((i) => i.id === statItem)?.ac === '12');
+const revealedLib = S.lastLibrary.find((i) => i.id === statItem);
+check(revealedLib?.ac === '12' && revealedLib?.hpMax === '30', 'галка showStats у предмета раскрывает статы игроку');
+S.dm.emit('library:remove', statItem);
+await waitFor(() => S.lastLibrary && !S.lastLibrary.some((i) => i.id === statItem));
+const hiddenUpdP = new Promise((resolve) => {
+  const h = (p) => {
+    if (p.token.id === targetAdd.token.id) {
+      S.player.off('token:update', h);
+      resolve(p.token);
+    }
+  };
+  S.player.on('token:update', h);
+});
+S.dm.emit('token:update', { mapId: S.map1.id, id: targetAdd.token.id, patch: { name: 'Мишень-2' } });
+const hiddenUpd = await hiddenUpdP;
+check(hiddenUpd.ac === '' && hiddenUpd.hpMax === '', 'token:update не раскрывает скрытые статы игроку');
 const dmgMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && (m.label ?? '').startsWith('Урон') && m.label.includes('Яд'));
 const hpUpdateP = new Promise((resolve) => {
   const h = (p) => {

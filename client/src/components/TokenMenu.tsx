@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { statNumber, statsPaired, type TokenFields } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { canControlWith } from '../lib/control';
 import TokenFieldsForm from './TokenFieldsForm';
 
 export default function TokenMenu() {
@@ -12,6 +13,10 @@ export default function TokenMenu() {
   const setTokenFields = useGameStore((s) => s.setTokenFields);
   const removeToken = useGameStore((s) => s.removeToken);
   const isDm = useGameStore((s) => s.role === 'dm');
+  const canEdit = useGameStore((s) => {
+    const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((x) => x.id === s.tokenMenuId);
+    return t ? canControlWith(s, t) : false;
+  });
 
   const [draft, setDraft] = useState<TokenFields | null>(null);
   const [hpCurrent, setHpCurrent] = useState(0);
@@ -66,18 +71,20 @@ export default function TokenMenu() {
           onHpCurrentChange={showHp ? setHpCurrent : undefined}
         />
         <div className="modal-actions spread">
-          <button
-            className="danger"
-            onClick={() => {
-              removeToken(token.id);
-              close(null);
-            }}
-          >
-            Удалить
-          </button>
+          {canEdit && (
+            <button
+              className="danger"
+              onClick={() => {
+                removeToken(token.id);
+                close(null);
+              }}
+            >
+              Удалить
+            </button>
+          )}
           <button
             className="primary"
-            disabled={invalidStats}
+            disabled={!canEdit || invalidStats}
             onClick={() => {
               setTokenFields(token.id, { ...draft, hpCurrent });
               close(null);

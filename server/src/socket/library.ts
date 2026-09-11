@@ -1,13 +1,13 @@
 import type { ConnCtx } from './context';
 
 export function registerLibraryHandlers(ctx: ConnCtx) {
-  const { manager, getRoom, isDm, broadcastAll } = ctx;
+  const { manager, getRoom, isDm, broadcastAll, broadcastLibrary } = ctx;
 
     ctx.on('library:add', (payload) => {
       const room = getRoom();
       if (!room) return;
       manager.addLibraryItem(room, payload);
-      broadcastAll('library:update', room.library);
+      broadcastLibrary(room);
     });
 
     ctx.on('library:update', ({ id, patch }) => {
@@ -22,7 +22,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
           broadcastAll('character:update', { playerId: pid, libraryItemId: null });
         }
       }
-      broadcastAll('library:update', room.library);
+      broadcastLibrary(room);
     });
 
     ctx.on('library:remove', (id) => {
@@ -32,7 +32,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       for (const pid of manager.clearControllersForItem(room, id)) {
         broadcastAll('character:update', { playerId: pid, libraryItemId: null });
       }
-      broadcastAll('library:update', room.library);
+      broadcastLibrary(room);
     });
 
     ctx.on('player:setCharacter', ({ libraryItemId }, cb) => {

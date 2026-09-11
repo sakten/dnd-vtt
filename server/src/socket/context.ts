@@ -8,6 +8,7 @@ import {
   type ChatMessage,
   type ClassLevel,
   type ClientToServerEvents,
+  type LibraryItem,
   type ServerToClientEvents,
   type Token,
 } from 'shared';
@@ -45,6 +46,8 @@ export interface ConnCtx {
   dmRoom: () => Room | null;
   canControlToken: (room: Room, mapId: string, token: Token) => boolean;
   visibleToken: (room: Room, token: Token, viewerId: string | null) => Token;
+  visibleLibrary: (room: Room, viewerId: string | null) => LibraryItem[];
+  broadcastLibrary: (room: Room) => void;
   emitToken: (room: Room, event: 'token:add' | 'token:update', mapId: string, token: Token) => void;
   syncCombat: (room: Room, mapId: string) => void;
   cleanLabel: (label?: string) => string | undefined;
@@ -142,6 +145,23 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       }
       return { ...token, ac: '', hpMax: '', hpCurrent: 0 };
     },
+    visibleLibrary: (room, viewerId) => {
+      if (viewerId) {
+        const viewer = room.players.find((p) => p.id === viewerId);
+        if (viewer?.role === 'dm') return room.library;
+      }
+      return room.library.map((item) =>
+        item.showStats ? item : { ...item, ac: '', hpMax: '', attacks: [] }
+      );
+    },
+    broadcastLibrary: (room) => {
+      for (const p of room.players) {
+        if (!p.socketId) continue;
+        const s = io.sockets.sockets.get(p.socketId);
+        if (!s) continue;
+        (s as { emit: (ev: string, payload: unknown) => void }).emit('library:update', ctx.visibleLibrary(room, p.id));
+      }
+    },
     emitToken: (room, event, mapId, token) => {
       for (const p of room.players) {
         if (!p.socketId) continue;
@@ -182,6 +202,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       socket.emit('room:joined', {
         room: {
           ...state,
+          library: ctx.visibleLibrary(room, selfId),
           scene: {
             ...state.scene,
             maps: state.scene.maps.map((m) => ({
