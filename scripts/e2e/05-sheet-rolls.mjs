@@ -157,7 +157,7 @@ check(
   weaponsBefore === 1 && weaponsAdded === 2 && weaponsRemoved === 1,
   `оружие добавляется и удаляется (${weaponsBefore} -> ${weaponsAdded} -> ${weaponsRemoved})`
 );
-await S.page.mouse.click(5, 5);
+await S.page.keyboard.press('Escape');
 await S.page.waitForFunction(() => !document.querySelector('.sheet-modal'));
 await sleep(200);
 
