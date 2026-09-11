@@ -1,6 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { CharacterSheet, CombatState, LibraryItem, MapInfo, Scene, Token } from 'shared';
-import { defaultFog, normalizeAttacks, normalizeSheet, statNumber } from 'shared';
+import {
+  DEFAULT_SPEED,
+  defaultFog,
+  emptyCombatState,
+  normalizeAttacks,
+  normalizeCombatState,
+  normalizeConditions,
+  normalizeEffects,
+  normalizeSheet,
+  normalizeStatblock,
+  statNumber,
+} from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
 
 /**
@@ -25,7 +36,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
             height: legacy.map.height,
             tokens: legacy.tokens ?? [],
             fog: defaultFog(scene.grid),
-            combat: { active: false, entries: [] },
+            combat: emptyCombatState(),
           },
         ]
       : [];
@@ -38,10 +49,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
       map.fog = defaultFog(scene.grid);
     }
     if (!Array.isArray(map.fog.hidden)) map.fog.hidden = [];
-    map.combat =
-      map.combat && typeof map.combat === 'object'
-        ? { active: map.combat.active === true, entries: Array.isArray(map.combat.entries) ? map.combat.entries : [] }
-        : { active: false, entries: [] };
+    map.combat = normalizeCombatState(map.combat);
     for (const token of map.tokens) {
       if (typeof token.name !== 'string') token.name = '';
       if (typeof token.imageUrl !== 'string') token.imageUrl = '';
@@ -59,15 +67,22 @@ export function hydrateRoom(p: PersistedRoom): Room {
         token.hpCurrent = statNumber(token.hpMax);
       }
       if (typeof token.showStats !== 'boolean') token.showStats = false;
+      token.hpTemp = Number.isFinite(token.hpTemp) ? Math.max(0, Math.round(token.hpTemp)) : 0;
+      if (token.faction !== 'ally' && token.faction !== 'enemy' && token.faction !== 'neutral') {
+        token.faction = 'neutral';
+      }
+      token.speed = Number.isFinite(token.speed) ? Math.max(0, Math.round(token.speed)) : DEFAULT_SPEED;
+      token.conditions = normalizeConditions(token.conditions);
+      token.effects = normalizeEffects(token.effects);
+      const statblock = normalizeStatblock(token.statblock);
+      if (statblock) token.statblock = statblock;
+      else delete token.statblock;
     }
   }
   const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
   const legacyMap = scene.maps.find((m) => m.id === scene.activeMapId) ?? scene.maps[0];
   if (legacyCombat && typeof legacyCombat === 'object' && legacyMap) {
-    legacyMap.combat = {
-      active: legacyCombat.active === true,
-      entries: Array.isArray(legacyCombat.entries) ? legacyCombat.entries : [],
-    };
+    legacyMap.combat = normalizeCombatState(legacyCombat);
   }
   for (const item of p.library ?? []) {
     const legacy = item as LibraryItem & { url?: string };

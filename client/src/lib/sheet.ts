@@ -1,5 +1,6 @@
 import {
   DEFAULT_ABILITIES,
+  DEFAULT_SPEED,
   SKILLS,
   abilityMod,
   emptyAttack,
@@ -19,6 +20,7 @@ export function defaultSheet(): CharacterSheet {
     classes: [],
     hpMax: '',
     ac: '',
+    speed: DEFAULT_SPEED,
   };
 }
 

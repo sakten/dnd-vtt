@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
   effectiveMaxHp,
+  emptyCombatState,
   emptyResources,
   sheetMods,
   syncResources,
@@ -126,8 +127,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!ctx.playerId) return false;
       return manager.controlsToken(room, mapId, ctx.playerId, token);
     },
-    // AC/HP токена видят: DM — всегда; игрок — только для токенов, которыми управляет
-    // (свой персонаж/призыв). Остальным AC/HP не отдаём.
+    // AC/HP/статблок токена видят: DM — всегда; игрок — только для токенов, которыми
+    // управляет (свой персонаж/призыв). Остальным AC/HP/статблок не отдаём.
     visibleToken: (room, token, viewerId) => {
       if (viewerId) {
         const viewer = room.players.find((p) => p.id === viewerId);
@@ -144,7 +145,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         }
         if (mapId && manager.controlsToken(room, mapId, viewerId, token)) return token;
       }
-      return { ...token, ac: '', hpMax: '', hpCurrent: 0 };
+      return { ...token, ac: '', hpMax: '', hpCurrent: 0, statblock: undefined };
     },
     visibleLibrary: (room, viewerId) => {
       if (viewerId) {
@@ -177,7 +178,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     syncCombat: (room, mapId) => {
       ctx.broadcastAll('combat:update', {
         mapId,
-        combat: manager.combatOf(room, mapId) ?? { active: false, entries: [] },
+        combat: manager.combatOf(room, mapId) ?? emptyCombatState(),
       });
     },
     cleanLabel: (label) => (label?.trim() ? label.trim().slice(0, 80) : undefined),

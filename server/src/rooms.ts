@@ -10,7 +10,18 @@ import type {
   Token,
   TokenFields,
 } from 'shared';
-import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, rollDice, statNumber, statsPaired } from 'shared';
+import {
+  clampCells,
+  DEFAULT_GRID,
+  DEFAULT_SPEED,
+  defaultFog,
+  emptyCombatState,
+  initiativeBonus,
+  normalizeAttacks,
+  rollDice,
+  statNumber,
+  statsPaired,
+} from 'shared';
 import { cancelRoomSave, loadPersistedRooms, removeRoomFile, removeRoomUploadDir, removeRoomUploads, saveRoomNow, saveRoomSoon } from './store';
 import { toPersistedRoom, type Room } from './roomTypes';
 import { hydrateRoom } from './roomNormalize';
@@ -116,7 +127,7 @@ export class RoomManager {
       id: randomUUID(),
       tokens: [],
       fog: defaultFog(room.scene.grid),
-      combat: { active: false, entries: [] },
+      combat: emptyCombatState(),
     };
     room.scene.maps.push(map);
     room.scene.activeMapId = map.id;
@@ -210,6 +221,8 @@ export class RoomManager {
     const map = this.findMap(room, mapId);
     if (!map) return null;
     const cells = clampCells(item.cells || 1);
+    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === item.id);
+    const controllerSheet = controllerId ? room.sheets[controllerId] : undefined;
     const token: Token = {
       ...item,
       id: randomUUID(),
@@ -236,6 +249,11 @@ export class RoomManager {
       visible: true,
       ownerId,
       lockedBy: null,
+      hpTemp: 0,
+      faction: item.isPlayerToken === true ? 'ally' : 'neutral',
+      speed: controllerSheet?.speed ?? DEFAULT_SPEED,
+      conditions: [],
+      effects: [],
     };
     map.tokens.push(token);
     this.saveSoon(room);
@@ -345,21 +363,27 @@ export class RoomManager {
     if (!map) return;
     const entries = map.tokens.map((t) => this.makeEntry(room, t));
     entries.sort((a, b) => b.initiative - a.initiative);
-    map.combat = { active: true, entries };
+    map.combat = {
+      ...emptyCombatState(),
+      active: true,
+      entries,
+      round: entries.length ? 1 : 0,
+      currentIndex: entries.length ? 0 : -1,
+    };
     this.saveSoon(room);
   }
 
   endCombat(room: Room, mapId: string) {
     const map = room.scene.maps.find((m) => m.id === mapId);
     if (!map) return;
-    map.combat = { active: false, entries: [] };
+    map.combat = emptyCombatState();
     this.saveSoon(room);
   }
 
   clearCombat(room: Room, mapId: string) {
     const map = room.scene.maps.find((m) => m.id === mapId);
     if (!map) return;
-    map.combat = { active: true, entries: [] };
+    map.combat = { ...emptyCombatState(), active: true };
     this.saveSoon(room);
   }
 

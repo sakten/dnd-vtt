@@ -1,5 +1,8 @@
 import {
   normalizeAttacks,
+  normalizeConditions,
+  normalizeEffects,
+  normalizeStatblock,
   statNumber,
   statsPaired,
 } from 'shared';
@@ -97,12 +100,28 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
         token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
       }
+      if (typeof patch.hpTemp === 'number' && Number.isFinite(patch.hpTemp)) {
+        token.hpTemp = Math.max(0, Math.round(patch.hpTemp));
+      }
       const maxHp = statNumber(token.hpMax);
       if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
+      if (Array.isArray(patch.conditions)) token.conditions = normalizeConditions(patch.conditions);
+      if (Array.isArray(patch.effects)) token.effects = normalizeEffects(patch.effects);
       if (isDm()) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
         if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
         if (typeof patch.showStats === 'boolean') token.showStats = patch.showStats;
+        if (patch.faction === 'ally' || patch.faction === 'enemy' || patch.faction === 'neutral') {
+          token.faction = patch.faction;
+        }
+        if (typeof patch.speed === 'number' && Number.isFinite(patch.speed)) {
+          token.speed = Math.max(0, Math.round(patch.speed));
+        }
+        if ('statblock' in patch) {
+          const statblock = normalizeStatblock(patch.statblock);
+          if (statblock) token.statblock = statblock;
+          else delete token.statblock;
+        }
       }
       manager.saveSoon(room);
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {

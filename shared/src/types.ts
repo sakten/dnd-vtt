@@ -93,6 +93,16 @@ export interface Token extends TokenFields {
   ownerId: string;
   lockedBy: string | null;
   hpCurrent: number;
+  /** Временные хиты. */
+  hpTemp: number;
+  /** Отношение к игрокам (для таргетинга союзник/враг). */
+  faction: Faction;
+  /** Скорость в футах; у персонажей зеркалится из листа. */
+  speed: number;
+  conditions: ConditionInstance[];
+  effects: EffectInstance[];
+  /** Статблок монстра; в библиотеку не протекает. */
+  statblock?: TokenStatblock;
 }
 
 export interface InitiativeEntry {
@@ -105,9 +115,199 @@ export interface InitiativeEntry {
   roll?: DiceRollResult;
 }
 
+export type Faction = 'ally' | 'enemy' | 'neutral';
+
+/** Состояние хода одного участника боя. */
+export interface TurnState {
+  actionUsed: boolean;
+  bonusActionUsed: boolean;
+  reactionUsed: boolean;
+  /** Израсходовано передвижения, футы. */
+  movementUsed: number;
+  /** Доступно передвижения в этом ходу, футы. */
+  movementMax: number;
+  /** Доп. действия/бонусные от эффектов (например, Haste). */
+  extraActions: number;
+  extraBonusActions: number;
+  legendaryRemaining: number;
+  legendaryMax: number;
+  /** id активного эффекта концентрации. */
+  concentrationId: string | null;
+}
+
+export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {
+  return {
+    actionUsed: false,
+    bonusActionUsed: false,
+    reactionUsed: false,
+    movementUsed: 0,
+    movementMax,
+    extraActions: 0,
+    extraBonusActions: 0,
+    legendaryRemaining: 0,
+    legendaryMax: 0,
+    concentrationId: null,
+  };
+}
+
 export interface CombatState {
   active: boolean;
   entries: InitiativeEntry[];
+  /** Номер раунда, с 1; 0 — бой не начат. */
+  round: number;
+  /** Индекс активной записи в entries; -1 — ход не назначен. */
+  currentIndex: number;
+  /** Состояние хода по id записи инициативы. */
+  turns: Record<string, TurnState>;
+}
+
+export function emptyCombatState(): CombatState {
+  return { active: false, entries: [], round: 0, currentIndex: -1, turns: {} };
+}
+
+export type ConditionKey =
+  | 'blinded'
+  | 'charmed'
+  | 'deafened'
+  | 'exhaustion'
+  | 'frightened'
+  | 'grappled'
+  | 'incapacitated'
+  | 'invisible'
+  | 'paralyzed'
+  | 'petrified'
+  | 'poisoned'
+  | 'prone'
+  | 'restrained'
+  | 'stunned'
+  | 'unconscious'
+  | 'dead'
+  | 'custom';
+
+export interface ConditionInstance {
+  key: ConditionKey;
+  name: string;
+  /** Осталось раундов; null — до снятия/бессрочно. */
+  rounds?: number | null;
+  /** Уровень истощения (для key='exhaustion'), 1..6. */
+  level?: number;
+  /** Повторный спасбросок для снятия. */
+  save?: { ability: AbilityKey; dc: number; timing: 'start' | 'end' };
+  /** Кто наложил состояние. */
+  sourceId?: string;
+}
+
+export type ModifierTarget =
+  | 'attack'
+  | 'damage'
+  | 'ac'
+  | 'save'
+  | 'check'
+  | 'speed'
+  | 'initiative'
+  | 'maxHp'
+  | 'spellDc'
+  | 'spellAttack';
+
+export type ModifierMode =
+  | 'add'
+  | 'multiply'
+  | 'set'
+  | 'advantage'
+  | 'disadvantage'
+  | 'resistance'
+  | 'immunity'
+  | 'vulnerability';
+
+export interface ModifierFilter {
+  attackType?: 'melee' | 'ranged';
+  ability?: AbilityKey;
+  skill?: string;
+  damageType?: string;
+  rangeType?: AttackRangeType;
+}
+
+export interface Modifier {
+  id: string;
+  target: ModifierTarget;
+  mode: ModifierMode;
+  /** Число либо кость в виде строки (например '1d4'). */
+  value: number | string;
+  filter?: ModifierFilter;
+}
+
+export type EffectDuration =
+  | { type: 'rounds'; rounds: number }
+  | { type: 'untilSave'; ability: AbilityKey; dc: number; timing: 'start' | 'end' }
+  | { type: 'endOfTurn'; of: 'source' | 'target' }
+  | { type: 'concentration' }
+  | { type: 'permanent' };
+
+export interface EffectInstance {
+  id: string;
+  name: string;
+  /** Ключ источника (заклинание/способность). */
+  sourceKey?: string;
+  /** id существа-источника. */
+  sourceId?: string;
+  concentration?: boolean;
+  duration: EffectDuration;
+  modifiers: Modifier[];
+  /** Ключи накладываемых состояний. */
+  conditions?: ConditionKey[];
+}
+
+export type ActionCost =
+  | 'action'
+  | 'bonus'
+  | 'reaction'
+  | 'free'
+  | 'movement'
+  | 'legendary'
+  | 'lair'
+  | 'special';
+
+export interface AreaSpec {
+  shape: 'sphere' | 'cone' | 'cube' | 'line' | 'cylinder';
+  /** Размер в футах. */
+  size: number;
+  /** Ширина линии, футы. */
+  width?: number;
+}
+
+export interface ActionTargeting {
+  kind: 'self' | 'creature' | 'point' | 'area';
+  /** Дистанция, футы. */
+  range?: number;
+  /** Максимум целей. */
+  targets?: number;
+  area?: AreaSpec;
+}
+
+/** Единый каталог действий (базовые/классовые/заклинания/монстровые). */
+export interface ActionDef {
+  id: string;
+  name: string;
+  source: 'basic' | 'class' | 'subclass' | 'spell' | 'monster';
+  cost: ActionCost;
+  /** Минимальный уровень/CR для появления в панели. */
+  levelReq?: number;
+  /** Ключ ресурса в PlayerResources для списания. */
+  resourceKey?: string;
+  resourceAmount?: number;
+  targeting?: ActionTargeting;
+  description?: string;
+}
+
+/** Данные монстра, которые DM вводит вручную (позже — бестиарий). */
+export interface TokenStatblock {
+  abilities: Record<AbilityKey, number>;
+  /** Явные бонусы спасбросков; пусто — считаются из характеристик. */
+  saves?: Partial<Record<AbilityKey, number>>;
+  spellcasting?: { ability: AbilityKey; dc?: number; attack?: number };
+  legendary?: { max: number; actions: ActionDef[] };
+  /** Особые действия/способности монстра. */
+  actions?: ActionDef[];
 }
 
 export interface Player {
@@ -173,6 +373,11 @@ export interface PlayerResources {
 export const MAX_CLASSES = 2;
 /** Верхняя граница числа атак/оружия (список динамический, не фиксированный). */
 export const MAX_ATTACKS = 10;
+export const MAX_CONDITIONS = 20;
+export const MAX_EFFECTS = 20;
+export const MAX_MODIFIERS = 20;
+/** Базовая скорость существа, футы. */
+export const DEFAULT_SPEED = 30;
 
 export const DEFAULT_ABILITIES: Record<AbilityKey, number> = {
   str: 10,
@@ -193,6 +398,8 @@ export interface CharacterSheet {
   classes: ClassLevel[];
   hpMax: string;
   ac: string;
+  /** Базовая скорость, футы. */
+  speed: number;
 }
 
 export function emptyAttack(): AttackEntry {
@@ -261,6 +468,27 @@ export function normalizeClasses(raw: unknown): ClassLevel[] {
   return out;
 }
 
+let fallbackIdCounter = 0;
+/** id с fallback для небезопасного контекста (http-LAN), где нет crypto.randomUUID. */
+function newId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    fallbackIdCounter += 1;
+    return `id-${Date.now().toString(36)}-${fallbackIdCounter.toString(36)}`;
+  }
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+function isAbilityKey(value: unknown): value is AbilityKey {
+  return typeof value === 'string' && value in DEFAULT_ABILITIES;
+}
+
 export function normalizeSheet(
   raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
 ): CharacterSheet {
@@ -282,11 +510,248 @@ export function normalizeSheet(
     classes: normalizeClasses(raw.classes),
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
+    speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),
   };
 }
 
 export function activeAttacks(sheet: CharacterSheet): AttackEntry[] {
   return sheet.attacks.filter(attackIsActive);
+}
+
+const MODIFIER_TARGETS: ModifierTarget[] = [
+  'attack',
+  'damage',
+  'ac',
+  'save',
+  'check',
+  'speed',
+  'initiative',
+  'maxHp',
+  'spellDc',
+  'spellAttack',
+];
+const MODIFIER_MODES: ModifierMode[] = [
+  'add',
+  'multiply',
+  'set',
+  'advantage',
+  'disadvantage',
+  'resistance',
+  'immunity',
+  'vulnerability',
+];
+const ACTION_COSTS: ActionCost[] = ['action', 'bonus', 'reaction', 'free', 'movement', 'legendary', 'lair', 'special'];
+const ACTION_SOURCES: ActionDef['source'][] = ['basic', 'class', 'subclass', 'spell', 'monster'];
+
+function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const f = raw as Record<string, unknown>;
+  const out: ModifierFilter = {};
+  if (f.attackType === 'melee' || f.attackType === 'ranged') out.attackType = f.attackType;
+  if (isAbilityKey(f.ability)) out.ability = f.ability;
+  if (typeof f.skill === 'string') out.skill = f.skill.slice(0, 40);
+  if (typeof f.damageType === 'string') out.damageType = f.damageType.slice(0, 40);
+  if (f.rangeType === 'melee' || f.rangeType === 'ranged' || f.rangeType === 'none') out.rangeType = f.rangeType;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function normalizeModifier(raw: unknown): Modifier | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Partial<Modifier>;
+  if (!MODIFIER_TARGETS.includes(m.target as ModifierTarget)) return null;
+  if (!MODIFIER_MODES.includes(m.mode as ModifierMode)) return null;
+  const value = typeof m.value === 'string' ? m.value.slice(0, 40) : clampInt(m.value, -9999, 9999, 0);
+  return {
+    id: typeof m.id === 'string' && m.id ? m.id : newId(),
+    target: m.target as ModifierTarget,
+    mode: m.mode as ModifierMode,
+    value,
+    filter: normalizeModifierFilter(m.filter),
+  };
+}
+
+function normalizeEffectDuration(raw: unknown): EffectDuration | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, unknown>;
+  if (d.type === 'rounds') return { type: 'rounds', rounds: clampInt(d.rounds, 0, 9999, 0) };
+  if (d.type === 'untilSave') {
+    if (!isAbilityKey(d.ability)) return null;
+    return { type: 'untilSave', ability: d.ability, dc: clampInt(d.dc, 0, 40, 0), timing: d.timing === 'start' ? 'start' : 'end' };
+  }
+  if (d.type === 'endOfTurn') return { type: 'endOfTurn', of: d.of === 'target' ? 'target' : 'source' };
+  if (d.type === 'concentration') return { type: 'concentration' };
+  if (d.type === 'permanent') return { type: 'permanent' };
+  return null;
+}
+
+export function normalizeConditions(raw: unknown): ConditionInstance[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ConditionInstance[] = [];
+  for (const item of raw.slice(0, MAX_CONDITIONS)) {
+    if (!item || typeof item !== 'object') continue;
+    const c = item as Partial<ConditionInstance>;
+    const key = typeof c.key === 'string' && c.key ? c.key : 'custom';
+    const condition: ConditionInstance = {
+      key: key as ConditionKey,
+      name: typeof c.name === 'string' && c.name.trim() ? c.name.trim().slice(0, 40) : key,
+      rounds: c.rounds === undefined || c.rounds === null ? null : clampInt(c.rounds, 0, 9999, 0),
+    };
+    if (c.key === 'exhaustion') condition.level = clampInt(c.level, 1, 6, 1);
+    if (typeof c.sourceId === 'string' && c.sourceId) condition.sourceId = c.sourceId;
+    if (c.save && typeof c.save === 'object' && isAbilityKey(c.save.ability)) {
+      condition.save = {
+        ability: c.save.ability,
+        dc: clampInt(c.save.dc, 0, 40, 0),
+        timing: c.save.timing === 'start' ? 'start' : 'end',
+      };
+    }
+    out.push(condition);
+  }
+  return out;
+}
+
+export function normalizeEffects(raw: unknown): EffectInstance[] {
+  if (!Array.isArray(raw)) return [];
+  const out: EffectInstance[] = [];
+  for (const item of raw.slice(0, MAX_EFFECTS)) {
+    if (!item || typeof item !== 'object') continue;
+    const e = item as Partial<EffectInstance>;
+    const duration = normalizeEffectDuration(e.duration);
+    if (!duration) continue;
+    const modifiers = (Array.isArray(e.modifiers) ? e.modifiers : [])
+      .map(normalizeModifier)
+      .filter((m): m is Modifier => m !== null)
+      .slice(0, MAX_MODIFIERS);
+    const effect: EffectInstance = {
+      id: typeof e.id === 'string' && e.id ? e.id : newId(),
+      name: typeof e.name === 'string' && e.name.trim() ? e.name.trim().slice(0, 60) : 'Эффект',
+      duration,
+      modifiers,
+    };
+    if (typeof e.sourceKey === 'string' && e.sourceKey) effect.sourceKey = e.sourceKey;
+    if (typeof e.sourceId === 'string' && e.sourceId) effect.sourceId = e.sourceId;
+    if (e.concentration === true) effect.concentration = true;
+    if (Array.isArray(e.conditions)) {
+      const conditions = e.conditions.filter((c): c is ConditionKey => typeof c === 'string');
+      if (conditions.length) effect.conditions = conditions.slice(0, MAX_CONDITIONS);
+    }
+    out.push(effect);
+  }
+  return out;
+}
+
+function normalizeTargeting(raw: unknown): ActionTargeting | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const t = raw as Partial<ActionTargeting>;
+  if (t.kind !== 'self' && t.kind !== 'creature' && t.kind !== 'point' && t.kind !== 'area') return undefined;
+  const out: ActionTargeting = { kind: t.kind };
+  if (typeof t.range === 'number') out.range = clampInt(t.range, 0, 10000, 0);
+  if (typeof t.targets === 'number') out.targets = clampInt(t.targets, 1, 50, 1);
+  if (t.area && typeof t.area === 'object') {
+    const shape = t.area.shape;
+    if (shape === 'sphere' || shape === 'cone' || shape === 'cube' || shape === 'line' || shape === 'cylinder') {
+      out.area = { shape, size: clampInt(t.area.size, 0, 10000, 0) };
+      if (typeof t.area.width === 'number') out.area.width = clampInt(t.area.width, 0, 1000, 0);
+    }
+  }
+  return out;
+}
+
+export function normalizeActions(raw: unknown): ActionDef[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ActionDef[] = [];
+  for (const item of raw.slice(0, 50)) {
+    if (!item || typeof item !== 'object') continue;
+    const a = item as Partial<ActionDef>;
+    if (typeof a.name !== 'string' || !a.name.trim()) continue;
+    if (!ACTION_COSTS.includes(a.cost as ActionCost)) continue;
+    const action: ActionDef = {
+      id: typeof a.id === 'string' && a.id ? a.id : newId(),
+      name: a.name.trim().slice(0, 60),
+      source: ACTION_SOURCES.includes(a.source as ActionDef['source']) ? (a.source as ActionDef['source']) : 'monster',
+      cost: a.cost as ActionCost,
+    };
+    if (typeof a.levelReq === 'number') action.levelReq = clampInt(a.levelReq, 0, 30, 0);
+    if (typeof a.resourceKey === 'string' && a.resourceKey) action.resourceKey = a.resourceKey;
+    if (typeof a.resourceAmount === 'number') action.resourceAmount = clampInt(a.resourceAmount, 0, 99, 0);
+    if (typeof a.description === 'string') action.description = a.description.slice(0, 400);
+    const targeting = normalizeTargeting(a.targeting);
+    if (targeting) action.targeting = targeting;
+    out.push(action);
+  }
+  return out;
+}
+
+export function normalizeStatblock(raw: unknown): TokenStatblock | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const s = raw as Partial<TokenStatblock>;
+  const abilities = { ...DEFAULT_ABILITIES };
+  if (s.abilities && typeof s.abilities === 'object') {
+    const source = s.abilities as Record<string, unknown>;
+    for (const key of Object.keys(DEFAULT_ABILITIES) as AbilityKey[]) {
+      const n = Number(source[key]);
+      if (Number.isFinite(n)) abilities[key] = Math.min(30, Math.max(0, Math.round(n)));
+    }
+  }
+  const saves: Partial<Record<AbilityKey, number>> = {};
+  if (s.saves && typeof s.saves === 'object') {
+    const source = s.saves as Record<string, unknown>;
+    for (const key of Object.keys(DEFAULT_ABILITIES) as AbilityKey[]) {
+      const n = Number(source[key]);
+      if (Number.isFinite(n)) saves[key] = Math.round(n);
+    }
+  }
+  const statblock: TokenStatblock = { abilities };
+  if (Object.keys(saves).length) statblock.saves = saves;
+  if (s.spellcasting && typeof s.spellcasting === 'object' && isAbilityKey(s.spellcasting.ability)) {
+    const sc: NonNullable<TokenStatblock['spellcasting']> = { ability: s.spellcasting.ability };
+    if (typeof s.spellcasting.dc === 'number') sc.dc = clampInt(s.spellcasting.dc, 0, 40, 0);
+    if (typeof s.spellcasting.attack === 'number') sc.attack = clampInt(s.spellcasting.attack, 0, 40, 0);
+    statblock.spellcasting = sc;
+  }
+  const actions = normalizeActions(s.actions);
+  if (actions.length) statblock.actions = actions;
+  if (s.legendary && typeof s.legendary === 'object') {
+    const legendaryActions = normalizeActions(s.legendary.actions);
+    const max = clampInt(s.legendary.max, 0, 9, 0);
+    if (max > 0 || legendaryActions.length) statblock.legendary = { max, actions: legendaryActions };
+  }
+  return statblock;
+}
+
+export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): TurnState {
+  const base = emptyTurnState(movementMax);
+  if (!raw || typeof raw !== 'object') return base;
+  const t = raw as Partial<TurnState>;
+  return {
+    actionUsed: t.actionUsed === true,
+    bonusActionUsed: t.bonusActionUsed === true,
+    reactionUsed: t.reactionUsed === true,
+    movementUsed: clampInt(t.movementUsed, 0, 100000, 0),
+    movementMax: clampInt(t.movementMax, 0, 100000, movementMax),
+    extraActions: clampInt(t.extraActions, 0, 99, 0),
+    extraBonusActions: clampInt(t.extraBonusActions, 0, 99, 0),
+    legendaryRemaining: clampInt(t.legendaryRemaining, 0, 99, 0),
+    legendaryMax: clampInt(t.legendaryMax, 0, 99, 0),
+    concentrationId: typeof t.concentrationId === 'string' && t.concentrationId ? t.concentrationId : null,
+  };
+}
+
+export function normalizeCombatState(raw: unknown): CombatState {
+  if (!raw || typeof raw !== 'object') return emptyCombatState();
+  const c = raw as Partial<CombatState>;
+  const entries = Array.isArray(c.entries) ? (c.entries as InitiativeEntry[]) : [];
+  const turns: Record<string, TurnState> = {};
+  if (c.turns && typeof c.turns === 'object') {
+    for (const [id, turn] of Object.entries(c.turns)) turns[id] = normalizeTurnState(turn);
+  }
+  return {
+    active: c.active === true,
+    entries,
+    round: clampInt(c.round, 0, 100000, 0),
+    currentIndex: entries.length ? clampInt(c.currentIndex, -1, entries.length - 1, -1) : -1,
+    turns,
+  };
 }
 
 export const ABILITIES: { key: AbilityKey; name: string }[] = [
@@ -441,6 +906,8 @@ export interface ClientToServerEvents {
   'combat:move': (payload: { mapId: string; id: string; toIndex: number }) => void;
   'combat:roll': (payload: { mapId: string; id?: string }) => void;
   'combat:clear': (payload: { mapId: string }) => void;
+  'combat:endTurn': (payload: { mapId: string }) => void;
+  'combat:setTurn': (payload: { mapId: string; id?: string; index?: number }) => void;
   'grid:update': (grid: GridSettings) => void;
   'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;

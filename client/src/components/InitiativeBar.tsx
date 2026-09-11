@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import type { CombatState } from 'shared';
+import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 
-const EMPTY_COMBAT: CombatState = { active: false, entries: [] };
+const EMPTY_COMBAT = emptyCombatState();
 
 export default function InitiativeBar() {
   const combat = useGameStore(

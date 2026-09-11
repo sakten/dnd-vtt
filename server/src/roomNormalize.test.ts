@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, defaultFog } from 'shared';
+import { DEFAULT_GRID, DEFAULT_SPEED, defaultFog, emptyCombatState } from 'shared';
 import type { Scene } from 'shared';
 import type { PersistedRoom } from './roomTypes';
 import { toPersistedRoom } from './roomTypes';
@@ -29,7 +29,7 @@ function sceneWithMap(extra: Record<string, unknown> = {}): Scene {
         height: 200,
         tokens: [],
         fog: defaultFog(DEFAULT_GRID),
-        combat: { active: false, entries: [] },
+        combat: emptyCombatState(),
         ...extra,
       },
     ] as unknown as Scene['maps'],
@@ -95,7 +95,7 @@ describe('hydrateRoom', () => {
     const map = room.scene.maps[0];
     const token = map.tokens[0];
 
-    expect(map.combat).toEqual({ active: false, entries: [] });
+    expect(map.combat).toEqual(emptyCombatState());
     expect(map.fog.hidden).toEqual([]);
     expect(token.name).toBe('');
     expect(token.imageUrl).toBe('');
@@ -110,6 +110,61 @@ describe('hydrateRoom', () => {
     expect(token.hpMax).toBe('');
     expect(token.hpCurrent).toBe(0);
     expect(token.showStats).toBe(false);
+    expect(token.hpTemp).toBe(0);
+    expect(token.faction).toBe('neutral');
+    expect(token.speed).toBe(DEFAULT_SPEED);
+    expect(token.conditions).toEqual([]);
+    expect(token.effects).toEqual([]);
+    expect(token.statblock).toBeUndefined();
+  });
+
+  it('нормализует боевые поля токена (условия, эффекты, статблок)', () => {
+    const scene = {
+      maps: [
+        {
+          id: 'm1',
+          name: 'X',
+          url: '',
+          width: 0,
+          height: 0,
+          tokens: [
+            {
+              id: 't1',
+              hpTemp: -3,
+              faction: 'enemy',
+              speed: 'abc',
+              conditions: [{ key: 'prone', name: 'Сбит с ног', rounds: 2 }, null, 'x'],
+              effects: [
+                {
+                  id: 'ef1',
+                  name: 'Bless',
+                  duration: { type: 'rounds', rounds: 10 },
+                  modifiers: [{ target: 'attack', mode: 'add', value: '1d4' }, { target: 'bogus', mode: 'add', value: 1 }],
+                },
+                { id: 'ef2', duration: { type: 'weird' } },
+              ],
+              statblock: { abilities: { str: 15 }, saves: { str: 5 }, actions: [{ name: 'Bite', cost: 'action' }] },
+            },
+          ],
+        },
+      ],
+      activeMapId: 'm1',
+      grid: { ...DEFAULT_GRID },
+    } as unknown as Scene;
+
+    const room = hydrateRoom(base({ scene }));
+    const token = room.scene.maps[0].tokens[0];
+
+    expect(token.hpTemp).toBe(0);
+    expect(token.faction).toBe('enemy');
+    expect(token.speed).toBe(DEFAULT_SPEED);
+    expect(token.conditions).toEqual([{ key: 'prone', name: 'Сбит с ног', rounds: 2 }]);
+    expect(token.effects).toHaveLength(1);
+    expect(token.effects[0].modifiers).toHaveLength(1);
+    expect(token.effects[0].modifiers[0].value).toBe('1d4');
+    expect(token.statblock?.abilities.str).toBe(15);
+    expect(token.statblock?.saves?.str).toBe(5);
+    expect(token.statblock?.actions?.[0].name).toBe('Bite');
   });
 
   it('hpCurrent выводится из hpMax, если не задан', () => {
