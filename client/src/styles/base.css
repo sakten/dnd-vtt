@@ -1,0 +1,116 @@
+:root {
+  --bg: #1a1d23;
+  --panel: #23272f;
+  --panel-border: #333a45;
+  --text: #e6e9ef;
+  --text-dim: #9aa3b2;
+  --accent: #7c9cff;
+  --danger: #ff6b6b;
+  --ok: #4ecb71;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+button {
+  background: #2b3039;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+button:hover:not(:disabled) {
+  background: #353b46;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0e1220;
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #8fa8ff;
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0e1220;
+  font-weight: 700;
+}
+
+input[type='text'],
+input[type='number'],
+textarea {
+  background: #1c2026;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 14px;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 60px;
+  font-family: inherit;
+}
+
+input[type='text']:focus,
+input[type='number']:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+input[type='color'] {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: #1c2026;
+  padding: 2px;
+  cursor: pointer;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
