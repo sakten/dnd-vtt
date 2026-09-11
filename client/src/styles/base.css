@@ -114,3 +114,27 @@ input[type='checkbox'] {
   width: 16px;
   height: 16px;
 }
+
+.error-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.error-screen pre {
+  max-width: 640px;
+  max-height: 40vh;
+  overflow: auto;
+  background: #1c2026;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--danger);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

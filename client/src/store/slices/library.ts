@@ -15,7 +15,10 @@ export const createLibrarySlice: Slice<Pick<GameState, 'onLibraryUpdate' | 'addL
       set((s) => ({
         library: s.library.map((i) => (i.id === id ? { ...i, ...patch } : i)),
       }));
-      throttled(`lib:${id}`, 200, () => socket.emit('library:update', { id, patch }));
+      throttled(`lib:${id}`, 200, () => {
+        const item = get().library.find((i) => i.id === id);
+        if (item) socket.emit('library:update', { id, patch: item });
+      });
     },
 
     removeLibraryItem: (id) => {

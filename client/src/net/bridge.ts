@@ -1,4 +1,5 @@
 import type { GameState } from '../store/types';
+import { newId } from '../lib/id';
 import type { AppSocket } from './socket';
 
 const HEARTBEAT_MS = 60000;
@@ -85,7 +86,7 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
   if (inviteCode) {
     const name = localStorage.getItem('vtt-name') ?? '';
     if (name) {
-      const playerId = localStorage.getItem('vtt-player') ?? crypto.randomUUID();
+      const playerId = localStorage.getItem('vtt-player') ?? newId();
       localStorage.setItem('vtt-player', playerId);
       socket.emit('room:join', { code: inviteCode, name, clientId: playerId }, (res) => {
         if ('error' in res) get().onJoinError(res.error);

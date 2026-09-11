@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { applyRest, type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { newId } from '../lib/id';
 
 function Pips({ current, max, onSet }: { current: number; max: number; onSet: (n: number) => void }) {
   return (
@@ -124,7 +125,7 @@ export default function ResourcesPanel() {
       ...res,
       resources: [
         ...res.resources,
-        { id: crypto.randomUUID(), name, current: max, max, reset: newReset },
+        { id: newId(), name, current: max, max, reset: newReset },
       ],
     }));
     setNewName('');

@@ -1,5 +1,6 @@
 import { attachSocketBridge } from '../../net/bridge';
 import { createSocket } from '../../net/socket';
+import { newId } from '../../lib/id';
 import type { GameState, Slice } from '../types';
 
 export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer'>> = (set, get) => {
@@ -12,7 +13,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
     },
 
     onConnected: () => set({ connected: true }),
-    onDisconnected: () => set({ connected: false }),
+    onDisconnected: () => set({ connected: false, draggingTokenId: null, hoverTokenId: null }),
     onJoinError: (joinError) => set({ joinError }),
 
     onRoomJoined: ({ room, selfId, sheet, resources }) => {
@@ -57,7 +58,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
     joinRoom: (code, name) => {
       const socket = get().socket;
       if (!socket) return;
-      const playerId = localStorage.getItem('vtt-player') ?? crypto.randomUUID();
+      const playerId = localStorage.getItem('vtt-player') ?? newId();
       localStorage.setItem('vtt-player', playerId);
       socket.emit('room:join', { code: code.trim().toUpperCase(), name, clientId: playerId }, (res) => {
         if ('error' in res) set({ joinError: res.error });

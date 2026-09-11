@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { newId } from '../lib/id';
 
 interface RoomInfo {
   code: string;
@@ -22,7 +23,7 @@ export default function AdminScreen() {
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const getPlayerId = () => {
-    const id = localStorage.getItem('vtt-player') ?? crypto.randomUUID();
+    const id = localStorage.getItem('vtt-player') ?? newId();
     localStorage.setItem('vtt-player', id);
     return id;
   };
