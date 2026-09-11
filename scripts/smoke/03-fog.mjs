@@ -8,10 +8,15 @@ let playerFog = null;
 S.player.on('fog:update', (p) => {
   playerFog = p;
 });
+let dmFogEcho = 0;
+S.dm.on('fog:update', () => {
+  dmFogEcho++;
+});
 const fogState = { size: 50, offsetX: 0, offsetY: 0, hidden: ['2,3', '3,3'] };
 S.dm.emit('fog:update', { mapId: S.map1.id, fog: fogState });
 await waitFor(() => playerFog && playerFog.fog.hidden.length === 2);
 check(playerFog.mapId === S.map1.id, 'туман войны обновляется у игроков');
+check(dmFogEcho === 0, 'DM не получает собственное эхо тумана');
 S.player.emit('fog:update', { mapId: S.map1.id, fog: { ...fogState, hidden: [] } });
 await sleep(600);
 check(playerFog.fog.hidden.length === 2, 'игрок не может менять туман');

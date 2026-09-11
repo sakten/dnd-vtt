@@ -1,4 +1,4 @@
-import { attachSocketBridge } from '../../net/bridge';
+import { attachSocketBridge, joinRoomWithTimeout } from '../../net/bridge';
 import { createSocket } from '../../net/socket';
 import { newId } from '../../lib/id';
 import type { GameState, Slice } from '../types';
@@ -60,9 +60,12 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
       if (!socket) return;
       const playerId = localStorage.getItem('vtt-player') ?? newId();
       localStorage.setItem('vtt-player', playerId);
-      socket.emit('room:join', { code: code.trim().toUpperCase(), name, clientId: playerId }, (res) => {
-        if ('error' in res) set({ joinError: res.error });
-      });
+      set({ joinError: null });
+      joinRoomWithTimeout(
+        socket,
+        { code: code.trim().toUpperCase(), name, clientId: playerId },
+        (message) => set({ joinError: message })
+      );
     },
 
     removePlayer: (id) => {

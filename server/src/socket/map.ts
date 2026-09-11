@@ -61,7 +61,7 @@ export function registerMapHandlers(ctx: ConnCtx) {
           : [],
       };
       manager.saveSoon(room);
-      broadcastAll('fog:update', { mapId, fog: map.fog });
+      broadcast('fog:update', { mapId, fog: map.fog });
     });
 
 

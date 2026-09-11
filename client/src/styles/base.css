@@ -115,6 +115,21 @@ input[type='checkbox'] {
   height: 16px;
 }
 
+.conn-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--danger);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
 .error-screen {
   height: 100%;
   display: flex;

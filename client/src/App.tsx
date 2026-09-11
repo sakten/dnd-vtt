@@ -15,7 +15,14 @@ export default function App() {
   }, [init]);
 
   if (!socket) return null;
-  if (roomCode) return <TableScreen />;
+  if (roomCode) {
+    return (
+      <>
+        <TableScreen />
+        {!connected && <div className="conn-banner">Нет связи с сервером — переподключение…</div>}
+      </>
+    );
+  }
   const isAdmin = new URLSearchParams(window.location.search).has('admin');
   if (isAdmin) return <AdminScreen />;
   return <JoinScreen connected={connected} />;

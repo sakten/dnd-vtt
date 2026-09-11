@@ -4,11 +4,32 @@ import type { AppSocket } from './socket';
 
 const HEARTBEAT_MS = 60000;
 const STALE_MS = 180000;
+const JOIN_TIMEOUT_MS = 5000;
 
 function clearRoomParam() {
   const url = new URL(window.location.href);
   url.searchParams.delete('room');
   window.history.replaceState(null, '', url.toString());
+}
+
+/** Вход в комнату с таймаутом: если ack не пришёл — сообщаем об ошибке. */
+export function joinRoomWithTimeout(
+  socket: AppSocket,
+  payload: { code: string; name: string; clientId: string },
+  onError: (message: string) => void
+) {
+  let settled = false;
+  const timer = window.setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    onError('Сервер не ответил. Попробуйте ещё раз.');
+  }, JOIN_TIMEOUT_MS);
+  socket.emit('room:join', payload, (res) => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timer);
+    if ('error' in res) onError(res.error);
+  });
 }
 
 export function attachSocketBridge(socket: AppSocket, get: () => GameState): void {
@@ -32,13 +53,26 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
     }
   }, HEARTBEAT_MS);
 
+  const inviteCode = new URLSearchParams(window.location.search).get('room')?.toUpperCase() ?? '';
+
   socket.on('connect', () => {
     const state = get();
     state.onConnected();
     if (state.roomCode && state.selfId) {
       const name = localStorage.getItem('vtt-name') ?? '';
-      socket.emit('room:join', { code: state.roomCode, name, clientId: state.selfId }, (res) => {
-        if ('error' in res) get().onJoinError(res.error);
+      joinRoomWithTimeout(socket, { code: state.roomCode, name, clientId: state.selfId }, (message) =>
+        get().onRoomClosed(message)
+      );
+      return;
+    }
+    if (inviteCode) {
+      const name = localStorage.getItem('vtt-name') ?? '';
+      if (!name) return;
+      const playerId = localStorage.getItem('vtt-player') ?? newId();
+      localStorage.setItem('vtt-player', playerId);
+      joinRoomWithTimeout(socket, { code: inviteCode, name, clientId: playerId }, (message) => {
+        get().onJoinError(message);
+        clearRoomParam();
       });
     }
   });
@@ -81,16 +115,4 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
   socket.on('sheet:update', (payload) => get().onSheetUpdate(payload));
   socket.on('resources:update', (resources) => get().onResourcesUpdate(resources));
   socket.on('character:update', (payload) => get().onCharacterUpdate(payload));
-
-  const inviteCode = new URLSearchParams(window.location.search).get('room')?.toUpperCase();
-  if (inviteCode) {
-    const name = localStorage.getItem('vtt-name') ?? '';
-    if (name) {
-      const playerId = localStorage.getItem('vtt-player') ?? newId();
-      localStorage.setItem('vtt-player', playerId);
-      socket.emit('room:join', { code: inviteCode, name, clientId: playerId }, (res) => {
-        if ('error' in res) get().onJoinError(res.error);
-      });
-    }
-  }
 }
