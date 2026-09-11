@@ -1,20 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CharacterSheet, ChatMessage, LibraryItem, PlayerResources, Role, Scene } from 'shared';
-
-export interface PersistedRoom {
-  code: string;
-  name?: string;
-  scene: Scene;
-  library: LibraryItem[];
-  sheets: Record<string, CharacterSheet>;
-  resources?: Record<string, PlayerResources>;
-  chat: ChatMessage[];
-  players: { id: string; name: string; role: Role }[];
-  nextZ: number;
-  controllers?: Record<string, string>;
-}
+import type { PersistedRoom } from './roomTypes';
 
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -89,13 +76,61 @@ export async function flushRoomSaves(): Promise<void> {
   );
 }
 
+/** Имя плоского (legacy) файла из url вида `/uploads/<name>`; null — если это не он. */
+export function flatUploadName(url: string): string | null {
+  if (!url.startsWith('/uploads/')) return null;
+  const name = url.slice('/uploads/'.length);
+  if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) return null;
+  return name;
+}
+
 export function removeRoomUploads(urls: string[]) {
   for (const url of urls) {
-    if (!url.startsWith('/uploads/')) continue;
-    const name = url.slice('/uploads/'.length);
-    if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) continue;
+    const name = flatUploadName(url);
+    if (!name) continue;
     fs.unlink(path.join(UPLOADS_DIR, name)).catch(() => void 0);
   }
+}
+
+export function roomUploadDir(code: string) {
+  return path.join(UPLOADS_DIR, code);
+}
+
+export function removeRoomUploadDir(code: string) {
+  fs.rm(roomUploadDir(code), { recursive: true, force: true }).catch(() => void 0);
+}
+
+export async function flatUploadSize(url: string): Promise<number> {
+  const name = flatUploadName(url);
+  if (!name) return 0;
+  try {
+    return (await fs.stat(path.join(UPLOADS_DIR, name))).size;
+  } catch {
+    return 0;
+  }
+}
+
+export async function dirSize(dir: string): Promise<number> {
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let total = 0;
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += await dirSize(full);
+    } else {
+      try {
+        total += (await fs.stat(full)).size;
+      } catch {
+        void 0;
+      }
+    }
+  }
+  return total;
 }
 
 export function removeRoomFile(code: string) {

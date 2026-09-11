@@ -73,10 +73,12 @@ await sleep(500);
 const delFile = path.resolve('server/data/rooms', `${delRoomCode}.json`);
 check(!fs.existsSync(delFile), 'файл комнаты удалён с диска');
 
+if (S.uploadedDir) check(fs.existsSync(S.uploadedDir), 'папка загрузок комнаты существует до удаления');
 await ack((cb) => S.player.emit('admin:delete', { adminToken: '', code: S.created.room.code }, cb));
 await sleep(500);
 const room1File = path.resolve('server/data/rooms', `${S.created.room.code}.json`);
 check(!fs.existsSync(room1File), 'тестовая комната удалена после теста (файл стёрт)');
+if (S.uploadedDir) check(!fs.existsSync(S.uploadedDir), 'папка загрузок комнаты удалена вместе с комнатой');
 
 S.dm.close();
 S.player.close();

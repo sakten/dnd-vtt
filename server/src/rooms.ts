@@ -1,40 +1,29 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type {
-  CharacterSheet,
   ChatMessage,
   CombatState,
   DiceRollResult,
   InitiativeEntry,
   LibraryItem,
   MapInfo,
-  Player,
-  PlayerResources,
   RoomState,
-  Scene,
   Token,
   TokenFields,
 } from 'shared';
-import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, normalizeSheet, rollDice, statNumber, statsPaired } from 'shared';
-import { cancelRoomSave, loadPersistedRooms, removeRoomFile, removeRoomUploads, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
-
-export interface RoomPlayer extends Player {
-  socketId: string | null;
-}
-
-export interface Room {
-  code: string;
-  name: string;
-  scene: Scene;
-  library: LibraryItem[];
-  sheets: Record<string, CharacterSheet>;
-  chat: ChatMessage[];
-  players: RoomPlayer[];
-  nextZ: number;
-  resources: Record<string, PlayerResources>;
-  controllers: Record<string, string>;
-}
+import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, rollDice, statNumber, statsPaired } from 'shared';
+import { cancelRoomSave, loadPersistedRooms, removeRoomFile, removeRoomUploadDir, removeRoomUploads, saveRoomNow, saveRoomSoon } from './store';
+import { toPersistedRoom, type Room } from './roomTypes';
+import { hydrateRoom } from './roomNormalize';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** Все upload-ссылки, на которые ссылается состояние комнаты (карты, токены, библиотека). */
+export function roomUploadUrls(room: Room): string[] {
+  return [
+    ...room.library.map((i) => i.imageUrl),
+    ...room.scene.maps.flatMap((m) => [m.url, ...m.tokens.map((t) => t.imageUrl)]),
+  ];
+}
 
 export class RoomManager {
   private rooms = new Map<string, Room>();
@@ -43,121 +32,11 @@ export class RoomManager {
     const persisted = await loadPersistedRooms();
     for (const p of persisted) {
       try {
-        this.rooms.set(p.code, this.hydrateRoom(p));
+        this.rooms.set(p.code, hydrateRoom(p));
       } catch (e) {
         console.warn(`Не удалось загрузить комнату ${p?.code ?? '?'}:`, e);
       }
     }
-  }
-
-  private hydrateRoom(p: PersistedRoom): Room {
-    const scene = p.scene as Scene;
-    if (!Array.isArray(scene.maps)) {
-      const legacy = scene as unknown as {
-        map: { url: string; width: number; height: number } | null;
-        tokens?: Token[];
-      };
-      const maps: MapInfo[] = legacy.map
-        ? [
-            {
-              id: randomUUID(),
-              name: 'Карта 1',
-              url: legacy.map.url,
-              width: legacy.map.width,
-              height: legacy.map.height,
-                tokens: legacy.tokens ?? [],
-                fog: defaultFog(scene.grid),
-                combat: { active: false, entries: [] },
-              },
-          ]
-        : [];
-      scene.maps = maps;
-      scene.activeMapId = maps[0]?.id ?? null;
-    }
-    for (const map of scene.maps) {
-      if (!Array.isArray(map.tokens)) map.tokens = [];
-      if (!map.fog || typeof map.fog !== 'object') {
-        map.fog = defaultFog(scene.grid);
-      }
-      if (!Array.isArray(map.fog.hidden)) map.fog.hidden = [];
-      map.combat =
-        map.combat && typeof map.combat === 'object'
-          ? { active: map.combat.active === true, entries: Array.isArray(map.combat.entries) ? map.combat.entries : [] }
-          : { active: false, entries: [] };
-      for (const token of map.tokens) {
-        if (typeof token.name !== 'string') token.name = '';
-        if (typeof token.imageUrl !== 'string') token.imageUrl = '';
-        if (typeof token.cells !== 'number') token.cells = 1;
-        if (typeof token.round !== 'boolean') token.round = false;
-        if (typeof token.description !== 'string') token.description = '';
-        if (typeof token.initiativeBonus !== 'string') token.initiativeBonus = '';
-        if (typeof token.isPlayerToken !== 'boolean') token.isPlayerToken = false;
-        if (typeof token.owner !== 'string') token.owner = '';
-        if (typeof token.libraryItemId !== 'string') token.libraryItemId = '';
-        token.attacks = normalizeAttacks((token as { attacks?: unknown }).attacks);
-        if (typeof token.ac !== 'string') token.ac = '';
-        if (typeof token.hpMax !== 'string') token.hpMax = '';
-        if (typeof token.hpCurrent !== 'number' || !Number.isFinite(token.hpCurrent)) {
-          token.hpCurrent = statNumber(token.hpMax);
-        }
-        if (typeof token.showStats !== 'boolean') token.showStats = false;
-      }
-    }
-    const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
-    const legacyMap = scene.maps.find((m) => m.id === scene.activeMapId) ?? scene.maps[0];
-    if (legacyCombat && typeof legacyCombat === 'object' && legacyMap) {
-      legacyMap.combat = {
-        active: legacyCombat.active === true,
-        entries: Array.isArray(legacyCombat.entries) ? legacyCombat.entries : [],
-      };
-    }
-    for (const item of p.library ?? []) {
-      const legacy = item as LibraryItem & { url?: string };
-      if (typeof legacy.imageUrl !== 'string') {
-        legacy.imageUrl = typeof legacy.url === 'string' ? legacy.url : '';
-      }
-      delete legacy.url;
-      if (typeof item.name !== 'string') item.name = '';
-      if (typeof item.cells !== 'number') item.cells = 1;
-      if (typeof item.round !== 'boolean') item.round = false;
-      if (typeof item.description !== 'string') item.description = '';
-      if (typeof item.initiativeBonus !== 'string') item.initiativeBonus = '';
-      if (typeof item.isPlayerToken !== 'boolean') item.isPlayerToken = false;
-      if (typeof item.owner !== 'string') item.owner = '';
-      item.attacks = normalizeAttacks((item as { attacks?: unknown }).attacks);
-      if (typeof item.ac !== 'string') item.ac = '';
-      if (typeof item.hpMax !== 'string') item.hpMax = '';
-      if (typeof item.showStats !== 'boolean') item.showStats = false;
-    }
-    const controllers: Record<string, string> = {};
-    if (p.controllers && typeof p.controllers === 'object') {
-      for (const [pid, lid] of Object.entries(p.controllers)) {
-        if (typeof lid === 'string' && lid) controllers[pid] = lid;
-      }
-    }
-    const sheets: Record<string, CharacterSheet> = {};
-    if (p.sheets && typeof p.sheets === 'object') {
-      for (const [id, sheet] of Object.entries(p.sheets)) {
-        sheets[id] = normalizeSheet(sheet);
-      }
-    }
-    return {
-      code: p.code,
-      name:
-        typeof p.name === 'string' && p.name.trim()
-          ? p.name.trim().slice(0, 60)
-          : `Игра ${p.code.slice(0, 6)}`,
-      scene,
-      library: Array.isArray(p.library) ? p.library : [],
-      sheets,
-      chat: p.chat ?? [],
-      players: Array.isArray(p.players)
-        ? p.players.map((pl) => ({ ...pl, isConnected: false, socketId: null }))
-        : [],
-      nextZ: p.nextZ ?? 0,
-      resources: p.resources && typeof p.resources === 'object' ? p.resources : {},
-      controllers,
-    };
   }
 
   has(code: string) {
@@ -179,10 +58,8 @@ export class RoomManager {
     this.rooms.delete(code);
     cancelRoomSave(code);
     removeRoomFile(code);
-    removeRoomUploads([
-      ...room.library.map((i) => i.imageUrl),
-      ...room.scene.maps.flatMap((m) => [m.url, ...m.tokens.map((t) => t.imageUrl)]),
-    ]);
+    removeRoomUploadDir(code);
+    removeRoomUploads(roomUploadUrls(room));
     return true;
   }
 
@@ -582,11 +459,11 @@ export class RoomManager {
   }
 
   saveSoon(room: Room) {
-    saveRoomSoon(() => this.toPersisted(room));
+    saveRoomSoon(() => toPersistedRoom(room));
   }
 
   saveNow(room: Room) {
-    return saveRoomNow(this.toPersisted(room));
+    return saveRoomNow(toPersistedRoom(room));
   }
 
   toState(room: Room): RoomState {
@@ -609,21 +486,6 @@ export class RoomManager {
         };
       }),
       chat: room.chat,
-      controllers: room.controllers,
-    };
-  }
-
-  private toPersisted(room: Room): PersistedRoom {
-    return {
-      code: room.code,
-      name: room.name,
-      scene: room.scene,
-      library: room.library,
-      sheets: room.sheets,
-      chat: room.chat,
-      players: room.players.map((p) => ({ id: p.id, name: p.name, role: p.role })),
-      nextZ: room.nextZ,
-      resources: room.resources,
       controllers: room.controllers,
     };
   }

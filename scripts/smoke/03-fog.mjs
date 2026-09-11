@@ -1,6 +1,8 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
 import { waitFor, waitMsg } from '../lib/smoke-helpers.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
 
 let playerFog = null;
 S.player.on('fog:update', (p) => {
@@ -35,6 +37,26 @@ const svgRes = await fetch(`${S.URL}/api/upload`, {
   body: svgForm,
 });
 check(svgRes.status === 400, 'SVG-загрузки запрещены (400)');
+
+const pngForm = new FormData();
+const pngBytes = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64'
+);
+pngForm.append('image', new Blob([pngBytes], { type: 'image/png' }), 'dot.png');
+const pngRes = await fetch(`${S.URL}/api/upload`, {
+  method: 'POST',
+  headers: { 'X-Room': S.created.room.code, 'X-Player': 'smoke-p1' },
+  body: pngForm,
+});
+const pngBody = await pngRes.json();
+check(pngRes.status === 200 && typeof pngBody.url === 'string', 'PNG-загрузка разрешена (200)');
+check(
+  pngBody.url.startsWith(`/uploads/${S.created.room.code}/`),
+  'upload лежит в подпапке своей комнаты'
+);
+S.uploadedDir = path.resolve('server/data/uploads', S.created.room.code);
+check(fs.existsSync(S.uploadedDir), 'папка загрузок комнаты создана на диске');
 
 S.player.emit('sheet:update', {
   name: 'Боец',

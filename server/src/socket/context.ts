@@ -12,7 +12,8 @@ import {
   type ServerToClientEvents,
   type Token,
 } from 'shared';
-import type { Room, RoomManager } from '../rooms';
+import type { RoomManager } from '../rooms';
+import type { Room } from '../roomTypes';
 
 export const LEAVE_GRACE_MS = 8000;
 

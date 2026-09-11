@@ -6,9 +6,11 @@ import { randomUUID } from 'node:crypto';
 import multer from 'multer';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from 'shared';
-import { RoomManager } from './rooms';
+import { RoomManager, roomUploadUrls } from './rooms';
+import type { Room } from './roomTypes';
 import { registerSocket } from './socket';
-import { HERE, UPLOADS_DIR, ensureDirs, flushRoomSaves } from './store';
+import { HERE, UPLOADS_DIR, dirSize, ensureDirs, flatUploadSize, flushRoomSaves, roomUploadDir } from './store';
+import { ROOM_QUOTA_BYTES, ROOM_QUOTA_MB } from './config';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_DIST = path.resolve(HERE, '../../client/dist');
@@ -59,8 +61,24 @@ app.use((_req, res, next) => {
   next();
 });
 
+function roomCodeOf(req: express.Request): string {
+  return (req.header('x-room') ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
+async function roomUploadsSize(code: string, room: Room): Promise<number> {
+  let total = await dirSize(roomUploadDir(code));
+  for (const url of new Set(roomUploadUrls(room))) total += await flatUploadSize(url);
+  return total;
+}
+
 const storage = multer.diskStorage({
-  destination: UPLOADS_DIR,
+  destination: (req, _file, cb) => {
+    const dir = roomUploadDir(roomCodeOf(req));
+    fsp.mkdir(dir, { recursive: true }).then(
+      () => cb(null, dir),
+      (err) => cb(err as Error, dir)
+    );
+  },
   filename: (_req, file, cb) => cb(null, `${randomUUID()}${path.extname(file.originalname).toLowerCase()}`),
 });
 
@@ -77,7 +95,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.post(
   '/api/upload',
   (req, res, next) => {
-    const roomCode = req.header('x-room') ?? '';
+    const roomCode = roomCodeOf(req);
     const playerId = req.header('x-player') ?? '';
     const room = manager.get(roomCode);
     if (!room || !room.players.some((p) => p.id === playerId)) {
@@ -97,7 +115,14 @@ app.post(
       res.status(400).json({ error: 'Файл не является изображением' });
       return;
     }
-    res.json({ url: `/uploads/${req.file.filename}` });
+    const roomCode = roomCodeOf(req);
+    const room = manager.get(roomCode);
+    if (room && (await roomUploadsSize(roomCode, room)) > ROOM_QUOTA_BYTES) {
+      await fsp.unlink(req.file.path).catch(() => void 0);
+      res.status(413).json({ error: `Превышен лимит загрузок комнаты (${ROOM_QUOTA_MB} МБ)` });
+      return;
+    }
+    res.json({ url: `/uploads/${roomCode}/${req.file.filename}` });
   }
 );
 
