@@ -8,6 +8,13 @@ await S.page.goto(S.BASE, { waitUntil: 'networkidle0' });
 await S.page.waitForSelector('.join-card');
 await S.page.screenshot({ path: path.join(S.OUT, '01-join.png') });
 
+const title = await S.page.title();
+check(title.includes('local'), `локальная версия помечена в заголовке (${title})`);
+const iconHref = await S.page.evaluate(
+  () => document.querySelector("link[rel='icon']")?.getAttribute('href') ?? ''
+);
+check(iconHref.includes('ffb454'), 'локальная версия использует отдельную иконку');
+
 const nameInputs = await S.page.$$('.join-card input');
 await nameInputs[0].type('Мастер');
 
