@@ -1,4 +1,12 @@
-import { emptyAttacks, statNumber, statsPaired, type AttackEntry, type TokenFields } from 'shared';
+import {
+  MAX_ATTACKS,
+  emptyAttack,
+  emptyAttacks,
+  statNumber,
+  statsPaired,
+  type AttackEntry,
+  type TokenFields,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
 
 interface Props {
@@ -13,6 +21,12 @@ export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurren
   const attacks = value.attacks ?? emptyAttacks();
   const setAttack = (index: number, patch: Partial<AttackEntry>) => {
     onChange({ attacks: attacks.map((a, i) => (i === index ? { ...a, ...patch } : a)) });
+  };
+  const addAttack = () => {
+    if (attacks.length < MAX_ATTACKS) onChange({ attacks: [...attacks, emptyAttack()] });
+  };
+  const removeAttack = (index: number) => {
+    if (attacks.length > 1) onChange({ attacks: attacks.filter((_, i) => i !== index) });
   };
 
   return (
@@ -130,11 +144,21 @@ export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurren
         </label>
       )}
 
-      <div className="sheet-section-title">Атаки (до 3)</div>
+      <div className="sheet-section-title">
+        Атаки ({attacks.length}/{MAX_ATTACKS})
+      </div>
       {attacks.map((attack, i) => (
         <div className="weapon-block" key={i}>
+          <div className="weapon-head">
+            <span>Атака {i + 1}</span>
+            {attacks.length > 1 && (
+              <button type="button" className="weapon-remove" onClick={() => removeAttack(i)}>
+                Удалить
+              </button>
+            )}
+          </div>
           <label className="field">
-            <span>Атака {i + 1}: название</span>
+            <span>Название</span>
             <input
               type="text"
               value={attack.name}
@@ -211,6 +235,14 @@ export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurren
           </div>
         </div>
       ))}
+      <button
+        type="button"
+        className="weapon-add"
+        onClick={addAttack}
+        disabled={attacks.length >= MAX_ATTACKS}
+      >
+        + Добавить атаку
+      </button>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, MAX_ATTACKS, defaultFog } from 'shared';
+import { DEFAULT_GRID, defaultFog } from 'shared';
 import type { Scene } from 'shared';
 import type { PersistedRoom } from './roomTypes';
 import { toPersistedRoom } from './roomTypes';
@@ -105,7 +105,7 @@ describe('hydrateRoom', () => {
     expect(token.isPlayerToken).toBe(false);
     expect(token.owner).toBe('');
     expect(token.libraryItemId).toBe('');
-    expect(token.attacks).toHaveLength(MAX_ATTACKS);
+    expect(token.attacks).toHaveLength(1);
     expect(token.ac).toBe('');
     expect(token.hpMax).toBe('');
     expect(token.hpCurrent).toBe(0);
@@ -131,7 +131,7 @@ describe('hydrateRoom', () => {
     expect(room.library[0].imageUrl).toBe('/uploads/g.png');
     expect('url' in room.library[0]).toBe(false);
     expect(room.library[0].cells).toBe(1);
-    expect(room.library[0].attacks).toHaveLength(MAX_ATTACKS);
+    expect(room.library[0].attacks).toHaveLength(1);
   });
 
   it('имя комнаты: дефолт, trim и обрезка', () => {

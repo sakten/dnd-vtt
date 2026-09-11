@@ -15,11 +15,7 @@ export function defaultSheet(): CharacterSheet {
     proficiencyBonus: '2',
     saves: {},
     skills: {},
-    attacks: [
-      { ...emptyAttack(), hit: 'd20', damage: 'd6' },
-      emptyAttack(),
-      emptyAttack(),
-    ],
+    attacks: [{ ...emptyAttack(), hit: 'd20', damage: 'd6' }],
     classes: [],
     hpMax: '',
     ac: '',

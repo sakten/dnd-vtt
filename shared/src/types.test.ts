@@ -2,29 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { MAX_ATTACKS, activeAttacks, normalizeAttacks, normalizeSheet } from './types';
 
 describe('normalizeAttacks', () => {
-  it('всегда даёт три поля оружия', () => {
-    expect(normalizeAttacks(undefined)).toHaveLength(MAX_ATTACKS);
-    expect(normalizeAttacks([{ name: 'Меч' }])).toHaveLength(MAX_ATTACKS);
+  it('по умолчанию — одна пустая строка', () => {
+    expect(normalizeAttacks(undefined)).toHaveLength(1);
+    expect(normalizeAttacks([])).toHaveLength(1);
   });
 
-  it('переносит старую одиночную атаку в первое поле', () => {
+  it('сохраняет динамическую длину и обрезает пустые строки в конце', () => {
+    expect(normalizeAttacks([{ name: 'Меч' }, { name: 'Лук' }])).toHaveLength(2);
+    expect(normalizeAttacks([{ name: 'Меч' }, { name: '' }])).toHaveLength(1);
+    expect(normalizeAttacks([{ name: '' }, { name: 'Меч' }])).toHaveLength(2);
+  });
+
+  it('ограничивает список сверху MAX_ATTACKS', () => {
+    const many = Array.from({ length: MAX_ATTACKS + 5 }, (_, i) => ({ name: `A${i}` }));
+    expect(normalizeAttacks(many)).toHaveLength(MAX_ATTACKS);
+  });
+
+  it('переносит старую одиночную атаку', () => {
     const attacks = normalizeAttacks(undefined, { name: 'Лук', hit: 'd20+7', damage: 'd8+3' });
-    expect(attacks[0]).toEqual({
-      name: 'Лук',
-      hit: 'd20+7',
-      damage: 'd8+3',
-      rangeType: 'melee',
-      rangeNormal: 5,
-      rangeLong: 0,
-    });
-    expect(attacks[1]).toEqual({
-      name: '',
-      hit: '',
-      damage: '',
-      rangeType: 'melee',
-      rangeNormal: 5,
-      rangeLong: 0,
-    });
+    expect(attacks).toEqual([
+      { name: 'Лук', hit: 'd20+7', damage: 'd8+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+    ]);
   });
 
   it('не перетирает существующий список legacy-атакой', () => {
@@ -44,7 +42,7 @@ describe('normalizeSheet', () => {
       proficiencyBonus: 'd4',
       attack: { name: 'Меч', hit: 'd20+5', damage: 'd8+3' },
     });
-    expect(sheet.attacks).toHaveLength(MAX_ATTACKS);
+    expect(sheet.attacks).toHaveLength(1);
     expect(sheet.attacks[0].name).toBe('Меч');
     expect(sheet.abilities.str).toBe(10);
   });

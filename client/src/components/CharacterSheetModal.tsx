@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import {
   ABILITIES,
   CLASS_LIST,
+  MAX_ATTACKS,
   SKILLS,
   abilityMod,
   classSaves,
   computedMaxHp,
+  emptyAttack,
   normalizeSheet,
   subclassList,
   type AbilityKey,
@@ -67,6 +69,12 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
       d ? { ...d, attacks: d.attacks.map((w, i) => (i === index ? { ...w, ...patch } : w)) } : d
     );
   };
+
+  const addWeapon = () =>
+    setDraft((d) => (d && d.attacks.length < MAX_ATTACKS ? { ...d, attacks: [...d.attacks, emptyAttack()] } : d));
+
+  const removeWeapon = (index: number) =>
+    setDraft((d) => (d && d.attacks.length > 1 ? { ...d, attacks: d.attacks.filter((_, i) => i !== index) } : d));
 
   const setClassLevel = (index: number, patch: Partial<ClassLevel>) => {
     setDraft((d) => {
@@ -262,11 +270,21 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           })}
         </div>
 
-        <div className="sheet-section-title">Оружие (до 3)</div>
+        <div className="sheet-section-title">
+          Оружие ({draft.attacks.length}/{MAX_ATTACKS})
+        </div>
         {draft.attacks.map((weapon, i) => (
           <div className="weapon-block" key={i}>
+            <div className="weapon-head">
+              <span>Оружие {i + 1}</span>
+              {draft.attacks.length > 1 && (
+                <button type="button" className="weapon-remove" onClick={() => removeWeapon(i)}>
+                  Удалить
+                </button>
+              )}
+            </div>
             <label className="field">
-              <span>Оружие {i + 1}: название</span>
+              <span>Название</span>
               <input
                 type="text"
                 value={weapon.name}
@@ -343,6 +361,14 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             </div>
           </div>
         ))}
+        <button
+          type="button"
+          className="weapon-add"
+          onClick={addWeapon}
+          disabled={draft.attacks.length >= MAX_ATTACKS}
+        >
+          + Добавить атаку
+        </button>
 
         <div className="modal-actions">
           <button

@@ -171,7 +171,8 @@ export interface PlayerResources {
 }
 
 export const MAX_CLASSES = 2;
-export const MAX_ATTACKS = 3;
+/** Верхняя граница числа атак/оружия (список динамический, не фиксированный). */
+export const MAX_ATTACKS = 10;
 
 export const DEFAULT_ABILITIES: Record<AbilityKey, number> = {
   str: 10,
@@ -199,7 +200,7 @@ export function emptyAttack(): AttackEntry {
 }
 
 export function emptyAttacks(): AttackEntry[] {
-  return Array.from({ length: MAX_ATTACKS }, emptyAttack);
+  return [emptyAttack()];
 }
 
 function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry {
@@ -223,18 +224,23 @@ export function attackIsActive(a: AttackEntry): boolean {
   return !!a.hit.trim() || !!a.damage.trim();
 }
 
+/**
+ * Приводит список атак к валидному виду: динамическая длина (до `MAX_ATTACKS`),
+ * обрезка пустых строк в конце, минимум одна строка. Legacy-одиночная атака
+ * подставляется, если в списке нет ничего содержательного.
+ */
 export function normalizeAttacks(
   attacks: unknown,
   legacy?: Partial<AttackEntry> | null
 ): AttackEntry[] {
   const list = Array.isArray(attacks) ? attacks : [];
-  const result: AttackEntry[] = [];
-  for (let i = 0; i < MAX_ATTACKS; i++) {
-    result.push(coerceAttack(list[i] as Partial<AttackEntry> | undefined));
-  }
+  let result = list.slice(0, MAX_ATTACKS).map((a) => coerceAttack(a as Partial<AttackEntry> | undefined));
   if (result.every(attackIsEmpty) && legacy) {
-    result[0] = coerceAttack(legacy);
+    result = [coerceAttack(legacy)];
+  } else {
+    while (result.length > 1 && attackIsEmpty(result[result.length - 1])) result.pop();
   }
+  if (result.length === 0) result = [emptyAttack()];
   return result;
 }
 

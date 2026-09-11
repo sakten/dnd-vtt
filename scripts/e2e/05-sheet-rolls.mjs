@@ -144,5 +144,22 @@ check(
   'Dis: спасбросок кидается с помехой'
 );
 
+await S.page.click('.sheet-button');
+await S.page.waitForSelector('.sheet-modal');
+const weaponsBefore = await S.page.$$eval('.sheet-modal .weapon-block', (els) => els.length);
+await (await findButton(S.page, '.sheet-modal button', 'Добавить атаку')).click();
+await sleep(200);
+const weaponsAdded = await S.page.$$eval('.sheet-modal .weapon-block', (els) => els.length);
+await (await S.page.$('.sheet-modal .weapon-remove')).click();
+await sleep(200);
+const weaponsRemoved = await S.page.$$eval('.sheet-modal .weapon-block', (els) => els.length);
+check(
+  weaponsBefore === 1 && weaponsAdded === 2 && weaponsRemoved === 1,
+  `оружие добавляется и удаляется (${weaponsBefore} -> ${weaponsAdded} -> ${weaponsRemoved})`
+);
+await S.page.mouse.click(5, 5);
+await S.page.waitForFunction(() => !document.querySelector('.sheet-modal'));
+await sleep(200);
+
 await S.fileInputs[0].uploadFile(S.map2Path);
 await sleep(1200);
