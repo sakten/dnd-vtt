@@ -45,6 +45,27 @@ check(
   'бонус инициативы токена учтён в бою'
 );
 
+check(combatState.round >= 1, `бой начинается с раунда (${combatState.round})`);
+check(
+  combatState.currentIndex >= 0 && combatState.currentIndex < combatState.entries.length,
+  'назначен активный боец'
+);
+const firstActive = combatState.entries[combatState.currentIndex];
+check(!!combatState.turns?.[firstActive.id], 'у активного есть ресурсы хода');
+check(combatState.turns?.[firstActive.id]?.movementMax > 0, 'у активного есть передвижение');
+check(combatState.turns?.[firstActive.id]?.movementUsed === 0, 'передвижение в начале хода не потрачено');
+
+S.dm.emit('combat:endTurn', { mapId: S.map1.id });
+await waitFor(() => combatState.entries[combatState.currentIndex]?.id !== firstActive.id);
+check(
+  combatState.entries[combatState.currentIndex]?.id !== firstActive.id,
+  'Завершить ход переводит к следующему бойцу'
+);
+
+S.dm.emit('combat:setTurn', { mapId: S.map1.id, id: firstActive.id });
+await waitFor(() => combatState.entries[combatState.currentIndex]?.id === firstActive.id);
+check(combatState.entries[combatState.currentIndex]?.id === firstActive.id, 'DM может вернуть ход');
+
 const fifthItem = await addLibrary(S, 'Пятый', {
   imageUrl: '/y.png',
   cells: 1,
