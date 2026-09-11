@@ -70,10 +70,10 @@ await S.page.evaluate(() => {
   const dt = new DataTransfer();
   src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
   target.dispatchEvent(
-    new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: 800, clientY: 600 })
+    new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: 800, clientY: 380 })
   );
   target.dispatchEvent(
-    new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: 800, clientY: 600 })
+    new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: 800, clientY: 380 })
   );
 });
 await sleep(900);
@@ -128,7 +128,8 @@ await S.page.screenshot({ path: path.join(S.OUT, '10-zoom.png') });
 
 const wheelToken = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
-  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+  // Берём токен выше нижней панели действий, чтобы колесо шло по канвасу.
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
   return {
     sx: t.x * s.view.scale + s.view.x,
     sy: t.y * s.view.scale + s.view.y,
@@ -142,7 +143,7 @@ await S.page.mouse.wheel({ deltaY: -120 });
 await sleep(500);
 const wheelAfter = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
-  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
   return { viewScale: s.view.scale, tokenScale: t.scale, tokenW: t.w };
 });
 check(

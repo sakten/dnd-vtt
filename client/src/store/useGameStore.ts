@@ -5,6 +5,7 @@ import { createRoomSlice } from './slices/room';
 import { createMapSlice } from './slices/maps';
 import { createLibrarySlice } from './slices/library';
 import { createCombatSlice } from './slices/combat';
+import { createActionSlice } from './slices/actions';
 import { createTokenSlice } from './slices/tokens';
 import { createChatSlice } from './slices/chat';
 import { createSheetSlice } from './slices/sheet';
@@ -15,6 +16,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createMapSlice(set, get),
   ...createLibrarySlice(set, get),
   ...createCombatSlice(set, get),
+  ...createActionSlice(set, get),
   ...createTokenSlice(set, get),
   ...createChatSlice(set, get),
   ...createSheetSlice(set, get),

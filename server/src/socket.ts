@@ -10,6 +10,7 @@ import { registerChatHandlers } from './socket/chat';
 import { registerSheetHandlers } from './socket/sheet';
 import { registerResourceHandlers } from './socket/resources';
 import { registerDiceHandlers } from './socket/dice';
+import { registerActionHandlers } from './socket/actions';
 
 export function registerSocket(io: AppServer, manager: RoomManager) {
   io.on('connection', (socket: AppSocket) => {
@@ -27,5 +28,6 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     registerSheetHandlers(ctx);
     registerResourceHandlers(ctx);
     registerDiceHandlers(ctx);
+    registerActionHandlers(ctx);
   });
 }

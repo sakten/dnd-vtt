@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DEFAULT_ABILITIES,
   DEFAULT_GRID,
   DEFAULT_SPEED,
   defaultFog,
@@ -238,6 +239,28 @@ describe('RoomManager ход', () => {
     const entry = combat.entries[0];
     expect(combat.turns[entry.id]).toBeDefined();
     expect(combat.turns[entry.id].movementMax).toBe(40);
+  });
+
+  it('consumeAttack: действие открывает запас мультиатаки', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 20)];
+    combat.currentIndex = 0;
+    const tk = token('t1', { statblock: { abilities: { ...DEFAULT_ABILITIES }, multiattack: 3 } });
+    room.scene.maps[0].tokens = [tk];
+    manager.beginTurn(room, 'm1', 'e1');
+
+    expect(manager.attacksPerToken(room, tk)).toBe(3);
+    expect(manager.consumeAttack(room, 'm1', tk)).toBe(true);
+    expect(combat.turns.e1.actionUsed).toBe(true);
+    expect(combat.turns.e1.attacksRemaining).toBe(2);
+
+    expect(manager.consumeAttack(room, 'm1', tk)).toBe(true);
+    expect(manager.consumeAttack(room, 'm1', tk)).toBe(true);
+    expect(combat.turns.e1.attacksRemaining).toBe(0);
+    expect(manager.consumeAttack(room, 'm1', tk)).toBe(false);
   });
 
   it('setMovement фиксирует передвижение и не уходит в минус', () => {

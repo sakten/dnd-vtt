@@ -1,17 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
   DiceParseError,
-  attackRange,
-  attackSubject,
-  gridDistanceFeet,
-  isCriticalFail,
-  isCriticalHit,
-  resolveAttack,
   rollDice,
   rollLabelText,
-  statNumber,
-  weaponRolls,
-  withAdvantage,
   type AttackEntry,
   type ChatMessage,
   type RollKind,
@@ -19,9 +10,10 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { resolveWeaponAttack } from './attackResolve';
 
 export function registerDiceHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, broadcastAll, emitToken, cleanLabel } = ctx;
+  const { socket, manager, getRoom, isDm, broadcastAll, syncCombat, cleanLabel } = ctx;
 
     ctx.on('dice:roll', ({ expression, label, rollKind, subject }) => {
       if (!ctx.playerId) return;
@@ -85,10 +77,20 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       const entry = attacks[index];
       if (!entry) return;
 
-      let distanceFeet = 0;
-      let hasTarget = false;
-      let forcedDisadvantage = false;
-      let forcedDisadvantageCode: RollLabelParams['disadvantage'];
+      // Единая экономика: в бою атака списывает действие/запас мультиатаки.
+      if (attacker && attackerMapId && manager.combatOf(room, attackerMapId)?.active) {
+        if (!isDm() && !manager.isActiveToken(room, attackerMapId, attacker.id)) {
+          socket.emit('chat:error', 'Сейчас не ваш ход');
+          return;
+        }
+        if (!isDm() && !manager.canAttack(room, attackerMapId, attacker)) {
+          socket.emit('chat:error', 'Действие уже потрачено');
+          return;
+        }
+        manager.consumeAttack(room, attackerMapId, attacker);
+        syncCombat(room, attackerMapId);
+      }
+
       let targetTok: Token | null = null;
       let targetMapId: string | null = null;
       if (typeof targetId === 'string' && targetId) {
@@ -101,92 +103,18 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           }
         }
       }
-      if (attacker && attackerMapId && targetTok && targetMapId === attackerMapId && targetTok.id !== attacker.id) {
-        const map = room.scene.maps.find((m) => m.id === attackerMapId);
-        if (map) {
-          const size = room.scene.grid.size || 50;
-          distanceFeet = gridDistanceFeet(attacker, targetTok, size);
-          const adjacentEnemy = map.tokens.some(
-            (t) => t.id !== attacker.id && t.isPlayerToken === false && gridDistanceFeet(attacker, t, size) <= 5
-          );
-          const range = attackRange(entry, distanceFeet, adjacentEnemy);
-          if (range.outOfRange) {
-            socket.emit('chat:error', `${range.reason ?? 'Вне зоны'}: ${Math.round(distanceFeet)} фт`);
-            return;
-          }
-          forcedDisadvantage = range.disadvantage;
-          forcedDisadvantageCode = range.disadvantageCode;
-          hasTarget = true;
-        }
-      }
 
-      const { hit, damage } = weaponRolls(entry);
-      if (!hit && !damage) return;
-      const baseParams: RollLabelParams = {
-        subject: attackSubject(entry, prefix),
-        distanceFeet: hasTarget ? Math.round(distanceFeet) : undefined,
-        disadvantage: forcedDisadvantageCode,
-      };
-
-      let adv: 'a' | 'd' | undefined = advantage === 'a' || advantage === 'd' ? advantage : undefined;
-      if (forcedDisadvantage) adv = adv === 'a' ? undefined : 'd';
-
-      const targetAc = targetTok ? statNumber(targetTok.ac) : 0;
-
-      try {
-        let crit = false;
-        let hitSuccess: boolean | undefined;
-        if (hit) {
-          const hitRoll = rollDice(withAdvantage(hit, adv));
-          crit = isCriticalHit(hitRoll);
-          if (targetAc > 0) {
-            hitSuccess = resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc);
-          }
-          const params: RollLabelParams = {
-            ...baseParams,
-            hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
-          };
-          const hitMessage: ChatMessage = {
-            id: randomUUID(),
-            kind: 'roll',
-            author,
-            roll: hitRoll,
-            label: cleanLabel(rollLabelText('attack', params)),
-            rollKind: 'attack',
-            labelParams: params,
-            ts: Date.now(),
-          };
-          manager.addMessage(room, hitMessage);
-          broadcastAll('chat:message', hitMessage);
-        }
-        if (damage && hitSuccess !== false) {
-          const damageRoll = rollDice(damage, Math.random, { doubleDice: crit });
-          const damageMessage: ChatMessage = {
-            id: randomUUID(),
-            kind: 'roll',
-            author,
-            roll: damageRoll,
-            label: cleanLabel(rollLabelText('damage', baseParams)),
-            rollKind: 'damage',
-            labelParams: baseParams,
-            crit,
-            ts: Date.now(),
-          };
-          manager.addMessage(room, damageMessage);
-          broadcastAll('chat:message', damageMessage);
-
-          if (targetTok && targetMapId) {
-            const isCharacter = Object.values(room.controllers).includes(targetTok.libraryItemId);
-            if (statNumber(targetTok.hpMax) > 0 || isCharacter) {
-              const changed = manager.adjustTokenHp(room, targetMapId, targetTok, -damageRoll.total);
-              for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-              broadcastAll('players:update', manager.toState(room).players);
-            }
-          }
-        }
-      } catch (e) {
-        socket.emit('chat:error', e instanceof DiceParseError ? e.message : 'Не удалось распознать бросок');
-      }
+      const result = resolveWeaponAttack(ctx, {
+        attacker,
+        attackerMapId,
+        target: targetTok,
+        targetMapId,
+        attack: entry,
+        prefix,
+        advantage,
+        author,
+      });
+      if (result.error) socket.emit('chat:error', result.error);
     });
 
 }

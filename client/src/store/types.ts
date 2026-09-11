@@ -1,4 +1,5 @@
 import type {
+  ActionCost,
   CharacterSheet,
   ChatMessage,
   FogState,
@@ -116,6 +117,11 @@ export interface GameState {
   clearCombat: () => void;
   endTurn: () => void;
   setTurn: (id: string) => void;
+  runAction: (
+    tokenId: string,
+    actionId: string,
+    extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost }
+  ) => void;
   setHoverToken: (id: string | null) => void;
   fitView: () => void;
   onConnected: () => void;

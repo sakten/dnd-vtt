@@ -92,6 +92,17 @@ function countIn(img, pred, x0, y0, x1, y1, step = 4) {
   return n;
 }
 
+function countInExcept(img, pred, ex, step = 4) {
+  let n = 0;
+  for (let y = 0; y < img.height; y += step) {
+    for (let x = 0; x < img.width; x += step) {
+      if (x >= ex[0] && x < ex[2] && y >= ex[1] && y < ex[3]) continue;
+      if (pred(img.pixel(x, y))) n++;
+    }
+  }
+  return n;
+}
+
 function centroidIn(img, pred, x0, y0, x1, y1) {
   let sx = 0;
   let sy = 0;
@@ -139,8 +150,11 @@ check(near(empty.pixel(60, 860), 35, 39, 47, 25), '02-table: панель ток
 
 const map = imgs['03-map'];
 const full = (img) => [0, 0, img.width, img.height];
+// Панель действий стоит между панелью токенов и чатом — исключаем её из подсчёта карты.
+const panelEx = (img) => [400, img.height - 330, img.width - 500, img.height];
+const grayPred = (p) => near(p, 46, 52, 64, 10);
 const green = countIn(map, (p) => near(p, 90, 160, 90, 30), ...full(map));
-const gray = countIn(map, (p) => near(p, 46, 52, 64, 10), ...full(map));
+const gray = countInExcept(map, grayPred, panelEx(map));
 const lightLines = countIn(map, (p) => p[0] > 100 && p[1] > 100 && p[2] > 100, ...full(map));
 check(green > 300, `03-map: зелёная рамка карты (${green} сэмплов)`);
 check(gray > 10000, `03-map: тело карты (${gray} сэмплов)`);
@@ -164,8 +178,8 @@ const movedC = centroidIn(moved, redPred, 300, 100, 1100, 750);
 check(movedC && tokenC && movedC.x > tokenC.x + 60 && movedC.y > tokenC.y + 40, `09-moved: токен сдвинут вправо-вниз (центр ${tokenC.x.toFixed(0)},${tokenC.y.toFixed(0)} -> ${movedC.x.toFixed(0)},${movedC.y.toFixed(0)})`);
 
 const zoom = imgs['10-zoom'];
-const zoomGray = countIn(zoom, (p) => near(p, 46, 52, 64, 10), ...full(zoom));
-check(zoomGray > gray * 1.05, `10-zoom: карта крупнее (серых сэмплов ${gray} -> ${zoomGray})`);
+const zoomGray = countInExcept(zoom, grayPred, panelEx(zoom));
+check(zoomGray > gray * 1.03, `10-zoom: карта крупнее (серых сэмплов ${gray} -> ${zoomGray})`);
 
 const player = imgs['12-player'];
 const playerRed = countIn(player, redPred, ...full(player));

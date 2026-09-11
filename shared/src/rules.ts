@@ -1,3 +1,4 @@
+export * from './rules/actions';
 export * from './rules/classes';
 export * from './rules/combat';
 export * from './rules/movement';

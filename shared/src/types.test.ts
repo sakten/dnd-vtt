@@ -5,6 +5,7 @@ import {
   activeAttacks,
   emptyCombatState,
   emptyTurnState,
+  normalizeActions,
   normalizeAttacks,
   normalizeCombatState,
   normalizeConditions,
@@ -111,6 +112,7 @@ describe('turn state', () => {
       movementMax: DEFAULT_SPEED,
       extraActions: 0,
       extraBonusActions: 0,
+      attacksRemaining: 0,
       legendaryRemaining: 0,
       legendaryMax: 0,
       concentrationId: null,
@@ -190,6 +192,22 @@ describe('normalizeEffects', () => {
     expect(effects).toHaveLength(1);
     expect(effects[0].modifiers).toHaveLength(1);
     expect(effects[0].modifiers[0].value).toBe('1d4');
+  });
+});
+
+describe('normalizeActions', () => {
+  it('читает costs и legacy cost, чинит пустые стоимости', () => {
+    const list = normalizeActions([
+      { name: 'Dash', costs: ['action', 'bonus'] },
+      { name: 'Bite', cost: 'action' },
+      { name: 'Weird', costs: ['nope'] },
+      { name: '', costs: ['action'] },
+      null,
+    ]);
+    expect(list.map((a) => a.name)).toEqual(['Dash', 'Bite', 'Weird']);
+    expect(list[0].costs).toEqual(['action', 'bonus']);
+    expect(list[1].costs).toEqual(['action']);
+    expect(list[2].costs).toEqual(['action']);
   });
 });
 

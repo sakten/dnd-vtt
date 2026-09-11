@@ -13,6 +13,7 @@ import { RoomManager } from '../rooms';
 import type { ConnCtx } from './context';
 import { registerCombatHandlers } from './combat';
 import { registerTokenHandlers } from './token';
+import { registerActionHandlers } from './actions';
 
 function makeToken(id: string, overrides: Partial<Token> = {}): Token {
   return {
@@ -142,7 +143,9 @@ function makeCtx(room: Room, opts: { playerId?: string | null; dm?: boolean } = 
       });
     },
     cleanLabel: (label?: string) => label,
-    systemMessage: () => {},
+    systemMessage: (_room: Room, text: string) => {
+      emitted.push({ event: 'system', payload: text });
+    },
     emitJoined: () => {},
     classIdentity: () => '',
   } as unknown as ConnCtx;
@@ -226,6 +229,49 @@ describe('combat:setTurn / setMovement', () => {
     registerCombatHandlers(f.ctx);
     f.invoke('combat:setMovement', { mapId: 'm1', tokenId: 't1', used: 20 });
     expect(combatOf(room).turns.e1.movementUsed).toBe(0);
+  });
+});
+
+describe('action:use', () => {
+  it('Рывок тратит действие и добавляет передвижение', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', speed: 30 })], { p1: 'lib1' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash', slot: 'action' });
+
+    expect(combatOf(room).turns.e1.actionUsed).toBe(true);
+    expect(combatOf(room).turns.e1.movementMax).toBe(60);
+    expect(f.emitted.some((e) => e.event === 'system' && String(e.payload).includes('Рывок'))).toBe(true);
+  });
+
+  it('игрок не может действовать не в свой ход', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.scene.maps[0].tokens.push(makeToken('t2'));
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
+    expect(combatOf(room).turns.e1.actionUsed).toBe(false);
+    expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
+  });
+
+  it('Атака списывает действие и оружие бьёт', () => {
+    const room = makeRoom([makeToken('t1')], {});
+    const token = room.scene.maps[0].tokens[0];
+    token.attacks = [
+      { name: 'Bite', hit: 'd20+5', damage: 'd6+3', rangeType: 'none', rangeNormal: 0, rangeLong: 0 },
+    ];
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0 });
+
+    expect(combatOf(room).turns.e1.actionUsed).toBe(true);
+    expect(combatOf(room).turns.e1.attacksRemaining).toBe(0);
+    expect(room.chat.length).toBeGreaterThan(0);
   });
 });
 

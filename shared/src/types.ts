@@ -131,6 +131,8 @@ export interface TurnState {
   /** Доп. действия/бонусные от эффектов (например, Haste). */
   extraActions: number;
   extraBonusActions: number;
+  /** Остаток атак в текущем действии «Атака» (Extra Attack/мультиатака). */
+  attacksRemaining: number;
   legendaryRemaining: number;
   legendaryMax: number;
   /** id активного эффекта концентрации. */
@@ -147,6 +149,7 @@ export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {
     movementMax,
     extraActions: 0,
     extraBonusActions: 0,
+    attacksRemaining: 0,
     legendaryRemaining: 0,
     legendaryMax: 0,
     concentrationId: null,
@@ -292,7 +295,8 @@ export interface ActionDef {
   id: string;
   name: string;
   source: 'basic' | 'class' | 'subclass' | 'spell' | 'monster';
-  cost: ActionCost;
+  /** Допустимые слоты (по приоритету): действие, бонусное и т.д. */
+  costs: ActionCost[];
   /** Минимальный уровень/CR для появления в панели. */
   levelReq?: number;
   /** Ключ ресурса в PlayerResources для списания. */
@@ -308,6 +312,8 @@ export interface TokenStatblock {
   /** Явные бонусы спасбросков; пусто — считаются из характеристик. */
   saves?: Partial<Record<AbilityKey, number>>;
   spellcasting?: { ability: AbilityKey; dc?: number; attack?: number };
+  /** Число атак за действие (мультиатака), по умолчанию 1. */
+  multiattack?: number;
   legendary?: { max: number; actions: ActionDef[] };
   /** Особые действия/способности монстра. */
   actions?: ActionDef[];
@@ -665,14 +671,16 @@ export function normalizeActions(raw: unknown): ActionDef[] {
   const out: ActionDef[] = [];
   for (const item of raw.slice(0, 50)) {
     if (!item || typeof item !== 'object') continue;
-    const a = item as Partial<ActionDef>;
+    const a = item as Partial<ActionDef> & { cost?: unknown };
     if (typeof a.name !== 'string' || !a.name.trim()) continue;
-    if (!ACTION_COSTS.includes(a.cost as ActionCost)) continue;
+    const rawCosts = Array.isArray(a.costs) ? a.costs : a.cost !== undefined ? [a.cost] : [];
+    const costs = [...new Set(rawCosts.filter((c): c is ActionCost => ACTION_COSTS.includes(c as ActionCost)))];
+    if (costs.length === 0) costs.push('action');
     const action: ActionDef = {
       id: typeof a.id === 'string' && a.id ? a.id : newId(),
       name: a.name.trim().slice(0, 60),
       source: ACTION_SOURCES.includes(a.source as ActionDef['source']) ? (a.source as ActionDef['source']) : 'monster',
-      cost: a.cost as ActionCost,
+      costs,
     };
     if (typeof a.levelReq === 'number') action.levelReq = clampInt(a.levelReq, 0, 30, 0);
     if (typeof a.resourceKey === 'string' && a.resourceKey) action.resourceKey = a.resourceKey;
@@ -714,6 +722,7 @@ export function normalizeStatblock(raw: unknown): TokenStatblock | undefined {
   }
   const actions = normalizeActions(s.actions);
   if (actions.length) statblock.actions = actions;
+  if (typeof s.multiattack === 'number') statblock.multiattack = clampInt(s.multiattack, 1, 10, 1);
   if (s.legendary && typeof s.legendary === 'object') {
     const legendaryActions = normalizeActions(s.legendary.actions);
     const max = clampInt(s.legendary.max, 0, 9, 0);
@@ -735,6 +744,7 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     movementMax: clampInt(t.movementMax, 0, 100000, movementMax),
     extraActions: clampInt(t.extraActions, 0, 99, 0),
     extraBonusActions: clampInt(t.extraBonusActions, 0, 99, 0),
+    attacksRemaining: clampInt(t.attacksRemaining, 0, 99, 0),
     legendaryRemaining: clampInt(t.legendaryRemaining, 0, 99, 0),
     legendaryMax: clampInt(t.legendaryMax, 0, 99, 0),
     concentrationId: typeof t.concentrationId === 'string' && t.concentrationId ? t.concentrationId : null,
@@ -932,6 +942,15 @@ export interface ClientToServerEvents {
     targetId?: string;
     attackIndex: number;
     advantage?: 'a' | 'd';
+  }) => void;
+  'action:use': (payload: {
+    mapId: string;
+    tokenId: string;
+    actionId: string;
+    targetIds?: string[];
+    attackIndex?: number;
+    advantage?: 'a' | 'd';
+    slot?: ActionCost;
   }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;

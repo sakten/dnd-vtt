@@ -1,5 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type {
+  ActionCost,
+  AbilityKey,
   ChatMessage,
   CombatState,
   DiceRollResult,
@@ -9,8 +11,11 @@ import type {
   RoomState,
   Token,
   TokenFields,
+  TurnState,
 } from 'shared';
 import {
+  abilityMod,
+  attacksPerAction,
   clampCells,
   DEFAULT_GRID,
   DEFAULT_SPEED,
@@ -454,6 +459,106 @@ export class RoomManager {
     combat.currentIndex = idx;
     this.beginTurn(room, mapId, combat.entries[idx].id);
     this.saveSoon(room);
+  }
+
+  /** Число атак за действие: Extra Attack по листу или multiattack монстра. */
+  attacksPerToken(room: Room, token: Token): number {
+    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const sheet = controllerId ? room.sheets[controllerId] : undefined;
+    if (sheet) return attacksPerAction(sheet.classes);
+    return Math.max(1, token.statblock?.multiattack ?? 1);
+  }
+
+  /** Эффективная скорость токена: из листа персонажа либо своя у монстра. */
+  tokenSpeed(room: Room, token: Token): number {
+    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const sheet = controllerId ? room.sheets[controllerId] : undefined;
+    return sheet?.speed ?? token.speed ?? DEFAULT_SPEED;
+  }
+
+  /** Модификатор характеристики токена: из листа персонажа или статблока монстра. */
+  abilityModForToken(room: Room, token: Token, ability: AbilityKey): number {
+    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const sheet = controllerId ? room.sheets[controllerId] : undefined;
+    const score = sheet ? sheet.abilities[ability] : token.statblock?.abilities?.[ability];
+    return abilityMod(score ?? 10);
+  }
+
+  /** Добавляет передвижение на текущий ход (Рывок). */
+  grantExtraMovement(room: Room, mapId: string, token: Token, feet: number) {
+    const turn = this.turnForToken(room, mapId, token);
+    if (!turn) return;
+    turn.movementMax += Math.max(0, Math.round(feet));
+    this.saveSoon(room);
+  }
+
+  /** Ресурсы хода токена, если он сейчас активен в бою карты; иначе null. */
+  turnForToken(room: Room, mapId: string, token: Token): TurnState | null {
+    const combat = this.combatOf(room, mapId);
+    if (!combat?.active) return null;
+    const active = combat.entries[combat.currentIndex];
+    if (!active || active.tokenId !== token.id) return null;
+    return combat.turns[active.id] ?? null;
+  }
+
+  /** Активен ли токен в бою карты (вне боя — всегда true). */
+  isActiveToken(room: Room, mapId: string, tokenId: string): boolean {
+    const combat = this.combatOf(room, mapId);
+    if (!combat?.active) return true;
+    const active = combat.entries[combat.currentIndex];
+    return !active || active.tokenId === tokenId;
+  }
+
+  /** Доступна ли атака: есть запас мультиатаки или свободное действие. */
+  canAttack(room: Room, mapId: string, token: Token): boolean {
+    const turn = this.turnForToken(room, mapId, token);
+    if (!turn) return true;
+    return turn.attacksRemaining > 0 || !turn.actionUsed || turn.extraActions > 0;
+  }
+
+  /** Списывает атаку (запас мультиатаки либо действие). */
+  consumeAttack(room: Room, mapId: string, token: Token): boolean {
+    const turn = this.turnForToken(room, mapId, token);
+    if (!turn) return true;
+    if (turn.attacksRemaining > 0) {
+      turn.attacksRemaining -= 1;
+    } else if (turn.extraActions > 0) {
+      turn.extraActions -= 1;
+      turn.attacksRemaining = Math.max(0, this.attacksPerToken(room, token) - 1);
+    } else if (!turn.actionUsed) {
+      turn.actionUsed = true;
+      turn.attacksRemaining = Math.max(0, this.attacksPerToken(room, token) - 1);
+    } else {
+      return false;
+    }
+    this.saveSoon(room);
+    return true;
+  }
+
+  /** Списывает слот действия (action/bonus/reaction) для токена. */
+  spendSlot(room: Room, mapId: string, token: Token, slot: ActionCost): boolean {
+    const turn = this.turnForToken(room, mapId, token);
+    if (!turn) return true;
+    switch (slot) {
+      case 'action':
+        if (turn.extraActions > 0) turn.extraActions -= 1;
+        else if (!turn.actionUsed) turn.actionUsed = true;
+        else return false;
+        break;
+      case 'bonus':
+        if (turn.extraBonusActions > 0) turn.extraBonusActions -= 1;
+        else if (!turn.bonusActionUsed) turn.bonusActionUsed = true;
+        else return false;
+        break;
+      case 'reaction':
+        if (!turn.reactionUsed) turn.reactionUsed = true;
+        else return false;
+        break;
+      default:
+        return true;
+    }
+    this.saveSoon(room);
+    return true;
   }
 
   /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */

@@ -11,6 +11,7 @@ import TokenMenu from '../components/TokenMenu';
 import FogPanel from '../components/FogPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
+import ActionPanel from '../components/ActionPanel';
 import CritOverlay from '../components/CritOverlay';
 
 export default function TableScreen() {
@@ -58,6 +59,7 @@ export default function TableScreen() {
       <TokenPanel />
       <ChatPanel />
       <InitiativeBar />
+      <ActionPanel />
       <ResourcesPanel />
       <div
         className="room-badge"
