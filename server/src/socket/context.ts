@@ -200,6 +200,9 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         room.resources[selfId] = created;
         manager.saveSoon(room);
       }
+      for (const c of manager.syncSheetToTokens(room, selfId)) {
+        ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      }
       const state = manager.toState(room);
       socket.emit('room:joined', {
         room: {

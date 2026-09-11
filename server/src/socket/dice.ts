@@ -175,10 +175,13 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           manager.addMessage(room, damageMessage);
           broadcastAll('chat:message', damageMessage);
 
-          if (targetTok && targetMapId && statNumber(targetTok.hpMax) > 0) {
-            targetTok.hpCurrent = Math.max(0, targetTok.hpCurrent - damageRoll.total);
-            manager.saveSoon(room);
-            emitToken(room, 'token:update', targetMapId, targetTok);
+          if (targetTok && targetMapId) {
+            const isCharacter = Object.values(room.controllers).includes(targetTok.libraryItemId);
+            if (statNumber(targetTok.hpMax) > 0 || isCharacter) {
+              const changed = manager.adjustTokenHp(room, targetMapId, targetTok, -damageRoll.total);
+              for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+              broadcastAll('players:update', manager.toState(room).players);
+            }
           }
         }
       } catch (e) {

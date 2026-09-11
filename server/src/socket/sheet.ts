@@ -8,7 +8,7 @@ import {
 import type { ConnCtx } from './context';
 
 export function registerSheetHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, broadcastAll, classIdentity } = ctx;
+  const { socket, manager, getRoom, broadcastAll, emitToken, classIdentity } = ctx;
 
     ctx.on('sheet:update', (sheet) => {
       if (!ctx.playerId) return;
@@ -39,9 +39,11 @@ export function registerSheetHandlers(ctx: ConnCtx) {
         current: prevRes ? Math.min(synced.hp.current, hpMax) : hpMax,
       };
       room.resources[ctx.playerId] = synced;
+      const changed = manager.syncSheetToTokens(room, ctx.playerId);
       manager.saveSoon(room);
       socket.emit('sheet:update', { sheet: normalized });
       socket.emit('resources:update', room.resources[ctx.playerId]);
+      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
       broadcastAll('players:update', manager.toState(room).players);
     });
 

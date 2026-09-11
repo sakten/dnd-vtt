@@ -1,7 +1,7 @@
 import type { ConnCtx } from './context';
 
 export function registerCombatHandlers(ctx: ConnCtx) {
-  const { manager, dmRoom, syncCombat } = ctx;
+  const { manager, dmRoom, syncCombat, getRoom, isDm } = ctx;
 
     ctx.on('combat:start', ({ mapId }) => {
       const room = dmRoom();
@@ -64,6 +64,31 @@ export function registerCombatHandlers(ctx: ConnCtx) {
       const id = typeof payload.id === 'string' ? payload.id : undefined;
       manager.rollCombat(room, payload.mapId, id);
       syncCombat(room, payload.mapId);
+    });
+
+    ctx.on('combat:endTurn', ({ mapId }) => {
+      const room = getRoom();
+      if (!room || typeof mapId !== 'string') return;
+      const combat = manager.combatOf(room, mapId);
+      if (!combat?.active || combat.currentIndex < 0) return;
+      const active = combat.entries[combat.currentIndex];
+      if (!isDm()) {
+        if (!ctx.playerId || !active?.tokenId) return;
+        const token = manager.findToken(room, mapId, active.tokenId);
+        if (!token || !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
+      }
+      manager.endTurn(room, mapId);
+      syncCombat(room, mapId);
+    });
+
+    ctx.on('combat:setTurn', ({ mapId, id, index }) => {
+      const room = dmRoom();
+      if (!room || typeof mapId !== 'string') return;
+      manager.setTurn(room, mapId, {
+        id: typeof id === 'string' ? id : undefined,
+        index: typeof index === 'number' ? index : undefined,
+      });
+      syncCombat(room, mapId);
     });
 
 }

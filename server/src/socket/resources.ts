@@ -14,7 +14,7 @@ import {
 import type { ConnCtx } from './context';
 
 export function registerResourceHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, broadcastAll } = ctx;
+  const { socket, manager, getRoom, broadcastAll, emitToken } = ctx;
 
     ctx.on('resources:update', (payload) => {
       if (!ctx.playerId) return;
@@ -26,8 +26,10 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);
       const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
       room.resources[ctx.playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
+      const changed = manager.syncSheetToTokens(room, ctx.playerId);
       manager.saveSoon(room);
       socket.emit('resources:update', room.resources[ctx.playerId]);
+      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
       broadcastAll('players:update', manager.toState(room).players);
     });
 
@@ -46,6 +48,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const heal = Math.max(0, roll.total + sheetMods(sheet.abilities).con);
       entry.current -= 1;
       res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
+      const changed = manager.syncSheetToTokens(room, ctx.playerId);
       manager.saveSoon(room);
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
       const message: ChatMessage = {
@@ -58,6 +61,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       };
       manager.addMessage(room, message);
       socket.emit('resources:update', res);
+      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
       broadcastAll('chat:message', message);
       broadcastAll('players:update', manager.toState(room).players);
     });

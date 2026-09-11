@@ -135,6 +135,119 @@
   white-space: nowrap;
 }
 
+.initiative-turn {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 150px;
+  padding-right: 10px;
+  border-right: 1px solid var(--panel-border);
+}
+
+.initiative-round {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.initiative-active-name {
+  font-size: 15px;
+  font-weight: 600;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.initiative-resources {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.res-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #2b3039;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+}
+
+.res-dot.used {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+
+.res-move {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: 2px;
+}
+
+.initiative-end {
+  margin-top: 2px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.initiative-end:disabled {
+  background: #2b3039;
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.initiative-chip.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(90, 140, 255, 0.45);
+}
+
+.initiative-chip.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid var(--accent);
+}
+
+.initiative-set {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 0 0 0 8px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  display: none;
+}
+
+.initiative-chip:hover .initiative-set {
+  display: block;
+}
+
 .token-panel {
   position: absolute;
   bottom: 12px;

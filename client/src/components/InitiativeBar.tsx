@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { canControlWith } from '../lib/control';
 
 const EMPTY_COMBAT = emptyCombatState();
 
@@ -16,12 +17,27 @@ export default function InitiativeBar() {
   const moveCombatant = useGameStore((s) => s.moveCombatant);
   const rollInitiative = useGameStore((s) => s.rollInitiative);
   const addMapCombatants = useGameStore((s) => s.addMapCombatants);
+  const endTurn = useGameStore((s) => s.endTurn);
+  const setTurn = useGameStore((s) => s.setTurn);
+  const canEndTurn = useGameStore((s) => {
+    if (s.role === 'dm') return true;
+    const c = s.scene.maps.find((m) => m.id === s.viewMapId)?.combat;
+    const entry = c && c.currentIndex >= 0 ? c.entries[c.currentIndex] : undefined;
+    if (!entry?.tokenId) return false;
+    const token = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((t) => t.id === entry.tokenId);
+    return token ? canControlWith(s, token) : false;
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   if (!combat.active) return null;
   const isDm = role === 'dm';
+  const activeIndex =
+    combat.currentIndex >= 0 && combat.currentIndex < combat.entries.length ? combat.currentIndex : -1;
+  const activeEntry = activeIndex >= 0 ? combat.entries[activeIndex] : null;
+  const turn = activeEntry ? combat.turns[activeEntry.id] : undefined;
+  const movementLeft = turn ? Math.max(0, turn.movementMax - turn.movementUsed) : 0;
 
   const scrollBy = (dir: number) => {
     scrollRef.current?.scrollBy({ left: dir * 240, behavior: 'smooth' });
@@ -38,17 +54,50 @@ export default function InitiativeBar() {
 
   return (
     <div className="initiative-bar">
+      <div className="initiative-turn">
+        <span className="initiative-round">Раунд {combat.round || 1}</span>
+        {activeEntry && <span className="initiative-active-name">{activeEntry.name}</span>}
+        {turn && (
+          <span className="initiative-resources">
+            <span className={`res-dot${turn.actionUsed ? ' used' : ''}`} title="Действие">
+              Д
+            </span>
+            <span className={`res-dot${turn.bonusActionUsed ? ' used' : ''}`} title="Бонусное действие">
+              Б
+            </span>
+            <span className={`res-dot${turn.reactionUsed ? ' used' : ''}`} title="Реакция">
+              Р
+            </span>
+            {turn.legendaryMax > 0 && (
+              <span className={`res-dot${turn.legendaryRemaining === 0 ? ' used' : ''}`} title="Легендарные действия">
+                Л{turn.legendaryRemaining}
+              </span>
+            )}
+            <span className="res-move" title="Осталось передвижения">
+              {movementLeft} фт
+            </span>
+          </span>
+        )}
+        <button
+          className="initiative-end"
+          disabled={!canEndTurn}
+          title={canEndTurn ? 'Завершить ход' : 'Завершить может активный игрок или DM'}
+          onClick={endTurn}
+        >
+          Завершить ход
+        </button>
+      </div>
       <button className="initiative-scroll" title="Влево" onClick={() => scrollBy(-1)}>
         ◀
       </button>
       <div className="initiative-track" ref={scrollRef}>
         {combat.entries.length === 0 && <span className="initiative-empty">Бой начат — участников нет</span>}
-        {combat.entries.map((entry) => (
+        {combat.entries.map((entry, index) => (
           <div
             key={entry.id}
-            className={`initiative-chip${hoverTokenId && hoverTokenId === entry.tokenId ? ' hovered' : ''}${
-              dragOverId === entry.id ? ' drop' : ''
-            }`}
+            className={`initiative-chip${index === activeIndex ? ' active' : ''}${
+              hoverTokenId && hoverTokenId === entry.tokenId ? ' hovered' : ''
+            }${dragOverId === entry.id ? ' drop' : ''}`}
             title={`${entry.name} — инициатива ${entry.initiative}${entry.bonus ? ` (${entry.bonus})` : ''}`}
             draggable={isDm}
             onMouseEnter={() => entry.tokenId && setHoverToken(entry.tokenId)}
@@ -74,6 +123,18 @@ export default function InitiativeBar() {
           >
             <img src={entry.imageUrl} alt={entry.name} draggable={false} />
             <span className="initiative-value">{entry.initiative}</span>
+            {isDm && index !== activeIndex && (
+              <button
+                className="initiative-set"
+                title="Сделать активным"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTurn(entry.id);
+                }}
+              >
+                ▶
+              </button>
+            )}
             {isDm && (
               <button
                 className="initiative-remove"

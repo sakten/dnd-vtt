@@ -1,7 +1,7 @@
 import { setCombat } from '../../domain/scene';
 import type { GameState, Slice } from '../types';
 
-export const createCombatSlice: Slice<Pick<GameState, 'onCombatUpdate' | 'startCombat' | 'endCombat' | 'addCombatant' | 'addMapCombatants' | 'removeCombatant' | 'updateCombatant' | 'moveCombatant' | 'rollInitiative' | 'clearCombat'>> = (set, get) => {
+export const createCombatSlice: Slice<Pick<GameState, 'onCombatUpdate' | 'startCombat' | 'endCombat' | 'addCombatant' | 'addMapCombatants' | 'removeCombatant' | 'updateCombatant' | 'moveCombatant' | 'rollInitiative' | 'clearCombat' | 'endTurn' | 'setTurn'>> = (set, get) => {
   return {
     onCombatUpdate: ({ mapId, combat }) => set((s) => ({ scene: setCombat(s.scene, mapId, combat) })),
 
@@ -57,6 +57,18 @@ export const createCombatSlice: Slice<Pick<GameState, 'onCombatUpdate' | 'startC
       const mapId = get().viewMapId;
       if (!mapId) return;
       get().socket?.emit('combat:clear', { mapId });
+    },
+
+    endTurn: () => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:endTurn', { mapId });
+    },
+
+    setTurn: (id) => {
+      const mapId = get().viewMapId;
+      if (!mapId) return;
+      get().socket?.emit('combat:setTurn', { mapId, id });
     },
   };
 };

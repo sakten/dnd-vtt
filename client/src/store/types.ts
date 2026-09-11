@@ -114,6 +114,8 @@ export interface GameState {
   moveCombatant: (id: string, toIndex: number) => void;
   rollInitiative: (id?: string) => void;
   clearCombat: () => void;
+  endTurn: () => void;
+  setTurn: (id: string) => void;
   setHoverToken: (id: string | null) => void;
   fitView: () => void;
   onConnected: () => void;
