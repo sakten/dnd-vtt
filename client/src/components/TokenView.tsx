@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { memo, useRef } from 'react';
 import { Group, Rect, Text, Image as KonvaImage, Circle, Line } from 'react-konva';
 import Konva from 'konva';
 import { snapToGrid, statNumber, type Token } from 'shared';
@@ -6,7 +6,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
 import { canControlWith } from '../lib/control';
 
-export default function TokenView({ token }: { token: Token }) {
+function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
   const selfId = useGameStore((s) => s.selfId);
   const grid = useGameStore((s) => s.scene.grid);
@@ -190,3 +190,5 @@ export default function TokenView({ token }: { token: Token }) {
     </Group>
   );
 }
+
+export default memo(TokenView);

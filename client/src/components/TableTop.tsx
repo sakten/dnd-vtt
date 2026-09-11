@@ -32,7 +32,8 @@ export default function TableTop() {
   const view = useGameStore((s) => s.view);
   const setView = useGameStore((s) => s.setView);
   const setViewport = useGameStore((s) => s.setViewport);
-  const scene = useGameStore((s) => s.scene);
+  const grid = useGameStore((s) => s.scene.grid);
+  const maps = useGameStore((s) => s.scene.maps);
   const viewMapId = useGameStore((s) => s.viewMapId);
   const setSelected = useGameStore((s) => s.setSelected);
   const role = useGameStore((s) => s.role);
@@ -41,7 +42,7 @@ export default function TableTop() {
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
-  const activeMap = scene.maps.find((m) => m.id === viewMapId) ?? null;
+  const activeMap = useMemo(() => maps.find((m) => m.id === viewMapId) ?? null, [maps, viewMapId]);
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
 
   const measure = useMemo(() => {
@@ -52,9 +53,9 @@ export default function TableTop() {
       measureFromId ?? activeMap.tokens.find((t) => t.libraryItemId === currentCharacterId)?.id ?? null;
     const from = activeMap.tokens.find((t) => t.id === fromId);
     if (!from || from.id === to.id) return null;
-    const feet = gridDistanceFeet(from, to, scene.grid.size || 50);
+    const feet = gridDistanceFeet(from, to, grid.size || 50);
     return { from, to, feet };
-  }, [activeMap, targetTokenId, measureFromId, currentCharacterId, scene.grid.size]);
+  }, [activeMap, targetTokenId, measureFromId, currentCharacterId, grid.size]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -298,7 +299,7 @@ export default function TableTop() {
               />
             )}
           </Layer>
-          <GridLayer grid={scene.grid} view={view} viewport={size} />
+          <GridLayer grid={grid} view={view} viewport={size} />
           <Layer>
             {activeMap?.tokens
               .filter((t) => !(role === 'player' && isCellHidden(t.x, t.y)))

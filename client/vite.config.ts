@@ -10,4 +10,15 @@ export default defineConfig({
       '/uploads': 'http://localhost:3001',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          konva: ['konva', 'react-konva'],
+          socket: ['socket.io-client'],
+        },
+      },
+    },
+  },
 });
