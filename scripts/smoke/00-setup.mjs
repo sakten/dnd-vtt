@@ -4,8 +4,13 @@ import { S } from './state.mjs';
 import { check, sleep, VERBOSE } from '../lib/check.mjs';
 import { eventOnce, joinAndAck, waitFor } from '../lib/smoke-helpers.mjs';
 
-S.watchdog = setTimeout(() => {
+S.watchdog = setTimeout(async () => {
   console.log('SMOKE TIMEOUT');
+  try {
+    await S.cleanup?.();
+  } catch {
+    void 0;
+  }
   process.exit(1);
 }, 120000);
 S.watchdog.unref();

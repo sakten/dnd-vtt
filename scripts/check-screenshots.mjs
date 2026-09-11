@@ -3,6 +3,13 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 
 const OUT = path.resolve('artifacts/e2e');
+const RUN_MARKER = path.join(OUT, '.run');
+if (!fs.existsSync(RUN_MARKER)) {
+  throw new Error(`нет отметки запуска e2e (${RUN_MARKER}) — сначала выполните npm run e2e`);
+}
+const parsedRun = Number(fs.readFileSync(RUN_MARKER, 'utf8'));
+const runStartedAt = Number.isFinite(parsedRun) ? parsedRun : fs.statSync(RUN_MARKER).mtimeMs;
+const STALE_SLACK_MS = 1000;
 
 function decodePng(file) {
   const buf = fs.readFileSync(file);
@@ -106,6 +113,9 @@ const imgs = {};
 for (const f of files) {
   const p = path.join(OUT, `${f}.png`);
   if (!fs.existsSync(p)) throw new Error(`нет файла ${p}`);
+  if (fs.statSync(p).mtimeMs + STALE_SLACK_MS < runStartedAt) {
+    throw new Error(`устаревший скриншот ${f}.png — перезапустите npm run e2e`);
+  }
   imgs[f] = decodePng(p);
 }
 

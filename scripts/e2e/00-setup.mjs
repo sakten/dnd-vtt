@@ -6,8 +6,13 @@ import { S } from './state.mjs';
 import { attachErrorLog } from '../lib/e2e-helpers.mjs';
 import { makePng } from '../lib/png.mjs';
 
-S.watchdog = setTimeout(() => {
+S.watchdog = setTimeout(async () => {
   console.log('E2E TIMEOUT');
+  try {
+    await S.cleanup?.();
+  } catch {
+    void 0;
+  }
   process.exit(1);
 }, 300000);
 S.watchdog.unref();
@@ -17,6 +22,8 @@ const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 S.BASE = 'http://localhost:3001';
 S.OUT = path.resolve('artifacts/e2e');
 fs.mkdirSync(S.OUT, { recursive: true });
+// Отметка старта прогона — по ней `shots` отличает свежие скриншоты от старых.
+fs.writeFileSync(path.join(S.OUT, '.run'), String(Date.now()));
 
 S.mapPath = path.resolve(S.OUT, 'test-map.png');
 fs.writeFileSync(
