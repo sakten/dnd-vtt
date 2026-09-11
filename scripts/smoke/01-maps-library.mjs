@@ -219,7 +219,7 @@ const hiddenUpdP = new Promise((resolve) => {
 S.dm.emit('token:update', { mapId: S.map1.id, id: targetAdd.token.id, patch: { name: 'Мишень-2' } });
 const hiddenUpd = await hiddenUpdP;
 check(hiddenUpd.ac === '' && hiddenUpd.hpMax === '', 'token:update не раскрывает скрытые статы игроку');
-const dmgMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && (m.label ?? '').startsWith('Урон') && m.label.includes('Яд'));
+const dmgMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'damage' && m.labelParams?.subject === 'Волк — Яд');
 const hpUpdateP = new Promise((resolve) => {
   const h = (p) => {
     if (p.token.id === targetAdd.token.id && p.token.hpCurrent < 20) {

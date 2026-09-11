@@ -3,6 +3,7 @@ import { DEFAULT_ABILITIES, normalizeSheet, type AbilityKey } from './types';
 import {
   applyRest,
   attackRange,
+  attackSubject,
   autoResourceDefs,
   casterLevelOf,
   classSaves,
@@ -419,28 +420,30 @@ describe('initiativeBonus', () => {
 });
 
 describe('weaponRolls', () => {
-  it('без префикса — просто название атаки', () => {
+  it('выдаёт выражения попадания и урона', () => {
     expect(
       weaponRolls({ name: 'Меч', hit: 'd20+5', damage: 'd8+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 })
-    ).toEqual({
-      hit: { expression: 'd20+5', label: 'Атака: Меч' },
-      damage: { expression: 'd8+3', label: 'Урон: Меч' },
+    ).toEqual({ hit: 'd20+5', damage: 'd8+3' });
+  });
+
+  it('пустое поле — null', () => {
+    const rolls = weaponRolls({
+      name: 'Коготь',
+      hit: 'd20+4',
+      damage: '',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
     });
+    expect(rolls).toEqual({ hit: 'd20+4', damage: null });
   });
+});
 
-  it('с префиксом — имя источника в метке', () => {
-    const rolls = weaponRolls(
-      { name: 'Коготь', hit: 'd20+4', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
-      'Волк'
-    );
-    expect(rolls.hit).toEqual({ expression: 'd20+4', label: 'Атака: Волк — Коготь' });
-    expect(rolls.damage).toBeNull();
-  });
-
-  it('пустая атака — оба null', () => {
-    expect(
-      weaponRolls({ name: '', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 })
-    ).toEqual({ hit: null, damage: null });
+describe('attackSubject', () => {
+  it('добавляет префикс источника и дефолт для пустого имени', () => {
+    const entry = { name: 'Коготь', hit: '', damage: '', rangeType: 'melee' as const, rangeNormal: 5, rangeLong: 0 };
+    expect(attackSubject(entry, 'Волк')).toBe('Волк — Коготь');
+    expect(attackSubject({ ...entry, name: '' })).toBe('Атака');
   });
 });
 

@@ -6,7 +6,6 @@ import path from 'node:path';
 
 S.player.emit('dice:roll', { expression: 'd20' });
 await waitMsg(S.dm, (m) => m.kind === 'roll' && m.roll.expression === 'd20');
-check(true, 'броски работают после переподключения и возврата в комнату');
 
 const listRes = await ack((cb) => S.dm.emit('admin:list', { adminToken: '' }, cb));
 check(
@@ -66,7 +65,6 @@ const delRoomCode = adminCreated.room.code;
 const deletedEventPromise = eventOnce(S.dm, 'room:deleted');
 await ack((cb) => S.dm.emit('admin:delete', { adminToken: '', code: delRoomCode }, cb));
 await deletedEventPromise;
-check(true, 'игроки получают room:deleted при удалении комнаты');
 const listAfter = await ack((cb) => S.player.emit('admin:list', { adminToken: '' }, cb));
 check(!listAfter.rooms.some((r) => r.code === delRoomCode), 'комната удалена из списка');
 await sleep(500);

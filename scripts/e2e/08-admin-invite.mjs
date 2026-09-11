@@ -19,7 +19,6 @@ check(badge2 === codeY, `инвайт-ссылка приоритетнее со
 
 await S.page2.goto(S.BASE, { waitUntil: 'networkidle0' });
 await S.page2.waitForSelector('.join-card');
-check(true, 'голая ссылка без кода не входит в комнату автоматически');
 
 const deadImageUrl = await S.page.evaluate(() => {
   const s = window.__vtt.getState();

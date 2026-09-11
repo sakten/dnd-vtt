@@ -26,7 +26,6 @@ await S.page.waitForSelector('.table-screen');
 await S.page.waitForSelector('canvas');
 await sleep(800);
 await S.page.screenshot({ path: path.join(S.OUT, '02-empty-table.png') });
-check(true, 'DM создал комнату через страницу ведущего, стол открылся');
 check(S.page.url().includes('room='), 'ссылка после входа содержит код комнаты');
 
 const upStatus = await S.page.evaluate(async () => {

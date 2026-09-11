@@ -120,7 +120,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         }
       }
 
-      const { hit, damage } = weaponRolls(entry, prefix);
+      const { hit, damage } = weaponRolls(entry);
       if (!hit && !damage) return;
       const baseParams: RollLabelParams = {
         subject: attackSubject(entry, prefix),
@@ -137,7 +137,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         let crit = false;
         let hitSuccess: boolean | undefined;
         if (hit) {
-          const hitRoll = rollDice(withAdvantage(hit.expression, adv));
+          const hitRoll = rollDice(withAdvantage(hit, adv));
           crit = isCriticalHit(hitRoll);
           if (targetAc > 0) {
             hitSuccess = resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc);
@@ -160,7 +160,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           broadcastAll('chat:message', hitMessage);
         }
         if (damage && hitSuccess !== false) {
-          const damageRoll = rollDice(damage.expression, Math.random, { doubleDice: crit });
+          const damageRoll = rollDice(damage, Math.random, { doubleDice: crit });
           const damageMessage: ChatMessage = {
             id: randomUUID(),
             kind: 'roll',

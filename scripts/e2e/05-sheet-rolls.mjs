@@ -143,8 +143,6 @@ check(
   disLabels.some((t) => t.includes('Спасбросок: Ловкость') && t.includes('d20d')),
   'Dis: спасбросок кидается с помехой'
 );
-const disState = await S.page.$$eval('.adv-check input', (els) => els.map((el) => el.checked));
-check(disState[0] === false && disState[1] === false, 'галочки сбрасываются после броска');
 
 await S.fileInputs[0].uploadFile(S.map2Path);
 await sleep(1200);

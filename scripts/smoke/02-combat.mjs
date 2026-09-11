@@ -12,7 +12,6 @@ check(S.lastBring === null, 'игрок не может переносить в�
 
 S.dm.emit('map:bring', S.map1.id);
 await waitFor(() => S.lastBring && S.lastBring.activeMapId === S.map1.id);
-check(true, 'DM переносит всех игроков на карту');
 
 const thirdItem = await addLibrary(S, 'Третий', {
   imageUrl: '/x.png',

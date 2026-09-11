@@ -25,7 +25,6 @@ const dummyHpP = new Promise((resolve) => {
 });
 S.player.emit('dice:attack', { targetId: dummyAdd.token.id, attackIndex: 1 });
 await dummyHpP;
-check(true, 'атака из листа наносит урон цели (без токена атакующего)');
 const dummyRemoved = eventOnce(S.player, 'token:remove');
 S.dm.emit('token:remove', { mapId: S.map1.id, id: dummyAdd.token.id });
 await dummyRemoved;
@@ -93,7 +92,6 @@ check(textMsg.author === 'Мастер', 'text message author');
 const pongPromise = eventOnce(S.player, 'pong');
 S.player.emit('ping');
 await pongPromise;
-check(true, 'сервер отвечает на heartbeat-ping');
 
 const reconnected = eventOnce(S.player, 'connect');
 S.player.disconnect();

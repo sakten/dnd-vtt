@@ -25,11 +25,6 @@ export function withAdvantage(expression: string, mode: 'a' | 'd' | null | undef
   return expression.replace(/^d20(?![0-9])/, `d20${mode}`);
 }
 
-export interface WeaponRoll {
-  expression: string;
-  label: string;
-}
-
 /**
  * Отображаемое имя атаки: `{prefix} — {name}`, либо просто имя.
  * Стабильный «subject» для структурной метки броска.
@@ -39,21 +34,11 @@ export function attackSubject(entry: AttackEntry, prefix?: string): string {
   return prefix ? `${prefix} — ${name}` : name;
 }
 
-/**
- * Из записи атаки делает броски попадания/урона. prefix (например, имя токена)
- * добавляется к названию атаки: `Атака: {prefix} — {name}`.
- */
-export function weaponRolls(
-  entry: AttackEntry,
-  prefix?: string
-): { hit: WeaponRoll | null; damage: WeaponRoll | null } {
-  const full = attackSubject(entry, prefix);
+/** Выражения бросков попадания/урона из записи атаки (null — поле пустое). */
+export function weaponRolls(entry: AttackEntry): { hit: string | null; damage: string | null } {
   const hit = entry.hit.trim();
   const damage = entry.damage.trim();
-  return {
-    hit: hit ? { expression: hit, label: `Атака: ${full}` } : null,
-    damage: damage ? { expression: damage, label: `Урон: ${full}` } : null,
-  };
+  return { hit: hit || null, damage: damage || null };
 }
 
 export interface AttackRangeResult {
