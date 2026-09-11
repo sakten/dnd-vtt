@@ -31,6 +31,15 @@ export interface WeaponRoll {
 }
 
 /**
+ * Отображаемое имя атаки: `{prefix} — {name}`, либо просто имя.
+ * Стабильный «subject» для структурной метки броска.
+ */
+export function attackSubject(entry: AttackEntry, prefix?: string): string {
+  const name = entry.name.trim() || 'Атака';
+  return prefix ? `${prefix} — ${name}` : name;
+}
+
+/**
  * Из записи атаки делает броски попадания/урона. prefix (например, имя токена)
  * добавляется к названию атаки: `Атака: {prefix} — {name}`.
  */
@@ -38,8 +47,7 @@ export function weaponRolls(
   entry: AttackEntry,
   prefix?: string
 ): { hit: WeaponRoll | null; damage: WeaponRoll | null } {
-  const name = entry.name.trim() || 'Атака';
-  const full = prefix ? `${prefix} — ${name}` : name;
+  const full = attackSubject(entry, prefix);
   const hit = entry.hit.trim();
   const damage = entry.damage.trim();
   return {
@@ -51,6 +59,8 @@ export function weaponRolls(
 export interface AttackRangeResult {
   outOfRange: boolean;
   disadvantage: boolean;
+  /** Код причины помехи для структурной метки/i18n. */
+  disadvantageCode?: 'adjacent' | 'long';
   disadvantageReason?: string;
   distanceFeet: number;
   reason?: string;
@@ -114,10 +124,22 @@ export function attackRange(
     return { outOfRange: true, disadvantage: false, distanceFeet, reason: 'Слишком далеко' };
   }
   if (adjacentEnemy) {
-    return { outOfRange: false, disadvantage: true, disadvantageReason: 'враг рядом', distanceFeet };
+    return {
+      outOfRange: false,
+      disadvantage: true,
+      disadvantageCode: 'adjacent',
+      disadvantageReason: 'враг рядом',
+      distanceFeet,
+    };
   }
   if (normal > 0 && distanceFeet > normal) {
-    return { outOfRange: false, disadvantage: true, disadvantageReason: 'дальняя дистанция', distanceFeet };
+    return {
+      outOfRange: false,
+      disadvantage: true,
+      disadvantageCode: 'long',
+      disadvantageReason: 'дальняя дистанция',
+      distanceFeet,
+    };
   }
   return { outOfRange: false, disadvantage: false, distanceFeet };
 }

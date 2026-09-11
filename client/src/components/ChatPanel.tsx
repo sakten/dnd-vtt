@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import type { ChatMessage, DiceRollResult } from 'shared';
+import { rollMessageLabel, type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
 import RollMenu from './RollMenu';
@@ -54,7 +54,13 @@ function buildTerms(roll: DiceRollResult): Term[] {
   return terms;
 }
 
-function rollLabelType(label?: string): 'attack' | 'save' | 'check' | 'plain' {
+function rollLabelType(kind?: RollKind, label?: string): 'attack' | 'save' | 'check' | 'plain' {
+  if (kind && kind !== 'plain') {
+    if (kind === 'attack' || kind === 'damage') return 'attack';
+    if (kind === 'save' || kind === 'death') return 'save';
+    if (kind === 'check') return 'check';
+    return 'plain';
+  }
   if (!label) return 'plain';
   if (label.startsWith('Атака') || label.startsWith('Урон')) return 'attack';
   if (label.startsWith('Спасбросок')) return 'save';
@@ -92,7 +98,8 @@ function MessageView({ message }: { message: ChatMessage }) {
     );
   }
   const crit = message.crit ? 'crit' : formatRoll(message.roll);
-  const labelType = rollLabelType(message.label);
+  const label = rollMessageLabel(message);
+  const labelType = rollLabelType(message.rollKind, message.label);
   const dice = buildTerms(message.roll)
     .filter((t): t is DieEntry => t.kind === 'die')
     .sort((a, b) => b.sides - a.sides || b.value - a.value || (a.dropped ? 1 : 0) - (b.dropped ? 1 : 0));
@@ -101,12 +108,12 @@ function MessageView({ message }: { message: ChatMessage }) {
     <div
       className={`chat-msg roll roll-card ${labelType}`}
       title="Клик — повторить бросок"
-      onClick={() => rollDice(message.roll.expression, message.label)}
+      onClick={() => rollDice(message.roll.expression, label)}
     >
       <div className="roll-head-left">{message.author}</div>
       <div className="roll-head-divider" />
       <div className="roll-head-right">
-        {message.label && <span className="roll-label">{message.label}</span>}
+        {label && <span className="roll-label">{label}</span>}
       </div>
       <div className={`roll-total-big ${crit ?? ''}`}>{message.roll.total}</div>
       <div className="roll-divider" />

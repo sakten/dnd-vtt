@@ -3,11 +3,13 @@ import {
   DEFAULT_ABILITIES,
   effectiveMaxHp,
   rollDice,
+  rollLabelText,
   sanitizeResources,
   sheetMods,
   type ChatMessage,
   type DiceRollResult,
   type PlayerResources,
+  type RollLabelParams,
 } from 'shared';
 import type { ConnCtx } from './context';
 
@@ -75,28 +77,35 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       }
       const die = roll.dice.find((d) => d.sides === 20 && d.sign === 1);
       const kept = die ? die.values.find((v) => !die.dropped.includes(v)) ?? die.values[0] : roll.total;
-      let outcome: string;
+      let outcome: RollLabelParams['outcome'];
       if (kept === 20) {
         res.hp.deathSuccesses = Math.min(3, res.hp.deathSuccesses + 2);
-        outcome = 'критический успех';
+        outcome = 'critSuccess';
       } else if (kept === 1) {
         res.hp.deathFailures = Math.min(3, res.hp.deathFailures + 2);
-        outcome = 'критический провал';
+        outcome = 'critFail';
       } else if (kept >= 10) {
         res.hp.deathSuccesses = Math.min(3, res.hp.deathSuccesses + 1);
-        outcome = 'успех';
+        outcome = 'success';
       } else {
         res.hp.deathFailures = Math.min(3, res.hp.deathFailures + 1);
-        outcome = 'провал';
+        outcome = 'fail';
       }
       manager.saveSoon(room);
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
+      const params: RollLabelParams = {
+        outcome,
+        successes: res.hp.deathSuccesses,
+        failures: res.hp.deathFailures,
+      };
       const message: ChatMessage = {
         id: randomUUID(),
         kind: 'roll',
         author,
         roll,
-        label: `Спасбросок от смерти: ${outcome} (успехи ${res.hp.deathSuccesses}/3, провалы ${res.hp.deathFailures}/3)`,
+        label: rollLabelText('death', params),
+        rollKind: 'death',
+        labelParams: params,
         ts: Date.now(),
       };
       manager.addMessage(room, message);

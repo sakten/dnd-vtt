@@ -2,16 +2,20 @@ import { randomUUID } from 'node:crypto';
 import {
   DiceParseError,
   attackRange,
+  attackSubject,
   gridDistanceFeet,
   isCriticalFail,
   isCriticalHit,
   resolveAttack,
   rollDice,
+  rollLabelText,
   statNumber,
   weaponRolls,
   withAdvantage,
   type AttackEntry,
   type ChatMessage,
+  type RollKind,
+  type RollLabelParams,
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
@@ -19,11 +23,13 @@ import type { ConnCtx } from './context';
 export function registerDiceHandlers(ctx: ConnCtx) {
   const { socket, manager, getRoom, isDm, broadcastAll, emitToken, cleanLabel } = ctx;
 
-    ctx.on('dice:roll', ({ expression, label }) => {
+    ctx.on('dice:roll', ({ expression, label, rollKind, subject }) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
       const player = room.players.find((p) => p.id === ctx.playerId);
+      const kind: RollKind | undefined = rollKind === 'save' || rollKind === 'check' ? rollKind : undefined;
+      const params: RollLabelParams | undefined = kind ? { subject } : undefined;
       try {
         const roll = rollDice(expression);
         const message: ChatMessage = {
@@ -31,7 +37,9 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           kind: 'roll',
           author: player?.name ?? '?',
           roll,
-          label: cleanLabel(label),
+          label: cleanLabel(kind ? rollLabelText(kind, params) : label),
+          rollKind: kind,
+          labelParams: params,
           ts: Date.now(),
         };
         manager.addMessage(room, message);
@@ -80,7 +88,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       let distanceFeet = 0;
       let hasTarget = false;
       let forcedDisadvantage = false;
-      let disadvantageReason: string | undefined;
+      let forcedDisadvantageCode: RollLabelParams['disadvantage'];
       let targetTok: Token | null = null;
       let targetMapId: string | null = null;
       if (typeof targetId === 'string' && targetId) {
@@ -107,17 +115,18 @@ export function registerDiceHandlers(ctx: ConnCtx) {
             return;
           }
           forcedDisadvantage = range.disadvantage;
-          disadvantageReason = range.disadvantageReason;
+          forcedDisadvantageCode = range.disadvantageCode;
           hasTarget = true;
         }
       }
 
       const { hit, damage } = weaponRolls(entry, prefix);
       if (!hit && !damage) return;
-      const suffix = hasTarget ? ` · ${Math.round(distanceFeet)} фт` : '';
-      const disNote = forcedDisadvantage && disadvantageReason ? ` (помеха: ${disadvantageReason})` : '';
-      if (hit) hit.label += suffix + disNote;
-      if (damage) damage.label += suffix + disNote;
+      const baseParams: RollLabelParams = {
+        subject: attackSubject(entry, prefix),
+        distanceFeet: hasTarget ? Math.round(distanceFeet) : undefined,
+        disadvantage: forcedDisadvantageCode,
+      };
 
       let adv: 'a' | 'd' | undefined = advantage === 'a' || advantage === 'd' ? advantage : undefined;
       if (forcedDisadvantage) adv = adv === 'a' ? undefined : 'd';
@@ -132,14 +141,19 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           crit = isCriticalHit(hitRoll);
           if (targetAc > 0) {
             hitSuccess = resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc);
-            hit.label += hitSuccess ? ' — Попал' : ' — Промах';
           }
+          const params: RollLabelParams = {
+            ...baseParams,
+            hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
+          };
           const hitMessage: ChatMessage = {
             id: randomUUID(),
             kind: 'roll',
             author,
             roll: hitRoll,
-            label: cleanLabel(hit.label),
+            label: cleanLabel(rollLabelText('attack', params)),
+            rollKind: 'attack',
+            labelParams: params,
             ts: Date.now(),
           };
           manager.addMessage(room, hitMessage);
@@ -152,7 +166,9 @@ export function registerDiceHandlers(ctx: ConnCtx) {
             kind: 'roll',
             author,
             roll: damageRoll,
-            label: cleanLabel(damage.label),
+            label: cleanLabel(rollLabelText('damage', baseParams)),
+            rollKind: 'damage',
+            labelParams: baseParams,
             crit,
             ts: Date.now(),
           };

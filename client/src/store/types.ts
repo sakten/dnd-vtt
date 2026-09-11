@@ -7,6 +7,7 @@ import type {
   Player,
   PlayerResources,
   Role,
+  RollKind,
   Scene,
   ServerToClientEvents,
   Token,
@@ -66,7 +67,7 @@ export interface GameState {
   init: () => void;
   joinRoom: (code: string, name: string) => void;
   sendChat: (text: string) => void;
-  rollDice: (expression: string, label?: string) => void;
+  rollDice: (expression: string, label?: string, meta?: { rollKind?: RollKind; subject?: string }) => void;
   rollAttack: (payload: {
     tokenId?: string;
     targetId?: string;

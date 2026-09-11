@@ -100,8 +100,8 @@ export default function RollMenu() {
     setDis(false);
   };
 
-  const doRoll = (expression: string, label: string) => {
-    rollDice(applyAdvantage(expression, adv, dis), label);
+  const doRoll = (expression: string, rollKind: 'save' | 'check', subject: string) => {
+    rollDice(applyAdvantage(expression, adv, dis), undefined, { rollKind, subject });
     resetAdv();
     close();
   };
@@ -259,7 +259,7 @@ export default function RollMenu() {
                   <button
                     className="roll-menu-item"
                     key={a.key}
-                    onClick={() => doRoll(saveExpression(sheet, a.key), `Спасбросок: ${a.name}`)}
+                    onClick={() => doRoll(saveExpression(sheet, a.key), 'save', a.name)}
                   >
                     {a.name}
                   </button>
@@ -287,7 +287,7 @@ export default function RollMenu() {
                   <button
                     className="roll-menu-item"
                     key={s.key}
-                    onClick={() => doRoll(checkExpression(sheet, s.key), `Проверка: ${s.name}`)}
+                    onClick={() => doRoll(checkExpression(sheet, s.key), 'check', s.name)}
                   >
                     {s.name}
                   </button>

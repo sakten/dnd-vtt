@@ -332,12 +332,29 @@ export interface TextMessage {
   ts: number;
 }
 
+export type RollKind = 'attack' | 'damage' | 'save' | 'check' | 'death' | 'plain';
+
+export interface RollLabelParams {
+  /** Название атаки/спасброска/проверки (для атак — с префиксом источника). */
+  subject?: string;
+  distanceFeet?: number;
+  hit?: 'hit' | 'miss';
+  disadvantage?: 'adjacent' | 'long';
+  /** Спасбросок от смерти. */
+  outcome?: 'critSuccess' | 'critFail' | 'success' | 'fail';
+  successes?: number;
+  failures?: number;
+}
+
 export interface RollMessage {
   id: string;
   kind: 'roll';
   author: string;
   roll: DiceRollResult;
+  /** Готовый текст метки; legacy/fallback, генерируется из `rollKind`+`labelParams`. */
   label?: string;
+  rollKind?: RollKind;
+  labelParams?: RollLabelParams;
   crit?: boolean;
   ts: number;
 }
@@ -426,7 +443,12 @@ export interface ClientToServerEvents {
   'token:update': (payload: { mapId: string; id: string; patch: Partial<Token> }) => void;
   'token:remove': (payload: { mapId: string; id: string }) => void;
   'chat:send': (text: string) => void;
-  'dice:roll': (payload: { expression: string; label?: string }) => void;
+  'dice:roll': (payload: {
+    expression: string;
+    label?: string;
+    rollKind?: RollKind;
+    subject?: string;
+  }) => void;
   'dice:attack': (payload: {
     tokenId?: string;
     targetId?: string;

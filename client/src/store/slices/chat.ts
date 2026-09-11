@@ -9,8 +9,11 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
     onChatMessage: (message) =>
       set((s) => {
         if (s.chat.some((m) => m.id === message.id)) return s;
+        const isAttack =
+          message.kind === 'roll' &&
+          (message.rollKind === 'attack' || (!message.rollKind && !!message.label?.startsWith('Атака')));
         const critHit =
-          message.kind === 'roll' && !!message.label?.startsWith('Атака') && isCriticalHit(message.roll)
+          message.kind === 'roll' && isAttack && isCriticalHit(message.roll)
             ? { id: message.id, author: message.author, label: message.label, total: message.roll.total }
             : s.critHit;
         return { chat: [...s.chat, message], critHit };
@@ -35,8 +38,13 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
       }
     },
 
-    rollDice: (expression, label) => {
-      get().socket?.emit('dice:roll', { expression, label });
+    rollDice: (expression, label, meta) => {
+      get().socket?.emit('dice:roll', {
+        expression,
+        label,
+        rollKind: meta?.rollKind,
+        subject: meta?.subject,
+      });
     },
 
     rollAttack: (payload) => {
