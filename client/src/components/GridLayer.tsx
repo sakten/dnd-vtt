@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Layer, Line } from 'react-konva';
 import type { GridSettings } from 'shared';
-import type { ViewState } from '../store/useGameStore';
+import type { ViewState } from '../store/types';
 
 interface Props {
   grid: GridSettings;
