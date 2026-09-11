@@ -245,89 +245,91 @@ export default function TableTop() {
       }}
       onDrop={handleDrop}
     >
-      <Stage
-        width={size.w}
-        height={size.h}
-        x={view.x}
-        y={view.y}
-        scaleX={view.scale}
-        scaleY={view.scale}
-        draggable={!fogMode.active}
-        onWheel={handleWheel}
-        onDragMove={(e) => {
-          if (e.target !== e.currentTarget) return;
-          setView({ x: e.currentTarget.x(), y: e.currentTarget.y(), scale: view.scale });
-        }}
-        onDragEnd={(e) => {
-          if (e.target !== e.currentTarget) return;
-          setView({ x: e.currentTarget.x(), y: e.currentTarget.y(), scale: view.scale });
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onTouchStart={(e) => {
-          if (!fogMode.active && e.target === e.target.getStage()) {
-            setSelected(null);
-            useGameStore.getState().setTargetToken(null);
-          }
-        }}
-      >
-        <Layer>{activeMap && <MapSprite map={activeMap} />}</Layer>
-        <Layer listening={false}>
-          {fogRects.map((r) => (
-            <Rect
-              key={`${r.x},${r.y}`}
-              x={r.x}
-              y={r.y}
-              width={r.size}
-              height={r.size}
-              fill="#07090d"
-              opacity={role === 'dm' ? 0.45 : 0.93}
-            />
-          ))}
-          {rectPreview && (
-            <Rect
-              x={Math.min(rectPreview.x0, rectPreview.x1)}
-              y={Math.min(rectPreview.y0, rectPreview.y1)}
-              width={Math.abs(rectPreview.x1 - rectPreview.x0)}
-              height={Math.abs(rectPreview.y1 - rectPreview.y0)}
-              stroke="#7c9cff"
-              strokeWidth={2 / view.scale}
-              dash={[8 / view.scale, 4 / view.scale]}
-            />
-          )}
-        </Layer>
-        <GridLayer grid={scene.grid} view={view} viewport={size} />
-        <Layer>
-          {activeMap?.tokens
-            .filter((t) => !(role === 'player' && isCellHidden(t.x, t.y)))
-            .map((token) => (
-              <TokenView key={token.id} token={token} />
+      {size.w > 0 && size.h > 0 && (
+        <Stage
+          width={size.w}
+          height={size.h}
+          x={view.x}
+          y={view.y}
+          scaleX={view.scale}
+          scaleY={view.scale}
+          draggable={!fogMode.active}
+          onWheel={handleWheel}
+          onDragMove={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setView({ x: e.currentTarget.x(), y: e.currentTarget.y(), scale: view.scale });
+          }}
+          onDragEnd={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setView({ x: e.currentTarget.x(), y: e.currentTarget.y(), scale: view.scale });
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchStart={(e) => {
+            if (!fogMode.active && e.target === e.target.getStage()) {
+              setSelected(null);
+              useGameStore.getState().setTargetToken(null);
+            }
+          }}
+        >
+          <Layer>{activeMap && <MapSprite map={activeMap} />}</Layer>
+          <Layer listening={false}>
+            {fogRects.map((r) => (
+              <Rect
+                key={`${r.x},${r.y}`}
+                x={r.x}
+                y={r.y}
+                width={r.size}
+                height={r.size}
+                fill="#07090d"
+                opacity={role === 'dm' ? 0.45 : 0.93}
+              />
             ))}
-        </Layer>
-        <Layer listening={false}>
-          {measure && (
-            <>
-              <Line
-                points={[measure.from.x, measure.from.y, measure.to.x, measure.to.y]}
-                stroke="#ff5a5a"
+            {rectPreview && (
+              <Rect
+                x={Math.min(rectPreview.x0, rectPreview.x1)}
+                y={Math.min(rectPreview.y0, rectPreview.y1)}
+                width={Math.abs(rectPreview.x1 - rectPreview.x0)}
+                height={Math.abs(rectPreview.y1 - rectPreview.y0)}
+                stroke="#7c9cff"
                 strokeWidth={2 / view.scale}
-                dash={[10 / view.scale, 6 / view.scale]}
+                dash={[8 / view.scale, 4 / view.scale]}
               />
-              <Text
-                text={`${measure.feet} фт`}
-                x={(measure.from.x + measure.to.x) / 2}
-                y={(measure.from.y + measure.to.y) / 2 - 16 / view.scale}
-                fontSize={14 / view.scale}
-                fill="#ff8a8a"
-                stroke="#000000"
-                strokeWidth={3 / view.scale}
-                fillAfterStrokeEnabled
-              />
-            </>
-          )}
-        </Layer>
-      </Stage>
+            )}
+          </Layer>
+          <GridLayer grid={scene.grid} view={view} viewport={size} />
+          <Layer>
+            {activeMap?.tokens
+              .filter((t) => !(role === 'player' && isCellHidden(t.x, t.y)))
+              .map((token) => (
+                <TokenView key={token.id} token={token} />
+              ))}
+          </Layer>
+          <Layer listening={false}>
+            {measure && (
+              <>
+                <Line
+                  points={[measure.from.x, measure.from.y, measure.to.x, measure.to.y]}
+                  stroke="#ff5a5a"
+                  strokeWidth={2 / view.scale}
+                  dash={[10 / view.scale, 6 / view.scale]}
+                />
+                <Text
+                  text={`${measure.feet} фт`}
+                  x={(measure.from.x + measure.to.x) / 2}
+                  y={(measure.from.y + measure.to.y) / 2 - 16 / view.scale}
+                  fontSize={14 / view.scale}
+                  fill="#ff8a8a"
+                  stroke="#000000"
+                  strokeWidth={3 / view.scale}
+                  fillAfterStrokeEnabled
+                />
+              </>
+            )}
+          </Layer>
+        </Stage>
+      )}
     </div>
   );
 }

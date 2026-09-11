@@ -944,6 +944,72 @@ await page2.goto(BASE, { waitUntil: 'networkidle0' });
 await page2.waitForSelector('.join-card');
 check(true, 'голая ссылка без кода не входит в комнату автоматически');
 
+const deadImageUrl = await page.evaluate(() => {
+  const s = window.__vtt.getState();
+  return s.scene.maps.find((m) => m.id === s.viewMapId)?.url ?? '';
+});
+await page.evaluate(
+  (imageUrl) =>
+    window.__vtt.getState().addLibraryItem({
+      name: 'Мертвец-Е2Е',
+      imageUrl,
+      cells: 1,
+      round: false,
+      description: '',
+      initiativeBonus: '',
+      ac: '10',
+      hpMax: '10',
+    }),
+  deadImageUrl
+);
+await page.waitForFunction(() => window.__vtt.getState().library.some((i) => i.name === 'Мертвец-Е2Е'));
+const deadLibId = await page.evaluate(
+  () => window.__vtt.getState().library.find((i) => i.name === 'Мертвец-Е2Е').id
+);
+await page.evaluate((id) => window.__vtt.getState().addTokenAt(id, 120, 120), deadLibId);
+await page.waitForFunction(
+  (id) => window.__vtt.getState().scene.maps.some((m) => m.tokens.some((t) => t.libraryItemId === id)),
+  {},
+  deadLibId
+);
+const deadTokenId = await page.evaluate((id) => {
+  for (const m of window.__vtt.getState().scene.maps) {
+    for (const t of m.tokens) if (t.libraryItemId === id) return t.id;
+  }
+  return null;
+}, deadLibId);
+await page.evaluate((id) => window.__vtt.getState().setTokenFields(id, { hpCurrent: 0 }), deadTokenId);
+await page.waitForFunction(
+  (id) => window.__vtt.getState().scene.maps.some((m) => m.tokens.some((t) => t.id === id && t.hpCurrent === 0)),
+  {},
+  deadTokenId
+);
+
+const dmPlayerId = await page.evaluate(() => localStorage.getItem('vtt-player'));
+const dmName = await page.evaluate(() => localStorage.getItem('vtt-name'));
+const ctx5 = await browser.createBrowserContext();
+const page5 = await ctx5.newPage();
+await page5.setViewport({ width: 1200, height: 800 });
+await attachErrorLog(page5, 'INVITE');
+await page5.evaluateOnNewDocument(
+  ({ id, name }) => {
+    localStorage.setItem('vtt-player', id);
+    localStorage.setItem('vtt-name', name);
+  },
+  { id: dmPlayerId, name: dmName }
+);
+await page5.goto(`${BASE}?room=${code}`, { waitUntil: 'networkidle0' });
+await page5.waitForSelector('.table-screen');
+await sleep(800);
+const inviteState = await page5.evaluate(() => ({
+  role: window.__vtt.getState().role,
+  hasDead: window.__vtt.getState().scene.maps.some((m) => m.tokens.some((t) => t.hpCurrent === 0)),
+}));
+const inviteCanvases = await page5.$$eval('canvas', (els) => els.length);
+check(inviteState.role === 'dm', 'автовход по инвайт-ссылке с сохранённым именем даёт роль DM');
+check(inviteState.hasDead && inviteCanvases > 0, 'стол с мёртвым токеном отрисовался при автовходе');
+await ctx5.close();
+
 const ctx4 = await browser.createBrowserContext();
 const page4 = await ctx4.newPage();
 await page4.setViewport({ width: 1200, height: 800 });
