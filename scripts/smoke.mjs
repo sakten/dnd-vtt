@@ -12,9 +12,18 @@ const watchdog = setTimeout(() => {
 watchdog.unref();
 
 let ok = true;
+const VERBOSE = process.env.VTT_VERBOSE === '1';
+let passed = 0;
+let failed = 0;
 const check = (cond, label) => {
-  console.log(cond ? 'PASS' : 'FAIL', '-', label);
-  if (!cond) ok = false;
+  if (cond) {
+    passed++;
+    if (VERBOSE) console.log('PASS -', label);
+  } else {
+    failed++;
+    ok = false;
+    console.log('FAIL -', label);
+  }
 };
 
 function eventOnce(emitter, event, timeoutMs = 8000) {
@@ -101,7 +110,7 @@ await Promise.all([eventOnce(dm, 'connect'), eventOnce(player, 'connect')]);
 const created = await joinAndAck(dm, (cb) =>
   dm.emit('room:create', { name: 'Мастер', clientId: 'smoke-dm' }, cb)
 );
-console.log('room created:', created.room.code);
+if (VERBOSE) console.log('room created:', created.room.code);
 
 check(created.room.code.length >= 10, `код комнаты длинный и случайный (${created.room.code.length} символов)`);
 check(
@@ -112,7 +121,7 @@ check(
 const joined = await joinAndAck(player, (cb) =>
   player.emit('room:join', { code: created.room.code, name: 'Игрок', clientId: 'smoke-p1' }, cb)
 );
-console.log('player joined as:', joined.room.players.find((p) => p.id === 'smoke-p1').role);
+if (VERBOSE) console.log('player joined as:', joined.room.players.find((p) => p.id === 'smoke-p1').role);
 
 check(Array.isArray(joined.room.scene.maps) && joined.room.scene.maps.length === 0, 'новая комната без карт');
 check(Array.isArray(joined.room.library) && joined.room.library.length === 0, 'библиотека токенов пустая в новой комнате');
@@ -676,5 +685,5 @@ check(!fs.existsSync(room1File), 'тестовая комната удалена
 dm.close();
 player.close();
 clearTimeout(watchdog);
-console.log(ok ? 'SMOKE OK' : 'SMOKE FAILED');
+console.log(`${ok ? 'SMOKE OK' : 'SMOKE FAILED'} (проверок: ${passed + failed}, провалов: ${failed})`);
 process.exit(ok ? 0 : 1);

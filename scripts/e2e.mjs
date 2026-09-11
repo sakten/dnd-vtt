@@ -103,10 +103,19 @@ const tokenSquarePath = path.resolve(OUT, 'test-token-square.png');
 fs.writeFileSync(tokenSquarePath, makePng(200, 200, () => [220, 66, 66, 255]));
 
 const errors = [];
+const VERBOSE = process.env.VTT_VERBOSE === '1';
 let ok = true;
+let passed = 0;
+let failed = 0;
 const check = (cond, label) => {
-  console.log(cond ? 'PASS' : 'FAIL', '-', label);
-  if (!cond) ok = false;
+  if (cond) {
+    passed++;
+    if (VERBOSE) console.log('PASS -', label);
+  } else {
+    failed++;
+    ok = false;
+    console.log('FAIL -', label);
+  }
 };
 
 const watchdog = setTimeout(() => {
@@ -999,5 +1008,5 @@ check(realErrors.length === 0, `нет ошибок в консоли брауз
 
 await browser.close();
 clearTimeout(watchdog);
-console.log(ok ? 'E2E OK' : 'E2E FAILED');
+console.log(`${ok ? 'E2E OK' : 'E2E FAILED'} (проверок: ${passed + failed}, провалов: ${failed})`);
 process.exit(ok ? 0 : 1);
