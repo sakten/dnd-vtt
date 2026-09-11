@@ -15,7 +15,7 @@ import type {
   TokenFields,
 } from 'shared';
 import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, normalizeSheet, rollDice, statNumber, statsPaired } from 'shared';
-import { cancelRoomSave, loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
+import { cancelRoomSave, loadPersistedRooms, removeRoomFile, removeRoomUploads, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
   socketId: string | null;
@@ -174,10 +174,15 @@ export class RoomManager {
   }
 
   deleteRoom(code: string): boolean {
-    if (!this.rooms.has(code)) return false;
+    const room = this.rooms.get(code);
+    if (!room) return false;
     this.rooms.delete(code);
     cancelRoomSave(code);
     removeRoomFile(code);
+    removeRoomUploads([
+      ...room.library.map((i) => i.imageUrl),
+      ...room.scene.maps.flatMap((m) => [m.url, ...m.tokens.map((t) => t.imageUrl)]),
+    ]);
     return true;
   }
 

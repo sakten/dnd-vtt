@@ -46,32 +46,56 @@ export async function loadPersistedRooms(): Promise<PersistedRoom[]> {
   return rooms;
 }
 
-const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const saveTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; room: () => PersistedRoom }>();
+
+async function writeRoom(room: PersistedRoom) {
+  await ensureDirs();
+  const target = path.join(ROOMS_DIR, `${room.code}.json`);
+  const tmp = `${target}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(room, null, 2));
+  await fs.rename(tmp, target);
+}
 
 export function saveRoomSoon(room: () => PersistedRoom) {
   const code = room().code;
   const existing = saveTimers.get(code);
-  if (existing) clearTimeout(existing);
-  saveTimers.set(
-    code,
-    setTimeout(() => {
-      saveTimers.delete(code);
-      fs.writeFile(path.join(ROOMS_DIR, `${code}.json`), JSON.stringify(room(), null, 2)).catch(() => void 0);
-    }, 1000)
-  );
+  if (existing) clearTimeout(existing.timer);
+  const timer = setTimeout(() => {
+    saveTimers.delete(code);
+    writeRoom(room()).catch((e) => console.error(`Не удалось сохранить комнату ${code}:`, e));
+  }, 1000);
+  saveTimers.set(code, { timer, room });
 }
 
 export function cancelRoomSave(code: string) {
   const existing = saveTimers.get(code);
   if (existing) {
-    clearTimeout(existing);
+    clearTimeout(existing.timer);
     saveTimers.delete(code);
   }
 }
 
 export async function saveRoomNow(room: PersistedRoom) {
-  await ensureDirs();
-  await fs.writeFile(path.join(ROOMS_DIR, `${room.code}.json`), JSON.stringify(room, null, 2));
+  await writeRoom(room);
+}
+
+export async function flushRoomSaves(): Promise<void> {
+  const pending = [...saveTimers.values()];
+  saveTimers.clear();
+  await Promise.all(
+    pending.map(({ room }) =>
+      writeRoom(room()).catch((e) => console.error('Не удалось сохранить комнату при остановке:', e))
+    )
+  );
+}
+
+export function removeRoomUploads(urls: string[]) {
+  for (const url of urls) {
+    if (!url.startsWith('/uploads/')) continue;
+    const name = url.slice('/uploads/'.length);
+    if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) continue;
+    fs.unlink(path.join(UPLOADS_DIR, name)).catch(() => void 0);
+  }
 }
 
 export function removeRoomFile(code: string) {

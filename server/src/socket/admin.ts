@@ -13,7 +13,7 @@ export function adminTokenOk(token?: string): boolean {
 export function registerAdminHandlers(ctx: ConnCtx) {
   const { socket, io, manager, broadcast, emitJoined, cancelPendingLeave } = ctx;
 
-    socket.on('admin:list', ({ adminToken }, cb) => {
+    ctx.on('admin:list', ({ adminToken }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
         return;
@@ -21,7 +21,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       cb({ rooms: manager.listRooms() });
     });
 
-    socket.on('admin:create', ({ adminToken, name, clientId, roomName }, cb) => {
+    ctx.on('admin:create', ({ adminToken, name, clientId, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
         return;
@@ -37,7 +37,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       cb({ code: room.code });
     });
 
-    socket.on('admin:join', ({ adminToken, code, clientId, name }, cb) => {
+    ctx.on('admin:join', ({ adminToken, code, clientId, name }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
         return;
@@ -67,7 +67,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       broadcast('players:update', manager.toState(room).players);
     });
 
-    socket.on('admin:rename', ({ adminToken, code, name }, cb) => {
+    ctx.on('admin:rename', ({ adminToken, code, name }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
         return;
@@ -86,7 +86,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       cb({ ok: true });
     });
 
-    socket.on('admin:delete', ({ adminToken, code }, cb) => {
+    ctx.on('admin:delete', ({ adminToken, code }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });
         return;

@@ -25,6 +25,11 @@ export interface ConnCtx {
   roomCode: string | null;
   playerId: string | null;
   pendingLeaves: Map<string, ReturnType<typeof setTimeout>>;
+  on: <E extends keyof ClientToServerEvents>(
+    event: E,
+    handler: (...args: Parameters<ClientToServerEvents[E]>) => void
+  ) => void;
+  onDisconnect: (handler: () => void) => void;
   broadcast: <E extends keyof ServerToClientEvents>(
     event: E,
     ...args: Parameters<ServerToClientEvents[E]>
@@ -58,6 +63,24 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     roomCode: null,
     playerId: null,
     pendingLeaves,
+    on: (event, handler) => {
+      socket.on(event, ((...args: unknown[]) => {
+        try {
+          (handler as unknown as (...a: unknown[]) => void)(...args);
+        } catch (err) {
+          console.error(`socket ${String(event)} error:`, err);
+        }
+      }) as never);
+    },
+    onDisconnect: (handler) => {
+      socket.on('disconnect', () => {
+        try {
+          handler();
+        } catch (err) {
+          console.error('socket disconnect error:', err);
+        }
+      });
+    },
     broadcast: (event, ...args) => {
       if (ctx.roomCode) socket.to(ctx.roomCode).emit(event, ...args);
     },

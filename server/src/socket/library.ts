@@ -1,16 +1,16 @@
 import type { ConnCtx } from './context';
 
 export function registerLibraryHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, broadcastAll } = ctx;
+  const { manager, getRoom, isDm, broadcastAll } = ctx;
 
-    socket.on('library:add', (payload) => {
+    ctx.on('library:add', (payload) => {
       const room = getRoom();
       if (!room) return;
       manager.addLibraryItem(room, payload);
       broadcastAll('library:update', room.library);
     });
 
-    socket.on('library:update', ({ id, patch }) => {
+    ctx.on('library:update', ({ id, patch }) => {
       const room = getRoom();
       if (!room) return;
       const safePatch = { ...patch };
@@ -25,7 +25,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       broadcastAll('library:update', room.library);
     });
 
-    socket.on('library:remove', (id) => {
+    ctx.on('library:remove', (id) => {
       const room = getRoom();
       if (!room) return;
       manager.removeLibraryItem(room, id);
@@ -35,7 +35,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       broadcastAll('library:update', room.library);
     });
 
-    socket.on('player:setCharacter', ({ libraryItemId }, cb) => {
+    ctx.on('player:setCharacter', ({ libraryItemId }, cb) => {
       const room = getRoom();
       if (!room || !ctx.playerId) {
         cb({ error: 'Нет комнаты' });

@@ -6,7 +6,7 @@ import { adminTokenOk } from './admin';
 export function registerRoomHandlers(ctx: ConnCtx) {
   const { socket, io, manager, getRoom, dmRoom, broadcast, broadcastAll, emitToken, systemMessage, emitJoined, cancelPendingLeave, pendingLeaves } = ctx;
 
-    socket.on('room:create', ({ name, clientId, adminToken, roomName }, cb) => {
+    ctx.on('room:create', ({ name, clientId, adminToken, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Нужен пароль ведущего' });
         return;
@@ -22,7 +22,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       broadcast('players:update', manager.toState(room).players);
     });
 
-    socket.on('room:join', ({ code, name, clientId }, cb) => {
+    ctx.on('room:join', ({ code, name, clientId }, cb) => {
       if (typeof code !== 'string' || typeof clientId !== 'string') {
         cb({ error: 'Комната не найдена' });
         return;
@@ -52,7 +52,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       broadcast('players:update', manager.toState(room).players);
     });
 
-    socket.on('player:remove', ({ id }) => {
+    ctx.on('player:remove', ({ id }) => {
       const room = dmRoom();
       if (!room || typeof id !== 'string' || id === ctx.playerId) return;
       const target = room.players.find((p) => p.id === id);
@@ -68,7 +68,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
     });
 
 
-    socket.on('disconnect', () => {
+    ctx.onDisconnect(() => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;

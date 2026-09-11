@@ -14,7 +14,7 @@ import type { ConnCtx } from './context';
 export function registerResourceHandlers(ctx: ConnCtx) {
   const { socket, manager, getRoom, broadcastAll } = ctx;
 
-    socket.on('resources:update', (payload) => {
+    ctx.on('resources:update', (payload) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
@@ -29,7 +29,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       broadcastAll('players:update', manager.toState(room).players);
     });
 
-    socket.on('resources:hitDie', (payload) => {
+    ctx.on('resources:hitDie', (payload) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
@@ -60,7 +60,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       broadcastAll('players:update', manager.toState(room).players);
     });
 
-    socket.on('resources:deathSave', (payload) => {
+    ctx.on('resources:deathSave', (payload) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;

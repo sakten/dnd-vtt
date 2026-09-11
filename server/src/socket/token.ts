@@ -6,9 +6,9 @@ import {
 import type { ConnCtx } from './context';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, broadcastAll, canControlToken, emitToken, syncCombat } = ctx;
+  const { manager, getRoom, isDm, broadcastAll, canControlToken, emitToken, syncCombat } = ctx;
 
-    socket.on('token:add', (payload) => {
+    ctx.on('token:add', (payload) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
@@ -37,7 +37,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
     });
 
-    socket.on('token:move', ({ mapId, id, x, y }) => {
+    ctx.on('token:move', ({ mapId, id, x, y }) => {
       const room = getRoom();
       if (!room) return;
       if (typeof mapId !== 'string' || typeof id !== 'string') return;
@@ -51,8 +51,8 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       emitToken(room, 'token:update', mapId, token);
     });
 
-    socket.on('token:lock', ({ mapId, id, lock }) => {
-      if (!ctx.playerId) return;
+    ctx.on('token:lock', ({ mapId, id, lock }) => {
+      if (typeof lock !== 'boolean' || !ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
       const token = manager.findToken(room, mapId, id);
@@ -62,7 +62,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       emitToken(room, 'token:update', mapId, token);
     });
 
-    socket.on('token:update', ({ mapId, id, patch }) => {
+    ctx.on('token:update', ({ mapId, id, patch }) => {
       const room = getRoom();
       if (!room) return;
       const token = manager.findToken(room, mapId, id);
@@ -110,7 +110,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (manager.combatOf(room, mapId)?.active) syncCombat(room, mapId);
     });
 
-    socket.on('token:remove', ({ mapId, id }) => {
+    ctx.on('token:remove', ({ mapId, id }) => {
       const room = getRoom();
       if (!room) return;
       manager.removeToken(room, mapId, id);

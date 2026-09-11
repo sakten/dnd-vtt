@@ -1,13 +1,14 @@
 import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
+import { promises as fsp } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import multer from 'multer';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from 'shared';
 import { RoomManager } from './rooms';
 import { registerSocket } from './socket';
-import { HERE, UPLOADS_DIR, ensureDirs } from './store';
+import { HERE, UPLOADS_DIR, ensureDirs, flushRoomSaves } from './store';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_DIST = path.resolve(HERE, '../../client/dist');
@@ -23,6 +24,34 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
 const manager = new RoomManager();
 await manager.init();
 registerSocket(io, manager);
+
+process.on('uncaughtException', (err) => console.error('uncaughtException:', err));
+process.on('unhandledRejection', (err) => console.error('unhandledRejection:', err));
+
+const shutdown = async () => {
+  await flushRoomSaves();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 3000).unref();
+};
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+server.on('error', (err) => console.error('server error:', err));
+
+async function isValidImage(filePath: string): Promise<boolean> {
+  const handle = await fsp.open(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(12);
+    await handle.read(buf, 0, 12, 0);
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true;
+    if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
+    const head6 = buf.toString('ascii', 0, 6);
+    if (head6 === 'GIF87a' || head6 === 'GIF89a') return true;
+    if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return true;
+    return false;
+  } finally {
+    await handle.close();
+  }
+}
 
 app.use((_req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -58,9 +87,14 @@ app.post(
     next();
   },
   upload.single('image'),
-  (req, res) => {
+  async (req, res) => {
     if (!req.file) {
       res.status(400).json({ error: 'Файл не получен или недопустимый формат' });
+      return;
+    }
+    if (!(await isValidImage(req.file.path))) {
+      await fsp.unlink(req.file.path).catch(() => void 0);
+      res.status(400).json({ error: 'Файл не является изображением' });
       return;
     }
     res.json({ url: `/uploads/${req.file.filename}` });
@@ -83,6 +117,15 @@ app.get('*', (req, res, next) => {
   }
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+});
+
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status =
+    (err as { status?: number; statusCode?: number })?.status ??
+    (err as { statusCode?: number })?.statusCode ??
+    500;
+  console.error('http error:', err);
+  res.status(status).json({ error: 'Ошибка запроса' });
 });
 
 server.listen(PORT, () => {

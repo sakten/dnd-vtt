@@ -10,7 +10,7 @@ import type { ConnCtx } from './context';
 export function registerSheetHandlers(ctx: ConnCtx) {
   const { socket, manager, getRoom, broadcastAll, classIdentity } = ctx;
 
-    socket.on('sheet:update', (sheet) => {
+    ctx.on('sheet:update', (sheet) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;

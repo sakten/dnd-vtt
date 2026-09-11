@@ -3,10 +3,10 @@ import type { ChatMessage } from 'shared';
 import type { ConnCtx } from './context';
 
 export function registerChatHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, broadcastAll } = ctx;
+  const { manager, getRoom, broadcastAll } = ctx;
 
-    socket.on('chat:send', (text) => {
-      if (!ctx.playerId) return;
+    ctx.on('chat:send', (text) => {
+      if (typeof text !== 'string' || !ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
       const trimmed = text.trim().slice(0, 500);

@@ -19,7 +19,7 @@ import type { ConnCtx } from './context';
 export function registerDiceHandlers(ctx: ConnCtx) {
   const { socket, manager, getRoom, isDm, broadcastAll, emitToken, cleanLabel } = ctx;
 
-    socket.on('dice:roll', ({ expression, label }) => {
+    ctx.on('dice:roll', ({ expression, label }) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
@@ -41,7 +41,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       }
     });
 
-    socket.on('dice:attack', ({ tokenId, targetId, attackIndex, advantage }) => {
+    ctx.on('dice:attack', ({ tokenId, targetId, attackIndex, advantage }) => {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
