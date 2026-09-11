@@ -295,6 +295,52 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
                 />
               </label>
             </div>
+            <div className="field-row">
+              <label className="field">
+                <span>Дистанция</span>
+                <select
+                  value={weapon.rangeType}
+                  onChange={(e) => setWeapon(i, { rangeType: e.target.value as AttackEntry['rangeType'] })}
+                >
+                  <option value="melee">Ближняя</option>
+                  <option value="ranged">Дальняя</option>
+                  <option value="none">Без дальности</option>
+                </select>
+              </label>
+              {weapon.rangeType === 'melee' && (
+                <label className="field">
+                  <span>Досягаемость, фт</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={weapon.rangeNormal}
+                    onChange={(e) => setWeapon(i, { rangeNormal: Number(e.target.value) })}
+                  />
+                </label>
+              )}
+              {weapon.rangeType === 'ranged' && (
+                <>
+                  <label className="field">
+                    <span>Обычная, фт</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={weapon.rangeNormal}
+                      onChange={(e) => setWeapon(i, { rangeNormal: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Дальняя, фт</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={weapon.rangeLong}
+                      onChange={(e) => setWeapon(i, { rangeLong: Number(e.target.value) })}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
           </div>
         ))}
 

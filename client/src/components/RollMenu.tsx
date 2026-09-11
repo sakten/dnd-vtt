@@ -3,6 +3,9 @@ import {
   ABILITIES,
   SKILLS,
   attackIsActive,
+  attackRange,
+  gridDistanceFeet,
+  statNumber,
   type AbilityKey,
   type AttackEntry,
 } from 'shared';
@@ -30,10 +33,12 @@ export default function RollMenu() {
   const scene = useGameStore((s) => s.scene);
   const viewMapId = useGameStore((s) => s.viewMapId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const targetTokenId = useGameStore((s) => s.targetTokenId);
   const role = useGameStore((s) => s.role);
   const library = useGameStore((s) => s.library);
   const rollDice = useGameStore((s) => s.rollDice);
   const sendAttack = useGameStore((s) => s.rollAttack);
+  const setMeasureFrom = useGameStore((s) => s.setMeasureFrom);
   const rollDeathSave = useGameStore((s) => s.rollDeathSave);
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<MenuLevel>('root');
@@ -45,11 +50,12 @@ export default function RollMenu() {
 
   const sources = useMemo(() => {
     const out: AttackSource[] = [];
+    const map = scene.maps.find((m) => m.id === viewMapId);
     if (sheet.attacks.filter(attackIsActive).length > 0) {
-      out.push({ key: 'sheet', label: 'Мой персонаж', attacks: sheet.attacks });
+      const charToken = map?.tokens.find((t) => t.libraryItemId === currentCharacterId);
+      out.push({ key: 'sheet', label: 'Мой персонаж', tokenId: charToken?.id, attacks: sheet.attacks });
     }
     const state = useGameStore.getState();
-    const map = scene.maps.find((m) => m.id === viewMapId);
     for (const token of map?.tokens ?? []) {
       if (token.libraryItemId === currentCharacterId) continue;
       if (!canControlWith(state, token)) continue;
@@ -61,6 +67,24 @@ export default function RollMenu() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- состояние берём через getState()
   }, [sheet, scene, viewMapId, currentCharacterId, role, library]);
 
+  const currentMap = scene.maps.find((m) => m.id === viewMapId);
+  const targetToken = currentMap?.tokens.find((t) => t.id === targetTokenId) ?? null;
+  const targetName = targetToken?.name ?? '';
+  const targetAc = targetToken && statNumber(targetToken.ac) > 0 ? statNumber(targetToken.ac) : 0;
+
+  const rangeInfo = (source: AttackSource, attack: AttackEntry) => {
+    if (!targetTokenId || !currentMap) return null;
+    const attacker = currentMap.tokens.find((t) => t.id === source.tokenId);
+    const target = currentMap.tokens.find((t) => t.id === targetTokenId);
+    if (!attacker || !target || target.id === attacker.id) return null;
+    const size = scene.grid.size || 50;
+    const distanceFeet = gridDistanceFeet(attacker, target, size);
+    const adjacentEnemy = currentMap.tokens.some(
+      (t) => t.id !== attacker.id && !t.isPlayerToken && gridDistanceFeet(attacker, t, size) <= 5
+    );
+    return attackRange(attack, distanceFeet, adjacentEnemy);
+  };
+
   const activeWithIndex = (attacks: AttackEntry[]) =>
     attacks.map((attack, index) => ({ attack, index })).filter((x) => attackIsActive(x.attack));
 
@@ -68,6 +92,7 @@ export default function RollMenu() {
     setOpen(false);
     setLevel('root');
     setSourceKey(null);
+    setMeasureFrom(null);
   };
 
   const resetAdv = () => {
@@ -83,7 +108,7 @@ export default function RollMenu() {
 
   const doWeapon = (source: AttackSource, index: number) => {
     const mode = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
-    sendAttack({ tokenId: source.tokenId, attackIndex: index, advantage: mode });
+    sendAttack({ tokenId: source.tokenId, targetId: targetTokenId ?? undefined, attackIndex: index, advantage: mode });
     resetAdv();
     close();
   };
@@ -91,6 +116,7 @@ export default function RollMenu() {
   const pickSource = (source: AttackSource) => {
     const active = activeWithIndex(source.attacks);
     if (active.length === 0) return;
+    setMeasureFrom(source.tokenId ?? null);
     if (active.length === 1) {
       doWeapon(source, active[0].index);
       return;
@@ -150,6 +176,12 @@ export default function RollMenu() {
         <>
           <div className="roll-menu-backdrop" onMouseDown={close} />
           <div className="roll-menu">
+            {targetTokenId && targetName && (
+              <div className="roll-menu-target">
+                Цель: {targetName}
+                {targetAc > 0 ? ` · AC ${targetAc}` : ''}
+              </div>
+            )}
             {level === 'root' && (
               <>
                 <button className="roll-menu-item" onClick={chooseAttack}>
@@ -182,15 +214,30 @@ export default function RollMenu() {
                 <button className="roll-menu-item back" onClick={back(sources.length > 1 ? 'source' : 'root')}>
                   ← назад
                 </button>
-                {activeWithIndex(currentSource.attacks).map(({ attack, index }) => (
-                  <button
-                    className="roll-menu-item"
-                    key={index}
-                    onClick={() => doWeapon(currentSource, index)}
-                  >
-                    {attack.name.trim() || `Оружие ${index + 1}`}
-                  </button>
-                ))}
+                {activeWithIndex(currentSource.attacks).map(({ attack, index }) => {
+                  const info = rangeInfo(currentSource, attack);
+                  const blocked = !!info?.outOfRange;
+                  const note = info
+                    ? blocked
+                      ? ` · ${info.reason}`
+                      : ` · ${Math.round(info.distanceFeet)} фт${
+                          info.disadvantage
+                            ? ` (помеха${info.disadvantageReason ? `: ${info.disadvantageReason}` : ''})`
+                            : ''
+                        }`
+                    : '';
+                  return (
+                    <button
+                      className="roll-menu-item"
+                      key={index}
+                      disabled={blocked}
+                      title={blocked ? `${info?.reason}: ${Math.round(info?.distanceFeet ?? 0)} фт` : undefined}
+                      onClick={() => doWeapon(currentSource, index)}
+                    >
+                      {(attack.name.trim() || `Оружие ${index + 1}`) + note}
+                    </button>
+                  );
+                })}
               </>
             )}
             {level === 'save' && (

@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_ABILITIES, normalizeSheet, type AbilityKey } from './types';
 import {
   applyRest,
+  attackRange,
   autoResourceDefs,
   casterLevelOf,
   classSaves,
   computedMaxHp,
   effectiveMaxHp,
   emptyResources,
+  gridDistanceFeet,
   hitDiceMaxes,
   initiativeBonus,
   pactMax,
   proficiencyBonus,
+  resolveAttack,
   sanitizeResources,
   sheetMods,
   spellSlotMaxes,
@@ -417,20 +420,27 @@ describe('initiativeBonus', () => {
 
 describe('weaponRolls', () => {
   it('без префикса — просто название атаки', () => {
-    expect(weaponRolls({ name: 'Меч', hit: 'd20+5', damage: 'd8+3' })).toEqual({
+    expect(
+      weaponRolls({ name: 'Меч', hit: 'd20+5', damage: 'd8+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 })
+    ).toEqual({
       hit: { expression: 'd20+5', label: 'Атака: Меч' },
       damage: { expression: 'd8+3', label: 'Урон: Меч' },
     });
   });
 
   it('с префиксом — имя источника в метке', () => {
-    const rolls = weaponRolls({ name: 'Коготь', hit: 'd20+4', damage: '' }, 'Волк');
+    const rolls = weaponRolls(
+      { name: 'Коготь', hit: 'd20+4', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+      'Волк'
+    );
     expect(rolls.hit).toEqual({ expression: 'd20+4', label: 'Атака: Волк — Коготь' });
     expect(rolls.damage).toBeNull();
   });
 
   it('пустая атака — оба null', () => {
-    expect(weaponRolls({ name: '', hit: '', damage: '' })).toEqual({ hit: null, damage: null });
+    expect(
+      weaponRolls({ name: '', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 })
+    ).toEqual({ hit: null, damage: null });
   });
 });
 
@@ -441,5 +451,72 @@ describe('withAdvantage', () => {
     expect(withAdvantage('d20', 'a')).toBe('d20a');
     expect(withAdvantage('2d20+5', 'a')).toBe('2d20+5');
     expect(withAdvantage('d20+5', null)).toBe('d20+5');
+  });
+});
+
+describe('attackRange', () => {
+  it('none — без ограничений даже с врагом рядом', () => {
+    expect(attackRange({ rangeType: 'none', rangeNormal: 0, rangeLong: 0 }, 100, true)).toEqual({
+      outOfRange: false,
+      disadvantage: false,
+      distanceFeet: 100,
+    });
+  });
+
+  it('melee — досягаемость', () => {
+    expect(attackRange({ rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }, 5, false).outOfRange).toBe(false);
+    const far = attackRange({ rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }, 10, false);
+    expect(far.outOfRange).toBe(true);
+    expect(far.reason).toBe('Вне досягаемости');
+  });
+
+  it('ranged — обычная/дальняя дистанция', () => {
+    const bow = { rangeType: 'ranged' as const, rangeNormal: 80, rangeLong: 320 };
+    expect(attackRange(bow, 80, false).disadvantage).toBe(false);
+    expect(attackRange(bow, 160, false).disadvantage).toBe(true);
+    const far = attackRange(bow, 400, false);
+    expect(far.outOfRange).toBe(true);
+    expect(far.reason).toBe('Слишком далеко');
+  });
+
+  it('ranged — враг в соседней клетке даёт помеху', () => {
+    expect(attackRange({ rangeType: 'ranged', rangeNormal: 80, rangeLong: 320 }, 10, true).disadvantage).toBe(true);
+  });
+});
+
+describe('gridDistanceFeet', () => {
+  const grid = 50;
+  const small = { x: 25, y: 25, w: 50, h: 50 };
+
+  it('вплотную — 5 фт', () => {
+    expect(gridDistanceFeet(small, { x: 75, y: 25, w: 50, h: 50 }, grid)).toBe(5);
+  });
+
+  it('через одну пустую клетку — 10 фт', () => {
+    expect(gridDistanceFeet(small, { x: 125, y: 25, w: 50, h: 50 }, grid)).toBe(10);
+  });
+
+  it('большой токен вплотную остаётся 5 фт (не удлиняет дистанцию)', () => {
+    expect(gridDistanceFeet(small, { x: 100, y: 50, w: 100, h: 100 }, grid)).toBe(5);
+  });
+
+  it('диагональ через клетку — 10 фт', () => {
+    expect(gridDistanceFeet(small, { x: 125, y: 125, w: 50, h: 50 }, grid)).toBe(10);
+  });
+});
+
+describe('resolveAttack', () => {
+  it('попадание при сумме >= AC', () => {
+    expect(resolveAttack(15, false, false, 15)).toBe(true);
+    expect(resolveAttack(14, false, false, 15)).toBe(false);
+  });
+
+  it('нат. 20 — всегда попадание, нат. 1 — промах', () => {
+    expect(resolveAttack(5, true, false, 30)).toBe(true);
+    expect(resolveAttack(30, false, true, 1)).toBe(false);
+  });
+
+  it('без AC (0) — считаем попаданием', () => {
+    expect(resolveAttack(1, false, false, 0)).toBe(true);
   });
 });

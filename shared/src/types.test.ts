@@ -9,8 +9,22 @@ describe('normalizeAttacks', () => {
 
   it('переносит старую одиночную атаку в первое поле', () => {
     const attacks = normalizeAttacks(undefined, { name: 'Лук', hit: 'd20+7', damage: 'd8+3' });
-    expect(attacks[0]).toEqual({ name: 'Лук', hit: 'd20+7', damage: 'd8+3' });
-    expect(attacks[1]).toEqual({ name: '', hit: '', damage: '' });
+    expect(attacks[0]).toEqual({
+      name: 'Лук',
+      hit: 'd20+7',
+      damage: 'd8+3',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    });
+    expect(attacks[1]).toEqual({
+      name: '',
+      hit: '',
+      damage: '',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    });
   });
 
   it('не перетирает существующий список legacy-атакой', () => {
@@ -38,9 +52,9 @@ describe('normalizeSheet', () => {
   it('сохраняет уже новый список оружия', () => {
     const sheet = normalizeSheet({
       attacks: [
-        { name: 'A', hit: 'd20', damage: 'd6' },
-        { name: 'B', hit: 'd20', damage: 'd4' },
-        { name: 'C', hit: '', damage: '' },
+        { name: 'A', hit: 'd20', damage: 'd6', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+        { name: 'B', hit: 'd20', damage: 'd4', rangeType: 'ranged', rangeNormal: 80, rangeLong: 320 },
+        { name: 'C', hit: '', damage: '', rangeType: 'none', rangeNormal: 0, rangeLong: 0 },
       ],
     });
     expect(sheet.attacks.map((a) => a.name)).toEqual(['A', 'B', 'C']);
@@ -57,9 +71,9 @@ describe('activeAttacks', () => {
   it('отбрасывает пустые и без формул', () => {
     const sheet = normalizeSheet({
       attacks: [
-        { name: 'Меч', hit: 'd20+5', damage: 'd8+3' },
-        { name: 'Только имя', hit: '', damage: '' },
-        { name: '', hit: '', damage: '' },
+        { name: 'Меч', hit: 'd20+5', damage: 'd8+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+        { name: 'Только имя', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+        { name: '', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
       ],
     });
     expect(activeAttacks(sheet).map((a) => a.name)).toEqual(['Меч']);

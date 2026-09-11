@@ -247,7 +247,7 @@ const summonItem = await addLibrary('Волк', {
   owner: 'Герой-Тест',
   attacks: [
     { name: 'Коготь', hit: 'd20+4', damage: 'd6+2' },
-    { name: '', hit: '', damage: '' },
+    { name: 'Яд', hit: '', damage: '1d4', rangeType: 'none', rangeNormal: 0, rangeLong: 0 },
     { name: '', hit: '', damage: '' },
   ],
 });
@@ -259,6 +259,85 @@ const summonHitP = waitMsg(player, (m) => m.kind === 'roll' && m.label === 'Ат
 player.emit('dice:attack', { tokenId: summonAdd.token.id, attackIndex: 0 });
 const summonHit = await summonHitP;
 check(summonHit.roll.dice[0].sides === 20, 'призыв атакует своим модификатором');
+
+const statueItem = await addLibrary('Статуя', {
+  imageUrl: '/uploads/statue.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+});
+const statueAddP = eventOnce(player, 'token:add');
+dm.emit('token:add', { mapId: map1.id, libraryItemId: statueItem, x: 1100, y: 600 });
+const statueAdd = await statueAddP;
+const rangeErrP = eventOnce(player, 'chat:error');
+player.emit('dice:attack', { tokenId: summonAdd.token.id, targetId: statueAdd.token.id, attackIndex: 0 });
+const rangeErr = await rangeErrP;
+check(/Вне досягаемости/.test(rangeErr), 'ближняя атака вне досягаемости запрещена');
+const statueRemoved = eventOnce(player, 'token:remove');
+dm.emit('token:remove', { mapId: map1.id, id: statueAdd.token.id });
+await statueRemoved;
+const statueLibRemoved = eventOnce(player, 'library:update');
+dm.emit('library:remove', statueItem);
+await statueLibRemoved;
+
+const targetItem = await addLibrary('Мишень', {
+  imageUrl: '/uploads/target.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+  ac: '10',
+  hpMax: '20',
+});
+const targetAddP = eventOnce(player, 'token:add');
+dm.emit('token:add', { mapId: map1.id, libraryItemId: targetItem, x: 650, y: 600 });
+const targetAdd = await targetAddP;
+check(targetAdd.token.ac === '' && targetAdd.token.hpMax === '', 'AC/HP врага скрыты от игрока');
+const dmgMsgP = waitMsg(player, (m) => m.kind === 'roll' && (m.label ?? '').startsWith('Урон') && m.label.includes('Яд'));
+const hpUpdateP = new Promise((resolve) => {
+  const h = (p) => {
+    if (p.token.id === targetAdd.token.id && p.token.hpCurrent < 20) {
+      dm.off('token:update', h);
+      resolve(p);
+    }
+  };
+  dm.on('token:update', h);
+});
+player.emit('dice:attack', { tokenId: summonAdd.token.id, targetId: targetAdd.token.id, attackIndex: 1 });
+await dmgMsgP;
+const hpUpdate = await hpUpdateP;
+check(hpUpdate.token.hpCurrent < 20, `урон вычтен из HP цели (${hpUpdate.token.hpCurrent}/20)`);
+const revealP = new Promise((resolve) => {
+  const h = (p) => {
+    if (p.token.id === targetAdd.token.id && p.token.ac === '10' && p.token.hpMax === '20') {
+      player.off('token:update', h);
+      resolve(p);
+    }
+  };
+  player.on('token:update', h);
+});
+dm.emit('token:update', { mapId: map1.id, id: targetAdd.token.id, patch: { showStats: true } });
+const revealed = await revealP;
+check(revealed.token.hpMax === '20', 'DM-галка раскрывает AC/HP игроку');
+const pairGuard = await new Promise((resolve) => {
+  const h = (p) => {
+    if (p.token.id === targetAdd.token.id) {
+      dm.off('token:update', h);
+      resolve(p.token);
+    }
+  };
+  dm.on('token:update', h);
+  dm.emit('token:update', { mapId: map1.id, id: targetAdd.token.id, patch: { hpMax: '' } });
+});
+check(pairGuard.hpMax === '20' && pairGuard.ac === '10', 'нельзя оставить Макс. ХП без AC (сервер игнорирует)');
+const targetRemoved = eventOnce(player, 'token:remove');
+dm.emit('token:remove', { mapId: map1.id, id: targetAdd.token.id });
+await targetRemoved;
+const targetLibRemoved = eventOnce(player, 'library:update');
+dm.emit('library:remove', targetItem);
+await targetLibRemoved;
+
 const summonRemoved = eventOnce(player, 'token:remove');
 dm.emit('token:remove', { mapId: map1.id, id: summonAdd.token.id });
 await summonRemoved;
@@ -403,7 +482,7 @@ player.emit('sheet:update', {
   skills: {},
   attacks: [
     { name: 'Топор', hit: 'd20+5', damage: '2d6+3' },
-    { name: '', hit: '', damage: '' },
+    { name: 'Яд', hit: '', damage: '1d4', rangeType: 'none', rangeNormal: 0, rangeLong: 0 },
     { name: '', hit: '', damage: '' },
   ],
   classes: [],
@@ -419,6 +498,37 @@ check(
   attackDmg.roll.total >= 5 && attackDmg.roll.total <= 30,
   `dice:attack кидает урон (${attackDmg.roll.total})`
 );
+
+const dummyItem = await addLibrary('Манекен', {
+  imageUrl: '/uploads/dummy.png',
+  cells: 1,
+  round: false,
+  description: '',
+  initiativeBonus: '',
+  hpMax: '15',
+  ac: '10',
+});
+const dummyAddP = eventOnce(player, 'token:add');
+dm.emit('token:add', { mapId: map1.id, libraryItemId: dummyItem, x: 300, y: 300 });
+const dummyAdd = await dummyAddP;
+const dummyHpP = new Promise((resolve) => {
+  const h = (p) => {
+    if (p.token.id === dummyAdd.token.id && p.token.hpCurrent < 15) {
+      dm.off('token:update', h);
+      resolve(p);
+    }
+  };
+  dm.on('token:update', h);
+});
+player.emit('dice:attack', { targetId: dummyAdd.token.id, attackIndex: 1 });
+await dummyHpP;
+check(true, 'атака из листа наносит урон цели (без токена атакующего)');
+const dummyRemoved = eventOnce(player, 'token:remove');
+dm.emit('token:remove', { mapId: map1.id, id: dummyAdd.token.id });
+await dummyRemoved;
+const dummyLibRemoved = eventOnce(player, 'library:update');
+dm.emit('library:remove', dummyItem);
+await dummyLibRemoved;
 
 const testSheet = {
   name: 'Гоблин-игрок',

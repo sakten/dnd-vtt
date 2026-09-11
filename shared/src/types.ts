@@ -37,6 +37,17 @@ export function clampCells(n: number): number {
   return Math.min(4, Math.max(1, Math.round(n || 1)));
 }
 
+/** Числовой стат из строки: пусто/мусор → 0, иначе целое >= 0. */
+export function statNumber(value: string | number | null | undefined): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+}
+
+/** AC и Макс. ХП задаются только парой: оба заполнены или оба пусты. */
+export function statsPaired(ac: string, hpMax: string): boolean {
+  return statNumber(ac) > 0 === statNumber(hpMax) > 0;
+}
+
 export interface MapInfo {
   id: string;
   name: string;
@@ -58,6 +69,10 @@ export interface TokenFields {
   isPlayerToken: boolean;
   owner: string;
   attacks: AttackEntry[];
+  ac: string;
+  hpMax: string;
+  /** DM-галка: показывать AC/HP этого токена игрокам. */
+  showStats: boolean;
 }
 
 export interface LibraryItem extends TokenFields {
@@ -77,6 +92,7 @@ export interface Token extends TokenFields {
   visible: boolean;
   ownerId: string;
   lockedBy: string | null;
+  hpCurrent: number;
 }
 
 export interface InitiativeEntry {
@@ -108,10 +124,17 @@ export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
 export type SkillLevel = 0 | 1 | 2;
 
+export type AttackRangeType = 'melee' | 'ranged' | 'none';
+
 export interface AttackEntry {
   name: string;
   hit: string;
   damage: string;
+  rangeType: AttackRangeType;
+  /** Ближняя: досягаемость, футы. Дальняя: обычная дистанция, футы. */
+  rangeNormal: number;
+  /** Дальняя: максимальная (дальняя) дистанция, футы; 0 — без ограничения. */
+  rangeLong: number;
 }
 
 export interface ClassLevel {
@@ -172,7 +195,7 @@ export interface CharacterSheet {
 }
 
 export function emptyAttack(): AttackEntry {
-  return { name: '', hit: '', damage: '' };
+  return { name: '', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 };
 }
 
 export function emptyAttacks(): AttackEntry[] {
@@ -180,10 +203,15 @@ export function emptyAttacks(): AttackEntry[] {
 }
 
 function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry {
+  const rangeNormal = Number(raw?.rangeNormal);
+  const rangeLong = Number(raw?.rangeLong);
   return {
     name: typeof raw?.name === 'string' ? raw.name : '',
     hit: typeof raw?.hit === 'string' ? raw.hit : '',
     damage: typeof raw?.damage === 'string' ? raw.damage : '',
+    rangeType: raw?.rangeType === 'ranged' || raw?.rangeType === 'none' ? raw.rangeType : 'melee',
+    rangeNormal: Number.isFinite(rangeNormal) ? Math.max(0, Math.round(rangeNormal)) : 5,
+    rangeLong: Number.isFinite(rangeLong) ? Math.max(0, Math.round(rangeLong)) : 0,
   };
 }
 
@@ -401,6 +429,7 @@ export interface ClientToServerEvents {
   'dice:roll': (payload: { expression: string; label?: string }) => void;
   'dice:attack': (payload: {
     tokenId?: string;
+    targetId?: string;
     attackIndex: number;
     advantage?: 'a' | 'd';
   }) => void;

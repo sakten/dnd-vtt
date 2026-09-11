@@ -14,7 +14,7 @@ import type {
   Token,
   TokenFields,
 } from 'shared';
-import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, normalizeSheet, rollDice } from 'shared';
+import { clampCells, DEFAULT_GRID, defaultFog, initiativeBonus, normalizeAttacks, normalizeSheet, rollDice, statNumber, statsPaired } from 'shared';
 import { cancelRoomSave, loadPersistedRooms, removeRoomFile, saveRoomNow, saveRoomSoon, type PersistedRoom } from './store';
 
 export interface RoomPlayer extends Player {
@@ -95,6 +95,12 @@ export class RoomManager {
         if (typeof token.owner !== 'string') token.owner = '';
         if (typeof token.libraryItemId !== 'string') token.libraryItemId = '';
         token.attacks = normalizeAttacks((token as { attacks?: unknown }).attacks);
+        if (typeof token.ac !== 'string') token.ac = '';
+        if (typeof token.hpMax !== 'string') token.hpMax = '';
+        if (typeof token.hpCurrent !== 'number' || !Number.isFinite(token.hpCurrent)) {
+          token.hpCurrent = statNumber(token.hpMax);
+        }
+        if (typeof token.showStats !== 'boolean') token.showStats = false;
       }
     }
     const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
@@ -119,6 +125,9 @@ export class RoomManager {
       if (typeof item.isPlayerToken !== 'boolean') item.isPlayerToken = false;
       if (typeof item.owner !== 'string') item.owner = '';
       item.attacks = normalizeAttacks((item as { attacks?: unknown }).attacks);
+      if (typeof item.ac !== 'string') item.ac = '';
+      if (typeof item.hpMax !== 'string') item.hpMax = '';
+      if (typeof item.showStats !== 'boolean') item.showStats = false;
     }
     const controllers: Record<string, string> = {};
     if (p.controllers && typeof p.controllers === 'object') {
@@ -247,6 +256,9 @@ export class RoomManager {
   }
 
   addLibraryItem(room: Room, input: TokenFields): LibraryItem {
+    const ac = (input.ac ?? '').slice(0, 10);
+    const hpMax = (input.hpMax ?? '').slice(0, 10);
+    const paired = statsPaired(ac, hpMax);
     const item: LibraryItem = {
       ...input,
       id: randomUUID(),
@@ -258,6 +270,9 @@ export class RoomManager {
       isPlayerToken: input.isPlayerToken === true,
       owner: (input.owner ?? '').slice(0, 40),
       attacks: normalizeAttacks(input.attacks),
+      ac: paired ? ac : '',
+      hpMax: paired ? hpMax : '',
+      showStats: input.showStats === true,
     };
     room.library.push(item);
     this.saveSoon(room);
@@ -275,6 +290,19 @@ export class RoomManager {
     if (typeof patch.isPlayerToken === 'boolean') item.isPlayerToken = patch.isPlayerToken;
     if (typeof patch.owner === 'string') item.owner = patch.owner.slice(0, 40);
     if (Array.isArray(patch.attacks)) item.attacks = normalizeAttacks(patch.attacks);
+    if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
+      if (statsPaired(patch.ac, patch.hpMax)) {
+        item.ac = patch.ac.slice(0, 10);
+        item.hpMax = patch.hpMax.slice(0, 10);
+      }
+    } else if (typeof patch.ac === 'string') {
+      const ac = patch.ac.slice(0, 10);
+      if (statsPaired(ac, item.hpMax)) item.ac = ac;
+    } else if (typeof patch.hpMax === 'string') {
+      const hp = patch.hpMax.slice(0, 10);
+      if (statsPaired(item.ac, hp)) item.hpMax = hp;
+    }
+    if (typeof patch.showStats === 'boolean') item.showStats = patch.showStats;
     this.saveSoon(room);
   }
 
@@ -310,6 +338,10 @@ export class RoomManager {
       isPlayerToken: item.isPlayerToken === true,
       owner: (item.owner ?? '').slice(0, 40),
       attacks: normalizeAttacks(item.attacks),
+      ac: (item.ac ?? '').slice(0, 10),
+      hpMax: (item.hpMax ?? '').slice(0, 10),
+      showStats: item.showStats === true,
+      hpCurrent: statNumber(item.hpMax),
       x,
       y,
       w: cells * room.scene.grid.size,

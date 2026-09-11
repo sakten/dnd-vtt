@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Rect, Image as KonvaImage, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { MapInfo } from 'shared';
-import { snapToGrid } from 'shared';
+import { gridDistanceFeet, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
 import { canAddLibraryItem } from '../lib/control';
@@ -12,7 +12,7 @@ import TokenView from './TokenView';
 function MapSprite({ map }: { map: MapInfo }) {
   const image = useImage(map.url);
   if (!image) return null;
-  return <KonvaImage image={image} width={map.width} height={map.height} />;
+  return <KonvaImage image={image} width={map.width} height={map.height} listening={false} />;
 }
 
 interface WorldPoint {
@@ -36,10 +36,25 @@ export default function TableTop() {
   const viewMapId = useGameStore((s) => s.viewMapId);
   const setSelected = useGameStore((s) => s.setSelected);
   const role = useGameStore((s) => s.role);
+  const targetTokenId = useGameStore((s) => s.targetTokenId);
+  const measureFromId = useGameStore((s) => s.measureFromId);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
   const activeMap = scene.maps.find((m) => m.id === viewMapId) ?? null;
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
+
+  const measure = useMemo(() => {
+    if (!activeMap || !targetTokenId) return null;
+    const to = activeMap.tokens.find((t) => t.id === targetTokenId);
+    if (!to) return null;
+    const fromId =
+      measureFromId ?? activeMap.tokens.find((t) => t.libraryItemId === currentCharacterId)?.id ?? null;
+    const from = activeMap.tokens.find((t) => t.id === fromId);
+    if (!from || from.id === to.id) return null;
+    const feet = gridDistanceFeet(from, to, scene.grid.size || 50);
+    return { from, to, feet };
+  }, [activeMap, targetTokenId, measureFromId, currentCharacterId, scene.grid.size]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -142,7 +157,10 @@ export default function TableTop() {
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!fogMode.active) {
-      if (e.target === e.target.getStage()) setSelected(null);
+      if (e.target === e.target.getStage()) {
+        setSelected(null);
+        useGameStore.getState().setTargetToken(null);
+      }
       return;
     }
     e.evt.preventDefault();
@@ -248,7 +266,10 @@ export default function TableTop() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onTouchStart={(e) => {
-          if (!fogMode.active && e.target === e.target.getStage()) setSelected(null);
+          if (!fogMode.active && e.target === e.target.getStage()) {
+            setSelected(null);
+            useGameStore.getState().setTargetToken(null);
+          }
         }}
       >
         <Layer>{activeMap && <MapSprite map={activeMap} />}</Layer>
@@ -283,6 +304,28 @@ export default function TableTop() {
             .map((token) => (
               <TokenView key={token.id} token={token} />
             ))}
+        </Layer>
+        <Layer listening={false}>
+          {measure && (
+            <>
+              <Line
+                points={[measure.from.x, measure.from.y, measure.to.x, measure.to.y]}
+                stroke="#ff5a5a"
+                strokeWidth={2 / view.scale}
+                dash={[10 / view.scale, 6 / view.scale]}
+              />
+              <Text
+                text={`${measure.feet} фт`}
+                x={(measure.from.x + measure.to.x) / 2}
+                y={(measure.from.y + measure.to.y) / 2 - 16 / view.scale}
+                fontSize={14 / view.scale}
+                fill="#ff8a8a"
+                stroke="#000000"
+                strokeWidth={3 / view.scale}
+                fillAfterStrokeEnabled
+              />
+            </>
+          )}
         </Layer>
       </Stage>
     </div>

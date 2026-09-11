@@ -3,15 +3,21 @@ import type { Server as SocketServer, Socket } from 'socket.io';
 import {
   DEFAULT_ABILITIES,
   DiceParseError,
+  attackRange,
   effectiveMaxHp,
   emptyResources,
+  gridDistanceFeet,
+  isCriticalFail,
   isCriticalHit,
   normalizeAttacks,
   normalizeSheet,
+  resolveAttack,
   rollDice,
   sanitizeResources,
   sheetMods,
   snapToGrid,
+  statNumber,
+  statsPaired,
   syncResources,
   weaponRolls,
   withAdvantage,
@@ -56,7 +62,19 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     };
 
     const broadcastMaps = (room: Room) => {
-      broadcastAll('maps:update', { maps: room.scene.maps, activeMapId: room.scene.activeMapId });
+      for (const p of room.players) {
+        if (!p.socketId) continue;
+        const s = io.sockets.sockets.get(p.socketId);
+        if (!s) continue;
+        const maps = room.scene.maps.map((m) => ({
+          ...m,
+          tokens: m.tokens.map((t) => visibleToken(room, t, p.id)),
+        }));
+        (s as { emit: (ev: string, payload: unknown) => void }).emit('maps:update', {
+          maps,
+          activeMapId: room.scene.activeMapId,
+        });
+      }
     };
 
     const getRoom = (): Room | null => (roomCode ? manager.get(roomCode) ?? null : null);
@@ -84,6 +102,39 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (isDm()) return true;
       if (!playerId) return false;
       return manager.controlsToken(room, mapId, playerId, token);
+    };
+
+    // AC/HP токена видят: DM — всегда; игрок — только для токенов, которыми управляет
+    // (свой персонаж/призыв). Остальным AC/HP не отдаём.
+    const visibleToken = (room: Room, token: Token, viewerId: string | null): Token => {
+      if (viewerId) {
+        const viewer = room.players.find((p) => p.id === viewerId);
+        if (viewer?.role === 'dm') return token;
+      }
+      if (token.showStats) return token;
+      if (viewerId) {
+        let mapId = '';
+        for (const m of room.scene.maps) {
+          if (m.tokens.some((t) => t.id === token.id)) {
+            mapId = m.id;
+            break;
+          }
+        }
+        if (mapId && manager.controlsToken(room, mapId, viewerId, token)) return token;
+      }
+      return { ...token, ac: '', hpMax: '', hpCurrent: 0 };
+    };
+
+    const emitToken = (room: Room, event: 'token:add' | 'token:update', mapId: string, token: Token) => {
+      for (const p of room.players) {
+        if (!p.socketId) continue;
+        const s = io.sockets.sockets.get(p.socketId);
+        if (!s) continue;
+        (s as { emit: (ev: string, payload: unknown) => void }).emit(event, {
+          mapId,
+          token: visibleToken(room, token, p.id),
+        });
+      }
     };
 
     const syncCombat = (room: Room, mapId: string) => {
@@ -114,8 +165,18 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
         room.resources[selfId] = created;
         manager.saveSoon(room);
       }
+      const state = manager.toState(room);
       socket.emit('room:joined', {
-        room: manager.toState(room),
+        room: {
+          ...state,
+          scene: {
+            ...state.scene,
+            maps: state.scene.maps.map((m) => ({
+              ...m,
+              tokens: m.tokens.map((t) => visibleToken(room, t, selfId)),
+            })),
+          },
+        },
         selfId,
         sheet: room.sheets[selfId] ?? null,
         resources: room.resources[selfId] ?? null,
@@ -339,7 +400,9 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     socket.on('library:update', ({ id, patch }) => {
       const room = getRoom();
       if (!room) return;
-      manager.updateLibraryItem(room, id, patch);
+      const safePatch = { ...patch };
+      if (!isDm() && 'showStats' in safePatch) delete safePatch.showStats;
+      manager.updateLibraryItem(room, id, safePatch);
       const item = room.library.find((i) => i.id === id);
       if (item && (!item.isPlayerToken || item.owner.trim())) {
         for (const pid of manager.clearControllersForItem(room, id)) {
@@ -482,7 +545,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       manager.saveSoon(room);
       broadcast('grid:update', grid);
       for (const map of room.scene.maps) {
-        for (const token of map.tokens) broadcast('token:update', { mapId: map.id, token });
+        for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
       }
     });
 
@@ -508,7 +571,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (item.isPlayerToken && map.tokens.some((t) => t.libraryItemId === item.id)) return;
       const token = manager.addToken(room, payload.mapId, item, x, y, playerId);
       if (!token) return;
-      broadcastAll('token:add', { mapId: payload.mapId, token });
+      emitToken(room, 'token:add', payload.mapId, token);
       if (manager.combatOf(room, payload.mapId)?.active) {
         manager.addTokenToCombat(room, payload.mapId, token);
         syncCombat(room, payload.mapId);
@@ -526,7 +589,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       token.x = x;
       token.y = y;
       manager.saveSoon(room);
-      broadcastAll('token:update', { mapId, token });
+      emitToken(room, 'token:update', mapId, token);
     });
 
     socket.on('token:lock', ({ mapId, id, lock }) => {
@@ -537,7 +600,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       if (!token) return;
       token.lockedBy = lock ? playerId : null;
       manager.saveSoon(room);
-      broadcastAll('token:update', { mapId, token });
+      emitToken(room, 'token:update', mapId, token);
     });
 
     socket.on('token:update', ({ mapId, id, patch }) => {
@@ -561,7 +624,25 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
         if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
         if (Array.isArray(patch.attacks)) token.attacks = normalizeAttacks(patch.attacks);
+        if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
+          if (statsPaired(patch.ac, patch.hpMax)) {
+            token.ac = patch.ac.slice(0, 10);
+            token.hpMax = patch.hpMax.slice(0, 10);
+          }
+        } else if (typeof patch.ac === 'string') {
+          const ac = patch.ac.slice(0, 10);
+          if (statsPaired(ac, token.hpMax)) token.ac = ac;
+        } else if (typeof patch.hpMax === 'string') {
+          const hp = patch.hpMax.slice(0, 10);
+          if (statsPaired(token.ac, hp)) token.hpMax = hp;
+        }
+        if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
+          token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
+        }
+        const maxHp = statNumber(token.hpMax);
+        if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
       }
+      if (isDm() && typeof patch.showStats === 'boolean') token.showStats = patch.showStats;
       manager.saveSoon(room);
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {
         manager.renameCombatantByToken(room, mapId, id, token.name);
@@ -746,7 +827,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       }
     });
 
-    socket.on('dice:attack', ({ tokenId, attackIndex, advantage }) => {
+    socket.on('dice:attack', ({ tokenId, targetId, attackIndex, advantage }) => {
       if (!playerId) return;
       const room = getRoom();
       if (!room) return;
@@ -755,6 +836,8 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
 
       let attacks: AttackEntry[] | undefined;
       let prefix: string | undefined;
+      let attacker: Token | null = null;
+      let attackerMapId: string | null = null;
       if (typeof tokenId === 'string' && tokenId) {
         let found: { mapId: string; token: Token } | null = null;
         for (const map of room.scene.maps) {
@@ -769,6 +852,8 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
         const isCharacter = room.controllers[playerId] === found.token.libraryItemId;
         attacks = isCharacter ? room.sheets[playerId]?.attacks : found.token.attacks;
         prefix = found.token.name;
+        attacker = found.token;
+        attackerMapId = found.mapId;
       } else {
         attacks = room.sheets[playerId]?.attacks;
       }
@@ -778,14 +863,63 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       const entry = attacks[index];
       if (!entry) return;
 
+      let distanceFeet = 0;
+      let hasTarget = false;
+      let forcedDisadvantage = false;
+      let disadvantageReason: string | undefined;
+      let targetTok: Token | null = null;
+      let targetMapId: string | null = null;
+      if (typeof targetId === 'string' && targetId) {
+        for (const map of room.scene.maps) {
+          const t = map.tokens.find((x) => x.id === targetId);
+          if (t) {
+            targetTok = t;
+            targetMapId = map.id;
+            break;
+          }
+        }
+      }
+      if (attacker && attackerMapId && targetTok && targetMapId === attackerMapId && targetTok.id !== attacker.id) {
+        const map = room.scene.maps.find((m) => m.id === attackerMapId);
+        if (map) {
+          const size = room.scene.grid.size || 50;
+          distanceFeet = gridDistanceFeet(attacker, targetTok, size);
+          const adjacentEnemy = map.tokens.some(
+            (t) => t.id !== attacker.id && t.isPlayerToken === false && gridDistanceFeet(attacker, t, size) <= 5
+          );
+          const range = attackRange(entry, distanceFeet, adjacentEnemy);
+          if (range.outOfRange) {
+            socket.emit('chat:error', `${range.reason ?? 'Вне зоны'}: ${Math.round(distanceFeet)} фт`);
+            return;
+          }
+          forcedDisadvantage = range.disadvantage;
+          disadvantageReason = range.disadvantageReason;
+          hasTarget = true;
+        }
+      }
+
       const { hit, damage } = weaponRolls(entry, prefix);
       if (!hit && !damage) return;
-      const adv = advantage === 'a' || advantage === 'd' ? advantage : undefined;
+      const suffix = hasTarget ? ` · ${Math.round(distanceFeet)} фт` : '';
+      const disNote = forcedDisadvantage && disadvantageReason ? ` (помеха: ${disadvantageReason})` : '';
+      if (hit) hit.label += suffix + disNote;
+      if (damage) damage.label += suffix + disNote;
+
+      let adv: 'a' | 'd' | undefined = advantage === 'a' || advantage === 'd' ? advantage : undefined;
+      if (forcedDisadvantage) adv = adv === 'a' ? undefined : 'd';
+
+      const targetAc = targetTok ? statNumber(targetTok.ac) : 0;
+
       try {
         let crit = false;
+        let hitSuccess: boolean | undefined;
         if (hit) {
           const hitRoll = rollDice(withAdvantage(hit.expression, adv));
           crit = isCriticalHit(hitRoll);
+          if (targetAc > 0) {
+            hitSuccess = resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc);
+            hit.label += hitSuccess ? ' — Попал' : ' — Промах';
+          }
           const hitMessage: ChatMessage = {
             id: randomUUID(),
             kind: 'roll',
@@ -797,7 +931,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
           manager.addMessage(room, hitMessage);
           broadcastAll('chat:message', hitMessage);
         }
-        if (damage) {
+        if (damage && hitSuccess !== false) {
           const damageRoll = rollDice(damage.expression, Math.random, { doubleDice: crit });
           const damageMessage: ChatMessage = {
             id: randomUUID(),
@@ -810,6 +944,12 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
           };
           manager.addMessage(room, damageMessage);
           broadcastAll('chat:message', damageMessage);
+
+          if (targetTok && targetMapId && statNumber(targetTok.hpMax) > 0) {
+            targetTok.hpCurrent = Math.max(0, targetTok.hpCurrent - damageRoll.total);
+            manager.saveSoon(room);
+            emitToken(room, 'token:update', targetMapId, targetTok);
+          }
         }
       } catch (e) {
         socket.emit('chat:error', e instanceof DiceParseError ? e.message : 'Не удалось распознать бросок');
@@ -831,7 +971,7 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
       player.socketId = null;
       manager.clearLocks(room, playerId);
       manager.saveSoon(room);
-      for (const { id, token } of lockedTokens) broadcastAll('token:update', { mapId: id, token });
+      for (const { id, token } of lockedTokens) emitToken(room, 'token:update', id, token);
       // Не объявляем выход сразу: Socket.IO переподключения создают новый сокет,
       // и игрок успевает вернуться. Даём грейс-период и отменяем при повторном входе.
       const key = `${room.code}:${playerId}`;

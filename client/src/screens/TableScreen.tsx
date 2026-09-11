@@ -19,6 +19,11 @@ export default function TableScreen() {
   const gridModalOpen = useGameStore((s) => s.gridModalOpen);
   const roomCode = useGameStore((s) => s.roomCode);
   const roomName = useGameStore((s) => s.roomName);
+  const targetTokenId = useGameStore((s) => s.targetTokenId);
+  const setTargetToken = useGameStore((s) => s.setTargetToken);
+  const targetName = useGameStore(
+    (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((t) => t.id === s.targetTokenId)?.name ?? ''
+  );
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
@@ -30,12 +35,13 @@ export default function TableScreen() {
       if (e.key === 'Delete' && selected) removeToken(selected);
       if (e.key === 'Escape') {
         setSelected(null);
+        setTargetToken(null);
         if (useGameStore.getState().fogMode.active) setFogMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, removeToken, setSelected, setFogMode]);
+  }, [selected, removeToken, setSelected, setFogMode, setTargetToken]);
 
   return (
     <div className="table-screen">
@@ -59,6 +65,14 @@ export default function TableScreen() {
         {roomName && <span className="room-badge-code">{shortCode}</span>}{' '}
         <span className="room-badge-hint">— скопировать ссылку</span>
       </div>
+      {targetTokenId && (
+        <div className="target-badge" title="Выбранная цель для атак">
+          Цель: <strong>{targetName || '…'}</strong>
+          <button title="Сбросить цель" onClick={() => setTargetToken(null)}>
+            ✕
+          </button>
+        </div>
+      )}
       {gridModalOpen && <GridSettingsModal />}
       <TokenMenu />
       <CritOverlay />

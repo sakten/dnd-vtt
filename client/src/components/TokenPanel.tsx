@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { LibraryItem, TokenFields } from 'shared';
-import { emptyAttacks } from 'shared';
+import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
 import { canAddLibraryItem, canSetAsCharacter } from '../lib/control';
@@ -18,11 +18,20 @@ export default function TokenPanel() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-token-panel') === 'collapsed');
+
+  const toggleCollapsed = () => {
+    setCollapsed((v) => {
+      localStorage.setItem('vtt-token-panel', v ? 'open' : 'collapsed');
+      return !v;
+    });
+  };
 
   const editing = items.find((i) => i.id === editingId) ?? null;
   const currentItem = items.find((i) => i.id === currentCharacterId) ?? null;
 
   const [draft, setDraft] = useState<TokenFields | null>(null);
+  const draftInvalid = !draft || !statsPaired(draft.ac ?? '', draft.hpMax ?? '');
 
   useEffect(() => {
     if (editing) {
@@ -36,6 +45,9 @@ export default function TokenPanel() {
         isPlayerToken: editing.isPlayerToken,
         owner: editing.owner,
         attacks: editing.attacks,
+        ac: editing.ac,
+        hpMax: editing.hpMax,
+        showStats: editing.showStats,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
@@ -76,6 +88,9 @@ export default function TokenPanel() {
         isPlayerToken: false,
         owner: '',
         attacks: emptyAttacks(),
+        ac: '',
+        hpMax: '',
+        showStats: false,
       });
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить токен');
@@ -83,7 +98,8 @@ export default function TokenPanel() {
   };
 
   return (
-    <div className="token-panel">
+    <div className={`token-panel ${collapsed ? 'collapsed' : ''}`}>
+      {!collapsed && (
       <div
         className={`character-slot ${currentItem ? 'filled' : ''}`}
         onDragOver={(e) => {
@@ -124,13 +140,24 @@ export default function TokenPanel() {
           <div className="character-slot-empty">Перетащите сюда своего персонажа</div>
         )}
       </div>
+      )}
       <div className="token-panel-header">
         <span>Токены</span>
-        <button className="icon" title="Загрузить токен" onClick={() => fileRef.current?.click()}>
-          +
-        </button>
+        <div className="token-panel-header-actions">
+          <button className="icon" title="Загрузить токен" onClick={() => fileRef.current?.click()}>
+            +
+          </button>
+          <button
+            className="icon token-panel-toggle"
+            title={collapsed ? 'Развернуть' : 'Свернуть'}
+            onClick={toggleCollapsed}
+          >
+            {collapsed ? '▲' : '▼'}
+          </button>
+        </div>
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={handleFile} />
       </div>
+      {!collapsed && (
       <div className="token-panel-list">
         {items.length === 0 && <div className="hint">Загрузите картинки токенов</div>}
         {items.map((item) => (
@@ -155,6 +182,7 @@ export default function TokenPanel() {
           </div>
         ))}
       </div>
+      )}
 
       {editing &&
         draft &&
@@ -175,6 +203,7 @@ export default function TokenPanel() {
                 </button>
                 <button
                   className="primary"
+                  disabled={draftInvalid}
                   onClick={() => {
                     updateLibraryItem(editing.id, draft);
                     setEditingId(null);

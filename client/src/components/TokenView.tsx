@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
+import { Group, Rect, Text, Image as KonvaImage, Circle, Line } from 'react-konva';
 import Konva from 'konva';
-import { snapToGrid, type Token } from 'shared';
+import { snapToGrid, statNumber, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
 import { canControlWith } from '../lib/control';
@@ -12,6 +12,8 @@ export default function TokenView({ token }: { token: Token }) {
   const grid = useGameStore((s) => s.scene.grid);
   const selected = useGameStore((s) => s.selectedTokenId === token.id);
   const setSelected = useGameStore((s) => s.setSelected);
+  const setTargetToken = useGameStore((s) => s.setTargetToken);
+  const isTarget = useGameStore((s) => s.targetTokenId === token.id);
   const moveToken = useGameStore((s) => s.moveToken);
   const finalizeMove = useGameStore((s) => s.finalizeTokenMove);
   const lockToken = useGameStore((s) => s.lockToken);
@@ -19,10 +21,13 @@ export default function TokenView({ token }: { token: Token }) {
   const setHoverToken = useGameStore((s) => s.setHoverToken);
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
+  const role = useGameStore((s) => s.role);
   const canMove = useGameStore((s) => canControlWith(s, token));
   const lastClickRef = useRef(0);
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
+  const hpMax = statNumber(token.hpMax);
+  const dead = hpMax > 0 && token.hpCurrent <= 0;
 
   const snap = (v: number, offset: number) => {
     if (!grid.snap) return v;
@@ -49,6 +54,8 @@ export default function TokenView({ token }: { token: Token }) {
     ctx.arc(0, 0, token.w / 2, 0, Math.PI * 2, false);
   };
 
+  const retR = Math.max(token.w, token.h) / 2 + 10 / token.scale;
+
   return (
     <Group
       x={token.x}
@@ -56,11 +63,12 @@ export default function TokenView({ token }: { token: Token }) {
       scaleX={token.scale}
       scaleY={token.scale}
       rotation={token.rotation}
-      opacity={lockedByOther ? 0.5 : 1}
+      opacity={lockedByOther ? 0.5 : dead ? 0.55 : 1}
       draggable={!lockedByOther && !fogActive && canMove}
       onClick={(e) => {
         e.cancelBubble = true;
         setSelected(token.id);
+        if (!token.isPlayerToken) setTargetToken(token.id);
         const now = Date.now();
         if (now - lastClickRef.current < 350) {
           lastClickRef.current = 0;
@@ -72,6 +80,7 @@ export default function TokenView({ token }: { token: Token }) {
       onTap={(e) => {
         e.cancelBubble = true;
         setSelected(token.id);
+        if (!token.isPlayerToken) setTargetToken(token.id);
         const now = Date.now();
         if (now - lastClickRef.current < 350) {
           lastClickRef.current = 0;
@@ -103,7 +112,7 @@ export default function TokenView({ token }: { token: Token }) {
           <Rect x={-token.w / 2} y={-token.h / 2} width={token.w} height={token.h} fill="#3a4150" />
         )}
       </Group>
-      {selected && (
+      {selected && (role === 'dm' || token.isPlayerToken) && (
         <Rect
           x={-token.w / 2 - 3}
           y={-token.h / 2 - 3}
@@ -126,6 +135,43 @@ export default function TokenView({ token }: { token: Token }) {
           cornerRadius={6}
           listening={false}
         />
+      )}
+      {isTarget && (
+        <Group listening={false}>
+          <Circle
+            x={0}
+            y={0}
+            radius={retR}
+            stroke="#ff5a5a"
+            strokeWidth={2 / token.scale}
+            dash={[10 / token.scale, 6 / token.scale]}
+          />
+          <Line points={[-retR - 12 / token.scale, 0, -retR + 5 / token.scale, 0]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
+          <Line points={[retR - 5 / token.scale, 0, retR + 12 / token.scale, 0]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
+          <Line points={[0, -retR - 12 / token.scale, 0, -retR + 5 / token.scale]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
+          <Line points={[0, retR - 5 / token.scale, 0, retR + 12 / token.scale]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
+          <Circle x={0} y={0} radius={3 / token.scale} fill="#ff5a5a" />
+        </Group>
+      )}
+      {hpMax > 0 && (
+        <Group y={-token.h / 2 - 9 / token.scale} listening={false}>
+          <Rect
+            x={-token.w / 2}
+            width={token.w}
+            height={8 / token.scale}
+            fill="#2b3039"
+            stroke="#000000"
+            strokeWidth={1 / token.scale}
+            cornerRadius={2 / token.scale}
+          />
+          <Rect
+            x={-token.w / 2}
+            width={Math.max(0, Math.min(1, token.hpCurrent / hpMax)) * token.w}
+            height={8 / token.scale}
+            fill={token.hpCurrent / hpMax > 0.5 ? '#4ecb71' : token.hpCurrent / hpMax > 0.25 ? '#ffd166' : '#ff6b6b'}
+            cornerRadius={2 / token.scale}
+          />
+        </Group>
       )}
       <Text
         text={token.name}

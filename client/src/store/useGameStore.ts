@@ -58,6 +58,8 @@ interface GameState {
   chatError: string | null;
   joinError: string | null;
   selectedTokenId: string | null;
+  targetTokenId: string | null;
+  measureFromId: string | null;
   hoverTokenId: string | null;
   draggingTokenId: string | null;
   view: ViewState;
@@ -71,7 +73,12 @@ interface GameState {
   joinRoom: (code: string, name: string) => void;
   sendChat: (text: string) => void;
   rollDice: (expression: string, label?: string) => void;
-  rollAttack: (payload: { tokenId?: string; attackIndex: number; advantage?: 'a' | 'd' }) => void;
+  rollAttack: (payload: {
+    tokenId?: string;
+    targetId?: string;
+    attackIndex: number;
+    advantage?: 'a' | 'd';
+  }) => void;
   setSheet: (sheet: CharacterSheet) => void;
   updateResources: (resources: PlayerResources) => void;
   setCurrentCharacter: (libraryItemId: string | null) => void;
@@ -92,10 +99,12 @@ interface GameState {
   moveToken: (id: string, x: number, y: number) => void;
   finalizeTokenMove: (id: string, x: number, y: number) => void;
   lockToken: (id: string, lock: boolean) => void;
-  setTokenFields: (id: string, patch: Partial<TokenFields>) => void;
+  setTokenFields: (id: string, patch: Partial<Token>) => void;
   setView: (view: ViewState) => void;
   setViewport: (v: { w: number; h: number }) => void;
   setSelected: (id: string | null) => void;
+  setTargetToken: (id: string | null) => void;
+  setMeasureFrom: (id: string | null) => void;
   setDragging: (id: string | null) => void;
   setGridModalOpen: (open: boolean) => void;
   setTokenMenu: (id: string | null) => void;
@@ -146,7 +155,8 @@ export const useGameStore = create<GameState>()((set, get) => {
       return { scene: { ...s.scene, maps } };
     });
 
-  const clearTokenUi = () => set({ selectedTokenId: null, tokenMenuId: null, draggingTokenId: null });
+  const clearTokenUi = () =>
+    set({ selectedTokenId: null, tokenMenuId: null, draggingTokenId: null, targetTokenId: null, measureFromId: null });
 
   return {
     socket: null,
@@ -166,6 +176,8 @@ export const useGameStore = create<GameState>()((set, get) => {
     chatError: null,
     joinError: null,
     selectedTokenId: null,
+    targetTokenId: null,
+    measureFromId: null,
     hoverTokenId: null,
     draggingTokenId: null,
     view: { x: 0, y: 0, scale: 1 },
@@ -233,6 +245,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           currentCharacterId: room.controllers?.[selfId] ?? null,
           chat: room.chat,
           joinError: null,
+          targetTokenId: null,
         });
       });
 
@@ -257,13 +270,14 @@ export const useGameStore = create<GameState>()((set, get) => {
             selectedTokenId: null,
             tokenMenuId: null,
             draggingTokenId: null,
+            targetTokenId: null,
           };
         });
         window.setTimeout(() => get().fitView(), 30);
       });
 
       socket.on('map:bring', ({ activeMapId }) => {
-        set({ viewMapId: activeMapId, selectedTokenId: null, tokenMenuId: null, draggingTokenId: null });
+        set({ viewMapId: activeMapId, selectedTokenId: null, tokenMenuId: null, draggingTokenId: null, targetTokenId: null });
         window.setTimeout(() => get().fitView(), 30);
       });
 
@@ -345,6 +359,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           selectedTokenId: null,
           tokenMenuId: null,
           draggingTokenId: null,
+          targetTokenId: null,
         });
         const url = new URL(window.location.href);
         url.searchParams.delete('room');
@@ -363,6 +378,7 @@ export const useGameStore = create<GameState>()((set, get) => {
           selectedTokenId: null,
           tokenMenuId: null,
           draggingTokenId: null,
+          targetTokenId: null,
         });
         const url = new URL(window.location.href);
         url.searchParams.delete('room');
@@ -457,7 +473,7 @@ export const useGameStore = create<GameState>()((set, get) => {
     },
 
     switchMap: (id) => {
-      set({ viewMapId: id });
+      set({ viewMapId: id, targetTokenId: null });
       clearTokenUi();
       get().fitView();
     },
@@ -564,6 +580,8 @@ export const useGameStore = create<GameState>()((set, get) => {
     setView: (view) => set({ view }),
     setViewport: (viewport) => set({ viewport }),
     setSelected: (selectedTokenId) => set({ selectedTokenId }),
+    setTargetToken: (targetTokenId) => set({ targetTokenId }),
+    setMeasureFrom: (measureFromId) => set({ measureFromId }),
     setDragging: (draggingTokenId) => set({ draggingTokenId }),
     setGridModalOpen: (gridModalOpen) => set({ gridModalOpen }),
     setTokenMenu: (tokenMenuId) => set({ tokenMenuId }),
