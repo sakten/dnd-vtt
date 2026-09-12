@@ -850,7 +850,8 @@ function casterContribution(entry: ClassLevel): number {
   const def = CLASSES[entry.className];
   if (!def) return 0;
   if (def.caster === 'full') return entry.level;
-  if (def.caster === 'half') return Math.floor(entry.level / 2);
+  // Полукастеры в мультиклассе округляются вниз, изобретатель по 2024 — вверх.
+  if (def.caster === 'half') return entry.className === 'artificer' ? Math.ceil(entry.level / 2) : Math.floor(entry.level / 2);
   const sub = entry.subclass ? def.subclasses[entry.subclass] : undefined;
   if (def.caster === 'none' && sub?.caster === 'third') return Math.floor(entry.level / 3);
   return 0;

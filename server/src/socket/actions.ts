@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   actionSlotAvailable,
+  classFeatures,
   findBaseAction,
   rollDice,
   rollLabelText,
@@ -22,7 +23,7 @@ function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: Act
 }
 
 export function registerActionHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, broadcastAll, syncCombat, systemMessage } = ctx;
+  const { socket, manager, getRoom, isDm, broadcastAll, syncCombat, systemMessage, emitToken } = ctx;
 
     ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot }) => {
       if (!ctx.playerId) return;
@@ -32,8 +33,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (!token) return;
       if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
 
+      const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
+      const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
+      const classAction = sheet ? classFeatures(sheet.classes).find((a) => a.id === actionId) : undefined;
       const action: ActionDef | undefined =
-        token.statblock?.actions?.find((a) => a.id === actionId) ?? findBaseAction(actionId);
+        token.statblock?.actions?.find((a) => a.id === actionId) ?? findBaseAction(actionId) ?? classAction;
       if (!action) return;
 
       const combat = manager.combatOf(room, mapId);
@@ -45,8 +49,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
 
       if (action.id === 'attack') {
-        const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
-        const attacks: AttackEntry[] = isCharacter ? room.sheets[ctx.playerId]?.attacks ?? [] : token.attacks;
+        const attacks: AttackEntry[] = isCharacter ? sheet?.attacks ?? [] : token.attacks;
         const index = Math.round(Number(attackIndex));
         const entry = attacks[index];
         if (!entry || !Number.isFinite(index)) {
@@ -77,6 +80,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       // Прочие действия: списываем слот, дальше эффект.
+      const resourceAmount = action.resourceKey ? Math.max(1, action.resourceAmount ?? 1) : 0;
+      if (resourceAmount && !manager.hasResource(room, ctx.playerId, action.resourceKey!, resourceAmount)) {
+        socket.emit('chat:error', `Недостаточно ресурса: ${action.name}`);
+        return;
+      }
+
       const turn = manager.turnForToken(room, mapId, token);
       const chosen = chooseSlot(turn, action.costs, slot);
       if (!manager.spendSlot(room, mapId, token, chosen)) {
@@ -84,6 +93,34 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
       syncCombat(room, mapId);
+
+      if (resourceAmount) {
+        manager.spendResource(room, ctx.playerId, action.resourceKey!, resourceAmount);
+        const res = room.resources[ctx.playerId];
+        if (res) socket.emit('resources:update', res);
+      }
+
+      if (action.id === 'class:fighter:actionSurge') {
+        if (turn) {
+          turn.extraActions += 1;
+          manager.saveSoon(room);
+          syncCombat(room, mapId);
+        }
+        systemMessage(room, `${token.name}: Всплеск действия (+1 действие)`);
+        return;
+      }
+
+      if (action.id === 'class:fighter:secondWind') {
+        const fighterLevel = sheet?.classes.find((c) => c.className === 'fighter')?.level ?? 1;
+        const heal = Math.max(0, rollDice(`1d10+${Math.max(1, fighterLevel)}`).total);
+        for (const c of manager.adjustTokenHp(room, mapId, token, heal)) {
+          emitToken(room, 'token:update', c.mapId, c.token);
+        }
+        const res = room.resources[ctx.playerId];
+        if (res) socket.emit('resources:update', res);
+        systemMessage(room, `${token.name}: Второе дыхание (+${heal} HP)`);
+        return;
+      }
 
       if (action.id === 'dash') {
         const speed = manager.tokenSpeed(room, token);

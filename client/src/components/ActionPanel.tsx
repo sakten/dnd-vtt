@@ -1,18 +1,41 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   BASE_ACTIONS,
   actionSlotAvailable,
   attackIsActive,
+  attacksPerAction,
+  classFeatures,
+  grantedSpells,
   type ActionCost,
+  type ActionDef,
   type AttackEntry,
+  type Spell,
   type TurnState,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { loadSpells } from '../lib/spells';
 import ActionIcon from './ActionIcon';
+import SpellIcon from './SpellIcon';
 import WeaponIcon from './WeaponIcon';
 
 /** Базовые действия, которые по правилам являются атаками (бейдж-меч). */
 const ATTACK_BADGED = new Set(['unarmedStrike', 'grapple', 'shove']);
+
+/** Иконка классовой черты по ключу ресурса (fallback — искра). */
+function featureIconId(f: ActionDef): string {
+  const k = `${f.resourceKey ?? ''} ${f.id}`.toLowerCase();
+  if (k.includes('inspiration')) return 'inspiration';
+  if (k.includes('channeldivinity')) return 'channel';
+  if (k.includes('focus/')) return 'flurry';
+  if (k.includes('wildshape')) return 'beast';
+  if (k.includes('rage')) return 'rage';
+  if (k.includes('surge')) return 'surge';
+  if (k.includes('secondwind') || k.includes('layonhands') || k.includes('healing') || k.includes('balm')) return 'heal';
+  if (k.includes('ward') || k.includes('shield') || k.includes('defense') || k.includes('defences')) return 'shield';
+  if (k.includes('eye') || k.includes('omen') || k.includes('portent') || k.includes('third')) return 'eye';
+  if (k.includes('dice') || k.includes('maneuver') || k.includes('metamagic')) return 'dice';
+  return 'spark';
+}
 
 function Dots({ total, remaining, tone }: { total: number; remaining: number; tone: string }) {
   return (
@@ -31,7 +54,19 @@ export default function ActionPanel() {
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const role = useGameStore((s) => s.role);
   const sheet = useGameStore((s) => s.sheet);
+  const resources = useGameStore((s) => s.resources);
   const runAction = useGameStore((s) => s.runAction);
+  const [spells, setSpells] = useState<Spell[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadSpells().then((list) => {
+      if (alive) setSpells(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const info = useMemo(() => {
     if (!map) return null;
@@ -53,11 +88,22 @@ export default function ActionPanel() {
     const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
       .map((entry, index) => ({ entry, index }))
       .filter((x) => attackIsActive(x.entry));
-    return { token, turn, controlled, inTurn, combatActive: combat.active, weapons };
+    const features = isCharacter && sheet ? classFeatures(sheet.classes) : [];
+    const attacksPer = isCharacter ? attacksPerAction(sheet?.classes ?? []) : Math.max(1, token.statblock?.multiattack ?? 1);
+    return { token, turn, controlled, inTurn, combatActive: combat.active, weapons, features, attacksPer, isCharacter };
   }, [map, selectedTokenId, currentCharacterId, role, sheet]);
 
+  const characterSpells = useMemo(() => {
+    if (!sheet || !info?.isCharacter || !spells) return [];
+    const byKey = new Map(spells.map((s) => [s.key, s]));
+    const keys = new Set<string>();
+    for (const s of sheet.spells ?? []) keys.add(s.key);
+    for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
+    return [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
+  }, [sheet, info?.isCharacter, spells]);
+
   if (!info) return null;
-  const { token, turn, controlled, inTurn, combatActive, weapons } = info;
+  const { token, turn, controlled, inTurn, combatActive, weapons, features, attacksPer } = info;
 
   const targetName = map?.tokens.find((t) => t.id === targetTokenId)?.name;
 
@@ -76,6 +122,11 @@ export default function ActionPanel() {
   const reactionTotal = turn ? 1 : 0;
   const reactionRemaining = turn ? (turn.reactionUsed ? 0 : 1) : 0;
   const moveLeft = turn ? turn.movementMax - turn.movementUsed : 0;
+  const attacksLeft = turn
+    ? (turn.attacksRemaining > 0 ? turn.attacksRemaining : turn.actionUsed ? 0 : attacksPer) +
+      turn.extraActions * attacksPer
+    : attacksPer;
+  const attacksTotal = Math.max(attacksPer, attacksLeft);
 
   const fire = (actionId: string, slot: ActionCost, attackIndex?: number) => {
     runAction(token.id, actionId, {
@@ -83,6 +134,73 @@ export default function ActionPanel() {
       attackIndex,
       slot,
     });
+  };
+
+  const resourceLeft = (f: ActionDef): number | null => {
+    if (!f.resourceKey) return null;
+    return resources?.resources.find((r) => r.key === f.resourceKey)?.current ?? 0;
+  };
+
+  const canUseFeature = (f: ActionDef): boolean => {
+    if (!controlled) return false;
+    const amount = Math.max(1, f.resourceAmount ?? 1);
+    const left = resourceLeft(f);
+    if (left !== null && left < amount) return false;
+    if (!combatActive) return true;
+    if (!inTurn || !turn) return false;
+    return f.costs.some((c) => actionSlotAvailable(turn, c));
+  };
+
+  const featureSlot = (f: ActionDef): ActionCost => {
+    if (!combatActive || !turn) return f.costs[0] ?? 'special';
+    return f.costs.find((c) => actionSlotAvailable(turn, c)) ?? f.costs[0] ?? 'special';
+  };
+
+  const featuresAction = features.filter((f) => f.costs.includes('action'));
+  const featuresBonus = features.filter((f) => f.costs.includes('bonus'));
+  const featuresOther = features.filter((f) => !f.costs.includes('action') && !f.costs.includes('bonus'));
+
+  const spellSlotOf = (spell: Spell): 'action' | 'bonus' | 'other' => {
+    const unit = spell.time[0]?.unit;
+    if (unit === 'action') return 'action';
+    if (unit === 'bonus') return 'bonus';
+    return 'other';
+  };
+  const spellsAction = characterSpells.filter((s) => spellSlotOf(s) === 'action');
+  const spellsBonus = characterSpells.filter((s) => spellSlotOf(s) === 'bonus');
+  const spellsOther = characterSpells.filter((s) => spellSlotOf(s) === 'other');
+
+  const spellButton = (spell: Spell) => {
+    const level = spell.level === 0 ? 'фокус' : `${spell.level} круг`;
+    return (
+      <button
+        key={`spell:${spell.key}`}
+        className="ap-icon-btn ap-spell-btn"
+        data-tip={`${spell.name} · ${level}`}
+        aria-label={spell.name}
+        // Каст заклинаний подключается в Ф6 (движок заклинаний).
+        onClick={() => undefined}
+      >
+        <SpellIcon spell={spell} className="ap-icon" />
+      </button>
+    );
+  };
+
+  const featureButton = (f: ActionDef) => {
+    const left = resourceLeft(f);
+    const label = left !== null ? `${f.name} (${left})` : f.name;
+    return (
+      <button
+        key={f.id}
+        className="ap-icon-btn"
+        data-tip={label}
+        aria-label={label}
+        disabled={!canUseFeature(f)}
+        onClick={() => fire(f.id, featureSlot(f))}
+      >
+        <ActionIcon id={featureIconId(f)} className="ap-icon" />
+      </button>
+    );
   };
 
   const renderButtons = (slot: ActionCost) => {
@@ -145,6 +263,10 @@ export default function ActionPanel() {
         </button>
       );
     }
+    if (slot === 'action' || slot === 'bonus') {
+      buttons.push(...(slot === 'action' ? featuresAction : featuresBonus).map(featureButton));
+      buttons.push(...(slot === 'action' ? spellsAction : spellsBonus).map(spellButton));
+    }
     if (buttons.length === 0) return <span className="ap-empty">Нет</span>;
     return buttons;
   };
@@ -159,11 +281,11 @@ export default function ActionPanel() {
             <span className="ap-counter" title="Реакция">
               Реакция <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
             </span>
-            {turn.attacksRemaining > 0 && (
-              <span className="ap-counter" title="Осталось атак в действии «Атака»">
-                Атаки <Dots total={turn.attacksRemaining} remaining={turn.attacksRemaining} tone="attack" />
-              </span>
-            )}
+            <span className="ap-counter attack-left" title="Атаки в действии «Атака»">
+              {Array.from({ length: attacksTotal }, (_, i) => (
+                <ActionIcon key={i} id="sword" className={`ap-sword${i < attacksLeft ? '' : ' spent'}`} />
+              ))}
+            </span>
             <span className={`ap-counter move${moveLeft < 0 ? ' over' : ''}`} title="Осталось передвижения">
               {moveLeft} фт
             </span>
@@ -188,6 +310,17 @@ export default function ActionPanel() {
           <div className="ap-icons">{renderButtons('bonus')}</div>
         </section>
       </div>
+      {(featuresOther.length > 0 || spellsOther.length > 0) && (
+        <section className="ap-panel other">
+          <div className="ap-panel-head">
+            <span className="ap-panel-title">Свободные и прочие</span>
+          </div>
+          <div className="ap-icons">
+            {featuresOther.map(featureButton)}
+            {spellsOther.map(spellButton)}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 data/
+!shared/src/data/
+!shared/src/data/**
 artifacts/
 test-images/
 *.log

@@ -33,9 +33,11 @@ describe('casterLevelOf', () => {
     expect(casterLevelOf([{ className: 'wizard', level: 5 }])).toBe(5);
   });
 
-  it('полукастер = уровень/2 (вниз)', () => {
+  it('полукастер = уровень/2 (вниз), изобретатель — вверх', () => {
     expect(casterLevelOf([{ className: 'paladin', level: 6 }])).toBe(3);
     expect(casterLevelOf([{ className: 'ranger', level: 5 }])).toBe(2);
+    expect(casterLevelOf([{ className: 'artificer', level: 3 }])).toBe(2);
+    expect(casterLevelOf([{ className: 'artificer', level: 3 }, { className: 'wizard', level: 2 }])).toBe(4);
   });
 
   it('колдун (pact) не учитывается в caster level', () => {

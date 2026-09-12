@@ -19,6 +19,7 @@ import {
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
+import SpellsPanel from './SpellsPanel';
 
 interface Props {
   open: boolean;
@@ -29,6 +30,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
   const stored = useGameStore((s) => s.sheet);
   const setSheet = useGameStore((s) => s.setSheet);
   const [draft, setDraft] = useState<CharacterSheet | null>(null);
+  const [tab, setTab] = useState<'main' | 'spells'>('main');
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +41,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
       if (me?.name) base.name = me.name;
     }
     setDraft(base);
+    setTab('main');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- сбрасываем черновик только при открытии
   }, [open]);
 
@@ -109,6 +112,16 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal sheet-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <h3>Карточка персонажа</h3>
+        <div className="sheet-tabs">
+          <button type="button" className={tab === 'main' ? 'active' : ''} onClick={() => setTab('main')}>
+            Основное
+          </button>
+          <button type="button" className={tab === 'spells' ? 'active' : ''} onClick={() => setTab('spells')}>
+            Заклинания
+          </button>
+        </div>
+        {tab === 'main' && (
+        <>
         <label className="field">
           <span>Имя персонажа</span>
           <input
@@ -385,6 +398,12 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         >
           + Добавить атаку
         </button>
+        </>
+        )}
+
+        {tab === 'spells' && (
+          <SpellsPanel sheet={draft} onChange={(spells) => setDraft((d) => (d ? { ...d, spells } : d))} />
+        )}
 
         <div className="modal-actions">
           <button

@@ -133,6 +133,12 @@
   flex: 1 1 0;
 }
 
+.ap-panel.other {
+  border-color: #b8860b;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
 .ap-panel-head {
   display: flex;
   align-items: center;
@@ -155,6 +161,10 @@
   color: #4ecb71;
 }
 
+.ap-panel.other .ap-panel-title {
+  color: #ffd166;
+}
+
 .ap-icons {
   display: flex;
   flex-wrap: wrap;
@@ -166,6 +176,7 @@
   position: relative;
   width: 64px;
   height: 64px;
+  padding: 0;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
   background: #1c2026;
@@ -174,6 +185,11 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.ap-spell-btn .ap-icon {
+  width: 62px;
+  height: 62px;
 }
 
 .ap-icon-btn[data-tip]::after {
@@ -231,6 +247,27 @@
 .ap-panel.bonus .ap-icon-btn {
   color: #7fe0a0;
   border-color: #2f9e64;
+}
+
+.ap-panel.other .ap-icon-btn {
+  color: #ffd166;
+  border-color: #b8860b;
+}
+
+.ap-counter.attack-left {
+  gap: 3px;
+  color: #ffd166;
+}
+
+.ap-sword {
+  width: 17px;
+  height: 17px;
+  color: #ffd166;
+}
+
+.ap-sword.spent {
+  color: #4a453a;
+  opacity: 0.6;
 }
 
 .ap-icon-btn:hover:not(:disabled) {

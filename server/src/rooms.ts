@@ -561,6 +561,21 @@ export class RoomManager {
     return true;
   }
 
+  /** Есть ли у игрока ресурс в нужном количестве. */
+  hasResource(room: Room, playerId: string, key: string, amount = 1): boolean {
+    const item = room.resources[playerId]?.resources.find((r) => r.key === key);
+    return !!item && item.current >= amount;
+  }
+
+  /** Списывает ресурс игрока; false — если ресурса нет или не хватает. */
+  spendResource(room: Room, playerId: string, key: string, amount = 1): boolean {
+    const item = room.resources[playerId]?.resources.find((r) => r.key === key);
+    if (!item || item.current < amount) return false;
+    item.current -= amount;
+    this.saveSoon(room);
+    return true;
+  }
+
   /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */
   setMovement(room: Room, mapId: string, tokenId: string, used: number, diagonals?: number) {
     const combat = this.combatOf(room, mapId);

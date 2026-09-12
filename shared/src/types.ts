@@ -382,6 +382,8 @@ export interface PlayerResources {
 export const MAX_CLASSES = 2;
 /** Верхняя граница числа атак/оружия (список динамический, не фиксированный). */
 export const MAX_ATTACKS = 10;
+/** Верхняя граница числа выбранных заклинаний в листе. */
+export const MAX_SHEET_SPELLS = 200;
 export const MAX_CONDITIONS = 20;
 export const MAX_EFFECTS = 20;
 export const MAX_MODIFIERS = 20;
@@ -405,10 +407,17 @@ export interface CharacterSheet {
   skills: Partial<Record<string, SkillLevel>>;
   attacks: AttackEntry[];
   classes: ClassLevel[];
+  /** Выбранные заклинания: ключ `источник:имя` и класс, из чьего списка взято. */
+  spells: SheetSpell[];
   hpMax: string;
   ac: string;
   /** Базовая скорость, футы. */
   speed: number;
+}
+
+export interface SheetSpell {
+  key: string;
+  className: string;
 }
 
 export function emptyAttack(): AttackEntry {
@@ -498,6 +507,27 @@ function isAbilityKey(value: unknown): value is AbilityKey {
   return typeof value === 'string' && value in DEFAULT_ABILITIES;
 }
 
+const SPELL_KEY_RE = /^[A-Za-z][A-Za-z0-9]{1,9}:/;
+
+/** Чистит список выбранных заклинаний: формат ключа, класс, дедуп, лимит. */
+export function normalizeSheetSpells(raw: unknown): SheetSpell[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SheetSpell[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (out.length >= MAX_SHEET_SPELLS) break;
+    if (!item || typeof item !== 'object') continue;
+    const s = item as Partial<SheetSpell>;
+    if (typeof s.key !== 'string' || !SPELL_KEY_RE.test(s.key)) continue;
+    if (typeof s.className !== 'string' || !s.className) continue;
+    const dedupe = `${s.className}:${s.key}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    out.push({ key: s.key.slice(0, 80), className: s.className.slice(0, 30) });
+  }
+  return out;
+}
+
 export function normalizeSheet(
   raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
 ): CharacterSheet {
@@ -517,6 +547,7 @@ export function normalizeSheet(
     skills: raw.skills ?? {},
     attacks: normalizeAttacks(raw.attacks, raw.attack),
     classes: normalizeClasses(raw.classes),
+    spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),

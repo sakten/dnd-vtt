@@ -18,6 +18,7 @@ export function defaultSheet(): CharacterSheet {
     skills: {},
     attacks: [{ ...emptyAttack(), hit: 'd20', damage: 'd6' }],
     classes: [],
+    spells: [],
     hpMax: '',
     ac: '',
     speed: DEFAULT_SPEED,

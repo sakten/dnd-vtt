@@ -11,6 +11,7 @@ import {
   normalizeConditions,
   normalizeEffects,
   normalizeSheet,
+  normalizeSheetSpells,
   normalizeStatblock,
   normalizeTurnState,
 } from './types';
@@ -79,8 +80,29 @@ describe('normalizeSheet', () => {
   });
 });
 
-describe('activeAttacks', () => {
-  it('отбрасывает пустые и без формул', () => {
+describe('normalizeSheetSpells', () => {
+  it('фильтрует плохие записи и дедуплицирует', () => {
+    const spells = normalizeSheetSpells([
+      { key: 'XPHB:Fireball', className: 'wizard' },
+      { key: 'bad-key', className: 'wizard' },
+      { key: 'XPHB:Fireball', className: 'wizard' },
+      { key: 'XPHB:Fireball', className: 'sorcerer' },
+      { key: 'XGE:Absorb Elements' },
+      { key: 42, className: 'wizard' },
+    ]);
+    expect(spells).toEqual([
+      { key: 'XPHB:Fireball', className: 'wizard' },
+      { key: 'XPHB:Fireball', className: 'sorcerer' },
+    ]);
+  });
+
+  it('не-массив — пусто; normalizeSheet всегда ставит spells', () => {
+    expect(normalizeSheetSpells(undefined)).toEqual([]);
+    expect(normalizeSheet({}).spells).toEqual([]);
+  });
+});
+
+describe('activeAttacks', () => {  it('отбрасывает пустые и без формул', () => {
     const sheet = normalizeSheet({
       attacks: [
         { name: 'Меч', hit: 'd20+5', damage: 'd8+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
