@@ -12,6 +12,7 @@ import FogPanel from '../components/FogPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
+import AimPanel from '../components/AimPanel';
 import CritOverlay from '../components/CritOverlay';
 
 export default function TableScreen() {
@@ -41,9 +42,18 @@ export default function TableScreen() {
         if (token && canControlWith(st, token)) removeToken(selected);
       }
       if (e.key === 'Escape') {
+        const st = useGameStore.getState();
+        if (st.aim) {
+          st.cancelAim();
+          return;
+        }
+        if (st.multiTarget) {
+          st.cancelMultiTarget();
+          return;
+        }
         setSelected(null);
         setTargetToken(null);
-        if (useGameStore.getState().fogMode.active) setFogMode({ active: false });
+        if (st.fogMode.active) setFogMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -60,6 +70,7 @@ export default function TableScreen() {
       <ChatPanel />
       <InitiativeBar />
       <ActionPanel />
+      <AimPanel />
       <ResourcesPanel />
       <div
         className="room-badge"

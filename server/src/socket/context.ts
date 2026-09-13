@@ -51,6 +51,8 @@ export interface ConnCtx {
   visibleLibrary: (room: Room, viewerId: string | null) => LibraryItem[];
   broadcastLibrary: (room: Room) => void;
   emitToken: (room: Room, event: 'token:add' | 'token:update', mapId: string, token: Token) => void;
+  /** Отправляет `resources:update` конкретному игроку (по controllerId), если он подключён. */
+  emitResources: (room: Room, playerId: string) => void;
   syncCombat: (room: Room, mapId: string) => void;
   cleanLabel: (label?: string) => string | undefined;
   systemMessage: (room: Room, text: string) => void;
@@ -145,7 +147,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         }
         if (mapId && manager.controlsToken(room, mapId, viewerId, token)) return token;
       }
-      return { ...token, ac: '', hpMax: '', hpCurrent: 0, statblock: undefined };
+      return { ...token, ac: '', hpMax: '', hpCurrent: 0, statblock: undefined, damageDefenses: [] };
     },
     visibleLibrary: (room, viewerId) => {
       if (viewerId) {
@@ -153,7 +155,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         if (viewer?.role === 'dm') return room.library;
       }
       return room.library.map((item) =>
-        item.showStats ? item : { ...item, ac: '', hpMax: '', attacks: [] }
+        item.showStats ? item : { ...item, ac: '', hpMax: '', attacks: [], damageDefenses: [] }
       );
     },
     broadcastLibrary: (room) => {
@@ -174,6 +176,14 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
           token: ctx.visibleToken(room, token, p.id),
         });
       }
+    },
+    emitResources: (room, playerId) => {
+      const player = room.players.find((x) => x.id === playerId);
+      if (!player?.socketId) return;
+      const s = io.sockets.sockets.get(player.socketId);
+      const res = room.resources[playerId];
+      if (!s || !res) return;
+      (s as { emit: (ev: string, payload: unknown) => void }).emit('resources:update', res);
     },
     syncCombat: (room, mapId) => {
       ctx.broadcastAll('combat:update', {

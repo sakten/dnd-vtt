@@ -45,6 +45,7 @@ function token(id: string, overrides: Partial<Token> = {}): Token {
     speed: DEFAULT_SPEED,
     conditions: [],
     effects: [],
+    damageDefenses: [],
     ...overrides,
   };
 }
@@ -294,6 +295,7 @@ describe('RoomManager ход', () => {
       hpMax: '',
       ac: '',
       speed: 40,
+      damageDefenses: [],
     };
     const room = makeRoom({
       controllers: { p1: 'lib1' },
@@ -405,6 +407,7 @@ describe('RoomManager HP', () => {
           hpMax: '',
           ac: '16',
           speed: 35,
+          damageDefenses: [],
         },
       },
     });
@@ -418,5 +421,136 @@ describe('RoomManager HP', () => {
     expect(synced.ac).toBe('16');
     expect(synced.speed).toBe(35);
     expect(changed).toHaveLength(1);
+  });
+});
+
+describe('RoomManager заклинания', () => {
+  it('spendSpellSlot: обычная ячейка, затем pact', () => {
+    const manager = setup();
+    const res = resources(10, 10);
+    res.spellSlots = [{ level: 2, current: 1, max: 1 }];
+    res.pact = { current: 1, max: 1, level: 2 };
+    const room = makeRoom({ resources: { p1: res } });
+
+    expect(manager.spendSpellSlot(room, 'p1', 2)).toBe('slot');
+    expect(res.spellSlots[0].current).toBe(0);
+    expect(manager.spendSpellSlot(room, 'p1', 2)).toBe('pact');
+    expect(res.pact.current).toBe(0);
+    expect(manager.spendSpellSlot(room, 'p1', 2)).toBeNull();
+    expect(manager.spendSpellSlot(room, 'p1', 1)).toBeNull();
+  });
+
+  it('saveBonusForToken: профишенси персонажа и явный спасбросок монстра', () => {
+    const manager = setup();
+    const sheet: CharacterSheet = {
+      name: 'Герой',
+      abilities: { ...DEFAULT_ABILITIES, con: 16, dex: 8 },
+      proficiencyBonus: '3',
+      saves: { con: true },
+      skills: {},
+      attacks: [],
+      classes: [{ className: 'fighter', level: 5 }],
+      spells: [],
+      hpMax: '',
+      ac: '',
+      speed: 30,
+      damageDefenses: [],
+    };
+    const room = makeRoom({ controllers: { p1: 'lib1' }, sheets: { p1: sheet } });
+    const char = token('t1', { libraryItemId: 'lib1' });
+    const monster = token('t2', {
+      statblock: { abilities: { ...DEFAULT_ABILITIES, dex: 20 }, saves: { dex: 9 } },
+    });
+
+    expect(manager.saveBonusForToken(room, char, 'con')).toBe(6);
+    expect(manager.saveBonusForToken(room, char, 'dex')).toBe(-1);
+    expect(manager.saveBonusForToken(room, monster, 'dex')).toBe(9);
+    expect(manager.saveBonusForToken(room, monster, 'str')).toBe(0);
+  });
+});
+
+describe('RoomManager состояния', () => {
+  it('tickConditions: истечение по раундам и повторный спасбросок', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      conditions: [
+        { key: 'prone', name: 'Сбит с ног', rounds: 1 },
+        { key: 'paralyzed', name: 'Парализован', rounds: null, save: { ability: 'con', dc: 0, timing: 'start' } },
+      ],
+    });
+    room.scene.maps[0].tokens = [tk];
+
+    const res = manager.tickConditions(room, tk, 'start');
+    expect(res.removed).toContain('Сбит с ног');
+    expect(res.saves).toHaveLength(1);
+    expect(res.saves[0].success).toBe(true);
+    expect(tk.conditions).toHaveLength(0);
+  });
+
+  it('HP уходит в минус, персонаж — без сознания', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 5) } });
+    const tk = token('t1', { libraryItemId: 'lib1' });
+    room.scene.maps[0].tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, -12);
+
+    expect(room.resources.p1.hp.current).toBe(-7);
+    expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(true);
+  });
+
+  it('урон лежачему добавляет провал; крит — два; 3 провала → мёртв', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 0) } });
+    const tk = token('t1', { libraryItemId: 'lib1' });
+    room.scene.maps[0].tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, -3);
+    expect(room.resources.p1.hp.deathFailures).toBe(1);
+    manager.adjustTokenHp(room, 'm1', tk, -3, { crit: true });
+
+    expect(room.resources.p1.hp.deathFailures).toBe(3);
+    expect(tk.conditions.some((c) => c.key === 'dead')).toBe(true);
+  });
+
+  it('лечение сбрасывает death-сейвы и снимает «Без сознания»', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 0) } });
+    room.resources.p1.hp.deathFailures = 2;
+    const tk = token('t1', { libraryItemId: 'lib1' });
+    room.scene.maps[0].tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, 4);
+
+    expect(room.resources.p1.hp.current).toBe(4);
+    expect(room.resources.p1.hp.deathFailures).toBe(0);
+    expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(false);
+  });
+
+  it('монстр при HP ≤ 0 сразу мёртв', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const monster = token('t1', { hpMax: '10', hpCurrent: 10 });
+
+    manager.adjustTokenHp(room, 'm1', monster, -15);
+
+    expect(monster.hpCurrent).toBe(-5);
+    expect(monster.conditions.some((c) => c.key === 'dead')).toBe(true);
+  });
+
+  it('истощение снижает скорость в начале хода', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', { conditions: [{ key: 'exhaustion', name: 'Истощение', level: 2, rounds: null }] });
+    room.scene.maps[0].tokens = [tk];
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+
+    manager.beginTurn(room, 'm1', 'e1');
+
+    expect(combat.turns.e1.movementMax).toBe(DEFAULT_SPEED - 10);
   });
 });

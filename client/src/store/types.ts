@@ -1,5 +1,6 @@
 import type {
   ActionCost,
+  AreaSpec,
   CharacterSheet,
   ChatMessage,
   FogState,
@@ -36,6 +37,30 @@ export interface CritHit {
   total: number;
 }
 
+/** Режим прицеливания заклинания с областью (Ф7). */
+export interface AimState {
+  tokenId: string;
+  spellKey: string;
+  slotLevel?: number;
+  advantage?: 'a' | 'd';
+  spec: AreaSpec;
+  originKind: 'self' | 'point';
+  /** Дистанция накладывания, футы; null — без ограничения (точка не тащится дальше). */
+  rangeFeet: number | null;
+  origin: { x: number; y: number } | null;
+  direction: { x: number; y: number } | null;
+}
+
+/** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
+export interface MultiTargetState {
+  tokenId: string;
+  spellKey: string;
+  slotLevel?: number;
+  advantage?: 'a' | 'd';
+  count: number;
+  targets: string[];
+}
+
 export interface GameState {
   socket: AppSocket | null;
   connected: boolean;
@@ -53,6 +78,8 @@ export interface GameState {
   chat: ChatMessage[];
   chatError: string | null;
   joinError: string | null;
+  aim: AimState | null;
+  multiTarget: MultiTargetState | null;
   selectedTokenId: string | null;
   targetTokenId: string | null;
   measureFromId: string | null;
@@ -122,6 +149,40 @@ export interface GameState {
     actionId: string,
     extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost }
   ) => void;
+  castSpell: (payload: {
+    tokenId: string;
+    spellKey: string;
+    slotLevel?: number;
+    targetIds?: string[];
+    advantage?: 'a' | 'd';
+    origin?: { x: number; y: number };
+    direction?: { x: number; y: number };
+  }) => void;
+  startAim: (payload: {
+    tokenId: string;
+    spellKey: string;
+    slotLevel?: number;
+    advantage?: 'a' | 'd';
+    spec: AreaSpec;
+    originKind: 'self' | 'point';
+    rangeFeet: number | null;
+  }) => void;
+  /** Ведение области за курсором (с клампом по дистанции). */
+  aimToCursor: (cursor: { x: number; y: number }) => void;
+  cancelAim: () => void;
+  confirmAim: () => void;
+  /** Быстрое изменение HP токена (DM): delta>0 — лечение, <0 — урон. */
+  adjustTokenHp: (tokenId: string, delta: number) => void;
+  /** Выбор цели на каждый снаряд; когда все выбраны — каст. */
+  startMultiTarget: (payload: {
+    tokenId: string;
+    spellKey: string;
+    slotLevel?: number;
+    advantage?: 'a' | 'd';
+    count: number;
+  }) => void;
+  addMultiTarget: (targetId: string) => void;
+  cancelMultiTarget: () => void;
   setHoverToken: (id: string | null) => void;
   fitView: () => void;
   onConnected: () => void;

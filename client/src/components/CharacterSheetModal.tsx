@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   ABILITIES,
   CLASS_LIST,
+  DAMAGE_TYPES,
   MAX_ATTACKS,
   SKILLS,
   abilityMod,
@@ -19,6 +20,7 @@ import {
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
+import DamageDefensesForm from './DamageDefensesForm';
 import SpellsPanel from './SpellsPanel';
 
 interface Props {
@@ -341,6 +343,20 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
                   onChange={(e) => setWeapon(i, { damage: e.target.value })}
                 />
               </label>
+              <label className="field">
+                <span>Тип урона</span>
+                <select
+                  value={weapon.damageType ?? ''}
+                  onChange={(e) => setWeapon(i, { damageType: e.target.value || undefined })}
+                >
+                  <option value="">—</option>
+                  {DAMAGE_TYPES.map((t) => (
+                    <option key={t.key} value={t.key}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="field-row">
               <label className="field">
@@ -398,6 +414,10 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         >
           + Добавить атаку
         </button>
+        <DamageDefensesForm
+          value={draft.damageDefenses ?? []}
+          onChange={(damageDefenses) => setDraft((d) => (d ? { ...d, damageDefenses } : d))}
+        />
         </>
         )}
 

@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
+  advantageAgainst,
+  applyDamageDefenses,
   attackRange,
   attackSubject,
+  attackerAdvantage,
+  attackerDisadvantage,
+  autoCrit,
+  disadvantageAgainst,
+  exhaustionRollPenalty,
   gridDistanceFeet,
   isCriticalFail,
   isCriticalHit,
@@ -46,7 +53,7 @@ export interface AttackResolveResult {
  * `dice:attack`, и `action:use(attack)`. Экономика действий — на вызывающем.
  */
 export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): AttackResolveResult {
-  const { manager, socket, broadcastAll, emitToken, cleanLabel } = ctx;
+  const { manager, socket, broadcastAll, emitToken, emitResources, cleanLabel } = ctx;
   const room = ctx.getRoom();
   if (!room) return {};
   const { attacker, attackerMapId, target, targetMapId, attack, prefix, author } = input;
@@ -76,14 +83,27 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
 
   const { hit, damage } = weaponRolls(attack);
   if (!hit && !damage) return {};
+
+  // Преимущество/помеха: явный выбор + состояния атакующего и цели + дистанция.
+  let advCount = input.advantage === 'a' ? 1 : 0;
+  let disCount = input.advantage === 'd' ? 1 : 0;
+  if (attackerAdvantage(attacker?.conditions)) advCount += 1;
+  if (attackerDisadvantage(attacker?.conditions)) disCount += 1;
+  if (hasTarget && target) {
+    if (advantageAgainst(target.conditions, attack.rangeType)) advCount += 1;
+    if (disadvantageAgainst(target.conditions, attack.rangeType)) disCount += 1;
+  }
+  if (forcedDisadvantage) disCount += 1;
+  const adv: 'a' | 'd' | undefined = advCount > disCount ? 'a' : disCount > advCount ? 'd' : undefined;
+
+  const penalty = exhaustionRollPenalty(attacker?.conditions);
   const baseParams: RollLabelParams = {
     subject: attackSubject(attack, prefix),
     distanceFeet: hasTarget ? Math.round(distanceFeet) : undefined,
     disadvantage: forcedDisadvantageCode,
+    damageType: attack.damageType,
+    penalty: penalty || undefined,
   };
-
-  let adv: 'a' | 'd' | undefined = input.advantage === 'a' || input.advantage === 'd' ? input.advantage : undefined;
-  if (forcedDisadvantage) adv = adv === 'a' ? undefined : 'd';
 
   const targetAc = target ? statNumber(target.ac) : 0;
   const result: AttackResolveResult = {};
@@ -93,9 +113,11 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
     let hitSuccess: boolean | undefined;
     if (hit) {
       const hitRoll = rollDice(withAdvantage(hit, adv));
-      crit = isCriticalHit(hitRoll);
+      crit =
+        isCriticalHit(hitRoll) ||
+        (hasTarget && !!target && autoCrit(target.conditions, distanceFeet, attack.rangeType));
       if (targetAc > 0) {
-        hitSuccess = resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc);
+        hitSuccess = resolveAttack(hitRoll.total + penalty, crit, isCriticalFail(hitRoll), targetAc);
       }
       const params: RollLabelParams = {
         ...baseParams,
@@ -119,14 +141,17 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
     }
     if (damage && hitSuccess !== false) {
       const damageRoll = rollDice(damage, Math.random, { doubleDice: crit });
+      const defenses = target ? manager.damageDefensesForToken(room, target) : [];
+      const adjusted = applyDamageDefenses(damageRoll.total, attack.damageType, defenses);
+      const damageParams: RollLabelParams = { ...baseParams, damageNote: adjusted.note };
       const damageMessage: ChatMessage = {
         id: randomUUID(),
         kind: 'roll',
         author,
         roll: damageRoll,
-        label: cleanLabel(rollLabelText('damage', baseParams)),
+        label: cleanLabel(rollLabelText('damage', damageParams)),
         rollKind: 'damage',
-        labelParams: baseParams,
+        labelParams: damageParams,
         crit,
         ts: Date.now(),
       };
@@ -134,11 +159,13 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
       broadcastAll('chat:message', damageMessage);
       result.damageRoll = damageRoll;
 
-      if (target && targetMapId) {
+      if (target && targetMapId && adjusted.amount > 0) {
         const isCharacter = Object.values(room.controllers).includes(target.libraryItemId);
         if (statNumber(target.hpMax) > 0 || isCharacter) {
-          const changed = manager.adjustTokenHp(room, targetMapId, target, -damageRoll.total);
+          const changed = manager.adjustTokenHp(room, targetMapId, target, -adjusted.amount, { crit });
           for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+          const controllerId = manager.controllerOfToken(room, target);
+          if (controllerId) emitResources(room, controllerId);
           broadcastAll('players:update', manager.toState(room).players);
         }
       }

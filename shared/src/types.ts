@@ -73,6 +73,8 @@ export interface TokenFields {
   hpMax: string;
   /** DM-галка: показывать AC/HP этого токена игрокам. */
   showStats: boolean;
+  /** Сопротивления/иммунитеты/уязвимости к типам урона. */
+  damageDefenses: DamageDefense[];
 }
 
 export interface LibraryItem extends TokenFields {
@@ -201,6 +203,8 @@ export interface ConditionInstance {
   save?: { ability: AbilityKey; dc: number; timing: 'start' | 'end' };
   /** Кто наложил состояние. */
   sourceId?: string;
+  /** Ключ заклинания-источника (для иконки). */
+  sourceKey?: string;
 }
 
 export type ModifierTarget =
@@ -344,6 +348,73 @@ export interface AttackEntry {
   rangeNormal: number;
   /** Дальняя: максимальная (дальняя) дистанция, футы; 0 — без ограничения. */
   rangeLong: number;
+  /** Тип урона (ключ: bludgeoning/piercing/fire/…). */
+  damageType?: string;
+}
+
+/** Список типов урона; первые три — физические (в таком порядке в выпадающих списках). */
+export const DAMAGE_TYPES: { key: string; name: string }[] = [
+  { key: 'slashing', name: 'Режущий' },
+  { key: 'piercing', name: 'Колющий' },
+  { key: 'bludgeoning', name: 'Дробящий' },
+  { key: 'acid', name: 'Кислота' },
+  { key: 'cold', name: 'Холод' },
+  { key: 'fire', name: 'Огонь' },
+  { key: 'force', name: 'Силовой' },
+  { key: 'lightning', name: 'Молния' },
+  { key: 'necrotic', name: 'Некротический' },
+  { key: 'poison', name: 'Яд' },
+  { key: 'psychic', name: 'Психический' },
+  { key: 'radiant', name: 'Излучение' },
+  { key: 'thunder', name: 'Гром' },
+];
+
+export function damageTypeName(key: string | undefined): string | undefined {
+  if (!key) return undefined;
+  return DAMAGE_TYPES.find((d) => d.key === key)?.name ?? key;
+}
+
+export type DamageDefenseType = 'resistance' | 'immunity' | 'vulnerability';
+
+/** Защита юнита: сопротивление/иммунитет/уязвимость к типу урона. */
+export interface DamageDefense {
+  id: string;
+  type: DamageDefenseType;
+  damageType: string;
+}
+
+export const MAX_DEFENSES = 20;
+
+export const DEFENSE_TYPE_NAMES: Record<DamageDefenseType, string> = {
+  resistance: 'Сопротивление',
+  immunity: 'Иммунитет',
+  vulnerability: 'Уязвимость',
+};
+
+export interface DamageDefenseResult {
+  amount: number;
+  note?: DamageDefenseType;
+}
+
+/**
+ * Применяет защиты цели к урону: иммунитет → 0; сопротивление/уязвимость
+ * взаимно гасятся, иначе половина/двойной. Без типа урона — без изменений.
+ */
+export function applyDamageDefenses(
+  amount: number,
+  damageType: string | undefined,
+  defenses: DamageDefense[] | undefined
+): DamageDefenseResult {
+  if (!damageType || amount <= 0 || !defenses?.length) return { amount };
+  const matches = defenses.filter((d) => d.damageType === damageType);
+  if (!matches.length) return { amount };
+  if (matches.some((d) => d.type === 'immunity')) return { amount: 0, note: 'immunity' };
+  const resistant = matches.some((d) => d.type === 'resistance');
+  const vulnerable = matches.some((d) => d.type === 'vulnerability');
+  if (resistant && vulnerable) return { amount };
+  if (resistant) return { amount: Math.floor(amount / 2), note: 'resistance' };
+  if (vulnerable) return { amount: amount * 2, note: 'vulnerability' };
+  return { amount };
 }
 
 export interface ClassLevel {
@@ -413,6 +484,8 @@ export interface CharacterSheet {
   ac: string;
   /** Базовая скорость, футы. */
   speed: number;
+  /** Сопротивления/иммунитеты/уязвимости к типам урона. */
+  damageDefenses: DamageDefense[];
 }
 
 export interface SheetSpell {
@@ -438,6 +511,7 @@ function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry
     rangeType: raw?.rangeType === 'ranged' || raw?.rangeType === 'none' ? raw.rangeType : 'melee',
     rangeNormal: Number.isFinite(rangeNormal) ? Math.max(0, Math.round(rangeNormal)) : 5,
     rangeLong: Number.isFinite(rangeLong) ? Math.max(0, Math.round(rangeLong)) : 0,
+    damageType: typeof raw?.damageType === 'string' && raw.damageType ? raw.damageType.slice(0, 20) : undefined,
   };
 }
 
@@ -551,7 +625,27 @@ export function normalizeSheet(
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),
+    damageDefenses: normalizeDamageDefenses((raw as { damageDefenses?: unknown }).damageDefenses),
   };
+}
+
+/** Чистит список защит (тип + тип урона), дедуп по паре, лимит. */
+export function normalizeDamageDefenses(raw: unknown): DamageDefense[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DamageDefense[] = [];
+  const seen = new Set<string>();
+  for (const item of raw.slice(0, MAX_DEFENSES)) {
+    if (!item || typeof item !== 'object') continue;
+    const d = item as Partial<DamageDefense>;
+    if (d.type !== 'resistance' && d.type !== 'immunity' && d.type !== 'vulnerability') continue;
+    if (typeof d.damageType !== 'string' || !d.damageType) continue;
+    const damageType = d.damageType.slice(0, 20);
+    const dedupe = `${d.type}:${damageType}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    out.push({ id: typeof d.id === 'string' && d.id ? d.id : newId(), type: d.type, damageType });
+  }
+  return out;
 }
 
 export function activeAttacks(sheet: CharacterSheet): AttackEntry[] {
@@ -638,6 +732,7 @@ export function normalizeConditions(raw: unknown): ConditionInstance[] {
     };
     if (c.key === 'exhaustion') condition.level = clampInt(c.level, 1, 6, 1);
     if (typeof c.sourceId === 'string' && c.sourceId) condition.sourceId = c.sourceId;
+    if (typeof c.sourceKey === 'string' && c.sourceKey) condition.sourceKey = c.sourceKey.slice(0, 80);
     if (c.save && typeof c.save === 'object' && isAbilityKey(c.save.ability)) {
       condition.save = {
         ability: c.save.ability,
@@ -848,7 +943,7 @@ export interface TextMessage {
   ts: number;
 }
 
-export type RollKind = 'attack' | 'damage' | 'save' | 'check' | 'death' | 'plain';
+export type RollKind = 'attack' | 'damage' | 'heal' | 'save' | 'check' | 'death' | 'plain';
 
 export interface RollLabelParams {
   /** Название атаки/спасброска/проверки (для атак — с префиксом источника). */
@@ -860,6 +955,14 @@ export interface RollLabelParams {
   outcome?: 'critSuccess' | 'critFail' | 'success' | 'fail';
   successes?: number;
   failures?: number;
+  /** Исход обычного спасброска. */
+  saveOutcome?: 'success' | 'fail';
+  /** Тип урона (ключ) для отображения. */
+  damageType?: string;
+  /** Учёт защиты цели (сопротивление/иммунитет/уязвимость). */
+  damageNote?: DamageDefenseType;
+  /** Штраф к броску (например, истощение), для отображения. */
+  penalty?: number;
 }
 
 export interface RollMessage {
@@ -960,6 +1063,8 @@ export interface ClientToServerEvents {
   'token:move': (payload: { mapId: string; id: string; x: number; y: number }) => void;
   'token:lock': (payload: { mapId: string; id: string; lock: boolean }) => void;
   'token:update': (payload: { mapId: string; id: string; patch: Partial<Token> }) => void;
+  /** Быстрое изменение HP токена (только DM): delta>0 — лечение, <0 — урон. */
+  'token:hp': (payload: { mapId: string; id: string; delta: number }) => void;
   'token:remove': (payload: { mapId: string; id: string }) => void;
   'chat:send': (text: string) => void;
   'dice:roll': (payload: {
@@ -982,6 +1087,19 @@ export interface ClientToServerEvents {
     attackIndex?: number;
     advantage?: 'a' | 'd';
     slot?: ActionCost;
+  }) => void;
+  'spell:cast': (payload: {
+    mapId: string;
+    tokenId: string;
+    spellKey: string;
+    /** Круг ячейки (апкаст); для кантрипа не нужен. */
+    slotLevel?: number;
+    targetIds?: string[];
+    advantage?: 'a' | 'd';
+    /** Точка привязки области (мировые координаты) для spellHasArea. */
+    origin?: { x: number; y: number };
+    /** Направление конуса/линии (мировая точка). */
+    direction?: { x: number; y: number };
   }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;

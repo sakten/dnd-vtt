@@ -22,6 +22,7 @@ export function defaultSheet(): CharacterSheet {
     hpMax: '',
     ac: '',
     speed: DEFAULT_SPEED,
+    damageDefenses: [],
   };
 }
 

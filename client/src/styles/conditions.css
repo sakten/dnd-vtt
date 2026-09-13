@@ -1,0 +1,367 @@
+.cond-chips {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.cond-chip {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(16, 20, 28, 0.88);
+  border: 1px solid #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e6e6e6;
+}
+
+.cond-chip-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.cond-chip-num {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  font-size: 9px;
+  font-weight: 700;
+  background: #0e1220;
+  color: #ffd166;
+  border: 1px solid #ffd166;
+  border-radius: 6px;
+  padding: 0 3px;
+  line-height: 12px;
+}
+
+.cond-more {
+  width: auto;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffd166;
+}
+
+.cond-blinded,
+.cond-paralyzed,
+.cond-stunned,
+.cond-unconscious,
+.cond-petrified {
+  border-color: #ff5a5a;
+}
+
+.cond-poisoned,
+.cond-frightened,
+.cond-charmed,
+.cond-grappled,
+.cond-restrained,
+.cond-prone,
+.cond-exhaustion {
+  border-color: #ffb04a;
+}
+
+.cond-invisible {
+  border-color: #5aa9ff;
+  border-style: dashed;
+}
+
+.cond-dead {
+  border-color: #d6336c;
+}
+
+.cond-custom {
+  border-color: #a78bfa;
+}
+
+.cond-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cond-overlay-row {
+  position: absolute;
+  transform: translate(-50%, -100%);
+}
+
+.cond-overlay-row .cond-chips {
+  filter: drop-shadow(0 1px 2px #000);
+}
+
+.initiative-chip {
+  position: relative;
+}
+
+.cond-chips-init {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.conditions-form {
+  margin-top: 8px;
+}
+
+.condition-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.condition-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.condition-glyph {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.condition-rounds {
+  width: 56px;
+}
+
+.condition-remove {
+  padding: 2px 8px;
+}
+
+.condition-add-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 12px;
+  background: #1c2026;
+  border: 1px dashed var(--panel-border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.condition-add-btn:hover {
+  background: #262b33;
+  border-color: #7c9cff;
+}
+
+.condition-picker {
+  margin-top: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #171b22;
+  overflow: hidden;
+}
+
+.condition-picker-head {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.condition-picker-head input {
+  flex: 1;
+  min-width: 0;
+}
+
+.condition-picker-close {
+  padding: 2px 10px;
+}
+
+.condition-picker-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px;
+  gap: 2px;
+}
+
+.condition-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.condition-picker-item:hover {
+  background: #262b33;
+}
+
+.condition-picker-item .condition-glyph {
+  color: #ffb04a;
+}
+
+.condition-picker-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.condition-picker-custom {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.condition-picker-custom input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ap-incap {
+  color: #ff5a5a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ==== ������: ���������/������ ==== */
+.condition-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.condition-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.condition-glyph {
+  width: 18px;
+  height: 18px;
+}
+
+.condition-level {
+  width: 56px;
+}
+
+.condition-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.condition-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.condition-picker-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.condition-picker-item:hover {
+  background: #262b33;
+}
+
+/* ������: ���� */
+.def-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+
+.def-chip {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: rgba(16, 20, 28, 0.88);
+  border: 1px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.def-chip-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.def-chip-abbr {
+  position: absolute;
+  right: -3px;
+  bottom: -5px;
+  font-size: 8px;
+  font-weight: 700;
+  background: #0e1220;
+  border-radius: 5px;
+  padding: 0 2px;
+  line-height: 11px;
+  color: currentColor;
+}
+
+.def-immunity { color: #7cc7ff; }
+.def-resistance { color: #4ecb71; }
+.def-vulnerability { color: #ff6b6b; }
+
+/* ����� ���� ������: ������� */
+.tm-conds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tm-conds .cond-chip {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+}
+
+.tm-conds .cond-chip-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.tm-conds .def-chip {
+  width: 30px;
+  height: 30px;
+}
+
+.tm-conds .def-chip-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.tm-conds .def-chip-abbr {
+  font-size: 9px;
+  line-height: 12px;
+}

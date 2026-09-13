@@ -42,6 +42,7 @@ export function makeToken(id: string, overrides: Partial<Token> = {}): Token {
     speed: DEFAULT_SPEED,
     conditions: [],
     effects: [],
+    damageDefenses: [],
     ...overrides,
   };
 }

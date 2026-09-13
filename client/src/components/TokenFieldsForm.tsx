@@ -1,13 +1,7 @@
-import {
-  MAX_ATTACKS,
-  emptyAttack,
-  emptyAttacks,
-  statNumber,
-  statsPaired,
-  type AttackEntry,
-  type TokenFields,
-} from 'shared';
+import { emptyAttacks, statNumber, statsPaired, type TokenFields } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import AttacksForm from './AttacksForm';
+import DamageDefensesForm from './DamageDefensesForm';
 
 interface Props {
   value: TokenFields;
@@ -16,18 +10,10 @@ interface Props {
   onHpCurrentChange?: (value: number) => void;
 }
 
+/** Редактор полей токена/предмета библиотеки (используется в панели библиотеки). */
 export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurrentChange }: Props) {
   const isDm = useGameStore((s) => s.role === 'dm');
   const attacks = value.attacks ?? emptyAttacks();
-  const setAttack = (index: number, patch: Partial<AttackEntry>) => {
-    onChange({ attacks: attacks.map((a, i) => (i === index ? { ...a, ...patch } : a)) });
-  };
-  const addAttack = () => {
-    if (attacks.length < MAX_ATTACKS) onChange({ attacks: [...attacks, emptyAttack()] });
-  };
-  const removeAttack = (index: number) => {
-    if (attacks.length > 1) onChange({ attacks: attacks.filter((_, i) => i !== index) });
-  };
 
   return (
     <>
@@ -144,105 +130,12 @@ export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurren
         </label>
       )}
 
-      <div className="sheet-section-title">
-        Атаки ({attacks.length}/{MAX_ATTACKS})
-      </div>
-      {attacks.map((attack, i) => (
-        <div className="weapon-block" key={i}>
-          <div className="weapon-head">
-            <span>Атака {i + 1}</span>
-            {attacks.length > 1 && (
-              <button type="button" className="weapon-remove" onClick={() => removeAttack(i)}>
-                Удалить
-              </button>
-            )}
-          </div>
-          <label className="field">
-            <span>Название</span>
-            <input
-              type="text"
-              value={attack.name}
-              maxLength={40}
-              placeholder="Например: Укус"
-              onChange={(e) => setAttack(i, { name: e.target.value })}
-            />
-          </label>
-          <div className="field-row">
-            <label className="field">
-              <span>Формула попадания</span>
-              <input
-                type="text"
-                value={attack.hit}
-                placeholder="d20+5"
-                onChange={(e) => setAttack(i, { hit: e.target.value })}
-              />
-            </label>
-            <label className="field">
-              <span>Формула урона</span>
-              <input
-                type="text"
-                value={attack.damage}
-                placeholder="d6+3"
-                onChange={(e) => setAttack(i, { damage: e.target.value })}
-              />
-            </label>
-          </div>
-          <div className="field-row">
-            <label className="field">
-              <span>Дистанция</span>
-              <select
-                value={attack.rangeType}
-                onChange={(e) => setAttack(i, { rangeType: e.target.value as AttackEntry['rangeType'] })}
-              >
-                <option value="melee">Ближняя</option>
-                <option value="ranged">Дальняя</option>
-                <option value="none">Без дальности</option>
-              </select>
-            </label>
-            {attack.rangeType === 'melee' && (
-              <label className="field">
-                <span>Досягаемость, фт</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={attack.rangeNormal}
-                  onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
-                />
-              </label>
-            )}
-            {attack.rangeType === 'ranged' && (
-              <>
-                <label className="field">
-                  <span>Обычная, фт</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={attack.rangeNormal}
-                    onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
-                  />
-                </label>
-                <label className="field">
-                  <span>Дальняя, фт</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={attack.rangeLong}
-                    onChange={(e) => setAttack(i, { rangeLong: Number(e.target.value) })}
-                  />
-                </label>
-              </>
-            )}
-          </div>
-        </div>
-      ))}
-      <button
-        type="button"
-        className="weapon-add"
-        onClick={addAttack}
-        disabled={attacks.length >= MAX_ATTACKS}
-      >
-        + Добавить атаку
-      </button>
+      <AttacksForm attacks={attacks} onChange={(list) => onChange({ attacks: list })} />
+
+      <DamageDefensesForm
+        value={value.damageDefenses ?? []}
+        onChange={(damageDefenses) => onChange({ damageDefenses })}
+      />
     </>
   );
 }

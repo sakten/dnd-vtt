@@ -3,12 +3,14 @@ import {
   DEFAULT_SPEED,
   MAX_ATTACKS,
   activeAttacks,
+  applyDamageDefenses,
   emptyCombatState,
   emptyTurnState,
   normalizeActions,
   normalizeAttacks,
   normalizeCombatState,
   normalizeConditions,
+  normalizeDamageDefenses,
   normalizeEffects,
   normalizeSheet,
   normalizeSheetSpells,
@@ -241,5 +243,54 @@ describe('normalizeStatblock', () => {
     expect(statblock?.abilities.int).toBe(10);
     expect(statblock?.saves?.str).toBe(5);
     expect(normalizeStatblock(undefined)).toBeUndefined();
+  });
+});
+
+describe('normalizeDamageDefenses', () => {
+  it('чистит тип/тип урона и дедуп по паре', () => {
+    const list = normalizeDamageDefenses([
+      { id: 'a', type: 'resistance', damageType: 'fire' },
+      { id: 'b', type: 'resistance', damageType: 'fire' },
+      { type: 'nope', damageType: 'cold' },
+      { type: 'immunity', damageType: '' },
+      { type: 'vulnerability', damageType: 'necrotic' },
+    ]);
+    expect(list).toHaveLength(2);
+    expect(list[0]).toMatchObject({ id: 'a', type: 'resistance', damageType: 'fire' });
+    expect(list[1]).toMatchObject({ type: 'vulnerability', damageType: 'necrotic' });
+  });
+
+  it('normalizeSheet прокидывает защиты', () => {
+    const sheet = normalizeSheet({ damageDefenses: [{ id: 'd1', type: 'immunity', damageType: 'poison' }] });
+    expect(sheet.damageDefenses).toHaveLength(1);
+    expect(sheet.damageDefenses[0].damageType).toBe('poison');
+  });
+});
+
+describe('applyDamageDefenses', () => {
+  const def = (type: 'resistance' | 'immunity' | 'vulnerability', damageType: string) => ({
+    id: `${type}:${damageType}`,
+    type,
+    damageType,
+  });
+
+  it('без типа урона и без совпадений — без изменений', () => {
+    expect(applyDamageDefenses(20, undefined, [def('resistance', 'fire')]).amount).toBe(20);
+    expect(applyDamageDefenses(20, 'cold', [def('resistance', 'fire')]).amount).toBe(20);
+  });
+
+  it('иммунитет → 0, сопротивление → половина, уязвимость → двойной', () => {
+    expect(applyDamageDefenses(21, 'fire', [def('immunity', 'fire')])).toEqual({ amount: 0, note: 'immunity' });
+    expect(applyDamageDefenses(21, 'fire', [def('resistance', 'fire')])).toEqual({ amount: 10, note: 'resistance' });
+    expect(applyDamageDefenses(21, 'fire', [def('vulnerability', 'fire')])).toEqual({
+      amount: 42,
+      note: 'vulnerability',
+    });
+  });
+
+  it('сопротивление и уязвимость взаимно гасятся', () => {
+    expect(
+      applyDamageDefenses(21, 'fire', [def('resistance', 'fire'), def('vulnerability', 'fire')])
+    ).toEqual({ amount: 21 });
   });
 });

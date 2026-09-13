@@ -48,6 +48,7 @@ export default function TokenPanel() {
         ac: editing.ac,
         hpMax: editing.hpMax,
         showStats: editing.showStats,
+        damageDefenses: editing.damageDefenses ?? [],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
@@ -91,6 +92,7 @@ export default function TokenPanel() {
         ac: '',
         hpMax: '',
         showStats: false,
+        damageDefenses: [],
       });
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить токен');

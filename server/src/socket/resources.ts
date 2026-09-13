@@ -96,6 +96,11 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         outcome = 'fail';
       }
       manager.saveSoon(room);
+      if (res.hp.deathFailures >= 3) {
+        for (const c of manager.markControlledTokensDead(room, ctx.playerId, true)) {
+          emitToken(room, 'token:update', c.mapId, c.token);
+        }
+      }
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
       const params: RollLabelParams = {
         outcome,

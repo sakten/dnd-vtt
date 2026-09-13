@@ -3,6 +3,7 @@ import {
   actionSlotAvailable,
   classFeatures,
   findBaseAction,
+  isIncapacitated,
   rollDice,
   rollLabelText,
   type ActionCost,
@@ -32,6 +33,10 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const token = manager.findToken(room, mapId, tokenId);
       if (!token) return;
       if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
+      if (!isDm() && isIncapacitated(token.conditions)) {
+        socket.emit('chat:error', 'Существо недееспособно');
+        return;
+      }
 
       const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
       const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;

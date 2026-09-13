@@ -1,6 +1,8 @@
 import {
+  movementBlocked,
   normalizeAttacks,
   normalizeConditions,
+  normalizeDamageDefenses,
   normalizeEffects,
   normalizeStatblock,
   statNumber,
@@ -9,7 +11,7 @@ import {
 import type { ConnCtx } from './context';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
-  const { manager, getRoom, isDm, broadcastAll, canControlToken, emitToken, syncCombat } = ctx;
+  const { manager, getRoom, isDm, broadcastAll, canControlToken, emitToken, syncCombat, socket } = ctx;
 
     ctx.on('token:add', (payload) => {
       if (!ctx.playerId) return;
@@ -48,6 +50,10 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const token = manager.findToken(room, mapId, id);
       if (!token) return;
       if (!canControlToken(room, mapId, token)) return;
+      if (!isDm() && movementBlocked(token.conditions)) {
+        socket.emit('chat:error', 'Существо не может двигаться (состояние)');
+        return;
+      }
       token.x = x;
       token.y = y;
       manager.saveSoon(room);
@@ -85,6 +91,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;
       if (typeof patch.visible === 'boolean') token.visible = patch.visible;
       if (Array.isArray(patch.attacks)) token.attacks = normalizeAttacks(patch.attacks);
+      if (Array.isArray(patch.damageDefenses)) token.damageDefenses = normalizeDamageDefenses(patch.damageDefenses);
       if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
         if (statsPaired(patch.ac, patch.hpMax)) {
           token.ac = patch.ac.slice(0, 10);
@@ -129,6 +136,19 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
       emitToken(room, 'token:update', mapId, token);
       if (manager.combatOf(room, mapId)?.active) syncCombat(room, mapId);
+    });
+
+    ctx.on('token:hp', ({ mapId, id, delta }) => {
+      const room = getRoom();
+      if (!room || typeof mapId !== 'string' || typeof id !== 'string') return;
+      if (!isDm() || !Number.isFinite(delta)) return;
+      const token = manager.findToken(room, mapId, id);
+      if (!token) return;
+      const changed = manager.adjustTokenHp(room, mapId, token, Math.round(delta));
+      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+      const controllerId = manager.controllerOfToken(room, token);
+      if (controllerId) ctx.emitResources(room, controllerId);
+      broadcastAll('players:update', manager.toState(room).players);
     });
 
     ctx.on('token:remove', ({ mapId, id }) => {

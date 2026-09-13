@@ -4,6 +4,7 @@ import type {
   AbilityKey,
   ChatMessage,
   CombatState,
+  DamageDefense,
   DiceRollResult,
   InitiativeEntry,
   LibraryItem,
@@ -23,8 +24,13 @@ import {
   emptyCombatState,
   emptyTurnState,
   initiativeBonus,
+  conditionName,
+  exhaustionRollPenalty,
+  exhaustionSpeedPenalty,
   normalizeAttacks,
+  normalizeDamageDefenses,
   rollDice,
+  sheetProficiencyBonus,
   statNumber,
   statsPaired,
 } from 'shared';
@@ -174,6 +180,7 @@ export class RoomManager {
       ac: paired ? ac : '',
       hpMax: paired ? hpMax : '',
       showStats: input.showStats === true,
+      damageDefenses: normalizeDamageDefenses(input.damageDefenses),
     };
     room.library.push(item);
     this.saveSoon(room);
@@ -191,6 +198,7 @@ export class RoomManager {
     if (typeof patch.isPlayerToken === 'boolean') item.isPlayerToken = patch.isPlayerToken;
     if (typeof patch.owner === 'string') item.owner = patch.owner.slice(0, 40);
     if (Array.isArray(patch.attacks)) item.attacks = normalizeAttacks(patch.attacks);
+    if (Array.isArray(patch.damageDefenses)) item.damageDefenses = normalizeDamageDefenses(patch.damageDefenses);
     if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
       if (statsPaired(patch.ac, patch.hpMax)) {
         item.ac = patch.ac.slice(0, 10);
@@ -241,6 +249,7 @@ export class RoomManager {
       isPlayerToken: item.isPlayerToken === true,
       owner: (item.owner ?? '').slice(0, 40),
       attacks: normalizeAttacks(item.attacks),
+      damageDefenses: normalizeDamageDefenses(item.damageDefenses),
       ac: (item.ac ?? '').slice(0, 10),
       hpMax: (item.hpMax ?? '').slice(0, 10),
       showStats: item.showStats === true,
@@ -402,8 +411,9 @@ export class RoomManager {
     if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0 };
     const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
     const sheetSpeed = controllerId ? room.sheets[controllerId]?.speed : undefined;
+    const base = sheetSpeed ?? token.speed ?? DEFAULT_SPEED;
     return {
-      speed: sheetSpeed ?? token.speed ?? DEFAULT_SPEED,
+      speed: Math.max(0, base + exhaustionSpeedPenalty(token.conditions)),
       legendaryMax: token.statblock?.legendary?.max ?? 0,
     };
   }
@@ -574,6 +584,87 @@ export class RoomManager {
     item.current -= amount;
     this.saveSoon(room);
     return true;
+  }
+
+  /** Списывает ячейку заклинания круга (обычную, иначе pact). null — нет ячейки. */
+  spendSpellSlot(room: Room, playerId: string, level: number): 'slot' | 'pact' | null {
+    const res = room.resources[playerId];
+    if (!res || level < 1) return null;
+    const slot = res.spellSlots.find((s) => s.level === level && s.current > 0);
+    if (slot) {
+      slot.current -= 1;
+      this.saveSoon(room);
+      return 'slot';
+    }
+    if (res.pact.level === level && res.pact.current > 0) {
+      res.pact.current -= 1;
+      this.saveSoon(room);
+      return 'pact';
+    }
+    return null;
+  }
+
+  /** id игрока-контролёра токена (персонажа/призыва). */
+  controllerOfToken(room: Room, token: Token): string | undefined {
+    return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+  }
+
+  /** Защиты токена: у персонажа — из листа контролёра, у монстра — из токена. */
+  damageDefensesForToken(room: Room, token: Token): DamageDefense[] {
+    const controllerId = this.controllerOfToken(room, token);
+    const sheet = controllerId ? room.sheets[controllerId] : undefined;
+    if (sheet) return sheet.damageDefenses ?? [];
+    return token.damageDefenses ?? [];
+  }
+
+  /** Бонус спасброска токена: мод. характеристики (+профишенси у персонажа). */
+  saveBonusForToken(room: Room, token: Token, ability: AbilityKey): number {
+    const controllerId = this.controllerOfToken(room, token);
+    const sheet = controllerId ? room.sheets[controllerId] : undefined;
+    if (sheet) {
+      const mod = abilityMod(sheet.abilities[ability] ?? 10);
+      return sheet.saves[ability] ? mod + sheetProficiencyBonus(sheet) : mod;
+    }
+    const sb = token.statblock;
+    const explicit = sb?.saves?.[ability];
+    if (typeof explicit === 'number') return explicit;
+    return abilityMod(sb?.abilities?.[ability] ?? 10);
+  }
+
+  /**
+   * Тик состояний в начале/конце хода носителя: повторный спасбросок (start/end)
+   * и уменьшение длительности (раунды). Возвращает события для рассылки.
+   */
+  tickConditions(
+    room: Room,
+    token: Token,
+    phase: 'start' | 'end'
+  ): { changed: boolean; saves: { name: string; roll: DiceRollResult; success: boolean }[]; removed: string[] } {
+    const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
+    const removed: string[] = [];
+    let changed = false;
+    const kept = token.conditions.filter((cond) => {
+      let remove = false;
+      if (cond.save && cond.save.timing === phase) {
+        const bonus = this.saveBonusForToken(room, token, cond.save.ability) + exhaustionRollPenalty(token.conditions);
+        const roll = rollDice(`d20+${bonus}`);
+        const success = roll.total >= cond.save.dc;
+        saves.push({ name: cond.name, roll, success });
+        if (success) remove = true;
+      }
+      if (!remove && phase === 'start' && cond.rounds != null) {
+        cond.rounds -= 1;
+        if (cond.rounds <= 0) {
+          remove = true;
+          removed.push(cond.name);
+        }
+      }
+      if (remove) changed = true;
+      return !remove;
+    });
+    token.conditions = kept;
+    if (changed) this.saveSoon(room);
+    return { changed, saves, removed };
   }
 
   /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */
@@ -763,25 +854,68 @@ export class RoomManager {
     return changed;
   }
 
+  /** Навешивает «Без сознания»/«Мёртв»/ничего по состоянию HP (прочие состояния сохраняются). */
+  private applyDownState(token: Token, downed: boolean, dead: boolean) {
+    const rest = token.conditions.filter((c) => c.key !== 'unconscious' && c.key !== 'dead');
+    if (dead) rest.push({ key: 'dead', name: conditionName('dead'), rounds: null });
+    else if (downed) rest.push({ key: 'unconscious', name: conditionName('unconscious'), rounds: null });
+    token.conditions = rest;
+  }
+
+  /** Помечает все токены персонажа мёртвыми/живыми (по итогу death-сейвов). */
+  markControlledTokensDead(room: Room, playerId: string, dead: boolean): { mapId: string; token: Token }[] {
+    const libId = room.controllers[playerId];
+    if (!libId) return [];
+    const changed: { mapId: string; token: Token }[] = [];
+    for (const map of room.scene.maps) {
+      for (const token of map.tokens) {
+        if (token.libraryItemId !== libId) continue;
+        this.applyDownState(token, !dead, dead);
+        changed.push({ mapId: map.id, token });
+      }
+    }
+    if (changed.length) this.saveSoon(room);
+    return changed;
+  }
+
   /**
-   * Изменяет HP токена с учётом канона: у персонажа игрока HP живёт в
-   * PlayerResources и зеркалится в токены, у монстров — прямо в токене.
-   * Возвращает изменившиеся токены для рассылки.
+   * Изменяет HP токена с учётом канона: у персонажа HP живёт в PlayerResources
+   * и зеркалится в токены, у монстров — прямо в токене. HP может уходить в минус.
+   * Лечение сбрасывает death-сейвы; урон лежачему добавляет провал (крит — 2);
+   * HP ≤ 0 → «Без сознания»/«Мёртв». Возвращает изменившиеся токены для рассылки.
    */
-  adjustTokenHp(room: Room, mapId: string, token: Token, delta: number): { mapId: string; token: Token }[] {
-    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+  adjustTokenHp(
+    room: Room,
+    mapId: string,
+    token: Token,
+    delta: number,
+    opts: { crit?: boolean } = {}
+  ): { mapId: string; token: Token }[] {
+    const controllerId = this.controllerOfToken(room, token);
     const res = controllerId ? room.resources[controllerId] : undefined;
     if (controllerId && res && res.hp.max > 0) {
-      let next = res.hp.current + delta;
+      const before = res.hp.current;
+      let next = before + delta;
       next = Math.min(res.hp.max, next);
-      res.hp.current = Math.max(0, next);
+      res.hp.current = next;
+      if (delta > 0) {
+        res.hp.deathSuccesses = 0;
+        res.hp.deathFailures = 0;
+      } else if (delta < 0 && before <= 0) {
+        res.hp.deathFailures = Math.min(3, res.hp.deathFailures + (opts.crit ? 2 : 1));
+      }
       this.saveSoon(room);
-      return this.syncSheetToTokens(room, controllerId);
+      const changed = this.syncSheetToTokens(room, controllerId);
+      for (const c of changed) {
+        this.applyDownState(c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, res.hp.deathFailures >= 3);
+      }
+      return changed;
     }
     const max = statNumber(token.hpMax);
     let next = token.hpCurrent + delta;
     if (max > 0) next = Math.min(max, next);
-    token.hpCurrent = Math.max(0, next);
+    token.hpCurrent = next;
+    this.applyDownState(token, next <= 0, next <= 0);
     this.saveSoon(room);
     return [{ mapId, token }];
   }

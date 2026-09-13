@@ -11,6 +11,7 @@ import { registerSheetHandlers } from './socket/sheet';
 import { registerResourceHandlers } from './socket/resources';
 import { registerDiceHandlers } from './socket/dice';
 import { registerActionHandlers } from './socket/actions';
+import { registerSpellHandlers } from './socket/spells';
 
 export function registerSocket(io: AppServer, manager: RoomManager) {
   io.on('connection', (socket: AppSocket) => {
@@ -29,5 +30,6 @@ export function registerSocket(io: AppServer, manager: RoomManager) {
     registerResourceHandlers(ctx);
     registerDiceHandlers(ctx);
     registerActionHandlers(ctx);
+    registerSpellHandlers(ctx);
   });
 }

@@ -1,7 +1,7 @@
 import { memo, useRef } from 'react';
 import { Group, Rect, Text, Image as KonvaImage, Circle, Line } from 'react-konva';
 import Konva from 'konva';
-import { snapToGrid, statNumber, type Token } from 'shared';
+import { movementBlocked, snapToGrid, statNumber, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
 import { canControlWith } from '../lib/control';
@@ -64,7 +64,7 @@ function TokenView({ token }: { token: Token }) {
       scaleY={token.scale}
       rotation={token.rotation}
       opacity={lockedByOther ? 0.5 : dead ? 0.55 : 1}
-      draggable={!lockedByOther && !fogActive && canMove}
+      draggable={!lockedByOther && !fogActive && canMove && (role === 'dm' || !movementBlocked(token.conditions))}
       onClick={(e) => {
         e.cancelBubble = true;
         setSelected(token.id);

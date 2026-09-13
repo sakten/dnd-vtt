@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { MapInfo } from 'shared';
-import { gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
+import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
 import { canAddLibraryItem, canControlWith } from '../lib/control';
 import GridLayer from './GridLayer';
+import ConditionsOverlay from './ConditionsOverlay';
 import TokenView from './TokenView';
 
 function MapSprite({ map }: { map: MapInfo }) {
@@ -42,6 +43,11 @@ export default function TableTop() {
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
+  const aim = useGameStore((s) => s.aim);
+  const aimToCursor = useGameStore((s) => s.aimToCursor);
+  const confirmAim = useGameStore((s) => s.confirmAim);
+  const multiTarget = useGameStore((s) => s.multiTarget);
+  const addMultiTarget = useGameStore((s) => s.addMultiTarget);
   const activeMap = useMemo(() => maps.find((m) => m.id === viewMapId) ?? null, [maps, viewMapId]);
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
 
@@ -77,6 +83,31 @@ export default function TableTop() {
     }
     return cells;
   }, [activeMap, activeControlId, grid, role, hiddenSet]);
+
+  const aimCells = useMemo(() => {
+    if (!aim || !aim.origin) return [];
+    const size = grid.size || 50;
+    const g = { size, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    const keys = areaCells(aim.spec, aim.origin, aim.direction, g);
+    const maxCx = Math.ceil((activeMap?.width ?? 0) / size);
+    const maxCy = Math.ceil((activeMap?.height ?? 0) / size);
+    const out: { x: number; y: number; size: number }[] = [];
+    for (const key of keys) {
+      const [cx, cy] = key.split(',').map(Number);
+      if (cx < 0 || cy < 0) continue;
+      if (activeMap && (cx >= maxCx || cy >= maxCy)) continue;
+      if (role === 'player' && hiddenSet.has(key)) continue;
+      out.push({ x: g.offsetX + cx * size, y: g.offsetY + cy * size, size });
+    }
+    return out;
+  }, [aim, grid, activeMap, role, hiddenSet]);
+
+  const multiTargetTokens = useMemo(() => {
+    if (!multiTarget || !activeMap) return [];
+    return multiTarget.targets
+      .map((id) => activeMap.tokens.find((t) => t.id === id) ?? null)
+      .filter((t): t is NonNullable<typeof t> => !!t);
+  }, [multiTarget, activeMap]);
 
   const measure = useMemo(() => {
     if (!activeMap || !targetTokenId) return null;
@@ -190,6 +221,29 @@ export default function TableTop() {
   };
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (multiTarget) {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer && activeMap) {
+        const w = toWorld(stage, pointer);
+        const hit = activeMap.tokens
+          .filter((t) => Math.abs(w.x - t.x) <= t.w / 2 && Math.abs(w.y - t.y) <= t.h / 2)
+          .sort((a, b) => b.z - a.z)[0];
+        if (hit) addMultiTarget(hit.id);
+      }
+      return;
+    }
+    if (aim) {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) {
+        aimToCursor(toWorld(stage, pointer));
+        confirmAim();
+      }
+      return;
+    }
     if (!fogMode.active) {
       if (e.target === e.target.getStage()) {
         setSelected(null);
@@ -212,6 +266,12 @@ export default function TableTop() {
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (aim) {
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) aimToCursor(toWorld(stage, pointer));
+      return;
+    }
     if (!fogMode.active || !paintRef.current.pressed) return;
     const stage = e.target.getStage();
     const pointer = stage?.getPointerPosition();
@@ -287,7 +347,7 @@ export default function TableTop() {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable={!fogMode.active}
+          draggable={!fogMode.active && !aim && !multiTarget}
           onWheel={handleWheel}
           onDragMove={(e) => {
             if (e.target !== e.currentTarget) return;
@@ -346,6 +406,55 @@ export default function TableTop() {
                 listening={false}
               />
             ))}
+            {aimCells.map((c) => (
+              <Rect
+                key={`aim-${c.x},${c.y}`}
+                x={c.x}
+                y={c.y}
+                width={c.size}
+                height={c.size}
+                fill="#ff9f43"
+                opacity={0.34}
+                listening={false}
+              />
+            ))}
+            {aim?.origin && (
+              <Line
+                points={[
+                  aim.origin.x - 8 / view.scale,
+                  aim.origin.y,
+                  aim.origin.x + 8 / view.scale,
+                  aim.origin.y,
+                ]}
+                stroke="#ff9f43"
+                strokeWidth={3 / view.scale}
+                listening={false}
+              />
+            )}
+            {multiTargetTokens.map((t, i) => (
+              <Fragment key={`mt-${i}-${t.id}`}>
+                <Rect
+                  x={t.x - t.w / 2}
+                  y={t.y - t.h / 2}
+                  width={t.w}
+                  height={t.h}
+                  stroke="#ffd43b"
+                  strokeWidth={3 / view.scale}
+                  listening={false}
+                />
+                <Text
+                  text={`${i + 1}`}
+                  x={t.x - 6 / view.scale}
+                  y={t.y - 8 / view.scale}
+                  fontSize={18 / view.scale}
+                  fill="#ffd43b"
+                  stroke="#000000"
+                  strokeWidth={3 / view.scale}
+                  fillAfterStrokeEnabled
+                  listening={false}
+                />
+              </Fragment>
+            ))}
             {activeMap?.tokens
               .filter((t) => !(role === 'player' && isCellHidden(t.x, t.y)))
               .map((token) => (
@@ -376,6 +485,7 @@ export default function TableTop() {
           </Layer>
         </Stage>
       )}
+      <ConditionsOverlay />
     </div>
   );
 }

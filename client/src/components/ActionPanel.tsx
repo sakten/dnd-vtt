@@ -6,6 +6,7 @@ import {
   attacksPerAction,
   classFeatures,
   grantedSpells,
+  isIncapacitated,
   type ActionCost,
   type ActionDef,
   type AttackEntry,
@@ -15,7 +16,9 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { loadSpells } from '../lib/spells';
 import ActionIcon from './ActionIcon';
+import ConditionChips from './ConditionChips';
 import SpellIcon from './SpellIcon';
+import SpellPopover from './SpellPopover';
 import WeaponIcon from './WeaponIcon';
 
 /** Базовые действия, которые по правилам являются атаками (бейдж-меч). */
@@ -57,6 +60,7 @@ export default function ActionPanel() {
   const resources = useGameStore((s) => s.resources);
   const runAction = useGameStore((s) => s.runAction);
   const [spells, setSpells] = useState<Spell[] | null>(null);
+  const [casting, setCasting] = useState<Spell | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -104,10 +108,13 @@ export default function ActionPanel() {
 
   if (!info) return null;
   const { token, turn, controlled, inTurn, combatActive, weapons, features, attacksPer } = info;
+  const incap = role !== 'dm' && isIncapacitated(token.conditions);
+  const spellByKey = new Map((spells ?? []).map((s) => [s.key, s]));
 
   const targetName = map?.tokens.find((t) => t.id === targetTokenId)?.name;
 
   const canSpend = (slot: ActionCost, actionId: string) => {
+    if (incap) return false;
     if (!controlled) return false;
     if (!combatActive) return true;
     if (!inTurn || !turn) return false;
@@ -142,6 +149,7 @@ export default function ActionPanel() {
   };
 
   const canUseFeature = (f: ActionDef): boolean => {
+    if (incap) return false;
     if (!controlled) return false;
     const amount = Math.max(1, f.resourceAmount ?? 1);
     const left = resourceLeft(f);
@@ -178,8 +186,8 @@ export default function ActionPanel() {
         className="ap-icon-btn ap-spell-btn"
         data-tip={`${spell.name} · ${level}`}
         aria-label={spell.name}
-        // Каст заклинаний подключается в Ф6 (движок заклинаний).
-        onClick={() => undefined}
+        disabled={incap}
+        onClick={() => setCasting(spell)}
       >
         <SpellIcon spell={spell} className="ap-icon" />
       </button>
@@ -275,6 +283,8 @@ export default function ActionPanel() {
     <div className={`action-panel${!controlled ? ' ap-locked' : ''}`}>
       <div className="ap-head">
         <span className="ap-token">{token.name}</span>
+        {token.conditions.length > 0 && <ConditionChips conditions={token.conditions} spellByKey={spellByKey} />}
+        {incap && <span className="ap-incap">Недееспособен</span>}
         {targetName && <span className="ap-target">Цель: {targetName}</span>}
         {combatActive && turn ? (
           <span className="ap-counters">
@@ -321,6 +331,7 @@ export default function ActionPanel() {
           </div>
         </section>
       )}
+      {casting && <SpellPopover spell={casting} tokenId={token.id} onClose={() => setCasting(null)} />}
     </div>
   );
 }

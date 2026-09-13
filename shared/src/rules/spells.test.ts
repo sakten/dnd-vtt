@@ -114,7 +114,9 @@ describe('normalizeSpell', () => {
     expect(spell.automation).toBe('full');
     expect(spell.description).toHaveLength(1);
     expect(spell.description[0]).toContain('8d6 Fire damage');
-    expect(spell.higherLevel?.[0]).toContain('8d6');
+    // `{@scaledamage base|levels|increment}` → в тексте инкремент (1d6), не база.
+    expect(spell.higherLevel?.[0]).toContain('1d6');
+    expect(spell.higherLevel?.[0]).not.toContain('8d6');
   });
 
   it('не-SRD: только первое предложение', () => {

@@ -37,6 +37,8 @@ export const useGameStore = create<GameState>()((set, get) => ({
     chat: [],
     chatError: null,
     joinError: null,
+    aim: null,
+    multiTarget: null,
     selectedTokenId: null,
     targetTokenId: null,
     measureFromId: null,

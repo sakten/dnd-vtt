@@ -1,4 +1,4 @@
-import type { AbilityKey } from '../types';
+import type { AbilityKey, AreaSpec } from '../types';
 
 /**
  * Нормализация заклинаний из данных 5e.tools (Ф5). Чистые функции без I/O,
@@ -69,8 +69,14 @@ export interface Spell {
   damage?: SpellDamage;
   save?: AbilityKey[];
   spellAttack?: 'melee' | 'ranged';
+  /** Лечение: кости есть, а типа урона нет. */
+  healing?: boolean;
+  /** Успешный спасбросок даёт половину урона (иначе 0). */
+  saveHalf?: boolean;
   /** Коды areaTags 5e.tools (ST, S, C, L, MT, …). */
   area?: string[];
+  /** Геометрия области (Ф7): форма и размер в футах; у линии — ширина. */
+  areaSpec?: AreaSpec;
   /** Накладываемые состояния (слаги 5e.tools). */
   conditions?: string[];
   automation: SpellAutomation;
@@ -153,9 +159,13 @@ export function stripTags(input: string): string {
       switch (tag) {
         case 'damage':
         case 'dice':
-        case 'scaledamage':
-        case 'scaledice':
           return first;
+        // {@scaledamage base|levels|increment} / {@scaledice ...} — в тексте нужен инкремент (3-й сегмент).
+        case 'scaledamage':
+        case 'scaledice': {
+          const parts = (body ?? '').split('|');
+          return parts.length >= 3 ? parts[2] : first;
+        }
         case 'hit':
           return /^[+-]/.test(first) ? first : `+${first}`;
         case 'dc':
@@ -264,6 +274,37 @@ export function normalizeDuration(raw: unknown): SpellDuration[] {
   });
 }
 
+const SHAPE_BY_RANGE: Record<string, AreaSpec['shape']> = {
+  cone: 'cone',
+  line: 'line',
+  cube: 'cube',
+  cylinder: 'cylinder',
+  sphere: 'sphere',
+  radius: 'sphere',
+  emanation: 'sphere',
+};
+
+/**
+ * Геометрия области: форма/размер. Для cone/line/cube/cylinder/emanation размер
+ * есть в `range.distance.amount`; для сфер в точке радиус берём из текста.
+ */
+export function deriveAreaSpec(range: SpellRange, text: string): AreaSpec | undefined {
+  const sized = SHAPE_BY_RANGE[range.type];
+  const amount = range.distance?.amount ?? 0;
+  if (sized && amount > 0) {
+    return sized === 'line' ? { shape: 'line', size: amount, width: 5 } : { shape: sized, size: amount };
+  }
+  const radius = text.match(/(\d+)[- ]foot[- ]radius/i) ?? text.match(/radius of (\d+) feet/i);
+  if (radius) return { shape: 'sphere', size: Number(radius[1]) };
+  const cube = text.match(/(\d+)[- ]foot\s+(?:on a side\s+)?cube/i);
+  if (cube) return { shape: 'cube', size: Number(cube[1]) };
+  const line = text.match(/(\d+)[- ]foot[- ](?:long\s+)?line/i);
+  if (line) return { shape: 'line', size: Number(line[1]), width: 5 };
+  const cone = text.match(/(\d+)[- ]foot\s+cone/i);
+  if (cone) return { shape: 'cone', size: Number(cone[1]) };
+  return undefined;
+}
+
 export function normalizeComponents(raw: unknown): SpellComponents {
   const c = (raw ?? {}) as { v?: unknown; s?: unknown; m?: unknown };
   return {
@@ -302,6 +343,14 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
   const description = raw.srd52 ? paragraphs : [firstSentence(paragraphs[0] ?? '')].filter(Boolean);
   const higherLevel = raw.srd52 ? collectText(raw.entriesHigherLevel) : [];
   const conditions = toStringArray(raw.conditionInflict).map((c) => prettify(c));
+  const rulesText = collectText([raw.entries, raw.entriesHigherLevel]).join(' ').toLowerCase();
+  const healing = damageDice.length && !damageTypes.length ? true : undefined;
+  const saveHalf =
+    save.length && damageDice.length && /half as much damage|half the damage|half the initial damage/.test(rulesText)
+      ? true
+      : undefined;
+  const range = normalizeRange(raw.range);
+  const areaSpec = deriveAreaSpec(range, rulesText);
 
   return {
     key: spellKey(raw.name, raw.source),
@@ -312,14 +361,17 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
     ritual: raw.meta?.ritual === true || undefined,
     concentration: duration.some((d) => d.concentration) || undefined,
     time: normalizeTime(raw.time),
-    range: normalizeRange(raw.range),
+    range,
     components: normalizeComponents(raw.components),
     duration,
     classes,
     damage,
     save: save.length ? save : undefined,
     spellAttack,
+    healing,
+    saveHalf,
     area: toStringArray(raw.areaTags),
+    areaSpec,
     conditions: conditions.length ? conditions : undefined,
     automation: automationOf({ damage, save, spellAttack }),
     description,

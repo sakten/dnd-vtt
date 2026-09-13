@@ -7,6 +7,7 @@ import {
   normalizeAttacks,
   normalizeCombatState,
   normalizeConditions,
+  normalizeDamageDefenses,
   normalizeEffects,
   normalizeSheet,
   normalizeStatblock,
@@ -61,6 +62,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
       if (typeof token.owner !== 'string') token.owner = '';
       if (typeof token.libraryItemId !== 'string') token.libraryItemId = '';
       token.attacks = normalizeAttacks((token as { attacks?: unknown }).attacks);
+      token.damageDefenses = normalizeDamageDefenses((token as { damageDefenses?: unknown }).damageDefenses);
       if (typeof token.ac !== 'string') token.ac = '';
       if (typeof token.hpMax !== 'string') token.hpMax = '';
       if (typeof token.hpCurrent !== 'number' || !Number.isFinite(token.hpCurrent)) {
@@ -98,6 +100,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
     if (typeof item.isPlayerToken !== 'boolean') item.isPlayerToken = false;
     if (typeof item.owner !== 'string') item.owner = '';
     item.attacks = normalizeAttacks((item as { attacks?: unknown }).attacks);
+    item.damageDefenses = normalizeDamageDefenses((item as { damageDefenses?: unknown }).damageDefenses);
     if (typeof item.ac !== 'string') item.ac = '';
     if (typeof item.hpMax !== 'string') item.hpMax = '';
     if (typeof item.showStats !== 'boolean') item.showStats = false;

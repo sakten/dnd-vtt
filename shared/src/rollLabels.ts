@@ -1,4 +1,4 @@
-import type { RollKind, RollLabelParams } from './types';
+import { DEFENSE_TYPE_NAMES, damageTypeName, type RollKind, type RollLabelParams } from './types';
 
 const DISADVANTAGE_TEXT: Record<NonNullable<RollLabelParams['disadvantage']>, string> = {
   adjacent: 'враг рядом',
@@ -16,16 +16,25 @@ const DEATH_OUTCOME_TEXT: Record<NonNullable<RollLabelParams['outcome']>, string
 export function rollLabelText(kind: RollKind, params: RollLabelParams = {}): string {
   switch (kind) {
     case 'attack':
-    case 'damage': {
-      const head = kind === 'attack' ? 'Атака' : 'Урон';
+    case 'damage':
+    case 'heal': {
+      const head = kind === 'attack' ? 'Атака' : kind === 'heal' ? 'Лечение' : 'Урон';
       let out = `${head}: ${params.subject ?? head}`;
       if (typeof params.distanceFeet === 'number') out += ` · ${Math.round(params.distanceFeet)} фт`;
       if (params.disadvantage) out += ` (помеха: ${DISADVANTAGE_TEXT[params.disadvantage]})`;
+      if (kind === 'attack' && params.penalty) out += ` (истощение ${params.penalty > 0 ? '+' : ''}${params.penalty})`;
       if (kind === 'attack' && params.hit) out += params.hit === 'hit' ? ' — Попал' : ' — Промах';
+      if (kind === 'damage' && params.damageType) out += ` (${damageTypeName(params.damageType)})`;
+      if (kind === 'damage' && params.damageNote) {
+        out += ` — ${DEFENSE_TYPE_NAMES[params.damageNote].toLowerCase()}`;
+      }
       return out;
     }
-    case 'save':
-      return `Спасбросок: ${params.subject ?? ''}`;
+    case 'save': {
+      let out = `Спасбросок: ${params.subject ?? ''}`;
+      if (params.saveOutcome) out += params.saveOutcome === 'success' ? ' — Успех' : ' — Провал';
+      return out;
+    }
     case 'check':
       return `Проверка: ${params.subject ?? ''}`;
     case 'death':

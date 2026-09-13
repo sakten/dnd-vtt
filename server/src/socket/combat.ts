@@ -1,4 +1,5 @@
 import type { ConnCtx } from './context';
+import { tickActiveConditions } from './conditions';
 
 export function registerCombatHandlers(ctx: ConnCtx) {
   const { manager, dmRoom, syncCombat, getRoom, isDm } = ctx;
@@ -7,6 +8,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
       const room = dmRoom();
       if (!room || typeof mapId !== 'string') return;
       manager.startCombat(room, mapId);
+      tickActiveConditions(ctx, room, mapId, 'start');
       syncCombat(room, mapId);
     });
 
@@ -77,7 +79,9 @@ export function registerCombatHandlers(ctx: ConnCtx) {
         const token = manager.findToken(room, mapId, active.tokenId);
         if (!token || !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
       }
+      tickActiveConditions(ctx, room, mapId, 'end');
       manager.endTurn(room, mapId);
+      tickActiveConditions(ctx, room, mapId, 'start');
       syncCombat(room, mapId);
     });
 
@@ -88,6 +92,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
         id: typeof id === 'string' ? id : undefined,
         index: typeof index === 'number' ? index : undefined,
       });
+      tickActiveConditions(ctx, room, mapId, 'start');
       syncCombat(room, mapId);
     });
 
