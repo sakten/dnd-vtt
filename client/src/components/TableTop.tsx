@@ -5,7 +5,7 @@ import type { MapInfo } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
-import { canAddLibraryItem, canControlWith } from '../lib/control';
+import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
 import GridLayer from './GridLayer';
 import ConditionsOverlay from './ConditionsOverlay';
 import TokenView from './TokenView';
@@ -37,7 +37,7 @@ export default function TableTop() {
   const maps = useGameStore((s) => s.scene.maps);
   const viewMapId = useGameStore((s) => s.viewMapId);
   const setSelected = useGameStore((s) => s.setSelected);
-  const role = useGameStore((s) => s.role);
+  const isDm = useIsDm();
   const targetTokenId = useGameStore((s) => s.targetTokenId);
   const measureFromId = useGameStore((s) => s.measureFromId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
@@ -78,11 +78,11 @@ export default function TableTop() {
     const cells: { x: number; y: number; size: number }[] = [];
     for (const { cx: gx, cy: gy } of reachableCells(ccx, ccy, remaining, turn.diagonalsUsed)) {
       if (gx < 0 || gy < 0 || gx >= maxCx || gy >= maxCy) continue;
-      if (role === 'player' && hiddenSet.has(cellKey(gx, gy))) continue;
+      if (!isDm && hiddenSet.has(cellKey(gx, gy))) continue;
       cells.push({ x: grid.offsetX + gx * size, y: grid.offsetY + gy * size, size });
     }
     return cells;
-  }, [activeMap, activeControlId, grid, role, hiddenSet]);
+  }, [activeMap, activeControlId, grid, isDm, hiddenSet]);
 
   const aimCells = useMemo(() => {
     if (!aim || !aim.origin) return [];
@@ -96,11 +96,11 @@ export default function TableTop() {
       const [cx, cy] = key.split(',').map(Number);
       if (cx < 0 || cy < 0) continue;
       if (activeMap && (cx >= maxCx || cy >= maxCy)) continue;
-      if (role === 'player' && hiddenSet.has(key)) continue;
+      if (!isDm && hiddenSet.has(key)) continue;
       out.push({ x: g.offsetX + cx * size, y: g.offsetY + cy * size, size });
     }
     return out;
-  }, [aim, grid, activeMap, role, hiddenSet]);
+  }, [aim, grid, activeMap, isDm, hiddenSet]);
 
   const multiTargetTokens = useMemo(() => {
     if (!multiTarget || !activeMap) return [];
@@ -377,7 +377,7 @@ export default function TableTop() {
                 width={r.size}
                 height={r.size}
                 fill="#07090d"
-                opacity={role === 'dm' ? 0.45 : 0.93}
+                opacity={isDm ? 0.45 : 0.93}
               />
             ))}
             {rectPreview && (
@@ -456,7 +456,7 @@ export default function TableTop() {
               </Fragment>
             ))}
             {activeMap?.tokens
-              .filter((t) => !(role === 'player' && isCellHidden(t.x, t.y)))
+              .filter((t) => !(!isDm && isCellHidden(t.x, t.y)))
               .map((token) => (
                 <TokenView key={token.id} token={token} />
               ))}

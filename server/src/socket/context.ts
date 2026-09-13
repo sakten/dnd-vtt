@@ -63,6 +63,14 @@ export interface ConnCtx {
 export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager): ConnCtx {
   const pendingLeaves = new Map<string, ReturnType<typeof setTimeout>>();
 
+  // Права ведущего: реальная роль dm либо включённый режим тестов комнаты.
+  const isDmViewer = (room: Room, viewerId: string | null): boolean => {
+    if (!viewerId) return false;
+    const viewer = room.players.find((p) => p.id === viewerId);
+    if (!viewer) return false;
+    return viewer.role === 'dm' || room.testMode === true;
+  };
+
   const ctx: ConnCtx = {
     io,
     socket,
@@ -121,7 +129,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     isDm: () => {
       const room = ctx.getRoom();
       if (!room || !ctx.playerId) return false;
-      return room.players.some((p) => p.id === ctx.playerId && p.role === 'dm');
+      return isDmViewer(room, ctx.playerId);
     },
     dmRoom: () => (ctx.isDm() ? ctx.getRoom() : null),
     canControlToken: (room, mapId, token) => {
@@ -129,13 +137,10 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!ctx.playerId) return false;
       return manager.controlsToken(room, mapId, ctx.playerId, token);
     },
-    // AC/HP/статблок токена видят: DM — всегда; игрок — только для токенов, которыми
-    // управляет (свой персонаж/призыв). Остальным AC/HP/статблок не отдаём.
+    // AC/HP/статблок токена видят: DM (или любой игрок в режиме тестов) — всегда;
+    // игрок — только для токенов, которыми управляет. Остальным статы не отдаём.
     visibleToken: (room, token, viewerId) => {
-      if (viewerId) {
-        const viewer = room.players.find((p) => p.id === viewerId);
-        if (viewer?.role === 'dm') return token;
-      }
+      if (isDmViewer(room, viewerId)) return token;
       if (token.showStats) return token;
       if (viewerId) {
         let mapId = '';
@@ -150,10 +155,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       return { ...token, ac: '', hpMax: '', hpCurrent: 0, statblock: undefined, damageDefenses: [] };
     },
     visibleLibrary: (room, viewerId) => {
-      if (viewerId) {
-        const viewer = room.players.find((p) => p.id === viewerId);
-        if (viewer?.role === 'dm') return room.library;
-      }
+      if (isDmViewer(room, viewerId)) return room.library;
       return room.library.map((item) =>
         item.showStats ? item : { ...item, ac: '', hpMax: '', attacks: [], damageDefenses: [] }
       );

@@ -15,6 +15,8 @@ export interface Room {
   nextZ: number;
   resources: Record<string, PlayerResources>;
   controllers: Record<string, string>;
+  /** Режим тестов: все игроки получают права ведущего внутри комнаты. */
+  testMode: boolean;
 }
 
 /**
@@ -42,5 +44,6 @@ export function toPersistedRoom(room: Room): PersistedRoom {
     nextZ: room.nextZ,
     resources: room.resources,
     controllers: room.controllers,
+    testMode: room.testMode,
   };
 }

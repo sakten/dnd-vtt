@@ -4,7 +4,7 @@ import Konva from 'konva';
 import { movementBlocked, snapToGrid, statNumber, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
-import { canControlWith } from '../lib/control';
+import { canControlWith, useIsDm } from '../lib/control';
 
 function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
@@ -21,7 +21,7 @@ function TokenView({ token }: { token: Token }) {
   const setHoverToken = useGameStore((s) => s.setHoverToken);
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
-  const role = useGameStore((s) => s.role);
+  const isDm = useIsDm();
   const canMove = useGameStore((s) => canControlWith(s, token));
   const lastClickRef = useRef(0);
 
@@ -64,7 +64,7 @@ function TokenView({ token }: { token: Token }) {
       scaleY={token.scale}
       rotation={token.rotation}
       opacity={lockedByOther ? 0.5 : dead ? 0.55 : 1}
-      draggable={!lockedByOther && !fogActive && canMove && (role === 'dm' || !movementBlocked(token.conditions))}
+      draggable={!lockedByOther && !fogActive && canMove && (isDm || !movementBlocked(token.conditions))}
       onClick={(e) => {
         e.cancelBubble = true;
         setSelected(token.id);
@@ -112,7 +112,7 @@ function TokenView({ token }: { token: Token }) {
           <Rect x={-token.w / 2} y={-token.h / 2} width={token.w} height={token.h} fill="#3a4150" />
         )}
       </Group>
-      {selected && (role === 'dm' || token.isPlayerToken) && (
+      {selected && (isDm || token.isPlayerToken) && (
         <Rect
           x={-token.w / 2 - 3}
           y={-token.h / 2 - 3}

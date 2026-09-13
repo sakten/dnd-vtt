@@ -133,5 +133,6 @@ export function hydrateRoom(p: PersistedRoom): Room {
     nextZ: p.nextZ ?? 0,
     resources: p.resources && typeof p.resources === 'object' ? p.resources : {},
     controllers,
+    testMode: p.testMode === true,
   };
 }

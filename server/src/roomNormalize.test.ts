@@ -216,6 +216,13 @@ describe('hydrateRoom', () => {
     expect(hydrateRoom(base()).resources).toEqual({});
   });
 
+  it('режим тестов по умолчанию выключен и сохраняется при round-trip', () => {
+    expect(hydrateRoom(base()).testMode).toBe(false);
+    const room = hydrateRoom(base({ testMode: true }));
+    expect(room.testMode).toBe(true);
+    expect(hydrateRoom(toPersistedRoom(room)).testMode).toBe(true);
+  });
+
   it('нормализует листы персонажей', () => {
     const room = hydrateRoom(
       base({ sheets: { p1: { name: 'Герой' } as unknown as PersistedRoom['sheets'][string] } })

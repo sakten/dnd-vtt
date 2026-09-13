@@ -127,6 +127,7 @@ export class RoomManager {
       nextZ: 0,
       resources: {},
       controllers: {},
+      testMode: false,
     };
     this.rooms.set(code, room);
     return room;
@@ -1136,6 +1137,13 @@ export class RoomManager {
     return saveRoomNow(toPersistedRoom(room));
   }
 
+  /** Включает/выключает режим тестов (права ведущего у всех игроков). */
+  setTestMode(room: Room, enabled: boolean) {
+    if (room.testMode === enabled) return;
+    room.testMode = enabled;
+    this.saveSoon(room);
+  }
+
   toState(room: Room): RoomState {
     return {
       code: room.code,
@@ -1157,6 +1165,7 @@ export class RoomManager {
       }),
       chat: room.chat,
       controllers: room.controllers,
+      testMode: room.testMode === true,
     };
   }
 }

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { canControlWith } from '../lib/control';
+import { canControlWith, isDmWith, useIsDm } from '../lib/control';
 
 const EMPTY_COMBAT = emptyCombatState();
 
@@ -9,7 +9,7 @@ export default function InitiativeBar() {
   const combat = useGameStore(
     (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.combat ?? EMPTY_COMBAT
   );
-  const role = useGameStore((s) => s.role);
+  const isDm = useIsDm();
   const hoverTokenId = useGameStore((s) => s.hoverTokenId);
   const setHoverToken = useGameStore((s) => s.setHoverToken);
   const setSelected = useGameStore((s) => s.setSelected);
@@ -20,7 +20,7 @@ export default function InitiativeBar() {
   const endTurn = useGameStore((s) => s.endTurn);
   const setTurn = useGameStore((s) => s.setTurn);
   const canEndTurn = useGameStore((s) => {
-    if (s.role === 'dm') return true;
+    if (isDmWith(s)) return true;
     const c = s.scene.maps.find((m) => m.id === s.viewMapId)?.combat;
     const entry = c && c.currentIndex >= 0 ? c.entries[c.currentIndex] : undefined;
     if (!entry?.tokenId) return false;
@@ -32,7 +32,6 @@ export default function InitiativeBar() {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   if (!combat.active) return null;
-  const isDm = role === 'dm';
   const activeIndex =
     combat.currentIndex >= 0 && combat.currentIndex < combat.entries.length ? combat.currentIndex : -1;
   const activeEntry = activeIndex >= 0 ? combat.entries[activeIndex] : null;
@@ -59,18 +58,24 @@ export default function InitiativeBar() {
         {activeEntry && <span className="initiative-active-name">{activeEntry.name}</span>}
         {turn && (
           <span className="initiative-resources">
-            <span className={`res-dot${turn.actionUsed ? ' used' : ''}`} title="Действие">
-              Д
-            </span>
-            <span className={`res-dot${turn.bonusActionUsed ? ' used' : ''}`} title="Бонусное действие">
-              Б
-            </span>
-            <span className={`res-dot${turn.reactionUsed ? ' used' : ''}`} title="Реакция">
-              Р
-            </span>
+            <span
+              className={`res-dot action${turn.actionUsed ? ' used' : ''}`}
+              title={turn.actionUsed ? 'Действие израсходовано' : 'Действие доступно'}
+            />
+            <span
+              className={`res-dot bonus${turn.bonusActionUsed ? ' used' : ''}`}
+              title={turn.bonusActionUsed ? 'Бонусное действие израсходовано' : 'Бонусное действие доступно'}
+            />
+            <span
+              className={`res-dot reaction${turn.reactionUsed ? ' used' : ''}`}
+              title={turn.reactionUsed ? 'Реакция израсходована' : 'Реакция доступна'}
+            />
             {turn.legendaryMax > 0 && (
-              <span className={`res-dot${turn.legendaryRemaining === 0 ? ' used' : ''}`} title="Легендарные действия">
-                Л{turn.legendaryRemaining}
+              <span
+                className={`res-dot legendary${turn.legendaryRemaining === 0 ? ' used' : ''}`}
+                title={`Легендарные действия: ${turn.legendaryRemaining}/${turn.legendaryMax}`}
+              >
+                {turn.legendaryRemaining}
               </span>
             )}
             <span className={`res-move${movementLeft < 0 ? ' over' : ''}`} title="Осталось передвижения">

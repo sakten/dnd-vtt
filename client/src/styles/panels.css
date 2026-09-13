@@ -172,20 +172,46 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 700;
-  background: #2b3039;
-  color: var(--text);
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
   border: 1px solid var(--panel-border);
+  background: #2b3039;
+}
+
+.res-dot.action {
+  background: #4ea1ff;
+  border-color: #4ea1ff;
+}
+
+.res-dot.bonus {
+  background: #ffd166;
+  border-color: #ffd166;
+}
+
+.res-dot.reaction {
+  background: #4ecb71;
+  border-color: #4ecb71;
+}
+
+.res-dot.legendary {
+  width: auto;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #c084fc;
+  border-color: #c084fc;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
 }
 
 .res-dot.used {
-  opacity: 0.35;
-  text-decoration: line-through;
+  background: transparent;
+  border-color: var(--panel-border);
+  color: var(--text-dim);
+  opacity: 0.45;
 }
 
 .res-move {

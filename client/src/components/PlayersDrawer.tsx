@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CLASSES, type Player } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useIsDm } from '../lib/control';
 
 function hpText(p: Player): string {
   if (p.hpMax == null) return '—';
@@ -22,11 +23,10 @@ export default function PlayersDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const role = useGameStore((s) => s.role);
   const selfId = useGameStore((s) => s.selfId);
   const removePlayer = useGameStore((s) => s.removePlayer);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const isDm = role === 'dm';
+  const isDm = useIsDm();
   const target = players.find((p) => p.id === confirmId) ?? null;
 
   return (

@@ -77,6 +77,7 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
     }
   });
   socket.on('disconnect', () => get().onDisconnected());
+  socket.on('connect_error', () => get().onConnectError());
 
   socket.on('room:joined', (payload) => {
     get().onRoomJoined(payload);
@@ -88,6 +89,7 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
     }
   });
   socket.on('room:renamed', (payload) => get().onRoomRenamed(payload));
+  socket.on('room:settings', (payload) => get().onRoomSettings(payload));
   socket.on('room:deleted', () => {
     get().onRoomClosed('Комната удалена ведущим');
     clearRoomParam();

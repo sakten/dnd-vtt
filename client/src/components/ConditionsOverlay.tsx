@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useIsDm } from '../lib/control';
 import { useSpells } from '../lib/useSpells';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
@@ -10,7 +11,7 @@ export default function ConditionsOverlay() {
   const maps = useGameStore((s) => s.scene.maps);
   const viewMapId = useGameStore((s) => s.viewMapId);
   const view = useGameStore((s) => s.view);
-  const role = useGameStore((s) => s.role);
+  const isDm = useIsDm();
   const spells = useSpells();
 
   const spellByKey = useMemo(() => new Map<string, Spell>(spells.map((s) => [s.key, s])), [spells]);
@@ -26,7 +27,7 @@ export default function ConditionsOverlay() {
         const size = map?.fog.size ?? 50;
         const cx = Math.floor((t.x - (map?.fog.offsetX ?? 0)) / size);
         const cy = Math.floor((t.y - (map?.fog.offsetY ?? 0)) / size);
-        if (role === 'player' && hidden.has(`${cx},${cy}`)) return null;
+        if (!isDm && hidden.has(`${cx},${cy}`)) return null;
         const left = view.x + t.x * view.scale;
         const top = view.y + (t.y - t.h / 2) * view.scale - 26;
         return (

@@ -14,6 +14,7 @@ import type { Room } from '../roomTypes';
 import { RoomManager } from '../rooms';
 import type { ConnCtx } from './context';
 import { registerCombatHandlers } from './combat';
+import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
 import { registerActionHandlers } from './actions';
 import { registerSpellHandlers } from './spells';
@@ -91,6 +92,7 @@ function makeRoom(tokens: Token[], controllers: Record<string, string>): Room {
     nextZ: 0,
     resources: {},
     controllers,
+    testMode: false,
   };
 }
 
@@ -589,5 +591,26 @@ describe('состояния (ограничения и авто-эффекты)
 
     const damage = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'damage');
     expect(damage && (damage as { crit?: boolean }).crit).toBe(true);
+  });
+});
+
+describe('room:settings (режим тестов)', () => {
+  it('игрок не может включить режим, ведущий может', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.players = [
+      { id: 'p1', name: 'A', role: 'player', isConnected: true, socketId: null },
+      { id: 'dm', name: 'D', role: 'dm', isConnected: true, socketId: null },
+    ];
+
+    const player = makeCtx(room, { playerId: 'p1' });
+    registerRoomHandlers(player.ctx);
+    player.invoke('room:settings', { testMode: true });
+    expect(room.testMode).toBe(false);
+
+    const dm = makeCtx(room, { playerId: 'dm', dm: true });
+    registerRoomHandlers(dm.ctx);
+    dm.invoke('room:settings', { testMode: true });
+    expect(room.testMode).toBe(true);
+    expect(dm.emitted.some((e) => e.event === 'system')).toBe(true);
   });
 });

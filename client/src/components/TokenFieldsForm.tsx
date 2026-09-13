@@ -1,5 +1,5 @@
 import { emptyAttacks, statNumber, statsPaired, type TokenFields } from 'shared';
-import { useGameStore } from '../store/useGameStore';
+import { useIsDm } from '../lib/control';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
 
@@ -12,7 +12,7 @@ interface Props {
 
 /** Редактор полей токена/предмета библиотеки (используется в панели библиотеки). */
 export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurrentChange }: Props) {
-  const isDm = useGameStore((s) => s.role === 'dm');
+  const isDm = useIsDm();
   const attacks = value.attacks ?? emptyAttacks();
 
   return (

@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { useIsDm } from '../lib/control';
 import { readImageSize, uploadImage } from '../lib/api';
 
 export default function MapsPanel() {
   const maps = useGameStore((s) => s.scene.maps);
   const activeMapId = useGameStore((s) => s.viewMapId);
-  const role = useGameStore((s) => s.role);
   const addMap = useGameStore((s) => s.addMap);
   const removeMap = useGameStore((s) => s.removeMap);
   const renameMap = useGameStore((s) => s.renameMap);
@@ -16,7 +16,7 @@ export default function MapsPanel() {
   const editingRef = useRef<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const isDm = role === 'dm';
+  const isDm = useIsDm();
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

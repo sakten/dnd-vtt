@@ -10,7 +10,7 @@ import {
   type TokenStatblock,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { canControlWith } from '../lib/control';
+import { canControlWith, useIsDm } from '../lib/control';
 import { useSpells } from '../lib/useSpells';
 import AttacksForm from './AttacksForm';
 import ConditionChips from './ConditionChips';
@@ -32,7 +32,7 @@ export default function TokenMenu() {
   const removeToken = useGameStore((s) => s.removeToken);
   const adjustTokenHp = useGameStore((s) => s.adjustTokenHp);
   const setCurrentCharacter = useGameStore((s) => s.setCurrentCharacter);
-  const isDm = useGameStore((s) => s.role === 'dm');
+  const isDm = useIsDm();
   const canEdit = useGameStore((s) => {
     const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((x) => x.id === s.tokenMenuId);
     return t ? canControlWith(s, t) : false;

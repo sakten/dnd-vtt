@@ -15,6 +15,7 @@ try {
   await import('./smoke/04b-spells.mjs');
   await import('./smoke/08-conditions.mjs');
   await import('./smoke/09-effects.mjs');
+  await import('./smoke/10-test-mode.mjs');
   await import('./smoke/05-admin-persistence.mjs');
   await import('./smoke/06-robustness.mjs');
 } finally {

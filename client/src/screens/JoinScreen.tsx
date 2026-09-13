@@ -7,6 +7,7 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
     () => new URLSearchParams(window.location.search).get('room')?.toUpperCase() ?? ''
   );
   const joinError = useGameStore((s) => s.joinError);
+  const connectError = useGameStore((s) => s.connectError);
   const joinRoom = useGameStore((s) => s.joinRoom);
 
   const saveName = (value: string) => {
@@ -51,7 +52,11 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
           </button>
         </div>
         {joinError && <div className="join-error">{joinError}</div>}
-        {!connected && <div className="join-error">Нет соединения с сервером…</div>}
+        {!connected && (
+          <div className={connectError ? 'join-error' : 'join-status'}>
+            {connectError ? 'Нет соединения с сервером…' : 'Подключение к серверу…'}
+          </div>
+        )}
         <a className="join-admin-link" href="?admin=1">
           Управление комнатами (для ведущего)
         </a>

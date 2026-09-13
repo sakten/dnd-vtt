@@ -13,8 +13,17 @@ export function characterNameOf(s: State, charId: string | null): string {
   return s.library.find((i) => i.id === charId)?.name ?? '';
 }
 
+export function isDmWith(s: State): boolean {
+  return s.role === 'dm' || s.testMode;
+}
+
+/** Хук: эффективные права ведущего (реальная роль DM или режим тестов комнаты). */
+export function useIsDm(): boolean {
+  return useGameStore((s) => s.role === 'dm' || s.testMode);
+}
+
 export function canControlWith(s: State, token: Token): boolean {
-  if (s.role === 'dm') return true;
+  if (isDmWith(s)) return true;
   if (!s.selfId) return false;
   if (s.currentCharacterId && token.libraryItemId === s.currentCharacterId) return true;
   if (token.owner) {
@@ -28,7 +37,7 @@ export function canAddLibraryItemWith(
   s: State,
   item: Pick<LibraryItem, 'id' | 'isPlayerToken' | 'owner'>
 ): boolean {
-  if (s.role === 'dm') return true;
+  if (isDmWith(s)) return true;
   if (!s.selfId) return false;
   if (item.isPlayerToken && item.id === s.currentCharacterId) return true;
   if (item.isPlayerToken && item.owner) {

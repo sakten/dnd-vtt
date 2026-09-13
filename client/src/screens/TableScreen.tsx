@@ -7,6 +7,7 @@ import MapsPanel from '../components/MapsPanel';
 import TokenPanel from '../components/TokenPanel';
 import ChatPanel from '../components/ChatPanel';
 import GridSettingsModal from '../components/GridSettingsModal';
+import RoomSettingsModal from '../components/RoomSettingsModal';
 import TokenMenu from '../components/TokenMenu';
 import FogPanel from '../components/FogPanel';
 import InitiativeBar from '../components/InitiativeBar';
@@ -20,6 +21,7 @@ export default function TableScreen() {
   const setSelected = useGameStore((s) => s.setSelected);
   const removeToken = useGameStore((s) => s.removeToken);
   const gridModalOpen = useGameStore((s) => s.gridModalOpen);
+  const roomSettingsOpen = useGameStore((s) => s.roomSettingsOpen);
   const roomCode = useGameStore((s) => s.roomCode);
   const roomName = useGameStore((s) => s.roomName);
   const targetTokenId = useGameStore((s) => s.targetTokenId);
@@ -93,6 +95,7 @@ export default function TableScreen() {
         </div>
       )}
       {gridModalOpen && <GridSettingsModal />}
+      {roomSettingsOpen && <RoomSettingsModal />}
       <TokenMenu />
       <CritOverlay />
     </div>

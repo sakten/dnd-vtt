@@ -81,6 +81,7 @@ function makeRoom(overrides: Partial<Room> = {}): Room {
     nextZ: 0,
     resources: {},
     controllers: {},
+    testMode: false,
     ...overrides,
   };
 }
@@ -754,5 +755,19 @@ describe('RoomManager эффекты', () => {
 
     const defenses = manager.damageDefensesForToken(room, tk);
     expect(defenses.some((d) => d.type === 'resistance' && d.damageType === 'slashing')).toBe(true);
+  });
+});
+
+describe('RoomManager настройки комнаты', () => {
+  it('setTestMode переключает режим и попадает в toState', () => {
+    const manager = setup();
+    const room = makeRoom();
+
+    expect(manager.toState(room).testMode).toBe(false);
+    manager.setTestMode(room, true);
+    expect(room.testMode).toBe(true);
+    expect(manager.toState(room).testMode).toBe(true);
+    manager.setTestMode(room, false);
+    expect(manager.toState(room).testMode).toBe(false);
   });
 });

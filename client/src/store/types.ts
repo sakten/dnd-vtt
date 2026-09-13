@@ -64,10 +64,14 @@ export interface MultiTargetState {
 export interface GameState {
   socket: AppSocket | null;
   connected: boolean;
+  /** Последняя попытка подключения завершилась ошибкой (для экрана входа). */
+  connectError: boolean;
   selfId: string | null;
   roomCode: string | null;
   roomName: string | null;
   role: Role;
+  /** Режим тестов комнаты: у всех игроков права ведущего. */
+  testMode: boolean;
   players: Player[];
   scene: Scene;
   viewMapId: string | null;
@@ -88,6 +92,8 @@ export interface GameState {
   view: ViewState;
   viewport: { w: number; h: number };
   gridModalOpen: boolean;
+  /** Открыта модалка настроек комнаты (только реальный DM). */
+  roomSettingsOpen: boolean;
   tokenMenuId: string | null;
   fogMode: FogMode;
   critHit: CritHit | null;
@@ -130,6 +136,9 @@ export interface GameState {
   setMeasureFrom: (id: string | null) => void;
   setDragging: (id: string | null) => void;
   setGridModalOpen: (open: boolean) => void;
+  setRoomSettingsOpen: (open: boolean) => void;
+  /** Сменить режим тестов (сервер применяет только от реального DM). */
+  setRoomSettings: (testMode: boolean) => void;
   setTokenMenu: (id: string | null) => void;
   setFogMode: (patch: Partial<FogMode>) => void;
   updateFog: (mapId: string, fog: FogState) => void;
@@ -188,10 +197,12 @@ export interface GameState {
   setHoverToken: (id: string | null) => void;
   fitView: () => void;
   onConnected: () => void;
+  onConnectError: () => void;
   onDisconnected: () => void;
   onJoinError: (message: string) => void;
   onRoomJoined: (payload: Parameters<ServerToClientEvents['room:joined']>[0]) => void;
   onRoomRenamed: (payload: Parameters<ServerToClientEvents['room:renamed']>[0]) => void;
+  onRoomSettings: (payload: Parameters<ServerToClientEvents['room:settings']>[0]) => void;
   onRoomClosed: (message: string) => void;
   onPlayersUpdate: (players: Player[]) => void;
   onMapsUpdate: (payload: Parameters<ServerToClientEvents['maps:update']>[0]) => void;

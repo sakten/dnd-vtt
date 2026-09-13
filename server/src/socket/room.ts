@@ -4,7 +4,7 @@ import { LEAVE_GRACE_MS, type ConnCtx } from './context';
 import { adminTokenOk } from './admin';
 
 export function registerRoomHandlers(ctx: ConnCtx) {
-  const { socket, io, manager, getRoom, dmRoom, broadcast, broadcastAll, emitToken, systemMessage, emitJoined, cancelPendingLeave, pendingLeaves } = ctx;
+  const { socket, io, manager, getRoom, dmRoom, broadcast, broadcastAll, emitToken, broadcastLibrary, systemMessage, emitJoined, cancelPendingLeave, pendingLeaves } = ctx;
 
     ctx.on('room:create', ({ name, clientId, adminToken, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
@@ -50,6 +50,25 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       emitJoined(room, clientId);
       cb({ ok: true });
       broadcast('players:update', manager.toState(room).players);
+    });
+
+    ctx.on('room:settings', ({ testMode }) => {
+      const room = getRoom();
+      if (!room || typeof testMode !== 'boolean') return;
+      const me = ctx.playerId ? room.players.find((p) => p.id === ctx.playerId) : undefined;
+      if (me?.role !== 'dm') return; // настройку комнаты меняет только реальный ведущий
+      if (room.testMode === testMode) return;
+      manager.setTestMode(room, testMode);
+      // Переслать токены/библиотеку: в режиме тестов статы открываются всем.
+      for (const map of room.scene.maps) {
+        for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
+      }
+      broadcastLibrary(room);
+      broadcastAll('room:settings', { testMode });
+      systemMessage(
+        room,
+        testMode ? 'Режим тестов включён: у всех участников права ведущего' : 'Режим тестов выключен'
+      );
     });
 
     ctx.on('player:remove', ({ id }) => {

@@ -1001,6 +1001,8 @@ export interface RoomState {
   players: Player[];
   chat: ChatMessage[];
   controllers: Record<string, string>;
+  /** Режим тестов: все игроки получают права ведущего внутри комнаты. */
+  testMode: boolean;
 }
 
 export interface ServerToClientEvents {
@@ -1011,6 +1013,8 @@ export interface ServerToClientEvents {
     resources: PlayerResources | null;
   }) => void;
   'room:renamed': (payload: { name: string }) => void;
+  /** Настройки комнаты (режим тестов). */
+  'room:settings': (payload: { testMode: boolean }) => void;
   'sheet:update': (payload: { sheet: CharacterSheet }) => void;
   'resources:update': (resources: PlayerResources) => void;
   'character:update': (payload: { playerId: string; libraryItemId: string | null }) => void;
@@ -1040,6 +1044,8 @@ export interface ClientToServerEvents {
     payload: { code: string; name: string; clientId: string },
     cb: (res: { ok: true } | { error: string }) => void
   ) => void;
+  /** Смена настроек комнаты (режим тестов); сервер проверяет реального DM. */
+  'room:settings': (payload: { testMode: boolean }) => void;
   'map:add': (payload: { name: string; url: string; width: number; height: number }) => void;
   'map:remove': (id: string) => void;
   'map:rename': (payload: { id: string; name: string }) => void;

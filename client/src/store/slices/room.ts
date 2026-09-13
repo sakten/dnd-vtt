@@ -3,7 +3,7 @@ import { createSocket } from '../../net/socket';
 import { newId } from '../../lib/id';
 import type { GameState, Slice } from '../types';
 
-export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer'>> = (set, get) => {
+export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings'>> = (set, get) => {
   return {
     init: () => {
       if (get().socket) return;
@@ -12,7 +12,10 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
       attachSocketBridge(socket, get);
     },
 
-    onConnected: () => set({ connected: true }),
+    onConnected: () => set({ connected: true, connectError: false }),
+
+    onConnectError: () => set({ connectError: true }),
+
     onDisconnected: () => set({ connected: false, draggingTokenId: null, hoverTokenId: null }),
     onJoinError: (joinError) => set({ joinError }),
 
@@ -23,6 +26,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
         roomName: room.name,
         selfId,
         role: player?.role ?? 'player',
+        testMode: room.testMode === true,
         players: room.players,
         scene: room.scene,
         viewMapId: room.scene.activeMapId,
@@ -37,6 +41,12 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
     },
 
     onRoomRenamed: ({ name }) => set({ roomName: name }),
+
+    onRoomSettings: ({ testMode }) => set({ testMode: testMode === true }),
+
+    setRoomSettings: (testMode) => {
+      get().socket?.emit('room:settings', { testMode });
+    },
 
     onRoomClosed: (joinError) =>
       set({

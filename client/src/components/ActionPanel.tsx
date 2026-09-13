@@ -14,6 +14,7 @@ import {
   type TurnState,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useIsDm } from '../lib/control';
 import { loadSpells } from '../lib/spells';
 import ActionIcon from './ActionIcon';
 import ConditionChips from './ConditionChips';
@@ -56,7 +57,7 @@ export default function ActionPanel() {
   const selectedTokenId = useGameStore((s) => s.selectedTokenId);
   const targetTokenId = useGameStore((s) => s.targetTokenId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const role = useGameStore((s) => s.role);
+  const isDm = useIsDm();
   const sheet = useGameStore((s) => s.sheet);
   const resources = useGameStore((s) => s.resources);
   const runAction = useGameStore((s) => s.runAction);
@@ -87,7 +88,7 @@ export default function ActionPanel() {
     }
     const token = tokenId ? map.tokens.find((t) => t.id === tokenId) : null;
     if (!token) return null;
-    const controlled = role === 'dm' || (currentCharacterId !== null && token.libraryItemId === currentCharacterId);
+    const controlled = isDm || (currentCharacterId !== null && token.libraryItemId === currentCharacterId);
     const inTurn = combat.active && combat.currentIndex >= 0 && controlled;
     const isCharacter = currentCharacterId !== null && token.libraryItemId === currentCharacterId;
     const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
@@ -96,7 +97,7 @@ export default function ActionPanel() {
     const features = isCharacter && sheet ? classFeatures(sheet.classes) : [];
     const attacksPer = isCharacter ? attacksPerAction(sheet?.classes ?? []) : Math.max(1, token.statblock?.multiattack ?? 1);
     return { token, turn, controlled, inTurn, combatActive: combat.active, weapons, features, attacksPer, isCharacter };
-  }, [map, selectedTokenId, currentCharacterId, role, sheet]);
+  }, [map, selectedTokenId, currentCharacterId, isDm, sheet]);
 
   const characterSpells = useMemo(() => {
     if (!sheet || !info?.isCharacter || !spells) return [];
@@ -109,7 +110,7 @@ export default function ActionPanel() {
 
   if (!info) return null;
   const { token, turn, controlled, inTurn, combatActive, weapons, features, attacksPer } = info;
-  const incap = role !== 'dm' && isIncapacitated(token.conditions);
+  const incap = !isDm && isIncapacitated(token.conditions);
   const spellByKey = new Map((spells ?? []).map((s) => [s.key, s]));
 
   const targetName = map?.tokens.find((t) => t.id === targetTokenId)?.name;
