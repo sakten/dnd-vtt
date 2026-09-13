@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import {
   advantageAgainst,
   applyDamageDefenses,
+  attackRollParts,
   attackerAdvantage,
   attackerDisadvantage,
   autoCrit,
   autoFailSave,
+  damageRollParts,
   disadvantageAgainst,
   exhaustionRollPenalty,
   gridDistanceFeet,
@@ -17,12 +19,15 @@ import {
   rollLabelText,
   spellAttackCount,
   spellDamageExpression,
+  spellEffectDefs,
   spellIsSelf,
   spellRangeFeet,
   statNumber,
   withAdvantage,
+  withRollParts,
   type ChatMessage,
   type DiceRollResult,
+  type EffectInstance,
   type RollKind,
   type RollLabelParams,
   type Spell,
@@ -31,6 +36,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { rollConcentrationOnDamage } from './effects';
 
 export interface SpellCastInput {
   caster: Token;
@@ -112,6 +118,7 @@ function applyHp(
   const controllerId = ctx.manager.controllerOfToken(room, target);
   if (controllerId) ctx.emitResources(room, controllerId);
   ctx.broadcastAll('players:update', ctx.manager.toState(room).players);
+  if (amount < 0) rollConcentrationOnDamage(ctx, room, target, -amount);
 }
 
 /** Тип урона заклинания, если он однозначен (иначе защиты не применяются). */
@@ -138,11 +145,68 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
   const adv: 'a' | 'd' | undefined = input.advantage === 'a' || input.advantage === 'd' ? input.advantage : undefined;
   const damageType = spellDamageType(spell);
 
+  // Эффекты Ф8: баффы/дебаффы без урона (Shield, Bless, Haste…). Раньше веток
+  // урона: у Bless/Bane в данных есть «фантомный» 1d4 из описания.
+  const effectDefs = spellEffectDefs(spell.key);
+  if (effectDefs?.length) {
+    if (spell.concentration) {
+      for (const changed of ctx.manager.clearConcentration(room, caster.id)) {
+        ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+      }
+    }
+    const applied: string[] = [];
+    let anchor: string | undefined;
+    for (const def of effectDefs) {
+      const recipients = def.to === 'targets' ? targets : [caster];
+      for (const target of recipients) {
+        if (spell.save?.length && stats && def.to === 'targets' && spell.save[0]) {
+          const ability = spell.save[0];
+          const parts = ctx.manager.savePartsForToken(room, target, ability);
+          const saveRoll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+          const success = !autoFailSave(target.conditions, ability) && saveRoll.total >= stats.dc;
+          pushRoll(ctx, room, author, saveRoll, 'save', {
+            subject: `${spell.name} · ${target.name}`,
+            saveOutcome: success ? 'success' : 'fail',
+          });
+          if (success) continue;
+        }
+        for (const stale of target.effects.filter((e) => e.sourceKey === spell.key && e.sourceId === caster.id)) {
+          ctx.manager.removeEffect(room, target, stale.id);
+        }
+        const effectId = randomUUID();
+        const effect: EffectInstance = {
+          id: effectId,
+          name: def.name,
+          sourceKey: spell.key,
+          sourceId: caster.id,
+          concentration: def.concentration,
+          duration: def.duration,
+          modifiers: def.modifiers.map((m, i) => ({ ...m, id: `${effectId}:m${i}` })),
+          conditions: def.conditions,
+        };
+        ctx.manager.applyEffect(room, target, effect);
+        ctx.emitToken(room, 'token:update', input.mapId, target);
+        applied.push(target.name);
+        if (!anchor) anchor = effectId;
+      }
+    }
+    if (spell.concentration && anchor) ctx.manager.setConcentration(room, input.mapId, caster, anchor);
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(
+      room,
+      applied.length
+        ? `${caster.name}: ${spell.name} → ${applied.join(', ')}`
+        : `${caster.name}: ${spell.name} — без эффекта`
+    );
+    return {};
+  }
+
   if (spell.spellAttack && expression && stats) {
     const count = spellAttackCount(spell, castLevel, characterLevel);
     const rangeType = spell.spellAttack;
     const castMap = ctx.manager.findMap(room, input.mapId);
     const gridSize = room.scene.grid.size || 50;
+    const abilities = ctx.manager.abilitiesForToken(room, caster);
     for (let i = 0; i < count; i++) {
       // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
       const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
@@ -153,16 +217,29 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
       if (attackerDisadvantage(caster.conditions)) disCount += 1;
       if (advantageAgainst(target.conditions, rangeType)) advCount += 1;
       if (disadvantageAgainst(target.conditions, rangeType)) disCount += 1;
+      const effectParts = attackRollParts(
+        caster.effects,
+        target.effects,
+        { rangeType, attackType: rangeType },
+        abilities
+      );
+      if (effectParts.mode === 'a') advCount += 1;
+      if (effectParts.mode === 'd') disCount += 1;
       const advMode: 'a' | 'd' | undefined = advCount > disCount ? 'a' : disCount > advCount ? 'd' : undefined;
       const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
       const penalty = exhaustionRollPenalty(caster.conditions);
-      const hitRoll = rollDice(withAdvantage(`d20+${stats.attack + penalty}`, advMode));
+      const hitExpr = withRollParts(`d20+${stats.attack + penalty}`, {
+        flat: effectParts.flat,
+        dice: effectParts.dice,
+      });
+      const hitRoll = rollDice(withAdvantage(hitExpr, advMode));
       const crit = isCriticalHit(hitRoll) || autoCrit(target.conditions, distance, rangeType);
-      const targetAc = statNumber(target.ac);
+      const targetAc = ctx.manager.acForToken(room, target);
       const hitSuccess = targetAc > 0 ? resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc) : true;
       pushRoll(ctx, room, author, hitRoll, 'attack', { subject: label, hit: hitSuccess ? 'hit' : 'miss' });
       if (!hitSuccess) continue;
-      const damageRoll = rollDice(expression, Math.random, { doubleDice: crit });
+      const damageParts = damageRollParts(caster.effects, { rangeType, damageType }, abilities);
+      const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
       const adjusted = applyDamageDefenses(
         damageRoll.total,
         damageType,
@@ -180,13 +257,13 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
 
   if (spell.save && expression && stats && spell.save[0]) {
     // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз).
-    const damageRoll = rollDice(expression);
+    const damageParts = damageRollParts(caster.effects, { damageType }, ctx.manager.abilitiesForToken(room, caster));
+    const damageRoll = rollDice(withRollParts(expression, damageParts));
     pushRoll(ctx, room, author, damageRoll, healing ? 'heal' : 'damage', { subject, damageType });
     for (const target of targets) {
       const saveAbility = spell.save[0];
-      const saveBonus =
-        ctx.manager.saveBonusForToken(room, target, saveAbility) + exhaustionRollPenalty(target.conditions);
-      const saveRoll = rollDice(`d20+${saveBonus}`);
+      const parts = ctx.manager.savePartsForToken(room, target, saveAbility);
+      const saveRoll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
       const success = !autoFailSave(target.conditions, saveAbility) && saveRoll.total >= stats.dc;
       pushRoll(ctx, room, author, saveRoll, 'save', {
         subject: `${spell.name} · ${target.name}`,

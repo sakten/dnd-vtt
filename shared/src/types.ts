@@ -205,6 +205,8 @@ export interface ConditionInstance {
   sourceId?: string;
   /** Ключ заклинания-источника (для иконки). */
   sourceKey?: string;
+  /** id эффекта, наложившего состояние (снимается вместе с ним). */
+  effectId?: string;
 }
 
 export type ModifierTarget =
@@ -217,7 +219,9 @@ export type ModifierTarget =
   | 'initiative'
   | 'maxHp'
   | 'spellDc'
-  | 'spellAttack';
+  | 'spellAttack'
+  | 'extraActions'
+  | 'extraBonusActions';
 
 export type ModifierMode =
   | 'add'
@@ -241,8 +245,8 @@ export interface Modifier {
   id: string;
   target: ModifierTarget;
   mode: ModifierMode;
-  /** Число либо кость в виде строки (например '1d4'). */
-  value: number | string;
+  /** Число, формула ('13+dex') или кость ('1d4'); нужно для add/set/multiply. */
+  value?: number | string;
   filter?: ModifierFilter;
 }
 
@@ -663,6 +667,8 @@ const MODIFIER_TARGETS: ModifierTarget[] = [
   'maxHp',
   'spellDc',
   'spellAttack',
+  'extraActions',
+  'extraBonusActions',
 ];
 const MODIFIER_MODES: ModifierMode[] = [
   'add',
@@ -733,6 +739,7 @@ export function normalizeConditions(raw: unknown): ConditionInstance[] {
     if (c.key === 'exhaustion') condition.level = clampInt(c.level, 1, 6, 1);
     if (typeof c.sourceId === 'string' && c.sourceId) condition.sourceId = c.sourceId;
     if (typeof c.sourceKey === 'string' && c.sourceKey) condition.sourceKey = c.sourceKey.slice(0, 80);
+    if (typeof c.effectId === 'string' && c.effectId) condition.effectId = c.effectId.slice(0, 80);
     if (c.save && typeof c.save === 'object' && isAbilityKey(c.save.ability)) {
       condition.save = {
         ability: c.save.ability,
@@ -1101,6 +1108,8 @@ export interface ClientToServerEvents {
     /** Направление конуса/линии (мировая точка). */
     direction?: { x: number; y: number };
   }) => void;
+  /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
+  'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;
   'player:setCharacter': (

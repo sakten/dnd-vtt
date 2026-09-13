@@ -3,10 +3,12 @@ import {
   advantageAgainst,
   applyDamageDefenses,
   attackRange,
+  attackRollParts,
   attackSubject,
   attackerAdvantage,
   attackerDisadvantage,
   autoCrit,
+  damageRollParts,
   disadvantageAgainst,
   exhaustionRollPenalty,
   gridDistanceFeet,
@@ -18,6 +20,7 @@ import {
   statNumber,
   weaponRolls,
   withAdvantage,
+  withRollParts,
   type AttackEntry,
   type ChatMessage,
   type DiceRollResult,
@@ -25,6 +28,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { rollConcentrationOnDamage } from './effects';
 
 export interface AttackResolveInput {
   /** Атакующий токен; null — атака только по листу (без токена на карте). */
@@ -84,7 +88,7 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
   const { hit, damage } = weaponRolls(attack);
   if (!hit && !damage) return {};
 
-  // Преимущество/помеха: явный выбор + состояния атакующего и цели + дистанция.
+  // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
   let advCount = input.advantage === 'a' ? 1 : 0;
   let disCount = input.advantage === 'd' ? 1 : 0;
   if (attackerAdvantage(attacker?.conditions)) advCount += 1;
@@ -94,6 +98,19 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
     if (disadvantageAgainst(target.conditions, attack.rangeType)) disCount += 1;
   }
   if (forcedDisadvantage) disCount += 1;
+
+  const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
+  const effectParts = attackRollParts(
+    attacker?.effects,
+    target?.effects,
+    {
+      rangeType: attack.rangeType,
+      attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
+    },
+    abilities
+  );
+  if (effectParts.mode === 'a') advCount += 1;
+  if (effectParts.mode === 'd') disCount += 1;
   const adv: 'a' | 'd' | undefined = advCount > disCount ? 'a' : disCount > advCount ? 'd' : undefined;
 
   const penalty = exhaustionRollPenalty(attacker?.conditions);
@@ -105,14 +122,25 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
     penalty: penalty || undefined,
   };
 
-  const targetAc = target ? statNumber(target.ac) : 0;
+  const targetAc = target ? manager.acForToken(room, target) : 0;
   const result: AttackResolveResult = {};
+  const attackExpr = hit ? withRollParts(hit, { flat: effectParts.flat, dice: effectParts.dice }) : '';
+  const damageParts = damageRollParts(
+    attacker?.effects,
+    {
+      rangeType: attack.rangeType,
+      attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
+      damageType: attack.damageType,
+    },
+    abilities
+  );
+  const damageExpr = damage ? withRollParts(damage, damageParts) : '';
 
   try {
     let crit = false;
     let hitSuccess: boolean | undefined;
     if (hit) {
-      const hitRoll = rollDice(withAdvantage(hit, adv));
+      const hitRoll = rollDice(withAdvantage(attackExpr, adv));
       crit =
         isCriticalHit(hitRoll) ||
         (hasTarget && !!target && autoCrit(target.conditions, distanceFeet, attack.rangeType));
@@ -140,7 +168,7 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
       result.crit = crit;
     }
     if (damage && hitSuccess !== false) {
-      const damageRoll = rollDice(damage, Math.random, { doubleDice: crit });
+      const damageRoll = rollDice(damageExpr, Math.random, { doubleDice: crit });
       const defenses = target ? manager.damageDefensesForToken(room, target) : [];
       const adjusted = applyDamageDefenses(damageRoll.total, attack.damageType, defenses);
       const damageParams: RollLabelParams = { ...baseParams, damageNote: adjusted.note };
@@ -167,6 +195,7 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
           const controllerId = manager.controllerOfToken(room, target);
           if (controllerId) emitResources(room, controllerId);
           broadcastAll('players:update', manager.toState(room).players);
+          rollConcentrationOnDamage(ctx, room, target, adjusted.amount);
         }
       }
     }

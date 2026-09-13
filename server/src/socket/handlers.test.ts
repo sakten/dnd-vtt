@@ -488,6 +488,52 @@ describe('spell:cast', () => {
 
     expect(room.scene.maps[0].tokens.find((t) => t.id === 't2')?.hpCurrent).toBe(30);
   });
+
+  it('Shield накладывает +5 AC и тратит реакцию', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', ac: '12' })], { p1: 'lib1' });
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
+
+    const tk = room.scene.maps[0].tokens[0];
+    expect(tk.effects).toHaveLength(1);
+    expect(tk.effects[0].modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
+    expect(combatOf(room).turns.e1.reactionUsed).toBe(true);
+    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(f.manager.acForToken(room, tk)).toBe(17);
+  });
+
+  it('Bless — концентрация на цели; endConcentration снимает эффекты', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2')],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Bless', className: 'cleric' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Bless',
+      slotLevel: 1,
+      targetIds: ['t2'],
+    });
+
+    const target = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
+    expect(target.effects).toHaveLength(1);
+    expect(target.effects[0].concentration).toBe(true);
+    expect(target.effects[0].sourceId).toBe('t1');
+    expect(combatOf(room).turns.e1.concentrationId).toBe(target.effects[0].id);
+
+    f.invoke('spell:endConcentration', { mapId: 'm1', tokenId: 't1' });
+    expect(target.effects).toHaveLength(0);
+    expect(combatOf(room).turns.e1.concentrationId).toBeNull();
+  });
 });
 
 describe('состояния (ограничения и авто-эффекты)', () => {

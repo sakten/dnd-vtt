@@ -9,6 +9,7 @@ export const createActionSlice: Slice<
     | 'aimToCursor'
     | 'cancelAim'
     | 'confirmAim'
+    | 'endConcentration'
     | 'startMultiTarget'
     | 'addMultiTarget'
     | 'cancelMultiTarget'
@@ -66,6 +67,12 @@ export const createActionSlice: Slice<
   },
 
   cancelAim: () => _set({ aim: null }),
+
+  endConcentration: (tokenId) => {
+    const mapId = get().viewMapId;
+    if (!mapId) return;
+    get().socket?.emit('spell:endConcentration', { mapId, tokenId });
+  },
 
   confirmAim: () => {
     const aim = get().aim;

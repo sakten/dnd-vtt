@@ -554,3 +554,205 @@ describe('RoomManager состояния', () => {
     expect(combat.turns.e1.movementMax).toBe(DEFAULT_SPEED - 10);
   });
 });
+
+describe('RoomManager эффекты', () => {
+  it('applyEffect связывает состояния, removeEffect снимает их вместе', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1');
+    room.scene.maps[0].tokens = [tk];
+
+    manager.applyEffect(room, tk, {
+      id: 'ef1',
+      name: 'Haste',
+      duration: { type: 'concentration' },
+      concentration: true,
+      sourceId: 't1',
+      conditions: ['incapacitated'],
+      modifiers: [],
+    });
+
+    expect(tk.effects).toHaveLength(1);
+    expect(tk.conditions[0]?.effectId).toBe('ef1');
+
+    manager.removeEffect(room, tk, 'ef1');
+    expect(tk.effects).toHaveLength(0);
+    expect(tk.conditions).toHaveLength(0);
+  });
+
+  it('эффекты меняют AC, скорость и доп. действия', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', { ac: '12' });
+    room.scene.maps[0].tokens = [tk];
+
+    manager.applyEffect(room, tk, {
+      id: 'ef1',
+      name: 'Mage Armor',
+      duration: { type: 'permanent' },
+      sourceId: 't1',
+      modifiers: [{ id: 'm1', target: 'ac', mode: 'set', value: '13+dex' }],
+    });
+    expect(manager.acForToken(room, tk)).toBe(13);
+
+    manager.applyEffect(room, tk, {
+      id: 'ef2',
+      name: 'Haste',
+      duration: { type: 'concentration' },
+      concentration: true,
+      sourceId: 't1',
+      modifiers: [
+        { id: 'm2', target: 'ac', mode: 'add', value: 2 },
+        { id: 'm3', target: 'speed', mode: 'multiply', value: 2 },
+        { id: 'm4', target: 'extraActions', mode: 'add', value: 1 },
+      ],
+    });
+    expect(manager.acForToken(room, tk)).toBe(15);
+    expect(manager.tokenSpeed(room, tk)).toBe(60);
+
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    expect(combat.turns.e1.movementMax).toBe(60);
+    expect(combat.turns.e1.extraActions).toBe(1);
+  });
+
+  it('tickEffects: раунды и «до конца хода»', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      effects: [
+        { id: 'ef1', name: 'Shield', duration: { type: 'endOfTurn', of: 'source' }, sourceId: 't1', modifiers: [] },
+        { id: 'ef2', name: 'Round', duration: { type: 'rounds', rounds: 1 }, modifiers: [] },
+      ],
+    });
+    room.scene.maps[0].tokens = [tk];
+
+    const res = manager.tickEffects(room, tk, 'start');
+
+    expect(res.removed).toContain('Shield');
+    expect(res.removed).toContain('Round');
+    expect(tk.effects).toHaveLength(0);
+  });
+
+  it('«до конца хода» источника снимается с чужих токенов', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1');
+    const ally = token('t2', {
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Bless',
+          duration: { type: 'endOfTurn', of: 'source' },
+          sourceId: 't1',
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0].tokens = [caster, ally];
+
+    manager.tickEffects(room, caster, 'start');
+
+    expect(ally.effects).toHaveLength(0);
+  });
+
+  it('clearConcentration снимает эффекты и чистит concentrationId', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1');
+    const ally = token('t2', {
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Bless',
+          concentration: true,
+          sourceId: 't1',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+      conditions: [{ key: 'custom', name: 'X', effectId: 'ef1' }],
+    });
+    room.scene.maps[0].tokens = [caster, ally];
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    manager.setConcentration(room, 'm1', caster, 'ef1');
+
+    const changed = manager.clearConcentration(room, 't1');
+
+    expect(changed.map((c) => c.token.id)).toEqual(['t2']);
+    expect(ally.effects).toHaveLength(0);
+    expect(ally.conditions).toHaveLength(0);
+    expect(combat.turns.e1.concentrationId).toBeNull();
+  });
+
+  it('concentrationCheck: успех сохраняет, провал снимает эффекты', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const strong = token('t1', {
+      statblock: { abilities: { ...DEFAULT_ABILITIES, con: 30 }, saves: { con: 100 } },
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Bless',
+          concentration: true,
+          sourceId: 't1',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+    });
+    const weak = token('t2', {
+      statblock: { abilities: { ...DEFAULT_ABILITIES, con: 1 }, saves: { con: -100 } },
+      effects: [
+        {
+          id: 'ef2',
+          name: 'Bless',
+          concentration: true,
+          sourceId: 't2',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0].tokens = [strong, weak];
+
+    const ok = manager.concentrationCheck(room, strong, 40);
+    expect(ok?.success).toBe(true);
+    expect(ok?.dc).toBe(20);
+    expect(strong.effects).toHaveLength(1);
+
+    const fail = manager.concentrationCheck(room, weak, 10);
+    expect(fail?.success).toBe(false);
+    expect(weak.effects).toHaveLength(0);
+  });
+
+  it('эффект-защита добавляется к сопротивлениям при расчёте урона', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Stoneskin',
+          concentration: true,
+          sourceId: 't1',
+          duration: { type: 'concentration' },
+          modifiers: [
+            { id: 'm1', target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } },
+          ],
+        },
+      ],
+    });
+    room.scene.maps[0].tokens = [tk];
+
+    const defenses = manager.damageDefensesForToken(room, tk);
+    expect(defenses.some((d) => d.type === 'resistance' && d.damageType === 'slashing')).toBe(true);
+  });
+});

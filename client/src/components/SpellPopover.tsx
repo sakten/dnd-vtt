@@ -7,6 +7,7 @@ import {
   spellAreaOrigin,
   spellAttackCount,
   spellDamageExpression,
+  spellEffectDefs,
   spellHasArea,
   spellRangeFeet,
   spellTargetKind,
@@ -47,7 +48,10 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const area = spellHasArea(spell);
   const self = spellTargetKind(spell) === 'self';
   const projectiles = spellAttackCount(spell, level, sheet ? characterLevel(sheet.classes) : 1);
-  const multi = !area && projectiles > 1;
+  const effectTargetCount =
+    spellEffectDefs(spell.key)?.reduce((max, d) => Math.max(max, d.to === 'targets' ? d.targets ?? 1 : 0), 0) ?? 0;
+  const multi = !area && (projectiles > 1 || effectTargetCount > 1);
+  const multiCount = effectTargetCount > 1 ? effectTargetCount : projectiles;
   const target = map?.tokens.find((t) => t.id === targetTokenId) ?? null;
   const hasTarget = area || multi || self || !!target;
   const attacky = !!spell.spellAttack || !!spell.save;
@@ -81,7 +85,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         spellKey: spell.key,
         slotLevel: isCantrip ? undefined : level,
         advantage: mode,
-        count: projectiles,
+        count: multiCount,
       });
     } else {
       castSpell({
@@ -147,8 +151,12 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </div>
         ) : multi ? (
           <div className="sp-row">
-            <span className="sp-label">Снаряды</span>
-            <span className="sp-target">{projectiles} шт. · цель для каждого на карте</span>
+            <span className="sp-label">{effectTargetCount > 1 ? 'Цели' : 'Снаряды'}</span>
+            <span className="sp-target">
+              {effectTargetCount > 1
+                ? `до ${effectTargetCount} · выбор на карте`
+                : `${projectiles} шт. · цель для каждого на карте`}
+            </span>
           </div>
         ) : (
           <div className="sp-row">

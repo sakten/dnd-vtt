@@ -150,4 +150,18 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const result = resolveSpellCast(ctx, input);
     if (result.error) socket.emit('chat:error', result.error);
   });
+
+  ctx.on('spell:endConcentration', ({ mapId, tokenId }) => {
+    if (!ctx.playerId) return;
+    const room = getRoom();
+    if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string') return;
+    const token = manager.findToken(room, mapId, tokenId);
+    if (!token) return;
+    if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
+    const changed = manager.clearConcentration(room, token.id);
+    if (!changed.length) return;
+    for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+    ctx.systemMessage(room, `${token.name}: концентрация прекращена`);
+    syncCombat(room, mapId);
+  });
 }

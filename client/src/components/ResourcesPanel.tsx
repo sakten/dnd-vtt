@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { applyRest, type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { newId } from '../lib/id';
@@ -97,6 +97,9 @@ export default function ResourcesPanel() {
   const sheet = useGameStore((s) => s.sheet);
   const updateResources = useGameStore((s) => s.updateResources);
   const rollHitDie = useGameStore((s) => s.rollHitDie);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const maps = useGameStore((s) => s.scene.maps);
+  const endConcentration = useGameStore((s) => s.endConcentration);
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newMax, setNewMax] = useState('1');
@@ -107,6 +110,19 @@ export default function ResourcesPanel() {
     if (open && resources) setNotes(resources.notes ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик заметок сбрасываем только при открытии
   }, [open]);
+
+  const concentration = useMemo(() => {
+    if (!currentCharacterId) return null;
+    for (const map of maps) {
+      const token = map.tokens.find((t) => t.libraryItemId === currentCharacterId);
+      if (!token) continue;
+      const effects = token.effects.filter((e) => e.concentration && e.sourceId === token.id);
+      if (effects.length) {
+        return { tokenId: token.id, names: [...new Set(effects.map((e) => e.name))] };
+      }
+    }
+    return null;
+  }, [maps, currentCharacterId]);
 
   if (!resources) return null;
   const r = resources;
@@ -202,6 +218,22 @@ export default function ResourcesPanel() {
               </div>
             </div>
           </div>
+
+          {concentration && (
+            <div className="resources-section">
+              <div className="resources-subtitle">Концентрация</div>
+              <div className="resource-row res-concentration">
+                <span className="res-concentration-names">{concentration.names.join(', ')}</span>
+                <button
+                  className="hit-die-btn"
+                  title="Прекратить концентрацию (снять эффекты)"
+                  onClick={() => endConcentration(concentration.tokenId)}
+                >
+                  Прекратить
+                </button>
+              </div>
+            </div>
+          )}
 
           {r.hitDice.length > 0 && (
             <div className="resources-section">

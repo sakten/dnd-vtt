@@ -85,6 +85,10 @@
 .cond-overlay-row {
   position: absolute;
   transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 .cond-overlay-row .cond-chips {
@@ -364,4 +368,87 @@
 .tm-conds .def-chip-abbr {
   font-size: 9px;
   line-height: 12px;
+}
+
+.eff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+
+.eff-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: rgba(16, 20, 28, 0.88);
+  border: 1px solid #4ea1ff;
+  color: #dbeafe;
+  font-size: 10px;
+  max-width: 130px;
+}
+
+.eff-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eff-chip-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.eff-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ea1ff;
+  flex: none;
+}
+
+.eff-chip-num {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffd166;
+}
+
+.eff-concentration {
+  border-color: #c084fc;
+}
+
+.eff-more {
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.tm-conds .eff-chips {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.tm-conds .eff-chip {
+  height: 24px;
+  font-size: 11px;
+  max-width: 160px;
+}
+
+.res-concentration {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.res-concentration-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
 }

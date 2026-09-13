@@ -171,6 +171,8 @@ export interface GameState {
   aimToCursor: (cursor: { x: number; y: number }) => void;
   cancelAim: () => void;
   confirmAim: () => void;
+  /** Досрочно прекратить концентрацию персонажа. */
+  endConcentration: (tokenId: string) => void;
   /** Быстрое изменение HP токена (DM): delta>0 — лечение, <0 — урон. */
   adjustTokenHp: (tokenId: string, delta: number) => void;
   /** Выбор цели на каждый снаряд; когда все выбраны — каст. */

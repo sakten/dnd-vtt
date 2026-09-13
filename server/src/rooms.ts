@@ -6,10 +6,12 @@ import type {
   CombatState,
   DamageDefense,
   DiceRollResult,
+  EffectInstance,
   InitiativeEntry,
   LibraryItem,
   MapInfo,
   RoomState,
+  RollParts,
   Token,
   TokenFields,
   TurnState,
@@ -18,21 +20,28 @@ import {
   abilityMod,
   attacksPerAction,
   clampCells,
+  concentrationDc,
+  concentratingEffects,
   DEFAULT_GRID,
   DEFAULT_SPEED,
   defaultFog,
+  effectDefenses,
   emptyCombatState,
   emptyTurnState,
   initiativeBonus,
   conditionName,
   exhaustionRollPenalty,
   exhaustionSpeedPenalty,
+  modifiedValue,
   normalizeAttacks,
   normalizeDamageDefenses,
   rollDice,
+  saveRollParts,
   sheetProficiencyBonus,
   statNumber,
   statsPaired,
+  withAdvantage,
+  withRollParts,
 } from 'shared';
 import { cancelRoomSave, loadPersistedRooms, removeRoomFile, removeRoomUploadDir, removeRoomUploads, saveRoomNow, saveRoomSoon } from './store';
 import { toPersistedRoom, type Room } from './roomTypes';
@@ -406,15 +415,22 @@ export class RoomManager {
   }
 
   /** Максимум передвижения и легендарных действий для записи инициативы. */
-  private turnResources(room: Room, entry: InitiativeEntry): { speed: number; legendaryMax: number } {
+  private turnResources(
+    room: Room,
+    entry: InitiativeEntry
+  ): { speed: number; legendaryMax: number; extraActions: number; extraBonusActions: number } {
     const token = entry.tokenId ? this.findTokenById(room, entry.tokenId) : null;
-    if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0 };
+    if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0, extraActions: 0, extraBonusActions: 0 };
     const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
     const sheetSpeed = controllerId ? room.sheets[controllerId]?.speed : undefined;
     const base = sheetSpeed ?? token.speed ?? DEFAULT_SPEED;
+    const abilities = this.abilitiesForToken(room, token);
+    const afterExhaustion = Math.max(0, base + exhaustionSpeedPenalty(token.conditions));
     return {
-      speed: Math.max(0, base + exhaustionSpeedPenalty(token.conditions)),
+      speed: Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, abilities)),
       legendaryMax: token.statblock?.legendary?.max ?? 0,
+      extraActions: Math.max(0, modifiedValue(0, token.effects, 'extraActions', {}, abilities)),
+      extraBonusActions: Math.max(0, modifiedValue(0, token.effects, 'extraBonusActions', {}, abilities)),
     };
   }
 
@@ -424,10 +440,12 @@ export class RoomManager {
     if (!combat) return;
     const entry = combat.entries.find((e) => e.id === entryId);
     if (!entry) return;
-    const { speed, legendaryMax } = this.turnResources(room, entry);
+    const { speed, legendaryMax, extraActions, extraBonusActions } = this.turnResources(room, entry);
     const prev = combat.turns[entry.id];
     combat.turns[entry.id] = {
       ...emptyTurnState(speed),
+      extraActions,
+      extraBonusActions,
       legendaryRemaining: legendaryMax,
       legendaryMax,
       concentrationId: prev?.concentrationId ?? null,
@@ -479,11 +497,31 @@ export class RoomManager {
     return Math.max(1, token.statblock?.multiattack ?? 1);
   }
 
-  /** Эффективная скорость токена: из листа персонажа либо своя у монстра. */
+  /** Эффективная скорость токена: лист/статблок + бонусы и множители эффектов. */
   tokenSpeed(room: Room, token: Token): number {
     const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
     const sheet = controllerId ? room.sheets[controllerId] : undefined;
-    return sheet?.speed ?? token.speed ?? DEFAULT_SPEED;
+    const base = sheet?.speed ?? token.speed ?? DEFAULT_SPEED;
+    return Math.max(0, modifiedValue(base, token.effects, 'speed', {}, this.abilitiesForToken(room, token)));
+  }
+
+  /** Характеристики токена: из листа персонажа либо из статблока монстра. */
+  abilitiesForToken(room: Room, token: Token): Record<AbilityKey, number> | undefined {
+    const controllerId = this.controllerOfToken(room, token);
+    const sheet = controllerId ? room.sheets[controllerId] : undefined;
+    if (sheet) return sheet.abilities;
+    return token.statblock?.abilities;
+  }
+
+  /** Эффективный AC токена с учётом BAFF-эффектов (Shield, Mage Armor, Barkskin…). */
+  acForToken(room: Room, token: Token): number {
+    return modifiedValue(
+      statNumber(token.ac),
+      token.effects,
+      'ac',
+      {},
+      this.abilitiesForToken(room, token)
+    );
   }
 
   /** Модификатор характеристики токена: из листа персонажа или статблока монстра. */
@@ -609,12 +647,20 @@ export class RoomManager {
     return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
   }
 
-  /** Защиты токена: у персонажа — из листа контролёра, у монстра — из токена. */
+  /** Защиты токена: у персонажа — из листа, у монстра — из токена, плюс эффекты. */
   damageDefensesForToken(room: Room, token: Token): DamageDefense[] {
     const controllerId = this.controllerOfToken(room, token);
     const sheet = controllerId ? room.sheets[controllerId] : undefined;
-    if (sheet) return sheet.damageDefenses ?? [];
-    return token.damageDefenses ?? [];
+    const base = sheet ? sheet.damageDefenses ?? [] : token.damageDefenses ?? [];
+    const extra = effectDefenses(token.effects);
+    return extra.length ? [...base, ...extra] : base;
+  }
+
+  /** Слагаемые/кости/режим спасброска токена: базовый бонус, эффекты, истощение. */
+  savePartsForToken(room: Room, token: Token, ability: AbilityKey): RollParts {
+    const parts = saveRollParts(token.effects, ability, this.abilitiesForToken(room, token));
+    parts.flat += this.saveBonusForToken(room, token, ability) + exhaustionRollPenalty(token.conditions);
+    return parts;
   }
 
   /** Бонус спасброска токена: мод. характеристики (+профишенси у персонажа). */
@@ -646,8 +692,8 @@ export class RoomManager {
     const kept = token.conditions.filter((cond) => {
       let remove = false;
       if (cond.save && cond.save.timing === phase) {
-        const bonus = this.saveBonusForToken(room, token, cond.save.ability) + exhaustionRollPenalty(token.conditions);
-        const roll = rollDice(`d20+${bonus}`);
+        const parts = this.savePartsForToken(room, token, cond.save.ability);
+        const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
         const success = roll.total >= cond.save.dc;
         saves.push({ name: cond.name, roll, success });
         if (success) remove = true;
@@ -665,6 +711,168 @@ export class RoomManager {
     token.conditions = kept;
     if (changed) this.saveSoon(room);
     return { changed, saves, removed };
+  }
+
+  /** Накладывает эффект на токен и связанные с ним состояния. */
+  applyEffect(room: Room, token: Token, effect: EffectInstance) {
+    token.effects = [...token.effects.filter((e) => e.id !== effect.id), effect];
+    if (effect.conditions?.length) {
+      for (const key of effect.conditions) {
+        if (token.conditions.some((c) => c.effectId === effect.id && c.key === key)) continue;
+        token.conditions.push({
+          key,
+          name: conditionName(key),
+          rounds: null,
+          sourceId: effect.sourceId,
+          sourceKey: effect.sourceKey,
+          effectId: effect.id,
+        });
+      }
+    }
+    this.saveSoon(room);
+  }
+
+  /** Снимает эффект и его состояния с токена; false — эффекта не было. */
+  removeEffect(room: Room, token: Token, effectId: string): boolean {
+    if (!token.effects.some((e) => e.id === effectId)) return false;
+    token.effects = token.effects.filter((e) => e.id !== effectId);
+    token.conditions = token.conditions.filter((c) => c.effectId !== effectId);
+    this.saveSoon(room);
+    return true;
+  }
+
+  /**
+   * Тик эффектов в начале/конце хода носителя: повторные спасброски, раунды,
+   * «до конца хода». Эффекты `endOfTurn` источника снимаются со всех токенов.
+   */
+  tickEffects(
+    room: Room,
+    token: Token,
+    phase: 'start' | 'end'
+  ): { changed: boolean; saves: { name: string; roll: DiceRollResult; success: boolean }[]; removed: string[] } {
+    const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
+    const removed: string[] = [];
+    let changed = false;
+
+    const kept = token.effects.filter((effect) => {
+      let remove = false;
+      const d = effect.duration;
+      if (d.type === 'untilSave' && d.timing === phase) {
+        const parts = this.savePartsForToken(room, token, d.ability);
+        const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+        const success = roll.total >= d.dc;
+        saves.push({ name: effect.name, roll, success });
+        if (success) remove = true;
+      }
+      if (!remove && d.type === 'rounds' && phase === 'start') {
+        d.rounds -= 1;
+        changed = true;
+        if (d.rounds <= 0) {
+          remove = true;
+          removed.push(effect.name);
+        }
+      }
+      if (!remove && d.type === 'endOfTurn' && phase === 'start') {
+        if (d.of === 'target' || effect.sourceId === token.id) {
+          remove = true;
+          removed.push(effect.name);
+        }
+      }
+      if (remove) {
+        token.conditions = token.conditions.filter((c) => c.effectId !== effect.id);
+        changed = true;
+      }
+      return !remove;
+    });
+    token.effects = kept;
+
+    for (const map of room.scene.maps) {
+      for (const other of map.tokens) {
+        if (other === token) continue;
+        const keptOther = other.effects.filter((effect) => {
+          if (effect.duration.type === 'endOfTurn' && effect.duration.of === 'source' && effect.sourceId === token.id) {
+            other.conditions = other.conditions.filter((c) => c.effectId !== effect.id);
+            removed.push(effect.name);
+            changed = true;
+            return false;
+          }
+          return true;
+        });
+        other.effects = keptOther;
+      }
+    }
+
+    if (changed) this.saveSoon(room);
+    return { changed, saves, removed };
+  }
+
+  /** Эффекты концентрации существа-источника на всех картах. */
+  concentratingEffectsOf(room: Room, token: Token): EffectInstance[] {
+    const out: EffectInstance[] = [];
+    for (const map of room.scene.maps) {
+      for (const target of map.tokens) {
+        out.push(...concentratingEffects(target.effects, token.id));
+      }
+    }
+    return out;
+  }
+
+  /** Снимает все эффекты концентрации заклинателя; возвращает изменённые токены. */
+  clearConcentration(room: Room, sourceId: string): { mapId: string; token: Token }[] {
+    const changed: { mapId: string; token: Token }[] = [];
+    for (const map of room.scene.maps) {
+      for (const token of map.tokens) {
+        const removedIds = new Set(
+          token.effects.filter((e) => e.concentration && e.sourceId === sourceId).map((e) => e.id)
+        );
+        if (!removedIds.size) continue;
+        token.effects = token.effects.filter((e) => !removedIds.has(e.id));
+        token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
+        changed.push({ mapId: map.id, token });
+      }
+      for (const entry of map.combat.entries) {
+        const turn = map.combat.turns[entry.id];
+        if (turn?.concentrationId && entry.tokenId === sourceId) turn.concentrationId = null;
+      }
+    }
+    if (changed.length) this.saveSoon(room);
+    return changed;
+  }
+
+  /** Запоминает эффект концентрации в состоянии хода заклинателя. */
+  setConcentration(room: Room, mapId: string, token: Token, effectId: string) {
+    const turn = this.turnForToken(room, mapId, token);
+    if (!turn) return;
+    turn.concentrationId = effectId;
+    this.saveSoon(room);
+  }
+
+  /**
+   * Проверка концентрации при получении урона: СЛ 10 или половина урона.
+   * При провале эффекты концентрации снимаются. null — концентрации нет.
+   */
+  concentrationCheck(
+    room: Room,
+    token: Token,
+    damage: number
+  ):
+    | {
+        dc: number;
+        roll: DiceRollResult;
+        success: boolean;
+        names: string[];
+        changed: { mapId: string; token: Token }[];
+      }
+    | null {
+    const active = this.concentratingEffectsOf(room, token);
+    if (!active.length) return null;
+    const dc = concentrationDc(damage);
+    const parts = this.savePartsForToken(room, token, 'con');
+    const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+    const success = roll.total >= dc;
+    const names = [...new Set(active.map((e) => e.name))];
+    const changed = success ? [] : this.clearConcentration(room, token.id);
+    return { dc, roll, success, names, changed };
   }
 
   /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */

@@ -17,6 +17,7 @@ import { useGameStore } from '../store/useGameStore';
 import { loadSpells } from '../lib/spells';
 import ActionIcon from './ActionIcon';
 import ConditionChips from './ConditionChips';
+import EffectChips from './EffectChips';
 import SpellIcon from './SpellIcon';
 import SpellPopover from './SpellPopover';
 import WeaponIcon from './WeaponIcon';
@@ -284,6 +285,7 @@ export default function ActionPanel() {
       <div className="ap-head">
         <span className="ap-token">{token.name}</span>
         {token.conditions.length > 0 && <ConditionChips conditions={token.conditions} spellByKey={spellByKey} />}
+        {token.effects.length > 0 && <EffectChips effects={token.effects} spellByKey={spellByKey} />}
         {incap && <span className="ap-incap">Недееспособен</span>}
         {targetName && <span className="ap-target">Цель: {targetName}</span>}
         {combatActive && turn ? (

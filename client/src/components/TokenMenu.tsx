@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_SPEED,
+  effectDurationText,
   statNumber,
   type ConditionInstance,
   type Faction,
@@ -16,6 +17,7 @@ import ConditionChips from './ConditionChips';
 import ConditionsForm from './ConditionsForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import DefenseChips from './DefenseChips';
+import EffectChips from './EffectChips';
 import StatblockForm from './StatblockForm';
 
 const FACTION_RU: Record<Faction, string> = { ally: 'Союзник', enemy: 'Враг', neutral: 'Нейтрал' };
@@ -109,6 +111,13 @@ export default function TokenMenu() {
     close(null);
   };
 
+  const removeEffect = (effectId: string) => {
+    const nextEffects = (token.effects ?? []).filter((e) => e.id !== effectId);
+    const nextConditions = (token.conditions ?? []).filter((c) => c.effectId !== effectId);
+    setTokenFields(token.id, { effects: nextEffects, conditions: nextConditions });
+    setConditions(nextConditions);
+  };
+
   return (
     <div className="modal-backdrop" onMouseDown={() => close(null)}>
       <div className="modal token-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
@@ -131,6 +140,7 @@ export default function TokenMenu() {
             </div>
             <div className="tm-conds">
               <ConditionChips conditions={conditions} spellByKey={spellByKey} max={null} />
+              <EffectChips effects={token.effects ?? []} spellByKey={spellByKey} max={null} />
               <DefenseChips defenses={draft.damageDefenses} />
             </div>
             <div className="tm-sub">
@@ -345,6 +355,30 @@ export default function TokenMenu() {
               )}
 
               <ConditionsForm value={conditions} onChange={setConditions} />
+
+              {(token.effects?.length ?? 0) > 0 && (
+                <div className="conditions-form">
+                  <div className="sheet-section-title">Эффекты ({token.effects.length})</div>
+                  {token.effects.map((e) => (
+                    <div className="condition-row" key={e.id}>
+                      <EffectChips effects={[e]} spellByKey={spellByKey} max={null} />
+                      <span className="condition-label" title={`${e.name} — ${effectDurationText(e.duration)}`}>
+                        {effectDurationText(e.duration)}
+                      </span>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          className="condition-remove"
+                          onClick={() => removeEffect(e.id)}
+                          title="Снять эффект"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <DamageDefensesForm
                 value={draft.damageDefenses}

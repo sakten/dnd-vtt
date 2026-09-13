@@ -3,8 +3,9 @@ import type { Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useSpells } from '../lib/useSpells';
 import ConditionChips from './ConditionChips';
+import EffectChips from './EffectChips';
 
-/** Чипы состояний над токенами (DOM-оверлей поверх Konva-сцены). */
+/** Чипы состояний и эффектов над токенами (DOM-оверлей поверх Konva-сцены). */
 export default function ConditionsOverlay() {
   const maps = useGameStore((s) => s.scene.maps);
   const viewMapId = useGameStore((s) => s.viewMapId);
@@ -16,7 +17,7 @@ export default function ConditionsOverlay() {
   const map = maps.find((m) => m.id === viewMapId);
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
 
-  const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0);
+  const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.length > 0);
   if (!tokens.length) return null;
 
   return (
@@ -31,6 +32,7 @@ export default function ConditionsOverlay() {
         return (
           <div key={t.id} className="cond-overlay-row" style={{ left, top }}>
             <ConditionChips conditions={t.conditions} spellByKey={spellByKey} />
+            <EffectChips effects={t.effects} spellByKey={spellByKey} />
           </div>
         );
       })}
