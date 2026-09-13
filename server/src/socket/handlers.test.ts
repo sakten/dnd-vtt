@@ -17,6 +17,7 @@ import { registerCombatHandlers } from './combat';
 import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
 import { registerActionHandlers } from './actions';
+import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
 
@@ -508,8 +509,7 @@ describe('spell:cast', () => {
     expect(f.manager.acForToken(room, tk)).toBe(17);
   });
 
-  it('Bless — концентрация на цели; endConcentration снимает эффекты', () => {
-    const room = makeRoom(
+  it('Bless — концентрация на цели; endConcentration снимает эффекты', () => {    const room = makeRoom(
       [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2')],
       { p1: 'lib1' }
     );
@@ -532,9 +532,67 @@ describe('spell:cast', () => {
     expect(target.effects[0].sourceId).toBe('t1');
     expect(combatOf(room).turns.e1.concentrationId).toBe(target.effects[0].id);
 
+    const caster = room.scene.maps[0].tokens[0];
+    expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Bless' && e.concentration)).toBe(true);
+
     f.invoke('spell:endConcentration', { mapId: 'm1', tokenId: 't1' });
     expect(target.effects).toHaveLength(0);
+    expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Bless')).toBe(false);
     expect(combatOf(room).turns.e1.concentrationId).toBeNull();
+  });
+
+  it('Aid поднимает максимум и текущие HP цели', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '20', hpCurrent: 20 })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Aid', className: 'cleric' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 2, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Aid', slotLevel: 2, targetIds: ['t2'] });
+
+    const target = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
+    expect(target.hpMax).toBe('25');
+    expect(target.hpCurrent).toBe(25);
+    expect(target.effects).toHaveLength(1);
+  });
+
+  it('Hex помечает цель, даёт +1d6 урона и метку на цели', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '40', hpCurrent: 40 })],
+      { p1: 'lib1' }
+    );
+    room.scene.maps[0].tokens[0].attacks = [
+      { name: 'Меч', hit: 'd20+20', damage: '1d8', damageType: 'slashing', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+    ];
+    room.sheets.p1 = {
+      ...casterSheet(),
+      attacks: [
+        { name: 'Меч', hit: 'd20+20', damage: '1d8', damageType: 'slashing', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
+      ],
+      spells: [{ key: 'XPHB:Hex', className: 'warlock' }],
+    };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerDiceHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Hex', slotLevel: 1, targetIds: ['t2'] });
+
+    const caster = room.scene.maps[0].tokens[0];
+    const target = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
+    const hex = caster.effects.find((e) => e.sourceKey === 'XPHB:Hex');
+    expect(hex?.modifiers[0].filter?.targetId).toBe('t2');
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Hex')).toBe(true);
+
+    f.invoke('dice:attack', { tokenId: 't1', targetId: 't2', attackIndex: 0 });
+
+    const damage = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'damage') as
+      | { roll?: { expression?: string } }
+      | undefined;
+    expect(damage?.roll?.expression).toContain('1d6');
   });
 });
 
@@ -612,5 +670,65 @@ describe('room:settings (режим тестов)', () => {
     dm.invoke('room:settings', { testMode: true });
     expect(room.testMode).toBe(true);
     expect(dm.emitted.some((e) => e.event === 'system')).toBe(true);
+  });
+});
+
+describe('отдых и удаление токена', () => {
+  it('долгий отдых снимает эффекты и восстанавливает HP', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          libraryItemId: 'lib1',
+          effects: [
+            {
+              id: 'ef1',
+              name: 'Aid',
+              duration: { type: 'permanent' },
+              modifiers: [{ id: 'm1', target: 'maxHp', mode: 'add', value: 5 }],
+            },
+          ],
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.resources.p1 = {
+      ...casterResources(),
+      hp: { current: 15, max: 25, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:rest', { type: 'long' });
+
+    expect(room.resources.p1.hp.max).toBe(20);
+    expect(room.resources.p1.hp.current).toBe(20);
+    expect(room.scene.maps[0].tokens[0].effects).toHaveLength(0);
+  });
+
+  it('удаление кастера снимает его концентрацию с других токенов', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1'),
+        makeToken('t2', {
+          effects: [
+            {
+              id: 'ef1',
+              name: 'Hex',
+              concentration: true,
+              sourceId: 't1',
+              duration: { type: 'concentration' },
+              modifiers: [],
+            },
+          ],
+        }),
+      ],
+      {}
+    );
+    const f = makeCtx(room, { dm: true });
+    registerTokenHandlers(f.ctx);
+
+    f.invoke('token:remove', { mapId: 'm1', id: 't1' });
+
+    expect(room.scene.maps[0].tokens.find((t) => t.id === 't2')?.effects).toHaveLength(0);
   });
 });

@@ -286,7 +286,9 @@ export default function ActionPanel() {
       <div className="ap-head">
         <span className="ap-token">{token.name}</span>
         {token.conditions.length > 0 && <ConditionChips conditions={token.conditions} spellByKey={spellByKey} />}
-        {token.effects.length > 0 && <EffectChips effects={token.effects} spellByKey={spellByKey} />}
+        {token.effects.length > 0 && (
+          <EffectChips effects={token.effects} spellByKey={spellByKey} tokenId={token.id} />
+        )}
         {incap && <span className="ap-incap">Недееспособен</span>}
         {targetName && <span className="ap-target">Цель: {targetName}</span>}
         {combatActive && turn ? (

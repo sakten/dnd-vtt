@@ -59,6 +59,10 @@ export function validateSpellCast(room: Room, input: SpellCastInput): string | u
   const expression = spellDamageExpression(spell, input.castLevel, input.characterLevel);
   const targets = input.targets.filter((t) => !!t);
 
+  if (spellEffectDefs(spell.key)?.some((d) => d.markTarget) && !targets[0]) {
+    return 'Не выбрана цель';
+  }
+
   if (spell.spellAttack && expression) {
     if (!input.stats) return 'Нет заклинательной атаки';
     if (!targets[0]) return 'Не выбрана цель';
@@ -158,6 +162,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     let anchor: string | undefined;
     for (const def of effectDefs) {
       const recipients = def.to === 'targets' ? targets : [caster];
+      const markedId = def.markTarget ? targets[0]?.id : undefined;
       for (const target of recipients) {
         if (spell.save?.length && stats && def.to === 'targets' && spell.save[0]) {
           const ability = spell.save[0];
@@ -174,14 +179,20 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
           ctx.manager.removeEffect(room, target, stale.id);
         }
         const effectId = randomUUID();
+        let duration = def.duration;
+        if (duration.type === 'untilSave' && stats) duration = { ...duration, dc: stats.dc };
         const effect: EffectInstance = {
           id: effectId,
           name: def.name,
           sourceKey: spell.key,
           sourceId: caster.id,
           concentration: def.concentration,
-          duration: def.duration,
-          modifiers: def.modifiers.map((m, i) => ({ ...m, id: `${effectId}:m${i}` })),
+          duration,
+          modifiers: def.modifiers.map((m, i) => ({
+            ...m,
+            id: `${effectId}:m${i}`,
+            ...(markedId ? { filter: { ...m.filter, targetId: markedId } } : {}),
+          })),
           conditions: def.conditions,
         };
         ctx.manager.applyEffect(room, target, effect);
@@ -189,6 +200,21 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
         applied.push(target.name);
         if (!anchor) anchor = effectId;
       }
+    }
+    if (spell.concentration && !effectDefs.some((d) => d.to !== 'targets')) {
+      // Чистый target-only каст: на кастере держим якорь концентрации для чипа.
+      const anchorId = randomUUID();
+      ctx.manager.applyEffect(room, caster, {
+        id: anchorId,
+        name: spell.name,
+        sourceKey: spell.key,
+        sourceId: caster.id,
+        concentration: true,
+        duration: { type: 'concentration' },
+        modifiers: [],
+      });
+      ctx.emitToken(room, 'token:update', input.mapId, caster);
+      if (!anchor) anchor = anchorId;
     }
     if (spell.concentration && anchor) ctx.manager.setConcentration(room, input.mapId, caster, anchor);
     ctx.syncCombat(room, input.mapId);
@@ -238,7 +264,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
       const hitSuccess = targetAc > 0 ? resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc) : true;
       pushRoll(ctx, room, author, hitRoll, 'attack', { subject: label, hit: hitSuccess ? 'hit' : 'miss' });
       if (!hitSuccess) continue;
-      const damageParts = damageRollParts(caster.effects, { rangeType, damageType }, abilities);
+      const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target?.id }, abilities);
       const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
       const adjusted = applyDamageDefenses(
         damageRoll.total,

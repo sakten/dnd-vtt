@@ -1,4 +1,5 @@
 import type { ConditionKey, EffectDuration, Modifier } from '../types';
+import type { Spell } from './spells';
 
 /**
  * Накладываемый заклинанием эффект (Ф8). Модификаторы без id — id присваивает
@@ -11,6 +12,11 @@ export interface SpellEffectDef {
   to?: 'self' | 'targets';
   /** Максимум целей (для мультицелевых баффов/дебаффов, напр. Bless — 3). */
   targets?: number;
+  /**
+   * Привязать эффект к цели каста: модификаторам проставляется filter.targetId
+   * (Hex/Hunter's Mark накладываются на кастера, но бьют только по метке).
+   */
+  markTarget?: boolean;
   modifiers: Omit<Modifier, 'id'>[];
   conditions?: ConditionKey[];
 }
@@ -144,9 +150,97 @@ export const SPELL_EFFECTS: Record<string, SpellEffectDef[]> = {
       modifiers: [{ target: 'check', mode: 'add', value: '1d4' }],
     },
   ],
+  'XPHB:Hex': [
+    {
+      name: 'Hex',
+      duration: CONCENTRATION,
+      concentration: true,
+      to: 'self',
+      markTarget: true,
+      modifiers: [{ target: 'damage', mode: 'add', value: '1d6' }],
+    },
+    { name: 'Hex', duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [] },
+  ],
+  "XPHB:Hunter's Mark": [
+    {
+      name: "Hunter's Mark",
+      duration: CONCENTRATION,
+      concentration: true,
+      to: 'self',
+      markTarget: true,
+      modifiers: [{ target: 'damage', mode: 'add', value: '1d6' }],
+    },
+    { name: "Hunter's Mark", duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [] },
+  ],
+  'XPHB:Hold Person': [
+    {
+      name: 'Hold Person',
+      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+      concentration: true,
+      to: 'targets',
+      conditions: ['paralyzed'],
+      modifiers: [],
+    },
+  ],
+  'XPHB:Entangle': [
+    {
+      name: 'Entangle',
+      duration: { type: 'untilSave', ability: 'str', dc: 0, timing: 'end' },
+      concentration: true,
+      to: 'targets',
+      conditions: ['restrained'],
+      modifiers: [],
+    },
+  ],
+  'XPHB:Grease': [
+    {
+      name: 'Grease',
+      duration: { type: 'untilSave', ability: 'dex', dc: 0, timing: 'end' },
+      to: 'targets',
+      conditions: ['prone'],
+      modifiers: [],
+    },
+  ],
+  'XPHB:Fear': [
+    {
+      name: 'Fear',
+      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+      concentration: true,
+      to: 'targets',
+      conditions: ['frightened'],
+      modifiers: [],
+    },
+  ],
+  'XPHB:Faerie Fire': [
+    {
+      name: 'Faerie Fire',
+      duration: CONCENTRATION,
+      concentration: true,
+      to: 'targets',
+      modifiers: [{ target: 'attack', mode: 'advantage' }],
+    },
+  ],
+  'XPHB:Aid': [
+    {
+      name: 'Aid',
+      duration: PERMANENT,
+      to: 'targets',
+      targets: 3,
+      modifiers: [{ target: 'maxHp', mode: 'add', value: 5 }],
+    },
+  ],
 };
 
 /** Определения эффектов заклинания по ключу (или undefined, если их нет). */
 export function spellEffectDefs(spellKey: string): SpellEffectDef[] | undefined {
   return SPELL_EFFECTS[spellKey];
+}
+
+/**
+ * Реализована ли механика заклинания: автоматический урон/лечение/спасбросок
+ * (`automation: 'full'`) либо обработка через каталог эффектов. Остальные —
+ * заглушка (название и описание в чат), им рисуем красный маркер на иконке.
+ */
+export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolean {
+  return spell.automation === 'full' || spellEffectDefs(spell.key) !== undefined;
 }

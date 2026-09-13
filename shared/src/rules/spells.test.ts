@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectText,
+  deriveAreaSpec,
   firstSentence,
   normalizeComponents,
   normalizeDuration,
@@ -168,5 +169,22 @@ describe('normalizeSpell', () => {
       ['wizard']
     );
     expect(spell.conditions).toEqual(['Prone', 'Frightened']);
+  });
+});
+
+describe('deriveAreaSpec', () => {
+  const point = (text: string) =>
+    deriveAreaSpec({ type: 'point', distance: { type: 'feet', amount: 90 } }, text.toLowerCase());
+
+  it('квадрат из текста ("20-foot square")', () => {
+    expect(point('grasping plants sprout in a 20-foot square within range')).toEqual({ shape: 'cube', size: 20 });
+    expect(point('grease covers the ground in a 10-foot square')).toEqual({ shape: 'cube', size: 10 });
+  });
+
+  it('радиус, куб, конус, линия', () => {
+    expect(point('a 20-foot-radius sphere')).toEqual({ shape: 'sphere', size: 20 });
+    expect(point('a 15-foot cube')).toEqual({ shape: 'cube', size: 15 });
+    expect(point('a 30-foot cone')).toEqual({ shape: 'cone', size: 30 });
+    expect(point('a 60-foot line')).toEqual({ shape: 'line', size: 60, width: 5 });
   });
 });

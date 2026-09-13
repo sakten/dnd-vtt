@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { applyRest, type PlayerResources, type ResourceItem } from 'shared';
+import { type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { newId } from '../lib/id';
 
@@ -96,6 +96,7 @@ export default function ResourcesPanel() {
   const resources = useGameStore((s) => s.resources);
   const sheet = useGameStore((s) => s.sheet);
   const updateResources = useGameStore((s) => s.updateResources);
+  const rest = useGameStore((s) => s.rest);
   const rollHitDie = useGameStore((s) => s.rollHitDie);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const maps = useGameStore((s) => s.scene.maps);
@@ -355,8 +356,8 @@ export default function ResourcesPanel() {
           </div>
 
           <div className="resources-rest">
-            <button onClick={() => updateResources(applyRest(r, 'short'))}>Короткий отдых</button>
-            <button onClick={() => updateResources(applyRest(r, 'long'))}>Долгий отдых</button>
+            <button onClick={() => rest('short')}>Короткий отдых</button>
+            <button onClick={() => rest('long')}>Долгий отдых</button>
           </div>
 
           <div className="resources-section">

@@ -296,6 +296,8 @@ export function deriveAreaSpec(range: SpellRange, text: string): AreaSpec | unde
   }
   const radius = text.match(/(\d+)[- ]foot[- ]radius/i) ?? text.match(/radius of (\d+) feet/i);
   if (radius) return { shape: 'sphere', size: Number(radius[1]) };
+  const square = text.match(/(\d+)[- ]foot\s+(?:on a side\s+)?square/i);
+  if (square) return { shape: 'cube', size: Number(square[1]) };
   const cube = text.match(/(\d+)[- ]foot\s+(?:on a side\s+)?cube/i);
   if (cube) return { shape: 'cube', size: Number(cube[1]) };
   const line = text.match(/(\d+)[- ]foot[- ](?:long\s+)?line/i);

@@ -603,6 +603,17 @@
   font-weight: 700;
 }
 
+.tm-ac-buff {
+  margin-left: 3px;
+  color: #4ecb71;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.tm-ac-buff.negative {
+  color: #ff6b6b;
+}
+
 .tm-conds .cond-chips {
   flex-wrap: wrap;
 }

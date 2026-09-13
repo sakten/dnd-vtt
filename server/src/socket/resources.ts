@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_ABILITIES,
+  applyRest,
   effectiveMaxHp,
   rollDice,
   rollLabelText,
@@ -63,6 +64,27 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       socket.emit('resources:update', res);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
       broadcastAll('chat:message', message);
+      broadcastAll('players:update', manager.toState(room).players);
+    });
+
+    ctx.on('resources:rest', ({ type }) => {
+      if (!ctx.playerId) return;
+      const room = getRoom();
+      if (!room || (type !== 'short' && type !== 'long')) return;
+      const res = room.resources[ctx.playerId];
+      if (!res) return;
+      if (type === 'long') {
+        // Долгий отдых: истёкшие эффекты (и их состояния/концентрация) снимаются.
+        for (const c of manager.clearEffectsForPlayer(room, ctx.playerId)) {
+          emitToken(room, 'token:update', c.mapId, c.token);
+        }
+      }
+      room.resources[ctx.playerId] = applyRest(res, type);
+      for (const c of manager.syncSheetToTokens(room, ctx.playerId)) {
+        emitToken(room, 'token:update', c.mapId, c.token);
+      }
+      manager.saveSoon(room);
+      socket.emit('resources:update', room.resources[ctx.playerId]);
       broadcastAll('players:update', manager.toState(room).players);
     });
 

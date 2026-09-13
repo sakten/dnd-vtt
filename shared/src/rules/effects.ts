@@ -1,5 +1,6 @@
 import {
   abilityMod,
+  damageTypeName,
   type AbilityKey,
   type AttackRangeType,
   type DamageDefense,
@@ -8,6 +9,7 @@ import {
   type Modifier,
   type ModifierTarget,
 } from '../types';
+import { conditionName } from './conditions';
 
 /** Контекст применения модификатора (фильтры attackType/ability/skill/damageType). */
 export interface ModifierContext {
@@ -16,6 +18,8 @@ export interface ModifierContext {
   ability?: AbilityKey;
   skill?: string;
   damageType?: string;
+  /** Цель действия (для эффектов с filter.targetId — Hex/Hunter's Mark). */
+  targetId?: string;
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -66,6 +70,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.ability && f.ability !== ctx.ability) return false;
   if (f.skill && f.skill !== ctx.skill) return false;
   if (f.damageType && f.damageType !== ctx.damageType) return false;
+  if (f.targetId && f.targetId !== ctx.targetId) return false;
   return true;
 }
 
@@ -242,4 +247,93 @@ export function effectDurationText(duration: EffectDuration): string {
     case 'permanent':
       return 'до снятия';
   }
+}
+
+function signedValue(value: number | string | undefined): string {
+  if (value === undefined) return '';
+  if (typeof value === 'number') return value >= 0 ? `+${value}` : `${value}`;
+  return value.startsWith('-') ? value : `+${value}`;
+}
+
+/** Человекочитаемая суть эффекта для тултипа: состояния и модификаторы. */
+export function effectSummary(effect: EffectInstance): string | undefined {
+  const parts: string[] = [];
+  for (const key of effect.conditions ?? []) parts.push(conditionName(key));
+  for (const mod of effect.modifiers) {
+    const v = signedValue(mod.value);
+    switch (mod.mode) {
+      case 'advantage':
+        parts.push(
+          mod.target === 'attack'
+            ? 'атаки по цели с преимуществом'
+            : mod.target === 'save'
+              ? 'преимущество на спасброски'
+              : mod.target === 'check'
+                ? 'преимущество на проверки'
+                : 'преимущество'
+        );
+        break;
+      case 'disadvantage':
+        parts.push(
+          mod.target === 'attack'
+            ? 'атаки по цели с помехой'
+            : mod.target === 'save'
+              ? 'помеха на спасброски'
+              : mod.target === 'check'
+                ? 'помеха на проверки'
+                : 'помеха'
+        );
+        break;
+      case 'add': {
+        const target =
+          mod.target === 'attack'
+            ? 'к атакам'
+            : mod.target === 'damage'
+              ? mod.filter?.targetId
+                ? 'к урону по метке'
+                : 'к урону'
+              : mod.target === 'save'
+                ? 'к спасброскам'
+                : mod.target === 'check'
+                  ? 'к проверкам'
+                  : mod.target === 'ac'
+                    ? 'к AC'
+                    : mod.target === 'speed'
+                      ? 'фт скорости'
+                      : mod.target === 'initiative'
+                        ? 'к инициативе'
+                        : mod.target === 'maxHp'
+                          ? 'к максимуму HP'
+                          : mod.target === 'extraActions'
+                            ? 'доп. действие'
+                            : mod.target === 'extraBonusActions'
+                              ? 'доп. бонусное действие'
+                              : mod.target === 'spellAttack'
+                                ? 'к атаке заклинанием'
+                                : mod.target === 'spellDc'
+                                  ? 'к СЛ заклинаний'
+                                  : '';
+        parts.push(target ? `${v} ${target}` : v);
+        break;
+      }
+      case 'multiply':
+        parts.push(
+          `×${mod.value ?? 0}${mod.target === 'speed' ? ' к скорости' : mod.target === 'ac' ? ' к AC' : ''}`
+        );
+        break;
+      case 'set':
+        parts.push(mod.target === 'ac' ? `AC не ниже ${mod.value ?? 0}` : `= ${mod.value ?? 0}`);
+        break;
+      case 'resistance':
+      case 'immunity':
+      case 'vulnerability': {
+        const label =
+          mod.mode === 'resistance' ? 'сопротивление' : mod.mode === 'immunity' ? 'иммунитет' : 'уязвимость';
+        const type = damageTypeName(mod.filter?.damageType);
+        parts.push(type ? `${label}: ${type}` : label);
+        break;
+      }
+    }
+  }
+  return parts.length ? parts.join(', ') : undefined;
 }

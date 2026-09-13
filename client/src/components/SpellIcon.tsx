@@ -1,7 +1,7 @@
+import { spellAutomated, type Spell } from 'shared';
 import { spellVisual } from '../lib/spellIcon';
 import { SPELL_ICONS } from './spellIcons';
 import { SPELL_GLYPHS } from './spellGlyphs';
-import type { Spell } from 'shared';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
@@ -54,6 +54,13 @@ export default function SpellIcon({ spell, className }: { spell: Spell; classNam
         </g>
       )}
       <LevelBadge numeral={numeral} accent={accent} />
+      {!spellAutomated(spell) && (
+        <g>
+          <title>Эффект не реализован: механику ведёт мастер (в чат — название и описание)</title>
+          <circle cx="11" cy="11" r="7.4" fill="#0b0f14" opacity="0.82" />
+          <circle cx="11" cy="11" r="6" fill="#ff4d4f" />
+        </g>
+      )}
     </svg>
   );
 }

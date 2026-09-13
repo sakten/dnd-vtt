@@ -1,6 +1,6 @@
 import type { GameState, Slice } from '../types';
 
-export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResourcesUpdate' | 'onCharacterUpdate' | 'setSheet' | 'updateResources' | 'setCurrentCharacter' | 'rollHitDie' | 'rollDeathSave'>> = (set, get) => {
+export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResourcesUpdate' | 'onCharacterUpdate' | 'setSheet' | 'updateResources' | 'rest' | 'setCurrentCharacter' | 'rollHitDie' | 'rollDeathSave'>> = (set, get) => {
   return {
     onSheetUpdate: ({ sheet }) => set({ sheet }),
     onResourcesUpdate: (resources) => set({ resources }),
@@ -16,6 +16,10 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
     updateResources: (resources) => {
       set({ resources });
       get().socket?.emit('resources:update', resources);
+    },
+
+    rest: (type) => {
+      get().socket?.emit('resources:rest', { type });
     },
 
     setCurrentCharacter: (libraryItemId) => {

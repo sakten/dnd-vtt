@@ -7,6 +7,7 @@ import {
   spellAreaOrigin,
   spellAttackCount,
   spellDamageExpression,
+  spellAutomated,
   spellEffectDefs,
   spellHasArea,
   spellRangeFeet,
@@ -166,6 +167,10 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         )}
 
         {damageText && <div className="sp-damage">{damageText}</div>}
+
+        {!spellAutomated(spell) && (
+          <div className="sp-note">Эффект не автоматизирован: в чат уйдёт название и описание, механику ведёт мастер</div>
+        )}
 
         {attacky && spell.spellAttack && (
           <div className="sp-row">

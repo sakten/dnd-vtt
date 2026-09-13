@@ -131,6 +131,7 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
       rangeType: attack.rangeType,
       attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
       damageType: attack.damageType,
+      targetId: target?.id,
     },
     abilities
   );

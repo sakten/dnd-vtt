@@ -6,6 +6,7 @@ import {
   defaultFog,
   emptyCombatState,
   type CharacterSheet,
+  type EffectInstance,
   type InitiativeEntry,
   type PlayerResources,
   type Token,
@@ -755,6 +756,83 @@ describe('RoomManager эффекты', () => {
 
     const defenses = manager.damageDefensesForToken(room, tk);
     expect(defenses.some((d) => d.type === 'resistance' && d.damageType === 'slashing')).toBe(true);
+  });
+
+  it('Aid начисляет и откатывает максимум HP у монстра', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', { hpMax: '10', hpCurrent: 10 });
+    room.scene.maps[0].tokens = [tk];
+    const aid: EffectInstance = {
+      id: 'ef1',
+      name: 'Aid',
+      duration: { type: 'permanent' },
+      modifiers: [{ id: 'm1', target: 'maxHp', mode: 'add', value: 5 }],
+    };
+
+    manager.applyEffect(room, tk, aid);
+    expect(tk.hpMax).toBe('15');
+    expect(tk.hpCurrent).toBe(15);
+
+    manager.removeEffect(room, tk, 'ef1');
+    expect(tk.hpMax).toBe('10');
+    expect(tk.hpCurrent).toBe(10);
+  });
+
+  it('Aid у персонажа идёт в ресурсы и откатывается', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(20, 10) } });
+    const tk = token('t1', { libraryItemId: 'lib1' });
+    room.scene.maps[0].tokens = [tk];
+    const aid: EffectInstance = {
+      id: 'ef1',
+      name: 'Aid',
+      duration: { type: 'permanent' },
+      modifiers: [{ id: 'm1', target: 'maxHp', mode: 'add', value: 5 }],
+    };
+
+    manager.applyEffect(room, tk, aid);
+    expect(room.resources.p1.hp.max).toBe(25);
+    expect(room.resources.p1.hp.current).toBe(15);
+
+    manager.removeEffect(room, tk, 'ef1');
+    expect(room.resources.p1.hp.max).toBe(20);
+    expect(room.resources.p1.hp.current).toBe(15);
+  });
+
+  it('clearEffectsForPlayer снимает эффекты, состояния и концентрацию', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(20, 20) } });
+    const conc = (id: string, sourceId: string): EffectInstance => ({
+      id,
+      name: 'Hex',
+      duration: { type: 'concentration' },
+      concentration: true,
+      sourceId,
+      modifiers: [],
+    });
+    const caster = token('t1', { libraryItemId: 'lib1' });
+    const ally = token('t2');
+    room.scene.maps[0].tokens = [caster, ally];
+
+    manager.applyEffect(room, caster, {
+      id: 'ef1',
+      name: 'Aid',
+      duration: { type: 'permanent' },
+      modifiers: [{ id: 'm1', target: 'maxHp', mode: 'add', value: 5 }],
+    });
+    manager.applyEffect(room, caster, { ...conc('ef2', 't1'), conditions: ['custom'] });
+    manager.applyEffect(room, ally, conc('ef3', 't1'));
+    expect(room.resources.p1.hp.max).toBe(25);
+    expect(caster.conditions).toHaveLength(1);
+
+    const changed = manager.clearEffectsForPlayer(room, 'p1');
+
+    expect(changed.map((c) => c.token.id).sort()).toEqual(['t1', 't2']);
+    expect(caster.effects).toHaveLength(0);
+    expect(caster.conditions).toHaveLength(0);
+    expect(ally.effects).toHaveLength(0);
+    expect(room.resources.p1.hp.max).toBe(20);
   });
 });
 

@@ -63,6 +63,8 @@ S.player.emit('sheet:update', {
   spells: [
     { key: 'XPHB:Shield', className: 'wizard' },
     { key: 'XPHB:Bless', className: 'wizard' },
+    { key: 'XPHB:Aid', className: 'wizard' },
+    { key: 'XPHB:Hex', className: 'wizard' },
   ],
 });
 await sheetP;
@@ -80,6 +82,7 @@ check(
 
 // Bless: концентрация на союзнике.
 const blessP = withToken(ally.id, (t) => t.effects.length > 0);
+const blessAnchorP = withToken(mage.id, (t) => t.effects.some((e) => e.sourceKey === 'XPHB:Bless'));
 S.player.emit('spell:cast', {
   mapId: S.map1.id,
   tokenId: mage.id,
@@ -88,6 +91,8 @@ S.player.emit('spell:cast', {
   targetIds: [ally.id],
 });
 const blessed = await blessP;
+await blessAnchorP;
+check(true, 'концентрация Bless помечена на кастере');
 const bless = blessed.effects.find((e) => e.sourceKey === 'XPHB:Bless');
 check(!!bless && bless.concentration === true && bless.sourceId === mage.id, 'Bless — концентрация мага на союзнике');
 check(
@@ -100,6 +105,62 @@ const endP = withToken(ally.id, (t) => t.effects.length === 0);
 S.player.emit('spell:endConcentration', { mapId: S.map1.id, tokenId: mage.id });
 await endP;
 check(true, 'концентрация прекращена, эффект снят');
+
+// Aid: +5 к максимуму и текущим HP цели.
+const aidP = withToken(ally.id, (t) => t.hpMax === '25');
+S.player.emit('spell:cast', {
+  mapId: S.map1.id,
+  tokenId: mage.id,
+  spellKey: 'XPHB:Aid',
+  slotLevel: 2,
+  targetIds: [ally.id],
+});
+const aided = await aidP;
+check(aided.hpCurrent === 25, 'Aid поднял максимум и текущие HP (+5)');
+
+// Hex: бонус урона привязан к метке, метка видна на цели.
+const hexTargetP = withToken(ally.id, (t) => t.effects.some((e) => e.sourceKey === 'XPHB:Hex'));
+const hexMageP = withToken(mage.id, (t) => t.effects.some((e) => e.sourceKey === 'XPHB:Hex'));
+S.player.emit('spell:cast', {
+  mapId: S.map1.id,
+  tokenId: mage.id,
+  spellKey: 'XPHB:Hex',
+  slotLevel: 1,
+  targetIds: [ally.id],
+});
+const hexed = await hexTargetP;
+const mageHexed = await hexMageP;
+const targetHex = hexed.effects.find((e) => e.sourceKey === 'XPHB:Hex');
+const markMod = mageHexed.effects.find((e) => e.sourceKey === 'XPHB:Hex')?.modifiers?.[0];
+check(!!targetHex && targetHex.concentration === true, 'метка Hex наложена на цель');
+check(markMod?.filter?.targetId === ally.id, 'Hex на кастере привязан к метке');
+
+// Снятие Aid возвращает максимум HP.
+const aidRemovedP = withToken(ally.id, (t) => !t.effects.some((e) => e.sourceKey === 'XPHB:Aid') && t.hpMax === '20');
+S.dm.emit('token:update', {
+  mapId: S.map1.id,
+  id: ally.id,
+  patch: { effects: hexed.effects.filter((e) => e.sourceKey !== 'XPHB:Aid') },
+});
+await aidRemovedP;
+check(true, 'снятие Aid откатывает максимум HP');
+
+// Долгий отдых снимает эффекты и концентрацию с персонажа и его целей.
+const preRestHitDie = latestResources?.hitDice?.[0]?.current ?? 2;
+const mageClearedP = withToken(mage.id, (t) => t.effects.length === 0);
+const allyHexClearedP = withToken(ally.id, (t) => !t.effects.some((e) => e.sourceKey === 'XPHB:Hex'));
+S.player.emit('resources:rest', { type: 'long' });
+await mageClearedP;
+await allyHexClearedP;
+check(true, 'долгий отдых снял эффекты и метку');
+
+// Возвращаем потраченные кости хитов: их проверяет 05-persistence.
+await waitFor(() => latestResources && latestResources.hp.current === latestResources.hp.max);
+S.player.emit('resources:update', {
+  ...latestResources,
+  hitDice: latestResources.hitDice.map((h, i) => (i === 0 ? { ...h, current: preRestHitDie } : h)),
+});
+await sleep(200);
 
 const mageRemoved = eventOnce(S.player, 'token:remove');
 S.dm.emit('token:remove', { mapId: S.map1.id, id: mage.id });

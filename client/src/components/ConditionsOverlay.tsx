@@ -33,7 +33,7 @@ export default function ConditionsOverlay() {
         return (
           <div key={t.id} className="cond-overlay-row" style={{ left, top }}>
             <ConditionChips conditions={t.conditions} spellByKey={spellByKey} />
-            <EffectChips effects={t.effects} spellByKey={spellByKey} />
+            <EffectChips effects={t.effects} spellByKey={spellByKey} tokenId={t.id} />
           </div>
         );
       })}

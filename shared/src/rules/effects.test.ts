@@ -4,8 +4,10 @@ import {
   combineRollParts,
   concentrationDc,
   concentratingEffects,
+  damageRollParts,
   effectDefenses,
   effectDurationText,
+  effectSummary,
   evalModifierValue,
   hasConcentration,
   isDiceValue,
@@ -14,7 +16,7 @@ import {
   saveRollParts,
   withRollParts,
 } from './effects';
-import { spellEffectDefs } from './spellEffects';
+import { spellEffectDefs, spellAutomated } from './spellEffects';
 import type { EffectInstance, Modifier } from '../types';
 
 let seq = 0;
@@ -88,6 +90,15 @@ describe('атака: эффекты атакующего и защитника'
     const parts = attackRollParts([bless], undefined, {});
     expect(parts.dice).toEqual(['1d4']);
   });
+
+  it('targetId-фильтр (Hex) действует только по метке', () => {
+    const hex = effect({
+      modifiers: [mod({ target: 'damage', mode: 'add', value: '1d6', filter: { targetId: 't2' } })],
+    });
+    expect(damageRollParts([hex], { targetId: 't2' }).dice).toEqual(['1d6']);
+    expect(damageRollParts([hex], { targetId: 't3' }).dice).toEqual([]);
+    expect(damageRollParts([hex], {}).dice).toEqual([]);
+  });
 });
 
 describe('спасброски', () => {
@@ -152,6 +163,38 @@ describe('концентрация', () => {
   });
 });
 
+describe('effectSummary (тултипы)', () => {
+  it('преимущество по цели и метка Hex', () => {
+    const faerie = effect({ modifiers: [mod({ target: 'attack', mode: 'advantage' })] });
+    expect(effectSummary(faerie)).toBe('атаки по цели с преимуществом');
+
+    const hex = effect({
+      modifiers: [mod({ target: 'damage', mode: 'add', value: '1d6', filter: { targetId: 't2' } })],
+    });
+    expect(effectSummary(hex)).toBe('+1d6 к урону по метке');
+  });
+
+  it('Bless, состояния и сопротивления', () => {
+    const bless = effect({
+      modifiers: [
+        mod({ target: 'attack', mode: 'add', value: '1d4' }),
+        mod({ target: 'save', mode: 'add', value: '1d4' }),
+      ],
+    });
+    expect(effectSummary(bless)).toBe('+1d4 к атакам, +1d4 к спасброскам');
+
+    const hold = effect({ conditions: ['paralyzed'], modifiers: [] });
+    expect(effectSummary(hold)).toBe('Парализован');
+
+    const stoneskin = effect({
+      modifiers: [mod({ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } })],
+    });
+    expect(effectSummary(stoneskin)).toBe('сопротивление: Режущий');
+
+    expect(effectSummary(effect({ modifiers: [] }))).toBeUndefined();
+  });
+});
+
 describe('каталог эффектов заклинаний', () => {
   it('Shield даёт +5 AC до конца хода', () => {
     const defs = spellEffectDefs('XPHB:Shield');
@@ -173,5 +216,30 @@ describe('каталог эффектов заклинаний', () => {
 
   it('неизвестное заклинание — без эффектов', () => {
     expect(spellEffectDefs('XPHB:Fireball')).toBeUndefined();
+  });
+
+  it('Hex привязывает бонус урона к метке', () => {
+    const defs = spellEffectDefs('XPHB:Hex');
+    expect(defs?.[0].markTarget).toBe(true);
+    expect(defs?.[0].to).toBe('self');
+    expect(defs?.[0].modifiers[0]).toMatchObject({ target: 'damage', mode: 'add', value: '1d6' });
+    expect(defs?.[1].to).toBe('targets');
+  });
+
+  it('Hold Person — паралич до успешного спасброска', () => {
+    const def = spellEffectDefs('XPHB:Hold Person')?.[0];
+    expect(def?.conditions).toEqual(['paralyzed']);
+    expect(def?.duration.type).toBe('untilSave');
+  });
+
+  it('Aid даёт +5 к максимуму HP', () => {
+    const def = spellEffectDefs('XPHB:Aid')?.[0];
+    expect(def?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: 5 });
+  });
+
+  it('spellAutomated: full или есть каталог эффектов', () => {
+    expect(spellAutomated({ key: 'XPHB:Fireball', automation: 'full' })).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Shield', automation: 'manual' })).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Light', automation: 'manual' })).toBe(false);
   });
 });

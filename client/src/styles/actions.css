@@ -446,6 +446,11 @@
   color: #ff8a8a;
 }
 
+.sp-note {
+  font-size: 12px;
+  color: #ffb04a;
+}
+
 .sp-adv {
   display: flex;
   gap: 14px;

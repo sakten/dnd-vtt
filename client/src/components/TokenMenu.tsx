@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_SPEED,
   effectDurationText,
+  modifiedValue,
   statNumber,
   type ConditionInstance,
   type Faction,
@@ -32,6 +33,8 @@ export default function TokenMenu() {
   const removeToken = useGameStore((s) => s.removeToken);
   const adjustTokenHp = useGameStore((s) => s.adjustTokenHp);
   const setCurrentCharacter = useGameStore((s) => s.setCurrentCharacter);
+  const sheet = useGameStore((s) => s.sheet);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const isDm = useIsDm();
   const canEdit = useGameStore((s) => {
     const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((x) => x.id === s.tokenMenuId);
@@ -93,6 +96,14 @@ export default function TokenMenu() {
   const pct = hpMax > 0 ? Math.max(0, Math.min(1, hpCurrent / hpMax)) : 0;
   const hpColor = pct > 0.5 ? '#4ecb71' : pct > 0.25 ? '#ffd166' : '#ff6b6b';
 
+  const acBase = statNumber(draft.ac);
+  const acAbilities =
+    currentCharacterId && token.libraryItemId === currentCharacterId
+      ? sheet?.abilities
+      : token.statblock?.abilities;
+  const acEffective = modifiedValue(acBase, token.effects ?? [], 'ac', {}, acAbilities);
+  const acBonus = acEffective - acBase;
+
   const quickHp = (sign: 1 | -1) => {
     const delta = sign * Math.max(0, Math.round(hpAmount));
     if (!delta) return;
@@ -128,7 +139,14 @@ export default function TokenMenu() {
           <div className="tm-head-info">
             <div className="tm-name">{draft.name || 'Без имени'}</div>
             <div className="tm-stats">
-              <span>AC {draft.ac || '—'}</span>
+              <span title={acBonus ? `Базовый ${acBase}, с эффектами ${acEffective}` : 'Класс брони'}>
+                AC {acBase > 0 ? acEffective : '—'}
+                {acBase > 0 && acBonus !== 0 && (
+                  <em className={`tm-ac-buff${acBonus < 0 ? ' negative' : ''}`}>
+                    {acBonus > 0 ? `+${acBonus}` : acBonus}
+                  </em>
+                )}
+              </span>
               <span className="tm-hp">
                 <span className="tm-hp-bar">
                   <span className="tm-hp-fill" style={{ width: `${pct * 100}%`, background: hpColor }} />
@@ -140,7 +158,7 @@ export default function TokenMenu() {
             </div>
             <div className="tm-conds">
               <ConditionChips conditions={conditions} spellByKey={spellByKey} max={null} />
-              <EffectChips effects={token.effects ?? []} spellByKey={spellByKey} max={null} />
+              <EffectChips effects={token.effects ?? []} spellByKey={spellByKey} max={null} tokenId={token.id} />
               <DefenseChips defenses={draft.damageDefenses} />
             </div>
             <div className="tm-sub">
@@ -361,7 +379,7 @@ export default function TokenMenu() {
                   <div className="sheet-section-title">Эффекты ({token.effects.length})</div>
                   {token.effects.map((e) => (
                     <div className="condition-row" key={e.id}>
-                      <EffectChips effects={[e]} spellByKey={spellByKey} max={null} />
+                      <EffectChips effects={[e]} spellByKey={spellByKey} max={null} tokenId={token.id} />
                       <span className="condition-label" title={`${e.name} — ${effectDurationText(e.duration)}`}>
                         {effectDurationText(e.duration)}
                       </span>

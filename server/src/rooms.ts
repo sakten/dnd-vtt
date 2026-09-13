@@ -717,6 +717,7 @@ export class RoomManager {
   /** Накладывает эффект на токен и связанные с ним состояния. */
   applyEffect(room: Room, token: Token, effect: EffectInstance) {
     token.effects = [...token.effects.filter((e) => e.id !== effect.id), effect];
+    this.changeMaxHp(room, token, effect, 1);
     if (effect.conditions?.length) {
       for (const key of effect.conditions) {
         if (token.conditions.some((c) => c.effectId === effect.id && c.key === key)) continue;
@@ -735,11 +736,35 @@ export class RoomManager {
 
   /** Снимает эффект и его состояния с токена; false — эффекта не было. */
   removeEffect(room: Room, token: Token, effectId: string): boolean {
-    if (!token.effects.some((e) => e.id === effectId)) return false;
+    const effect = token.effects.find((e) => e.id === effectId);
+    if (!effect) return false;
+    this.changeMaxHp(room, token, effect, -1);
     token.effects = token.effects.filter((e) => e.id !== effectId);
     token.conditions = token.conditions.filter((c) => c.effectId !== effectId);
     this.saveSoon(room);
     return true;
+  }
+
+  /**
+   * Применяет/откатывает бонус к максимуму HP от эффекта (Aid и подобные):
+   * у персонажа — в ресурсах (с зеркалом в токены), у монстра — в токене.
+   */
+  changeMaxHp(room: Room, token: Token, effect: EffectInstance, sign: 1 | -1) {
+    const bonus = modifiedValue(0, [effect], 'maxHp', {}, this.abilitiesForToken(room, token));
+    if (!bonus) return;
+    const controllerId = this.controllerOfToken(room, token);
+    const res = controllerId ? room.resources[controllerId] : undefined;
+    if (controllerId && res && res.hp.max > 0) {
+      res.hp.max = Math.max(1, res.hp.max + sign * bonus);
+      if (sign > 0) res.hp.current += bonus;
+      else res.hp.current = Math.min(res.hp.current, res.hp.max);
+      this.syncSheetToTokens(room, controllerId);
+    } else {
+      const base = statNumber(token.hpMax);
+      if (base > 0) token.hpMax = String(Math.max(1, base + sign * bonus));
+      if (sign > 0) token.hpCurrent += bonus;
+      else token.hpCurrent = Math.min(token.hpCurrent, statNumber(token.hpMax));
+    }
   }
 
   /**
@@ -780,6 +805,7 @@ export class RoomManager {
         }
       }
       if (remove) {
+        this.changeMaxHp(room, token, effect, -1);
         token.conditions = token.conditions.filter((c) => c.effectId !== effect.id);
         changed = true;
       }
@@ -792,6 +818,7 @@ export class RoomManager {
         if (other === token) continue;
         const keptOther = other.effects.filter((effect) => {
           if (effect.duration.type === 'endOfTurn' && effect.duration.of === 'source' && effect.sourceId === token.id) {
+            this.changeMaxHp(room, other, effect, -1);
             other.conditions = other.conditions.filter((c) => c.effectId !== effect.id);
             removed.push(effect.name);
             changed = true;
@@ -827,6 +854,9 @@ export class RoomManager {
           token.effects.filter((e) => e.concentration && e.sourceId === sourceId).map((e) => e.id)
         );
         if (!removedIds.size) continue;
+        for (const effect of token.effects) {
+          if (removedIds.has(effect.id)) this.changeMaxHp(room, token, effect, -1);
+        }
         token.effects = token.effects.filter((e) => !removedIds.has(e.id));
         token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
         changed.push({ mapId: map.id, token });
@@ -846,6 +876,30 @@ export class RoomManager {
     if (!turn) return;
     turn.concentrationId = effectId;
     this.saveSoon(room);
+  }
+
+  /**
+   * Долгий отдых: снимает с токенов персонажа все эффекты (с откатом maxHp),
+   * их состояния и концентрацию (в т.ч. на других токенах). Возвращает изменения.
+   */
+  clearEffectsForPlayer(room: Room, playerId: string): { mapId: string; token: Token }[] {
+    const libId = room.controllers[playerId];
+    if (!libId) return [];
+    const changed = new Map<string, { mapId: string; token: Token }>();
+    for (const map of room.scene.maps) {
+      for (const token of map.tokens) {
+        if (token.libraryItemId !== libId) continue;
+        for (const c of this.clearConcentration(room, token.id)) changed.set(c.token.id, c);
+        if (!token.effects.length) continue;
+        const removedIds = new Set(token.effects.map((e) => e.id));
+        for (const effect of token.effects) this.changeMaxHp(room, token, effect, -1);
+        token.effects = [];
+        token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
+        changed.set(token.id, { mapId: map.id, token });
+      }
+    }
+    if (changed.size) this.saveSoon(room);
+    return [...changed.values()];
   }
 
   /**

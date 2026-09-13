@@ -113,7 +113,18 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const maxHp = statNumber(token.hpMax);
       if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
       if (Array.isArray(patch.conditions)) token.conditions = normalizeConditions(patch.conditions);
-      if (Array.isArray(patch.effects)) token.effects = normalizeEffects(patch.effects);
+      if (Array.isArray(patch.effects)) {
+        const next = normalizeEffects(patch.effects);
+        const nextIds = new Set(next.map((e) => e.id));
+        for (const old of token.effects) {
+          if (!nextIds.has(old.id)) manager.changeMaxHp(room, token, old, -1);
+        }
+        const oldIds = new Set(token.effects.map((e) => e.id));
+        for (const effect of next) {
+          if (!oldIds.has(effect.id)) manager.changeMaxHp(room, token, effect, 1);
+        }
+        token.effects = next;
+      }
       if (isDm()) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
         if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
@@ -157,6 +168,9 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const token = manager.findToken(room, mapId, id);
       if (!token) return;
       if (!canControlToken(room, mapId, token)) return;
+      // Эффекты снимаемого токена откатываются, его концентрация гаснет на всех картах.
+      for (const effect of [...token.effects]) manager.removeEffect(room, token, effect.id);
+      for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);
       manager.removeToken(room, mapId, id);
       broadcastAll('token:remove', { mapId, id });
       if (manager.combatOf(room, mapId)?.active) {

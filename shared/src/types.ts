@@ -239,6 +239,8 @@ export interface ModifierFilter {
   skill?: string;
   damageType?: string;
   rangeType?: AttackRangeType;
+  /** Модификатор действует только против конкретного токена (Hex/Hunter's Mark). */
+  targetId?: string;
 }
 
 export interface Modifier {
@@ -692,6 +694,7 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (typeof f.skill === 'string') out.skill = f.skill.slice(0, 40);
   if (typeof f.damageType === 'string') out.damageType = f.damageType.slice(0, 40);
   if (f.rangeType === 'melee' || f.rangeType === 'ranged' || f.rangeType === 'none') out.rangeType = f.rangeType;
+  if (typeof f.targetId === 'string' && f.targetId) out.targetId = f.targetId.slice(0, 80);
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -1124,6 +1127,8 @@ export interface ClientToServerEvents {
   ) => void;
   'resources:hitDie': (payload: { die?: number }) => void;
   'resources:deathSave': (payload?: { expression?: string }) => void;
+  /** Отдых: сервер применяет восстановление; долгий снимает эффекты и концентрацию. */
+  'resources:rest': (payload: { type: 'short' | 'long' }) => void;
   'admin:list': (
     payload: { adminToken: string },
     cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: string }) => void

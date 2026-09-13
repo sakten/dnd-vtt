@@ -110,6 +110,8 @@ export interface GameState {
   }) => void;
   setSheet: (sheet: CharacterSheet) => void;
   updateResources: (resources: PlayerResources) => void;
+  /** Отдых: восстановление и (для долгого) чистку эффектов считает сервер. */
+  rest: (type: 'short' | 'long') => void;
   setCurrentCharacter: (libraryItemId: string | null) => void;
   rollHitDie: (die: number) => void;
   rollDeathSave: (expression: string) => void;
