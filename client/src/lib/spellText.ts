@@ -1,4 +1,4 @@
-import { ABILITIES, type Spell } from 'shared';
+import { ABILITIES, conditionName, type Spell } from 'shared';
 
 /** Текстовая сводка механики заклинания (RU) для тултипа и списка. */
 
@@ -41,23 +41,6 @@ export const SPELL_SCHOOL_RU: Record<string, string> = {
 };
 
 export const spellLevelLabel = (level: number) => (level === 0 ? 'Фокусы' : `${level} круг`);
-
-const CONDITION_RU: Record<string, string> = {  blinded: 'ослеплён',
-  charmed: 'очарован',
-  deafened: 'оглох',
-  frightened: 'испуган',
-  grappled: 'схвачен',
-  incapacitated: 'недееспособен',
-  invisible: 'невидим',
-  paralyzed: 'парализован',
-  petrified: 'окаменел',
-  poisoned: 'отравлен',
-  prone: 'сбит с ног',
-  restrained: 'обездвижен',
-  stunned: 'ошеломлён',
-  unconscious: 'без сознания',
-  exhaustion: 'истощение',
-};
 
 function distanceTypeRu(type: string): string {
   switch (type) {
@@ -133,7 +116,7 @@ function damageText(spell: Spell, raw: string): string | undefined {
 }
 
 function conditionText(spell: Spell): string {
-  return (spell.conditions ?? []).map((c) => CONDITION_RU[c.toLowerCase()] ?? c).join(', ');
+  return (spell.conditions ?? []).map((c) => conditionName(c).toLowerCase()).join(', ');
 }
 
 /** Строки механики: действие/дистанция/область/длительность/атака/спасбросок/урон/состояние/компоненты. */

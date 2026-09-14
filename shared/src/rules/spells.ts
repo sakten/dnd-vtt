@@ -1,4 +1,5 @@
-import type { AbilityKey, AreaSpec } from '../types';
+import type { AbilityKey, AreaSpec, ConditionKey } from '../types';
+import { conditionKeyOf } from './conditions';
 
 /**
  * Нормализация заклинаний из данных 5e.tools (Ф5). Чистые функции без I/O,
@@ -15,7 +16,7 @@ export type SpellSchool =
   | 'Illusion'
   | 'Necromancy'
   | 'Transmutation';
-export type SpellAutomation = 'full' | 'manual' | 'unsupported';
+export type SpellAutomation = 'full' | 'manual';
 
 export interface SpellTime {
   number: number;
@@ -77,8 +78,8 @@ export interface Spell {
   area?: string[];
   /** Геометрия области (Ф7): форма и размер в футах; у линии — ширина. */
   areaSpec?: AreaSpec;
-  /** Накладываемые состояния (слаги 5e.tools). */
-  conditions?: string[];
+  /** Накладываемые состояния (ключи каталога). */
+  conditions?: ConditionKey[];
   automation: SpellAutomation;
   /** SRD — полный текст; не-SRD — одно предложение. */
   description: string[];
@@ -344,7 +345,7 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
   const paragraphs = collectText(raw.entries);
   const description = raw.srd52 ? paragraphs : [firstSentence(paragraphs[0] ?? '')].filter(Boolean);
   const higherLevel = raw.srd52 ? collectText(raw.entriesHigherLevel) : [];
-  const conditions = toStringArray(raw.conditionInflict).map((c) => prettify(c));
+  const conditions = toStringArray(raw.conditionInflict).map((c) => conditionKeyOf(c));
   const rulesText = collectText([raw.entries, raw.entriesHigherLevel]).join(' ').toLowerCase();
   const healing = damageDice.length && !damageTypes.length ? true : undefined;
   const saveHalf =

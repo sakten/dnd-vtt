@@ -168,7 +168,7 @@ describe('normalizeSpell', () => {
       { name: 'T', source: 'XPHB', level: 1, school: 'E', entries: ['Text.'], conditionInflict: ['prone', 'frightened'] },
       ['wizard']
     );
-    expect(spell.conditions).toEqual(['Prone', 'Frightened']);
+    expect(spell.conditions).toEqual(['prone', 'frightened']);
   });
 });
 

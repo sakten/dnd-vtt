@@ -137,9 +137,10 @@
   **Что сделать:** `domain/*` (token, sheet, combat, effects, chat), `normalize/*`, `labels.ts`, `socket/contract.ts`; `index.ts` — re-export.
   **Зачем:** любой импорт тянет всё; несвязанные правки конфликтуют в одном файле.
 
-- [ ] **R8.5. Идентичность каталогов привязана к источнику; состояния дублированы.** P3, S/M.
-  Ключи `'XPHB:Shield'`/`'XGE:Absorb Elements'` (`rules/spellEffects.ts:32`, `rules/reactions.ts:8-12`); `Spell.conditions` хранит английские имена (`rules/spells.test.ts:171`), `conditionKeyOf` (`rules/conditions.ts:63`) к данным не применяется; вторая RU-карта — `client/src/lib/spellText.ts:32-48`; `SpellAutomation.'unsupported'` не возвращается никем (`rules/spells.ts:18,319`).
-  **Что сделать:** нормализовать conditions в `ConditionKey` на билде; ключи автоматизации — по нормализованному имени + приоритету источника; RU-имена — из общего каталога.
+- [x] **R8.5. Идентичность каталогов привязана к источнику; состояния дублированы.** P3, S/M.
+  Исходно: ключи `'XPHB:Shield'`/`'XGE:Absorb Elements'` (`rules/spellEffects.ts:32`, `rules/reactions.ts:8-12`); `Spell.conditions` хранит английские имена (`rules/spells.test.ts:171`), `conditionKeyOf` (`rules/conditions.ts:63`) к данным не применяется; вторая RU-карта — `client/src/lib/spellText.ts:32-48`; `SpellAutomation.'unsupported'` не возвращается никем (`rules/spells.ts:18,319`).
+  **Сделано:** `Spell.conditions` → `ConditionKey[]` (`normalizeSpell` через `conditionKeyOf`; разовая миграция `spells.json` — все 15 значений мапятся 1:1); клиентская карта `CONDITION_RU` удалена, текст — из `conditionName`; `SpellAutomation.'unsupported'` удалён из union. `check` 270+110+48, `build`, smoke 130/0.
+  **Отменено сознательно:** ключи каталогов по нормализованному имени + приоритету источника. `spells.json` — замороженный разовый снимок (перегенерации нет), `Spell.key` стабилен, так что ref-слой дал бы только косметику. Каталоги (`SPELL_EFFECTS`/`REACTION_SPELL_TRIGGERS`) остаются ключёванными по `Spell.key`; R8.1 ключуется так же.
 
 - [ ] **R8.6. Метки бросков хранят готовый RU-текст, клиент парсит его для стилей.** P2, S/M.
   `server/src/socket/messages.ts:29-31` всегда пишет legacy `label`; `client/src/components/ChatPanel.tsx:57-68` классифицирует по `label.startsWith('Атака'/'Урон'/...)`; `dice.ts:22` ограничивает клиентские kind'ы.
@@ -188,11 +189,11 @@
 ### Шаг 3. R6.7 — типовые швы (M/L, server/shared). ✅ Сделано (срезы 1–5)
 Нормализаторы Token/Map/Scene, `isRecord` + `decode.ts`, `noUncheckedIndexedAccess` в base, `toPersistedRoom`-снапшот, `Room` от `RoomState`, `toState` через rest. Необязательный хвост: остальные домены на `decode.ts` по мере правок.
 
-### Шаг 4. R8.5 — ключи каталогов и состояний (S/M, shared)
-Нормализовать `Spell.conditions` в `ConditionKey`, убрать дубль RU-карт, ключи автоматизации — по имени + приоритету источника. Иначе R8.1 размножит `'XPHB:Shield'`-строки по каталогу.
+### Шаг 4. R8.5 — ключи каталогов и состояний (S/M, shared). ✅ Сделано
+`Spell.conditions` → `ConditionKey` (миграция снимка, `conditionKeyOf`), дубль RU-карты удалён, `unsupported` убран. Ref-ключи каталогов отменены: снимок `spells.json` заморожен, `Spell.key` стабилен; каталоги и R8.1 ключуются по `Spell.key`.
 
-### Шаг 5. R8.3 — валидация сгенерированных данных (S/M)
-Проверка `spells.json`/`spellcasting.json`/`subclassSpells.json` (в `npm run spells` + один тест): форматы ключей, круги, `areaSpec`, слаги состояний. Фиксирует данные перед написанием каталога автоматизации.
+### Шаг 5. R8.3 — снимок-тест данных (S/M)
+Раз снимок заморожен и перегенерации нет — тест-«замок» на текущие данные: ключи/круги/`areaSpec`/слаги условий/сверка каталогов (`SPELL_EFFECTS`, `REACTION_SPELL_TRIGGERS`) со `spells.json`. Ловит случайные правки, не синхронизацию.
 
 ### Шаг 6. R8.4 + R8.1 — распил `types.ts` и каталог `AutomationDef` (M + L) — старт фичи
 Новые типы автоматизации сразу в чистые модули (`domain/*`), старый `types.ts` — реэкспорт; затем единый `AutomationDef` + generic-executor, классовые фичи на той же схеме. Это уже «каталог классовых действий» и остаток Ф8.
@@ -208,4 +209,4 @@ R8.6 (метки без RU-текста — перед локализацией)
 
 **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 
-**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5) — сделано (R6.9 отложен). Следующий — шаг 4: R8.5 (ключи каталогов и состояний).
+**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5 — сделано (R6.9 отложен). Следующий — шаг 5: R8.3 (снимок-тест данных).
