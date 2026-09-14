@@ -62,6 +62,32 @@ export interface MultiTargetState {
   targets: string[];
 }
 
+/** Режим выбора цели: после клика по способности ждём клик по токену на карте. */
+export type TargetingState =
+  | {
+      kind: 'action';
+      tokenId: string;
+      actionId: string;
+      slot: ActionCost;
+      attackIndex?: number;
+      label: string;
+    }
+  | {
+      kind: 'spell';
+      tokenId: string;
+      spellKey: string;
+      slotLevel?: number;
+      advantage?: 'a' | 'd';
+      label: string;
+    }
+  | {
+      kind: 'rollAttack';
+      tokenId?: string;
+      attackIndex: number;
+      advantage?: 'a' | 'd';
+      label: string;
+    };
+
 export interface GameState {
   socket: AppSocket | null;
   connected: boolean;
@@ -85,9 +111,8 @@ export interface GameState {
   joinError: string | null;
   aim: AimState | null;
   multiTarget: MultiTargetState | null;
+  targeting: TargetingState | null;
   selectedTokenId: string | null;
-  targetTokenId: string | null;
-  measureFromId: string | null;
   hoverTokenId: string | null;
   draggingTokenId: string | null;
   view: ViewState;
@@ -137,8 +162,11 @@ export interface GameState {
   setView: (view: ViewState) => void;
   setViewport: (v: { w: number; h: number }) => void;
   setSelected: (id: string | null) => void;
-  setTargetToken: (id: string | null) => void;
-  setMeasureFrom: (id: string | null) => void;
+  /** Войти в режим выбора цели для способности/заклинания/атаки. */
+  startTargeting: (targeting: TargetingState) => void;
+  cancelTargeting: () => void;
+  /** Клик по цели: применяет способность по выбранному токену. */
+  resolveTargeting: (targetId: string) => void;
   setDragging: (id: string | null) => void;
   setGridModalOpen: (open: boolean) => void;
   setRoomSettingsOpen: (open: boolean) => void;

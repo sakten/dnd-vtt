@@ -4,7 +4,14 @@ import type { GameState, Slice } from '../types';
 
 export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'updateFog'>> = (set, get) => {
   const clearTokenUi = () =>
-    set({ selectedTokenId: null, tokenMenuId: null, draggingTokenId: null, targetTokenId: null, measureFromId: null });
+    set({
+      selectedTokenId: null,
+      tokenMenuId: null,
+      draggingTokenId: null,
+      targeting: null,
+      aim: null,
+      multiTarget: null,
+    });
 
   return {
     onMapsUpdate: ({ maps, activeMapId }) => {
@@ -18,7 +25,9 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
           selectedTokenId: null,
           tokenMenuId: null,
           draggingTokenId: null,
-          targetTokenId: null,
+          targeting: null,
+          aim: null,
+          multiTarget: null,
         };
       });
       window.setTimeout(() => get().fitView(), 30);
@@ -30,7 +39,9 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
         selectedTokenId: null,
         tokenMenuId: null,
         draggingTokenId: null,
-        targetTokenId: null,
+        targeting: null,
+        aim: null,
+        multiTarget: null,
       });
       window.setTimeout(() => get().fitView(), 30);
     },
@@ -51,7 +62,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     },
 
     switchMap: (id) => {
-      set({ viewMapId: id, targetTokenId: null });
+      set({ viewMapId: id, targeting: null, aim: null, multiTarget: null });
       clearTokenUi();
       get().fitView();
     },

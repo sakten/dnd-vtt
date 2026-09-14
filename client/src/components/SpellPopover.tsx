@@ -35,11 +35,11 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const resources = useGameStore((s) => s.resources);
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const targetTokenId = useGameStore((s) => s.targetTokenId);
   const map = useGameStore((s) => s.scene.maps.find((m) => m.id === s.viewMapId) ?? null);
   const castSpell = useGameStore((s) => s.castSpell);
   const startAim = useGameStore((s) => s.startAim);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
+  const startTargeting = useGameStore((s) => s.startTargeting);
   const [level, setLevel] = useState(spell.level);
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
@@ -58,8 +58,6 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
     spellEffectDefs(spell.key)?.reduce((max, d) => Math.max(max, d.to === 'targets' ? d.targets ?? 1 : 0), 0) ?? 0;
   const multi = !area && (projectiles > 1 || effectTargetCount > 1);
   const multiCount = effectTargetCount > 1 ? effectTargetCount : projectiles;
-  const target = map?.tokens.find((t) => t.id === targetTokenId) ?? null;
-  const hasTarget = area || multi || self || !!target;
   const attacky = !!spell.spellAttack || !!spell.save;
   const expression = spellDamageExpression(spell, level, sheet ? characterLevel(sheet.classes) : 1);
   const damageText =
@@ -74,7 +72,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const mode: 'a' | 'd' | undefined = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
 
   const submit = () => {
-    if (!canCast || !hasTarget) return;
+    if (!canCast) return;
     if (area && spell.areaSpec) {
       startAim({
         tokenId,
@@ -93,13 +91,21 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         advantage: mode,
         count: multiCount,
       });
-    } else {
+    } else if (self) {
       castSpell({
         tokenId,
         spellKey: spell.key,
         slotLevel: isCantrip ? undefined : level,
         advantage: mode,
-        targetIds: target && !self ? [target.id] : undefined,
+      });
+    } else {
+      startTargeting({
+        kind: 'spell',
+        tokenId,
+        spellKey: spell.key,
+        slotLevel: isCantrip ? undefined : level,
+        advantage: mode,
+        label: spell.name,
       });
     }
     onClose();
@@ -167,7 +173,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         ) : (
           <div className="sp-row">
             <span className="sp-label">Цель</span>
-            <span className="sp-target">{self ? 'На себя' : target ? target.name : 'не выбрана'}</span>
+            <span className="sp-target">{self ? 'На себя' : 'клик по цели на карте'}</span>
           </div>
         )}
 
@@ -210,8 +216,8 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           <button className="sp-cancel" onClick={onClose}>
             Отмена
           </button>
-          <button className="sp-cast" disabled={!canCast || !hasTarget} onClick={submit}>
-            {area ? 'Выбрать область' : multi ? 'Выбрать цели' : 'Применить'}
+          <button className="sp-cast" disabled={!canCast} onClick={submit}>
+            {area ? 'Выбрать область' : multi ? 'Выбрать цели' : self ? 'Применить' : 'Выбрать цель'}
           </button>
         </div>
       </div>

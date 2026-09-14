@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react';
-import { Group, Rect, Text, Image as KonvaImage, Circle, Line } from 'react-konva';
+import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import { movementBlocked, snapToGrid, statNumber, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -12,8 +12,9 @@ function TokenView({ token }: { token: Token }) {
   const grid = useGameStore((s) => s.scene.grid);
   const selected = useGameStore((s) => s.selectedTokenId === token.id);
   const setSelected = useGameStore((s) => s.setSelected);
-  const setTargetToken = useGameStore((s) => s.setTargetToken);
-  const isTarget = useGameStore((s) => s.targetTokenId === token.id);
+  const targeting = useGameStore((s) => s.targeting);
+  const multiTarget = useGameStore((s) => s.multiTarget);
+  const aim = useGameStore((s) => s.aim);
   const moveToken = useGameStore((s) => s.moveToken);
   const finalizeMove = useGameStore((s) => s.finalizeTokenMove);
   const lockToken = useGameStore((s) => s.lockToken);
@@ -54,7 +55,30 @@ function TokenView({ token }: { token: Token }) {
     ctx.arc(0, 0, token.w / 2, 0, Math.PI * 2, false);
   };
 
-  const retR = Math.max(token.w, token.h) / 2 + 10 / token.scale;
+  /** Клик: в режиме выбора цели — применить по токену, иначе выбрать/открыть меню. */
+  const activate = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const st = useGameStore.getState();
+    if (st.targeting) {
+      e.cancelBubble = true;
+      st.resolveTargeting(token.id);
+      return;
+    }
+    if (st.multiTarget) {
+      e.cancelBubble = true;
+      st.addMultiTarget(token.id);
+      return;
+    }
+    if (st.aim) return; // клик по карте применяет область (обрабатывает Stage)
+    e.cancelBubble = true;
+    setSelected(token.id);
+    const now = Date.now();
+    if (now - lastClickRef.current < 350) {
+      lastClickRef.current = 0;
+      useGameStore.getState().setTokenMenu(token.id);
+    } else {
+      lastClickRef.current = now;
+    }
+  };
 
   return (
     <Group
@@ -64,31 +88,17 @@ function TokenView({ token }: { token: Token }) {
       scaleY={token.scale}
       rotation={token.rotation}
       opacity={lockedByOther ? 0.5 : dead ? 0.55 : 1}
-      draggable={!lockedByOther && !fogActive && canMove && (isDm || !movementBlocked(token.conditions))}
-      onClick={(e) => {
-        e.cancelBubble = true;
-        setSelected(token.id);
-        if (!token.isPlayerToken) setTargetToken(token.id);
-        const now = Date.now();
-        if (now - lastClickRef.current < 350) {
-          lastClickRef.current = 0;
-          useGameStore.getState().setTokenMenu(token.id);
-        } else {
-          lastClickRef.current = now;
-        }
-      }}
-      onTap={(e) => {
-        e.cancelBubble = true;
-        setSelected(token.id);
-        if (!token.isPlayerToken) setTargetToken(token.id);
-        const now = Date.now();
-        if (now - lastClickRef.current < 350) {
-          lastClickRef.current = 0;
-          useGameStore.getState().setTokenMenu(token.id);
-        } else {
-          lastClickRef.current = now;
-        }
-      }}
+      draggable={
+        !lockedByOther &&
+        !fogActive &&
+        !targeting &&
+        !aim &&
+        !multiTarget &&
+        canMove &&
+        (isDm || !movementBlocked(token.conditions))
+      }
+      onClick={activate}
+      onTap={activate}
       onDragStart={() => {
         setSelected(token.id);
         setDragging(token.id);
@@ -135,23 +145,6 @@ function TokenView({ token }: { token: Token }) {
           cornerRadius={6}
           listening={false}
         />
-      )}
-      {isTarget && (
-        <Group listening={false}>
-          <Circle
-            x={0}
-            y={0}
-            radius={retR}
-            stroke="#ff5a5a"
-            strokeWidth={2 / token.scale}
-            dash={[10 / token.scale, 6 / token.scale]}
-          />
-          <Line points={[-retR - 12 / token.scale, 0, -retR + 5 / token.scale, 0]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
-          <Line points={[retR - 5 / token.scale, 0, retR + 12 / token.scale, 0]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
-          <Line points={[0, -retR - 12 / token.scale, 0, -retR + 5 / token.scale]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
-          <Line points={[0, retR - 5 / token.scale, 0, retR + 12 / token.scale]} stroke="#ff5a5a" strokeWidth={2 / token.scale} />
-          <Circle x={0} y={0} radius={3 / token.scale} fill="#ff5a5a" />
-        </Group>
       )}
       {hpMax > 0 && (
         <Group y={-token.h / 2 - 9 / token.scale} listening={false}>

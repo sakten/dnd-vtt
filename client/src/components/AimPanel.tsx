@@ -8,12 +8,26 @@ const SHAPE_RU: Record<string, string> = {
   cylinder: 'Цилиндр',
 };
 
-/** Подсказка режима прицеливания (область/мульти-цели): клик по карте применяет. */
+/** Подсказка режима прицеливания (область/мульти-цели/выбор цели): клик по карте применяет. */
 export default function AimPanel() {
   const aim = useGameStore((s) => s.aim);
   const multiTarget = useGameStore((s) => s.multiTarget);
+  const targeting = useGameStore((s) => s.targeting);
   const cancelAim = useGameStore((s) => s.cancelAim);
   const cancelMultiTarget = useGameStore((s) => s.cancelMultiTarget);
+  const cancelTargeting = useGameStore((s) => s.cancelTargeting);
+
+  if (targeting) {
+    return (
+      <div className="aim-panel">
+        <span className="aim-title">{targeting.label}</span>
+        <span className="aim-hint">Кликните цель · Esc или клик по пустому месту — отмена</span>
+        <button className="aim-cancel" onClick={cancelTargeting}>
+          Отмена
+        </button>
+      </div>
+    );
+  }
 
   if (aim) {
     return (

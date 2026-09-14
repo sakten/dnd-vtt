@@ -56,12 +56,12 @@ function Dots({ total, remaining, tone }: { total: number; remaining: number; to
 export default function ActionPanel() {
   const map = useGameStore((s) => s.scene.maps.find((m) => m.id === s.viewMapId) ?? null);
   const selectedTokenId = useGameStore((s) => s.selectedTokenId);
-  const targetTokenId = useGameStore((s) => s.targetTokenId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const isDm = useIsDm();
   const sheet = useGameStore((s) => s.sheet);
   const resources = useGameStore((s) => s.resources);
   const runAction = useGameStore((s) => s.runAction);
+  const startTargeting = useGameStore((s) => s.startTargeting);
   const [spells, setSpells] = useState<Spell[] | null>(null);
   const [casting, setCasting] = useState<Spell | null>(null);
 
@@ -155,8 +155,6 @@ export default function ActionPanel() {
   const incap = !isDm && isIncapacitated(token.conditions);
   const spellByKey = new Map((spells ?? []).map((s) => [s.key, s]));
 
-  const targetName = map?.tokens.find((t) => t.id === targetTokenId)?.name;
-
   const canSpend = (slot: ActionCost, actionId: string) => {
     if (incap || !controlled) return false;
     if (!combatActive) return true;
@@ -181,12 +179,19 @@ export default function ActionPanel() {
     : attacksPer;
   const attacksTotal = Math.max(attacksPer, attacksLeft);
 
-  const fire = (actionId: string, slot: ActionCost, attackIndex?: number) => {
-    runAction(token.id, actionId, {
-      targetIds: targetTokenId ? [targetTokenId] : undefined,
-      attackIndex,
-      slot,
-    });
+  const needsTarget = (actionId: string): boolean => {
+    const def = BASE_ACTIONS.find((a) => a.id === actionId);
+    return def?.targeting?.kind === 'creature';
+  };
+
+  /** Клик по кнопке: цели не нужны — применяем сразу, иначе входим в режим выбора цели. */
+  const fire = (actionId: string, slot: ActionCost, attackIndex?: number, label?: string) => {
+    if (needsTarget(actionId)) {
+      const name = label ?? BASE_ACTIONS.find((a) => a.id === actionId)?.name ?? actionId;
+      startTargeting({ kind: 'action', tokenId: token.id, actionId, slot, attackIndex, label: name });
+      return;
+    }
+    runAction(token.id, actionId, { attackIndex, slot });
   };
 
   const resourceLeft = (f: ActionDef): number | null => {
@@ -279,7 +284,14 @@ export default function ActionPanel() {
         data-tip={label}
         aria-label={label}
         disabled={!canUseFeature(f)}
-        onClick={() => fire(f.id, featureSlot(f))}
+        onClick={() => {
+          const slot = featureSlot(f);
+          if (f.targeting?.kind === 'creature') {
+            startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, label: f.name });
+          } else {
+            runAction(token.id, f.id, { slot });
+          }
+        }}
       >
         <ActionIcon id={featureIconId(f)} className="ap-icon" />
       </button>
@@ -313,7 +325,7 @@ export default function ActionPanel() {
               data-tip={`Атака: ${label}`}
               aria-label={`Атака: ${label}`}
               disabled={!enabled}
-              onClick={() => fire('attack', slot, index)}
+              onClick={() => fire('attack', slot, index, `Атака: ${label}`)}
             >
               <WeaponIcon name={entry.name} className="ap-icon" />
               <span className="ap-attack-badge">
@@ -335,7 +347,7 @@ export default function ActionPanel() {
           data-tip={label}
           aria-label={label}
           disabled={!canSpend(slot, a.id)}
-          onClick={() => fire(a.id, slot)}
+          onClick={() => fire(a.id, slot, undefined, label)}
         >
           <ActionIcon id={a.id} className="ap-icon" />
           {isAttack && (
@@ -365,7 +377,6 @@ export default function ActionPanel() {
           <EffectChips effects={token.effects} spellByKey={spellByKey} tokenId={token.id} />
         )}
         {incap && <span className="ap-incap">Недееспособен</span>}
-        {targetName && <span className="ap-target">Цель: {targetName}</span>}
         {combatActive && turn ? (
           <span className="ap-counters">
             <span className="ap-counter" title="Реакция">

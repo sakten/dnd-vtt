@@ -386,11 +386,3 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-.roll-menu-target {
-  color: #ff8a8a;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding: 6px 10px 2px;
-}

@@ -622,6 +622,7 @@ describe('spell:cast', () => {
       spells: [{ key: 'XPHB:Hex', className: 'warlock' }],
     };
     room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11 → попадание
     const f = makeCtx(room, { playerId: 'p1' });
     registerSpellHandlers(f.ctx);
     registerDiceHandlers(f.ctx);
@@ -635,6 +636,7 @@ describe('spell:cast', () => {
     expect(target.effects.some((e) => e.sourceKey === 'XPHB:Hex')).toBe(true);
 
     f.invoke('dice:attack', { tokenId: 't1', targetId: 't2', attackIndex: 0 });
+    rand.mockRestore();
 
     const damage = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'damage') as
       | { roll?: { expression?: string } }

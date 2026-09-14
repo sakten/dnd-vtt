@@ -20,8 +20,9 @@ function setupState() {
     scene: { maps: [map], activeMapId: 'm1', grid: { ...DEFAULT_GRID } },
     draggingTokenId: null,
     selectedTokenId: null,
-    targetTokenId: null,
-    measureFromId: null,
+    targeting: null,
+    aim: null,
+    multiTarget: null,
     hoverTokenId: null,
     tokenMenuId: null,
   });
@@ -116,8 +117,7 @@ describe('tokens slice: обновления', () => {
 
     useGameStore.setState({
       selectedTokenId: 't1',
-      targetTokenId: 't1',
-      measureFromId: 't1',
+      targeting: { kind: 'action', tokenId: 't1', actionId: 'attack', slot: 'action', label: 'Атака' },
       hoverTokenId: 't1',
       draggingTokenId: 't1',
       tokenMenuId: 't1',
@@ -127,8 +127,7 @@ describe('tokens slice: обновления', () => {
     const st = useGameStore.getState();
     expect(st.scene.maps[0].tokens.map((t) => t.id)).toEqual(['t2']);
     expect(st.selectedTokenId).toBeNull();
-    expect(st.targetTokenId).toBeNull();
-    expect(st.measureFromId).toBeNull();
+    expect(st.targeting).toBeNull();
     expect(st.hoverTokenId).toBeNull();
     expect(st.draggingTokenId).toBeNull();
     expect(st.tokenMenuId).toBeNull();

@@ -146,12 +146,12 @@ const tokenPos = await S.page.evaluate(() => {
 });
 await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
 await sleep(80);
-const targetCheck = await S.page.evaluate(() => {
+const selectCheck = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
-  return { target: s.targetTokenId, id: t?.id ?? null };
+  return { selected: s.selectedTokenId, id: t?.id ?? null };
 });
-check(targetCheck.target === targetCheck.id, 'клик по не-токену игрока задаёт цель');
+check(selectCheck.selected === selectCheck.id, 'клик по токену выделяет его');
 await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
 await S.page.waitForSelector('.modal');
 await sleep(300);

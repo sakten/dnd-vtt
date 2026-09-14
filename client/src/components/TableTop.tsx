@@ -38,16 +38,15 @@ export default function TableTop() {
   const viewMapId = useGameStore((s) => s.viewMapId);
   const setSelected = useGameStore((s) => s.setSelected);
   const isDm = useIsDm();
-  const targetTokenId = useGameStore((s) => s.targetTokenId);
-  const measureFromId = useGameStore((s) => s.measureFromId);
-  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const targeting = useGameStore((s) => s.targeting);
+  const cancelTargeting = useGameStore((s) => s.cancelTargeting);
+  const hoverTokenId = useGameStore((s) => s.hoverTokenId);
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
   const aim = useGameStore((s) => s.aim);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
   const multiTarget = useGameStore((s) => s.multiTarget);
-  const addMultiTarget = useGameStore((s) => s.addMultiTarget);
   const activeMap = useMemo(() => maps.find((m) => m.id === viewMapId) ?? null, [maps, viewMapId]);
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
 
@@ -110,16 +109,13 @@ export default function TableTop() {
   }, [multiTarget, activeMap]);
 
   const measure = useMemo(() => {
-    if (!activeMap || !targetTokenId) return null;
-    const to = activeMap.tokens.find((t) => t.id === targetTokenId);
-    if (!to) return null;
-    const fromId =
-      measureFromId ?? activeMap.tokens.find((t) => t.libraryItemId === currentCharacterId)?.id ?? null;
-    const from = activeMap.tokens.find((t) => t.id === fromId);
-    if (!from || from.id === to.id) return null;
+    if (!activeMap || !targeting || !hoverTokenId) return null;
+    const from = targeting.tokenId ? activeMap.tokens.find((t) => t.id === targeting.tokenId) : null;
+    const to = activeMap.tokens.find((t) => t.id === hoverTokenId);
+    if (!from || !to || from.id === to.id) return null;
     const feet = gridDistanceFeet(from, to, grid.size || 50);
     return { from, to, feet };
-  }, [activeMap, targetTokenId, measureFromId, currentCharacterId, grid.size]);
+  }, [activeMap, targeting, hoverTokenId, grid.size]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -221,33 +217,10 @@ export default function TableTop() {
   };
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (multiTarget) {
-      e.evt.preventDefault();
-      const stage = e.target.getStage();
-      const pointer = stage?.getPointerPosition();
-      if (stage && pointer && activeMap) {
-        const w = toWorld(stage, pointer);
-        const hit = activeMap.tokens
-          .filter((t) => Math.abs(w.x - t.x) <= t.w / 2 && Math.abs(w.y - t.y) <= t.h / 2)
-          .sort((a, b) => b.z - a.z)[0];
-        if (hit) addMultiTarget(hit.id);
-      }
-      return;
-    }
-    if (aim) {
-      e.evt.preventDefault();
-      const stage = e.target.getStage();
-      const pointer = stage?.getPointerPosition();
-      if (stage && pointer) {
-        aimToCursor(toWorld(stage, pointer));
-        confirmAim();
-      }
-      return;
-    }
     if (!fogMode.active) {
+      if (aim || targeting) return;
       if (e.target === e.target.getStage()) {
         setSelected(null);
-        useGameStore.getState().setTargetToken(null);
       }
       return;
     }
@@ -294,6 +267,20 @@ export default function TableTop() {
     setRectPreview(null);
   };
 
+  const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (aim) {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) {
+        aimToCursor(toWorld(stage, pointer));
+        confirmAim();
+      }
+      return;
+    }
+    if (targeting && !fogMode.active) cancelTargeting();
+  };
+
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const raw = e.dataTransfer.getData('application/x-vtt-token');
@@ -332,7 +319,7 @@ export default function TableTop() {
   return (
     <div
       ref={containerRef}
-      className="table-top"
+      className={`table-top${aim || targeting || multiTarget ? ' targeting' : ''}`}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
@@ -347,7 +334,7 @@ export default function TableTop() {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable={!fogMode.active && !aim && !multiTarget}
+          draggable={!fogMode.active && !aim && !multiTarget && !targeting}
           onWheel={handleWheel}
           onDragMove={(e) => {
             if (e.target !== e.currentTarget) return;
@@ -360,10 +347,10 @@ export default function TableTop() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onClick={handleClick}
           onTouchStart={(e) => {
             if (!fogMode.active && e.target === e.target.getStage()) {
               setSelected(null);
-              useGameStore.getState().setTargetToken(null);
             }
           }}
         >

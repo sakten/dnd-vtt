@@ -36,7 +36,9 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
         currentCharacterId: room.controllers?.[selfId] ?? null,
         chat: room.chat,
         joinError: null,
-        targetTokenId: null,
+        targeting: null,
+        aim: null,
+        multiTarget: null,
       });
     },
 
@@ -60,7 +62,9 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
         selectedTokenId: null,
         tokenMenuId: null,
         draggingTokenId: null,
-        targetTokenId: null,
+        targeting: null,
+        aim: null,
+        multiTarget: null,
       }),
 
     onPlayersUpdate: (players) => set({ players }),

@@ -9,14 +9,15 @@ import type { GameState, Slice } from '../types';
 
 const clearTokenRefs = (s: GameState, id: string) => ({
   selectedTokenId: s.selectedTokenId === id ? null : s.selectedTokenId,
-  targetTokenId: s.targetTokenId === id ? null : s.targetTokenId,
-  measureFromId: s.measureFromId === id ? null : s.measureFromId,
+  targeting: s.targeting?.tokenId === id ? null : s.targeting,
+  aim: s.aim?.tokenId === id ? null : s.aim,
+  multiTarget: s.multiTarget?.tokenId === id ? null : s.multiTarget,
   hoverTokenId: s.hoverTokenId === id ? null : s.hoverTokenId,
   draggingTokenId: s.draggingTokenId === id ? null : s.draggingTokenId,
   tokenMenuId: s.tokenMenuId === id ? null : s.tokenMenuId,
 });
 
-export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'finalizeTokenMove' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setTargetToken' | 'setMeasureFrom' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
+export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'finalizeTokenMove' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
   const viewMapId = () => get().viewMapId;
 
   // Ломаная пути текущего перетаскивания — для атак по возможности.
@@ -154,8 +155,6 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
     },
 
     setSelected: (selectedTokenId) => set({ selectedTokenId }),
-    setTargetToken: (targetTokenId) => set({ targetTokenId }),
-    setMeasureFrom: (measureFromId) => set({ measureFromId }),
     setDragging: (draggingTokenId) => set({ draggingTokenId }),
 
     setTokenMenu: (tokenMenuId) => set({ tokenMenuId }),

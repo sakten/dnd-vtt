@@ -5,6 +5,9 @@ export const createActionSlice: Slice<
     GameState,
     | 'runAction'
     | 'castSpell'
+    | 'startTargeting'
+    | 'cancelTargeting'
+    | 'resolveTargeting'
     | 'startAim'
     | 'aimToCursor'
     | 'cancelAim'
@@ -25,9 +28,39 @@ export const createActionSlice: Slice<
   castSpell: (payload) => {
     const mapId = get().viewMapId;
     if (!mapId) return;
-    const targetIds =
-      payload.targetIds ?? (payload.origin ? undefined : get().targetTokenId ? [get().targetTokenId as string] : undefined);
-    get().socket?.emit('spell:cast', { mapId, ...payload, targetIds });
+    get().socket?.emit('spell:cast', { mapId, ...payload });
+  },
+
+  startTargeting: (targeting) => _set({ targeting, aim: null, multiTarget: null }),
+
+  cancelTargeting: () => _set({ targeting: null }),
+
+  resolveTargeting: (targetId) => {
+    const t = get().targeting;
+    if (!t) return;
+    _set({ targeting: null });
+    if (t.kind === 'action') {
+      get().runAction(t.tokenId, t.actionId, {
+        targetIds: [targetId],
+        attackIndex: t.attackIndex,
+        slot: t.slot,
+      });
+    } else if (t.kind === 'spell') {
+      get().castSpell({
+        tokenId: t.tokenId,
+        spellKey: t.spellKey,
+        slotLevel: t.slotLevel,
+        advantage: t.advantage,
+        targetIds: [targetId],
+      });
+    } else {
+      get().rollAttack({
+        tokenId: t.tokenId,
+        targetId,
+        attackIndex: t.attackIndex,
+        advantage: t.advantage,
+      });
+    }
   },
 
   startAim: ({ tokenId, spellKey, slotLevel, advantage, spec, originKind, rangeFeet }) => {
@@ -36,6 +69,8 @@ export const createActionSlice: Slice<
     const origin = originKind === 'self' && token ? { x: token.x, y: token.y } : null;
     _set({
       aim: { tokenId, spellKey, slotLevel, advantage, spec, originKind, rangeFeet, origin, direction: null },
+      targeting: null,
+      multiTarget: null,
     });
   },
 
@@ -94,7 +129,7 @@ export const createActionSlice: Slice<
     get().socket?.emit('token:hp', { mapId, id: tokenId, delta: Math.round(delta) });
   },
 
-  startMultiTarget: (payload) => _set({ multiTarget: { ...payload, targets: [] } }),
+  startMultiTarget: (payload) => _set({ multiTarget: { ...payload, targets: [] }, targeting: null, aim: null }),
 
   addMultiTarget: (targetId) => {
     const mt = get().multiTarget;

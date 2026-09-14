@@ -62,20 +62,36 @@ check(
   `карточка персонажа сохранилась (статы с клампом до 30) — ${JSON.stringify(sheetState?.abilities)}`
 );
 
-// Атаки из ROLL-меню проверяют выражения бросков; цель сбрасываем, чтобы
-// сравнение с AC не превращало проверку в вероятностную.
-await S.page.evaluate(() => window.__vtt.getState().setTargetToken(null));
+// Атаки из ROLL-меню требуют клика по цели на карте. Ставим цели AC 1, чтобы
+// попадание было почти гарантированным (нат. 1 всё равно промах — это допустимо).
+const attackTarget = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
+  if (!t) return null;
+  s.setTokenFields(t.id, { ac: 1 });
+  return {
+    id: t.id,
+    prevAc: typeof t.ac === 'number' ? t.ac : 0,
+    sx: t.x * s.view.scale + s.view.x,
+    sy: t.y * s.view.scale + s.view.y,
+  };
+});
+check(!!attackTarget, 'на карте есть цель для атаки из ROLL-меню');
 
 await S.page.click('.roll-button');
 await S.page.waitForSelector('.roll-menu');
 const attackItem = await findButton(S.page, '.roll-menu .roll-menu-item', 'Attack');
 await attackItem.click();
+await S.page.waitForSelector('.aim-panel');
+await S.page.mouse.click(attackTarget.sx, attackTarget.sy);
 await sleep(900);
 const attackLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
+const attackHit = attackLabels.some((t) => t.includes('Атака: Меч') && t.includes('d20 + 5'));
+const attackDamage = attackLabels.some((t) => t.includes('Урон: Меч') && t.includes('d8 + 3'));
+const attackMiss = attackLabels.some((t) => t.includes('Атака: Меч') && t.includes('Промах'));
 check(
-  attackLabels.some((t) => t.includes('Атака: Меч') && t.includes('d20 + 5')) &&
-    attackLabels.some((t) => t.includes('Урон: Меч') && t.includes('d8 + 3')),
-  `Attack кинул попадание и урон в чат (${attackLabels.join(' | ')})`
+  attackHit && (attackDamage || attackMiss),
+  `Attack кинул попадание, урон при попадании (${attackLabels.join(' | ')})`
 );
 
 await S.page.click('.roll-button');
@@ -124,12 +140,20 @@ const advOnly = await S.page.$$eval('.adv-check input', (els) => els.map((el) =>
 check(advOnly[0] === true && advOnly[1] === false, 'выбор Adv снимает Dis');
 await S.page.click('.roll-button');
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Attack')).click();
+await S.page.waitForSelector('.aim-panel');
+await S.page.mouse.click(attackTarget.sx, attackTarget.sy);
 await sleep(900);
 const advLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
+const advHit = advLabels.some((t) => t.includes('Атака: Меч') && t.includes('d20a'));
+const advDamage = advLabels.some((t) => t.includes('Урон: Меч') && t.includes('d8 + 3'));
+const advMiss = advLabels.some((t) => t.includes('Атака: Меч') && t.includes('Промах'));
 check(
-  advLabels.some((t) => t.includes('Атака: Меч') && t.includes('d20a')) &&
-    advLabels.some((t) => t.includes('Урон: Меч') && t.includes('d8 + 3')),
+  advHit && (advDamage || advMiss),
   'Adv: попадание кидается с преимуществом, урон без изменений'
+);
+await S.page.evaluate(
+  ({ id, ac }) => window.__vtt.getState().setTokenFields(id, { ac }),
+  { id: attackTarget.id, ac: attackTarget.prevAc }
 );
 const advState = await S.page.$$eval('.adv-check input', (els) => els.map((el) => el.checked));
 check(advState[0] === false && advState[1] === false, 'галочки Adv/Dis сбрасываются после броска');

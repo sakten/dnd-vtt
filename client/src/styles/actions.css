@@ -32,11 +32,6 @@
   font-weight: 700;
 }
 
-.ap-target {
-  font-size: 13px;
-  color: #ff8a8a;
-}
-
 .ap-counters {
   display: flex;
   align-items: center;

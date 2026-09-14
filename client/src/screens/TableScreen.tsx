@@ -25,11 +25,6 @@ export default function TableScreen() {
   const roomSettingsOpen = useGameStore((s) => s.roomSettingsOpen);
   const roomCode = useGameStore((s) => s.roomCode);
   const roomName = useGameStore((s) => s.roomName);
-  const targetTokenId = useGameStore((s) => s.targetTokenId);
-  const setTargetToken = useGameStore((s) => s.setTargetToken);
-  const targetName = useGameStore(
-    (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((t) => t.id === s.targetTokenId)?.name ?? ''
-  );
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
@@ -46,6 +41,10 @@ export default function TableScreen() {
       }
       if (e.key === 'Escape') {
         const st = useGameStore.getState();
+        if (st.targeting) {
+          st.cancelTargeting();
+          return;
+        }
         if (st.aim) {
           st.cancelAim();
           return;
@@ -55,13 +54,12 @@ export default function TableScreen() {
           return;
         }
         setSelected(null);
-        setTargetToken(null);
         if (st.fogMode.active) setFogMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, removeToken, setSelected, setFogMode, setTargetToken]);
+  }, [selected, removeToken, setSelected, setFogMode]);
 
   return (
     <div className="table-screen">
@@ -88,14 +86,6 @@ export default function TableScreen() {
         {roomName && <span className="room-badge-code">{shortCode}</span>}{' '}
         <span className="room-badge-hint">— скопировать ссылку</span>
       </div>
-      {targetTokenId && (
-        <div className="target-badge" title="Выбранная цель для атак">
-          Цель: <strong>{targetName || '…'}</strong>
-          <button title="Сбросить цель" onClick={() => setTargetToken(null)}>
-            ✕
-          </button>
-        </div>
-      )}
       {gridModalOpen && <GridSettingsModal />}
       {roomSettingsOpen && <RoomSettingsModal />}
       <TokenMenu />

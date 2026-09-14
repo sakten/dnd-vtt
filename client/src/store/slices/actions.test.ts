@@ -11,7 +11,7 @@ beforeEach(() => {
   useGameStore.setState({
     socket,
     viewMapId: 'm1',
-    targetTokenId: null,
+    targeting: null,
     aim: null,
     multiTarget: null,
     scene: {
@@ -37,13 +37,53 @@ describe('actions slice', () => {
     expect(emitted).toHaveLength(0);
   });
 
-  it('castSpell шлёт spell:cast с целью по умолчанию', () => {
-    useGameStore.setState({ targetTokenId: 't2' });
-    useGameStore.getState().castSpell({ tokenId: 't1', spellKey: 'XPHB:Fireball', slotLevel: 4 });
+  it('startTargeting + resolveTargeting шлют action:use с целью', () => {
+    useGameStore.getState().startTargeting({
+      kind: 'action',
+      tokenId: 't1',
+      actionId: 'attack',
+      slot: 'action',
+      attackIndex: 0,
+      label: 'Атака: Меч',
+    });
+    expect(emitted).toHaveLength(0);
+    useGameStore.getState().resolveTargeting('t2');
+    expect(emitted).toContainEqual({
+      event: 'action:use',
+      payload: { mapId: 'm1', tokenId: 't1', actionId: 'attack', slot: 'action', attackIndex: 0, targetIds: ['t2'] },
+    });
+    expect(useGameStore.getState().targeting).toBeNull();
+  });
+
+  it('startTargeting + resolveTargeting для заклинания шлют spell:cast с целью', () => {
+    useGameStore.getState().startTargeting({
+      kind: 'spell',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 4,
+      label: 'Fireball',
+    });
+    useGameStore.getState().resolveTargeting('t2');
     expect(emitted).toContainEqual({
       event: 'spell:cast',
       payload: { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Fireball', slotLevel: 4, targetIds: ['t2'] },
     });
+  });
+
+  it('startTargeting + resolveTargeting для ROLL-атаки шлют dice:attack с целью', () => {
+    useGameStore.getState().startTargeting({ kind: 'rollAttack', tokenId: 't1', attackIndex: 2, label: 'Атака: Меч' });
+    useGameStore.getState().resolveTargeting('t2');
+    expect(emitted).toContainEqual({
+      event: 'dice:attack',
+      payload: { tokenId: 't1', targetId: 't2', attackIndex: 2 },
+    });
+  });
+
+  it('cancelTargeting сбрасывает режим без бросков', () => {
+    useGameStore.getState().startTargeting({ kind: 'action', tokenId: 't1', actionId: 'grapple', slot: 'action', label: 'Захват' });
+    useGameStore.getState().cancelTargeting();
+    expect(useGameStore.getState().targeting).toBeNull();
+    expect(emitted).toHaveLength(0);
   });
 
   it('startAim: self-область берёт точку от кастера', () => {
@@ -77,7 +117,6 @@ describe('actions slice', () => {
         slotLevel: 3,
         origin: { x: 200, y: 150 },
         direction: { x: 200, y: 150 },
-        targetIds: undefined,
       },
     });
     expect(useGameStore.getState().aim).toBeNull();
