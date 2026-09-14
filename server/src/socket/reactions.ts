@@ -68,31 +68,179 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>;
 }
 
-/** Одна пауза на комнату: id комнаты → id окна. */
-const pendings = new Map<string, Pending>();
-const roomPending = new Map<string, string>();
-const offerIndex = new Map<string, { pendingId: string; tokenId: string }>();
-/** Ctx окна: нужен для таймаута/скипа, когда соединение инициатора уже неважно. */
-const pendingContext = new Map<string, ConnCtx>();
+/** Одна пауза на комнату и её офферы; состояние — в инстансе на комнату, не в модуле. */
+class ReactionQueue {
+  private pending: Pending | null = null;
+  private readonly offerIndex = new Map<string, { pendingId: string; tokenId: string }>();
+  private ctx: ConnCtx | null = null;
+
+  constructor(readonly roomCode: string) {}
+
+  get isPending(): boolean {
+    return this.pending !== null;
+  }
+
+  get current(): Pending | null {
+    return this.pending;
+  }
+
+  /** Активные офферы комнаты (тесты/диагностика). */
+  offers(): ReactionOffer[] {
+    const pending = this.pending;
+    if (!pending) return [];
+    return pending.offers.map((o) => ({
+      id: o.id,
+      mapId: pending.mapId,
+      trigger: pending.trigger,
+      tokenId: o.tokenId,
+      tokenName: '',
+      sourceName: pending.sourceName,
+      options: o.options,
+      expiresAt: 0,
+    }));
+  }
+
+  /** Пауза и оффер по id оффера. */
+  lookup(offerId: string): { pending: Pending; state: PendingOfferState } | null {
+    const ref = this.offerIndex.get(offerId);
+    if (!ref || !this.pending || this.pending.id !== ref.pendingId) return null;
+    const state = this.pending.offers.find((o) => o.id === offerId);
+    return state ? { pending: this.pending, state } : null;
+  }
+
+  /** Открывает окно; false — нет офферов или уже есть пауза. */
+  open(
+    ctx: ConnCtx,
+    room: Room,
+    args: {
+      mapId: string;
+      trigger: ReactionTriggerKind;
+      sourceName?: string;
+      offers: ReactionOfferInput[];
+      resume: (choices: ReactionChoice[]) => void;
+    }
+  ): boolean {
+    if (!args.offers.length || this.pending) return false;
+    const id = randomUUID();
+    const expiresAt = Date.now() + REACTION_TIMEOUT_MS;
+    const pending: Pending = {
+      id,
+      roomCode: room.code,
+      mapId: args.mapId,
+      trigger: args.trigger,
+      sourceName: args.sourceName,
+      offers: [],
+      resume: args.resume,
+      timer: setTimeout(() => this.finish(), REACTION_TIMEOUT_MS),
+    };
+    pending.timer.unref?.();
+
+    for (const input of args.offers) {
+      const offerId = `${id}:${input.token.id}`;
+      pending.offers.push({
+        id: offerId,
+        tokenId: input.token.id,
+        audience: input.audience,
+        options: input.options,
+        answered: false,
+        choice: null,
+      });
+      this.offerIndex.set(offerId, { pendingId: id, tokenId: input.token.id });
+      const offer: ReactionOffer = {
+        id: offerId,
+        mapId: args.mapId,
+        trigger: args.trigger,
+        tokenId: input.token.id,
+        tokenName: input.token.name,
+        sourceName: args.sourceName,
+        options: input.options,
+        expiresAt,
+      };
+      for (const pid of input.audience) ctx.emitTo(room, pid, 'reaction:offer', offer);
+    }
+
+    this.pending = pending;
+    this.ctx = ctx;
+    return true;
+  }
+
+  /** Пропускает неотвеченные офферы игрока (дисконнект). */
+  skipPlayer(playerId: string) {
+    const pending = this.pending;
+    if (!pending) return;
+    let changed = false;
+    for (const state of pending.offers) {
+      if (!state.answered && state.audience.includes(playerId)) {
+        state.answered = true;
+        state.choice = null;
+        changed = true;
+      }
+    }
+    if (changed && pending.offers.every((o) => o.answered)) this.finish();
+  }
+
+  /** Закрывает текущую паузу, чистит состояние и продолжает резолв. */
+  finish() {
+    const pending = this.pending;
+    if (!pending) return;
+    const ctx = this.ctx;
+    clearTimeout(pending.timer);
+    this.pending = null;
+    this.ctx = null;
+    this.offerIndex.clear();
+    if (!this.isPending) queues.delete(this.roomCode);
+
+    const room = ctx ? ctx.getRoom() ?? ctx.manager.get(pending.roomCode) ?? null : null;
+    for (const state of pending.offers) {
+      if (ctx && room) closeOffer(ctx, room, state);
+    }
+    // Резолв продолжается вне try/catch сокет-хендлера (таймаут/DM-скип) — изолируем.
+    try {
+      pending.resume(
+        pending.offers.map((s) => ({
+          tokenId: s.tokenId,
+          mapId: pending.mapId,
+          optionId: s.choice,
+        }))
+      );
+    } catch (err) {
+      console.error(`reaction resume error (${pending.roomCode}):`, err);
+    }
+  }
+}
+
+const queues = new Map<string, ReactionQueue>();
+
+function queueFor(roomCode: string): ReactionQueue {
+  let queue = queues.get(roomCode);
+  if (!queue) {
+    queue = new ReactionQueue(roomCode);
+    queues.set(roomCode, queue);
+  }
+  return queue;
+}
+
+function queueByPending(id: string): ReactionQueue | null {
+  for (const queue of queues.values()) {
+    if (queue.current?.id === id) return queue;
+  }
+  return null;
+}
+
+function queueByOffer(offerId: string): ReactionQueue | null {
+  for (const queue of queues.values()) {
+    if (queue.lookup(offerId)) return queue;
+  }
+  return null;
+}
 
 export function isReactionPending(roomCode: string): boolean {
-  return roomPending.has(roomCode);
+  return queues.get(roomCode)?.isPending === true;
 }
 
 /** Активные офферы комнаты (тесты/диагностика). */
 export function pendingOffers(roomCode: string): ReactionOffer[] {
-  const pending = pendings.get(roomPending.get(roomCode) ?? '');
-  if (!pending) return [];
-  return pending.offers.map((o) => ({
-    id: o.id,
-    mapId: pending.mapId,
-    trigger: pending.trigger,
-    tokenId: o.tokenId,
-    tokenName: '',
-    sourceName: pending.sourceName,
-    options: o.options,
-    expiresAt: 0,
-  }));
+  return queues.get(roomCode)?.offers() ?? [];
 }
 
 export interface ReactionOfferInput {
@@ -434,81 +582,11 @@ export function openReactionWindow(
     resume: (choices: ReactionChoice[]) => void;
   }
 ): boolean {
-  if (!args.offers.length || roomPending.has(room.code)) return false;
-  const id = randomUUID();
-  const expiresAt = Date.now() + REACTION_TIMEOUT_MS;
-  const pending: Pending = {
-    id,
-    roomCode: room.code,
-    mapId: args.mapId,
-    trigger: args.trigger,
-    sourceName: args.sourceName,
-    offers: [],
-    resume: args.resume,
-    timer: setTimeout(() => finishPending(id), REACTION_TIMEOUT_MS),
-  };
-  pending.timer.unref?.();
-
-  for (const input of args.offers) {
-    const offerId = `${id}:${input.token.id}`;
-    pending.offers.push({
-      id: offerId,
-      tokenId: input.token.id,
-      audience: input.audience,
-      options: input.options,
-      answered: false,
-      choice: null,
-    });
-    offerIndex.set(offerId, { pendingId: id, tokenId: input.token.id });
-    const offer: ReactionOffer = {
-      id: offerId,
-      mapId: args.mapId,
-      trigger: args.trigger,
-      tokenId: input.token.id,
-      tokenName: input.token.name,
-      sourceName: args.sourceName,
-      options: input.options,
-      expiresAt,
-    };
-    for (const pid of input.audience) ctx.emitTo(room, pid, 'reaction:offer', offer);
-  }
-
-  pendings.set(id, pending);
-  roomPending.set(room.code, id);
-  pendingContext.set(id, ctx);
-  return true;
+  return queueFor(room.code).open(ctx, room, args);
 }
 
 function closeOffer(ctx: ConnCtx, room: Room, state: PendingOfferState) {
-    for (const pid of state.audience) ctx.emitTo(room, pid, 'reaction:close', { id: state.id });
-}
-
-function finishPending(id: string) {
-  const pending = pendings.get(id);
-  if (!pending) return;
-  const ctx = pendingContext.get(id);
-  clearTimeout(pending.timer);
-  pendings.delete(id);
-  if (roomPending.get(pending.roomCode) === id) roomPending.delete(pending.roomCode);
-  pendingContext.delete(id);
-
-  const room = ctx ? ctx.getRoom() ?? ctx.manager.get(pending.roomCode) ?? null : null;
-  for (const state of pending.offers) {
-    offerIndex.delete(state.id);
-    if (ctx && room) closeOffer(ctx, room, state);
-  }
-  // Резолв продолжается вне try/catch сокет-хендлера (таймаут/DM-скип) — изолируем.
-  try {
-    pending.resume(
-      pending.offers.map((s) => ({
-        tokenId: s.tokenId,
-        mapId: pending.mapId,
-        optionId: s.choice,
-      }))
-    );
-  } catch (err) {
-    console.error(`reaction resume error (${pending.roomCode}):`, err);
-  }
+  for (const pid of state.audience) ctx.emitTo(room, pid, 'reaction:close', { id: state.id });
 }
 
 export function registerReactionHandlers(ctx: ConnCtx) {
@@ -516,42 +594,32 @@ export function registerReactionHandlers(ctx: ConnCtx) {
 
   ctx.on('reaction:respond', ({ id, optionId }) => {
     if (!ctx.playerId || typeof id !== 'string') return;
-    const ref = offerIndex.get(id);
-    const pending = ref ? pendings.get(ref.pendingId) : undefined;
+    const queue = queueByOffer(id);
+    const found = queue?.lookup(id);
     const room = getRoom();
-    if (!pending || !room) return;
-    const state = pending.offers.find((o) => o.id === id);
-    if (!state || state.answered || !state.audience.includes(ctx.playerId)) return;
+    if (!queue || !found || !room) return;
+    const { pending, state } = found;
+    if (state.answered || !state.audience.includes(ctx.playerId)) return;
     if (optionId !== null && !state.options.some((o) => o.id === optionId)) return;
     state.answered = true;
     state.choice = optionId ?? null;
     closeOffer(ctx, room, state);
-    if (pending.offers.every((o) => o.answered)) finishPending(pending.id);
+    if (pending.offers.every((o) => o.answered)) queue.finish();
   });
 
   ctx.on('reaction:forceSkip', ({ id }) => {
     if (!isDm() || typeof id !== 'string') return;
-    const pending = pendings.get(id);
-    if (!pending) return;
-    for (const state of pending.offers) state.answered = true;
-    finishPending(id);
+    const queue = queueByPending(id);
+    if (!queue?.current) return;
+    for (const state of queue.current.offers) state.answered = true;
+    queue.finish();
   });
 
   // Отключился — все его неотвеченные окна автоматически пропускаются.
   ctx.onDisconnect(() => {
     if (!ctx.playerId) return;
     const pid = ctx.playerId;
-    for (const pending of [...pendings.values()]) {
-      let changed = false;
-      for (const state of pending.offers) {
-        if (!state.answered && state.audience.includes(pid)) {
-          state.answered = true;
-          state.choice = null;
-          changed = true;
-        }
-      }
-      if (changed && pending.offers.every((o) => o.answered)) finishPending(pending.id);
-    }
+    for (const queue of [...queues.values()]) queue.skipPlayer(pid);
   });
 }
 
