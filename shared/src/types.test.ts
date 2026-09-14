@@ -244,6 +244,34 @@ describe('normalizeStatblock', () => {
     expect(statblock?.saves?.str).toBe(5);
     expect(normalizeStatblock(undefined)).toBeUndefined();
   });
+
+  it('ячейки и список заклинаний кастера-монстра', () => {
+    const statblock = normalizeStatblock({
+      abilities: {},
+      spellcasting: {
+        ability: 'wis',
+        slots: [
+          { level: 3, max: 2, current: 5 },
+          { level: 1, max: 4, current: 4 },
+          { level: 1, max: 9, current: 9 },
+          { level: 0, max: 2, current: 2 },
+          { level: 2, max: 0, current: 0 },
+        ],
+        spells: ['XPHB:Shield', 'XPHB:Shield', 'bad', 42, 'XPHB:Fireball'],
+      },
+    });
+    expect(statblock?.spellcasting?.slots).toEqual([
+      { level: 1, max: 4, current: 4 },
+      { level: 3, max: 2, current: 2 },
+    ]);
+    expect(statblock?.spellcasting?.spells).toEqual(['XPHB:Shield', 'XPHB:Fireball']);
+  });
+
+  it('явный пустой список заклинаний сохраняется (каст запрещён)', () => {
+    const statblock = normalizeStatblock({ abilities: {}, spellcasting: { ability: 'int', spells: [] } });
+    expect(statblock?.spellcasting?.spells).toEqual([]);
+    expect(statblock?.spellcasting?.slots).toBeUndefined();
+  });
 });
 
 describe('normalizeDamageDefenses', () => {

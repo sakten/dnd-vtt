@@ -114,6 +114,9 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
   socket.on('chat:message', (message) => get().onChatMessage(message));
   socket.on('chat:error', (message) => get().onChatError(message));
 
+  socket.on('reaction:offer', (offer) => get().onReactionOffer(offer));
+  socket.on('reaction:close', (payload) => get().onReactionClose(payload));
+
   socket.on('sheet:update', (payload) => get().onSheetUpdate(payload));
   socket.on('resources:update', (resources) => get().onResourcesUpdate(resources));
   socket.on('character:update', (payload) => get().onCharacterUpdate(payload));

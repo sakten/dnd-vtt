@@ -14,7 +14,7 @@ import {
   type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { resolveWeaponAttack } from './attackResolve';
+import { isReactionPending, resolveWeaponAttackWithReactions } from './reactions';
 
 /** Слот, которым будет оплачено действие: запрошенный, если доступен, иначе первый доступный. */
 function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: ActionCost): ActionCost {
@@ -29,6 +29,10 @@ export function registerActionHandlers(ctx: ConnCtx) {
     ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot }) => {
       if (!ctx.playerId) return;
       const room = getRoom();
+      if (room && isReactionPending(room.code)) {
+        socket.emit('chat:error', 'Ожидание реакции');
+        return;
+      }
       if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string' || typeof actionId !== 'string') return;
       const token = manager.findToken(room, mapId, tokenId);
       if (!token) return;
@@ -46,7 +50,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (!action) return;
 
       const combat = manager.combatOf(room, mapId);
-      if (combat?.active && !isDm() && !manager.isActiveToken(room, mapId, token.id)) {
+      const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
+      // В чужой ход игрок может тратить только реакцию; DM — любые действия (как раньше).
+      if (combat?.active && !isActive && !isDm() && !action.costs.includes('reaction')) {
         socket.emit('chat:error', 'Сейчас не ваш ход');
         return;
       }
@@ -70,7 +76,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
         const targetId = targetIds?.[0];
         const target: Token | null = typeof targetId === 'string' ? manager.findToken(room, mapId, targetId) ?? null : null;
-        const result = resolveWeaponAttack(ctx, {
+        const result = resolveWeaponAttackWithReactions(ctx, {
           attacker: token,
           attackerMapId: mapId,
           target,
@@ -91,10 +97,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      const turn = manager.turnForToken(room, mapId, token);
-      const chosen = chooseSlot(turn, action.costs, slot);
+      const turn = isActive ? manager.turnForToken(room, mapId, token) : null;
+      const offTurnReaction = !!combat?.active && !isActive && action.costs.includes('reaction');
+      const chosen: ActionCost = offTurnReaction ? 'reaction' : chooseSlot(turn, action.costs, slot);
       if (!manager.spendSlot(room, mapId, token, chosen)) {
-        socket.emit('chat:error', 'Недостаточно действий');
+        socket.emit('chat:error', offTurnReaction ? 'Реакция уже потрачена' : 'Недостаточно действий');
         return;
       }
       syncCombat(room, mapId);

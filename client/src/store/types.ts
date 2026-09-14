@@ -8,6 +8,7 @@ import type {
   LibraryItem,
   Player,
   PlayerResources,
+  ReactionOffer,
   Role,
   RollKind,
   Scene,
@@ -97,6 +98,8 @@ export interface GameState {
   tokenMenuId: string | null;
   fogMode: FogMode;
   critHit: CritHit | null;
+  /** Активные окна реакций (R1). */
+  reactionOffers: ReactionOffer[];
 
   init: () => void;
   joinRoom: (code: string, name: string) => void;
@@ -221,6 +224,10 @@ export interface GameState {
   onSheetUpdate: (payload: Parameters<ServerToClientEvents['sheet:update']>[0]) => void;
   onResourcesUpdate: (resources: PlayerResources) => void;
   onCharacterUpdate: (payload: Parameters<ServerToClientEvents['character:update']>[0]) => void;
+  onReactionOffer: (offer: ReactionOffer) => void;
+  onReactionClose: (payload: { id: string }) => void;
+  respondReaction: (id: string, optionId: string | null) => void;
+  forceSkipReaction: (id: string) => void;
 }
 
 export type StoreSet = (partial: Partial<GameState> | ((state: GameState) => Partial<GameState>)) => void;

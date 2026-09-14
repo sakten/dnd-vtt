@@ -16,18 +16,23 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import { findSpell } from '../spells';
-import { resolveSpellCast, validateSpellCast, type SpellCastInput } from './spellResolve';
+import { validateSpellCast, type SpellCastInput } from './spellResolve';
+import { isReactionPending, resolveSpellCastWithReactions } from './reactions';
 
 const isPoint = (p: unknown): p is { x: number; y: number } =>
   !!p && typeof p === 'object' && Number.isFinite((p as { x?: unknown }).x) && Number.isFinite((p as { y?: unknown }).y);
 
 export function registerSpellHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, syncCombat } = ctx;
+  const { socket, manager, getRoom, isDm, syncCombat, emitToken } = ctx;
 
   ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction }) => {
     if (!ctx.playerId) return;
     const room = getRoom();
     if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string' || typeof spellKey !== 'string') return;
+    if (isReactionPending(room.code)) {
+      socket.emit('chat:error', 'Ожидание реакции');
+      return;
+    }
     const token = manager.findToken(room, mapId, tokenId);
     if (!token) return;
     if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
@@ -38,6 +43,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     const spell = findSpell(spellKey);
     if (!spell) return;
+    const cost = spellActionCost(spell);
 
     const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
     const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
@@ -50,6 +56,9 @@ export function registerSpellHandlers(ctx: ConnCtx) {
         socket.emit('chat:error', 'Заклинание не выбрано в листе');
         return;
       }
+    } else if (token.statblock?.spellcasting?.spells && !token.statblock.spellcasting.spells.includes(spellKey)) {
+      socket.emit('chat:error', 'Заклинание не выбрано в статблоке');
+      return;
     }
 
     let stats: SpellStats | null = null;
@@ -62,7 +71,9 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     }
 
     const combat = manager.combatOf(room, mapId);
-    if (combat?.active && !isDm() && !manager.isActiveToken(room, mapId, token.id)) {
+    const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
+    // В чужой ход игрок может кастовать только реакционные заклинания.
+    if (combat?.active && !isActive && !isDm() && cost !== 'reaction') {
       socket.emit('chat:error', 'Сейчас не ваш ход');
       return;
     }
@@ -129,25 +140,36 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       return;
     }
 
-    const cost = spellActionCost(spell);
-    const turn = manager.turnForToken(room, mapId, token);
+    const turn =
+      cost === 'reaction' ? manager.turnStateFor(room, mapId, token) : manager.turnForToken(room, mapId, token);
     if (turn && (cost === 'action' || cost === 'bonus' || cost === 'reaction') && !actionSlotAvailable(turn, cost)) {
       socket.emit('chat:error', 'Недостаточно действий');
       return;
     }
 
     if (spell.level > 0) {
-      if (!manager.spendSpellSlot(room, ctx.playerId, castLevel)) {
+      if (className) {
+        if (!manager.spendSpellSlot(room, ctx.playerId, castLevel)) {
+          socket.emit('chat:error', 'Нет ячейки нужного круга');
+          return;
+        }
+        const res = room.resources[ctx.playerId];
+        if (res) socket.emit('resources:update', res);
+      } else if (token.statblock?.spellcasting) {
+        if (!manager.spendTokenSpellSlot(room, token, castLevel)) {
+          socket.emit('chat:error', 'Нет ячейки нужного круга');
+          return;
+        }
+        emitToken(room, 'token:update', mapId, token);
+      } else {
         socket.emit('chat:error', 'Нет ячейки нужного круга');
         return;
       }
-      const res = room.resources[ctx.playerId];
-      if (res) socket.emit('resources:update', res);
     }
     manager.spendSlot(room, mapId, token, cost);
     syncCombat(room, mapId);
 
-    const result = resolveSpellCast(ctx, input);
+    const result = resolveSpellCastWithReactions(ctx, input);
     if (result.error) socket.emit('chat:error', result.error);
   });
 

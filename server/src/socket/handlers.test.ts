@@ -8,7 +8,9 @@ import {
   type CharacterSheet,
   type ClientToServerEvents,
   type PlayerResources,
+  type AttackEntry,
   type Token,
+  type TokenStatblock,
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { RoomManager } from '../rooms';
@@ -20,6 +22,7 @@ import { registerActionHandlers } from './actions';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
+import { pendingOffers, registerReactionHandlers } from './reactions';
 
 function makeToken(id: string, overrides: Partial<Token> = {}): Token {
   return {
@@ -146,6 +149,7 @@ function makeCtx(room: Room, opts: { playerId?: string | null; dm?: boolean } = 
     emitToken: (event: string, mapId: string, token: Token) => {
       emitted.push({ event, payload: { mapId, token } });
     },
+    emitResources: () => {},
     syncCombat: (r: Room, mapId: string) => {
       emitted.push({
         event: 'combat:update',
@@ -266,6 +270,28 @@ describe('action:use', () => {
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
     expect(combatOf(room).turns.e1.actionUsed).toBe(false);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
+  });
+
+  it('реакционное действие доступно не в свой ход и тратит реакцию', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.scene.maps[0].tokens[0].statblock = {
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      actions: [{ id: 'parry', name: 'Парирование', source: 'monster', costs: ['reaction'] }],
+    };
+    room.scene.maps[0].tokens.push(makeToken('t2'));
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'parry', slot: 'reaction' });
+    expect(combatOf(room).turns.e1.reactionUsed).toBe(true);
+    expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(false);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'parry', slot: 'reaction' });
+    expect(
+      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Реакция уже потрачена'))
+    ).toBe(true);
   });
 
   it('Атака списывает действие и оружие бьёт', () => {
@@ -509,6 +535,27 @@ describe('spell:cast', () => {
     expect(f.manager.acForToken(room, tk)).toBe(17);
   });
 
+  it('реакционное заклинание кастуется не в свой ход и тратит реакцию', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', ac: '12' })], { p1: 'lib1' });
+    room.scene.maps[0].tokens.push(makeToken('t2'));
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
+
+    expect(combatOf(room).turns.e1.reactionUsed).toBe(true);
+    expect(room.scene.maps[0].tokens[0].effects).toHaveLength(1);
+    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(false);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
+    expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
+  });
+
   it('Bless — концентрация на цели; endConcentration снимает эффекты', () => {    const room = makeRoom(
       [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2')],
       { p1: 'lib1' }
@@ -593,6 +640,600 @@ describe('spell:cast', () => {
       | { roll?: { expression?: string } }
       | undefined;
     expect(damage?.roll?.expression).toContain('1d6');
+  });
+});
+
+describe('spell:cast монстра (статблок)', () => {
+  const monsterStatblock = (spellcasting: NonNullable<TokenStatblock['spellcasting']>): TokenStatblock => ({
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 },
+    spellcasting,
+  });
+
+  it('кастует из списка и тратит ячейку статблока', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          statblock: monsterStatblock({
+            ability: 'wis',
+            dc: 14,
+            spells: ['XPHB:Shield'],
+            slots: [{ level: 1, max: 2, current: 2 }],
+          }),
+        }),
+      ],
+      {}
+    );
+    const f = makeCtx(room, { dm: true });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
+
+    const token = room.scene.maps[0].tokens[0];
+    expect(token.statblock?.spellcasting?.slots?.[0].current).toBe(1);
+    expect(token.effects).toHaveLength(1);
+    expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(false);
+  });
+
+  it('заклинание вне списка статблока не кастуется', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          statblock: monsterStatblock({ ability: 'wis', spells: [], slots: [{ level: 1, max: 1, current: 1 }] }),
+        }),
+      ],
+      {}
+    );
+    const f = makeCtx(room, { dm: true });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
+
+    const token = room.scene.maps[0].tokens[0];
+    expect(token.statblock?.spellcasting?.slots?.[0].current).toBe(1);
+    expect(token.effects).toHaveLength(0);
+    expect(
+      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('статблоке'))
+    ).toBe(true);
+  });
+
+  it('без свободной ячейки нужного круга не кастует', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          statblock: monsterStatblock({
+            ability: 'wis',
+            spells: ['XPHB:Shield'],
+            slots: [{ level: 1, max: 1, current: 0 }],
+          }),
+        }),
+      ],
+      {}
+    );
+    const f = makeCtx(room, { dm: true });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
+
+    expect(room.scene.maps[0].tokens[0].effects).toHaveLength(0);
+    expect(
+      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Нет ячейки'))
+    ).toBe(true);
+  });
+});
+
+describe('реакции (R1)', () => {
+  const melee = (name = 'Меч', hit = 'd20+20'): AttackEntry => ({
+    name,
+    hit,
+    damage: '1d8',
+    damageType: 'slashing',
+    rangeType: 'melee',
+    rangeNormal: 5,
+    rangeLong: 0,
+  });
+  const abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 };
+
+  it('окно на попадание: Shield тратит реакцию/ячейку и отменяет урон', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '16', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = { ...casterSheet(), ac: '16', spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17 (не крит)
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const defender = room.scene.maps[0].tokens[1];
+    expect(defender.hpCurrent).toBe(30);
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].options.map((o) => o.id)).toContain('spell:XPHB:Shield');
+
+    // Пока окно открыто, даже DM не может действовать (заморозка).
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
+    expect(
+      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Ожидание реакции'))
+    ).toBe(true);
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XPHB:Shield' });
+    rand.mockRestore();
+
+    expect(defender.effects.some((e) => e.sourceKey === 'XPHB:Shield')).toBe(true);
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(defender.hpCurrent).toBe(30);
+  });
+
+  it('щит не предлагается при промахе', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '25', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = { ...casterSheet(), ac: '25', spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(room.scene.maps[0].tokens[1].hpCurrent).toBe(30);
+  });
+
+  it('щит не предлагается, если попадание с запасом больше бонуса', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '10', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = { ...casterSheet(), ac: '10', spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17 ≥ 10+5
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(room.scene.maps[0].tokens[1].hpCurrent).toBeLessThan(30);
+  });
+
+  it('без спец-реакций атака по возможности срабатывает автоматически', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки')], x: 150, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.resources.p1 = casterResources();
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerCombatHandlers(f.ctx);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11, 1d8 = 5
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't1',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 300, y: 100 },
+      ],
+    });
+    rand.mockRestore();
+
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
+    expect(room.resources.p1.hp.current).toBe(25);
+  });
+
+  it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee()], hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '10', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = { ...casterSheet(), ac: '10', spells: [{ key: 'XPHB:Hellish Rebuke', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // без фляков на d20
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    expect(room.resources.p1.hp.current).toBeLessThan(30);
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].trigger).toBe('damage');
+    expect(offers[0].options.map((o) => o.id)).toContain('spell:XPHB:Hellish Rebuke');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XPHB:Hellish Rebuke' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0].tokens[0].hpCurrent).toBeLessThan(30);
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+  });
+
+  it('Невероятное уклонение уменьшает урон вдвое', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '16', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      ac: '16',
+      classes: [{ className: 'rogue', level: 5 }],
+      spells: [],
+    };
+    room.resources.p1 = { ...casterResources(), spellSlots: [] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17 (попадание), d8 = 7
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].options.map((o) => o.id)).toContain('feature:rogue:uncannyDodge');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:rogue:uncannyDodge' });
+    rand.mockRestore();
+
+    expect(room.resources.p1.hp.current).toBe(27); // floor(7 / 2)
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+  });
+
+  it('Парирование тратит кость превосходства и повышает AC', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '16', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      ac: '16',
+      classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'fighter.battleMaster:superiorityDice',
+          name: 'Кости превосходства',
+          current: 4,
+          max: 4,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17, кость d8 = 7
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].options.map((o) => o.id)).toContain('feature:fighter.battleMaster:parry');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:fighter.battleMaster:parry' });
+    rand.mockRestore();
+
+    expect(room.resources.p1.hp.current).toBe(30); // AC 16 + 7 = 23 > 17 → промах
+    expect(room.resources.p1.resources[0].current).toBe(3);
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+  });
+
+  it('Absorb Elements уменьшает урон и даёт сопротивление типу', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          attacks: [
+            {
+              name: 'Огонь',
+              hit: 'd20',
+              damage: '1d8',
+              damageType: 'fire',
+              rangeType: 'melee',
+              rangeNormal: 5,
+              rangeLong: 0,
+            },
+          ],
+        }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '10', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = { ...casterSheet(), ac: '10', spells: [{ key: 'XGE:Absorb Elements', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17, 1d8 = 7
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].options.map((o) => o.id)).toContain('spell:XGE:Absorb Elements');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XGE:Absorb Elements' });
+    rand.mockRestore();
+
+    const defender = room.scene.maps[0].tokens[1];
+    expect(room.resources.p1.hp.current).toBe(27); // floor(7 / 2)
+    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(
+      defender.effects.some(
+        (e) => e.sourceKey === 'XGE:Absorb Elements' && e.modifiers.some((m) => m.filter?.damageType === 'fire')
+      )
+    ).toBe(true);
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+  });
+
+  it('Counterspell отменяет каст', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 0, y: 0, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 0, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+        makeToken('t3', { libraryItemId: 'lib3', x: 0, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1', p2: 'lib3' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).entries.push({ id: 'e3', tokenId: 't3', name: 'C', imageUrl: '', initiative: 4, bonus: '' });
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Fireball', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+    room.sheets.p2 = { ...casterSheet(), spells: [{ key: 'XPHB:Counterspell', className: 'wizard' }] };
+    room.resources.p2 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 100, y: 0 },
+    });
+
+    // Каст ещё не разрешён: цель невредима, открыто окно Counterspell.
+    expect(room.scene.maps[0].tokens[1].hpCurrent).toBe(30);
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].options.map((o) => o.id)).toContain('spell:XPHB:Counterspell');
+
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XPHB:Counterspell' });
+
+    expect(room.scene.maps[0].tokens[1].hpCurrent).toBe(30);
+    expect(
+      f.emitted.some((e) => e.event === 'system' && String(e.payload).includes('Counterspell'))
+    ).toBe(true);
+    expect(combatOf(room).turns.e3.reactionUsed).toBe(true);
+    expect(room.resources.p2.spellSlots[0].current).toBe(0);
+  });
+
+  it('Палящая вспышка даёт помеху до броска и отменяет попадание', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '16', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      ac: '16',
+      classes: [{ className: 'cleric', level: 1, subclass: 'light' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric.light:wardingFlare',
+          name: 'Палящая вспышка',
+          current: 2,
+          max: 2,
+          reset: 'long',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValueOnce(0.9).mockReturnValueOnce(0.1); // 19 и 3
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    // Броска ещё не было — открыто окно до атаки.
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack')).toBe(false);
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].trigger).toBe('attackRoll');
+    expect(offers[0].options.map((o) => o.id)).toContain('feature:cleric.light:wardingFlare');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:cleric.light:wardingFlare' });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll?: { total?: number } }
+      | undefined;
+    expect(attack?.roll?.total).toBe(3); // с помехой взят меньший бросок
+    expect(room.resources.p1.hp.current).toBe(30);
+    expect(room.resources.p1.resources[0].current).toBe(1);
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+  });
+
+  it('Ответный удар после промаха бьёт по атакующему с костью превосходства', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20+1')], hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '16', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      ac: '16',
+      classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      spells: [],
+      attacks: [melee('Рапира')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'fighter.battleMaster:superiorityDice',
+          name: 'Кости превосходства',
+          current: 4,
+          max: 4,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // d20 = 3, d8 = 1
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].trigger).toBe('attackMiss');
+    expect(offers[0].options.map((o) => o.id)).toContain('feature:fighter.battleMaster:riposte');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:fighter.battleMaster:riposte' });
+    rand.mockRestore();
+
+    // Ответный удар (d20+20) попал: 1d8 + кость 1d8 = 2 при моке.
+    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(28);
+    expect(room.resources.p1.resources[0].current).toBe(3);
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
+  });
+
+  it('в режиме тестов окно NPC видят все игроки и может ответить любой', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', {
+          x: 150,
+          y: 100,
+          faction: 'enemy',
+          attacks: [melee('Клыки')],
+          statblock: {
+            abilities,
+            spellcasting: { ability: 'wis', spells: ['XPHB:Shield'], slots: [{ level: 1, max: 1, current: 1 }] },
+          },
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.testMode = true;
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    room.resources.p1 = casterResources();
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerCombatHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't1',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 300, y: 100 },
+      ],
+    });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0].options.map((o) => o.id)).toContain('opportunity');
+
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'opportunity' });
+
+    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
   });
 });
 

@@ -179,6 +179,28 @@ describe('RoomManager ход', () => {
     expect(combat.turns.e2).toBeDefined();
   });
 
+  it('turnStateFor создаёт ход неактивного токена и реакция тратится в чужой ход', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0].tokens = [token('t1'), token('t2')];
+    const combat = room.scene.maps[0].combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+
+    const t2 = room.scene.maps[0].tokens[1];
+    expect(manager.turnForToken(room, 'm1', t2)).toBeNull();
+    expect(combat.turns.e2).toBeUndefined();
+
+    expect(manager.turnStateFor(room, 'm1', t2)).toBeDefined();
+    expect(combat.turns.e2).toBeDefined();
+    expect(manager.spendSlot(room, 'm1', t2, 'reaction')).toBe(true);
+    expect(combat.turns.e2.reactionUsed).toBe(true);
+    expect(manager.spendSlot(room, 'm1', t2, 'reaction')).toBe(false);
+    expect(combat.turns.e1.reactionUsed).toBe(false);
+  });
+
   it('перестановка в инициативе сохраняет активного', () => {
     const manager = setup();
     const room = makeRoom();
@@ -580,6 +602,22 @@ describe('RoomManager эффекты', () => {
     manager.removeEffect(room, tk, 'ef1');
     expect(tk.effects).toHaveLength(0);
     expect(tk.conditions).toHaveLength(0);
+  });
+
+  it('пустой AC считается 13, эффекты применяются', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1');
+    expect(manager.acForToken(room, tk)).toBe(13);
+
+    manager.applyEffect(room, tk, {
+      id: 'ef1',
+      name: 'Shield',
+      duration: { type: 'endOfTurn', of: 'source' },
+      sourceId: 't1',
+      modifiers: [{ id: 'm1', target: 'ac', mode: 'add', value: 5 }],
+    });
+    expect(manager.acForToken(room, tk)).toBe(18);
   });
 
   it('эффекты меняют AC, скорость и доп. действия', () => {

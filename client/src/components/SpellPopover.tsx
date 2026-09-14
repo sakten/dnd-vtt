@@ -34,6 +34,7 @@ const COST_TEXT: Record<string, string> = {
 export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const resources = useGameStore((s) => s.resources);
   const sheet = useGameStore((s) => s.sheet);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const targetTokenId = useGameStore((s) => s.targetTokenId);
   const map = useGameStore((s) => s.scene.maps.find((m) => m.id === s.viewMapId) ?? null);
   const castSpell = useGameStore((s) => s.castSpell);
@@ -44,7 +45,11 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const [dis, setDis] = useState(false);
 
   const isCantrip = spell.level === 0;
-  const maxLevel = maxCastableLevel(spell, resources);
+  const castToken = map?.tokens.find((t) => t.id === tokenId) ?? null;
+  const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
+  const maxLevel = sheetCaster
+    ? maxCastableLevel(spell, resources)
+    : maxCastableLevel(spell, null, castToken?.statblock?.spellcasting?.slots);
   const canCast = isCantrip || maxLevel >= spell.level;
   const area = spellHasArea(spell);
   const self = spellTargetKind(spell) === 'self';

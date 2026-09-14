@@ -1,11 +1,18 @@
 import type { ConnCtx } from './context';
 import { tickActiveTurn } from './conditions';
+import { isReactionPending, triggerOpportunityAttacks } from './reactions';
 
 export function registerCombatHandlers(ctx: ConnCtx) {
   const { manager, dmRoom, syncCombat, getRoom, isDm } = ctx;
 
+  const blocked = () => {
+    const room = getRoom();
+    return !!room && isReactionPending(room.code);
+  };
+
     ctx.on('combat:start', ({ mapId }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string') return;
       manager.startCombat(room, mapId);
       tickActiveTurn(ctx, room, mapId, 'start');
@@ -14,6 +21,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:end', ({ mapId }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string') return;
       manager.endCombat(room, mapId);
       syncCombat(room, mapId);
@@ -21,6 +29,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:clear', ({ mapId }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string') return;
       manager.clearCombat(room, mapId);
       syncCombat(room, mapId);
@@ -28,12 +37,14 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:add', ({ mapId, tokenId }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string') return;
       if (manager.addCombatToken(room, mapId, tokenId)) syncCombat(room, mapId);
     });
 
     ctx.on('combat:addMap', ({ mapId }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string') return;
       manager.addMapTokensToCombat(room, mapId);
       syncCombat(room, mapId);
@@ -41,6 +52,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:remove', ({ mapId, id }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string' || typeof id !== 'string') return;
       manager.removeCombatant(room, mapId, id);
       syncCombat(room, mapId);
@@ -48,6 +60,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:update', ({ mapId, id, patch }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string' || typeof id !== 'string' || !patch || typeof patch !== 'object') return;
       manager.updateCombatant(room, mapId, id, patch);
       syncCombat(room, mapId);
@@ -55,6 +68,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:move', ({ mapId, id, toIndex }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string' || typeof id !== 'string' || typeof toIndex !== 'number') return;
       manager.moveCombatant(room, mapId, id, toIndex);
       syncCombat(room, mapId);
@@ -62,6 +76,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:roll', (payload) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof payload?.mapId !== 'string') return;
       const id = typeof payload.id === 'string' ? payload.id : undefined;
       manager.rollCombat(room, payload.mapId, id);
@@ -70,6 +85,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:endTurn', ({ mapId }) => {
       const room = getRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string') return;
       const combat = manager.combatOf(room, mapId);
       if (!combat?.active || combat.currentIndex < 0) return;
@@ -87,6 +103,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
 
     ctx.on('combat:setTurn', ({ mapId, id, index }) => {
       const room = dmRoom();
+      if (blocked()) return;
       if (!room || typeof mapId !== 'string') return;
       manager.setTurn(room, mapId, {
         id: typeof id === 'string' ? id : undefined,
@@ -96,7 +113,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
       syncCombat(room, mapId);
     });
 
-    ctx.on('combat:setMovement', ({ mapId, tokenId, used, diagonals }) => {
+    ctx.on('combat:setMovement', ({ mapId, tokenId, used, diagonals, path }) => {
       const room = getRoom();
       if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string' || typeof used !== 'number') return;
       if (!isDm()) {
@@ -109,6 +126,17 @@ export function registerCombatHandlers(ctx: ConnCtx) {
       }
       manager.setMovement(room, mapId, tokenId, used, typeof diagonals === 'number' ? diagonals : undefined);
       syncCombat(room, mapId);
+
+      // Атаки по возможности: активный токен в бою, вне окна реакций.
+      const combat = manager.combatOf(room, mapId);
+      if (!combat?.active || combat.currentIndex < 0 || isReactionPending(room.code)) return;
+      if (combat.entries[combat.currentIndex]?.tokenId !== tokenId) return;
+      const mover = manager.findToken(room, mapId, tokenId);
+      if (!mover) return;
+      const points = (Array.isArray(path) ? path : [])
+        .filter((p): p is { x: number; y: number } => !!p && Number.isFinite(p.x) && Number.isFinite(p.y))
+        .slice(0, 400);
+      triggerOpportunityAttacks(ctx, room, mapId, mover, points);
     });
 
 }

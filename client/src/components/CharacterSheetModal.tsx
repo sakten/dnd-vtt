@@ -206,7 +206,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             min={0}
             max={99}
             value={draft.ac}
-            placeholder="10"
+            placeholder="13"
             onChange={(e) => setDraft({ ...draft, ac: e.target.value })}
           />
         </label>

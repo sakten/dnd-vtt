@@ -10,7 +10,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { resolveWeaponAttack } from './attackResolve';
+import { isReactionPending, resolveWeaponAttackWithReactions } from './reactions';
 
 export function registerDiceHandlers(ctx: ConnCtx) {
   const { socket, manager, getRoom, isDm, broadcastAll, syncCombat, cleanLabel } = ctx;
@@ -45,6 +45,10 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       if (!ctx.playerId) return;
       const room = getRoom();
       if (!room) return;
+      if (isReactionPending(room.code)) {
+        socket.emit('chat:error', 'Ожидание реакции');
+        return;
+      }
       const player = room.players.find((p) => p.id === ctx.playerId);
       const author = player?.name ?? '?';
 
@@ -104,7 +108,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         }
       }
 
-      const result = resolveWeaponAttack(ctx, {
+      const result = resolveWeaponAttackWithReactions(ctx, {
         attacker,
         attackerMapId,
         target: targetTok,

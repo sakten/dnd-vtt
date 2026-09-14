@@ -14,6 +14,7 @@ import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
 import AimPanel from '../components/AimPanel';
+import ReactionPrompt from '../components/ReactionPrompt';
 import CritOverlay from '../components/CritOverlay';
 
 export default function TableScreen() {
@@ -74,6 +75,7 @@ export default function TableScreen() {
       <ActionPanel />
       <AimPanel />
       <ResourcesPanel />
+      <ReactionPrompt />
       <div
         className="room-badge"
         title={`${roomCode} — нажмите, чтобы скопировать ссылку для игроков`}

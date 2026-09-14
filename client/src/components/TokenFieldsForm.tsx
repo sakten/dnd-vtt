@@ -87,7 +87,7 @@ export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurren
             type="text"
             value={value.ac ?? ''}
             maxLength={10}
-            placeholder="15"
+            placeholder="13"
             onChange={(e) => onChange({ ac: e.target.value })}
           />
         </label>

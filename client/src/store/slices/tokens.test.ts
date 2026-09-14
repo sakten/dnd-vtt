@@ -67,7 +67,17 @@ describe('tokens slice: передвижение', () => {
     expect(turn().movementUsed).toBe(15);
     expect(emitted).toContainEqual({
       event: 'combat:setMovement',
-      payload: { mapId: 'm1', tokenId: 't1', used: 15, diagonals: 0 },
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        used: 15,
+        diagonals: 0,
+        path: [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 150, y: 0 },
+        ],
+      },
     });
     expect(emitted).toContainEqual({ event: 'token:lock', payload: { mapId: 'm1', id: 't1', lock: false } });
   });

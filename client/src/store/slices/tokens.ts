@@ -19,6 +19,9 @@ const clearTokenRefs = (s: GameState, id: string) => ({
 export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'finalizeTokenMove' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setTargetToken' | 'setMeasureFrom' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
   const viewMapId = () => get().viewMapId;
 
+  // Ломаная пути текущего перетаскивания — для атак по возможности.
+  const movePaths = new Map<string, { x: number; y: number }[]>();
+
   const patchTokenInMap = (mapId: string, id: string, patch: Partial<Token>) =>
     set((s) => ({ scene: patchToken(s.scene, mapId, id, patch) }));
 
@@ -62,6 +65,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
     onTokenRemove: ({ mapId, id }) => {
       clearThrottled(`move:${id}`);
+      movePaths.delete(id);
       set((s) => ({
         ...clearTokenRefs(s, id),
         scene: removeTokenById(s.scene, mapId, id),
@@ -84,6 +88,13 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       const socket = get().socket;
       const mapId = viewMapId();
       if (!socket || !mapId) return;
+      const token = get().scene.maps.find((m) => m.id === mapId)?.tokens.find((t) => t.id === id);
+      if (token) {
+        const list = movePaths.get(id) ?? [{ x: token.x, y: token.y }];
+        const last = list[list.length - 1];
+        if (!last || last.x !== x || last.y !== y) list.push({ x, y });
+        movePaths.set(id, list.slice(0, 400));
+      }
       accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
       throttled(`move:${id}`, 66, () => socket.emit('token:move', { mapId, id, x, y }));
@@ -94,24 +105,35 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       const mapId = viewMapId();
       if (!socket || !mapId) return;
       clearThrottled(`move:${id}`);
+      const token = get().scene.maps.find((m) => m.id === mapId)?.tokens.find((t) => t.id === id);
+      if (token) {
+        const list = movePaths.get(id) ?? [{ x: token.x, y: token.y }];
+        const last = list[list.length - 1];
+        if (!last || last.x !== x || last.y !== y) list.push({ x, y });
+        movePaths.set(id, list.slice(0, 400));
+      }
       accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
       socket.emit('token:move', { mapId, id, x, y });
       socket.emit('token:lock', { mapId, id, lock: false });
       const moved = reportMovement(mapId, id);
       if (moved) {
+        const path = movePaths.get(id);
         socket.emit('combat:setMovement', {
           mapId,
           tokenId: id,
           used: moved.used,
           diagonals: moved.diagonals,
+          path: path && path.length > 1 ? path : undefined,
         });
       }
+      movePaths.delete(id);
     },
 
     lockToken: (id, lock) => {
       const mapId = viewMapId();
       if (!mapId) return;
+      if (lock) movePaths.delete(id);
       get().socket?.emit('token:lock', { mapId, id, lock });
     },
 

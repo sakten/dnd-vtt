@@ -768,6 +768,43 @@
 .statblock-action input { flex: 1; min-width: 0; }
 .statblock-action select { width: 120px; }
 
+.slots-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-cell .slot-level {
+  width: 24px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.slot-cell .slot-cap {
+  flex: 1;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.slot-cell input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+}
+
+.slot-cell.slot-head {
+  margin-bottom: 2px;
+}
+
 /* ����� ���� ������ � ������� */
 .tm-header {
   padding: 16px 18px;

@@ -1,0 +1,110 @@
+.reaction-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.45);
+  z-index: 39;
+}
+
+.reaction-prompt {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  min-width: 380px;
+  max-width: 560px;
+  background: var(--panel);
+  border: 1px solid #7d4bc4;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rp-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #c39bd3;
+}
+
+.rp-token {
+  font-weight: 700;
+}
+
+.rp-source {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.rp-timer {
+  margin-left: auto;
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.rp-force-link {
+  margin-left: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #b8860b;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rp-force-link:hover {
+  color: #ffd166;
+}
+
+.rp-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #7d4bc4;
+  background: #1c2026;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rp-option:hover {
+  background: #2a2140;
+}
+
+.rp-option.rp-ignore {
+  border-color: var(--panel-border);
+  color: var(--text-dim);
+}
+
+.rp-option.rp-ignore:hover {
+  background: #1c2026;
+  color: var(--text);
+}
+
+.rp-icon {
+  width: 38px;
+  height: 38px;
+}
+
+.rp-name {
+  font-weight: 600;
+}

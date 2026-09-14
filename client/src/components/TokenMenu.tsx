@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  DEFAULT_AC,
   DEFAULT_SPEED,
   effectDurationText,
   modifiedValue,
@@ -20,6 +21,7 @@ import DamageDefensesForm from './DamageDefensesForm';
 import DefenseChips from './DefenseChips';
 import EffectChips from './EffectChips';
 import StatblockForm from './StatblockForm';
+import StatblockSpells from './StatblockSpells';
 
 const FACTION_RU: Record<Faction, string> = { ally: 'Союзник', enemy: 'Враг', neutral: 'Нейтрал' };
 
@@ -43,7 +45,7 @@ export default function TokenMenu() {
   const spells = useSpells();
   const spellByKey = useMemo(() => new Map<string, Spell>(spells.map((s) => [s.key, s])), [spells]);
 
-  const [tab, setTab] = useState<'main' | 'statblock'>('main');
+  const [tab, setTab] = useState<'main' | 'statblock' | 'spells'>('main');
   const [draft, setDraft] = useState<TokenFields | null>(null);
   const [hpCurrent, setHpCurrent] = useState(0);
   const [hpTemp, setHpTemp] = useState(0);
@@ -90,13 +92,19 @@ export default function TokenMenu() {
     return () => window.removeEventListener('keydown', onKey);
   }, [close]);
 
+  // Сняли галку «кастер» — вкладка заклинаний исчезает, уходим на статблок.
+  useEffect(() => {
+    if (tab === 'spells' && !statblock?.spellcasting) setTab('statblock');
+  }, [tab, statblock]);
+
   if (!token || !draft) return null;
 
   const hpMax = statNumber(draft.hpMax);
   const pct = hpMax > 0 ? Math.max(0, Math.min(1, hpCurrent / hpMax)) : 0;
   const hpColor = pct > 0.5 ? '#4ecb71' : pct > 0.25 ? '#ffd166' : '#ff6b6b';
 
-  const acBase = statNumber(draft.ac);
+  const acExplicit = statNumber(draft.ac);
+  const acBase = acExplicit > 0 ? acExplicit : DEFAULT_AC;
   const acAbilities =
     currentCharacterId && token.libraryItemId === currentCharacterId
       ? sheet?.abilities
@@ -139,9 +147,15 @@ export default function TokenMenu() {
           <div className="tm-head-info">
             <div className="tm-name">{draft.name || 'Без имени'}</div>
             <div className="tm-stats">
-              <span title={acBonus ? `Базовый ${acBase}, с эффектами ${acEffective}` : 'Класс брони'}>
-                AC {acBase > 0 ? acEffective : '—'}
-                {acBase > 0 && acBonus !== 0 && (
+              <span
+                title={
+                  acBonus
+                    ? `Базовый ${acBase}${acExplicit > 0 ? '' : ' (по умолчанию)'}, с эффектами ${acEffective}`
+                    : `Класс брони${acExplicit > 0 ? '' : ' (по умолчанию 13)'}`
+                }
+              >
+                AC {acEffective}
+                {acBonus !== 0 && (
                   <em className={`tm-ac-buff${acBonus < 0 ? ' negative' : ''}`}>
                     {acBonus > 0 ? `+${acBonus}` : acBonus}
                   </em>
@@ -182,6 +196,11 @@ export default function TokenMenu() {
           {(isDm || canEdit) && (
             <button className={`tm-tab${tab === 'statblock' ? ' active' : ''}`} onClick={() => setTab('statblock')}>
               Статблок
+            </button>
+          )}
+          {isDm && statblock?.spellcasting && (
+            <button className={`tm-tab${tab === 'spells' ? ' active' : ''}`} onClick={() => setTab('spells')}>
+              Заклинания
             </button>
           )}
         </div>
@@ -322,7 +341,7 @@ export default function TokenMenu() {
                     type="text"
                     value={draft.ac}
                     maxLength={10}
-                    placeholder="15"
+                    placeholder="13"
                     onChange={(e) => setDraft((d) => (d ? { ...d, ac: e.target.value } : d))}
                   />
                 </label>
@@ -423,6 +442,10 @@ export default function TokenMenu() {
               />
               {isDm && <StatblockForm value={statblock} onChange={setStatblock} />}
             </>
+          )}
+
+          {tab === 'spells' && isDm && statblock?.spellcasting && (
+            <StatblockSpells statblock={statblock} onChange={setStatblock} />
           )}
         </div>
 

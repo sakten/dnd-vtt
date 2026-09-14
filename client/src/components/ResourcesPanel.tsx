@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { type PlayerResources, type ResourceItem } from 'shared';
+import { DEFAULT_AC, type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { newId } from '../lib/id';
 
@@ -127,7 +127,7 @@ export default function ResourcesPanel() {
 
   if (!resources) return null;
   const r = resources;
-  const ac = sheet?.ac?.trim() ?? '';
+  const ac = sheet?.ac?.trim() || String(DEFAULT_AC);
   const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : 'Ресурсы';
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 

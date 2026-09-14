@@ -83,7 +83,7 @@
 }
 
 .ap-dots.reaction {
-  color: #ffd166;
+  color: #c39bd3;
 }
 
 .ap-dots.attack {
@@ -139,6 +139,11 @@
   min-height: 0;
 }
 
+.ap-panel.reaction {
+  border-color: #7d4bc4;
+  flex: 1 1 0;
+}
+
 .ap-panel-head {
   display: flex;
   align-items: center;
@@ -163,6 +168,10 @@
 
 .ap-panel.other .ap-panel-title {
   color: #ffd166;
+}
+
+.ap-panel.reaction .ap-panel-title {
+  color: #c39bd3;
 }
 
 .ap-icons {
@@ -252,6 +261,11 @@
 .ap-panel.other .ap-icon-btn {
   color: #ffd166;
   border-color: #b8860b;
+}
+
+.ap-panel.reaction .ap-icon-btn {
+  color: #c39bd3;
+  border-color: #7d4bc4;
 }
 
 .ap-counter.attack-left {

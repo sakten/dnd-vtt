@@ -40,6 +40,8 @@ export interface AttackResolveInput {
   prefix?: string;
   advantage?: 'a' | 'd';
   author: string;
+  /** Атака по возможности: цель уже вышла из досягаемости, дистанцию не проверяем. */
+  ignoreRange?: boolean;
 }
 
 export interface AttackResolveResult {
@@ -51,16 +53,57 @@ export interface AttackResolveResult {
   damageRoll?: DiceRollResult;
 }
 
+/** Данные атаки, достаточные для отложенного нанесения урона (после окна реакций). */
+export interface WeaponAttackPlan {
+  attacker: Token | null;
+  attackerMapId: string | null;
+  target: Token | null;
+  targetMapId: string | null;
+  attack: AttackEntry;
+  author: string;
+  hitRoll?: DiceRollResult;
+  hitSuccess: boolean | undefined;
+  crit: boolean;
+  penalty: number;
+  baseParams: RollLabelParams;
+  damageExpr: string;
+}
+
+export interface WeaponAttackRoll {
+  result: AttackResolveResult;
+  /** План урона; отсутствует, если атака невозможна/промах без урона. */
+  plan?: WeaponAttackPlan;
+}
+
+/** Данные атаки, посчитанные до броска (для окна реакций до попадания). */
+export interface WeaponAttackPrep {
+  input: AttackResolveInput;
+  hasTarget: boolean;
+  distanceFeet: number;
+  advCount: number;
+  disCount: number;
+  forcedDisadvantageCode?: RollLabelParams['disadvantage'];
+  penalty: number;
+  baseParams: RollLabelParams;
+  targetAc: number;
+  attackExpr: string;
+  damageExpr: string;
+  hasHit: boolean;
+  hasDamage: boolean;
+}
+
 /**
- * Общая логика атаки оружием: дистанция/помеха → бросок попадания и крит →
- * урон → списание HP цели (через канон монстр/персонаж). Используется и
- * `dice:attack`, и `action:use(attack)`. Экономика действий — на вызывающем.
+ * Дистанция/помеха и выражения атаки без броска: окно реакций (`attackRoll`,
+ * например Warding Flare) должно открыться до d20.
  */
-export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): AttackResolveResult {
-  const { manager, socket, broadcastAll, emitToken, emitResources, cleanLabel } = ctx;
+export function prepareWeaponAttack(
+  ctx: ConnCtx,
+  input: AttackResolveInput
+): { error?: string; prep?: WeaponAttackPrep } {
+  const { manager } = ctx;
   const room = ctx.getRoom();
   if (!room) return {};
-  const { attacker, attackerMapId, target, targetMapId, attack, prefix, author } = input;
+  const { attacker, attackerMapId, target, targetMapId, attack } = input;
 
   let distanceFeet = 0;
   let hasTarget = false;
@@ -72,15 +115,17 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
     if (map) {
       const size = room.scene.grid.size || 50;
       distanceFeet = gridDistanceFeet(attacker, target, size);
-      const adjacentEnemy = map.tokens.some(
-        (t) => t.id !== attacker.id && t.isPlayerToken === false && gridDistanceFeet(attacker, t, size) <= 5
-      );
-      const range = attackRange(attack, distanceFeet, adjacentEnemy);
-      if (range.outOfRange) {
-        return { error: `${range.reason ?? 'Вне зоны'}: ${Math.round(distanceFeet)} фт` };
+      if (!input.ignoreRange) {
+        const adjacentEnemy = map.tokens.some(
+          (t) => t.id !== attacker.id && t.isPlayerToken === false && gridDistanceFeet(attacker, t, size) <= 5
+        );
+        const range = attackRange(attack, distanceFeet, adjacentEnemy);
+        if (range.outOfRange) {
+          return { error: `${range.reason ?? 'Вне зоны'}: ${Math.round(distanceFeet)} фт` };
+        }
+        forcedDisadvantage = range.disadvantage;
+        forcedDisadvantageCode = range.disadvantageCode;
       }
-      forcedDisadvantage = range.disadvantage;
-      forcedDisadvantageCode = range.disadvantageCode;
       hasTarget = true;
     }
   }
@@ -111,11 +156,10 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
   );
   if (effectParts.mode === 'a') advCount += 1;
   if (effectParts.mode === 'd') disCount += 1;
-  const adv: 'a' | 'd' | undefined = advCount > disCount ? 'a' : disCount > advCount ? 'd' : undefined;
 
   const penalty = exhaustionRollPenalty(attacker?.conditions);
   const baseParams: RollLabelParams = {
-    subject: attackSubject(attack, prefix),
+    subject: attackSubject(attack, input.prefix),
     distanceFeet: hasTarget ? Math.round(distanceFeet) : undefined,
     disadvantage: forcedDisadvantageCode,
     damageType: attack.damageType,
@@ -123,7 +167,6 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
   };
 
   const targetAc = target ? manager.acForToken(room, target) : 0;
-  const result: AttackResolveResult = {};
   const attackExpr = hit ? withRollParts(hit, { flat: effectParts.flat, dice: effectParts.dice }) : '';
   const damageParts = damageRollParts(
     attacker?.effects,
@@ -137,19 +180,53 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
   );
   const damageExpr = damage ? withRollParts(damage, damageParts) : '';
 
+  return {
+    prep: {
+      input,
+      hasTarget,
+      distanceFeet,
+      advCount,
+      disCount,
+      forcedDisadvantageCode,
+      penalty,
+      baseParams,
+      targetAc,
+      attackExpr,
+      damageExpr,
+      hasHit: !!hit,
+      hasDamage: !!damage,
+    },
+  };
+}
+
+/** Бросок попадания/крита по подготовленным данным + сообщение в чат. */
+export function rollPreparedAttack(
+  ctx: ConnCtx,
+  prep: WeaponAttackPrep,
+  opts: { extraDisadvantage?: boolean } = {}
+): WeaponAttackRoll {
+  const { manager, socket, broadcastAll, cleanLabel } = ctx;
+  const room = ctx.getRoom();
+  if (!room) return { result: {} };
+  const { attacker, attackerMapId, target, targetMapId, attack, author } = prep.input;
+
+  const disCount = prep.disCount + (opts.extraDisadvantage ? 1 : 0);
+  const adv: 'a' | 'd' | undefined = prep.advCount > disCount ? 'a' : disCount > prep.advCount ? 'd' : undefined;
+  const result: AttackResolveResult = {};
+
   try {
     let crit = false;
     let hitSuccess: boolean | undefined;
-    if (hit) {
-      const hitRoll = rollDice(withAdvantage(attackExpr, adv));
+    if (prep.hasHit) {
+      const hitRoll = rollDice(withAdvantage(prep.attackExpr, adv));
       crit =
         isCriticalHit(hitRoll) ||
-        (hasTarget && !!target && autoCrit(target.conditions, distanceFeet, attack.rangeType));
-      if (targetAc > 0) {
-        hitSuccess = resolveAttack(hitRoll.total + penalty, crit, isCriticalFail(hitRoll), targetAc);
+        (prep.hasTarget && !!target && autoCrit(target.conditions, prep.distanceFeet, attack.rangeType));
+      if (prep.targetAc > 0) {
+        hitSuccess = resolveAttack(hitRoll.total + prep.penalty, crit, isCriticalFail(hitRoll), prep.targetAc);
       }
       const params: RollLabelParams = {
-        ...baseParams,
+        ...prep.baseParams,
         hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
       };
       const hitMessage: ChatMessage = {
@@ -168,41 +245,128 @@ export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): At
       result.hitSuccess = hitSuccess;
       result.crit = crit;
     }
-    if (damage && hitSuccess !== false) {
-      const damageRoll = rollDice(damageExpr, Math.random, { doubleDice: crit });
-      const defenses = target ? manager.damageDefensesForToken(room, target) : [];
-      const adjusted = applyDamageDefenses(damageRoll.total, attack.damageType, defenses);
-      const damageParams: RollLabelParams = { ...baseParams, damageNote: adjusted.note };
-      const damageMessage: ChatMessage = {
-        id: randomUUID(),
-        kind: 'roll',
-        author,
-        roll: damageRoll,
-        label: cleanLabel(rollLabelText('damage', damageParams)),
-        rollKind: 'damage',
-        labelParams: damageParams,
-        crit,
-        ts: Date.now(),
+    // План отдаём и при промахе: окно после промаха (Riposte) должно успеть сработать,
+    // урон в этом случае не наносится (`applyWeaponAttackDamage` вернёт undefined).
+    if (prep.hasDamage) {
+      return {
+        result,
+        plan: {
+          attacker,
+          attackerMapId,
+          target,
+          targetMapId,
+          attack,
+          author,
+          hitRoll: result.hitRoll,
+          hitSuccess,
+          crit,
+          penalty: prep.penalty,
+          baseParams: prep.baseParams,
+          damageExpr: prep.damageExpr,
+        },
       };
-      manager.addMessage(room, damageMessage);
-      broadcastAll('chat:message', damageMessage);
-      result.damageRoll = damageRoll;
-
-      if (target && targetMapId && adjusted.amount > 0) {
-        const isCharacter = Object.values(room.controllers).includes(target.libraryItemId);
-        if (statNumber(target.hpMax) > 0 || isCharacter) {
-          const changed = manager.adjustTokenHp(room, targetMapId, target, -adjusted.amount, { crit });
-          for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-          const controllerId = manager.controllerOfToken(room, target);
-          if (controllerId) emitResources(room, controllerId);
-          broadcastAll('players:update', manager.toState(room).players);
-          rollConcentrationOnDamage(ctx, room, target, adjusted.amount);
-        }
-      }
     }
   } catch {
     socket.emit('chat:error', 'Не удалось распознать бросок');
   }
 
+  return { result };
+}
+
+/**
+ * Бросок атаки оружием: подготовка → бросок. Урон наносит `applyWeaponAttackDamage`
+ * (после окна реакций, если оно было).
+ */
+export function rollWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): WeaponAttackRoll {
+  const { error, prep } = prepareWeaponAttack(ctx, input);
+  if (error) return { result: { error } };
+  if (!prep) return { result: {} };
+  return rollPreparedAttack(ctx, prep);
+}
+
+/** Модификаторы урона от реакций (Uncanny Dodge, Parry). */
+export interface WeaponDamageMods {
+  /** Половина урона (Невероятное уклонение). */
+  halveDamage?: boolean;
+  /** Прибавка к AC при пересчёте попадания (Парирование и т.п.). */
+  extraAc?: number;
+}
+
+export interface WeaponDamageResult {
+  roll: DiceRollResult;
+  /** Сколько урона реально ушло в HP (0 — защита/нет учёта HP). */
+  applied: number;
+}
+
+/** Урон по плану атаки; пересчитывает попадание (реакции могли поднять AC). */
+export function applyWeaponAttackDamage(
+  ctx: ConnCtx,
+  plan: WeaponAttackPlan,
+  mods: WeaponDamageMods = {}
+): WeaponDamageResult | undefined {
+  const { manager, broadcastAll, emitToken } = ctx;
+  const room = ctx.getRoom();
+  if (!room) return undefined;
+  const { target, targetMapId, attack, crit, baseParams, damageExpr } = plan;
+
+  let hitSuccess = plan.hitSuccess;
+  if (hitSuccess !== false && plan.hitRoll && target) {
+    const ac = manager.acForToken(room, target) + (mods.extraAc ?? 0);
+    if (ac > 0) hitSuccess = resolveAttack(plan.hitRoll.total + plan.penalty, crit, false, ac);
+  }
+  if (hitSuccess === false) return undefined;
+
+  try {
+    const damageRoll = rollDice(damageExpr, Math.random, { doubleDice: crit });
+    const defenses = target ? manager.damageDefensesForToken(room, target) : [];
+    const adjusted = applyDamageDefenses(damageRoll.total, attack.damageType, defenses);
+    const amount = mods.halveDamage ? Math.floor(adjusted.amount / 2) : adjusted.amount;
+    const damageParams: RollLabelParams = { ...baseParams, damageNote: adjusted.note };
+    const damageMessage: ChatMessage = {
+      id: randomUUID(),
+      kind: 'roll',
+      author: plan.author,
+      roll: damageRoll,
+      label: ctx.cleanLabel(rollLabelText('damage', damageParams)),
+      rollKind: 'damage',
+      labelParams: damageParams,
+      crit,
+      ts: Date.now(),
+    };
+    manager.addMessage(room, damageMessage);
+    broadcastAll('chat:message', damageMessage);
+
+    let applied = 0;
+    if (target && targetMapId && amount > 0) {
+      const isCharacter = Object.values(room.controllers).includes(target.libraryItemId);
+      if (statNumber(target.hpMax) > 0 || isCharacter) {
+        const changed = manager.adjustTokenHp(room, targetMapId, target, -amount, { crit });
+        for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+        const controllerId = manager.controllerOfToken(room, target);
+        if (controllerId) ctx.emitResources(room, controllerId);
+        broadcastAll('players:update', manager.toState(room).players);
+        rollConcentrationOnDamage(ctx, room, target, amount);
+        applied = amount;
+      }
+    }
+    return { roll: damageRoll, applied };
+  } catch {
+    ctx.socket.emit('chat:error', 'Не удалось распознать бросок');
+    return undefined;
+  }
+}
+
+/**
+ * Общая логика атаки оружием: дистанция/помеха → бросок попадания и крит →
+ * урон → списание HP цели (через канон монстр/персонаж). Используется и
+ * `dice:attack`, и `action:use(attack)`. Экономика действий — на вызывающем.
+ * Окон реакций не открывает; для них есть `resolveWeaponAttackWithReactions`.
+ */
+export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): AttackResolveResult {
+  const { result, plan } = rollWeaponAttack(ctx, input);
+  if (plan) {
+    const damage = applyWeaponAttackDamage(ctx, plan);
+    if (damage) result.damageRoll = damage.roll;
+  }
   return result;
 }

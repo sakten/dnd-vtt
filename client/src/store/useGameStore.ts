@@ -10,6 +10,7 @@ import { createTokenSlice } from './slices/tokens';
 import { createChatSlice } from './slices/chat';
 import { createSheetSlice } from './slices/sheet';
 import { createViewSlice } from './slices/view';
+import { createReactionSlice } from './slices/reactions';
 
 export const useGameStore = create<GameState>()((set, get) => ({
   ...createRoomSlice(set, get),
@@ -21,6 +22,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createChatSlice(set, get),
   ...createSheetSlice(set, get),
   ...createViewSlice(set, get),
+  ...createReactionSlice(set, get),
     socket: null,
     connected: false,
     connectError: false,
@@ -53,6 +55,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     tokenMenuId: null,
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },
     critHit: null,
+    reactionOffers: [],
 }));
 
 if (typeof window !== 'undefined') {

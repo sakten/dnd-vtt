@@ -131,6 +131,96 @@ function spellDamageType(spell: Spell): string | undefined {
   return types.length === 1 ? types[0] : undefined;
 }
 
+export interface SpellEffectApplyInput {
+  caster: Token;
+  spell: Spell;
+  mapId: string;
+  targets: Token[];
+  stats: SpellStats | null;
+  author: string;
+}
+
+/** Накладывает эффекты заклинания (баффы/дебаффы), включая спасброски целей. */
+export function applySpellEffects(ctx: ConnCtx, input: SpellEffectApplyInput): void {
+  const room = ctx.getRoom();
+  if (!room) return;
+  const { caster, spell, mapId, targets, stats, author } = input;
+  const effectDefs = spellEffectDefs(spell.key);
+  if (!effectDefs?.length) return;
+
+  if (spell.concentration) {
+    for (const changed of ctx.manager.clearConcentration(room, caster.id)) {
+      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+  }
+  const applied: string[] = [];
+  let anchor: string | undefined;
+  for (const def of effectDefs) {
+    const recipients = def.to === 'targets' ? targets : [caster];
+    const markedId = def.markTarget ? targets[0]?.id : undefined;
+    for (const target of recipients) {
+      if (spell.save?.length && stats && def.to === 'targets' && spell.save[0]) {
+        const ability = spell.save[0];
+        const parts = ctx.manager.savePartsForToken(room, target, ability);
+        const saveRoll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+        const success = !autoFailSave(target.conditions, ability) && saveRoll.total >= stats.dc;
+        pushRoll(ctx, room, author, saveRoll, 'save', {
+          subject: `${spell.name} · ${target.name}`,
+          saveOutcome: success ? 'success' : 'fail',
+        });
+        if (success) continue;
+      }
+      for (const stale of target.effects.filter((e) => e.sourceKey === spell.key && e.sourceId === caster.id)) {
+        ctx.manager.removeEffect(room, target, stale.id);
+      }
+      const effectId = randomUUID();
+      let duration = def.duration;
+      if (duration.type === 'untilSave' && stats) duration = { ...duration, dc: stats.dc };
+      const effect: EffectInstance = {
+        id: effectId,
+        name: def.name,
+        sourceKey: spell.key,
+        sourceId: caster.id,
+        concentration: def.concentration,
+        duration,
+        modifiers: def.modifiers.map((m, i) => ({
+          ...m,
+          id: `${effectId}:m${i}`,
+          ...(markedId ? { filter: { ...m.filter, targetId: markedId } } : {}),
+        })),
+        conditions: def.conditions,
+      };
+      ctx.manager.applyEffect(room, target, effect);
+      ctx.emitToken(room, 'token:update', mapId, target);
+      applied.push(target.name);
+      if (!anchor) anchor = effectId;
+    }
+  }
+  if (spell.concentration && !effectDefs.some((d) => d.to !== 'targets')) {
+    // Чистый target-only каст: на кастере держим якорь концентрации для чипа.
+    const anchorId = randomUUID();
+    ctx.manager.applyEffect(room, caster, {
+      id: anchorId,
+      name: spell.name,
+      sourceKey: spell.key,
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    ctx.emitToken(room, 'token:update', mapId, caster);
+    if (!anchor) anchor = anchorId;
+  }
+  if (spell.concentration && anchor) ctx.manager.setConcentration(room, mapId, caster, anchor);
+  ctx.syncCombat(room, mapId);
+  ctx.systemMessage(
+    room,
+    applied.length
+      ? `${caster.name}: ${spell.name} → ${applied.join(', ')}`
+      : `${caster.name}: ${spell.name} — без эффекта`
+  );
+}
+
 /**
  * Резолв заклинания: spell-атака / спасбросок / лечение / auto-урон / manual.
  * Экономика (ячейка, слот действия) и права — на вызывающем.
@@ -153,77 +243,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
   // урона: у Bless/Bane в данных есть «фантомный» 1d4 из описания.
   const effectDefs = spellEffectDefs(spell.key);
   if (effectDefs?.length) {
-    if (spell.concentration) {
-      for (const changed of ctx.manager.clearConcentration(room, caster.id)) {
-        ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-      }
-    }
-    const applied: string[] = [];
-    let anchor: string | undefined;
-    for (const def of effectDefs) {
-      const recipients = def.to === 'targets' ? targets : [caster];
-      const markedId = def.markTarget ? targets[0]?.id : undefined;
-      for (const target of recipients) {
-        if (spell.save?.length && stats && def.to === 'targets' && spell.save[0]) {
-          const ability = spell.save[0];
-          const parts = ctx.manager.savePartsForToken(room, target, ability);
-          const saveRoll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
-          const success = !autoFailSave(target.conditions, ability) && saveRoll.total >= stats.dc;
-          pushRoll(ctx, room, author, saveRoll, 'save', {
-            subject: `${spell.name} · ${target.name}`,
-            saveOutcome: success ? 'success' : 'fail',
-          });
-          if (success) continue;
-        }
-        for (const stale of target.effects.filter((e) => e.sourceKey === spell.key && e.sourceId === caster.id)) {
-          ctx.manager.removeEffect(room, target, stale.id);
-        }
-        const effectId = randomUUID();
-        let duration = def.duration;
-        if (duration.type === 'untilSave' && stats) duration = { ...duration, dc: stats.dc };
-        const effect: EffectInstance = {
-          id: effectId,
-          name: def.name,
-          sourceKey: spell.key,
-          sourceId: caster.id,
-          concentration: def.concentration,
-          duration,
-          modifiers: def.modifiers.map((m, i) => ({
-            ...m,
-            id: `${effectId}:m${i}`,
-            ...(markedId ? { filter: { ...m.filter, targetId: markedId } } : {}),
-          })),
-          conditions: def.conditions,
-        };
-        ctx.manager.applyEffect(room, target, effect);
-        ctx.emitToken(room, 'token:update', input.mapId, target);
-        applied.push(target.name);
-        if (!anchor) anchor = effectId;
-      }
-    }
-    if (spell.concentration && !effectDefs.some((d) => d.to !== 'targets')) {
-      // Чистый target-only каст: на кастере держим якорь концентрации для чипа.
-      const anchorId = randomUUID();
-      ctx.manager.applyEffect(room, caster, {
-        id: anchorId,
-        name: spell.name,
-        sourceKey: spell.key,
-        sourceId: caster.id,
-        concentration: true,
-        duration: { type: 'concentration' },
-        modifiers: [],
-      });
-      ctx.emitToken(room, 'token:update', input.mapId, caster);
-      if (!anchor) anchor = anchorId;
-    }
-    if (spell.concentration && anchor) ctx.manager.setConcentration(room, input.mapId, caster, anchor);
-    ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(
-      room,
-      applied.length
-        ? `${caster.name}: ${spell.name} → ${applied.join(', ')}`
-        : `${caster.name}: ${spell.name} — без эффекта`
-    );
+    applySpellEffects(ctx, { caster, spell, mapId: input.mapId, targets, stats, author });
     return {};
   }
 

@@ -22,6 +22,7 @@ import {
   clampCells,
   concentrationDc,
   concentratingEffects,
+  DEFAULT_AC,
   DEFAULT_GRID,
   DEFAULT_SPEED,
   defaultFog,
@@ -516,8 +517,9 @@ export class RoomManager {
 
   /** Эффективный AC токена с учётом BAFF-эффектов (Shield, Mage Armor, Barkskin…). */
   acForToken(room: Room, token: Token): number {
+    const explicit = statNumber(token.ac);
     return modifiedValue(
-      statNumber(token.ac),
+      explicit > 0 ? explicit : DEFAULT_AC,
       token.effects,
       'ac',
       {},
@@ -548,6 +550,19 @@ export class RoomManager {
     const active = combat.entries[combat.currentIndex];
     if (!active || active.tokenId !== token.id) return null;
     return combat.turns[active.id] ?? null;
+  }
+
+  /**
+   * Состояние хода записи инициативы токена, даже если он не активен (реакции
+   * в чужой ход). Создаёт состояние лениво, если запись есть, а ход не начинался.
+   */
+  turnStateFor(room: Room, mapId: string, token: Token): TurnState | null {
+    const combat = this.combatOf(room, mapId);
+    if (!combat?.active) return null;
+    const entry = combat.entries.find((e) => e.tokenId === token.id);
+    if (!entry) return null;
+    if (!combat.turns[entry.id]) this.beginTurn(room, mapId, entry.id);
+    return combat.turns[entry.id] ?? null;
   }
 
   /** Активен ли токен в бою карты (вне боя — всегда true). */
@@ -586,7 +601,8 @@ export class RoomManager {
 
   /** Списывает слот действия (action/bonus/reaction) для токена. */
   spendSlot(room: Room, mapId: string, token: Token, slot: ActionCost): boolean {
-    const turn = this.turnForToken(room, mapId, token);
+    // Реакция доступна в чужой ход: берём состояние записи токена, не только активной.
+    const turn = slot === 'reaction' ? this.turnStateFor(room, mapId, token) : this.turnForToken(room, mapId, token);
     if (!turn) return true;
     switch (slot) {
       case 'action':
@@ -641,6 +657,18 @@ export class RoomManager {
       return 'pact';
     }
     return null;
+  }
+
+  /** Списывает ячейку заклинания монстра из статблока; без настроенных ячеек — без учёта. */
+  spendTokenSpellSlot(room: Room, token: Token, level: number): boolean {
+    const sc = token.statblock?.spellcasting;
+    if (!sc) return false;
+    if (!sc.slots?.length) return true;
+    const slot = sc.slots.find((s) => s.level === level && s.current > 0);
+    if (!slot) return false;
+    slot.current -= 1;
+    this.saveSoon(room);
+    return true;
   }
 
   /** id игрока-контролёра токена (персонажа/призыва). */

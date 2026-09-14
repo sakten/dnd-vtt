@@ -7,6 +7,7 @@ import {
   classFeatures,
   grantedSpells,
   isIncapacitated,
+  maxCastableLevel,
   type ActionCost,
   type ActionDef,
   type AttackEntry,
@@ -86,17 +87,49 @@ export default function ActionPanel() {
     } else {
       tokenId = selectedTokenId ?? map.tokens.find((t) => t.libraryItemId === currentCharacterId)?.id ?? null;
     }
+    // В чужой ход игрок видит свой токен: доступны реакции, действия — нет.
+    if (combat.active && currentCharacterId !== null && !isDm) {
+      const shown = tokenId ? map.tokens.find((t) => t.id === tokenId) : null;
+      if (shown?.libraryItemId !== currentCharacterId) {
+        const mine = map.tokens.find((t) => t.libraryItemId === currentCharacterId);
+        if (mine) {
+          tokenId = mine.id;
+          turn = undefined;
+        }
+      }
+    } else if (combat.active && isDm && selectedTokenId) {
+      // DM смотрит выбранный токен (например, реакция монстра в чужой ход).
+      const activeId = combat.entries[combat.currentIndex]?.tokenId ?? null;
+      const selected = map.tokens.find((t) => t.id === selectedTokenId);
+      if (selected && selected.id !== activeId) {
+        tokenId = selected.id;
+        turn = undefined;
+      }
+    }
     const token = tokenId ? map.tokens.find((t) => t.id === tokenId) : null;
     if (!token) return null;
     const controlled = isDm || (currentCharacterId !== null && token.libraryItemId === currentCharacterId);
-    const inTurn = combat.active && combat.currentIndex >= 0 && controlled;
     const isCharacter = currentCharacterId !== null && token.libraryItemId === currentCharacterId;
+    const ownEntry = combat.entries.find((e) => e.tokenId === token.id);
+    const ownTurn = ownEntry ? combat.turns[ownEntry.id] : undefined;
+    const isActive = !combat.active || combat.entries[combat.currentIndex]?.tokenId === token.id;
     const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
       .map((entry, index) => ({ entry, index }))
       .filter((x) => attackIsActive(x.entry));
     const features = isCharacter && sheet ? classFeatures(sheet.classes) : [];
     const attacksPer = isCharacter ? attacksPerAction(sheet?.classes ?? []) : Math.max(1, token.statblock?.multiattack ?? 1);
-    return { token, turn, controlled, inTurn, combatActive: combat.active, weapons, features, attacksPer, isCharacter };
+    return {
+      token,
+      turn,
+      ownTurn,
+      isActive,
+      controlled,
+      combatActive: combat.active,
+      weapons,
+      features,
+      attacksPer,
+      isCharacter,
+    };
   }, [map, selectedTokenId, currentCharacterId, isDm, sheet]);
 
   const characterSpells = useMemo(() => {
@@ -108,28 +141,39 @@ export default function ActionPanel() {
     return [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
   }, [sheet, info?.isCharacter, spells]);
 
+  const monsterSpells = useMemo(() => {
+    if (!spells || !info || info.isCharacter) return [];
+    const byKey = new Map(spells.map((s) => [s.key, s]));
+    return (info.token.statblock?.spellcasting?.spells ?? [])
+      .map((k) => byKey.get(k))
+      .filter((s): s is Spell => !!s);
+  }, [spells, info]);
+
   if (!info) return null;
-  const { token, turn, controlled, inTurn, combatActive, weapons, features, attacksPer } = info;
+  const { token, turn, ownTurn, isActive, controlled, combatActive, weapons, features, attacksPer, isCharacter } = info;
+  const panelSpells = isCharacter ? characterSpells : monsterSpells;
   const incap = !isDm && isIncapacitated(token.conditions);
   const spellByKey = new Map((spells ?? []).map((s) => [s.key, s]));
 
   const targetName = map?.tokens.find((t) => t.id === targetTokenId)?.name;
 
   const canSpend = (slot: ActionCost, actionId: string) => {
-    if (incap) return false;
-    if (!controlled) return false;
+    if (incap || !controlled) return false;
     if (!combatActive) return true;
-    if (!inTurn || !turn) return false;
-    if (actionId === 'attack') return turn.attacksRemaining > 0 || actionSlotAvailable(turn, slot);
-    return actionSlotAvailable(turn, slot);
+    if (!isActive && slot !== 'reaction') return false;
+    const t = isActive ? turn : ownTurn;
+    if (!t) return isActive ? false : true;
+    if (actionId === 'attack') return t.attacksRemaining > 0 || actionSlotAvailable(t, slot);
+    return actionSlotAvailable(t, slot);
   };
 
   const actionTotal = turn ? 1 + turn.extraActions : 0;
   const actionRemaining = turn ? (turn.actionUsed ? 0 : 1) + turn.extraActions : 0;
   const bonusTotal = turn ? 1 + turn.extraBonusActions : 0;
   const bonusRemaining = turn ? (turn.bonusActionUsed ? 0 : 1) + turn.extraBonusActions : 0;
-  const reactionTotal = turn ? 1 : 0;
-  const reactionRemaining = turn ? (turn.reactionUsed ? 0 : 1) : 0;
+  const reactionTurn = isActive ? turn : ownTurn;
+  const reactionTotal = reactionTurn ? 1 : 0;
+  const reactionRemaining = reactionTurn && !reactionTurn.reactionUsed ? 1 : 0;
   const moveLeft = turn ? turn.movementMax - turn.movementUsed : 0;
   const attacksLeft = turn
     ? (turn.attacksRemaining > 0 ? turn.attacksRemaining : turn.actionUsed ? 0 : attacksPer) +
@@ -151,34 +195,63 @@ export default function ActionPanel() {
   };
 
   const canUseFeature = (f: ActionDef): boolean => {
-    if (incap) return false;
-    if (!controlled) return false;
+    if (incap || !controlled) return false;
     const amount = Math.max(1, f.resourceAmount ?? 1);
     const left = resourceLeft(f);
     if (left !== null && left < amount) return false;
     if (!combatActive) return true;
-    if (!inTurn || !turn) return false;
-    return f.costs.some((c) => actionSlotAvailable(turn, c));
+    if (!isActive && !f.costs.includes('reaction')) return false;
+    const t = isActive ? turn : ownTurn;
+    if (!t) return isActive ? false : true;
+    return f.costs.some((c) => actionSlotAvailable(t, c));
   };
 
   const featureSlot = (f: ActionDef): ActionCost => {
-    if (!combatActive || !turn) return f.costs[0] ?? 'special';
-    return f.costs.find((c) => actionSlotAvailable(turn, c)) ?? f.costs[0] ?? 'special';
+    if (!combatActive) return f.costs[0] ?? 'special';
+    if (!isActive && f.costs.includes('reaction')) return 'reaction';
+    const t = isActive ? turn : ownTurn;
+    if (!t) return f.costs[0] ?? 'special';
+    return f.costs.find((c) => actionSlotAvailable(t, c)) ?? f.costs[0] ?? 'special';
   };
 
   const featuresAction = features.filter((f) => f.costs.includes('action'));
   const featuresBonus = features.filter((f) => f.costs.includes('bonus'));
-  const featuresOther = features.filter((f) => !f.costs.includes('action') && !f.costs.includes('bonus'));
+  const featuresReaction = features.filter((f) => f.costs.includes('reaction'));
+  const featuresOther = features.filter(
+    (f) => !f.costs.includes('action') && !f.costs.includes('bonus') && !f.costs.includes('reaction')
+  );
+  const hasReaction =
+    BASE_ACTIONS.some((a) => a.costs.includes('reaction')) ||
+    featuresReaction.length > 0 ||
+    panelSpells.some((s) => s.time[0]?.unit === 'reaction');
 
-  const spellSlotOf = (spell: Spell): 'action' | 'bonus' | 'other' => {
+  const spellSlotOf = (spell: Spell): 'action' | 'bonus' | 'reaction' | 'other' => {
     const unit = spell.time[0]?.unit;
     if (unit === 'action') return 'action';
     if (unit === 'bonus') return 'bonus';
+    if (unit === 'reaction') return 'reaction';
     return 'other';
   };
-  const spellsAction = characterSpells.filter((s) => spellSlotOf(s) === 'action');
-  const spellsBonus = characterSpells.filter((s) => spellSlotOf(s) === 'bonus');
-  const spellsOther = characterSpells.filter((s) => spellSlotOf(s) === 'other');
+  const spellsAction = panelSpells.filter((s) => spellSlotOf(s) === 'action');
+  const spellsBonus = panelSpells.filter((s) => spellSlotOf(s) === 'bonus');
+  const spellsReaction = panelSpells.filter((s) => spellSlotOf(s) === 'reaction');
+  const spellsOther = panelSpells.filter((s) => spellSlotOf(s) === 'other');
+
+  const spellDisabled = (spell: Spell): boolean => {
+    if (incap || !controlled) return true;
+    if (!combatActive) return false;
+    const slot = spellSlotOf(spell);
+    if (!isActive && slot !== 'reaction') return true;
+    if (slot === 'reaction') {
+      const maxLevel = isCharacter
+        ? maxCastableLevel(spell, resources)
+        : maxCastableLevel(spell, null, token.statblock?.spellcasting?.slots);
+      if (spell.level > 0 && maxLevel < spell.level) return true;
+      const t = isActive ? turn : ownTurn;
+      if (t && !actionSlotAvailable(t, 'reaction')) return true;
+    }
+    return false;
+  };
 
   const spellButton = (spell: Spell) => {
     const level = spell.level === 0 ? 'фокус' : `${spell.level} круг`;
@@ -188,7 +261,7 @@ export default function ActionPanel() {
         className="ap-icon-btn ap-spell-btn"
         data-tip={`${spell.name} · ${level}`}
         aria-label={spell.name}
-        disabled={incap}
+        disabled={spellDisabled(spell)}
         onClick={() => setCasting(spell)}
       >
         <SpellIcon spell={spell} className="ap-icon" />
@@ -273,9 +346,11 @@ export default function ActionPanel() {
         </button>
       );
     }
-    if (slot === 'action' || slot === 'bonus') {
-      buttons.push(...(slot === 'action' ? featuresAction : featuresBonus).map(featureButton));
-      buttons.push(...(slot === 'action' ? spellsAction : spellsBonus).map(spellButton));
+    if (slot === 'action' || slot === 'bonus' || slot === 'reaction') {
+      const featureList = slot === 'action' ? featuresAction : slot === 'bonus' ? featuresBonus : featuresReaction;
+      const spellList = slot === 'action' ? spellsAction : slot === 'bonus' ? spellsBonus : spellsReaction;
+      buttons.push(...featureList.map(featureButton));
+      buttons.push(...spellList.map(spellButton));
     }
     if (buttons.length === 0) return <span className="ap-empty">Нет</span>;
     return buttons;
@@ -305,6 +380,10 @@ export default function ActionPanel() {
               {moveLeft} фт
             </span>
           </span>
+        ) : combatActive && reactionTurn ? (
+          <span className="ap-count dim">
+            Не ваш ход · Реакция <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
+          </span>
         ) : (
           <span className="ap-count dim">{controlled ? 'Вне боя' : 'Не ваш токен'}</span>
         )}
@@ -324,6 +403,17 @@ export default function ActionPanel() {
           </div>
           <div className="ap-icons">{renderButtons('bonus')}</div>
         </section>
+        {hasReaction && (
+          <section className="ap-panel reaction">
+            <div className="ap-panel-head">
+              <span className="ap-panel-title">Реакция</span>
+              {combatActive && reactionTurn && (
+                <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
+              )}
+            </div>
+            <div className="ap-icons">{renderButtons('reaction')}</div>
+          </section>
+        )}
       </div>
       {(featuresOther.length > 0 || spellsOther.length > 0) && (
         <section className="ap-panel other">

@@ -211,6 +211,16 @@ describe('maxCastableLevel', () => {
   it('кантрип — 0', () => {
     expect(maxCastableLevel(makeSpell({ level: 0 }), resources({}))).toBe(0);
   });
+
+  it('ячейки монстра из статблока', () => {
+    const spell = makeSpell({ level: 2 });
+    expect(maxCastableLevel(spell, null, [{ level: 2, current: 1 }])).toBe(2);
+    expect(maxCastableLevel(spell, null, [{ level: 1, current: 3 }])).toBe(0);
+    expect(maxCastableLevel(spell, null, [{ level: 4, current: 1 }])).toBe(4);
+    expect(maxCastableLevel(spell, null, [{ level: 3, current: 0 }])).toBe(0);
+    // без настроенных ячеек каст не ограничиваем
+    expect(maxCastableLevel(spell, null)).toBe(2);
+  });
 });
 
 describe('characterLevel', () => {

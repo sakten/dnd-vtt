@@ -62,6 +62,10 @@ check(
   `карточка персонажа сохранилась (статы с клампом до 30) — ${JSON.stringify(sheetState?.abilities)}`
 );
 
+// Атаки из ROLL-меню проверяют выражения бросков; цель сбрасываем, чтобы
+// сравнение с AC не превращало проверку в вероятностную.
+await S.page.evaluate(() => window.__vtt.getState().setTargetToken(null));
+
 await S.page.click('.roll-button');
 await S.page.waitForSelector('.roll-menu');
 const attackItem = await findButton(S.page, '.roll-menu .roll-menu-item', 'Attack');

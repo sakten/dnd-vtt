@@ -4,6 +4,7 @@ import {
   SKILLS,
   attackIsActive,
   attackRange,
+  DEFAULT_AC,
   gridDistanceFeet,
   statNumber,
   type AbilityKey,
@@ -70,7 +71,7 @@ export default function RollMenu() {
   const currentMap = scene.maps.find((m) => m.id === viewMapId);
   const targetToken = currentMap?.tokens.find((t) => t.id === targetTokenId) ?? null;
   const targetName = targetToken?.name ?? '';
-  const targetAc = targetToken && statNumber(targetToken.ac) > 0 ? statNumber(targetToken.ac) : 0;
+  const targetAc = targetToken ? statNumber(targetToken.ac) || DEFAULT_AC : 0;
 
   const rangeInfo = (source: AttackSource, attack: AttackEntry) => {
     if (!targetTokenId || !currentMap) return null;

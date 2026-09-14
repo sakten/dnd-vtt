@@ -316,12 +316,47 @@ export interface ActionDef {
   description?: string;
 }
 
+/** Триггер, на который можно потратить реакцию. */
+export type ReactionTriggerKind = 'attackRoll' | 'attackHit' | 'attackMiss' | 'damage' | 'leaveReach' | 'spellCast';
+
+/** Вариант реакции, предложенный сервером в окне. */
+export interface ReactionOption {
+  id: string;
+  name: string;
+  kind: 'spell' | 'feature' | 'opportunity';
+  spellKey?: string;
+  actionId?: string;
+  resourceKey?: string;
+  resourceAmount?: number;
+}
+
+/** Окно реакции: одному токену предлагается выбрать вариант или пропустить. */
+export interface ReactionOffer {
+  id: string;
+  mapId: string;
+  trigger: ReactionTriggerKind;
+  tokenId: string;
+  tokenName: string;
+  /** Имя спровоцировавшего (атакующий/движущийся). */
+  sourceName?: string;
+  options: ReactionOption[];
+  expiresAt: number;
+}
+
 /** Данные монстра, которые DM вводит вручную (позже — бестиарий). */
 export interface TokenStatblock {
   abilities: Record<AbilityKey, number>;
   /** Явные бонусы спасбросков; пусто — считаются из характеристик. */
   saves?: Partial<Record<AbilityKey, number>>;
-  spellcasting?: { ability: AbilityKey; dc?: number; attack?: number };
+  spellcasting?: {
+    ability: AbilityKey;
+    dc?: number;
+    attack?: number;
+    /** Ячейки монстра: уровень 1–9, максимум и остаток; пусто — без учёта. */
+    slots?: { level: number; max: number; current: number }[];
+    /** Выбранные заклинания статблока (ключи); список ограничивает каст. */
+    spells?: string[];
+  };
   /** Число атак за действие (мультиатака), по умолчанию 1. */
   multiattack?: number;
   legendary?: { max: number; actions: ActionDef[] };
@@ -466,6 +501,9 @@ export const MAX_EFFECTS = 20;
 export const MAX_MODIFIERS = 20;
 /** Базовая скорость существа, футы. */
 export const DEFAULT_SPEED = 30;
+
+/** Класс брони по умолчанию, если у токена/листа поле AC не заполнено. */
+export const DEFAULT_AC = 13;
 
 export const DEFAULT_ABILITIES: Record<AbilityKey, number> = {
   str: 10,
@@ -854,6 +892,31 @@ export function normalizeStatblock(raw: unknown): TokenStatblock | undefined {
     const sc: NonNullable<TokenStatblock['spellcasting']> = { ability: s.spellcasting.ability };
     if (typeof s.spellcasting.dc === 'number') sc.dc = clampInt(s.spellcasting.dc, 0, 40, 0);
     if (typeof s.spellcasting.attack === 'number') sc.attack = clampInt(s.spellcasting.attack, 0, 40, 0);
+    if (Array.isArray(s.spellcasting.slots)) {
+      const slots: { level: number; max: number; current: number }[] = [];
+      const seenLevels = new Set<number>();
+      for (const raw of s.spellcasting.slots) {
+        if (!raw || typeof raw !== 'object') continue;
+        const item = raw as { level?: unknown; max?: unknown; current?: unknown };
+        const level = clampInt(Number(item.level), 1, 9, 0);
+        const max = clampInt(Number(item.max), 0, 99, 0);
+        if (!level || max <= 0 || seenLevels.has(level)) continue;
+        seenLevels.add(level);
+        slots.push({ level, max, current: clampInt(Number(item.current), 0, max, max) });
+      }
+      slots.sort((a, b) => a.level - b.level);
+      if (slots.length) sc.slots = slots;
+    }
+    if (Array.isArray(s.spellcasting.spells)) {
+      const keys: string[] = [];
+      const seenKeys = new Set<string>();
+      for (const key of s.spellcasting.spells) {
+        if (typeof key !== 'string' || key.length > 100 || !SPELL_KEY_RE.test(key) || seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        if (keys.length < 200) keys.push(key);
+      }
+      sc.spells = keys;
+    }
     statblock.spellcasting = sc;
   }
   const actions = normalizeActions(s.actions);
@@ -1033,6 +1096,10 @@ export interface ServerToClientEvents {
   'chat:message': (message: ChatMessage) => void;
   'chat:error': (message: string) => void;
   'players:update': (players: Player[]) => void;
+  /** Окно реакции для контролёра токена (или DM для NPC). */
+  'reaction:offer': (offer: ReactionOffer) => void;
+  /** Окно закрыто (ответили/таймаут/скип). */
+  'reaction:close': (payload: { id: string }) => void;
   'player:kicked': () => void;
   'room:deleted': () => void;
   'pong': () => void;
@@ -1072,7 +1139,14 @@ export interface ClientToServerEvents {
   'combat:clear': (payload: { mapId: string }) => void;
   'combat:endTurn': (payload: { mapId: string }) => void;
   'combat:setTurn': (payload: { mapId: string; id?: string; index?: number }) => void;
-  'combat:setMovement': (payload: { mapId: string; tokenId: string; used: number; diagonals?: number }) => void;
+  'combat:setMovement': (payload: {
+    mapId: string;
+    tokenId: string;
+    used: number;
+    diagonals?: number;
+    /** Ломаная пути (мировые координаты) для проверки атак по возможности. */
+    path?: { x: number; y: number }[];
+  }) => void;
   'grid:update': (grid: GridSettings) => void;
   'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;
@@ -1119,6 +1193,10 @@ export interface ClientToServerEvents {
   }) => void;
   /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
   'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;
+  /** Ответ на окно реакции: optionId=null — пропустить. */
+  'reaction:respond': (payload: { id: string; optionId: string | null }) => void;
+  /** DM принудительно пропускает все оставшиеся окна (для монстров/зависших). */
+  'reaction:forceSkip': (payload: { id: string }) => void;
   'sheet:update': (sheet: CharacterSheet) => void;
   'resources:update': (resources: PlayerResources) => void;
   'player:setCharacter': (

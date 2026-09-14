@@ -176,18 +176,39 @@ export function spellAreaOrigin(spell: Spell): 'self' | 'point' {
   return spellIsSelf(spell) ? 'self' : 'point';
 }
 
-/** Максимальный доступный круг ячейки под заклинание (0 — кантрип/нет ячeк). */
-export function maxCastableLevel(spell: Spell, resources: PlayerResources | null): number {
+/** Максимальный круг ячейки из списка (0 — нет подходящей). */
+export function maxCastableFromSlots(
+  spell: Spell,
+  slots: { level: number; current: number }[] | undefined
+): number {
   if (spell.level === 0) return 0;
-  if (!resources) return spell.level;
   let max = 0;
-  for (const slot of resources.spellSlots) {
+  for (const slot of slots ?? []) {
     if (slot.current > 0 && slot.level >= spell.level) max = Math.max(max, slot.level);
   }
-  if (resources.pact.current > 0 && resources.pact.level >= spell.level) {
-    max = Math.max(max, resources.pact.level);
-  }
   return max;
+}
+
+/**
+ * Максимальный доступный круг ячейки под заклинание (0 — кантрип/нет ячеек).
+ * У персонажа — `resources` (обычные + пакт), у монстра — `monsterSlots` статблока;
+ * без настроенных ячеек монстра каст не ограничиваем (DM ведёт вручную).
+ */
+export function maxCastableLevel(
+  spell: Spell,
+  resources: PlayerResources | null,
+  monsterSlots?: { level: number; current: number }[]
+): number {
+  if (spell.level === 0) return 0;
+  if (resources) {
+    let max = maxCastableFromSlots(spell, resources.spellSlots);
+    if (resources.pact.current > 0 && resources.pact.level >= spell.level) {
+      max = Math.max(max, resources.pact.level);
+    }
+    return max;
+  }
+  if (monsterSlots) return maxCastableFromSlots(spell, monsterSlots);
+  return spell.level;
 }
 
 export interface SpellStats {

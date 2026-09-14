@@ -9,6 +9,7 @@ import {
   statsPaired,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { isReactionPending } from './reactions';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
   const { manager, getRoom, isDm, broadcastAll, canControlToken, emitToken, syncCombat, socket } = ctx;
@@ -45,6 +46,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
     ctx.on('token:move', ({ mapId, id, x, y }) => {
       const room = getRoom();
       if (!room) return;
+      if (isReactionPending(room.code)) return;
       if (typeof mapId !== 'string' || typeof id !== 'string') return;
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const token = manager.findToken(room, mapId, id);

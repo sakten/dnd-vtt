@@ -39,15 +39,15 @@ export default function StatblockForm({ value, onChange }: Props) {
     onChange({ ...sb, saves: Object.keys(saves).length ? saves : undefined });
   };
 
-  const setSpellcasting = (patch: Partial<NonNullable<TokenStatblock['spellcasting']>> | null) => {
-    if (patch === null) {
-      const next = { ...sb };
-      delete next.spellcasting;
-      onChange(next);
+  const caster = !!sb.spellcasting;
+  const toggleCaster = (on: boolean) => {
+    if (on) {
+      onChange({ ...sb, spellcasting: { ability: sb.spellcasting?.ability ?? 'wis', spells: [] } });
       return;
     }
-    const base: NonNullable<TokenStatblock['spellcasting']> = sb.spellcasting ?? { ability: 'wis' };
-    onChange({ ...sb, spellcasting: { ...base, ...patch } });
+    const next = { ...sb };
+    delete next.spellcasting;
+    onChange(next);
   };
 
   const setActions = (list: ActionDef[]) => {
@@ -128,50 +128,10 @@ export default function StatblockForm({ value, onChange }: Props) {
       </div>
 
       <div className="sheet-section-title">Заклинания</div>
-      <div className="field-row">
-        <label className="field">
-          <span>Характеристика</span>
-          <select
-            value={sb.spellcasting?.ability ?? ''}
-            onChange={(e) =>
-              e.target.value
-                ? setSpellcasting({ ability: e.target.value as AbilityKey })
-                : setSpellcasting(null)
-            }
-          >
-            <option value="">—</option>
-            {ABILITIES.map((a) => (
-              <option key={a.key} value={a.key}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {sb.spellcasting && (
-          <>
-            <label className="field">
-              <span>Сложность (DC)</span>
-              <input
-                type="number"
-                min={0}
-                max={40}
-                value={sb.spellcasting.dc ?? ''}
-                onChange={(e) => setSpellcasting({ dc: Number(e.target.value) || 0 })}
-              />
-            </label>
-            <label className="field">
-              <span>Атака</span>
-              <input
-                type="number"
-                min={0}
-                max={40}
-                value={sb.spellcasting.attack ?? ''}
-                onChange={(e) => setSpellcasting({ attack: Number(e.target.value) || 0 })}
-              />
-            </label>
-          </>
-        )}
-      </div>
+      <label className="checkbox-row">
+        <input type="checkbox" checked={caster} onChange={(e) => toggleCaster(e.target.checked)} />
+        <span>Это кастер — ячейки и список на вкладке «Заклинания»</span>
+      </label>
 
       <div className="sheet-section-title">Действия (название + стоимость)</div>
       {actions.map((action, i) => (
