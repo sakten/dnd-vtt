@@ -2,16 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SPEED,
   type CharacterSheet,
-  type ClientToServerEvents,
   type PlayerResources,
   type AttackEntry,
-  type Token,
   type TokenStatblock,
 } from 'shared';
 import type { Room } from '../roomTypes';
-import { RoomManager } from '../rooms';
 import { makeCombatRoom as makeRoom, makeResources, makeToken } from '../test/fixtures';
-import type { ConnCtx } from './context';
+import { makeConnCtx as makeCtx } from '../test/ctx';
 import { registerCombatHandlers } from './combat';
 import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
@@ -19,101 +16,7 @@ import { registerActionHandlers } from './actions';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
-import { rollConcentrationOnDamage } from './effects';
 import { openReactionWindow, pendingOffers, registerReactionHandlers } from './reactions';
-
-interface FakeCtx {
-  ctx: ConnCtx;
-  invoke: <E extends keyof ClientToServerEvents>(
-    event: E,
-    ...args: Parameters<ClientToServerEvents[E]>
-  ) => void;
-  emitted: { event: string; payload: unknown }[];
-  manager: RoomManager;
-  room: Room;
-}
-
-function makeCtx(room: Room, opts: { playerId?: string | null; dm?: boolean } = {}): FakeCtx {
-  const handlers = new Map<string, (...args: unknown[]) => void>();
-  const emitted: { event: string; payload: unknown }[] = [];
-  const manager = new RoomManager();
-  vi.spyOn(manager, 'saveSoon').mockImplementation(() => {});
-  const dm = opts.dm === true;
-  const pid = opts.playerId ?? (dm ? 'dm' : null);
-
-  const ctx = {
-    io: {},
-    socket: {
-      emit: (event: string, payload: unknown) => {
-        emitted.push({ event, payload });
-      },
-    },
-    manager,
-    roomCode: room.code,
-    playerId: pid,
-    pendingLeaves: new Map(),
-    on: (event: string, handler: (...args: unknown[]) => void) => {
-      handlers.set(event, handler);
-    },
-    onDisconnect: () => {},
-    broadcast: () => {},
-    broadcastAll: () => {},
-    broadcastMaps: () => {},
-    getRoom: () => room,
-    cancelPendingLeave: () => {},
-    isDm: () => dm,
-    dmRoom: () => (dm ? room : null),
-    canControlToken: (r: Room, mapId: string, token: Token) =>
-      dm || (!!pid && manager.controlsToken(r, mapId, pid, token)),
-    visibleToken: (_room: Room, token: Token) => token,
-    visibleLibrary: () => room.library,
-    emitTo: (_room: Room, _playerId: string, event: string, payload: unknown) => {
-      emitted.push({ event, payload });
-    },
-    broadcastLibrary: () => {},
-    emitToken: (event: string, mapId: string, token: Token) => {
-      emitted.push({ event, payload: { mapId, token } });
-    },
-    emitResources: (r: Room, playerId: string) => {
-      const res = r.resources[playerId];
-      if (res) emitted.push({ event: 'resources:update', payload: res });
-    },
-    notifyPlayers: () => {},
-    applyHp: (r: Room, mapId: string, token: Token, amount: number, opts: { crit?: boolean; concentration?: boolean } = {}) => {
-      if (!amount) return;
-      const changed = manager.adjustTokenHp(r, mapId, token, amount, { crit: opts.crit });
-      for (const c of changed) emitted.push({ event: 'token:update', payload: { mapId: c.mapId, token: c.token } });
-      const controllerId = manager.controllerOfToken(r, token);
-      if (controllerId && r.resources[controllerId]) {
-        emitted.push({ event: 'resources:update', payload: r.resources[controllerId] });
-      }
-      if (amount < 0 && opts.concentration !== false) rollConcentrationOnDamage(ctx, r, token, -amount);
-    },
-    syncCombat: (r: Room, mapId: string) => {
-      emitted.push({
-        event: 'combat:update',
-        payload: { mapId, combat: r.scene.maps.find((m) => m.id === mapId)?.combat },
-      });
-    },
-    cleanLabel: (label?: string) => label,
-    systemMessage: (_room: Room, text: string) => {
-      emitted.push({ event: 'system', payload: text });
-    },
-    emitJoined: () => {},
-    classIdentity: () => '',
-  } as unknown as ConnCtx;
-
-  const invoke = <E extends keyof ClientToServerEvents>(
-    event: E,
-    ...args: Parameters<ClientToServerEvents[E]>
-  ) => {
-    const handler = handlers.get(event as string);
-    if (!handler) throw new Error(`handler ${String(event)} не зарегистрирован`);
-    handler(...(args as unknown[]));
-  };
-
-  return { ctx, invoke, emitted, manager, room };
-}
 
 const combatOf = (room: Room) => room.scene.maps[0]!.combat;
 
@@ -195,7 +98,7 @@ describe('action:use', () => {
 
     expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(combatOf(room).turns.e1!.movementMax).toBe(60);
-    expect(f.emitted.some((e) => e.event === 'system' && String(e.payload).includes('Рывок'))).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('Рывок'))).toBe(true);
   });
 
   it('игрок не может действовать не в свой ход', () => {
@@ -1064,9 +967,7 @@ describe('реакции (R1)', () => {
     f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'spell:XPHB:Counterspell' });
 
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
-    expect(
-      f.emitted.some((e) => e.event === 'system' && String(e.payload).includes('Counterspell'))
-    ).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('Counterspell'))).toBe(true);
     expect(combatOf(room).turns.e3!.reactionUsed).toBe(true);
     expect(room.resources.p2!.spellSlots[0]!.current).toBe(0);
   });
@@ -1306,7 +1207,7 @@ describe('room:settings (режим тестов)', () => {
     registerRoomHandlers(dm.ctx);
     dm.invoke('room:settings', { testMode: true });
     expect(room.testMode).toBe(true);
-    expect(dm.emitted.some((e) => e.event === 'system')).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text')).toBe(true);
   });
 });
 

@@ -62,9 +62,9 @@
   Исходно: битые payload молча игнорируются (`token.ts:21-24,39`, `spells.ts:37`, `map.ts:16`) или присылаются русской строкой в `chat:error` (`actions.ts:46-94`, `spells.ts:48-156`); `DiceParseError` маппится только в `dice:roll` (`attackResolve.ts:250`, `spellResolve.ts:323` — generic); у `finishPending→resume` нет catch.
   **Сделано:** `server/src/socket/errors.ts` — типизированный каталог `ErrorCode` (16 кодов) с рендером текста (`errorText`, параметры `feet`/`name`) и единый `fail(ctx, code, params)`; все handler-сообщения переведены (`guards`, `actions`, `dice`, `spells`, `token`, `attackResolve`) — тексты сохранены дословно (smoke/handlers-тесты зелёные). `pending.resume` в `finishPending` обёрнут в try/catch (таймаут/DM-скип вне try/catch сокет-хендлера). Пока не трогали: строки-возвраты резолверов (`result.error`, `validateSpellCast`) и формат `chat:error` — перевод на коды на клиенте отдельным шагом, чтобы не менять протокол.
 
-- [ ] **R6.9. Серверный тест-каркас: ручной фейк `ConnCtx`, глобальные реакции.** P2, M.
-  `makeCtx` вручную реализует ~30 членов `ConnCtx` с `as unknown as` (`handlers.test.ts:44-101`); добавление метода в `ConnCtx` не ломает компиляцию, а падает в рантайме на одном пути; `visibleToken` возвращает сырой токен, `applyHp` — копия `context.ts:200-208`; состояние реакций модульное, тесты на комнате `'TEST'` (`fixtures.ts:52`) — протечка отравляет соседние тесты; поведенческие сценарии доступны только в smoke.
-  **Что сделать:** тест-кит `makeConnCtx(partial)` (merge overrides) + `invoke`/`calls`; fake timers для таймаута реакции; пара интеграционных тестов поверх реального `createCtx` и in-memory socket.io; состояние реакций — в инстансе очереди (после R6.5).
+- [x] **R6.9. Серверный тест-каркас: ручной фейк `ConnCtx`, глобальные реакции.** P2, M.
+  Исходно: `makeCtx` вручную реализует ~30 членов `ConnCtx` с `as unknown as` (`handlers.test.ts:44-101`); добавление метода в `ConnCtx` не ломает компиляцию, а падает в рантайме на одном пути; `visibleToken` возвращает сырой токен, `applyHp` — копия `context.ts:200-208`; состояние реакций модульное, тесты на комнате `'TEST'` (`fixtures.ts:52`) — протечка отравляет соседние тесты; поведенческие сценарии доступны только в smoke.
+  **Сделано:** `server/src/test/ctx.ts` — `makeConnCtx(room, { playerId, dm, all, overrides })` поверх **реального `createCtx`**: подменяется только socket.io-транспорт (in-memory fake сокеты, запись в `emitted`, `invoke`/`selfEvents`/`disconnect`/`advance`), поэтому `applyHp`/`visibleToken`/`emitResources`/`broadcast*` — прод-код. `registerSocket` распилен: экспорт `registerHandlers(ctx)` (используют и прод, и кит с `all: true`). `handlers.test.ts`: локальный фейк (92 строки, ~30 `as unknown as`) удалён, 46 тестов перешли на кит без правок логики (3 ассерта `system` → `room.chat`); `integration.test.ts` (+2): полное соединение `room:create → map:add → library:add → token:add` и `disconnect` c fake timers (`LEAVE_GRACE_MS` → `isConnected=false` + системное сообщение). Fake-сокет хранит несколько обработчиков на событие (как socket.io). `check` 270+112+48, smoke 130/0.
 
 ---
 
@@ -184,9 +184,8 @@
 ### Шаг 1. R6.5 — очередь реакций (L, server). ✅ Сделано
 Инстанс `ReactionQueue` на комнату, очередь окон с перепроверкой оплаты, изоляция resume. Осталось (необязательно): реестр `onTrigger(kind, resolver)` — при первом новом триггере.
 
-### Шаг 2. R6.9 — тест-кит сервера (M)
-**Почему после R6.5:** per-instance очередь даст чистый сброс состояния между тестами; `makeConnCtx(partial)` + несколько поведенческих тестов на реальном `createCtx` поверх in-memory socket.io уберут «фейк-ctx дрейф» и позволят проверять поведение без smoke.
-**Объём:** тест-кит, fake timers для окон реакций, отказ от ручного `as unknown as ConnCtx`.
+### Шаг 2. R6.9 — тест-кит сервера (M). ✅ Сделано
+`makeConnCtx` поверх реального `createCtx` + in-memory транспорт, `registerHandlers(ctx)`, перевод `handlers.test.ts` (46) и `integration.test.ts` (+2). Ручной фейк `ConnCtx` удалён.
 
 ### Шаг 3. R6.7 — типовые швы (M/L, server/shared). ✅ Сделано (срезы 1–5)
 Нормализаторы Token/Map/Scene, `isRecord` + `decode.ts`, `noUncheckedIndexedAccess` в base, `toPersistedRoom`-снапшот, `Room` от `RoomState`, `toState` через rest. Необязательный хвост: остальные домены на `decode.ts` по мере правок.
@@ -211,4 +210,4 @@ R8.6 (метки без RU-текста — перед локализацией)
 
 **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 
-**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3, R8.4 (срезы 1, 3) — сделано (R6.9 отложен). Следующий — R8.1 (каталог `AutomationDef`).
+**Старт:** R8.2, R6.1–R6.9, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3, R8.4 (срезы 1, 3) — сделано. Следующий — R8.1 (каталог `AutomationDef`).
