@@ -3,6 +3,8 @@ import {
   effectiveMaxHp,
   emptyCombatState,
   emptyResources,
+  redactLibraryItem,
+  redactToken,
   sheetMods,
   syncResources,
   type ClassLevel,
@@ -159,13 +161,11 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         const found = manager.locateToken(room, token.id);
         if (found && manager.controlsToken(room, found.mapId, viewerId, token)) return token;
       }
-      return { ...token, ac: '', hpMax: '', hpCurrent: 0, statblock: undefined, damageDefenses: [] };
+      return redactToken(token);
     },
     visibleLibrary: (room, viewerId) => {
       if (isDmViewer(room, viewerId)) return room.library;
-      return room.library.map((item) =>
-        item.showStats ? item : { ...item, ac: '', hpMax: '', attacks: [], damageDefenses: [] }
-      );
+      return room.library.map((item) => (item.showStats ? item : redactLibraryItem(item)));
     },
     broadcastLibrary: (room) => {
       for (const p of room.players) {

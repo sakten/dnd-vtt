@@ -4,13 +4,12 @@ import {
   DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
-  normalizeAttacks,
   normalizeCombatState,
   normalizeConditions,
-  normalizeDamageDefenses,
   normalizeEffects,
   normalizeSheet,
   normalizeStatblock,
+  normalizeTokenFields,
   statNumber,
 } from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
@@ -52,23 +51,11 @@ export function hydrateRoom(p: PersistedRoom): Room {
     if (!Array.isArray(map.fog.hidden)) map.fog.hidden = [];
     map.combat = normalizeCombatState(map.combat);
     for (const token of map.tokens) {
-      if (typeof token.name !== 'string') token.name = '';
-      if (typeof token.imageUrl !== 'string') token.imageUrl = '';
-      if (typeof token.cells !== 'number') token.cells = 1;
-      if (typeof token.round !== 'boolean') token.round = false;
-      if (typeof token.description !== 'string') token.description = '';
-      if (typeof token.initiativeBonus !== 'string') token.initiativeBonus = '';
-      if (typeof token.isPlayerToken !== 'boolean') token.isPlayerToken = false;
-      if (typeof token.owner !== 'string') token.owner = '';
+      Object.assign(token, normalizeTokenFields(token, 40, { keepAcHp: true }));
       if (typeof token.libraryItemId !== 'string') token.libraryItemId = '';
-      token.attacks = normalizeAttacks((token as { attacks?: unknown }).attacks);
-      token.damageDefenses = normalizeDamageDefenses((token as { damageDefenses?: unknown }).damageDefenses);
-      if (typeof token.ac !== 'string') token.ac = '';
-      if (typeof token.hpMax !== 'string') token.hpMax = '';
       if (typeof token.hpCurrent !== 'number' || !Number.isFinite(token.hpCurrent)) {
         token.hpCurrent = statNumber(token.hpMax);
       }
-      if (typeof token.showStats !== 'boolean') token.showStats = false;
       token.hpTemp = Number.isFinite(token.hpTemp) ? Math.max(0, Math.round(token.hpTemp)) : 0;
       if (token.faction !== 'ally' && token.faction !== 'enemy' && token.faction !== 'neutral') {
         token.faction = 'neutral';
@@ -92,18 +79,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
       legacy.imageUrl = typeof legacy.url === 'string' ? legacy.url : '';
     }
     delete legacy.url;
-    if (typeof item.name !== 'string') item.name = '';
-    if (typeof item.cells !== 'number') item.cells = 1;
-    if (typeof item.round !== 'boolean') item.round = false;
-    if (typeof item.description !== 'string') item.description = '';
-    if (typeof item.initiativeBonus !== 'string') item.initiativeBonus = '';
-    if (typeof item.isPlayerToken !== 'boolean') item.isPlayerToken = false;
-    if (typeof item.owner !== 'string') item.owner = '';
-    item.attacks = normalizeAttacks((item as { attacks?: unknown }).attacks);
-    item.damageDefenses = normalizeDamageDefenses((item as { damageDefenses?: unknown }).damageDefenses);
-    if (typeof item.ac !== 'string') item.ac = '';
-    if (typeof item.hpMax !== 'string') item.hpMax = '';
-    if (typeof item.showStats !== 'boolean') item.showStats = false;
+    Object.assign(item, normalizeTokenFields(item, 60, { keepAcHp: true }));
   }
   const controllers: Record<string, string> = {};
   if (p.controllers && typeof p.controllers === 'object') {

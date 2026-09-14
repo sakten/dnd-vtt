@@ -128,8 +128,9 @@
   **Что сделать:** единая схема `AutomationDef` (kind: damage/heal/save/buff/debuff/control; duration; modifiers; conditions; scaling) + generic-executor на сервере, данные — строки; классовые фичи — та же схема; явный `automation: 'manual'` как fallback; counterspell-параметры и reach-геометрия в shared; catalog-level тесты.
   **Зачем:** следующая большая фича (каталог классовых действий и остаток Ф8) без этого — сотни строк ручных веток и правки в 4–6 файлах на заклинание.
 
-- [ ] **R8.2. Добавление поля Token/Sheet — чек-лист из 6+ мест.** P1, M.
-  `damageDefenses` встречается в ~20 файлах; путь нового поля: тип (`shared/src/types.ts:62-78`) → полный и patch-нормализаторы (`:706-759`) → два ручных цикла гидратации (`server/src/roomNormalize.ts:54-82,89-107`) → два redact-whitelist (`socket/context.ts:155-168`; `attacks` там уже забыт) → фикстуры (`server/src/test/fixtures.ts:13-48`, `client/src/test/fixtures.ts:13-48`) → формы.
+- [x] **R8.2. Добавление поля Token/Sheet — чек-лист из 6+ мест.** P1, M.
+  Исходно: `damageDefenses` встречается в ~20 файлах; путь нового поля: тип (`shared/src/types.ts:62-78`) → полный и patch-нормализаторы (`:706-759`) → два ручных цикла гидратации (`server/src/roomNormalize.ts:54-82,89-107`) → два redact-whitelist (`socket/context.ts:155-168`; `attacks` там уже забыт) → фикстуры (`server/src/test/fixtures.ts:13-48`, `client/src/test/fixtures.ts:13-48`) → формы.
+  **Сделано:** реестр `shared/src/fields.ts` (`TOKEN_FIELD_SPECS`): полная нормализация, patch и заглушки redact в одной записи на поле; `normalizeTokenFields`/`normalizeTokenFieldsPatch` и `redactToken`/`redactLibraryItem` считаются из реестра; `server/src/roomNormalize.ts` и `server/src/socket/context.ts` используют их (опция `keepAcHp` сохраняет непарные AC/HP старых данных). Тесты `shared/src/fields.test.ts` (+11): coverage реестра, patch, `keepAcHp`, redact и отсутствие мутаций. Новое поле = запись в `TokenFields` + строка в реестре (типы не дадут пропустить).
   **Что сделать:** таблица-дескриптор полей (coerce/validate), общая для `normalizeTokenFields`, `normalizeTokenFieldsPatch`, `roomNormalize` и redact; один `redactToken/redactLibrary`; round-trip тест «каждый ключ `TokenFields` нормализуется и редактируется».
   **Зачем:** следующая фича сразу добавляет поля (`CharacterSheet.choices`); сейчас это правки в 6+ местах с риском утечки статов.
 
@@ -188,4 +189,4 @@
 7. **R6.5** — очередь реакций (L) перед тем, как расширять триггеры/Ready.
 8. Далее по P2/P3: R6.6–R6.9, R7.1, R7.3, R7.5–R7.10, R8.3–R8.6, R9.2–R9.4.
 
-**Старт:** R8.2 + R6.4. Оба локальны, без смены поведения, проверяются `npm run check`/`verify`.
+**Старт:** R8.2 — сделано (см. выше). Следующий — R6.4 (единый `applyDamage`).
