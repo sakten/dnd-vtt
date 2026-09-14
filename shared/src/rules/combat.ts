@@ -35,6 +35,8 @@ export interface AttackAdvantageInput {
   rangeType?: AttackRangeType;
   /** Принудительная помеха (дистанция/позиция), сверх состояний. */
   forcedDisadvantage?: boolean;
+  /** Цель под действием «Уклонение»: помеха на атаки по ней. */
+  targetDodging?: boolean;
   /** Режим от эффектов (`attackRollParts(...).mode`). */
   effectMode?: 'a' | 'd';
   /** Учитывать состояния цели (по умолчанию — да). */
@@ -57,6 +59,7 @@ export function countAttackAdvantage(input: AttackAdvantageInput): AttackAdvanta
   if (input.includeTarget !== false) {
     if (advantageAgainst(input.targetConditions, rangeType)) advantage += 1;
     if (disadvantageAgainst(input.targetConditions, rangeType)) disadvantage += 1;
+    if (input.targetDodging) disadvantage += 1;
   }
   if (input.forcedDisadvantage) disadvantage += 1;
   if (input.effectMode === 'a') advantage += 1;

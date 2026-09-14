@@ -152,7 +152,15 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      // Заглушки: Dodge/Help/Ready/Grapple/Shove/UnarmedStrike/UseObject.
+      if (action.id === 'dodge') {
+        // Действие «Уклонение»: помеха на атаки по токену до начала его следующего хода.
+        if (turn) turn.dodge = true;
+        syncCombat(room, mapId);
+        systemMessage(room, `${token.name}: Уклонение`);
+        return;
+      }
+
+      // Заглушки: Help/Ready/Grapple/Shove/UnarmedStrike/UseObject.
       systemMessage(room, `${token.name}: ${action.name}`);
     });
 }

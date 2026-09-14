@@ -823,6 +823,33 @@ describe('реакции (R1)', () => {
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(false);
   });
 
+  it('действие «Уклонение» помечает ход и даёт помеху на атаки по токену', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { x: 100, y: 100, ac: '20', hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки', 'd20')], x: 150, y: 100, faction: 'enemy' }),
+      ],
+      {}
+    );
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dodge' });
+    expect(combatOf(room).turns.e1.dodge).toBe(true);
+
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const rand = vi.spyOn(Math, 'random').mockReturnValueOnce(0.9).mockReturnValueOnce(0.1); // 19 и 3
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t1'] });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll?: { total?: number } }
+      | undefined;
+    expect(attack?.roll?.total).toBe(3); // помеха: взят меньший бросок
+    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(30);
+  });
+
   it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
     const room = makeRoom(
       [

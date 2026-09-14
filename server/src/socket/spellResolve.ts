@@ -222,6 +222,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
         attackerConditions: caster.conditions,
         targetConditions: target.conditions,
         rangeType,
+        targetDodging: ctx.manager.turnStateFor(room, input.mapId, target)?.dodge === true,
         effectMode: effectParts.mode,
       });
       const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;

@@ -130,6 +130,7 @@ export function prepareWeaponAttack(
 
   // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
   const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
+  const targetTurn = hasTarget && target && targetMapId ? manager.turnStateFor(room, targetMapId, target) : null;
   const effectParts = attackRollParts(
     attacker?.effects,
     target?.effects,
@@ -145,6 +146,7 @@ export function prepareWeaponAttack(
     targetConditions: target?.conditions,
     rangeType: attack.rangeType,
     forcedDisadvantage,
+    targetDodging: targetTurn?.dodge === true,
     effectMode: effectParts.mode,
     includeTarget: hasTarget,
   });
