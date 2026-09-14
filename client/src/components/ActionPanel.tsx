@@ -1,24 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import {
-  BASE_ACTIONS,
-  actionSlotAvailable,
-  attackIsActive,
-  attacksPerAction,
-  classFeatures,
-  grantedSpells,
-  isIncapacitated,
-  maxCastableLevel,
-  type ActionCost,
-  type ActionDef,
-  type AttackEntry,
-  type Spell,
-  type TurnState,
-} from 'shared';
+import { useState, type ReactNode } from 'react';
+import { BASE_ACTIONS, actionSlotAvailable, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { useActiveMap } from '../store/hooks';
-import { characterTokenOf, tokenById } from '../store/selectors';
-import { useIsDm } from '../lib/control';
-import { useSpells } from '../lib/useSpells';
+import {
+  canSpendSlot,
+  canUseFeature,
+  featureSlot,
+  maxCastableForSpell,
+  spellSlotOf,
+  type TurnContext,
+} from '../lib/actionRules';
+import { useActionContext } from '../lib/useActionContext';
+import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
@@ -56,105 +48,51 @@ function Dots({ total, remaining, tone }: { total: number; remaining: number; to
 }
 
 export default function ActionPanel() {
-  const map = useActiveMap();
-  const selectedTokenId = useGameStore((s) => s.selectedTokenId);
-  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const isDm = useIsDm();
-  const sheet = useGameStore((s) => s.sheet);
   const resources = useGameStore((s) => s.resources);
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
-  const spells = useSpells();
+  const spellByKey = useSpellByKey();
+  const info = useActionContext();
   const [casting, setCasting] = useState<Spell | null>(null);
 
-  const info = useMemo(() => {
-    if (!map) return null;
-    const combat = map.combat;
-    let tokenId: string | null;
-    let turn: TurnState | undefined;
-    if (combat.active && combat.currentIndex >= 0) {
-      const entry = combat.entries[combat.currentIndex];
-      tokenId = entry?.tokenId ?? null;
-      turn = entry ? combat.turns[entry.id] : undefined;
-    } else {
-      tokenId = selectedTokenId ?? characterTokenOf(map, currentCharacterId)?.id ?? null;
-    }
-    // В чужой ход игрок видит свой токен: доступны реакции, действия — нет.
-    if (combat.active && currentCharacterId !== null && !isDm) {
-      const shown = tokenById(map, tokenId);
-      if (shown?.libraryItemId !== currentCharacterId) {
-        const mine = characterTokenOf(map, currentCharacterId);
-        if (mine) {
-          tokenId = mine.id;
-          turn = undefined;
-        }
-      }
-    } else if (combat.active && isDm && selectedTokenId) {
-      // DM смотрит выбранный токен (например, реакция монстра в чужой ход).
-      const activeId = combat.entries[combat.currentIndex]?.tokenId ?? null;
-      const selected = tokenById(map, selectedTokenId);
-      if (selected && selected.id !== activeId) {
-        tokenId = selected.id;
-        turn = undefined;
-      }
-    }
-    const token = tokenById(map, tokenId);
-    if (!token) return null;
-    const controlled = isDm || (currentCharacterId !== null && token.libraryItemId === currentCharacterId);
-    const isCharacter = currentCharacterId !== null && token.libraryItemId === currentCharacterId;
-    const ownEntry = combat.entries.find((e) => e.tokenId === token.id);
-    const ownTurn = ownEntry ? combat.turns[ownEntry.id] : undefined;
-    const isActive = !combat.active || combat.entries[combat.currentIndex]?.tokenId === token.id;
-    const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
-      .map((entry, index) => ({ entry, index }))
-      .filter((x) => attackIsActive(x.entry));
-    const features = isCharacter && sheet ? classFeatures(sheet.classes) : [];
-    const attacksPer = isCharacter ? attacksPerAction(sheet?.classes ?? []) : Math.max(1, token.statblock?.multiattack ?? 1);
-    return {
-      token,
-      turn,
-      ownTurn,
-      isActive,
-      controlled,
-      combatActive: combat.active,
-      weapons,
-      features,
-      attacksPer,
-      isCharacter,
-    };
-  }, [map, selectedTokenId, currentCharacterId, isDm, sheet]);
-
-  const characterSpells = useMemo(() => {
-    if (!sheet || !info?.isCharacter || !spells) return [];
-    const byKey = new Map(spells.map((s) => [s.key, s]));
-    const keys = new Set<string>();
-    for (const s of sheet.spells ?? []) keys.add(s.key);
-    for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
-    return [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
-  }, [sheet, info?.isCharacter, spells]);
-
-  const monsterSpells = useMemo(() => {
-    if (!spells || !info || info.isCharacter) return [];
-    const byKey = new Map(spells.map((s) => [s.key, s]));
-    return (info.token.statblock?.spellcasting?.spells ?? [])
-      .map((k) => byKey.get(k))
-      .filter((s): s is Spell => !!s);
-  }, [spells, info]);
-
   if (!info) return null;
-  const { token, turn, ownTurn, isActive, controlled, combatActive, weapons, features, attacksPer, isCharacter } = info;
-  const panelSpells = isCharacter ? characterSpells : monsterSpells;
-  const incap = !isDm && isIncapacitated(token.conditions);
-  const spellByKey = new Map((spells ?? []).map((s) => [s.key, s]));
+  const {
+    token,
+    turn,
+    ownTurn,
+    isActive,
+    controlled,
+    combatActive,
+    isCharacter,
+    incapacitated: incap,
+    weapons,
+    features,
+    attacksPer,
+    panelSpells,
+  } = info;
 
-  const canSpend = (slot: ActionCost, actionId: string) => {
-    if (incap || !controlled) return false;
-    if (!combatActive) return true;
-    if (!isActive && slot !== 'reaction') return false;
-    const t = isActive ? turn : ownTurn;
-    if (!t) return isActive ? false : true;
-    if (actionId === 'attack') return t.attacksRemaining > 0 || actionSlotAvailable(t, slot);
-    return actionSlotAvailable(t, slot);
+  const turnCtx: TurnContext = { combatActive, isActive, turn, ownTurn, incapacitated: incap, controlled };
+
+  /** Клик по кнопке: цели не нужны — применяем сразу, иначе входим в режим выбора цели. */
+  const fire = (actionId: string, slot: ActionCost, attackIndex?: number, label?: string) => {
+    const def = BASE_ACTIONS.find((a) => a.id === actionId);
+    if (def?.targeting?.kind === 'creature') {
+      startTargeting({
+        kind: 'action',
+        tokenId: token.id,
+        actionId,
+        slot,
+        attackIndex,
+        label: label ?? def.name,
+      });
+      return;
+    }
+    runAction(token.id, actionId, { attackIndex, slot });
+  };
+
+  const resourceLeft = (f: ActionDef): number | null => {
+    if (!f.resourceKey) return null;
+    return resources?.resources.find((r) => r.key === f.resourceKey)?.current ?? 0;
   };
 
   const actionTotal = turn ? 1 + turn.extraActions : 0;
@@ -171,46 +109,6 @@ export default function ActionPanel() {
     : attacksPer;
   const attacksTotal = Math.max(attacksPer, attacksLeft);
 
-  const needsTarget = (actionId: string): boolean => {
-    const def = BASE_ACTIONS.find((a) => a.id === actionId);
-    return def?.targeting?.kind === 'creature';
-  };
-
-  /** Клик по кнопке: цели не нужны — применяем сразу, иначе входим в режим выбора цели. */
-  const fire = (actionId: string, slot: ActionCost, attackIndex?: number, label?: string) => {
-    if (needsTarget(actionId)) {
-      const name = label ?? BASE_ACTIONS.find((a) => a.id === actionId)?.name ?? actionId;
-      startTargeting({ kind: 'action', tokenId: token.id, actionId, slot, attackIndex, label: name });
-      return;
-    }
-    runAction(token.id, actionId, { attackIndex, slot });
-  };
-
-  const resourceLeft = (f: ActionDef): number | null => {
-    if (!f.resourceKey) return null;
-    return resources?.resources.find((r) => r.key === f.resourceKey)?.current ?? 0;
-  };
-
-  const canUseFeature = (f: ActionDef): boolean => {
-    if (incap || !controlled) return false;
-    const amount = Math.max(1, f.resourceAmount ?? 1);
-    const left = resourceLeft(f);
-    if (left !== null && left < amount) return false;
-    if (!combatActive) return true;
-    if (!isActive && !f.costs.includes('reaction')) return false;
-    const t = isActive ? turn : ownTurn;
-    if (!t) return isActive ? false : true;
-    return f.costs.some((c) => actionSlotAvailable(t, c));
-  };
-
-  const featureSlot = (f: ActionDef): ActionCost => {
-    if (!combatActive) return f.costs[0] ?? 'special';
-    if (!isActive && f.costs.includes('reaction')) return 'reaction';
-    const t = isActive ? turn : ownTurn;
-    if (!t) return f.costs[0] ?? 'special';
-    return f.costs.find((c) => actionSlotAvailable(t, c)) ?? f.costs[0] ?? 'special';
-  };
-
   const featuresAction = features.filter((f) => f.costs.includes('action'));
   const featuresBonus = features.filter((f) => f.costs.includes('bonus'));
   const featuresReaction = features.filter((f) => f.costs.includes('reaction'));
@@ -220,15 +118,8 @@ export default function ActionPanel() {
   const hasReaction =
     BASE_ACTIONS.some((a) => a.costs.includes('reaction')) ||
     featuresReaction.length > 0 ||
-    panelSpells.some((s) => s.time[0]?.unit === 'reaction');
+    panelSpells.some((s) => spellSlotOf(s) === 'reaction');
 
-  const spellSlotOf = (spell: Spell): 'action' | 'bonus' | 'reaction' | 'other' => {
-    const unit = spell.time[0]?.unit;
-    if (unit === 'action') return 'action';
-    if (unit === 'bonus') return 'bonus';
-    if (unit === 'reaction') return 'reaction';
-    return 'other';
-  };
   const spellsAction = panelSpells.filter((s) => spellSlotOf(s) === 'action');
   const spellsBonus = panelSpells.filter((s) => spellSlotOf(s) === 'bonus');
   const spellsReaction = panelSpells.filter((s) => spellSlotOf(s) === 'reaction');
@@ -240,9 +131,7 @@ export default function ActionPanel() {
     const slot = spellSlotOf(spell);
     if (!isActive && slot !== 'reaction') return true;
     if (slot === 'reaction') {
-      const maxLevel = isCharacter
-        ? maxCastableLevel(spell, resources)
-        : maxCastableLevel(spell, null, token.statblock?.spellcasting?.slots);
+      const maxLevel = maxCastableForSpell(spell, { isCharacter, resources, token });
       if (spell.level > 0 && maxLevel < spell.level) return true;
       const t = isActive ? turn : ownTurn;
       if (t && !actionSlotAvailable(t, 'reaction')) return true;
@@ -275,9 +164,9 @@ export default function ActionPanel() {
         className="ap-icon-btn"
         data-tip={label}
         aria-label={label}
-        disabled={!canUseFeature(f)}
+        disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
         onClick={() => {
-          const slot = featureSlot(f);
+          const slot = featureSlot(f, turnCtx);
           if (f.targeting?.kind === 'creature') {
             startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, label: f.name });
           } else {
@@ -294,7 +183,7 @@ export default function ActionPanel() {
     const buttons: ReactNode[] = [];
     const hasAttack = BASE_ACTIONS.some((a) => a.id === 'attack' && a.costs.includes(slot));
     if (hasAttack) {
-      const enabled = canSpend(slot, 'attack');
+      const enabled = canSpendSlot(turnCtx, slot, 'attack');
       if (weapons.length === 0) {
         buttons.push(
           <button
@@ -338,7 +227,7 @@ export default function ActionPanel() {
           className="ap-icon-btn"
           data-tip={label}
           aria-label={label}
-          disabled={!canSpend(slot, a.id)}
+          disabled={!canSpendSlot(turnCtx, slot, a.id)}
           onClick={() => fire(a.id, slot, undefined, label)}
         >
           <ActionIcon id={a.id} className="ap-icon" />

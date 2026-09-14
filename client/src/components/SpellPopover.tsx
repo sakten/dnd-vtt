@@ -1,22 +1,9 @@
 import { useState } from 'react';
-import {
-  characterLevel,
-  isHealingSpell,
-  maxCastableLevel,
-  spellActionCost,
-  spellAreaOrigin,
-  spellAttackCount,
-  spellDamageExpression,
-  spellAutomated,
-  spellEffectDefs,
-  spellHasArea,
-  spellRangeFeet,
-  spellTargetKind,
-  type Spell,
-} from 'shared';
+import { spellActionCost, spellAreaOrigin, spellAutomated, spellRangeFeet, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { tokenById } from '../store/selectors';
+import { ACTION_COST_TEXT, spellCastInfo } from '../lib/actionRules';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -24,13 +11,6 @@ interface Props {
   tokenId: string;
   onClose: () => void;
 }
-
-const COST_TEXT: Record<string, string> = {
-  action: 'Действие',
-  bonus: 'Бонусное действие',
-  reaction: 'Реакция',
-  special: 'Особое',
-};
 
 /** Поповер накладывания заклинания: круг (апкаст), цель, преимущество. */
 export default function SpellPopover({ spell, tokenId, onClose }: Props) {
@@ -46,58 +26,42 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
 
-  const isCantrip = spell.level === 0;
   const castToken = tokenById(map, tokenId);
   const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
-  const maxLevel = sheetCaster
-    ? maxCastableLevel(spell, resources)
-    : maxCastableLevel(spell, null, castToken?.statblock?.spellcasting?.slots);
-  const canCast = isCantrip || maxLevel >= spell.level;
-  const area = spellHasArea(spell);
-  const self = spellTargetKind(spell) === 'self';
-  const projectiles = spellAttackCount(spell, level, sheet ? characterLevel(sheet.classes) : 1);
-  const effectTargetCount =
-    spellEffectDefs(spell.key)?.reduce((max, d) => Math.max(max, d.to === 'targets' ? d.targets ?? 1 : 0), 0) ?? 0;
-  const multi = !area && (projectiles > 1 || effectTargetCount > 1);
-  const multiCount = effectTargetCount > 1 ? effectTargetCount : projectiles;
-  const attacky = !!spell.spellAttack || !!spell.save;
-  const expression = spellDamageExpression(spell, level, sheet ? characterLevel(sheet.classes) : 1);
-  const damageText =
-    expression && spell.damage
-      ? `${isHealingSpell(spell) ? 'Лечение' : 'Урон'}: ${expression}${
-          spell.damage.types.length ? ` (${spell.damage.types.join(', ')})` : ''
-        }`
-      : null;
-
-  const levels = isCantrip || !canCast ? [] : Array.from({ length: maxLevel - spell.level + 1 }, (_, i) => spell.level + i);
+  const info = spellCastInfo(spell, level, {
+    isCharacter: sheetCaster,
+    resources,
+    token: castToken ?? undefined,
+    classes: sheet?.classes ?? null,
+  });
 
   const mode: 'a' | 'd' | undefined = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
 
   const submit = () => {
-    if (!canCast) return;
-    if (area && spell.areaSpec) {
+    if (!info.canCast) return;
+    if (info.area && spell.areaSpec) {
       startAim({
         tokenId,
         spellKey: spell.key,
-        slotLevel: isCantrip ? undefined : level,
+        slotLevel: info.slotLevel,
         advantage: mode,
         spec: spell.areaSpec,
         originKind: spellAreaOrigin(spell),
         rangeFeet: spellRangeFeet(spell),
       });
-    } else if (multi) {
+    } else if (info.multi) {
       startMultiTarget({
         tokenId,
         spellKey: spell.key,
-        slotLevel: isCantrip ? undefined : level,
+        slotLevel: info.slotLevel,
         advantage: mode,
-        count: multiCount,
+        count: info.multiCount,
       });
-    } else if (self) {
+    } else if (info.self) {
       castSpell({
         tokenId,
         spellKey: spell.key,
-        slotLevel: isCantrip ? undefined : level,
+        slotLevel: info.slotLevel,
         advantage: mode,
       });
     } else {
@@ -105,7 +69,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         kind: 'spell',
         tokenId,
         spellKey: spell.key,
-        slotLevel: isCantrip ? undefined : level,
+        slotLevel: info.slotLevel,
         advantage: mode,
         label: spell.name,
       });
@@ -122,7 +86,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           <div className="sp-head-text">
             <div className="sp-name">{spell.name}</div>
             <div className="sp-meta">
-              {isCantrip ? 'Фокус' : `${spell.level} круг`} · {COST_TEXT[spellActionCost(spell)] ?? 'Особое'}
+              {info.isCantrip ? 'Фокус' : `${spell.level} круг`} · {ACTION_COST_TEXT[spellActionCost(spell)]}
             </div>
           </div>
           <button className="sp-close" aria-label="Закрыть" onClick={onClose}>
@@ -130,11 +94,11 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </button>
         </div>
 
-        {levels.length > 1 && (
+        {info.levels.length > 1 && (
           <div className="sp-row">
             <span className="sp-label">Круг ячейки</span>
             <div className="sp-levels">
-              {levels.map((l) => (
+              {info.levels.map((l) => (
                 <button
                   key={l}
                   className={`sp-level${l === level ? ' on' : ''}`}
@@ -147,9 +111,9 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </div>
         )}
 
-        {!canCast && <div className="sp-warn">Нет ячейки доступного круга</div>}
+        {!info.canCast && <div className="sp-warn">Нет ячейки доступного круга</div>}
 
-        {area ? (
+        {info.area ? (
           <div className="sp-row">
             <span className="sp-label">Область</span>
             <span className="sp-target">
@@ -163,29 +127,29 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
               {spell.areaSpec?.size} фт · выбор на карте
             </span>
           </div>
-        ) : multi ? (
+        ) : info.multi ? (
           <div className="sp-row">
-            <span className="sp-label">{effectTargetCount > 1 ? 'Цели' : 'Снаряды'}</span>
+            <span className="sp-label">{info.effectTargetCount > 1 ? 'Цели' : 'Снаряды'}</span>
             <span className="sp-target">
-              {effectTargetCount > 1
-                ? `до ${effectTargetCount} · выбор на карте`
-                : `${projectiles} шт. · цель для каждого на карте`}
+              {info.effectTargetCount > 1
+                ? `до ${info.effectTargetCount} · выбор на карте`
+                : `${info.projectiles} шт. · цель для каждого на карте`}
             </span>
           </div>
         ) : (
           <div className="sp-row">
             <span className="sp-label">Цель</span>
-            <span className="sp-target">{self ? 'На себя' : 'клик по цели на карте'}</span>
+            <span className="sp-target">{info.self ? 'На себя' : 'клик по цели на карте'}</span>
           </div>
         )}
 
-        {damageText && <div className="sp-damage">{damageText}</div>}
+        {info.damageText && <div className="sp-damage">{info.damageText}</div>}
 
         {!spellAutomated(spell) && (
           <div className="sp-note">Эффект не автоматизирован: в чат уйдёт название и описание, механику ведёт мастер</div>
         )}
 
-        {attacky && spell.spellAttack && (
+        {info.attacky && spell.spellAttack && (
           <div className="sp-row">
             <div className="sp-adv">
               <label className="adv-check">
@@ -218,8 +182,8 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           <button className="sp-cancel" onClick={onClose}>
             Отмена
           </button>
-          <button className="sp-cast" disabled={!canCast} onClick={submit}>
-            {area ? 'Выбрать область' : multi ? 'Выбрать цели' : self ? 'Применить' : 'Выбрать цель'}
+          <button className="sp-cast" disabled={!info.canCast} onClick={submit}>
+            {info.area ? 'Выбрать область' : info.multi ? 'Выбрать цели' : info.self ? 'Применить' : 'Выбрать цель'}
           </button>
         </div>
       </div>

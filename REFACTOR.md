@@ -68,15 +68,13 @@
 
 ## R7 — Клиентское ядро и UI-долг
 
-- [ ] **R7.1. Машина выбора цели размазана по 7 файлам.** P1, M/L.
-  Три независимых состояния с ручным взаимным занулением: `AimState`/`MultiTargetState`/`TargetingState` (`store/types.ts:42-89`), переходы `store/slices/actions.ts:32,67-71,126`, `uiReset.ts:4-12`; клики: `TableTop.tsx:270-282`, `TokenView.tsx:59-81`, `TableScreen.tsx:42-58`, `AimPanel.tsx:20-61`, `SpellPopover.tsx:76-114`, `RollMenu.tsx:86-99`; drag/camera переключается в `TableTop.tsx:322,337`, `TokenView.tsx:91-99`.
-  **Что сделать:** один discriminated union `interaction: null | { kind: 'target'|'area'|'multi'|'pointDir', ... }`; чистая `interactionMachine.ts` (`start/updateCursor/clickToken/clickMap/cancel`); `useMapInteraction()` для `TableTop`/`TokenView`; `AimPanel` рендерится из union.
-  **Зачем:** новый режим (направление, квадрат, цепочка, реакционный таргетинг) сейчас = ~7 согласованных правок и риск оставить два режима сразу.
+- [x] **R7.1. Машина выбора цели размазана по 7 файлам.** P1, M/L.
+  Исходно: три независимых состояния с ручным взаимным занулением: `AimState`/`MultiTargetState`/`TargetingState` (`store/types.ts:42-89`), переходы `store/slices/actions.ts:32,67-71,126`, `uiReset.ts:4-12`; клики: `TableTop.tsx:270-282`, `TokenView.tsx:59-81`, `TableScreen.tsx:42-58`, `AimPanel.tsx:20-61`, `SpellPopover.tsx:76-114`, `RollMenu.tsx:86-99`; drag/camera переключался в `TableTop.tsx:322,337`, `TokenView.tsx:91-99`.
+  **Сделано:** `domain/interaction.ts` — чистые типы (`Interaction` union из target/aim/multi) и переходы (`startTargeting`/`startAim`/`aimToCursor`/`confirmArea`/`pickTarget`/`pickMultiTarget`), возвращающие «новое состояние + команда»; стор хранит одно поле `interaction`, экшены слотов делегируют машине, добавлен `cancelInteraction`. `AimPanel` рендерит все три режима из union, `TokenView`/`TableTop`/`TableScreen` выводят режим из одного поля (нельзя включить два сразу), Esc/клик по пустому месту — единый сброс. Тесты слайсов обновлены под `interaction` (число тестов не выросло); e2e/shots зелёные.
 
-- [ ] **R7.2. `ActionPanel` — god-компонент, правила дублированы со `SpellPopover`.** P1, M.
-  `ActionPanel.tsx` (445 строк): экономика (`:160-222`), атаки (`:178-182`), категории/каст (`:235-261`), рендер (`:303-371`). Те же правила в `SpellPopover.tsx`: `COST_TEXT` (`:28-33`) vs `spellSlotOf`, `maxCastableLevel` (`:52-54`) vs `ActionPanel.tsx:253-255`, выбор режима (`:76-114`) vs `ActionPanel.fire:190-197`/`featureButton:279-301`. `spellByKey` строится заново в `ActionPanel`, `TokenMenu:42`, `ReactionPrompt:33`, `StatblockSpells:24`, `ConditionsOverlay:16`.
-  **Что сделать:** чистые `lib/actionRules.ts` + `useActionContext(tokenId)`, возвращающий модель (слоты, атаки, категории, disabled-причины); `SpellPopover` — тупой диалог с `{ spell, tokenId, canCast }`.
-  **Зачем:** новый тип действия/стоимости = правки в 3–4 компонентах; правила нельзя протестировать без рендера.
+- [x] **R7.2. `ActionPanel` — god-компонент, правила дублированы со `SpellPopover`.** P1, M.
+  Исходно: `ActionPanel.tsx` (445 строк): экономика (`:160-222`), атаки (`:178-182`), категории/каст (`:235-261`), рендер (`:303-371`). Те же правила в `SpellPopover.tsx`: `COST_TEXT` (`:28-33`) vs `spellSlotOf`, `maxCastableLevel` (`:52-54`) vs `ActionPanel.tsx:253-255`, выбор режима (`:76-114`) vs `ActionPanel.fire:190-197`/`featureButton:279-301`. `spellByKey` строился заново в `ActionPanel`, `TokenMenu:42`, `ReactionPrompt:33`, `StatblockSpells:24`, `ConditionsOverlay:16`.
+  **Сделано:** `lib/actionRules.ts` — чистые `spellSlotOf`, `ACTION_COST_TEXT`, `maxCastableForSpell`, `canSpendSlot`, `canUseFeature`, `featureSlot`, `spellCastInfo`; `lib/useActionContext.ts` — хук-модель панели (токен/ход/экономика/оружие/черты/заклинания) с мемоизацией; `useSpellByKey()` — общая карта заклинаний (`TokenMenu`/`ReactionPrompt`/`ConditionsOverlay`/`ActionPanel`). `ActionPanel` 435 → 308 строк (только рендер + вызовы правил), `SpellPopover` 228 → 179 (использует `spellCastInfo` и `ACTION_COST_TEXT`). Тесты `lib/actionRules.test.ts` (+5): секции, круги, режимы, экономика.
 
 - [ ] **R7.3. Оптимистичные апдейты без единого идиома и отката.** P1, M/L.
   Локальные патчи: `store/slices/tokens.ts:76-90,126-140`, `library.ts:12-21`, `maps.ts:51-67`, `sheet.ts:17-20`; fire-and-forget: `actions.ts:24-30`, `combat.ts:9-29`, `sheet.ts:13-15`; подтверждение иногда игнорируется (`tokens.ts:56-57` — серверный `token:update` дропается во время драга). Единственный канал ошибки — чат (`chat.ts:23-28`): отказ молча расходится со стейтом.
@@ -176,10 +174,10 @@
 1. **R8.2 — реестр полей** (M). ✅ Сделано.
 2. **R6.4 — единый `applyDamage`** (M). ✅ Сделано.
 3. **R6.2 + R6.3 — авто-save и `resolveActor`/гварды** (M+M). ✅ Сделано.
-4. **R8.1 — каталог `AutomationDef`** (L) вместе с **R7.2** (правила панели) — это уже старт фичи «каталог классовых действий».
+4. **R7.2 + R7.1 — клиентское ядро** (M + M/L). ✅ Сделано: `actionRules`/`useActionContext` и единая `interaction`-машина.
 5. **R7.4 + R9.1** — быстрые выигрыши по бандлу и скорости тестов UI (можно параллельно). ✅ R7.4 сделано (главный чанк 599 → 260 КБ); R9.1 — по желанию.
 6. **R6.1** — распил `RoomManager` по доменам (L). ✅ Сделано: `room/helpers`, `room/combat`, `room/effects`, `room/resources`, `room/tokens`; `rooms.ts` 1223 → 414 строк.
 7. **R6.5** — очередь реакций (L) перед тем, как расширять триггеры/Ready.
-8. Далее по P2/P3: R6.6–R6.9, R7.1, R7.3, R7.5–R7.10, R8.3–R8.6, R9.2–R9.4.
+8. Далее по P2/P3: R6.6–R6.9, R7.3, R7.5–R7.10, R8.3–R8.6, R9.2–R9.4.
 
-**Старт:** R8.2, R6.4, R6.2, R6.3, R6.6, R6.1 (4 среза), R7.4, R6.8 — сделано. Следующие: R7.2 + R7.1 (клиентское ядро) → R8.1 (каталог `AutomationDef`).
+**Старт:** R8.2, R6.4, R6.2, R6.3, R6.6, R6.1, R7.4, R6.8, R7.2, R7.1 — сделано. Следующие: R8.1 (каталог `AutomationDef` — старт фичи «каталог классовых действий») либо R6.5 (очередь реакций).

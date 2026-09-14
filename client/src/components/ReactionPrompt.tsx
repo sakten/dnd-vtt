@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { useIsDm } from '../lib/control';
-import { useSpells } from '../lib/useSpells';
+import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
 import SpellIcon from './SpellIcon';
 
@@ -18,7 +18,7 @@ export default function ReactionPrompt() {
   const respond = useGameStore((s) => s.respondReaction);
   const forceSkip = useGameStore((s) => s.forceSkipReaction);
   const isDm = useIsDm();
-  const spells = useSpells() ?? [];
+  const byKey = useSpellByKey();
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -30,7 +30,6 @@ export default function ReactionPrompt() {
   if (!offer) return null;
 
   const left = Math.max(0, Math.ceil((offer.expiresAt - Date.now()) / 1000));
-  const byKey = new Map(spells.map((s) => [s.key, s]));
 
   return (
     <>

@@ -11,9 +11,7 @@ beforeEach(() => {
   useGameStore.setState({
     socket,
     viewMapId: 'm1',
-    targeting: null,
-    aim: null,
-    multiTarget: null,
+    interaction: null,
     scene: {
       maps: [makeMap('m1', [makeToken('t1', { x: 100, y: 100 })])],
       activeMapId: 'm1',
@@ -52,7 +50,7 @@ describe('actions slice', () => {
       event: 'action:use',
       payload: { mapId: 'm1', tokenId: 't1', actionId: 'attack', slot: 'action', attackIndex: 0, targetIds: ['t2'] },
     });
-    expect(useGameStore.getState().targeting).toBeNull();
+    expect(useGameStore.getState().interaction).toBeNull();
   });
 
   it('startTargeting + resolveTargeting для заклинания шлют spell:cast с целью', () => {
@@ -82,7 +80,7 @@ describe('actions slice', () => {
   it('cancelTargeting сбрасывает режим без бросков', () => {
     useGameStore.getState().startTargeting({ kind: 'action', tokenId: 't1', actionId: 'grapple', slot: 'action', label: 'Захват' });
     useGameStore.getState().cancelTargeting();
-    expect(useGameStore.getState().targeting).toBeNull();
+    expect(useGameStore.getState().interaction).toBeNull();
     expect(emitted).toHaveLength(0);
   });
 
@@ -94,7 +92,8 @@ describe('actions slice', () => {
       originKind: 'self',
       rangeFeet: null,
     });
-    expect(useGameStore.getState().aim?.origin).toEqual({ x: 100, y: 100 });
+    const aim = useGameStore.getState().interaction;
+    expect(aim?.mode === 'aim' ? aim.aim.origin : null).toEqual({ x: 100, y: 100 });
   });
 
   it('confirmAim шлёт spell:cast с origin/direction', () => {
@@ -119,7 +118,7 @@ describe('actions slice', () => {
         direction: { x: 200, y: 150 },
       },
     });
-    expect(useGameStore.getState().aim).toBeNull();
+    expect(useGameStore.getState().interaction).toBeNull();
   });
 
   it('aimToCursor: точка не уходит за дистанцию заклинания', () => {
@@ -131,7 +130,8 @@ describe('actions slice', () => {
       rangeFeet: 50,
     });
     useGameStore.getState().aimToCursor({ x: 1000, y: 100 });
-    expect(useGameStore.getState().aim?.origin).toEqual({ x: 600, y: 100 });
+    const aim = useGameStore.getState().interaction;
+    expect(aim?.mode === 'aim' ? aim.aim.origin : null).toEqual({ x: 600, y: 100 });
   });
 
   it('multiTarget: каст после выбора целей на все снаряды', () => {
@@ -144,7 +144,8 @@ describe('actions slice', () => {
     useGameStore.getState().addMultiTarget('a');
     useGameStore.getState().addMultiTarget('b');
     expect(emitted).toHaveLength(0);
-    expect(useGameStore.getState().multiTarget?.targets).toEqual(['a', 'b']);
+    const multi = useGameStore.getState().interaction;
+    expect(multi?.mode === 'multi' ? multi.multi.targets : null).toEqual(['a', 'b']);
     useGameStore.getState().addMultiTarget('c');
     expect(emitted).toContainEqual({
       event: 'spell:cast',
@@ -156,6 +157,6 @@ describe('actions slice', () => {
         targetIds: ['a', 'b', 'c'],
       },
     });
-    expect(useGameStore.getState().multiTarget).toBeNull();
+    expect(useGameStore.getState().interaction).toBeNull();
   });
 });

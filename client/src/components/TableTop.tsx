@@ -38,15 +38,16 @@ export default function TableTop() {
   const grid = useGameStore((s) => s.scene.grid);
   const setSelected = useGameStore((s) => s.setSelected);
   const isDm = useIsDm();
-  const targeting = useGameStore((s) => s.targeting);
-  const cancelTargeting = useGameStore((s) => s.cancelTargeting);
+  const interaction = useGameStore((s) => s.interaction);
+  const cancelInteraction = useGameStore((s) => s.cancelInteraction);
   const hoverTokenId = useGameStore((s) => s.hoverTokenId);
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
-  const aim = useGameStore((s) => s.aim);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
-  const multiTarget = useGameStore((s) => s.multiTarget);
+  const aim = interaction?.mode === 'aim' ? interaction.aim : null;
+  const targeting = interaction?.mode === 'target' ? interaction.target : null;
+  const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
   const activeMap = useActiveMap();
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
 
@@ -278,7 +279,7 @@ export default function TableTop() {
       }
       return;
     }
-    if (targeting && !fogMode.active) cancelTargeting();
+    if (targeting && !fogMode.active) cancelInteraction();
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {

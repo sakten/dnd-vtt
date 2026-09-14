@@ -41,16 +41,8 @@ export default function TableScreen() {
       }
       if (e.key === 'Escape') {
         const st = useGameStore.getState();
-        if (st.targeting) {
-          st.cancelTargeting();
-          return;
-        }
-        if (st.aim) {
-          st.cancelAim();
-          return;
-        }
-        if (st.multiTarget) {
-          st.cancelMultiTarget();
+        if (st.interaction) {
+          st.cancelInteraction();
           return;
         }
         setSelected(null);

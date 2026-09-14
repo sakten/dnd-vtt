@@ -1,3 +1,13 @@
+import {
+  aimToCursor,
+  confirmArea,
+  pickMultiTarget,
+  pickTarget,
+  startAim,
+  startMulti,
+  startTargeting,
+  type InteractionCommand,
+} from '../../domain/interaction';
 import { emitInMap } from '../helpers';
 import { activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
@@ -9,6 +19,7 @@ export const createActionSlice: Slice<
     | 'castSpell'
     | 'startTargeting'
     | 'cancelTargeting'
+    | 'cancelInteraction'
     | 'resolveTargeting'
     | 'startAim'
     | 'aimToCursor'
@@ -20,128 +31,74 @@ export const createActionSlice: Slice<
     | 'cancelMultiTarget'
     | 'adjustTokenHp'
   >
-> = (_set, get) => ({
-  runAction: (tokenId, actionId, extra) => {
-    emitInMap(get, 'action:use', { tokenId, actionId, ...extra });
-  },
+> = (_set, get) => {
+  /** Исполняет команду машины взаимодействия (после сброса режима). */
+  const runCommand = (command: InteractionCommand | undefined) => {
+    if (!command) return;
+    if (command.type === 'runAction') get().runAction(command.tokenId, command.actionId, command.extra);
+    else if (command.type === 'castSpell') get().castSpell(command.payload);
+    else get().rollAttack(command.payload);
+  };
 
-  castSpell: (payload) => {
-    emitInMap(get, 'spell:cast', payload);
-  },
+  return {
+    runAction: (tokenId, actionId, extra) => {
+      emitInMap(get, 'action:use', { tokenId, actionId, ...extra });
+    },
 
-  startTargeting: (targeting) => _set({ targeting, aim: null, multiTarget: null }),
+    castSpell: (payload) => {
+      emitInMap(get, 'spell:cast', payload);
+    },
 
-  cancelTargeting: () => _set({ targeting: null }),
+    startTargeting: (targeting) => _set({ interaction: startTargeting(targeting) }),
 
-  resolveTargeting: (targetId) => {
-    const t = get().targeting;
-    if (!t) return;
-    _set({ targeting: null });
-    if (t.kind === 'action') {
-      get().runAction(t.tokenId, t.actionId, {
-        targetIds: [targetId],
-        attackIndex: t.attackIndex,
-        slot: t.slot,
-      });
-    } else if (t.kind === 'spell') {
-      get().castSpell({
-        tokenId: t.tokenId,
-        spellKey: t.spellKey,
-        slotLevel: t.slotLevel,
-        advantage: t.advantage,
-        targetIds: [targetId],
-      });
-    } else {
-      get().rollAttack({
-        tokenId: t.tokenId,
-        targetId,
-        attackIndex: t.attackIndex,
-        advantage: t.advantage,
-      });
-    }
-  },
+    cancelTargeting: () => _set({ interaction: null }),
 
-  startAim: ({ tokenId, spellKey, slotLevel, advantage, spec, originKind, rangeFeet }) => {
-    const token = tokenById(activeMapOf(get()), tokenId);
-    const origin = originKind === 'self' && token ? { x: token.x, y: token.y } : null;
-    _set({
-      aim: { tokenId, spellKey, slotLevel, advantage, spec, originKind, rangeFeet, origin, direction: null },
-      targeting: null,
-      multiTarget: null,
-    });
-  },
+    cancelInteraction: () => _set({ interaction: null }),
 
-  aimToCursor: (cursor) => {
-    const aim = get().aim;
-    if (!aim) return;
-    const state = get();
-    const token = tokenById(activeMapOf(state), aim.tokenId);
-    if (!token) return;
-    const size = state.scene.grid.size || 50;
+    resolveTargeting: (targetId) => {
+      const { next, command } = pickTarget(get().interaction, targetId);
+      _set({ interaction: next });
+      runCommand(command);
+    },
 
-    if (aim.originKind === 'self') {
-      const needsDirection = aim.spec.shape === 'cone' || aim.spec.shape === 'line';
-      _set({ aim: { ...aim, direction: needsDirection ? cursor : null } });
-      return;
-    }
+    startAim: (payload) => {
+      const token = tokenById(activeMapOf(get()), payload.tokenId);
+      _set({ interaction: startAim(payload, token) });
+    },
 
-    let origin = cursor;
-    if (aim.rangeFeet !== null) {
-      const dx = cursor.x - token.x;
-      const dy = cursor.y - token.y;
-      const dist = Math.hypot(dx, dy);
-      const maxPx = (aim.rangeFeet / 5) * size;
-      if (dist > maxPx && dist > 0) {
-        origin = { x: token.x + (dx / dist) * maxPx, y: token.y + (dy / dist) * maxPx };
-      }
-    }
-    _set({ aim: { ...aim, origin, direction: origin } });
-  },
+    aimToCursor: (cursor) => {
+      const state = get();
+      const it = state.interaction;
+      if (it?.mode !== 'aim') return;
+      const token = tokenById(activeMapOf(state), it.aim.tokenId);
+      _set({ interaction: aimToCursor(it, cursor, token, state.scene.grid.size || 50) });
+    },
 
-  cancelAim: () => _set({ aim: null }),
+    cancelAim: () => _set({ interaction: null }),
 
-  endConcentration: (tokenId) => {
-    emitInMap(get, 'spell:endConcentration', { tokenId });
-  },
+    confirmAim: () => {
+      const { next, command } = confirmArea(get().interaction);
+      _set({ interaction: next });
+      runCommand(command);
+    },
 
-  confirmAim: () => {
-    const aim = get().aim;
-    if (!aim) return;
-    get().castSpell({
-      tokenId: aim.tokenId,
-      spellKey: aim.spellKey,
-      slotLevel: aim.slotLevel,
-      advantage: aim.advantage,
-      origin: aim.origin ?? undefined,
-      direction: aim.direction ?? undefined,
-    });
-    _set({ aim: null });
-  },
+    endConcentration: (tokenId) => {
+      emitInMap(get, 'spell:endConcentration', { tokenId });
+    },
 
-  adjustTokenHp: (tokenId, delta) => {
-    if (!delta) return;
-    emitInMap(get, 'token:hp', { id: tokenId, delta: Math.round(delta) });
-  },
+    adjustTokenHp: (tokenId, delta) => {
+      if (!delta) return;
+      emitInMap(get, 'token:hp', { id: tokenId, delta: Math.round(delta) });
+    },
 
-  startMultiTarget: (payload) => _set({ multiTarget: { ...payload, targets: [] }, targeting: null, aim: null }),
+    startMultiTarget: (payload) => _set({ interaction: startMulti(payload) }),
 
-  addMultiTarget: (targetId) => {
-    const mt = get().multiTarget;
-    if (!mt) return;
-    const targets = [...mt.targets, targetId];
-    if (targets.length >= mt.count) {
-      get().castSpell({
-        tokenId: mt.tokenId,
-        spellKey: mt.spellKey,
-        slotLevel: mt.slotLevel,
-        advantage: mt.advantage,
-        targetIds: targets,
-      });
-      _set({ multiTarget: null });
-      return;
-    }
-    _set({ multiTarget: { ...mt, targets } });
-  },
+    addMultiTarget: (targetId) => {
+      const { next, command } = pickMultiTarget(get().interaction, targetId);
+      _set({ interaction: next });
+      runCommand(command);
+    },
 
-  cancelMultiTarget: () => _set({ multiTarget: null }),
-});
+    cancelMultiTarget: () => _set({ interaction: null }),
+  };
+};

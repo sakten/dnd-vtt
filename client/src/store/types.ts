@@ -1,6 +1,5 @@
 import type {
   ActionCost,
-  AreaSpec,
   CharacterSheet,
   ChatMessage,
   FogState,
@@ -17,6 +16,13 @@ import type {
   TokenFields,
 } from 'shared';
 import type { AppSocket } from '../net/socket';
+import type {
+  Interaction,
+  MultiTargetState,
+  SpellCastPayload,
+  StartAimPayload,
+  TargetingState,
+} from '../domain/interaction';
 
 export interface ViewState {
   x: number;
@@ -37,56 +43,6 @@ export interface CritHit {
   label?: string;
   total: number;
 }
-
-/** Режим прицеливания заклинания с областью (Ф7). */
-export interface AimState {
-  tokenId: string;
-  spellKey: string;
-  slotLevel?: number;
-  advantage?: 'a' | 'd';
-  spec: AreaSpec;
-  originKind: 'self' | 'point';
-  /** Дистанция накладывания, футы; null — без ограничения (точка не тащится дальше). */
-  rangeFeet: number | null;
-  origin: { x: number; y: number } | null;
-  direction: { x: number; y: number } | null;
-}
-
-/** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
-export interface MultiTargetState {
-  tokenId: string;
-  spellKey: string;
-  slotLevel?: number;
-  advantage?: 'a' | 'd';
-  count: number;
-  targets: string[];
-}
-
-/** Режим выбора цели: после клика по способности ждём клик по токену на карте. */
-export type TargetingState =
-  | {
-      kind: 'action';
-      tokenId: string;
-      actionId: string;
-      slot: ActionCost;
-      attackIndex?: number;
-      label: string;
-    }
-  | {
-      kind: 'spell';
-      tokenId: string;
-      spellKey: string;
-      slotLevel?: number;
-      advantage?: 'a' | 'd';
-      label: string;
-    }
-  | {
-      kind: 'rollAttack';
-      tokenId?: string;
-      attackIndex: number;
-      advantage?: 'a' | 'd';
-      label: string;
-    };
 
 export interface GameState {
   socket: AppSocket | null;
@@ -109,9 +65,8 @@ export interface GameState {
   chat: ChatMessage[];
   chatError: string | null;
   joinError: string | null;
-  aim: AimState | null;
-  multiTarget: MultiTargetState | null;
-  targeting: TargetingState | null;
+  /** Активное взаимодействие с картой (цель/область/мульти-цели), не более одного. */
+  interaction: Interaction | null;
   selectedTokenId: string | null;
   hoverTokenId: string | null;
   draggingTokenId: string | null;
@@ -165,6 +120,8 @@ export interface GameState {
   /** Войти в режим выбора цели для способности/заклинания/атаки. */
   startTargeting: (targeting: TargetingState) => void;
   cancelTargeting: () => void;
+  /** Сбросить любой активный режим взаимодействия (Esc/отмена). */
+  cancelInteraction: () => void;
   /** Клик по цели: применяет способность по выбранному токену. */
   resolveTargeting: (targetId: string) => void;
   setDragging: (id: string | null) => void;
@@ -191,24 +148,8 @@ export interface GameState {
     actionId: string,
     extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost }
   ) => void;
-  castSpell: (payload: {
-    tokenId: string;
-    spellKey: string;
-    slotLevel?: number;
-    targetIds?: string[];
-    advantage?: 'a' | 'd';
-    origin?: { x: number; y: number };
-    direction?: { x: number; y: number };
-  }) => void;
-  startAim: (payload: {
-    tokenId: string;
-    spellKey: string;
-    slotLevel?: number;
-    advantage?: 'a' | 'd';
-    spec: AreaSpec;
-    originKind: 'self' | 'point';
-    rangeFeet: number | null;
-  }) => void;
+  castSpell: (payload: SpellCastPayload) => void;
+  startAim: (payload: StartAimPayload) => void;
   /** Ведение области за курсором (с клампом по дистанции). */
   aimToCursor: (cursor: { x: number; y: number }) => void;
   cancelAim: () => void;
@@ -218,13 +159,7 @@ export interface GameState {
   /** Быстрое изменение HP токена (DM): delta>0 — лечение, <0 — урон. */
   adjustTokenHp: (tokenId: string, delta: number) => void;
   /** Выбор цели на каждый снаряд; когда все выбраны — каст. */
-  startMultiTarget: (payload: {
-    tokenId: string;
-    spellKey: string;
-    slotLevel?: number;
-    advantage?: 'a' | 'd';
-    count: number;
-  }) => void;
+  startMultiTarget: (payload: Omit<MultiTargetState, 'targets'>) => void;
   addMultiTarget: (targetId: string) => void;
   cancelMultiTarget: () => void;
   setHoverToken: (id: string | null) => void;

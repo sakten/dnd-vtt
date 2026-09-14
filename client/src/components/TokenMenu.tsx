@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   DEFAULT_AC,
   DEFAULT_SPEED,
@@ -7,14 +7,13 @@ import {
   statNumber,
   type ConditionInstance,
   type Faction,
-  type Spell,
   type TokenFields,
   type TokenStatblock,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useMapToken } from '../store/hooks';
 import { useCanControlId, useIsDm } from '../lib/control';
-import { useSpells } from '../lib/useSpells';
+import { useSpellByKey } from '../lib/useSpells';
 import AttacksForm from './AttacksForm';
 import ConditionChips from './ConditionChips';
 import ConditionsForm from './ConditionsForm';
@@ -40,8 +39,7 @@ export default function TokenMenu() {
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const isDm = useIsDm();
   const canEdit = useCanControlId(menuId);
-  const spells = useSpells();
-  const spellByKey = useMemo(() => new Map<string, Spell>((spells ?? []).map((s) => [s.key, s])), [spells]);
+  const spellByKey = useSpellByKey();
 
   const [tab, setTab] = useState<'main' | 'statblock' | 'spells'>('main');
   const [draft, setDraft] = useState<TokenFields | null>(null);

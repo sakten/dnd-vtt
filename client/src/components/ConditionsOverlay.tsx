@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
-import type { Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
-import { useSpells } from '../lib/useSpells';
+import { useSpellByKey } from '../lib/useSpells';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 
@@ -11,9 +10,7 @@ import EffectChips from './EffectChips';
 export default function ConditionsOverlay() {
   const view = useGameStore((s) => s.view);
   const isDm = useIsDm();
-  const spells = useSpells();
-
-  const spellByKey = useMemo(() => new Map<string, Spell>((spells ?? []).map((s) => [s.key, s])), [spells]);
+  const spellByKey = useSpellByKey();
   const map = useActiveMap();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
 

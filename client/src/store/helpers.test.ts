@@ -42,7 +42,7 @@ describe('clearTokenUiFor', () => {
       tokenMenuId: 't2',
       draggingTokenId: 't1',
       hoverTokenId: 't1',
-      targeting: { kind: 'action', tokenId: 't1', actionId: 'attack', slot: 'action', label: 'Атака' },
+      interaction: { mode: 'target', target: { kind: 'action', tokenId: 't1', actionId: 'attack', slot: 'action', label: 'Атака' } },
     });
     const patch = clearTokenUiFor(useGameStore.getState(), 't1');
     expect(patch).toMatchObject({
@@ -50,9 +50,7 @@ describe('clearTokenUiFor', () => {
       tokenMenuId: 't2',
       draggingTokenId: null,
       hoverTokenId: null,
-      targeting: null,
-      aim: null,
-      multiTarget: null,
+      interaction: null,
     });
   });
 });

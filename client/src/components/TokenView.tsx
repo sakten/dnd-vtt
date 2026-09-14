@@ -12,9 +12,9 @@ function TokenView({ token }: { token: Token }) {
   const grid = useGameStore((s) => s.scene.grid);
   const selected = useGameStore((s) => s.selectedTokenId === token.id);
   const setSelected = useGameStore((s) => s.setSelected);
-  const targeting = useGameStore((s) => s.targeting);
-  const multiTarget = useGameStore((s) => s.multiTarget);
-  const aim = useGameStore((s) => s.aim);
+  const targeting = useGameStore((s) => s.interaction?.mode === 'target');
+  const multiTarget = useGameStore((s) => s.interaction?.mode === 'multi');
+  const aim = useGameStore((s) => s.interaction?.mode === 'aim');
   const moveToken = useGameStore((s) => s.moveToken);
   const finalizeMove = useGameStore((s) => s.finalizeTokenMove);
   const lockToken = useGameStore((s) => s.lockToken);
@@ -58,17 +58,18 @@ function TokenView({ token }: { token: Token }) {
   /** Клик: в режиме выбора цели — применить по токену, иначе выбрать/открыть меню. */
   const activate = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const st = useGameStore.getState();
-    if (st.targeting) {
+    const it = st.interaction;
+    if (it?.mode === 'target') {
       e.cancelBubble = true;
       st.resolveTargeting(token.id);
       return;
     }
-    if (st.multiTarget) {
+    if (it?.mode === 'multi') {
       e.cancelBubble = true;
       st.addMultiTarget(token.id);
       return;
     }
-    if (st.aim) return; // клик по карте применяет область (обрабатывает Stage)
+    if (it?.mode === 'aim') return; // клик по карте применяет область (обрабатывает Stage)
     e.cancelBubble = true;
     setSelected(token.id);
     const now = Date.now();

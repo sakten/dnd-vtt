@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Spell } from 'shared';
 import { loadSpells } from './spells';
 
@@ -15,4 +15,10 @@ export function useSpells(): Spell[] | null {
     };
   }, []);
   return spells;
+}
+
+/** Карта заклинаний по ключу (данные грузятся лениво). */
+export function useSpellByKey(): Map<string, Spell> {
+  const spells = useSpells();
+  return useMemo(() => new Map((spells ?? []).map((s) => [s.key, s])), [spells]);
 }
