@@ -67,6 +67,15 @@ describe('части броска', () => {
     expect(combined.mode).toBeUndefined();
   });
 
+  it('5e: два преимущества и одна помеха — обычный бросок', () => {
+    const parts = rollParts([
+      mod({ target: 'attack', mode: 'advantage' }),
+      mod({ target: 'attack', mode: 'advantage' }),
+      mod({ target: 'attack', mode: 'disadvantage' }),
+    ]);
+    expect(parts.mode).toBeUndefined();
+  });
+
   it('дописывает части к выражению броска', () => {
     expect(withRollParts('d20+5', { flat: 2, dice: ['1d4'], mode: 'a' })).toBe('d20+5+2+1d4');
     expect(withRollParts('d6', { flat: -1, dice: ['-1d4'] })).toBe('d6-1-1d4');

@@ -15,8 +15,39 @@ import {
   normalizeSheet,
   normalizeSheetSpells,
   normalizeStatblock,
+  normalizeTokenFields,
+  normalizeTokenFieldsPatch,
   normalizeTurnState,
 } from './types';
+
+describe('normalizeTokenFields', () => {
+  it('обрезает строки и принимает AC/HP только парой', () => {
+    const fields = normalizeTokenFields({ name: 'x'.repeat(80), ac: '15', hpMax: '' });
+    expect(fields.name).toHaveLength(40);
+    expect(fields.ac).toBe('');
+    expect(fields.hpMax).toBe('');
+    const paired = normalizeTokenFields({ name: 'Дракон', ac: '15', hpMax: '40' });
+    expect(paired.ac).toBe('15');
+    expect(paired.hpMax).toBe('40');
+  });
+
+  it('имя предмета библиотеки — до 60 символов', () => {
+    expect(normalizeTokenFields({ name: 'y'.repeat(80) }, 60).name).toHaveLength(60);
+  });
+
+  it('patch: меняет только присланные поля, AC — парой с текущим HP', () => {
+    expect(normalizeTokenFieldsPatch({ ac: '15' }, { ac: '', hpMax: '' })).not.toHaveProperty('ac');
+    expect(normalizeTokenFieldsPatch({ ac: '15' }, { ac: '', hpMax: '10' }).ac).toBe('15');
+    expect(normalizeTokenFieldsPatch({ name: 'Гоблин' }, { ac: '', hpMax: '' })).toEqual({ name: 'Гоблин' });
+  });
+
+  it('patch: поля DM (owner/showStats) — только с includeDm', () => {
+    expect(normalizeTokenFieldsPatch({ showStats: true }, { ac: '', hpMax: '' })).not.toHaveProperty('showStats');
+    expect(
+      normalizeTokenFieldsPatch({ showStats: true }, { ac: '', hpMax: '' }, { includeDm: true }).showStats
+    ).toBe(true);
+  });
+});
 
 describe('normalizeAttacks', () => {
   it('по умолчанию — одна пустая строка', () => {

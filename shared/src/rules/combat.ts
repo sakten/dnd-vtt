@@ -1,4 +1,6 @@
-import { abilityMod, type AttackEntry, type CharacterSheet } from '../types';
+import { abilityMod, type AttackEntry, type AttackRangeType, type CharacterSheet, type ConditionInstance } from '../types';
+import { advantageAgainst, attackerAdvantage, attackerDisadvantage, disadvantageAgainst } from './conditions';
+import { rollMode } from './effects';
 
 /**
  * Бонус инициативы токена: сначала явный initiativeBonus; иначе — модификатор
@@ -23,6 +25,43 @@ export function initiativeBonus(
 export function withAdvantage(expression: string, mode: 'a' | 'd' | null | undefined): string {
   if (mode !== 'a' && mode !== 'd') return expression;
   return expression.replace(/^d20(?![0-9])/, `d20${mode}`);
+}
+
+export interface AttackAdvantageInput {
+  /** Явный выбор Adv/Dis игрока. */
+  explicit?: 'a' | 'd';
+  attackerConditions?: ConditionInstance[];
+  targetConditions?: ConditionInstance[];
+  rangeType?: AttackRangeType;
+  /** Принудительная помеха (дистанция/позиция), сверх состояний. */
+  forcedDisadvantage?: boolean;
+  /** Режим от эффектов (`attackRollParts(...).mode`). */
+  effectMode?: 'a' | 'd';
+  /** Учитывать состояния цели (по умолчанию — да). */
+  includeTarget?: boolean;
+}
+
+export interface AttackAdvantageResult {
+  advantage: number;
+  disadvantage: number;
+  mode?: 'a' | 'd';
+}
+
+/** Считает преимущества/помехи броска атаки: явный выбор → состояния → цель → эффекты. */
+export function countAttackAdvantage(input: AttackAdvantageInput): AttackAdvantageResult {
+  const rangeType = input.rangeType ?? 'melee';
+  let advantage = input.explicit === 'a' ? 1 : 0;
+  let disadvantage = input.explicit === 'd' ? 1 : 0;
+  if (attackerAdvantage(input.attackerConditions)) advantage += 1;
+  if (attackerDisadvantage(input.attackerConditions)) disadvantage += 1;
+  if (input.includeTarget !== false) {
+    if (advantageAgainst(input.targetConditions, rangeType)) advantage += 1;
+    if (disadvantageAgainst(input.targetConditions, rangeType)) disadvantage += 1;
+  }
+  if (input.forcedDisadvantage) disadvantage += 1;
+  if (input.effectMode === 'a') advantage += 1;
+  if (input.effectMode === 'd') disadvantage += 1;
+  return { advantage, disadvantage, mode: rollMode(advantage, disadvantage) };
 }
 
 /**

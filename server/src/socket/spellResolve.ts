@@ -1,14 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import {
-  advantageAgainst,
   applyDamageDefenses,
   attackRollParts,
-  attackerAdvantage,
-  attackerDisadvantage,
   autoCrit,
   autoFailSave,
+  countAttackAdvantage,
   damageRollParts,
-  disadvantageAgainst,
   exhaustionRollPenalty,
   gridDistanceFeet,
   isCriticalFail,
@@ -215,21 +212,19 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
       // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
       const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
       const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
-      let advCount = adv === 'a' ? 1 : 0;
-      let disCount = adv === 'd' ? 1 : 0;
-      if (attackerAdvantage(caster.conditions)) advCount += 1;
-      if (attackerDisadvantage(caster.conditions)) disCount += 1;
-      if (advantageAgainst(target.conditions, rangeType)) advCount += 1;
-      if (disadvantageAgainst(target.conditions, rangeType)) disCount += 1;
       const effectParts = attackRollParts(
         caster.effects,
         target.effects,
         { rangeType, attackType: rangeType },
         abilities
       );
-      if (effectParts.mode === 'a') advCount += 1;
-      if (effectParts.mode === 'd') disCount += 1;
-      const advMode: 'a' | 'd' | undefined = advCount > disCount ? 'a' : disCount > advCount ? 'd' : undefined;
+      const { mode: advMode } = countAttackAdvantage({
+        explicit: adv,
+        attackerConditions: caster.conditions,
+        targetConditions: target.conditions,
+        rangeType,
+        effectMode: effectParts.mode,
+      });
       const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
       const penalty = exhaustionRollPenalty(caster.conditions);
       const hitExpr = withRollParts(`d20+${stats.attack + penalty}`, {

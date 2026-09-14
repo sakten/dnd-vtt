@@ -18,8 +18,9 @@ import type {
 } from 'shared';
 import {
   abilityMod,
+  actionSlotAvailable,
   attacksPerAction,
-  clampCells,
+  autoFailSave,
   concentrationDc,
   concentratingEffects,
   DEFAULT_AC,
@@ -34,13 +35,12 @@ import {
   exhaustionRollPenalty,
   exhaustionSpeedPenalty,
   modifiedValue,
-  normalizeAttacks,
-  normalizeDamageDefenses,
+  normalizeTokenFields,
+  normalizeTokenFieldsPatch,
   rollDice,
   saveRollParts,
   sheetProficiencyBonus,
   statNumber,
-  statsPaired,
   withAdvantage,
   withRollParts,
 } from 'shared';
@@ -190,25 +190,7 @@ export class RoomManager {
   }
 
   addLibraryItem(room: Room, input: TokenFields): LibraryItem {
-    const ac = (input.ac ?? '').slice(0, 10);
-    const hpMax = (input.hpMax ?? '').slice(0, 10);
-    const paired = statsPaired(ac, hpMax);
-    const item: LibraryItem = {
-      ...input,
-      id: randomUUID(),
-      name: input.name.slice(0, 60),
-      cells: clampCells(input.cells),
-      round: input.round === true,
-      description: (input.description ?? '').slice(0, 200),
-      initiativeBonus: (input.initiativeBonus ?? '').slice(0, 10),
-      isPlayerToken: input.isPlayerToken === true,
-      owner: (input.owner ?? '').slice(0, 40),
-      attacks: normalizeAttacks(input.attacks),
-      ac: paired ? ac : '',
-      hpMax: paired ? hpMax : '',
-      showStats: input.showStats === true,
-      damageDefenses: normalizeDamageDefenses(input.damageDefenses),
-    };
+    const item: LibraryItem = { ...normalizeTokenFields(input, 60), id: randomUUID() };
     room.library.push(item);
     this.saveSoon(room);
     return item;
@@ -217,28 +199,7 @@ export class RoomManager {
   updateLibraryItem(room: Room, id: string, patch: Partial<LibraryItem>) {
     const item = room.library.find((i) => i.id === id);
     if (!item) return;
-    if (typeof patch.name === 'string') item.name = patch.name.slice(0, 60);
-    if (typeof patch.description === 'string') item.description = patch.description.slice(0, 200);
-    if (typeof patch.round === 'boolean') item.round = patch.round;
-    if (typeof patch.cells === 'number') item.cells = clampCells(patch.cells);
-    if (typeof patch.initiativeBonus === 'string') item.initiativeBonus = patch.initiativeBonus.slice(0, 10);
-    if (typeof patch.isPlayerToken === 'boolean') item.isPlayerToken = patch.isPlayerToken;
-    if (typeof patch.owner === 'string') item.owner = patch.owner.slice(0, 40);
-    if (Array.isArray(patch.attacks)) item.attacks = normalizeAttacks(patch.attacks);
-    if (Array.isArray(patch.damageDefenses)) item.damageDefenses = normalizeDamageDefenses(patch.damageDefenses);
-    if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
-      if (statsPaired(patch.ac, patch.hpMax)) {
-        item.ac = patch.ac.slice(0, 10);
-        item.hpMax = patch.hpMax.slice(0, 10);
-      }
-    } else if (typeof patch.ac === 'string') {
-      const ac = patch.ac.slice(0, 10);
-      if (statsPaired(ac, item.hpMax)) item.ac = ac;
-    } else if (typeof patch.hpMax === 'string') {
-      const hp = patch.hpMax.slice(0, 10);
-      if (statsPaired(item.ac, hp)) item.hpMax = hp;
-    }
-    if (typeof patch.showStats === 'boolean') item.showStats = patch.showStats;
+    Object.assign(item, normalizeTokenFieldsPatch(patch, item, { includeDm: true }));
     this.saveSoon(room);
   }
 
@@ -263,30 +224,18 @@ export class RoomManager {
   ): Token | null {
     const map = this.findMap(room, mapId);
     if (!map) return null;
-    const cells = clampCells(item.cells || 1);
+    const fields = normalizeTokenFields(item);
     const controllerId = controllerIdOfItem(room, item.id);
     const controllerSheet = controllerId ? room.sheets[controllerId] : undefined;
     const token: Token = {
-      ...item,
+      ...fields,
       id: randomUUID(),
       libraryItemId: item.id,
-      name: item.name.slice(0, 40),
-      description: (item.description ?? '').slice(0, 200),
-      initiativeBonus: (item.initiativeBonus ?? '').slice(0, 10),
-      isPlayerToken: item.isPlayerToken === true,
-      owner: (item.owner ?? '').slice(0, 40),
-      attacks: normalizeAttacks(item.attacks),
-      damageDefenses: normalizeDamageDefenses(item.damageDefenses),
-      ac: (item.ac ?? '').slice(0, 10),
-      hpMax: (item.hpMax ?? '').slice(0, 10),
-      showStats: item.showStats === true,
-      hpCurrent: statNumber(item.hpMax),
+      hpCurrent: statNumber(fields.hpMax),
       x,
       y,
-      w: cells * room.scene.grid.size,
-      h: cells * room.scene.grid.size,
-      cells,
-      round: item.round === true,
+      w: fields.cells * room.scene.grid.size,
+      h: fields.cells * room.scene.grid.size,
       scale: 1,
       rotation: 0,
       z: ++room.nextZ,
@@ -294,7 +243,7 @@ export class RoomManager {
       ownerId,
       lockedBy: null,
       hpTemp: 0,
-      faction: item.isPlayerToken === true ? 'ally' : 'neutral',
+      faction: fields.isPlayerToken ? 'ally' : 'neutral',
       speed: controllerSheet?.speed ?? DEFAULT_SPEED,
       conditions: [],
       effects: [],
@@ -632,18 +581,18 @@ export class RoomManager {
     if (!turn) return true;
     switch (slot) {
       case 'action':
+        if (!actionSlotAvailable(turn, 'action')) return false;
         if (turn.extraActions > 0) turn.extraActions -= 1;
-        else if (!turn.actionUsed) turn.actionUsed = true;
-        else return false;
+        else turn.actionUsed = true;
         break;
       case 'bonus':
+        if (!actionSlotAvailable(turn, 'bonus')) return false;
         if (turn.extraBonusActions > 0) turn.extraBonusActions -= 1;
-        else if (!turn.bonusActionUsed) turn.bonusActionUsed = true;
-        else return false;
+        else turn.bonusActionUsed = true;
         break;
       case 'reaction':
-        if (!turn.reactionUsed) turn.reactionUsed = true;
-        else return false;
+        if (!actionSlotAvailable(turn, 'reaction')) return false;
+        turn.reactionUsed = true;
         break;
       default:
         return true;
@@ -717,6 +666,23 @@ export class RoomManager {
     return parts;
   }
 
+  /**
+   * Бросок спасброска токена против СЛ. `conditionsAutoFail` — учитывать
+   * авто-провал от состояний (парализован и т.п. для Силы/Ловкости).
+   */
+  rollSave(
+    room: Room,
+    token: Token,
+    ability: AbilityKey,
+    dc: number,
+    opts: { conditionsAutoFail?: boolean } = {}
+  ): { roll: DiceRollResult; success: boolean } {
+    const parts = this.savePartsForToken(room, token, ability);
+    const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+    const autoFail = opts.conditionsAutoFail === true && autoFailSave(token.conditions, ability);
+    return { roll, success: !autoFail && roll.total >= dc };
+  }
+
   /** Бонус спасброска токена: мод. характеристики (+профишенси у персонажа). */
   saveBonusForToken(room: Room, token: Token, ability: AbilityKey): number {
     const controllerId = this.controllerOfToken(room, token);
@@ -746,9 +712,7 @@ export class RoomManager {
     const kept = token.conditions.filter((cond) => {
       let remove = false;
       if (cond.save && cond.save.timing === phase) {
-        const parts = this.savePartsForToken(room, token, cond.save.ability);
-        const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
-        const success = roll.total >= cond.save.dc;
+        const { roll, success } = this.rollSave(room, token, cond.save.ability, cond.save.dc);
         saves.push({ name: cond.name, roll, success });
         if (success) remove = true;
       }
@@ -837,9 +801,7 @@ export class RoomManager {
       let remove = false;
       const d = effect.duration;
       if (d.type === 'untilSave' && d.timing === phase) {
-        const parts = this.savePartsForToken(room, token, d.ability);
-        const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
-        const success = roll.total >= d.dc;
+        const { roll, success } = this.rollSave(room, token, d.ability, d.dc);
         saves.push({ name: effect.name, roll, success });
         if (success) remove = true;
       }
@@ -975,9 +937,7 @@ export class RoomManager {
     const active = this.concentratingEffectsOf(room, token);
     if (!active.length) return null;
     const dc = concentrationDc(damage);
-    const parts = this.savePartsForToken(room, token, 'con');
-    const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
-    const success = roll.total >= dc;
+    const { roll, success } = this.rollSave(room, token, 'con', dc);
     const names = [...new Set(active.map((e) => e.name))];
     const changed = success ? [] : this.clearConcentration(room, token.id);
     return { dc, roll, success, names, changed };

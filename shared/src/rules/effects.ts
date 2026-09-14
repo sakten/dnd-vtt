@@ -111,7 +111,18 @@ export function rollParts(mods: Modifier[], abilities?: Partial<Record<AbilityKe
     else flat += evalModifierValue(mod.value, abilities);
   }
   const { adv, dis } = rollBias(mods);
-  return { flat, dice, mode: adv > dis ? 'a' : dis > adv ? 'd' : undefined };
+  return { flat, dice, mode: rollMode(adv, dis) };
+}
+
+/**
+ * Режим d20 по правилам 5e: источники не сальдируются — если есть и
+ * преимущество, и помеха, бросок обычный (один d20), сколько бы их ни было.
+ */
+export function rollMode(advantage: number, disadvantage: number): 'a' | 'd' | undefined {
+  if (advantage > 0 && disadvantage > 0) return undefined;
+  if (advantage > 0) return 'a';
+  if (disadvantage > 0) return 'd';
+  return undefined;
 }
 
 /** Суммирует части броска; преимущество/помеха взаимно гасятся. */
@@ -126,7 +137,7 @@ export function combineRollParts(parts: RollParts[]): RollParts {
     if (part.mode === 'a') adv += 1;
     else if (part.mode === 'd') dis += 1;
   }
-  return { flat, dice, mode: adv > dis ? 'a' : dis > adv ? 'd' : undefined };
+  return { flat, dice, mode: rollMode(adv, dis) };
 }
 
 /** Дописывает слагаемые и кости к выражению броска (преимущество — отдельно). */
@@ -153,7 +164,7 @@ export function attackRollParts(
   const defenderBias = rollBias(collectModifiers(defenderEffects, 'attack', ctx).filter((m) => m.mode !== 'add'));
   adv += defenderBias.adv;
   dis += defenderBias.dis;
-  return { flat: self.flat, dice: self.dice, mode: adv > dis ? 'a' : dis > adv ? 'd' : undefined };
+  return { flat: self.flat, dice: self.dice, mode: rollMode(adv, dis) };
 }
 
 /** Бонусы/помехи к спасброску (модификаторы на самом бросающем). */

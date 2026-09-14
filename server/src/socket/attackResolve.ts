@@ -1,20 +1,18 @@
 import {
-  advantageAgainst,
   applyDamageDefenses,
   attackRange,
   attackRollParts,
   attackSubject,
-  attackerAdvantage,
-  attackerDisadvantage,
   autoCrit,
+  countAttackAdvantage,
   damageRollParts,
-  disadvantageAgainst,
   exhaustionRollPenalty,
   gridDistanceFeet,
   isCriticalFail,
   isCriticalHit,
   resolveAttack,
   rollDice,
+  rollMode,
   statNumber,
   weaponRolls,
   withAdvantage,
@@ -131,16 +129,6 @@ export function prepareWeaponAttack(
   if (!hit && !damage) return {};
 
   // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
-  let advCount = input.advantage === 'a' ? 1 : 0;
-  let disCount = input.advantage === 'd' ? 1 : 0;
-  if (attackerAdvantage(attacker?.conditions)) advCount += 1;
-  if (attackerDisadvantage(attacker?.conditions)) disCount += 1;
-  if (hasTarget && target) {
-    if (advantageAgainst(target.conditions, attack.rangeType)) advCount += 1;
-    if (disadvantageAgainst(target.conditions, attack.rangeType)) disCount += 1;
-  }
-  if (forcedDisadvantage) disCount += 1;
-
   const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
   const effectParts = attackRollParts(
     attacker?.effects,
@@ -151,8 +139,15 @@ export function prepareWeaponAttack(
     },
     abilities
   );
-  if (effectParts.mode === 'a') advCount += 1;
-  if (effectParts.mode === 'd') disCount += 1;
+  const { advantage: advCount, disadvantage: disCount } = countAttackAdvantage({
+    explicit: input.advantage,
+    attackerConditions: attacker?.conditions,
+    targetConditions: target?.conditions,
+    rangeType: attack.rangeType,
+    forcedDisadvantage,
+    effectMode: effectParts.mode,
+    includeTarget: hasTarget,
+  });
 
   const penalty = exhaustionRollPenalty(attacker?.conditions);
   const baseParams: RollLabelParams = {
@@ -208,7 +203,7 @@ export function rollPreparedAttack(
   const { attacker, attackerMapId, target, targetMapId, attack, author } = prep.input;
 
   const disCount = prep.disCount + (opts.extraDisadvantage ? 1 : 0);
-  const adv: 'a' | 'd' | undefined = prep.advCount > disCount ? 'a' : disCount > prep.advCount ? 'd' : undefined;
+  const adv = rollMode(prep.advCount, disCount);
   const result: AttackResolveResult = {};
 
   try {

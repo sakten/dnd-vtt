@@ -696,6 +696,68 @@ export function activeAttacks(sheet: CharacterSheet): AttackEntry[] {
   return sheet.attacks.filter(attackIsActive);
 }
 
+const trimField = (value: unknown, limit: number): string =>
+  typeof value === 'string' ? (limit > 0 ? value.slice(0, limit) : value) : '';
+
+/**
+ * Полный набор редактируемых полей токена/предмета библиотеки: строки обрезаются,
+ * AC и Макс. HP принимаются только парой, атаки/защиты нормализуются.
+ */
+export function normalizeTokenFields(raw: Partial<TokenFields>, nameLimit = 40): TokenFields {
+  const ac = trimField(raw.ac, 10);
+  const hpMax = trimField(raw.hpMax, 10);
+  const paired = statsPaired(ac, hpMax);
+  return {
+    name: trimField(raw.name, nameLimit),
+    description: trimField(raw.description, 200),
+    imageUrl: trimField(raw.imageUrl, 0),
+    cells: clampCells(typeof raw.cells === 'number' ? raw.cells : 1),
+    round: raw.round === true,
+    initiativeBonus: trimField(raw.initiativeBonus, 10),
+    isPlayerToken: raw.isPlayerToken === true,
+    owner: trimField(raw.owner, 40),
+    attacks: normalizeAttacks(raw.attacks),
+    ac: paired ? ac : '',
+    hpMax: paired ? hpMax : '',
+    showStats: raw.showStats === true,
+    damageDefenses: normalizeDamageDefenses(raw.damageDefenses),
+  };
+}
+
+/** Только присланные поля patch-обновления; AC/HP — парой относительно prev. */
+export function normalizeTokenFieldsPatch(
+  raw: Partial<TokenFields>,
+  prev: Pick<TokenFields, 'ac' | 'hpMax'>,
+  opts: { includeDm?: boolean } = {}
+): Partial<TokenFields> {
+  const out: Partial<TokenFields> = {};
+  if (typeof raw.name === 'string') out.name = raw.name.slice(0, 40);
+  if (typeof raw.description === 'string') out.description = raw.description.slice(0, 200);
+  if (typeof raw.cells === 'number' && Number.isFinite(raw.cells)) out.cells = clampCells(raw.cells);
+  if (typeof raw.round === 'boolean') out.round = raw.round;
+  if (typeof raw.initiativeBonus === 'string') out.initiativeBonus = raw.initiativeBonus.slice(0, 10);
+  if (Array.isArray(raw.attacks)) out.attacks = normalizeAttacks(raw.attacks);
+  if (Array.isArray(raw.damageDefenses)) out.damageDefenses = normalizeDamageDefenses(raw.damageDefenses);
+  if (typeof raw.ac === 'string' && typeof raw.hpMax === 'string') {
+    if (statsPaired(raw.ac, raw.hpMax)) {
+      out.ac = raw.ac.slice(0, 10);
+      out.hpMax = raw.hpMax.slice(0, 10);
+    }
+  } else if (typeof raw.ac === 'string') {
+    const ac = raw.ac.slice(0, 10);
+    if (statsPaired(ac, prev.hpMax)) out.ac = ac;
+  } else if (typeof raw.hpMax === 'string') {
+    const hp = raw.hpMax.slice(0, 10);
+    if (statsPaired(prev.ac, hp)) out.hpMax = hp;
+  }
+  if (opts.includeDm) {
+    if (typeof raw.isPlayerToken === 'boolean') out.isPlayerToken = raw.isPlayerToken;
+    if (typeof raw.owner === 'string') out.owner = raw.owner.slice(0, 40);
+    if (typeof raw.showStats === 'boolean') out.showStats = raw.showStats;
+  }
+  return out;
+}
+
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
   'damage',

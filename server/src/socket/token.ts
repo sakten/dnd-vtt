@@ -1,12 +1,10 @@
 import {
   movementBlocked,
-  normalizeAttacks,
   normalizeConditions,
-  normalizeDamageDefenses,
   normalizeEffects,
   normalizeStatblock,
+  normalizeTokenFieldsPatch,
   statNumber,
-  statsPaired,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
@@ -74,32 +72,14 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;
       const { room, token } = scope;
-      if (typeof patch.name === 'string') token.name = patch.name.slice(0, 40);
-      if (typeof patch.description === 'string') token.description = patch.description.slice(0, 200);
+      Object.assign(token, normalizeTokenFieldsPatch(patch, token));
       if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {
-        token.cells = Math.min(4, Math.max(1, Math.round(patch.cells)));
         token.w = token.cells * room.scene.grid.size;
         token.h = token.cells * room.scene.grid.size;
       }
-      if (typeof patch.round === 'boolean') token.round = patch.round;
-      if (typeof patch.initiativeBonus === 'string') token.initiativeBonus = patch.initiativeBonus.slice(0, 10);
       if (typeof patch.scale === 'number' && Number.isFinite(patch.scale)) token.scale = patch.scale;
       if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;
       if (typeof patch.visible === 'boolean') token.visible = patch.visible;
-      if (Array.isArray(patch.attacks)) token.attacks = normalizeAttacks(patch.attacks);
-      if (Array.isArray(patch.damageDefenses)) token.damageDefenses = normalizeDamageDefenses(patch.damageDefenses);
-      if (typeof patch.ac === 'string' && typeof patch.hpMax === 'string') {
-        if (statsPaired(patch.ac, patch.hpMax)) {
-          token.ac = patch.ac.slice(0, 10);
-          token.hpMax = patch.hpMax.slice(0, 10);
-        }
-      } else if (typeof patch.ac === 'string') {
-        const ac = patch.ac.slice(0, 10);
-        if (statsPaired(ac, token.hpMax)) token.ac = ac;
-      } else if (typeof patch.hpMax === 'string') {
-        const hp = patch.hpMax.slice(0, 10);
-        if (statsPaired(token.ac, hp)) token.hpMax = hp;
-      }
       if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
         token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
       }
