@@ -7,6 +7,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
@@ -31,7 +32,8 @@ export function registerDiceHandlers(ctx: ConnCtx) {
             : { author: player?.name ?? '?', roll, label: cleanLabel(label) }
         );
       } catch (e) {
-        socket.emit('chat:error', e instanceof DiceParseError ? e.message : 'Не удалось распознать бросок');
+        if (e instanceof DiceParseError) socket.emit('chat:error', e.message);
+        else fail(ctx, 'badRoll');
       }
     });
 
@@ -67,11 +69,11 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       // Единая экономика: в бою атака списывает действие/запас мультиатаки.
       if (attacker && attackerMapId && manager.combatOf(room, attackerMapId)?.active) {
         if (!isDm() && !manager.isActiveToken(room, attackerMapId, attacker.id)) {
-          socket.emit('chat:error', 'Сейчас не ваш ход');
+          fail(ctx, 'notYourTurn');
           return;
         }
         if (!isDm() && !manager.canAttack(room, attackerMapId, attacker)) {
-          socket.emit('chat:error', 'Действие уже потрачено');
+          fail(ctx, 'actionSpent');
           return;
         }
         manager.consumeAttack(room, attackerMapId, attacker);

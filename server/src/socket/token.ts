@@ -7,10 +7,11 @@ import {
   statNumber,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
-  const { manager, isDm, broadcastAll, emitToken, syncCombat, socket } = ctx;
+  const { manager, isDm, broadcastAll, emitToken, syncCombat } = ctx;
 
     ctx.on('token:add', (payload) => {
       const scope = playerScope(ctx);
@@ -49,7 +50,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (!scope) return;
       const { room, token } = scope;
       if (!isDm() && movementBlocked(token.conditions)) {
-        socket.emit('chat:error', 'Существо не может двигаться (состояние)');
+        fail(ctx, 'immobile');
         return;
       }
       token.x = x;

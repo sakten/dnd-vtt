@@ -10,6 +10,7 @@ import {
   type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
@@ -42,7 +43,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
       // В чужой ход игрок может тратить только реакцию; DM — любые действия (как раньше).
       if (combat?.active && !isActive && !isDm() && !action.costs.includes('reaction')) {
-        socket.emit('chat:error', 'Сейчас не ваш ход');
+        fail(ctx, 'notYourTurn');
         return;
       }
 
@@ -53,11 +54,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
         const index = Math.round(Number(attackIndex));
         const entry = attacks[index];
         if (!entry || !Number.isFinite(index)) {
-          socket.emit('chat:error', 'Не выбрано оружие');
+          fail(ctx, 'noWeapon');
           return;
         }
         if (!manager.canAttack(room, mapId, token)) {
-          socket.emit('chat:error', 'Действие уже потрачено');
+          fail(ctx, 'actionSpent');
           return;
         }
         manager.consumeAttack(room, mapId, token);
@@ -82,7 +83,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // Прочие действия: списываем слот, дальше эффект.
       const resourceAmount = action.resourceKey ? Math.max(1, action.resourceAmount ?? 1) : 0;
       if (resourceAmount && !manager.hasResource(room, ctx.playerId, action.resourceKey!, resourceAmount)) {
-        socket.emit('chat:error', `Недостаточно ресурса: ${action.name}`);
+        fail(ctx, 'noResource', { name: action.name });
         return;
       }
 
@@ -90,7 +91,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const offTurnReaction = !!combat?.active && !isActive && action.costs.includes('reaction');
       const chosen: ActionCost = offTurnReaction ? 'reaction' : chooseSlot(turn, action.costs, slot);
       if (!manager.spendSlot(room, mapId, token, chosen)) {
-        socket.emit('chat:error', offTurnReaction ? 'Реакция уже потрачена' : 'Недостаточно действий');
+        fail(ctx, offTurnReaction ? 'reactionSpent' : 'noActions');
         return;
       }
       syncCombat(room, mapId);
@@ -138,7 +139,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
             params: { subject: `${action.name}: ${token.name}` },
           });
         } catch {
-          socket.emit('chat:error', 'Не удалось выполнить проверку');
+          fail(ctx, 'checkFailed');
         }
         return;
       }

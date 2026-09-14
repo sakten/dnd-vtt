@@ -22,6 +22,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import { applyDamage } from './damage';
+import { fail } from './errors';
 import { pushRollMessage } from './messages';
 
 export interface AttackResolveInput {
@@ -196,7 +197,6 @@ export function rollPreparedAttack(
   prep: WeaponAttackPrep,
   opts: { extraDisadvantage?: boolean } = {}
 ): WeaponAttackRoll {
-  const { socket } = ctx;
   const room = ctx.getRoom();
   if (!room) return { result: {} };
   const { attacker, attackerMapId, target, targetMapId, attack, author } = prep.input;
@@ -247,7 +247,7 @@ export function rollPreparedAttack(
       };
     }
   } catch {
-    socket.emit('chat:error', 'Не удалось распознать бросок');
+    fail(ctx, 'badRoll');
   }
 
   return { result };
@@ -311,7 +311,7 @@ export function applyWeaponAttackDamage(
     });
     return { roll: damageRoll, applied: damage.applied ? damage.amount : 0 };
   } catch {
-    ctx.socket.emit('chat:error', 'Не удалось распознать бросок');
+    fail(ctx, 'badRoll');
     return undefined;
   }
 }

@@ -497,13 +497,18 @@ function finishPending(id: string) {
     offerIndex.delete(state.id);
     if (ctx && room) closeOffer(ctx, room, state);
   }
-  pending.resume(
-    pending.offers.map((s) => ({
-      tokenId: s.tokenId,
-      mapId: pending.mapId,
-      optionId: s.choice,
-    }))
-  );
+  // Резолв продолжается вне try/catch сокет-хендлера (таймаут/DM-скип) — изолируем.
+  try {
+    pending.resume(
+      pending.offers.map((s) => ({
+        tokenId: s.tokenId,
+        mapId: pending.mapId,
+        optionId: s.choice,
+      }))
+    );
+  } catch (err) {
+    console.error(`reaction resume error (${pending.roomCode}):`, err);
+  }
 }
 
 export function registerReactionHandlers(ctx: ConnCtx) {

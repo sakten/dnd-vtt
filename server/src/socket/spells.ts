@@ -14,6 +14,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { findSpell } from '../spells';
 import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
@@ -45,11 +46,11 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       const own = sheet.spells.find((s) => s.key === spellKey);
       className = own?.className ?? grantedSpells(sheet.classes).find((g) => g.key === spellKey)?.className;
       if (!className) {
-        socket.emit('chat:error', 'Заклинание не выбрано в листе');
+        fail(ctx, 'spellNotPrepared');
         return;
       }
     } else if (token.statblock?.spellcasting?.spells && !token.statblock.spellcasting.spells.includes(spellKey)) {
-      socket.emit('chat:error', 'Заклинание не выбрано в статблоке');
+      fail(ctx, 'spellNotInStatblock');
       return;
     }
 
@@ -66,7 +67,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
     // В чужой ход игрок может кастовать только реакционные заклинания.
     if (combat?.active && !isActive && !isDm() && cost !== 'reaction') {
-      socket.emit('chat:error', 'Сейчас не ваш ход');
+      fail(ctx, 'notYourTurn');
       return;
     }
 
@@ -88,14 +89,14 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       const originKind = spellAreaOrigin(spell);
       const originPt = originKind === 'self' ? { x: token.x, y: token.y } : isPoint(origin) ? origin : null;
       if (!originPt) {
-        socket.emit('chat:error', 'Не выбрана точка области');
+        fail(ctx, 'noAreaPoint');
         return;
       }
       if (originKind === 'point') {
         const range = spellRangeFeet(spell);
         const feet = (Math.hypot(originPt.x - token.x, originPt.y - token.y) / grid.size) * 5;
         if (range !== null && feet > range) {
-          socket.emit('chat:error', `Вне дистанции: ${Math.round(feet)} фт`);
+          fail(ctx, 'outOfRange', { feet });
           return;
         }
       }
@@ -135,25 +136,25 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const turn =
       cost === 'reaction' ? manager.turnStateFor(room, mapId, token) : manager.turnForToken(room, mapId, token);
     if (turn && (cost === 'action' || cost === 'bonus' || cost === 'reaction') && !actionSlotAvailable(turn, cost)) {
-      socket.emit('chat:error', 'Недостаточно действий');
+      fail(ctx, 'noActions');
       return;
     }
 
     if (spell.level > 0) {
       if (className) {
         if (!manager.spendSpellSlot(room, ctx.playerId, castLevel)) {
-          socket.emit('chat:error', 'Нет ячейки нужного круга');
+          fail(ctx, 'noSlot');
           return;
         }
         ctx.emitResources(room, ctx.playerId);
       } else if (token.statblock?.spellcasting) {
         if (!manager.spendTokenSpellSlot(room, token, castLevel)) {
-          socket.emit('chat:error', 'Нет ячейки нужного круга');
+          fail(ctx, 'noSlot');
           return;
         }
         emitToken(room, 'token:update', mapId, token);
       } else {
-        socket.emit('chat:error', 'Нет ячейки нужного круга');
+        fail(ctx, 'noSlot');
         return;
       }
     }

@@ -1,6 +1,7 @@
 import { isIncapacitated, type CharacterSheet, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { isReactionPending } from './reactions';
 
 /** Игрок и его комната (без игрока/комнаты — null). */
@@ -49,13 +50,13 @@ export function scopedToken(ctx: ConnCtx, mapId: unknown, tokenId: unknown, opts
 export function rejectIfReaction(ctx: ConnCtx, silent = false): boolean {
   const room = ctx.getRoom();
   if (!room || !isReactionPending(room.code)) return false;
-  if (!silent) ctx.socket.emit('chat:error', 'Ожидание реакции');
+  if (!silent) fail(ctx, 'reactionPending');
   return true;
 }
 
 /** true — существо недееспособно (и это не DM): действие отклонено. */
 export function rejectIfIncapacitated(ctx: ConnCtx, token: Token): boolean {
   if (ctx.isDm() || !isIncapacitated(token.conditions)) return false;
-  ctx.socket.emit('chat:error', 'Существо недееспособно');
+  fail(ctx, 'incapacitated');
   return true;
 }
