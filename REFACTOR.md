@@ -199,6 +199,9 @@ Deploy-бакет `*.deploy.test.ts` + `npm run test:deploy` (первый ша�
 ### Шаг 6. R8.4 + R8.1 — распил `types.ts` и каталог `AutomationDef` (M + L) — старт фичи
 R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима удалена. Далее R8.1: единый `AutomationDef` + generic-executor, классовые фичи на той же схеме — «каталог классовых действий» и остаток Ф8.
 
+**Старт R8.1 (инвентаризация под срез 1):** bespoke-ветки — `server/src/socket/spellResolve.ts` (5 веток: spellAttack/save/auto/effect/manual), `reactions.ts` (Counterspell/Absorb, `acBonusOf` реверс эффектов), геометрия выхода из reach в socket-слое (`reactions.ts:599-608`), двойной `validateSpellCast` (`socket/spells.ts:129` + `spellResolve.ts:186`), 118 кнопок `FEATURE_META` без реализации (`classActions.ts` + стаб `socket/actions.ts`); из 229 manual-заклинаний 103 уже имеют `save`/`conditions`/`areaSpec` (Charm Person, Sleep).
+**Срезы:** (1) схема `AutomationDef` в `domain/automation.ts` + данные-каталог; (2) generic-executor на сервере (kind: damage/heal/save/buff/debuff/control; duration; modifiers; conditions; scaling) с `automation: 'manual'` как fallback; (3) перевод `SPELL_EFFECTS` и хардкод-веток; (4) классовые фичи; (5) R8.7 (Dodge → эффект) как первый потребитель схемы.
+
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.
 
