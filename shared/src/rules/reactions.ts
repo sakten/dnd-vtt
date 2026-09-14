@@ -18,8 +18,13 @@ export function reactionSpellTrigger(key: string): ReactionTriggerKind | undefin
 /** Типы урона Absorb Elements (при получении — сопротивление до следующего хода). */
 export const ABSORB_ELEMENTS_TYPES = ['acid', 'cold', 'fire', 'lightning', 'thunder'];
 
+/** Реакции-поглощения: ключ заклинания → типы урона, дающие сопротивление. */
+export const ABSORB_SPELL_TYPES: Record<string, string[]> = {
+  'XGE:Absorb Elements': ABSORB_ELEMENTS_TYPES,
+};
+
 export function absorbTypesOf(spellKey: string): string[] {
-  return spellKey === 'XGE:Absorb Elements' ? ABSORB_ELEMENTS_TYPES : [];
+  return ABSORB_SPELL_TYPES[spellKey] ?? [];
 }
 
 /**

@@ -127,10 +127,11 @@
   **Что сделать:** таблица-дескриптор полей (coerce/validate), общая для `normalizeTokenFields`, `normalizeTokenFieldsPatch`, `roomNormalize` и redact; один `redactToken/redactLibrary`; round-trip тест «каждый ключ `TokenFields` нормализуется и редактируется».
   **Зачем:** следующая фича сразу добавляет поля (`CharacterSheet.choices`); сейчас это правки в 6+ местах с риском утечки статов.
 
-- [ ] **R8.3. Сгенерированные данные не валидируются, парсятся регексами по тексту.** P2, S/M.
-  Три `as unknown as` (`shared/src/spellsData.ts:11`, `rules/spellLimits.ts:20`, `rules/subclassSpells.ts:27`); ни один тест не импортирует `data/*.json`; вывод зависит от английской прозы: `deriveAreaSpec` (`rules/spells.ts:291-308`), апкаст (`rules/spellCast.ts:41-66`), число атак (`:133-157`); `scripts/build-spells.ts:13` тянет из GitHub в билде и пишет `JSON.stringify` (`:208`).
-  **Что сделать:** `rules/data.test.ts` с минимальными type-guard'ами (формат ключей, круги 0–6, `areaSpec`, слаги состояний, классы) + content hash; логировать распределение автоматизации в `npm run spells`.
-  **Зачем:** смена схемы/формулировок 5e.tools молча ломает 388 КБ данных.
+- [x] **R8.3. Сгенерированные данные не валидируются, парсятся регексами по тексту.** P2, S/M.
+  Исходно: три `as unknown as` (`shared/src/spellsData.ts:11`, `rules/spellLimits.ts:20`, `rules/subclassSpells.ts:27`); ни один тест не импортирует `data/*.json`; вывод зависит от английской прозы: `deriveAreaSpec` (`rules/spells.ts:291-308`), апкаст (`rules/spellCast.ts:41-66`), число атак (`:133-157`); `scripts/build-spells.ts:13` тянет из GitHub в билде и пишет `JSON.stringify` (`:208`).
+  **Сделано:** снимок заморожен (перегенерации нет), поэтому вместо проверки схемы 5e.tools — deploy-«замок». Введён бакет `*.deploy.test.ts` (`vitest.deploy.config.ts` в каждом workspace, `passWithNoTests`, `npm run test:deploy`, первым шагом в `verify`; из `check`/`verify:server` исключён). `shared/src/rules/data.deploy.test.ts` (+6): SHA-256 (16 hex) по `JSON.stringify` для `spells.json`/`spellcasting.json`/`subclassSpells.json` (любая осознанная правка = обновить константу); контракт записей (ключи/источники/круги/школы/automation/кости/спасы/areaSpec/`ConditionKey`/классы/описания); сверка каталогов (`SPELL_EFFECTS`, `REACTION_SPELL_TRIGGERS`, `ABSORB_SPELL_TYPES` — новый `Record` в `reactions.ts`, `subclassSpells.json`); контракт `spellcasting.json` (массивы 20, неубывание); свип `spellDamageExpression`/`spellAttackCount` по всем 420. `client/src/components/spellIcons.deploy.test.ts` (+2): каждое заклинание имеет иконку и нет иконок без заклинаний. `npm run spells` уже логирует распределения — закрыто ранее.
+  **Не делали:** рантайм-валидаторы вместо трёх `as unknown as` (тест гарантирует форму снимка); `deriveAreaSpec` в свипе (работает на сыром тексте до нормализации — покрыт hash + инвариантами `areaSpec`).
+  **Зачем:** случайная правка 388 КБ данных или каталога падает на деплой-гейте, а не всплывает багом в бою.
 
 - [ ] **R8.4. `types.ts` — свалка на 1294 строки.** P2, M.
   Сущности (`:62-108`, `:347-365`, `:517-533`), 13 нормализаторов (`:575-1030`), RU-таблицы (`:397-433,1032-1060`), socket-контракт (`:1136-1293`) в одном файле; `CharacterSheet.abilities`/`TokenStatblock.abilities`/`DEFAULT_ABILITIES` — три пути; `RoomState`/`Room`/`PersistedRoom` — три формы комнаты.
@@ -192,8 +193,8 @@
 ### Шаг 4. R8.5 — ключи каталогов и состояний (S/M, shared). ✅ Сделано
 `Spell.conditions` → `ConditionKey` (миграция снимка, `conditionKeyOf`), дубль RU-карты удалён, `unsupported` убран. Ref-ключи каталогов отменены: снимок `spells.json` заморожен, `Spell.key` стабилен; каталоги и R8.1 ключуются по `Spell.key`.
 
-### Шаг 5. R8.3 — снимок-тест данных (S/M)
-Раз снимок заморожен и перегенерации нет — тест-«замок» на текущие данные: ключи/круги/`areaSpec`/слаги условий/сверка каталогов (`SPELL_EFFECTS`, `REACTION_SPELL_TRIGGERS`) со `spells.json`. Ловит случайные правки, не синхронизацию.
+### Шаг 5. R8.3 — снимок-тест данных (S/M). ✅ Сделано
+Deploy-бакет `*.deploy.test.ts` + `npm run test:deploy` (первый шаг `verify`): hash трёх JSON, контракт записей и каталогов, свип парсеров, покрытие иконок. Обычный `check` бакет не подхватывает.
 
 ### Шаг 6. R8.4 + R8.1 — распил `types.ts` и каталог `AutomationDef` (M + L) — старт фичи
 Новые типы автоматизации сразу в чистые модули (`domain/*`), старый `types.ts` — реэкспорт; затем единый `AutomationDef` + generic-executor, классовые фичи на той же схеме. Это уже «каталог классовых действий» и остаток Ф8.
@@ -209,4 +210,4 @@ R8.6 (метки без RU-текста — перед локализацией)
 
 **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 
-**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5 — сделано (R6.9 отложен). Следующий — шаг 5: R8.3 (снимок-тест данных).
+**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3 — сделано (R6.9 отложен). Следующий — шаг 6: R8.4 + R8.1 (распил `types.ts` + каталог `AutomationDef`) — старт фичи «каталог классовых действий».

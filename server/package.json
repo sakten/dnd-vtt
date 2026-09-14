@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "test": "vitest run",
+    "test:deploy": "vitest run --config vitest.deploy.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
