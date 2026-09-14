@@ -1,4 +1,5 @@
 import {
+  isRecord,
   snapToGrid,
 } from 'shared';
 import type { ConnCtx } from './context';
@@ -45,7 +46,7 @@ export function registerMapHandlers(ctx: ConnCtx) {
       if (!room) return;
       const map = room.scene.maps.find((m) => m.id === mapId);
       if (!map) return;
-      if (!fog || typeof fog !== 'object') return;
+      if (!isRecord(fog)) return;
       const size = Number(fog.size);
       const offsetX = Number(fog.offsetX);
       const offsetY = Number(fog.offsetY);
@@ -65,7 +66,7 @@ export function registerMapHandlers(ctx: ConnCtx) {
 
     ctx.on('grid:update', (grid) => {
       const room = dmRoom();
-      if (!room || !grid || typeof grid !== 'object') return;
+      if (!room || !isRecord(grid)) return;
       const size = Number(grid.size);
       const offsetX = Number(grid.offsetX);
       const offsetY = Number(grid.offsetY);

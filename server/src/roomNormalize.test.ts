@@ -233,6 +233,18 @@ describe('hydrateRoom', () => {
     expect(room.sheets.p1.proficiencyBonus).toBe('2');
   });
 
+  it('не мутирует вход (гидратация собирает новые объекты)', () => {
+    const fixture = base({
+      scene: sceneWithMap({ tokens: [{ id: 't1', name: '  A  ' }] }),
+      library: [{ id: 'l1', name: 'X', url: '/uploads/g.png' }] as unknown as PersistedRoom['library'],
+    });
+    const before = structuredClone(fixture);
+
+    hydrateRoom(fixture);
+
+    expect(fixture).toEqual(before);
+  });
+
   it('round-trip toPersisted → hydrate идемпотентен', () => {
     const fixture = base({
       name: 'Сессия',

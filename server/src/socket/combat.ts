@@ -1,3 +1,4 @@
+import { isRecord } from 'shared';
 import type { ConnCtx } from './context';
 import { tickActiveTurn } from './conditions';
 import { rejectIfReaction } from './guards';
@@ -59,7 +60,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
     ctx.on('combat:update', ({ mapId, id, patch }) => {
       const room = dmRoom();
       if (blocked()) return;
-      if (!room || typeof mapId !== 'string' || typeof id !== 'string' || !patch || typeof patch !== 'object') return;
+      if (!room || typeof mapId !== 'string' || typeof id !== 'string' || !isRecord(patch)) return;
       manager.updateCombatant(room, mapId, id, patch);
       syncCombat(room, mapId);
     });

@@ -1,4 +1,5 @@
 import {
+  isRecord,
   movementBlocked,
   normalizeConditions,
   normalizeEffects,
@@ -68,7 +69,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
     });
 
     ctx.on('token:update', ({ mapId, id, patch }) => {
-      if (!patch || typeof patch !== 'object') return;
+      if (!isRecord(patch)) return;
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;

@@ -47,9 +47,11 @@
   Исходно: цикл «найти сокет игрока и отправить»: `socket/context.ts:118-132,164-177,178-188,189-196`, `reactions.ts:110-115` (с неизбежными кастами). `visibleToken` ищет mapId через `manager.locateToken` (`context.ts:159`) — O(карты×токены) на каждый токен каждому игроку.
   **Сделано:** `isDmViewer` экспортируется из `context.ts` (убран дубль в `reactions.ts`); `ctx.emitTo(room, playerId, event, …)` (типизированный) — единственный путь отправки конкретному игроку; `broadcastMaps`/`broadcastLibrary`/`emitToken`/`emitResources` и окна реакций (`reaction:offer`/`close`) используют его. `visibleToken(room, token, viewerId, mapId?)` принимает mapId, все вызовы передают его — `locateToken` больше не на горячем пути. Фикстура `handlers.test.ts` дополнена `emitTo` (тесты не добавлялись).
 
-- [ ] **R6.7. Типовые швы: `Room` vs `RoomState`, мутационная гидратация, слабая валидация.** P2, M/L.
+- [ ] **R6.7. Типовые швы: `Room` vs `RoomState`, мутационная гидратация, слабая валидация.** P2, M/L. **(срез 1 сделан: сущностные нормализаторы + `isRecord`)**
   `Room` (`roomTypes.ts:7-20`) и `RoomState` (`shared/src/types.ts:1124-1134`) описывают комнату по-разному; `toPersistedRoom` копирует живые ссылки (`roomTypes.ts:35-48`); `roomNormalize.ts:23-46` — 138 строк мутаций с `as unknown as`; `noUncheckedIndexedAccess` выключен (`tsconfig.base.json:6`) — `room.controllers[playerId]` типизирован `string`, но может быть `undefined` (`rooms.ts:257,265`); payload-ы проверяются `typeof` вручную (`socket/token.ts:15-24`, `socket/map.ts:9-16`).
   **Что сделать:** нормализаторы на уровне сущностей (Token/Map/Room) + сборка `Room` через них; наружу только `RoomState`; включить `noUncheckedIndexedAccess`; общие `isRecord`/декодеры payload.
+  **Срез 1 (сделано):** `shared/src/normalize.ts` — `isRecord`, `normalizeToken`, `normalizeLibraryItem` (legacy `url`→`imageUrl`), `normalizeMapInfo` (токены/туман/бой), `normalizeScene`; неизвестные поля сохраняются. `server/src/roomNormalize.ts` — legacy-сцена и top-level combat остаются на сервере, `hydrateRoom` больше не мутирует вход и собирает `Room` через общие нормализаторы. `isRecord` вместо ручных `typeof === 'object'` в гвардах `socket/token|map|combat|resources|sheet|spells`. Тесты: `shared/normalize.test.ts` (+7), `roomNormalize` +1 (вход не мутируется), 270+104+48; smoke 130/0.
+  **Осталось:** `noUncheckedIndexedAccess` (shared ~74 / server ~357 / client ~97 ошибок — включать поэтапно, workspace за workspace); `toPersistedRoom` — снапшот вместо живых ссылок; ревизия `Room`/`RoomState`/`PersistedRoom` (наружу только `RoomState`); декодеры payload сверх `isRecord`.
   **Зачем:** новое поле Token/Scene = гидратация + фикстуры + маппинг `PersistedRoom` + обе формы комнаты.
 
 - [x] **R6.8. Обработка ошибок непоследовательна.** P2, S/M.
@@ -174,8 +176,9 @@
 **Почему после R6.5:** per-instance очередь даст чистый сброс состояния между тестами; `makeConnCtx(partial)` + несколько поведенческих тестов на реальном `createCtx` поверх in-memory socket.io уберут «фейк-ctx дрейф» и позволят проверять поведение без smoke.
 **Объём:** тест-кит, fake timers для окон реакций, отказ от ручного `as unknown as ConnCtx`.
 
-### Шаг 3. R6.7 — типовые швы (M/L, server/shared)
+### Шаг 3. R6.7 — типовые швы (M/L, server/shared). Срез 1 ✅ (нормализаторы сущностей + `isRecord`)
 `Room` vs `RoomState`, гидратация через нормализаторы (`roomNormalize`), `noUncheckedIndexedAccess`, декодеры payload. Делать до того, как добавятся новые поля/события автоматизации.
+**Осталось:** `noUncheckedIndexedAccess` поэтапно (shared → server → client), `toPersistedRoom`-снапшот, ревизия `Room`/`RoomState`/`PersistedRoom`, декодеры payload сверх `isRecord`.
 
 ### Шаг 4. R8.5 — ключи каталогов и состояний (S/M, shared)
 Нормализовать `Spell.conditions` в `ConditionKey`, убрать дубль RU-карт, ключи автоматизации — по имени + приоритету источника. Иначе R8.1 размножит `'XPHB:Shield'`-строки по каталогу.
@@ -197,4 +200,4 @@ R8.6 (метки без RU-текста — перед локализацией)
 
 **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 
-**Старт:** R8.2, R6.1–R6.5, R6.6, R6.8, R7.1, R7.2, R7.4 — сделано. Следующий — шаг 2 (R6.9, тест-кит сервера).
+**Старт:** R8.2, R6.1–R6.5, R6.6, R6.8, R7.1, R7.2, R7.4, R6.7-срез-1 — сделано (R6.9 отложен). Следующий — оставшиеся срезы R6.7 (начать с `noUncheckedIndexedAccess` в shared).

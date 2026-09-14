@@ -2,6 +2,7 @@ import {
   DEFAULT_ABILITIES,
   applyRest,
   effectiveMaxHp,
+  isRecord,
   rollDice,
   sanitizeResources,
   sheetMods,
@@ -21,7 +22,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       if (!scope) return;
       if (rejectIfReaction(ctx, true)) return;
       const { room, playerId } = scope;
-      if (!payload || typeof payload !== 'object') return;
+      if (!isRecord(payload)) return;
       const sheet = room.sheets[playerId];
       const classes = sheet?.classes ?? [];
       const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);

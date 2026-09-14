@@ -4,6 +4,7 @@ import {
   casterStats,
   characterLevel,
   grantedSpells,
+  isRecord,
   spellActionCost,
   spellAreaOrigin,
   spellHasArea,
@@ -21,7 +22,7 @@ import { validateSpellCast, type SpellCastInput } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 
 const isPoint = (p: unknown): p is { x: number; y: number } =>
-  !!p && typeof p === 'object' && Number.isFinite((p as { x?: unknown }).x) && Number.isFinite((p as { y?: unknown }).y);
+  isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y);
 
 export function registerSpellHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, emitToken } = ctx;

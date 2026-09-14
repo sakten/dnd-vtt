@@ -1,6 +1,7 @@
 import {
   effectiveMaxHp,
   emptyResources,
+  isRecord,
   normalizeSheet,
   sheetMods,
   syncResources,
@@ -16,7 +17,7 @@ export function registerSheetHandlers(ctx: ConnCtx) {
       if (!scope) return;
       if (rejectIfReaction(ctx, true)) return;
       const { room, playerId } = scope;
-      if (!sheet || typeof sheet !== 'object') return;
+      if (!isRecord(sheet)) return;
       const previous = room.sheets[playerId];
       const normalized = normalizeSheet(sheet);
       room.sheets[playerId] = normalized;
