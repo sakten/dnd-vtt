@@ -478,15 +478,14 @@ export class RoomManager {
     this.saveSoon(room);
   }
 
+  /** Наружу — только `RoomState`: рантайм-поля комнаты (листы, ресурсы, nextZ) отсекаются. */
   toState(room: Room): RoomState {
+    const { sheets, resources, players, nextZ: _nextZ, ...rest } = room;
     return {
-      code: room.code,
-      name: room.name,
-      scene: room.scene,
-      library: room.library,
-      players: room.players.map((p) => {
-        const res = room.resources[p.id];
-        const sheet = room.sheets[p.id];
+      ...rest,
+      players: players.map((p) => {
+        const res = resources[p.id];
+        const sheet = sheets[p.id];
         return {
           id: p.id,
           name: p.name,
@@ -497,9 +496,6 @@ export class RoomManager {
           classKey: sheet?.classes?.[0]?.className ?? null,
         };
       }),
-      chat: room.chat,
-      controllers: room.controllers,
-      testMode: room.testMode === true,
     };
   }
 }

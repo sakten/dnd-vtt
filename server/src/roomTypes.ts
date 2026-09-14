@@ -1,22 +1,19 @@
-import type { CharacterSheet, ChatMessage, LibraryItem, Player, PlayerResources, Scene } from 'shared';
+import type { CharacterSheet, Player, PlayerResources, RoomState } from 'shared';
 
 export interface RoomPlayer extends Player {
   socketId: string | null;
 }
 
-export interface Room {
-  code: string;
-  name: string;
-  scene: Scene;
-  library: LibraryItem[];
-  sheets: Record<string, CharacterSheet>;
-  chat: ChatMessage[];
+/**
+ * Рантайм-комната: базовый контракт `RoomState` + серверные поля.
+ * Поля `RoomState` не перечисляются повторно — новое поле состояния
+ * автоматически появляется в комнате, наружу маппится только `players`.
+ */
+export interface Room extends Omit<RoomState, 'players'> {
   players: RoomPlayer[];
+  sheets: Record<string, CharacterSheet>;
   nextZ: number;
   resources: Record<string, PlayerResources>;
-  controllers: Record<string, string>;
-  /** Режим тестов: все игроки получают права ведущего внутри комнаты. */
-  testMode: boolean;
 }
 
 /**

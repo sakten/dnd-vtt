@@ -835,4 +835,17 @@ describe('RoomManager настройки комнаты', () => {
     manager.setTestMode(room, false);
     expect(manager.toState(room).testMode).toBe(false);
   });
+
+  it('toState отсекает рантайм-поля и socketId игроков', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: 's1' });
+
+    const state = manager.toState(room);
+
+    expect('sheets' in state).toBe(false);
+    expect('resources' in state).toBe(false);
+    expect('nextZ' in state).toBe(false);
+    expect('socketId' in state.players[0]!).toBe(false);
+  });
 });
