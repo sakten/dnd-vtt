@@ -1,4 +1,6 @@
-import type { ActionCost, ActionDef, ClassLevel, TurnState } from '../types';
+import type { ActionCost, ActionDef } from '../domain/actions';
+import type { TurnState } from '../domain/combat';
+import type { ClassLevel } from '../domain/sheet';
 import { clampLevel } from './classes';
 
 /** Доступен ли слот действия (действие/бонусное/реакция) с учётом доп. слотов. */

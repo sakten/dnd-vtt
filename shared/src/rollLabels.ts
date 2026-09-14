@@ -1,4 +1,5 @@
-import { DEFENSE_TYPE_NAMES, damageTypeName, type RollKind, type RollLabelParams } from './types';
+import type { RollKind, RollLabelParams } from './domain/chat';
+import { DEFENSE_TYPE_NAMES, damageTypeName } from './labels';
 
 const DISADVANTAGE_TEXT: Record<NonNullable<RollLabelParams['disadvantage']>, string> = {
   adjacent: 'враг рядом',

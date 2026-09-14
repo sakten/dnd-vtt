@@ -1,4 +1,5 @@
-import type { ClassLevel, ReactionTriggerKind } from '../types';
+import type { ReactionTriggerKind } from '../domain/actions';
+import type { ClassLevel } from '../domain/sheet';
 
 /**
  * Триггеры реакционных заклинаний (R1/R2). Ключ — ключ заклинания,

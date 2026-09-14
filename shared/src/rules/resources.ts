@@ -1,4 +1,5 @@
-import { abilityMod, type AbilityKey, type ClassLevel, type PlayerResources, type ResourceItem, type RestType } from '../types';
+import { abilityMod, type AbilityKey } from '../domain/core';
+import type { ClassLevel, PlayerResources, ResourceItem, RestType } from '../domain/sheet';
 import {
   CLASSES,
   clampLevel,

@@ -1,4 +1,7 @@
-import { abilityMod, type AttackEntry, type AttackRangeType, type CharacterSheet, type ConditionInstance } from '../types';
+import { abilityMod } from '../domain/core';
+import type { ConditionInstance } from '../domain/effects';
+import type { CharacterSheet } from '../domain/sheet';
+import type { AttackEntry, AttackRangeType } from '../domain/token';
 import { advantageAgainst, attackerAdvantage, attackerDisadvantage, disadvantageAgainst } from './conditions';
 import { rollMode } from './effects';
 

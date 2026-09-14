@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, DEFAULT_SPEED, defaultFog, emptyCombatState } from './types';
+import { emptyCombatState } from './domain/combat';
+import { DEFAULT_SPEED } from './domain/core';
+import { DEFAULT_GRID, defaultFog } from './domain/scene';
 import { isRecord, normalizeLibraryItem, normalizeMapInfo, normalizeScene, normalizeToken } from './normalize';
 
 describe('isRecord', () => {

@@ -1,4 +1,6 @@
-import type { AbilityKey, AreaSpec, ConditionKey } from '../types';
+import type { AreaSpec } from '../domain/actions';
+import type { AbilityKey } from '../domain/core';
+import type { ConditionKey } from '../domain/effects';
 import { conditionKeyOf } from './conditions';
 
 /**

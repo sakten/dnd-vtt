@@ -1,4 +1,5 @@
-import type { AbilityKey, CharacterSheet, ClassLevel } from '../types';
+import type { AbilityKey } from '../domain/core';
+import type { CharacterSheet, ClassLevel } from '../domain/sheet';
 import raw from '../data/spellcasting.json';
 import { CLASSES, PACT_SLOTS, clampLevel, proficiencyBonus } from './classes';
 

@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { emptyCombatState, emptyTurnState } from './domain/combat';
+import { DEFAULT_SPEED, MAX_ATTACKS } from './domain/core';
+import { applyDamageDefenses } from './domain/damage';
 import {
-  DEFAULT_SPEED,
-  MAX_ATTACKS,
   activeAttacks,
-  applyDamageDefenses,
-  emptyCombatState,
-  emptyTurnState,
   normalizeActions,
   normalizeAttacks,
   normalizeCombatState,
@@ -16,7 +14,7 @@ import {
   normalizeSheetSpells,
   normalizeStatblock,
   normalizeTurnState,
-} from './types';
+} from './normalize';
 
 describe('normalizeAttacks', () => {
   it('по умолчанию — одна пустая строка', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { countAttackAdvantage } from './combat';
 import { rollMode } from './effects';
-import type { ConditionInstance } from '../types';
+import type { ConditionInstance } from '../domain/effects';
 
 const cond = (key: ConditionInstance['key'], name = key): ConditionInstance => ({ key, name });
 

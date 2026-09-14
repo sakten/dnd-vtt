@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ABILITIES, normalizeSheet, type AbilityKey } from './types';
+import { DEFAULT_ABILITIES, type AbilityKey } from './domain/core';
+import { normalizeSheet } from './normalize';
 import {
   applyRest,
   attackRange,

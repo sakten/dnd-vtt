@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyTurnState } from '../types';
+import { emptyTurnState } from '../domain/combat';
 import { BASE_ACTIONS, actionAvailable, actionSlotAvailable, attacksPerAction, findBaseAction } from './actions';
 
 describe('attacksPerAction', () => {

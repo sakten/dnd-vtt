@@ -17,7 +17,7 @@ import {
   withRollParts,
 } from './effects';
 import { spellEffectDefs, spellAutomated } from './spellEffects';
-import type { EffectInstance, Modifier } from '../types';
+import type { EffectInstance, Modifier } from '../domain/effects';
 
 let seq = 0;
 const mod = (partial: Omit<Modifier, 'id'>): Modifier => ({ id: `m${++seq}`, ...partial });

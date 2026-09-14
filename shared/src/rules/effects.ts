@@ -1,14 +1,8 @@
-import {
-  abilityMod,
-  damageTypeName,
-  type AbilityKey,
-  type AttackRangeType,
-  type DamageDefense,
-  type EffectDuration,
-  type EffectInstance,
-  type Modifier,
-  type ModifierTarget,
-} from '../types';
+import { abilityMod, type AbilityKey } from '../domain/core';
+import type { DamageDefense } from '../domain/damage';
+import type { EffectDuration, EffectInstance, Modifier, ModifierTarget } from '../domain/effects';
+import type { AttackRangeType } from '../domain/token';
+import { damageTypeName } from '../labels';
 import { conditionName } from './conditions';
 
 /** Контекст применения модификатора (фильтры attackType/ability/skill/damageType). */

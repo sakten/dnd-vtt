@@ -133,10 +133,10 @@
   **Не делали:** рантайм-валидаторы вместо трёх `as unknown as` (тест гарантирует форму снимка); `deriveAreaSpec` в свипе (работает на сыром тексте до нормализации — покрыт hash + инвариантами `areaSpec`).
   **Зачем:** случайная правка 388 КБ данных или каталога падает на деплой-гейте, а не всплывает багом в бою.
 
-- [ ] **R8.4. `types.ts` — свалка на 1294 строки.** P2, M. **(срез 1 сделан: распил; осталось удалить шиму)**
+- [x] **R8.4. `types.ts` — свалка на 1294 строки.** P2, M.
   Исходно: сущности (`:62-108`, `:347-365`, `:517-533`), 13 нормализаторов (`:575-1030`), RU-таблицы (`:397-433,1032-1060`), socket-контракт (`:1136-1293`) в одном файле; `CharacterSheet.abilities`/`TokenStatblock.abilities`/`DEFAULT_ABILITIES` — три пути; `RoomState`/`Room`/`PersistedRoom` — три формы комнаты.
-  **Срез 1 (сделано):** `types.ts` 1239 строк → 13 (тонкая реэкспорт-шима). Новые модули: `domain/{core,damage,effects,actions,token,sheet,combat,scene,chat,room}.ts`, `labels.ts` (`DAMAGE_TYPES`/`damageTypeName`/`DEFENSE_TYPE_NAMES`/`ABILITIES`/`SKILLS`), `socket/contract.ts`, `normalize/{guards,attacks,sheet,effects,actions,combat,token,scene,index}.ts` (+ приватный `normalize/internal.ts` — общие хелперы `newId`/`clampInt`/`isAbilityKey`/`SPELL_KEY_RE` без расширения публичного API). `fields.ts` переведён на канонические импорты (цикл fields↔normalize), `index.ts` — явные реэкспорты, старый `normalize.ts` удалён. Публичный API `shared` не изменился (189 runtime-экспортов до/после, 97 деклараций на месте). `check` 270+110+48, `test:deploy` 6+2, `build` (index 260.6 КБ — как было), smoke 130/0.
-  **Осталось (срез 3):** обновить относительные импорты `./types`/`../types` внутри shared на канонические модули и удалить шиму `types.ts`.
+  **Срез 1 (сделано):** `types.ts` 1239 строк → 13 (тонкая реэкспорт-шима). Новые модули: `domain/{core,damage,effects,actions,token,sheet,combat,scene,chat,room}.ts`, `labels.ts` (`DAMAGE_TYPES`/`damageTypeName`/`DEFENSE_TYPE_NAMES`/`ABILITIES`/`SKILLS`), `socket/contract.ts`, `normalize/{guards,attacks,sheet,effects,actions,combat,token,scene,index}.ts` (+ приватный `normalize/internal.ts` — общие хелперы `newId`/`clampInt`/`isAbilityKey`/`SPELL_KEY_RE` без расширения публичного API). `fields.ts` переведён на канонические импорты (цикл fields↔normalize), `index.ts` — явные реэкспорты, старый `normalize.ts` удалён. Публичный API `shared` не изменился (189 runtime-экспортов до/после, 97 деклараций на месте).
+  **Срез 3 (сделано):** 26 файлов shared переведены с `./types`/`../types` на канонические модули, шима `types.ts` удалена (0 ссылок). `check` 270+110+48, `test:deploy` 6+2, `build` (index 260.6 КБ — как было), smoke 130/0.
   **Зачем:** любой импорт тянет всё; несвязанные правки конфликтуют в одном файле.
 
 - [x] **R8.5. Идентичность каталогов привязана к источнику; состояния дублированы.** P3, S/M.
@@ -198,7 +198,7 @@
 Deploy-бакет `*.deploy.test.ts` + `npm run test:deploy` (первый шаг `verify`): hash трёх JSON, контракт записей и каталогов, свип парсеров, покрытие иконок. Обычный `check` бакет не подхватывает.
 
 ### Шаг 6. R8.4 + R8.1 — распил `types.ts` и каталог `AutomationDef` (M + L) — старт фичи
-R8.4-срез-1 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, `types.ts` — шима. Осталось (необязательно): удалить шиму, обновив импорты. Далее R8.1: единый `AutomationDef` + generic-executor, классовые фичи на той же схеме — «каталог классовых действий» и остаток Ф8.
+R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима удалена. Далее R8.1: единый `AutomationDef` + generic-executor, классовые фичи на той же схеме — «каталог классовых действий» и остаток Ф8.
 
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.
@@ -211,4 +211,4 @@ R8.6 (метки без RU-текста — перед локализацией)
 
 **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 
-**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3, R8.4 (срез 1) — сделано (R6.9 отложен). Следующий — R8.1 (каталог `AutomationDef`), опционально перед ним срез 3 R8.4 (удаление шимы).
+**Старт:** R8.2, R6.1–R6.8, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3, R8.4 (срезы 1, 3) — сделано (R6.9 отложен). Следующий — R8.1 (каталог `AutomationDef`).

@@ -1,4 +1,6 @@
-import type { AbilityKey, AttackRangeType, ConditionInstance, ConditionKey } from '../types';
+import type { AbilityKey } from '../domain/core';
+import type { AttackRangeType } from '../domain/token';
+import type { ConditionInstance, ConditionKey } from '../domain/effects';
 
 /**
  * Состояния (Ф8): каталог, названия и авто-эффекты. Чистые функции, общие для

@@ -1,4 +1,4 @@
-import type { ConditionKey, EffectDuration, Modifier } from '../types';
+import type { ConditionKey, EffectDuration, Modifier } from '../domain/effects';
 import type { Spell } from './spells';
 
 /**

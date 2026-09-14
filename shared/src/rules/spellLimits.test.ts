@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeSheet } from '../types';
+import { normalizeSheet } from '../normalize';
 import {
   casterClasses,
   cantripsMax,

@@ -1,4 +1,6 @@
-import type { AbilityKey, ActionCost, ActionDef, ActionTargeting, ClassLevel } from '../types';
+import type { ActionCost, ActionDef, ActionTargeting } from '../domain/actions';
+import type { AbilityKey } from '../domain/core';
+import type { ClassLevel } from '../domain/sheet';
 import { CLASSES, clampLevel } from './classes';
 
 /**

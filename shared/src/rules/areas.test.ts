@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Token } from '../types';
+import type { Token } from '../domain/token';
 import { areaCells, cellCenter, tokenCells, tokensInArea, type AreaGrid } from './areas';
 
 const grid: AreaGrid = { size: 50, offsetX: 0, offsetY: 0 };

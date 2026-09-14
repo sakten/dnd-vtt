@@ -6,7 +6,8 @@ import {
   redactLibraryItem,
   redactToken,
 } from './fields';
-import { DEFAULT_ABILITIES, type LibraryItem, type Token, type TokenFields } from './types';
+import { DEFAULT_ABILITIES } from './domain/core';
+import type { LibraryItem, Token, TokenFields } from './domain/token';
 
 const FULL_FIELDS: TokenFields = {
   name: 'Гоблин',

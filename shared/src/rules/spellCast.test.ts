@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PlayerResources } from '../types';
-import { normalizeSheet } from '../types';
+import type { PlayerResources } from '../domain/sheet';
+import { normalizeSheet } from '../normalize';
 import type { Spell } from './spells';
 import {
   casterStats,

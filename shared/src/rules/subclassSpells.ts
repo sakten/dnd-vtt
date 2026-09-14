@@ -1,4 +1,4 @@
-import type { ClassLevel } from '../types';
+import type { ClassLevel } from '../domain/sheet';
 import raw from '../data/subclassSpells.json';
 import { maxSpellLevel } from './spellLimits';
 

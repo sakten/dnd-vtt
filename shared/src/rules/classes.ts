@@ -1,4 +1,5 @@
-import { abilityMod, type AbilityKey, type CharacterSheet, type ClassLevel, type RestType } from '../types';
+import { abilityMod, type AbilityKey } from '../domain/core';
+import type { CharacterSheet, ClassLevel, RestType } from '../domain/sheet';
 
 export type CasterType = 'full' | 'half' | 'pact' | 'none';
 

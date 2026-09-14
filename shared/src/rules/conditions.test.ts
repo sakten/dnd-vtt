@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ConditionInstance, ConditionKey } from '../types';
+import type { ConditionInstance, ConditionKey } from '../domain/effects';
 import {
   advantageAgainst,
   attackerAdvantage,

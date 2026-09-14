@@ -1,11 +1,6 @@
-import {
-  abilityMod,
-  type AbilityKey,
-  type ActionCost,
-  type CharacterSheet,
-  type ClassLevel,
-  type PlayerResources,
-} from '../types';
+import type { ActionCost } from '../domain/actions';
+import { abilityMod, type AbilityKey } from '../domain/core';
+import type { CharacterSheet, ClassLevel, PlayerResources } from '../domain/sheet';
 import type { Spell } from './spells';
 import { clampLevel } from './classes';
 import { sheetProficiencyBonus, spellcastingAbility } from './spellLimits';

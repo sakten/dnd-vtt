@@ -1,4 +1,5 @@
-import type { AreaSpec, Token } from '../types';
+import type { AreaSpec } from '../domain/actions';
+import type { Token } from '../domain/token';
 
 /**
  * Геометрия областей (Ф7) на квадратной сетке: набор клеток шаблона и сбор
