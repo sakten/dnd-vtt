@@ -26,10 +26,9 @@
 
 ## R6 — Серверное ядро
 
-- [ ] **R6.1. `RoomManager` — god-объект.** P1, L. **(срез 1 сделан, срезы 2–4 остались)**
-  `server/src/rooms.ts:77-1237` (~90 методов): жизненный цикл + персистенция + карты/библиотека + чат + токены + бой/ход + ресурсы/ячейки + спасброски + условия/эффекты/HP + `toState`. Хендлеры мутируют состояние напрямую (`socket/token.ts:54-124`, `socket/map.ts:39-92`, `socket/resources.ts:28-112`, `socket/context.ts:229`).
-  **Срез 1 (сделано):** `server/src/room/helpers.ts` — чистые `controllerIdOfToken/Item`, `hasResourceFor`, `roomUploadUrls`, `findTokenById`/`tokenById`/`locateToken` (реэкспорт из `rooms.ts` сохранён); `server/src/room/combat.ts` — весь боевой домен (инициатива, ход, экономика, `abilitiesForToken`/`acForToken`/`tokenSpeed`, ростер боя, `ensureActiveTurn`) на `CombatDeps { saveSoon }`; `RoomManager` — тонкие делегаты. `rooms.ts` 1223 → 814 строк; тесты и smoke/e2e без изменений и зелёные.
-  **Осталось:** срез 2 — эффекты/состояния/HP/защиты (`applyEffect`/`tickEffects`/концентрация/`adjustTokenHp`/`changeMaxHp`/`rollSave`), срез 3 — ресурсы/листы (`syncSheetToTokens`, ячейки), срез 4 — токены/карты/библиотека и жизненный цикл/`toState`.
+- [x] **R6.1. `RoomManager` — god-объект.** P1, L.
+  Исходно: `server/src/rooms.ts` (~90 методов, 1223 строки): жизненный цикл + персистенция + карты/библиотека + чат + токены + бой/ход + ресурсы/ячейки + спасброски + условия/эффекты/HP + `toState`. Хендлеры мутировали состояние напрямую (`socket/token.ts:54-124`, `socket/map.ts:39-92`, `socket/resources.ts:28-112`, `socket/context.ts:229`).
+  **Сделано (4 среза):** `server/src/room/helpers.ts` — чистые `controllerIdOfToken/Item`, `hasResourceFor`, `roomUploadUrls`, `findTokenById`/`tokenById`/`locateToken`; `room/combat.ts` — инициатива/ход/экономика/производные статы/ростер боя/`ensureActiveTurn` (`CombatDeps`); `room/effects.ts` — состояния, эффекты, концентрация, спасброски, `changeMaxHp`, `adjustTokenHp`, down/dead (`EffectsDeps`); `room/resources.ts` — траты ресурсов/ячеек и зеркалирование листа (`ResourceDeps`); `room/tokens.ts` — карты, библиотека, токены, чат, владение (`TokenDeps`). `rooms.ts` 1223 → 414 строк: реестр/жизненный цикл, `toState`, репозиторий и тонкие делегаты; внешние реэкспорты (`controllerIdOfToken`, `roomUploadUrls`, …) сохранены, хендлеры не менялись. Тесты (100 server), smoke 130/0, e2e 81/0, shots — зелёные; новых тестов нет.
 
 - [x] **R6.2. Персистенция «кто забыл `saveSoon` — потерял данные».** P1, M.
   Исходно: мутация и save — отдельные строки (`token.ts:54-56`, `map.ts:84-95`, `resources.ts:49-52`); часть мутаций вообще не сохраняется: `clearLocks` (`rooms.ts:297-303`), `beginTurn` (`rooms.ts:415-430`), `changeMaxHp` (`rooms.ts:769-785`), `syncSheetToTokens` (`rooms.ts:1108-1131`); бывают двойные save (`token.ts:120` + `rooms.ts:1104`). Механика: фабрика вызывается дважды (`store.ts:47-52`), общий `${target}.tmp` (`store.ts:41`), `saveNow` мёртв (`rooms.ts:1203`), shutdown гоняет 3 с таймаут (`index.ts:33-37`).
@@ -181,8 +180,8 @@
 3. **R6.2 + R6.3 — авто-save и `resolveActor`/гварды** (M+M). ✅ Сделано.
 4. **R8.1 — каталог `AutomationDef`** (L) вместе с **R7.2** (правила панели) — это уже старт фичи «каталог классовых действий».
 5. **R7.4 + R9.1** — быстрые выигрыши по бандлу и скорости тестов UI (можно параллельно).
-6. **R6.1** — распил `RoomManager` по доменам (L, инкрементально): срез 1 ✅ (`helpers` + `combat`), остались эффекты/HP, ресурсы, токены и жизненный цикл.
+6. **R6.1** — распил `RoomManager` по доменам (L). ✅ Сделано: `room/helpers`, `room/combat`, `room/effects`, `room/resources`, `room/tokens`; `rooms.ts` 1223 → 414 строк.
 7. **R6.5** — очередь реакций (L) перед тем, как расширять триггеры/Ready.
 8. Далее по P2/P3: R6.6–R6.9, R7.1, R7.3, R7.5–R7.10, R8.3–R8.6, R9.2–R9.4.
 
-**Старт:** R8.2, R6.4, R6.2, R6.3, R6.6 — сделано; R6.1 — срез 1 (helpers + combat). Следующие: срез 2 эффектов/HP, срез 3 ресурсов, срез 4 токенов/жизненного цикла.
+**Старт:** R8.2, R6.4, R6.2, R6.3, R6.6, R6.1 (4 среза) — сделано. Следующие кандидаты: R6.5 (очередь реакций, L) или R7.4 + R9.1 (бандл/тесты UI).
