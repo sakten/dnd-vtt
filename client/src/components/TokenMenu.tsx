@@ -12,7 +12,8 @@ import {
   type TokenStatblock,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { canControlWith, useIsDm } from '../lib/control';
+import { useMapToken } from '../store/hooks';
+import { useCanControlId, useIsDm } from '../lib/control';
 import { useSpells } from '../lib/useSpells';
 import AttacksForm from './AttacksForm';
 import ConditionChips from './ConditionChips';
@@ -27,9 +28,7 @@ const FACTION_RU: Record<Faction, string> = { ally: 'Союзник', enemy: 'В
 
 export default function TokenMenu() {
   const menuId = useGameStore((s) => s.tokenMenuId);
-  const token = useGameStore(
-    (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((t) => t.id === s.tokenMenuId) ?? null
-  );
+  const token = useMapToken(menuId);
   const close = useGameStore((s) => s.setTokenMenu);
   const setTokenFields = useGameStore((s) => s.setTokenFields);
   const removeToken = useGameStore((s) => s.removeToken);
@@ -38,10 +37,7 @@ export default function TokenMenu() {
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const isDm = useIsDm();
-  const canEdit = useGameStore((s) => {
-    const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((x) => x.id === s.tokenMenuId);
-    return t ? canControlWith(s, t) : false;
-  });
+  const canEdit = useCanControlId(menuId);
   const spells = useSpells();
   const spellByKey = useMemo(() => new Map<string, Spell>(spells.map((s) => [s.key, s])), [spells]);
 

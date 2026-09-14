@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
 import { useSpells } from '../lib/useSpells';
 import ConditionChips from './ConditionChips';
@@ -8,14 +9,12 @@ import EffectChips from './EffectChips';
 
 /** Чипы состояний и эффектов над токенами (DOM-оверлей поверх Konva-сцены). */
 export default function ConditionsOverlay() {
-  const maps = useGameStore((s) => s.scene.maps);
-  const viewMapId = useGameStore((s) => s.viewMapId);
   const view = useGameStore((s) => s.view);
   const isDm = useIsDm();
   const spells = useSpells();
 
   const spellByKey = useMemo(() => new Map<string, Spell>(spells.map((s) => [s.key, s])), [spells]);
-  const map = maps.find((m) => m.id === viewMapId);
+  const map = useActiveMap();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
 
   const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.length > 0);

@@ -7,6 +7,7 @@ import {
   type AttackEntry,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { activeMapOf, characterTokenOf } from '../store/selectors';
 import { canControlWith } from '../lib/control';
 import { checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
 
@@ -45,12 +46,12 @@ export default function RollMenu() {
 
   const sources = useMemo(() => {
     const out: AttackSource[] = [];
-    const map = scene.maps.find((m) => m.id === viewMapId);
+    const state = useGameStore.getState();
+    const map = activeMapOf(state);
     if (sheet.attacks.filter(attackIsActive).length > 0) {
-      const charToken = map?.tokens.find((t) => t.libraryItemId === currentCharacterId);
+      const charToken = characterTokenOf(map, currentCharacterId);
       out.push({ key: 'sheet', label: 'Мой персонаж', tokenId: charToken?.id, attacks: sheet.attacks });
     }
-    const state = useGameStore.getState();
     for (const token of map?.tokens ?? []) {
       if (token.libraryItemId === currentCharacterId) continue;
       if (!canControlWith(state, token)) continue;

@@ -2,6 +2,7 @@ import {
   isCriticalHit,
   parseDiceExpression,
 } from 'shared';
+import { emit } from '../helpers';
 import type { GameState, Slice } from '../types';
 
 export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatError' | 'sendChat' | 'rollDice' | 'rollAttack'>> = (set, get) => {
@@ -34,12 +35,12 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
         parseDiceExpression(t);
         get().rollDice(t);
       } catch {
-        get().socket?.emit('chat:send', t);
+        emit(get, 'chat:send', t);
       }
     },
 
     rollDice: (expression, label, meta) => {
-      get().socket?.emit('dice:roll', {
+      emit(get, 'dice:roll', {
         expression,
         label,
         rollKind: meta?.rollKind,
@@ -48,7 +49,7 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
     },
 
     rollAttack: (payload) => {
-      get().socket?.emit('dice:attack', payload);
+      emit(get, 'dice:attack', payload);
     },
 
   };

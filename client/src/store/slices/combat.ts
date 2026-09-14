@@ -1,74 +1,31 @@
 import { setCombat } from '../../domain/scene';
+import { emitInMap } from '../helpers';
 import type { GameState, Slice } from '../types';
 
 export const createCombatSlice: Slice<Pick<GameState, 'onCombatUpdate' | 'startCombat' | 'endCombat' | 'addCombatant' | 'addMapCombatants' | 'removeCombatant' | 'updateCombatant' | 'moveCombatant' | 'rollInitiative' | 'clearCombat' | 'endTurn' | 'setTurn'>> = (set, get) => {
   return {
     onCombatUpdate: ({ mapId, combat }) => set((s) => ({ scene: setCombat(s.scene, mapId, combat) })),
 
-    startCombat: () => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:start', { mapId });
-    },
+    startCombat: () => emitInMap(get, 'combat:start', {}),
 
-    endCombat: () => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:end', { mapId });
-    },
+    endCombat: () => emitInMap(get, 'combat:end', {}),
 
-    addCombatant: (tokenId) => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:add', { mapId, tokenId });
-    },
+    addCombatant: (tokenId) => emitInMap(get, 'combat:add', { tokenId }),
 
-    addMapCombatants: () => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:addMap', { mapId });
-    },
+    addMapCombatants: () => emitInMap(get, 'combat:addMap', {}),
 
-    removeCombatant: (id) => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:remove', { mapId, id });
-    },
+    removeCombatant: (id) => emitInMap(get, 'combat:remove', { id }),
 
-    updateCombatant: (id, patch) => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:update', { mapId, id, patch });
-    },
+    updateCombatant: (id, patch) => emitInMap(get, 'combat:update', { id, patch }),
 
-    moveCombatant: (id, toIndex) => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:move', { mapId, id, toIndex });
-    },
+    moveCombatant: (id, toIndex) => emitInMap(get, 'combat:move', { id, toIndex }),
 
-    rollInitiative: (id) => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:roll', id ? { mapId, id } : { mapId });
-    },
+    rollInitiative: (id) => emitInMap(get, 'combat:roll', id ? { id } : {}),
 
-    clearCombat: () => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:clear', { mapId });
-    },
+    clearCombat: () => emitInMap(get, 'combat:clear', {}),
 
-    endTurn: () => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:endTurn', { mapId });
-    },
+    endTurn: () => emitInMap(get, 'combat:endTurn', {}),
 
-    setTurn: (id) => {
-      const mapId = get().viewMapId;
-      if (!mapId) return;
-      get().socket?.emit('combat:setTurn', { mapId, id });
-    },
+    setTurn: (id) => emitInMap(get, 'combat:setTurn', { id }),
   };
 };

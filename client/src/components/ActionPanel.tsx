@@ -15,6 +15,8 @@ import {
   type TurnState,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useActiveMap } from '../store/hooks';
+import { characterTokenOf, tokenById } from '../store/selectors';
 import { useIsDm } from '../lib/control';
 import { loadSpells } from '../lib/spells';
 import ActionIcon from './ActionIcon';
@@ -54,7 +56,7 @@ function Dots({ total, remaining, tone }: { total: number; remaining: number; to
 }
 
 export default function ActionPanel() {
-  const map = useGameStore((s) => s.scene.maps.find((m) => m.id === s.viewMapId) ?? null);
+  const map = useActiveMap();
   const selectedTokenId = useGameStore((s) => s.selectedTokenId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const isDm = useIsDm();
@@ -78,20 +80,20 @@ export default function ActionPanel() {
   const info = useMemo(() => {
     if (!map) return null;
     const combat = map.combat;
-    let tokenId: string | null = null;
+    let tokenId: string | null;
     let turn: TurnState | undefined;
     if (combat.active && combat.currentIndex >= 0) {
       const entry = combat.entries[combat.currentIndex];
       tokenId = entry?.tokenId ?? null;
       turn = entry ? combat.turns[entry.id] : undefined;
     } else {
-      tokenId = selectedTokenId ?? map.tokens.find((t) => t.libraryItemId === currentCharacterId)?.id ?? null;
+      tokenId = selectedTokenId ?? characterTokenOf(map, currentCharacterId)?.id ?? null;
     }
     // В чужой ход игрок видит свой токен: доступны реакции, действия — нет.
     if (combat.active && currentCharacterId !== null && !isDm) {
-      const shown = tokenId ? map.tokens.find((t) => t.id === tokenId) : null;
+      const shown = tokenById(map, tokenId);
       if (shown?.libraryItemId !== currentCharacterId) {
-        const mine = map.tokens.find((t) => t.libraryItemId === currentCharacterId);
+        const mine = characterTokenOf(map, currentCharacterId);
         if (mine) {
           tokenId = mine.id;
           turn = undefined;
@@ -100,13 +102,13 @@ export default function ActionPanel() {
     } else if (combat.active && isDm && selectedTokenId) {
       // DM смотрит выбранный токен (например, реакция монстра в чужой ход).
       const activeId = combat.entries[combat.currentIndex]?.tokenId ?? null;
-      const selected = map.tokens.find((t) => t.id === selectedTokenId);
+      const selected = tokenById(map, selectedTokenId);
       if (selected && selected.id !== activeId) {
         tokenId = selected.id;
         turn = undefined;
       }
     }
-    const token = tokenId ? map.tokens.find((t) => t.id === tokenId) : null;
+    const token = tokenById(map, tokenId);
     if (!token) return null;
     const controlled = isDm || (currentCharacterId !== null && token.libraryItemId === currentCharacterId);
     const isCharacter = currentCharacterId !== null && token.libraryItemId === currentCharacterId;

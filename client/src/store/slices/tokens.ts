@@ -4,18 +4,10 @@ import {
   type Token,
 } from 'shared';
 import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
-import { clearThrottled, throttled } from '../helpers';
+import { clearThrottled, emitInMap, emitThrottledInMap } from '../helpers';
+import { activeMapOf, tokenById } from '../selectors';
+import { clearTokenUiFor } from '../uiReset';
 import type { GameState, Slice } from '../types';
-
-const clearTokenRefs = (s: GameState, id: string) => ({
-  selectedTokenId: s.selectedTokenId === id ? null : s.selectedTokenId,
-  targeting: s.targeting?.tokenId === id ? null : s.targeting,
-  aim: s.aim?.tokenId === id ? null : s.aim,
-  multiTarget: s.multiTarget?.tokenId === id ? null : s.multiTarget,
-  hoverTokenId: s.hoverTokenId === id ? null : s.hoverTokenId,
-  draggingTokenId: s.draggingTokenId === id ? null : s.draggingTokenId,
-  tokenMenuId: s.tokenMenuId === id ? null : s.tokenMenuId,
-});
 
 export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'finalizeTokenMove' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
   const viewMapId = () => get().viewMapId;
@@ -68,28 +60,24 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       clearThrottled(`move:${id}`);
       movePaths.delete(id);
       set((s) => ({
-        ...clearTokenRefs(s, id),
+        ...clearTokenUiFor(s, id),
         scene: removeTokenById(s.scene, mapId, id),
       }));
     },
 
     addTokenAt: (libraryItemId, x, y) => {
-      const mapId = viewMapId();
-      if (!mapId) return;
-      get().socket?.emit('token:add', { mapId, libraryItemId, x, y });
+      emitInMap(get, 'token:add', { libraryItemId, x, y });
     },
 
     removeToken: (id) => {
-      const mapId = viewMapId();
-      if (!mapId) return;
-      get().socket?.emit('token:remove', { mapId, id });
+      emitInMap(get, 'token:remove', { id });
     },
 
     moveToken: (id, x, y) => {
-      const socket = get().socket;
-      const mapId = viewMapId();
-      if (!socket || !mapId) return;
-      const token = get().scene.maps.find((m) => m.id === mapId)?.tokens.find((t) => t.id === id);
+      const state = get();
+      const mapId = state.viewMapId;
+      if (!state.socket || !mapId) return;
+      const token = tokenById(activeMapOf(state), id);
       if (token) {
         const list = movePaths.get(id) ?? [{ x: token.x, y: token.y }];
         const last = list[list.length - 1];
@@ -98,15 +86,15 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       }
       accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
-      throttled(`move:${id}`, 66, () => socket.emit('token:move', { mapId, id, x, y }));
+      emitThrottledInMap(get, `move:${id}`, 66, 'token:move', () => ({ id, x, y }));
     },
 
     finalizeTokenMove: (id, x, y) => {
-      const socket = get().socket;
-      const mapId = viewMapId();
-      if (!socket || !mapId) return;
+      const state = get();
+      const mapId = state.viewMapId;
+      if (!state.socket || !mapId) return;
       clearThrottled(`move:${id}`);
-      const token = get().scene.maps.find((m) => m.id === mapId)?.tokens.find((t) => t.id === id);
+      const token = tokenById(activeMapOf(state), id);
       if (token) {
         const list = movePaths.get(id) ?? [{ x: token.x, y: token.y }];
         const last = list[list.length - 1];
@@ -115,13 +103,12 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       }
       accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
-      socket.emit('token:move', { mapId, id, x, y });
-      socket.emit('token:lock', { mapId, id, lock: false });
+      emitInMap(get, 'token:move', { id, x, y });
+      emitInMap(get, 'token:lock', { id, lock: false });
       const moved = reportMovement(mapId, id);
       if (moved) {
         const path = movePaths.get(id);
-        socket.emit('combat:setMovement', {
-          mapId,
+        emitInMap(get, 'combat:setMovement', {
           tokenId: id,
           used: moved.used,
           diagonals: moved.diagonals,
@@ -132,10 +119,8 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
     },
 
     lockToken: (id, lock) => {
-      const mapId = viewMapId();
-      if (!mapId) return;
       if (lock) movePaths.delete(id);
-      get().socket?.emit('token:lock', { mapId, id, lock });
+      emitInMap(get, 'token:lock', { id, lock });
     },
 
     setTokenFields: (id, patch) => {
@@ -151,7 +136,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
         local.h = clamped * size;
       }
       patchTokenInMap(mapId, id, local);
-      socket.emit('token:update', { mapId, id, patch: local });
+      emitInMap(get, 'token:update', { id, patch: local });
     },
 
     setSelected: (selectedTokenId) => set({ selectedTokenId }),

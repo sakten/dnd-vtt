@@ -1,4 +1,4 @@
-import { throttled } from '../helpers';
+import { emit, emitThrottled } from '../helpers';
 import type { GameState, Slice } from '../types';
 
 export const createLibrarySlice: Slice<Pick<GameState, 'onLibraryUpdate' | 'addLibraryItem' | 'updateLibraryItem' | 'removeLibraryItem'>> = (set, get) => {
@@ -6,23 +6,22 @@ export const createLibrarySlice: Slice<Pick<GameState, 'onLibraryUpdate' | 'addL
     onLibraryUpdate: (library) => set({ library }),
 
     addLibraryItem: (fields) => {
-      get().socket?.emit('library:add', fields);
+      emit(get, 'library:add', fields);
     },
 
     updateLibraryItem: (id, patch) => {
-      const socket = get().socket;
-      if (!socket) return;
+      if (!get().socket) return;
       set((s) => ({
         library: s.library.map((i) => (i.id === id ? { ...i, ...patch } : i)),
       }));
-      throttled(`lib:${id}`, 200, () => {
+      emitThrottled(get, `lib:${id}`, 200, 'library:update', () => {
         const item = get().library.find((i) => i.id === id);
-        if (item) socket.emit('library:update', { id, patch: item });
+        return item ? { id, patch: item } : undefined;
       });
     },
 
     removeLibraryItem: (id) => {
-      get().socket?.emit('library:remove', id);
+      emit(get, 'library:remove', id);
     },
   };
 };

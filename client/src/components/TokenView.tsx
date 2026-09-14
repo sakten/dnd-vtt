@@ -4,7 +4,7 @@ import Konva from 'konva';
 import { movementBlocked, snapToGrid, statNumber, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useImage } from '../lib/useImage';
-import { canControlWith, useIsDm } from '../lib/control';
+import { useCanControl, useIsDm } from '../lib/control';
 
 function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
@@ -23,7 +23,7 @@ function TokenView({ token }: { token: Token }) {
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const isDm = useIsDm();
-  const canMove = useGameStore((s) => canControlWith(s, token));
+  const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;

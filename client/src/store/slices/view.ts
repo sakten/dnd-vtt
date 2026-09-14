@@ -1,3 +1,4 @@
+import { activeMapOf } from '../selectors';
 import type { GameState, Slice } from '../types';
 
 export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setRoomSettingsOpen' | 'setFogMode' | 'fitView'>> = (set, get) => {
@@ -12,8 +13,8 @@ export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 
     setFogMode: (patch) => set((s) => ({ fogMode: { ...s.fogMode, ...patch } })),
 
     fitView: () => {
-      const { scene, viewport } = get();
-      const map = scene.maps.find((m) => m.id === get().viewMapId);
+      const { viewport } = get();
+      const map = activeMapOf(get());
       if (!map || viewport.w === 0 || viewport.h === 0) return;
       const scale = Math.min(
         8,

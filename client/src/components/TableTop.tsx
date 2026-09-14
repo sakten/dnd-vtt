@@ -4,6 +4,8 @@ import Konva from 'konva';
 import type { MapInfo } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useActiveMap } from '../store/hooks';
+import { activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
 import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
 import GridLayer from './GridLayer';
@@ -34,8 +36,6 @@ export default function TableTop() {
   const setView = useGameStore((s) => s.setView);
   const setViewport = useGameStore((s) => s.setViewport);
   const grid = useGameStore((s) => s.scene.grid);
-  const maps = useGameStore((s) => s.scene.maps);
-  const viewMapId = useGameStore((s) => s.viewMapId);
   const setSelected = useGameStore((s) => s.setSelected);
   const isDm = useIsDm();
   const targeting = useGameStore((s) => s.targeting);
@@ -47,16 +47,16 @@ export default function TableTop() {
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
   const multiTarget = useGameStore((s) => s.multiTarget);
-  const activeMap = useMemo(() => maps.find((m) => m.id === viewMapId) ?? null, [maps, viewMapId]);
+  const activeMap = useActiveMap();
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
 
   // id активной записи инициативы, которой управляет текущий пользователь (для подсветки хода).
   const activeControlId = useGameStore((s) => {
-    const map = s.scene.maps.find((m) => m.id === s.viewMapId);
+    const map = activeMapOf(s);
     if (!map || !map.combat.active || map.combat.currentIndex < 0) return null;
     const entry = map.combat.entries[map.combat.currentIndex];
     if (!entry?.tokenId) return null;
-    const token = map.tokens.find((t) => t.id === entry.tokenId);
+    const token = tokenById(map, entry.tokenId);
     if (!token || !canControlWith(s, token)) return null;
     return entry.id;
   });
@@ -65,7 +65,7 @@ export default function TableTop() {
     if (!activeMap || !activeControlId) return [];
     const combat = activeMap.combat;
     const entry = combat.entries.find((e) => e.id === activeControlId);
-    const token = entry?.tokenId ? activeMap.tokens.find((t) => t.id === entry.tokenId) : undefined;
+    const token = entry?.tokenId ? tokenById(activeMap, entry.tokenId) : undefined;
     const turn = combat.turns[activeControlId];
     if (!entry || !token || !turn) return [];
     const remaining = Math.max(0, turn.movementMax - turn.movementUsed);
@@ -104,14 +104,14 @@ export default function TableTop() {
   const multiTargetTokens = useMemo(() => {
     if (!multiTarget || !activeMap) return [];
     return multiTarget.targets
-      .map((id) => activeMap.tokens.find((t) => t.id === id) ?? null)
+      .map((id) => tokenById(activeMap, id))
       .filter((t): t is NonNullable<typeof t> => !!t);
   }, [multiTarget, activeMap]);
 
   const measure = useMemo(() => {
     if (!activeMap || !targeting || !hoverTokenId) return null;
-    const from = targeting.tokenId ? activeMap.tokens.find((t) => t.id === targeting.tokenId) : null;
-    const to = activeMap.tokens.find((t) => t.id === hoverTokenId);
+    const from = targeting.tokenId ? tokenById(activeMap, targeting.tokenId) : null;
+    const to = tokenById(activeMap, hoverTokenId);
     if (!from || !to || from.id === to.id) return null;
     const feet = gridDistanceFeet(from, to, grid.size || 50);
     return { from, to, feet };

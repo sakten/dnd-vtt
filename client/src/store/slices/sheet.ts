@@ -1,3 +1,4 @@
+import { emit } from '../helpers';
 import type { GameState, Slice } from '../types';
 
 export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResourcesUpdate' | 'onCharacterUpdate' | 'setSheet' | 'updateResources' | 'rest' | 'setCurrentCharacter' | 'rollHitDie' | 'rollDeathSave'>> = (set, get) => {
@@ -10,16 +11,16 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
     },
 
     setSheet: (sheet) => {
-      get().socket?.emit('sheet:update', sheet);
+      emit(get, 'sheet:update', sheet);
     },
 
     updateResources: (resources) => {
       set({ resources });
-      get().socket?.emit('resources:update', resources);
+      emit(get, 'resources:update', resources);
     },
 
     rest: (type) => {
-      get().socket?.emit('resources:rest', { type });
+      emit(get, 'resources:rest', { type });
     },
 
     setCurrentCharacter: (libraryItemId) => {
@@ -31,11 +32,11 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
     },
 
     rollHitDie: (die) => {
-      get().socket?.emit('resources:hitDie', { die });
+      emit(get, 'resources:hitDie', { die });
     },
 
     rollDeathSave: (expression) => {
-      get().socket?.emit('resources:deathSave', { expression });
+      emit(get, 'resources:deathSave', { expression });
     },
 
   };

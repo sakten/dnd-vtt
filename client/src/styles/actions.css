@@ -519,15 +519,3 @@
   padding: 6px 14px;
   border-radius: 8px;
 }
-
-.aim-apply {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0e1220;
-  font-weight: 700;
-}
-
-.aim-apply:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}

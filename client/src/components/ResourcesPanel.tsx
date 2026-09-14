@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_AC, type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { characterTokenOf } from '../store/selectors';
 import { newId } from '../lib/id';
 
 function Pips({ current, max, onSet }: { current: number; max: number; onSet: (n: number) => void }) {
@@ -115,7 +116,7 @@ export default function ResourcesPanel() {
   const concentration = useMemo(() => {
     if (!currentCharacterId) return null;
     for (const map of maps) {
-      const token = map.tokens.find((t) => t.libraryItemId === currentCharacterId);
+      const token = characterTokenOf(map, currentCharacterId);
       if (!token) continue;
       const effects = token.effects.filter((e) => e.concentration && e.sourceId === token.id);
       if (effects.length) {

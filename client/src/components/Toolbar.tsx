@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/useGameStore';
+import { activeMapOf } from '../store/selectors';
 import { useIsDm } from '../lib/control';
 
 export default function Toolbar() {
@@ -9,12 +10,10 @@ export default function Toolbar() {
   const isDm = useIsDm();
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
-  const combatActive = useGameStore(
-    (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.combat.active ?? false
-  );
+  const combatActive = useGameStore((s) => activeMapOf(s)?.combat.active ?? false);
   const startCombat = useGameStore((s) => s.startCombat);
   const endCombat = useGameStore((s) => s.endCombat);
-  const hasMap = useGameStore((s) => s.scene.maps.some((m) => m.id === s.viewMapId));
+  const hasMap = useGameStore((s) => activeMapOf(s) !== null);
 
   return (
     <div className="toolbar">

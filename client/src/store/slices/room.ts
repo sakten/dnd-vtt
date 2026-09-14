@@ -1,6 +1,8 @@
 import { attachSocketBridge, joinRoomWithTimeout } from '../../net/bridge';
 import { createSocket } from '../../net/socket';
 import { newId } from '../../lib/id';
+import { emit } from '../helpers';
+import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
 export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings'>> = (set, get) => {
@@ -22,6 +24,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
     onRoomJoined: ({ room, selfId, sheet, resources }) => {
       const player = room.players.find((p) => p.id === selfId);
       set({
+        ...UI_RESET,
         roomCode: room.code,
         roomName: room.name,
         selfId,
@@ -36,9 +39,6 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
         currentCharacterId: room.controllers?.[selfId] ?? null,
         chat: room.chat,
         joinError: null,
-        targeting: null,
-        aim: null,
-        multiTarget: null,
       });
     },
 
@@ -47,24 +47,18 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
     onRoomSettings: ({ testMode }) => set({ testMode: testMode === true }),
 
     setRoomSettings: (testMode) => {
-      get().socket?.emit('room:settings', { testMode });
+      emit(get, 'room:settings', { testMode });
     },
 
     onRoomClosed: (joinError) =>
       set({
+        ...UI_RESET,
         roomCode: null,
         roomName: null,
         joinError,
         resources: null,
         currentCharacterId: null,
         critHit: null,
-        hoverTokenId: null,
-        selectedTokenId: null,
-        tokenMenuId: null,
-        draggingTokenId: null,
-        targeting: null,
-        aim: null,
-        multiTarget: null,
       }),
 
     onPlayersUpdate: (players) => set({ players }),
@@ -83,7 +77,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
     },
 
     removePlayer: (id) => {
-      get().socket?.emit('player:remove', { id });
+      emit(get, 'player:remove', { id });
     },
   };
 };

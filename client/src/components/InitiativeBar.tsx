@@ -1,14 +1,13 @@
 import { useRef, useState } from 'react';
 import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { activeMapOf, tokenById } from '../store/selectors';
 import { canControlWith, isDmWith, useIsDm } from '../lib/control';
 
 const EMPTY_COMBAT = emptyCombatState();
 
 export default function InitiativeBar() {
-  const combat = useGameStore(
-    (s) => s.scene.maps.find((m) => m.id === s.viewMapId)?.combat ?? EMPTY_COMBAT
-  );
+  const combat = useGameStore((s) => activeMapOf(s)?.combat ?? EMPTY_COMBAT);
   const isDm = useIsDm();
   const hoverTokenId = useGameStore((s) => s.hoverTokenId);
   const setHoverToken = useGameStore((s) => s.setHoverToken);
@@ -21,10 +20,11 @@ export default function InitiativeBar() {
   const setTurn = useGameStore((s) => s.setTurn);
   const canEndTurn = useGameStore((s) => {
     if (isDmWith(s)) return true;
-    const c = s.scene.maps.find((m) => m.id === s.viewMapId)?.combat;
+    const map = activeMapOf(s);
+    const c = map?.combat;
     const entry = c && c.currentIndex >= 0 ? c.entries[c.currentIndex] : undefined;
     if (!entry?.tokenId) return false;
-    const token = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.find((t) => t.id === entry.tokenId);
+    const token = tokenById(map, entry.tokenId);
     return token ? canControlWith(s, token) : false;
   });
   const scrollRef = useRef<HTMLDivElement>(null);

@@ -1,3 +1,5 @@
+import { emitInMap } from '../helpers';
+import { activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
 
 export const createActionSlice: Slice<
@@ -20,15 +22,11 @@ export const createActionSlice: Slice<
   >
 > = (_set, get) => ({
   runAction: (tokenId, actionId, extra) => {
-    const mapId = get().viewMapId;
-    if (!mapId) return;
-    get().socket?.emit('action:use', { mapId, tokenId, actionId, ...extra });
+    emitInMap(get, 'action:use', { tokenId, actionId, ...extra });
   },
 
   castSpell: (payload) => {
-    const mapId = get().viewMapId;
-    if (!mapId) return;
-    get().socket?.emit('spell:cast', { mapId, ...payload });
+    emitInMap(get, 'spell:cast', payload);
   },
 
   startTargeting: (targeting) => _set({ targeting, aim: null, multiTarget: null }),
@@ -64,8 +62,7 @@ export const createActionSlice: Slice<
   },
 
   startAim: ({ tokenId, spellKey, slotLevel, advantage, spec, originKind, rangeFeet }) => {
-    const { scene, viewMapId } = get();
-    const token = scene.maps.find((m) => m.id === viewMapId)?.tokens.find((t) => t.id === tokenId);
+    const token = tokenById(activeMapOf(get()), tokenId);
     const origin = originKind === 'self' && token ? { x: token.x, y: token.y } : null;
     _set({
       aim: { tokenId, spellKey, slotLevel, advantage, spec, originKind, rangeFeet, origin, direction: null },
@@ -77,10 +74,10 @@ export const createActionSlice: Slice<
   aimToCursor: (cursor) => {
     const aim = get().aim;
     if (!aim) return;
-    const { scene, viewMapId } = get();
-    const token = scene.maps.find((m) => m.id === viewMapId)?.tokens.find((t) => t.id === aim.tokenId);
+    const state = get();
+    const token = tokenById(activeMapOf(state), aim.tokenId);
     if (!token) return;
-    const size = scene.grid.size || 50;
+    const size = state.scene.grid.size || 50;
 
     if (aim.originKind === 'self') {
       const needsDirection = aim.spec.shape === 'cone' || aim.spec.shape === 'line';
@@ -104,9 +101,7 @@ export const createActionSlice: Slice<
   cancelAim: () => _set({ aim: null }),
 
   endConcentration: (tokenId) => {
-    const mapId = get().viewMapId;
-    if (!mapId) return;
-    get().socket?.emit('spell:endConcentration', { mapId, tokenId });
+    emitInMap(get, 'spell:endConcentration', { tokenId });
   },
 
   confirmAim: () => {
@@ -124,9 +119,8 @@ export const createActionSlice: Slice<
   },
 
   adjustTokenHp: (tokenId, delta) => {
-    const mapId = get().viewMapId;
-    if (!mapId || !delta) return;
-    get().socket?.emit('token:hp', { mapId, id: tokenId, delta: Math.round(delta) });
+    if (!delta) return;
+    emitInMap(get, 'token:hp', { id: tokenId, delta: Math.round(delta) });
   },
 
   startMultiTarget: (payload) => _set({ multiTarget: { ...payload, targets: [] }, targeting: null, aim: null }),

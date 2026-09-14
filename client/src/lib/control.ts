@@ -1,14 +1,14 @@
 import type { LibraryItem, Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { activeMapOf, characterTokenOf, tokenById } from '../store/selectors';
 
 type State = ReturnType<typeof useGameStore.getState>;
 
 export function characterNameOf(s: State, charId: string | null): string {
   if (!charId) return '';
   const map =
-    s.scene.maps.find((m) => m.id === s.viewMapId) ??
-    s.scene.maps.find((m) => m.tokens.some((t) => t.libraryItemId === charId));
-  const placed = map?.tokens.find((t) => t.libraryItemId === charId);
+    activeMapOf(s) ?? s.scene.maps.find((m) => m.tokens.some((t) => t.libraryItemId === charId));
+  const placed = characterTokenOf(map, charId);
   if (placed) return placed.name;
   return s.library.find((i) => i.id === charId)?.name ?? '';
 }
@@ -49,6 +49,19 @@ export function canAddLibraryItemWith(
 
 export function canControlToken(token: Token): boolean {
   return canControlWith(useGameStore.getState(), token);
+}
+
+/** Хук: может ли текущий пользователь управлять токеном. */
+export function useCanControl(token: Token): boolean {
+  return useGameStore((s) => canControlWith(s, token));
+}
+
+/** Хук: может ли текущий пользователь управлять токеном на активной карте по id. */
+export function useCanControlId(id: string | null): boolean {
+  return useGameStore((s) => {
+    const token = tokenById(activeMapOf(s), id);
+    return token ? canControlWith(s, token) : false;
+  });
 }
 
 export function canAddLibraryItem(item: Pick<LibraryItem, 'id' | 'isPlayerToken' | 'owner'>): boolean {

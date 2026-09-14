@@ -15,6 +15,8 @@ import {
   type Spell,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useActiveMap } from '../store/hooks';
+import { tokenById } from '../store/selectors';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -35,7 +37,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const resources = useGameStore((s) => s.resources);
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const map = useGameStore((s) => s.scene.maps.find((m) => m.id === s.viewMapId) ?? null);
+  const map = useActiveMap();
   const castSpell = useGameStore((s) => s.castSpell);
   const startAim = useGameStore((s) => s.startAim);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
@@ -45,7 +47,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const [dis, setDis] = useState(false);
 
   const isCantrip = spell.level === 0;
-  const castToken = map?.tokens.find((t) => t.id === tokenId) ?? null;
+  const castToken = tokenById(map, tokenId);
   const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
   const maxLevel = sheetCaster
     ? maxCastableLevel(spell, resources)
