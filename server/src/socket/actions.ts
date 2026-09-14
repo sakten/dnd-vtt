@@ -144,7 +144,15 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      // Заглушки: Dodge/Help/Disengage/Ready/Grapple/Shove/UnarmedStrike/UseObject.
+      if (action.id === 'disengage') {
+        // Действие «Отход»: движение в этом ходу не провоцирует атаки по возможности.
+        if (turn) turn.disengaged = true;
+        syncCombat(room, mapId);
+        systemMessage(room, `${token.name}: Отход`);
+        return;
+      }
+
+      // Заглушки: Dodge/Help/Ready/Grapple/Shove/UnarmedStrike/UseObject.
       systemMessage(room, `${token.name}: ${action.name}`);
     });
 }

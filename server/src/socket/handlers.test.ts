@@ -791,6 +791,38 @@ describe('реакции (R1)', () => {
     expect(room.resources.p1.hp.current).toBe(25);
   });
 
+  it('действие «Отход» отменяет атаку по возможности при движении', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки')], x: 150, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.resources.p1 = casterResources();
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerCombatHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'disengage' });
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't1',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 300, y: 100 },
+      ],
+    });
+
+    expect(combatOf(room).turns.e1.disengaged).toBe(true);
+    expect(combatOf(room).turns.e2?.reactionUsed ?? false).toBe(false);
+    expect(room.resources.p1.hp.current).toBe(30);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(false);
+  });
+
   it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
     const room = makeRoom(
       [

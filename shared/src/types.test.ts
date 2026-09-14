@@ -139,6 +139,7 @@ describe('turn state', () => {
       attacksRemaining: 0,
       legendaryRemaining: 0,
       legendaryMax: 0,
+      disengaged: false,
       concentrationId: null,
     });
   });

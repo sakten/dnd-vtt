@@ -762,6 +762,8 @@ export function triggerOpportunityAttacks(
   if (isReactionPending(room.code)) return;
   const map = ctx.manager.findMap(room, mapId);
   if (!map || path.length < 2) return;
+  // «Отход»: движение в этом ходу не провоцирует атаки по возможности.
+  if (ctx.manager.turnForToken(room, mapId, mover)?.disengaged) return;
   const size = room.scene.grid.size || 50;
 
   const offers: ReactionOfferInput[] = [];
