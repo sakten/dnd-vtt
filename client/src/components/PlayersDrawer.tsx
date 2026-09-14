@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { CLASSES, type Player } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useIsDm } from '../lib/control';
+import Modal from './Modal';
 
 function hpText(p: Player): string {
   if (p.hpMax == null) return '—';
@@ -62,30 +62,25 @@ export default function PlayersDrawer({
           </div>
         ))}
       </div>
-      {target &&
-        createPortal(
-          <div className="modal-backdrop" onMouseDown={() => setConfirmId(null)}>
-            <div className="modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-              <h3>Удалить игрока?</h3>
-              <p className="confirm-text">
-                Игрок <strong>{target.name}</strong> будет удалён из комнаты и отключён.
-              </p>
-              <div className="modal-actions spread">
-                <button onClick={() => setConfirmId(null)}>Отмена</button>
-                <button
-                  className="danger"
-                  onClick={() => {
-                    removePlayer(target.id);
-                    setConfirmId(null);
-                  }}
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      {target && (
+        <Modal onClose={() => setConfirmId(null)} title="Удалить игрока?">
+          <p className="confirm-text">
+            Игрок <strong>{target.name}</strong> будет удалён из комнаты и отключён.
+          </p>
+          <div className="modal-actions spread">
+            <button onClick={() => setConfirmId(null)}>Отмена</button>
+            <button
+              className="danger"
+              onClick={() => {
+                removePlayer(target.id);
+                setConfirmId(null);
+              }}
+            >
+              Удалить
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

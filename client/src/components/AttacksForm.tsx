@@ -1,13 +1,22 @@
 import { DAMAGE_TYPES, MAX_ATTACKS, emptyAttack, type AttackEntry } from 'shared';
+import { Field } from './Field';
 
 interface Props {
   attacks: AttackEntry[];
   onChange: (attacks: AttackEntry[]) => void;
   title?: string;
+  itemLabel?: string;
+  namePlaceholder?: string;
 }
 
 /** Редактор атак/оружия (общий для токена и карточки персонажа). */
-export default function AttacksForm({ attacks, onChange, title = 'Атаки' }: Props) {
+export default function AttacksForm({
+  attacks,
+  onChange,
+  title = 'Атаки',
+  itemLabel = 'Атака',
+  namePlaceholder = 'Например: Укус',
+}: Props) {
   const setAttack = (index: number, patch: Partial<AttackEntry>) =>
     onChange(attacks.map((a, i) => (i === index ? { ...a, ...patch } : a)));
   const addAttack = () => {
@@ -25,44 +34,40 @@ export default function AttacksForm({ attacks, onChange, title = 'Атаки' }:
       {attacks.map((attack, i) => (
         <div className="weapon-block" key={i}>
           <div className="weapon-head">
-            <span>Атака {i + 1}</span>
+            <span>{itemLabel} {i + 1}</span>
             {attacks.length > 1 && (
               <button type="button" className="weapon-remove" onClick={() => removeAttack(i)}>
                 Удалить
               </button>
             )}
           </div>
-          <label className="field">
-            <span>Название</span>
+          <Field label="Название">
             <input
               type="text"
               value={attack.name}
               maxLength={40}
-              placeholder="Например: Укус"
+              placeholder={namePlaceholder}
               onChange={(e) => setAttack(i, { name: e.target.value })}
             />
-          </label>
+          </Field>
           <div className="field-row">
-            <label className="field">
-              <span>Формула попадания</span>
+            <Field label="Формула попадания">
               <input
                 type="text"
                 value={attack.hit}
                 placeholder="d20+5"
                 onChange={(e) => setAttack(i, { hit: e.target.value })}
               />
-            </label>
-            <label className="field">
-              <span>Формула урона</span>
+            </Field>
+            <Field label="Формула урона">
               <input
                 type="text"
                 value={attack.damage}
                 placeholder="d6+3"
                 onChange={(e) => setAttack(i, { damage: e.target.value })}
               />
-            </label>
-            <label className="field">
-              <span>Тип урона</span>
+            </Field>
+            <Field label="Тип урона">
               <select
                 value={attack.damageType ?? ''}
                 onChange={(e) => setAttack(i, { damageType: e.target.value || undefined })}
@@ -74,11 +79,10 @@ export default function AttacksForm({ attacks, onChange, title = 'Атаки' }:
                   </option>
                 ))}
               </select>
-            </label>
+            </Field>
           </div>
           <div className="field-row">
-            <label className="field">
-              <span>Дистанция</span>
+            <Field label="Дистанция">
               <select
                 value={attack.rangeType}
                 onChange={(e) => setAttack(i, { rangeType: e.target.value as AttackEntry['rangeType'] })}
@@ -87,38 +91,35 @@ export default function AttacksForm({ attacks, onChange, title = 'Атаки' }:
                 <option value="ranged">Дальняя</option>
                 <option value="none">Без дальности</option>
               </select>
-            </label>
+            </Field>
             {attack.rangeType === 'melee' && (
-              <label className="field">
-                <span>Досягаемость, фт</span>
+              <Field label="Досягаемость, фт">
                 <input
                   type="number"
                   min={0}
                   value={attack.rangeNormal}
                   onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
                 />
-              </label>
+              </Field>
             )}
             {attack.rangeType === 'ranged' && (
               <>
-                <label className="field">
-                  <span>Обычная, фт</span>
+                <Field label="Обычная, фт">
                   <input
                     type="number"
                     min={0}
                     value={attack.rangeNormal}
                     onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
                   />
-                </label>
-                <label className="field">
-                  <span>Дальняя, фт</span>
+                </Field>
+                <Field label="Дальняя, фт">
                   <input
                     type="number"
                     min={0}
                     value={attack.rangeLong}
                     onChange={(e) => setAttack(i, { rangeLong: Number(e.target.value) })}
                   />
-                </label>
+                </Field>
               </>
             )}
           </div>

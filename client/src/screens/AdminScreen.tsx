@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { newId } from '../lib/id';
+import Modal from '../components/Modal';
 
 interface RoomInfo {
   code: string;
@@ -192,21 +193,18 @@ export default function AdminScreen() {
           ← На экран входа
         </a>
         {deleteTarget && (
-          <div className="modal-backdrop" onMouseDown={() => setDeleteTarget(null)}>
-            <div className="modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-              <h3>Удалить комнату?</h3>
-              <p className="confirm-text">
-                Комната <strong>{rooms.find((r) => r.code === deleteTarget)?.name || deleteTarget}</strong> (
-                {deleteTarget}) будет удалена безвозвратно, а игроки внутри — отключены.
-              </p>
-              <div className="modal-actions spread">
-                <button onClick={() => setDeleteTarget(null)}>Отмена</button>
-                <button className="danger" onClick={confirmDelete}>
-                  Удалить
-                </button>
-              </div>
+          <Modal onClose={() => setDeleteTarget(null)} title="Удалить комнату?">
+            <p className="confirm-text">
+              Комната <strong>{rooms.find((r) => r.code === deleteTarget)?.name || deleteTarget}</strong> (
+              {deleteTarget}) будет удалена безвозвратно, а игроки внутри — отключены.
+            </p>
+            <div className="modal-actions spread">
+              <button onClick={() => setDeleteTarget(null)}>Отмена</button>
+              <button className="danger" onClick={confirmDelete}>
+                Удалить
+              </button>
             </div>
-          </div>
+          </Modal>
         )}
       </div>
     </div>

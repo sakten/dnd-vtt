@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ABILITIES,
   CLASSES,
@@ -24,100 +23,15 @@ import {
   type Spell,
 } from 'shared';
 import { loadSpells } from '../lib/spells';
-import { spellMechanics, spellMechanicsShort } from '../lib/spellText';
+import { SPELL_SCHOOL_RU, spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
+import SpellPicker from './SpellPicker';
+import { useSpellTooltip } from './SpellTooltip';
 
-const SCHOOL_RU: Record<string, string> = {
-  Abjuration: 'Ограждение',
-  Conjuration: 'Вызов',
-  Divination: 'Прорицание',
-  Enchantment: 'Очарование',
-  Evocation: 'Воплощение',
-  Illusion: 'Иллюзия',
-  Necromancy: 'Некромантия',
-  Transmutation: 'Преобразование',
-};
-
-const levelLabel = (level: number) => (level === 0 ? 'Фокусы' : `${level} круг`);
 const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
 function abilityName(key: string): string {
   return ABILITIES.find((a) => a.key === key)?.name ?? key;
-}
-
-interface HoverState {
-  spell: Spell;
-  x: number;
-  y: number;
-  note?: string;
-}
-
-const HOVER_DELAY_MS = 1000;
-
-/** Отложенный (1с) тултип с описанием заклинания; подходит для списка и пикера. */
-function useSpellTooltip() {
-  const [hover, setHover] = useState<HoverState | null>(null);
-  const timer = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-    },
-    []
-  );
-
-  const handlers = (spell: Spell, note?: string) => ({
-    onMouseEnter: (e: MouseEvent) => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-      const { clientX: x, clientY: y } = e;
-      timer.current = window.setTimeout(() => setHover({ spell, x, y, note }), HOVER_DELAY_MS);
-    },
-    onMouseMove: (e: MouseEvent) => {
-      setHover((h) => (h && h.spell.key === spell.key ? { spell, x: e.clientX, y: e.clientY, note: h.note } : h));
-    },
-    onMouseLeave: () => {
-      if (timer.current !== null) {
-        window.clearTimeout(timer.current);
-        timer.current = null;
-      }
-      setHover(null);
-    },
-  });
-
-  return { handlers, node: hover ? <SpellTooltip {...hover} /> : null };
-}
-
-function SpellTooltip({ spell, x, y, note }: HoverState) {
-  const width = Math.min(440, window.innerWidth - 16);
-  const estHeight = Math.min(340, window.innerHeight * 0.5);
-  const left = Math.max(8, Math.min(x + 16, window.innerWidth - width - 8));
-  const top = y + 16 + estHeight > window.innerHeight ? Math.max(8, y - estHeight - 16) : y + 16;
-
-  return createPortal(
-    <div className="spell-tooltip" style={{ left, top, width }}>
-      <h4>{spell.name}</h4>
-      <div className="tip-meta">
-        {levelLabel(spell.level)} · {SCHOOL_RU[spell.school] ?? spell.school}
-        {spell.concentration ? ' · концентрация' : ''}
-        {spell.ritual ? ' · ритуал' : ''}
-      </div>
-      <div className="tip-mechanics">
-        {spellMechanics(spell).map((line) => (
-          <div key={line}>{line}</div>
-        ))}
-      </div>
-      {note && <div className="tip-note">{note}</div>}
-      {spell.description.map((p, i) => (
-        <p key={i}>{p}</p>
-      ))}
-      {spell.higherLevel?.map((p, i) => (
-        <p className="tip-higher" key={`h${i}`}>
-          {p}
-        </p>
-      ))}
-    </div>,
-    document.body
-  );
 }
 
 interface PanelProps {
@@ -200,7 +114,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
               .map((lvl) => (
                 <div className="spell-level" key={lvl}>
                   <div className="spell-level-title">
-                    {levelLabel(lvl)}
+                    {spellLevelLabel(lvl)}
                     {lvl === 0 && <span className="spell-level-count"> {cantrips}/{cantripMax}</span>}
                   </div>
                   {rows
@@ -218,7 +132,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
                           {r.spell.concentration && <span title="Концентрация">К</span>}
                           {r.spell.ritual && <span title="Ритуал">Р</span>}
                         </span>
-                        <span className="spell-school">{SCHOOL_RU[r.spell.school] ?? r.spell.school}</span>
+                        <span className="spell-school">{SPELL_SCHOOL_RU[r.spell.school] ?? r.spell.school}</span>
                         {!r.granted && (
                           <button
                             type="button"
@@ -242,7 +156,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
       })}
 
       {pickerFor && (
-        <SpellPicker
+        <SheetSpellPicker
           entry={pickerFor}
           sheet={sheet}
           spells={data}
@@ -263,11 +177,8 @@ interface PickerProps {
   onClose: () => void;
 }
 
-function SpellPicker({ entry, sheet, spells, onChange, onClose }: PickerProps) {
+function SheetSpellPicker({ entry, sheet, spells, onChange, onClose }: PickerProps) {
   const { className, level, subclass } = entry;
-  const [query, setQuery] = useState('');
-  const [lvl, setLvl] = useState<number | 'all'>('all');
-  const tip = useSpellTooltip();
   const maxLvl = maxSpellLevel(className, level, subclass);
   const cantripMax = cantripsMax(className, level, subclass);
   const preparedMax = spellsMax(className, level, subclass);
@@ -282,7 +193,6 @@ function SpellPicker({ entry, sheet, spells, onChange, onClose }: PickerProps) {
   const leveledCount = chosenSpells.filter((s) => s.level > 0).length;
 
   const candidates = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const poolKeys = new Set(pool.map((g) => g.key));
     const seen = new Set<string>();
     const list: Spell[] = [];
@@ -292,14 +202,10 @@ function SpellPicker({ entry, sheet, spells, onChange, onClose }: PickerProps) {
       seen.add(s.key);
       list.push(s);
     }
-    return list
-      .filter((s) => (lvl === 'all' ? true : s.level === lvl))
-      .filter((s) => (q ? s.name.toLowerCase().includes(q) : true))
-      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-  }, [spells, listClass, pool, maxLvl, lvl, query]);
+    return list;
+  }, [spells, listClass, pool, maxLvl]);
 
   const toggle = (spell: Spell) => {
-    if (grantedKeys.has(spell.key)) return;
     if (chosenKeys.has(spell.key)) {
       onChange((sheet.spells ?? []).filter((x) => !(x.className === className && x.key === spell.key)));
     } else {
@@ -309,67 +215,27 @@ function SpellPicker({ entry, sheet, spells, onChange, onClose }: PickerProps) {
 
   const levels: (number | 'all')[] = ['all', ...Array.from({ length: maxLvl + 1 }, (_, i) => i)];
 
-  return createPortal(
-    <div className="modal-backdrop spell-picker-backdrop" onMouseDown={onClose}>
-      <div className="modal spell-picker" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-        <h3>
-          {CLASSES[className]?.name ?? className}: заклинания
-          <span className="spell-picker-count">
-            фокусы {cantripCount}/{cantripMax} · подготовка {leveledCount}/{preparedMax}
-          </span>
-        </h3>
-
-        <div className="spell-picker-filters">
-          <input type="text" placeholder="Поиск по названию" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select value={String(lvl)} onChange={(e) => setLvl(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
-            {levels.map((l) => (
-              <option key={String(l)} value={String(l)}>
-                {l === 'all' ? 'Все круги' : levelLabel(l)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="spell-picker-list">
-          {candidates.length === 0 && <div className="spells-note">Ничего не найдено.</div>}
-          {candidates.map((s) => {
-            const grantedFlag = grantedKeys.has(s.key);
-            const added = grantedFlag || chosenKeys.has(s.key);
-            const limit = s.level === 0 ? cantripMax : preparedMax;
-            const count = s.level === 0 ? cantripCount : leveledCount;
-            const full = !added && count >= limit;
-            return (
-              <button
-                type="button"
-                key={s.key}
-                className={`spell-pick${added ? ' added' : ''}${grantedFlag ? ' granted' : ''}`}
-                aria-disabled={grantedFlag || full}
-                {...tip.handlers(s, grantedFlag ? 'Выдано классом/подклассом' : full ? 'Достигнут лимит' : undefined)}
-                onClick={() => {
-                  if (!grantedFlag && !full) toggle(s);
-                }}
-              >
-                <SpellIcon spell={s} className="spell-pick-icon" />
-                <span className="spell-pick-name">{s.name}</span>
-                <span className="spell-pick-meta">
-                  {levelLabel(s.level)} · {SCHOOL_RU[s.school] ?? s.school}
-                  {s.concentration ? ' · К' : ''}
-                  {s.ritual ? ' · Р' : ''}
-                </span>
-                <span className="spell-pick-desc">{spellMechanicsShort(s)}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="modal-actions">
-          <button className="primary" onClick={onClose}>
-            Готово
-          </button>
-        </div>
-        {tip.node}
-      </div>
-    </div>,
-    document.body
+  return (
+    <SpellPicker
+      title={`${CLASSES[className]?.name ?? className}: заклинания`}
+      countLabel={`фокусы ${cantripCount}/${cantripMax} · подготовка ${leveledCount}/${preparedMax}`}
+      candidates={candidates}
+      levels={levels}
+      stateOf={(s) => {
+        const locked = grantedKeys.has(s.key);
+        const added = locked || chosenKeys.has(s.key);
+        const count = s.level === 0 ? cantripCount : leveledCount;
+        const limit = s.level === 0 ? cantripMax : preparedMax;
+        const full = !added && count >= limit;
+        return {
+          added,
+          locked,
+          disabled: full,
+          note: locked ? 'Выдано классом/подклассом' : full ? 'Достигнут лимит' : undefined,
+        };
+      }}
+      onToggle={toggle}
+      onClose={onClose}
+    />
   );
 }

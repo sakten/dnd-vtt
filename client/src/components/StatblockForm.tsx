@@ -8,6 +8,7 @@ import {
   type TokenStatblock,
 } from 'shared';
 import { newId } from '../lib/id';
+import { Field } from './Field';
 
 interface Props {
   value: TokenStatblock | undefined;
@@ -67,10 +68,14 @@ export default function StatblockForm({ value, onChange }: Props) {
       <div className="sheet-section-title">Характеристики</div>
       <div className="ability-grid">
         {ABILITIES.map((a) => (
-          <label className="field" key={a.key}>
-            <span>
-              {a.name} <em className="ability-mod">{fmt(abilityMod(sb.abilities[a.key] ?? 10))}</em>
-            </span>
+          <Field
+            key={a.key}
+            label={
+              <>
+                {a.name} <em className="ability-mod">{fmt(abilityMod(sb.abilities[a.key] ?? 10))}</em>
+              </>
+            }
+          >
             <input
               type="number"
               min={0}
@@ -78,28 +83,26 @@ export default function StatblockForm({ value, onChange }: Props) {
               value={sb.abilities[a.key] ?? 10}
               onChange={(e) => setAbility(a.key, Number(e.target.value))}
             />
-          </label>
+          </Field>
         ))}
       </div>
 
       <div className="sheet-section-title">Спасброски (явный бонус; пусто — из характеристик)</div>
       <div className="saves-grid">
         {ABILITIES.map((a) => (
-          <label className="field" key={a.key}>
-            <span>{a.name}</span>
+          <Field key={a.key} label={a.name}>
             <input
               type="text"
               placeholder="—"
               value={sb.saves?.[a.key] ?? ''}
               onChange={(e) => setSave(a.key, e.target.value)}
             />
-          </label>
+          </Field>
         ))}
       </div>
 
       <div className="field-row">
-        <label className="field">
-          <span>Мультиатака (атак за действие)</span>
+        <Field label="Мультиатака (атак за действие)">
           <input
             type="number"
             min={1}
@@ -107,9 +110,8 @@ export default function StatblockForm({ value, onChange }: Props) {
             value={sb.multiattack ?? 1}
             onChange={(e) => onChange({ ...sb, multiattack: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
           />
-        </label>
-        <label className="field">
-          <span>Пул легендарных действий</span>
+        </Field>
+        <Field label="Пул легендарных действий">
           <input
             type="number"
             min={0}
@@ -124,7 +126,7 @@ export default function StatblockForm({ value, onChange }: Props) {
               onChange(next);
             }}
           />
-        </label>
+        </Field>
       </div>
 
       <div className="sheet-section-title">Заклинания</div>

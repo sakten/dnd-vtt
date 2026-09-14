@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { ABILITIES, type AbilityKey, type Spell, type TokenStatblock } from 'shared';
 import { useSpells } from '../lib/useSpells';
-import { spellMechanicsShort } from '../lib/spellText';
+import { spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
+import SpellPicker from './SpellPicker';
 
 type Spellcasting = NonNullable<TokenStatblock['spellcasting']>;
 
@@ -13,7 +13,6 @@ interface Props {
 }
 
 const SLOT_LEVELS = [1, 2, 3, 4, 5, 6];
-const levelLabel = (level: number) => (level === 0 ? 'Фокусы' : `${level} круг`);
 
 /** Вкладка «Заклинания» статблока: характеристика, ячейки и список заклинаний монстра. */
 export default function StatblockSpells({ statblock, onChange }: Props) {
@@ -126,7 +125,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
         <div className="spell-row" key={s.key}>
           <SpellIcon spell={s} className="spell-row-icon" />
           <span className="spell-name">{s.name}</span>
-          <span className="spell-school">{levelLabel(s.level)}</span>
+          <span className="spell-school">{spellLevelLabel(s.level)}</span>
           <button type="button" className="spell-remove" title="Убрать" onClick={() => toggleSpell(s.key)}>
             ✕
           </button>
@@ -138,79 +137,15 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
 
       {pickerOpen && (
         <SpellPicker
-          spells={spells}
-          chosen={new Set(sc.spells ?? [])}
-          onToggle={toggleSpell}
+          title="Заклинания статблока"
+          countLabel={`выбрано ${(sc.spells ?? []).length}`}
+          candidates={spells}
+          levels={['all', ...SLOT_LEVELS]}
+          stateOf={(s) => ({ added: (sc.spells ?? []).includes(s.key) })}
+          onToggle={(s) => toggleSpell(s.key)}
           onClose={() => setPickerOpen(false)}
         />
       )}
     </div>
-  );
-}
-
-interface PickerProps {
-  spells: Spell[];
-  chosen: Set<string>;
-  onToggle: (key: string) => void;
-  onClose: () => void;
-}
-
-function SpellPicker({ spells, chosen, onToggle, onClose }: PickerProps) {
-  const [query, setQuery] = useState('');
-  const [level, setLevel] = useState<number | 'all'>('all');
-
-  const candidates = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return spells
-      .filter((s) => (level === 'all' ? true : s.level === level))
-      .filter((s) => (q ? s.name.toLowerCase().includes(q) : true))
-      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-  }, [spells, level, query]);
-
-  return createPortal(
-    <div className="modal-backdrop spell-picker-backdrop" onMouseDown={onClose}>
-      <div className="modal spell-picker" onMouseDown={(e) => e.stopPropagation()}>
-        <h3>
-          Заклинания статблока
-          <span className="spell-picker-count">выбрано {chosen.size}</span>
-        </h3>
-
-        <div className="spell-picker-filters">
-          <input type="text" placeholder="Поиск по названию" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select value={String(level)} onChange={(e) => setLevel(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
-            <option value="all">Все круги</option>
-            {Array.from({ length: 7 }, (_, i) => i).map((l) => (
-              <option key={l} value={String(l)}>
-                {levelLabel(l)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="spell-picker-list">
-          {candidates.length === 0 && <div className="spells-note">Ничего не найдено.</div>}
-          {candidates.map((s) => (
-            <button
-              type="button"
-              key={s.key}
-              className={`spell-pick${chosen.has(s.key) ? ' added' : ''}`}
-              onClick={() => onToggle(s.key)}
-            >
-              <SpellIcon spell={s} className="spell-pick-icon" />
-              <span className="spell-pick-name">{s.name}</span>
-              <span className="spell-pick-meta">{levelLabel(s.level)}</span>
-              <span className="spell-pick-desc">{spellMechanicsShort(s)}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="modal-actions">
-          <button className="primary" onClick={onClose}>
-            Готово
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 }

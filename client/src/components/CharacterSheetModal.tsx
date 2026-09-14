@@ -1,26 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import {
   ABILITIES,
   CLASS_LIST,
-  DAMAGE_TYPES,
-  MAX_ATTACKS,
   SKILLS,
   abilityMod,
   classSaves,
   computedMaxHp,
-  emptyAttack,
   normalizeSheet,
   subclassList,
   type AbilityKey,
-  type AttackEntry,
   type CharacterSheet,
   type ClassLevel,
   type SkillLevel,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
+import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
+import Modal from './Modal';
 import SpellsPanel from './SpellsPanel';
 
 interface Props {
@@ -47,16 +44,6 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- сбрасываем черновик только при открытии
   }, [open]);
 
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   if (!open || !draft) return null;
 
   const setAbility = (key: AbilityKey, value: number) => {
@@ -70,18 +57,6 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     const next: SkillLevel = ((current + 1) % 3) as SkillLevel;
     setDraft({ ...draft, skills: { ...draft.skills, [key]: next } });
   };
-
-  const setWeapon = (index: number, patch: Partial<AttackEntry>) => {
-    setDraft((d) =>
-      d ? { ...d, attacks: d.attacks.map((w, i) => (i === index ? { ...w, ...patch } : w)) } : d
-    );
-  };
-
-  const addWeapon = () =>
-    setDraft((d) => (d && d.attacks.length < MAX_ATTACKS ? { ...d, attacks: [...d.attacks, emptyAttack()] } : d));
-
-  const removeWeapon = (index: number) =>
-    setDraft((d) => (d && d.attacks.length > 1 ? { ...d, attacks: d.attacks.filter((_, i) => i !== index) } : d));
 
   const setClassLevel = (index: number, patch: Partial<ClassLevel>) => {
     setDraft((d) => {
@@ -110,10 +85,8 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
   const removeClassLevel = (index: number) =>
     setDraft((d) => (d ? { ...d, classes: d.classes.filter((_, i) => i !== index) } : d));
 
-  return createPortal(
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal sheet-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-        <h3>Карточка персонажа</h3>
+  return (
+    <Modal onClose={onClose} title="Карточка персонажа" className="sheet-modal">
         <div className="sheet-tabs">
           <button type="button" className={tab === 'main' ? 'active' : ''} onClick={() => setTab('main')}>
             Основное
@@ -301,119 +274,13 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           })}
         </div>
 
-        <div className="sheet-section-title">
-          Оружие ({draft.attacks.length}/{MAX_ATTACKS})
-        </div>
-        {draft.attacks.map((weapon, i) => (
-          <div className="weapon-block" key={i}>
-            <div className="weapon-head">
-              <span>Оружие {i + 1}</span>
-              {draft.attacks.length > 1 && (
-                <button type="button" className="weapon-remove" onClick={() => removeWeapon(i)}>
-                  Удалить
-                </button>
-              )}
-            </div>
-            <label className="field">
-              <span>Название</span>
-              <input
-                type="text"
-                value={weapon.name}
-                maxLength={40}
-                placeholder="Например: Меч"
-                onChange={(e) => setWeapon(i, { name: e.target.value })}
-              />
-            </label>
-            <div className="field-row">
-              <label className="field">
-                <span>Формула попадания</span>
-                <input
-                  type="text"
-                  value={weapon.hit}
-                  placeholder="d20+5"
-                  onChange={(e) => setWeapon(i, { hit: e.target.value })}
-                />
-              </label>
-              <label className="field">
-                <span>Формула урона</span>
-                <input
-                  type="text"
-                  value={weapon.damage}
-                  placeholder="d8+3"
-                  onChange={(e) => setWeapon(i, { damage: e.target.value })}
-                />
-              </label>
-              <label className="field">
-                <span>Тип урона</span>
-                <select
-                  value={weapon.damageType ?? ''}
-                  onChange={(e) => setWeapon(i, { damageType: e.target.value || undefined })}
-                >
-                  <option value="">—</option>
-                  {DAMAGE_TYPES.map((t) => (
-                    <option key={t.key} value={t.key}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="field-row">
-              <label className="field">
-                <span>Дистанция</span>
-                <select
-                  value={weapon.rangeType}
-                  onChange={(e) => setWeapon(i, { rangeType: e.target.value as AttackEntry['rangeType'] })}
-                >
-                  <option value="melee">Ближняя</option>
-                  <option value="ranged">Дальняя</option>
-                  <option value="none">Без дальности</option>
-                </select>
-              </label>
-              {weapon.rangeType === 'melee' && (
-                <label className="field">
-                  <span>Досягаемость, фт</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={weapon.rangeNormal}
-                    onChange={(e) => setWeapon(i, { rangeNormal: Number(e.target.value) })}
-                  />
-                </label>
-              )}
-              {weapon.rangeType === 'ranged' && (
-                <>
-                  <label className="field">
-                    <span>Обычная, фт</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={weapon.rangeNormal}
-                      onChange={(e) => setWeapon(i, { rangeNormal: Number(e.target.value) })}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Дальняя, фт</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={weapon.rangeLong}
-                      onChange={(e) => setWeapon(i, { rangeLong: Number(e.target.value) })}
-                    />
-                  </label>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-        <button
-          type="button"
-          className="weapon-add"
-          onClick={addWeapon}
-          disabled={draft.attacks.length >= MAX_ATTACKS}
-        >
-          + Добавить атаку
-        </button>
+        <AttacksForm
+          attacks={draft.attacks}
+          title="Оружие"
+          itemLabel="Оружие"
+          namePlaceholder="Например: Меч"
+          onChange={(attacks) => setDraft((d) => (d ? { ...d, attacks } : d))}
+        />
         <DamageDefensesForm
           value={draft.damageDefenses ?? []}
           onChange={(damageDefenses) => setDraft((d) => (d ? { ...d, damageDefenses } : d))}
@@ -436,8 +303,6 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             Сохранить
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

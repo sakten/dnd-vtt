@@ -29,8 +29,20 @@ const AREA_RU: Record<string, string> = {
   R: 'радиус',
 };
 
-const CONDITION_RU: Record<string, string> = {
-  blinded: 'ослеплён',
+export const SPELL_SCHOOL_RU: Record<string, string> = {
+  Abjuration: 'Ограждение',
+  Conjuration: 'Вызов',
+  Divination: 'Прорицание',
+  Enchantment: 'Очарование',
+  Evocation: 'Воплощение',
+  Illusion: 'Иллюзия',
+  Necromancy: 'Некромантия',
+  Transmutation: 'Преобразование',
+};
+
+export const spellLevelLabel = (level: number) => (level === 0 ? 'Фокусы' : `${level} круг`);
+
+const CONDITION_RU: Record<string, string> = {  blinded: 'ослеплён',
   charmed: 'очарован',
   deafened: 'оглох',
   frightened: 'испуган',

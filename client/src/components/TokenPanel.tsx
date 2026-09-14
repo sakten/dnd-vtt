@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { LibraryItem, TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
 import { canAddLibraryItem, canSetAsCharacter } from '../lib/control';
+import Modal from './Modal';
 import TokenFieldsForm from './TokenFieldsForm';
 
 export default function TokenPanel() {
@@ -53,14 +53,6 @@ export default function TokenPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
   }, [editingId]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setEditingId(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
 
   const handleItemClick = (id: string) => {
     setSelectedId(id);
@@ -186,38 +178,32 @@ export default function TokenPanel() {
       </div>
       )}
 
-      {editing &&
-        draft &&
-        createPortal(
-          <div className="modal-backdrop" onMouseDown={() => setEditingId(null)}>
-            <div className="modal token-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-              <h3>Свойства токена</h3>
-              <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
-              <div className="modal-actions spread">
-                <button
-                  className="danger"
-                  onClick={() => {
-                    removeLibraryItem(editing.id);
-                    setEditingId(null);
-                  }}
-                >
-                  Убрать из библиотеки
-                </button>
-                <button
-                  className="primary"
-                  disabled={draftInvalid}
-                  onClick={() => {
-                    updateLibraryItem(editing.id, draft);
-                    setEditingId(null);
-                  }}
-                >
-                  Готово
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      {editing && draft && (
+        <Modal onClose={() => setEditingId(null)} title="Свойства токена" className="token-modal">
+          <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
+          <div className="modal-actions spread">
+            <button
+              className="danger"
+              onClick={() => {
+                removeLibraryItem(editing.id);
+                setEditingId(null);
+              }}
+            >
+              Убрать из библиотеки
+            </button>
+            <button
+              className="primary"
+              disabled={draftInvalid}
+              onClick={() => {
+                updateLibraryItem(editing.id, draft);
+                setEditingId(null);
+              }}
+            >
+              Готово
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

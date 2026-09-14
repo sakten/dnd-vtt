@@ -21,8 +21,10 @@ import ConditionsForm from './ConditionsForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import DefenseChips from './DefenseChips';
 import EffectChips from './EffectChips';
+import Modal from './Modal';
 import StatblockForm from './StatblockForm';
 import StatblockSpells from './StatblockSpells';
+import { DescriptionField, TokenHealthFields, TokenPassportFields, TokenPlayerFields } from './TokenFieldsForm';
 
 const FACTION_RU: Record<Faction, string> = { ally: 'Союзник', enemy: 'Враг', neutral: 'Нейтрал' };
 
@@ -80,20 +82,14 @@ export default function TokenMenu() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии меню
   }, [menuId]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [close]);
-
   // Сняли галку «кастер» — вкладка заклинаний исчезает, уходим на статблок.
   useEffect(() => {
     if (tab === 'spells' && !statblock?.spellcasting) setTab('statblock');
   }, [tab, statblock]);
 
   if (!token || !draft) return null;
+
+  const patchDraft = (patch: Partial<TokenFields>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   const hpMax = statNumber(draft.hpMax);
   const pct = hpMax > 0 ? Math.max(0, Math.min(1, hpCurrent / hpMax)) : 0;
@@ -134,8 +130,7 @@ export default function TokenMenu() {
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => close(null)}>
-      <div className="modal token-modal" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={() => close(null)} className="token-modal">
         <div className="tm-header">
           <div className="tm-portrait">
             {draft.imageUrl ? <img src={draft.imageUrl} alt={draft.name} draggable={false} /> : <span>{'?'}</span>}
@@ -205,59 +200,12 @@ export default function TokenMenu() {
           {tab === 'main' && (
             <>
               <div className="sheet-section-title">Паспорт</div>
-              <label className="field">
-                <span>Название</span>
-                <input
-                  type="text"
-                  value={draft.name}
-                  maxLength={40}
-                  onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))}
-                />
-              </label>
-              <div className="field-row">
-                <label className="field">
-                  <span>Бонус инициативы</span>
-                  <input
-                    type="text"
-                    value={draft.initiativeBonus}
-                    maxLength={10}
-                    placeholder="+0"
-                    onChange={(e) => setDraft((d) => (d ? { ...d, initiativeBonus: e.target.value } : d))}
-                  />
-                </label>
-                {isDm && (
-                  <label className="field">
-                    <span>Скорость, фт</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={1000}
-                      value={speed}
-                      onChange={(e) => setSpeed(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                    />
-                  </label>
-                )}
-              </div>
-              <div className="size-row">
-                <span>Размер:</span>
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    className={draft.cells === n ? 'active' : ''}
-                    onClick={() => setDraft((d) => (d ? { ...d, cells: n } : d))}
-                  >
-                    {n}×{n}
-                  </button>
-                ))}
-                <label className="checkbox-row inline">
-                  <input
-                    type="checkbox"
-                    checked={draft.round}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, round: e.target.checked } : d))}
-                  />
-                  Круглый
-                </label>
-              </div>
+              <TokenPassportFields
+                value={draft}
+                onChange={patchDraft}
+                speed={speed}
+                onSpeedChange={isDm ? setSpeed : undefined}
+              />
               {isDm && (
                 <>
                   <div className="tm-seg-row">
@@ -281,39 +229,7 @@ export default function TokenMenu() {
                       </button>
                     </div>
                   </div>
-                  <label className="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={draft.isPlayerToken}
-                      onChange={(e) =>
-                        setDraft((d) =>
-                          d
-                            ? { ...d, isPlayerToken: e.target.checked, ...(e.target.checked ? {} : { owner: '' }) }
-                            : d
-                        )
-                      }
-                    />
-                    Это токен игрока
-                  </label>
-                  {draft.isPlayerToken && (
-                    <label className="field">
-                      <span>Владелец (пусто — сам персонаж)</span>
-                      <input
-                        type="text"
-                        value={draft.owner}
-                        maxLength={40}
-                        onChange={(e) => setDraft((d) => (d ? { ...d, owner: e.target.value } : d))}
-                      />
-                    </label>
-                  )}
-                  <label className="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={draft.showStats}
-                      onChange={(e) => setDraft((d) => (d ? { ...d, showStats: e.target.checked } : d))}
-                    />
-                    Показывать статы игрокам
-                  </label>
+                  <TokenPlayerFields value={draft} onChange={patchDraft} isDm />
                 </>
               )}
               {!isDm && !token.owner && token.isPlayerToken && setCurrentCharacter && (
@@ -330,62 +246,33 @@ export default function TokenMenu() {
               )}
 
               <div className="sheet-section-title">Хирты</div>
-              <div className="field-row">
-                <label className="field">
-                  <span>AC</span>
-                  <input
-                    type="text"
-                    value={draft.ac}
-                    maxLength={10}
-                    placeholder="13"
-                    onChange={(e) => setDraft((d) => (d ? { ...d, ac: e.target.value } : d))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Макс. ХП</span>
-                  <input
-                    type="text"
-                    value={draft.hpMax}
-                    maxLength={10}
-                    placeholder="20"
-                    onChange={(e) => setDraft((d) => (d ? { ...d, hpMax: e.target.value } : d))}
-                  />
-                </label>
-              </div>
-              <div className="field-row">
-                <label className="field">
-                  <span>Текущее ХП</span>
-                  <input
-                    type="number"
-                    value={hpCurrent}
-                    onChange={(e) => setHpCurrent(Math.round(Number(e.target.value) || 0))}
-                  />
-                </label>
-                <label className="field">
-                  <span>Временные ХП</span>
-                  <input
-                    type="number"
-                    value={hpTemp}
-                    onChange={(e) => setHpTemp(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                  />
-                </label>
-              </div>
-              {isDm && (
-                <div className="tm-quick-hp">
-                  <input
-                    type="number"
-                    min={0}
-                    value={hpAmount}
-                    onChange={(e) => setHpAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                  />
-                  <button className="tm-dmg" onClick={() => quickHp(-1)}>
-                    − Урон
-                  </button>
-                  <button className="tm-heal" onClick={() => quickHp(1)}>
-                    + Лечение
-                  </button>
-                </div>
-              )}
+              <TokenHealthFields
+                value={draft}
+                onChange={patchDraft}
+                current={hpCurrent}
+                onCurrentChange={setHpCurrent}
+                temp={hpTemp}
+                onTempChange={setHpTemp}
+                currentMin={-999}
+                quick={
+                  isDm ? (
+                    <div className="tm-quick-hp">
+                      <input
+                        type="number"
+                        min={0}
+                        value={hpAmount}
+                        onChange={(e) => setHpAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+                      />
+                      <button className="tm-dmg" onClick={() => quickHp(-1)}>
+                        − Урон
+                      </button>
+                      <button className="tm-heal" onClick={() => quickHp(1)}>
+                        + Лечение
+                      </button>
+                    </div>
+                  ) : undefined
+                }
+              />
 
               <ConditionsForm value={conditions} onChange={setConditions} />
 
@@ -418,15 +305,7 @@ export default function TokenMenu() {
                 onChange={(damageDefenses) => setDraft((d) => (d ? { ...d, damageDefenses } : d))}
               />
 
-              <div className="sheet-section-title">Описание</div>
-              <label className="field">
-                <textarea
-                  value={draft.description}
-                  rows={3}
-                  maxLength={200}
-                  onChange={(e) => setDraft((d) => (d ? { ...d, description: e.target.value } : d))}
-                />
-              </label>
+              <DescriptionField value={draft} onChange={patchDraft} />
             </>
           )}
 
@@ -465,7 +344,6 @@ export default function TokenMenu() {
             Готово
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
