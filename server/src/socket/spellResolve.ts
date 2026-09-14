@@ -16,7 +16,6 @@ import {
   isHealingSpell,
   resolveAttack,
   rollDice,
-  rollLabelText,
   spellAttackCount,
   spellDamageExpression,
   spellEffectDefs,
@@ -25,18 +24,14 @@ import {
   statNumber,
   withAdvantage,
   withRollParts,
-  type ChatMessage,
-  type DiceRollResult,
   type EffectInstance,
-  type RollKind,
-  type RollLabelParams,
   type Spell,
   type SpellStats,
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { rollConcentrationOnDamage } from './effects';
+import { pushRollMessage } from './messages';
 
 export interface SpellCastInput {
   caster: Token;
@@ -83,48 +78,6 @@ export function validateSpellCast(room: Room, input: SpellCastInput): string | u
   return undefined;
 }
 
-/** Сообщение-бросок в чат. */
-function pushRoll(
-  ctx: ConnCtx,
-  room: Room,
-  author: string,
-  roll: DiceRollResult,
-  kind: RollKind,
-  params: RollLabelParams,
-  crit?: boolean
-) {
-  const message: ChatMessage = {
-    id: randomUUID(),
-    kind: 'roll',
-    author,
-    roll,
-    label: ctx.cleanLabel(rollLabelText(kind, params)),
-    rollKind: kind,
-    labelParams: params,
-    crit,
-    ts: Date.now(),
-  };
-  ctx.manager.addMessage(room, message);
-  ctx.broadcastAll('chat:message', message);
-}
-
-function applyHp(
-  ctx: ConnCtx,
-  room: Room,
-  mapId: string,
-  target: Token,
-  amount: number,
-  opts: { crit?: boolean } = {}
-) {
-  if (!amount) return;
-  const changed = ctx.manager.adjustTokenHp(room, mapId, target, amount, opts);
-  for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
-  const controllerId = ctx.manager.controllerOfToken(room, target);
-  if (controllerId) ctx.emitResources(room, controllerId);
-  ctx.broadcastAll('players:update', ctx.manager.toState(room).players);
-  if (amount < 0) rollConcentrationOnDamage(ctx, room, target, -amount);
-}
-
 /** Тип урона заклинания, если он однозначен (иначе защиты не применяются). */
 function spellDamageType(spell: Spell): string | undefined {
   const types = spell.damage?.types ?? [];
@@ -164,9 +117,14 @@ export function applySpellEffects(ctx: ConnCtx, input: SpellEffectApplyInput): v
         const parts = ctx.manager.savePartsForToken(room, target, ability);
         const saveRoll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
         const success = !autoFailSave(target.conditions, ability) && saveRoll.total >= stats.dc;
-        pushRoll(ctx, room, author, saveRoll, 'save', {
-          subject: `${spell.name} · ${target.name}`,
-          saveOutcome: success ? 'success' : 'fail',
+        pushRollMessage(ctx, room, {
+          author,
+          roll: saveRoll,
+          kind: 'save',
+          params: {
+            subject: `${spell.name} · ${target.name}`,
+            saveOutcome: success ? 'success' : 'fail',
+          },
         });
         if (success) continue;
       }
@@ -282,7 +240,12 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
       const crit = isCriticalHit(hitRoll) || autoCrit(target.conditions, distance, rangeType);
       const targetAc = ctx.manager.acForToken(room, target);
       const hitSuccess = targetAc > 0 ? resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc) : true;
-      pushRoll(ctx, room, author, hitRoll, 'attack', { subject: label, hit: hitSuccess ? 'hit' : 'miss' });
+      pushRollMessage(ctx, room, {
+        author,
+        roll: hitRoll,
+        kind: 'attack',
+        params: { subject: label, hit: hitSuccess ? 'hit' : 'miss' },
+      });
       if (!hitSuccess) continue;
       const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target?.id }, abilities);
       const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
@@ -291,12 +254,14 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
         damageType,
         ctx.manager.damageDefensesForToken(room, target)
       );
-      pushRoll(ctx, room, author, damageRoll, healing ? 'heal' : 'damage', {
-        subject: label,
-        damageType,
-        damageNote: adjusted.note,
-      }, crit);
-      applyHp(ctx, room, input.mapId, target, healing ? adjusted.amount : -adjusted.amount, { crit });
+      pushRollMessage(ctx, room, {
+        author,
+        roll: damageRoll,
+        kind: healing ? 'heal' : 'damage',
+        params: { subject: label, damageType, damageNote: adjusted.note },
+        crit,
+      });
+      ctx.applyHp(room, input.mapId, target, healing ? adjusted.amount : -adjusted.amount, { crit });
     }
     return {};
   }
@@ -305,20 +270,22 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз).
     const damageParts = damageRollParts(caster.effects, { damageType }, ctx.manager.abilitiesForToken(room, caster));
     const damageRoll = rollDice(withRollParts(expression, damageParts));
-    pushRoll(ctx, room, author, damageRoll, healing ? 'heal' : 'damage', { subject, damageType });
+    pushRollMessage(ctx, room, { author, roll: damageRoll, kind: healing ? 'heal' : 'damage', params: { subject, damageType } });
     for (const target of targets) {
       const saveAbility = spell.save[0];
       const parts = ctx.manager.savePartsForToken(room, target, saveAbility);
       const saveRoll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
       const success = !autoFailSave(target.conditions, saveAbility) && saveRoll.total >= stats.dc;
-      pushRoll(ctx, room, author, saveRoll, 'save', {
-        subject: `${spell.name} · ${target.name}`,
-        saveOutcome: success ? 'success' : 'fail',
+      pushRollMessage(ctx, room, {
+        author,
+        roll: saveRoll,
+        kind: 'save',
+        params: { subject: `${spell.name} · ${target.name}`, saveOutcome: success ? 'success' : 'fail' },
       });
       if (success && !spell.saveHalf) continue;
       let amount = success ? Math.floor(damageRoll.total / 2) : damageRoll.total;
       amount = applyDamageDefenses(amount, damageType, ctx.manager.damageDefensesForToken(room, target)).amount;
-      if (amount) applyHp(ctx, room, input.mapId, target, healing ? amount : -amount);
+      if (amount) ctx.applyHp(room, input.mapId, target, healing ? amount : -amount);
     }
     return {};
   }
@@ -334,13 +301,14 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
         damageType,
         target ? ctx.manager.damageDefensesForToken(room, target) : []
       );
-      pushRoll(ctx, room, author, damageRoll, healing ? 'heal' : 'damage', {
-        subject: label,
-        damageType,
-        damageNote: adjusted.note,
+      pushRollMessage(ctx, room, {
+        author,
+        roll: damageRoll,
+        kind: healing ? 'heal' : 'damage',
+        params: { subject: label, damageType, damageNote: adjusted.note },
       });
       if (target && (statNumber(target.hpMax) > 0 || target.id === caster.id)) {
-        applyHp(ctx, room, input.mapId, target, healing ? adjusted.amount : -adjusted.amount);
+        ctx.applyHp(room, input.mapId, target, healing ? adjusted.amount : -adjusted.amount);
       }
     }
     return {};

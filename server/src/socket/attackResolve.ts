@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   advantageAgainst,
   applyDamageDefenses,
@@ -16,19 +15,17 @@ import {
   isCriticalHit,
   resolveAttack,
   rollDice,
-  rollLabelText,
   statNumber,
   weaponRolls,
   withAdvantage,
   withRollParts,
   type AttackEntry,
-  type ChatMessage,
   type DiceRollResult,
   type RollLabelParams,
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { rollConcentrationOnDamage } from './effects';
+import { pushRollMessage } from './messages';
 
 export interface AttackResolveInput {
   /** Атакующий токен; null — атака только по листу (без токена на карте). */
@@ -205,7 +202,7 @@ export function rollPreparedAttack(
   prep: WeaponAttackPrep,
   opts: { extraDisadvantage?: boolean } = {}
 ): WeaponAttackRoll {
-  const { manager, socket, broadcastAll, cleanLabel } = ctx;
+  const { socket } = ctx;
   const room = ctx.getRoom();
   if (!room) return { result: {} };
   const { attacker, attackerMapId, target, targetMapId, attack, author } = prep.input;
@@ -229,18 +226,7 @@ export function rollPreparedAttack(
         ...prep.baseParams,
         hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
       };
-      const hitMessage: ChatMessage = {
-        id: randomUUID(),
-        kind: 'roll',
-        author,
-        roll: hitRoll,
-        label: cleanLabel(rollLabelText('attack', params)),
-        rollKind: 'attack',
-        labelParams: params,
-        ts: Date.now(),
-      };
-      manager.addMessage(room, hitMessage);
-      broadcastAll('chat:message', hitMessage);
+      pushRollMessage(ctx, room, { author, roll: hitRoll, kind: 'attack', params });
       result.hitRoll = hitRoll;
       result.hitSuccess = hitSuccess;
       result.crit = crit;
@@ -304,7 +290,7 @@ export function applyWeaponAttackDamage(
   plan: WeaponAttackPlan,
   mods: WeaponDamageMods = {}
 ): WeaponDamageResult | undefined {
-  const { manager, broadcastAll, emitToken } = ctx;
+  const { manager } = ctx;
   const room = ctx.getRoom();
   if (!room) return undefined;
   const { target, targetMapId, attack, crit, baseParams, damageExpr } = plan;
@@ -322,30 +308,19 @@ export function applyWeaponAttackDamage(
     const adjusted = applyDamageDefenses(damageRoll.total, attack.damageType, defenses);
     const amount = mods.halveDamage ? Math.floor(adjusted.amount / 2) : adjusted.amount;
     const damageParams: RollLabelParams = { ...baseParams, damageNote: adjusted.note };
-    const damageMessage: ChatMessage = {
-      id: randomUUID(),
-      kind: 'roll',
+    pushRollMessage(ctx, room, {
       author: plan.author,
       roll: damageRoll,
-      label: ctx.cleanLabel(rollLabelText('damage', damageParams)),
-      rollKind: 'damage',
-      labelParams: damageParams,
+      kind: 'damage',
+      params: damageParams,
       crit,
-      ts: Date.now(),
-    };
-    manager.addMessage(room, damageMessage);
-    broadcastAll('chat:message', damageMessage);
+    });
 
     let applied = 0;
     if (target && targetMapId && amount > 0) {
       const isCharacter = Object.values(room.controllers).includes(target.libraryItemId);
       if (statNumber(target.hpMax) > 0 || isCharacter) {
-        const changed = manager.adjustTokenHp(room, targetMapId, target, -amount, { crit });
-        for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-        const controllerId = manager.controllerOfToken(room, target);
-        if (controllerId) ctx.emitResources(room, controllerId);
-        broadcastAll('players:update', manager.toState(room).players);
-        rollConcentrationOnDamage(ctx, room, target, amount);
+        ctx.applyHp(room, targetMapId, target, -amount, { crit });
         applied = amount;
       }
     }

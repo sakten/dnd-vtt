@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import type { ChatMessage, Token } from 'shared';
+import type { Token } from 'shared';
 import { LEAVE_GRACE_MS, type ConnCtx } from './context';
 import { adminTokenOk } from './admin';
 
@@ -79,7 +78,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       const targetSocket = target.socketId ? io.sockets.sockets.get(target.socketId) : undefined;
       room.players = room.players.filter((p) => p.id !== id);
       manager.saveSoon(room);
-      broadcastAll('players:update', manager.toState(room).players);
+      ctx.notifyPlayers(room);
       if (targetSocket) {
         targetSocket.emit('player:kicked');
         setTimeout(() => targetSocket.disconnect(true), 300);
@@ -118,16 +117,8 @@ export function registerRoomHandlers(ctx: ConnCtx) {
           if (!p || p.socketId !== null) return;
           p.isConnected = false;
           manager.saveSoon(r);
-          io.to(r.code).emit('players:update', manager.toState(r).players);
-          const message: ChatMessage = {
-            id: randomUUID(),
-            kind: 'text',
-            author: 'Система',
-            text: `${p.name} вышел из комнаты`,
-            ts: Date.now(),
-          };
-          manager.addMessage(r, message);
-          io.to(r.code).emit('chat:message', message);
+          ctx.notifyPlayers(r);
+          systemMessage(r, `${p.name} вышел из комнаты`);
         }, LEAVE_GRACE_MS)
       );
     });

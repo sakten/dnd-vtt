@@ -1,45 +1,44 @@
-import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_ABILITIES,
   applyRest,
   effectiveMaxHp,
   rollDice,
-  rollLabelText,
   sanitizeResources,
   sheetMods,
-  type ChatMessage,
   type DiceRollResult,
   type PlayerResources,
   type RollLabelParams,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { playerScope } from './guards';
+import { pushRollMessage } from './messages';
 
 export function registerResourceHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, broadcastAll, emitToken } = ctx;
+  const { manager, emitToken } = ctx;
 
     ctx.on('resources:update', (payload) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (!room) return;
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      const { room, playerId } = scope;
       if (!payload || typeof payload !== 'object') return;
-      const sheet = room.sheets[ctx.playerId];
+      const sheet = room.sheets[playerId];
       const classes = sheet?.classes ?? [];
       const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);
       const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
-      room.resources[ctx.playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
-      const changed = manager.syncSheetToTokens(room, ctx.playerId);
+      room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
+      const changed = manager.syncSheetToTokens(room, playerId);
       manager.saveSoon(room);
-      socket.emit('resources:update', room.resources[ctx.playerId]);
+      ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-      broadcastAll('players:update', manager.toState(room).players);
+      ctx.notifyPlayers(room);
     });
 
     ctx.on('resources:hitDie', (payload) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (!room) return;
-      const sheet = room.sheets[ctx.playerId];
-      const res = room.resources[ctx.playerId];
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      const { room, playerId } = scope;
+      const sheet = room.sheets[playerId];
+      const res = room.resources[playerId];
       if (!sheet || !res) return;
       const requested = Number(payload?.die);
       const entry =
@@ -49,50 +48,46 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const heal = Math.max(0, roll.total + sheetMods(sheet.abilities).con);
       entry.current -= 1;
       res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
-      const changed = manager.syncSheetToTokens(room, ctx.playerId);
+      const changed = manager.syncSheetToTokens(room, playerId);
       manager.saveSoon(room);
-      const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
-      const message: ChatMessage = {
-        id: randomUUID(),
-        kind: 'roll',
+      const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
+      pushRollMessage(ctx, room, {
         author,
         roll,
         label: `Хит дайс d${entry.die} (лечение ${heal})`,
-        ts: Date.now(),
-      };
-      manager.addMessage(room, message);
-      socket.emit('resources:update', res);
+      });
+      ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-      broadcastAll('chat:message', message);
-      broadcastAll('players:update', manager.toState(room).players);
+      ctx.notifyPlayers(room);
     });
 
     ctx.on('resources:rest', ({ type }) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (!room || (type !== 'short' && type !== 'long')) return;
-      const res = room.resources[ctx.playerId];
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      const { room, playerId } = scope;
+      if (type !== 'short' && type !== 'long') return;
+      const res = room.resources[playerId];
       if (!res) return;
       if (type === 'long') {
         // Долгий отдых: истёкшие эффекты (и их состояния/концентрация) снимаются.
-        for (const c of manager.clearEffectsForPlayer(room, ctx.playerId)) {
+        for (const c of manager.clearEffectsForPlayer(room, playerId)) {
           emitToken(room, 'token:update', c.mapId, c.token);
         }
       }
-      room.resources[ctx.playerId] = applyRest(res, type);
-      for (const c of manager.syncSheetToTokens(room, ctx.playerId)) {
+      room.resources[playerId] = applyRest(res, type);
+      for (const c of manager.syncSheetToTokens(room, playerId)) {
         emitToken(room, 'token:update', c.mapId, c.token);
       }
       manager.saveSoon(room);
-      socket.emit('resources:update', room.resources[ctx.playerId]);
-      broadcastAll('players:update', manager.toState(room).players);
+      ctx.emitResources(room, playerId);
+      ctx.notifyPlayers(room);
     });
 
     ctx.on('resources:deathSave', (payload) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (!room) return;
-      const res = room.resources[ctx.playerId];
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      const { room, playerId } = scope;
+      const res = room.resources[playerId];
       if (!res) return;
       const expr = typeof payload?.expression === 'string' ? payload.expression : 'd20';
       let roll: DiceRollResult;
@@ -119,29 +114,18 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       }
       manager.saveSoon(room);
       if (res.hp.deathFailures >= 3) {
-        for (const c of manager.markControlledTokensDead(room, ctx.playerId, true)) {
+        for (const c of manager.markControlledTokensDead(room, playerId, true)) {
           emitToken(room, 'token:update', c.mapId, c.token);
         }
       }
-      const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
+      const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
       const params: RollLabelParams = {
         outcome,
         successes: res.hp.deathSuccesses,
         failures: res.hp.deathFailures,
       };
-      const message: ChatMessage = {
-        id: randomUUID(),
-        kind: 'roll',
-        author,
-        roll,
-        label: rollLabelText('death', params),
-        rollKind: 'death',
-        labelParams: params,
-        ts: Date.now(),
-      };
-      manager.addMessage(room, message);
-      socket.emit('resources:update', res);
-      broadcastAll('chat:message', message);
+      pushRollMessage(ctx, room, { author, roll, kind: 'death', params });
+      ctx.emitResources(room, playerId);
     });
 
 }

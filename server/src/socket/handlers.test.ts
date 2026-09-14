@@ -22,6 +22,7 @@ import { registerActionHandlers } from './actions';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
+import { rollConcentrationOnDamage } from './effects';
 import { pendingOffers, registerReactionHandlers } from './reactions';
 
 function makeToken(id: string, overrides: Partial<Token> = {}): Token {
@@ -149,7 +150,21 @@ function makeCtx(room: Room, opts: { playerId?: string | null; dm?: boolean } = 
     emitToken: (event: string, mapId: string, token: Token) => {
       emitted.push({ event, payload: { mapId, token } });
     },
-    emitResources: () => {},
+    emitResources: (r: Room, playerId: string) => {
+      const res = r.resources[playerId];
+      if (res) emitted.push({ event: 'resources:update', payload: res });
+    },
+    notifyPlayers: () => {},
+    applyHp: (r: Room, mapId: string, token: Token, amount: number, opts: { crit?: boolean; concentration?: boolean } = {}) => {
+      if (!amount) return;
+      const changed = manager.adjustTokenHp(r, mapId, token, amount, { crit: opts.crit });
+      for (const c of changed) emitted.push({ event: 'token:update', payload: { mapId: c.mapId, token: c.token } });
+      const controllerId = manager.controllerOfToken(r, token);
+      if (controllerId && r.resources[controllerId]) {
+        emitted.push({ event: 'resources:update', payload: r.resources[controllerId] });
+      }
+      if (amount < 0 && opts.concentration !== false) rollConcentrationOnDamage(ctx, r, token, -amount);
+    },
     syncCombat: (r: Room, mapId: string) => {
       emitted.push({
         event: 'combat:update',

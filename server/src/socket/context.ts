@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
   effectiveMaxHp,
@@ -6,7 +5,6 @@ import {
   emptyResources,
   sheetMods,
   syncResources,
-  type ChatMessage,
   type ClassLevel,
   type ClientToServerEvents,
   type LibraryItem,
@@ -15,6 +13,8 @@ import {
 } from 'shared';
 import type { RoomManager } from '../rooms';
 import type { Room } from '../roomTypes';
+import { rollConcentrationOnDamage } from './effects';
+import { pushTextMessage } from './messages';
 
 export const LEAVE_GRACE_MS = 8000;
 
@@ -53,6 +53,19 @@ export interface ConnCtx {
   emitToken: (room: Room, event: 'token:add' | 'token:update', mapId: string, token: Token) => void;
   /** Отправляет `resources:update` конкретному игроку (по controllerId), если он подключён. */
   emitResources: (room: Room, playerId: string) => void;
+  /** Рассылает обновлённый список игроков. */
+  notifyPlayers: (room: Room) => void;
+  /**
+   * Начисляет/снимает HP токену и рассылает: токены, ресурсы контролёра,
+   * список игроков, проверку концентрации при уроне.
+   */
+  applyHp: (
+    room: Room,
+    mapId: string,
+    token: Token,
+    amount: number,
+    opts?: { crit?: boolean; concentration?: boolean }
+  ) => void;
   syncCombat: (room: Room, mapId: string) => void;
   cleanLabel: (label?: string) => string | undefined;
   systemMessage: (room: Room, text: string) => void;
@@ -143,14 +156,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (isDmViewer(room, viewerId)) return token;
       if (token.showStats) return token;
       if (viewerId) {
-        let mapId = '';
-        for (const m of room.scene.maps) {
-          if (m.tokens.some((t) => t.id === token.id)) {
-            mapId = m.id;
-            break;
-          }
-        }
-        if (mapId && manager.controlsToken(room, mapId, viewerId, token)) return token;
+        const found = manager.locateToken(room, token.id);
+        if (found && manager.controlsToken(room, found.mapId, viewerId, token)) return token;
       }
       return { ...token, ac: '', hpMax: '', hpCurrent: 0, statblock: undefined, damageDefenses: [] };
     },
@@ -187,6 +194,18 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!s || !res) return;
       (s as { emit: (ev: string, payload: unknown) => void }).emit('resources:update', res);
     },
+    notifyPlayers: (room) => {
+      ctx.broadcastAll('players:update', manager.toState(room).players);
+    },
+    applyHp: (room, mapId, token, amount, opts = {}) => {
+      if (!amount) return;
+      const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit });
+      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      const controllerId = manager.controllerOfToken(room, token);
+      if (controllerId) ctx.emitResources(room, controllerId);
+      ctx.notifyPlayers(room);
+      if (amount < 0 && opts.concentration !== false) rollConcentrationOnDamage(ctx, room, token, -amount);
+    },
     syncCombat: (room, mapId) => {
       ctx.broadcastAll('combat:update', {
         mapId,
@@ -195,9 +214,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     },
     cleanLabel: (label) => (label?.trim() ? label.trim().slice(0, 80) : undefined),
     systemMessage: (room, text) => {
-      const message: ChatMessage = { id: randomUUID(), kind: 'text', author: 'Система', text, ts: Date.now() };
-      manager.addMessage(room, message);
-      ctx.broadcastAll('chat:message', message);
+      pushTextMessage(ctx, room, text);
     },
     emitJoined: (room, selfId) => {
       if (!room.resources[selfId]) {

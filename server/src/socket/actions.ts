@@ -1,20 +1,18 @@
-import { randomUUID } from 'node:crypto';
 import {
   actionSlotAvailable,
   classFeatures,
   findBaseAction,
-  isIncapacitated,
   rollDice,
-  rollLabelText,
   type ActionCost,
   type ActionDef,
   type AttackEntry,
-  type ChatMessage,
   type Token,
   type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { isReactionPending, resolveWeaponAttackWithReactions } from './reactions';
+import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
+import { pushRollMessage } from './messages';
+import { resolveWeaponAttackWithReactions } from './reactions';
 
 /** Слот, которым будет оплачено действие: запрошенный, если доступен, иначе первый доступный. */
 function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: ActionCost): ActionCost {
@@ -24,23 +22,15 @@ function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: Act
 }
 
 export function registerActionHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, broadcastAll, syncCombat, systemMessage, emitToken } = ctx;
+  const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
     ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot }) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (room && isReactionPending(room.code)) {
-        socket.emit('chat:error', 'Ожидание реакции');
-        return;
-      }
-      if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string' || typeof actionId !== 'string') return;
-      const token = manager.findToken(room, mapId, tokenId);
-      if (!token) return;
-      if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
-      if (!isDm() && isIncapacitated(token.conditions)) {
-        socket.emit('chat:error', 'Существо недееспособно');
-        return;
-      }
+      if (!ctx.playerId || typeof actionId !== 'string') return;
+      if (rejectIfReaction(ctx)) return;
+      const scope = scopedToken(ctx, mapId, tokenId);
+      if (!scope) return;
+      const { room, token } = scope;
+      if (rejectIfIncapacitated(ctx, token)) return;
 
       const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
       const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
@@ -108,8 +98,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       if (resourceAmount) {
         manager.spendResource(room, ctx.playerId, action.resourceKey!, resourceAmount);
-        const res = room.resources[ctx.playerId];
-        if (res) socket.emit('resources:update', res);
+        ctx.emitResources(room, ctx.playerId);
       }
 
       if (action.id === 'class:fighter:actionSurge') {
@@ -125,11 +114,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (action.id === 'class:fighter:secondWind') {
         const fighterLevel = sheet?.classes.find((c) => c.className === 'fighter')?.level ?? 1;
         const heal = Math.max(0, rollDice(`1d10+${Math.max(1, fighterLevel)}`).total);
-        for (const c of manager.adjustTokenHp(room, mapId, token, heal)) {
-          emitToken(room, 'token:update', c.mapId, c.token);
-        }
-        const res = room.resources[ctx.playerId];
-        if (res) socket.emit('resources:update', res);
+        ctx.applyHp(room, mapId, token, heal);
         systemMessage(room, `${token.name}: Второе дыхание (+${heal} HP)`);
         return;
       }
@@ -148,18 +133,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
         const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
         try {
           const roll = rollDice(expression);
-          const message: ChatMessage = {
-            id: randomUUID(),
-            kind: 'roll',
+          pushRollMessage(ctx, room, {
             author,
             roll,
-            label: rollLabelText('check', { subject: `${action.name}: ${token.name}` }),
-            rollKind: 'check',
-            labelParams: { subject: `${action.name}: ${token.name}` },
-            ts: Date.now(),
-          };
-          manager.addMessage(room, message);
-          broadcastAll('chat:message', message);
+            kind: 'check',
+            params: { subject: `${action.name}: ${token.name}` },
+          });
         } catch {
           socket.emit('chat:error', 'Не удалось выполнить проверку');
         }

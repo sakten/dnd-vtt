@@ -4,7 +4,6 @@ import {
   casterStats,
   characterLevel,
   grantedSpells,
-  isIncapacitated,
   spellActionCost,
   spellAreaOrigin,
   spellHasArea,
@@ -16,30 +15,23 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import { findSpell } from '../spells';
+import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
-import { isReactionPending, resolveSpellCastWithReactions } from './reactions';
+import { resolveSpellCastWithReactions } from './reactions';
 
 const isPoint = (p: unknown): p is { x: number; y: number } =>
   !!p && typeof p === 'object' && Number.isFinite((p as { x?: unknown }).x) && Number.isFinite((p as { y?: unknown }).y);
 
 export function registerSpellHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, isDm, syncCombat, emitToken } = ctx;
+  const { socket, manager, isDm, syncCombat, emitToken } = ctx;
 
   ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction }) => {
-    if (!ctx.playerId) return;
-    const room = getRoom();
-    if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string' || typeof spellKey !== 'string') return;
-    if (isReactionPending(room.code)) {
-      socket.emit('chat:error', 'Ожидание реакции');
-      return;
-    }
-    const token = manager.findToken(room, mapId, tokenId);
-    if (!token) return;
-    if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
-    if (!isDm() && isIncapacitated(token.conditions)) {
-      socket.emit('chat:error', 'Существо недееспособно');
-      return;
-    }
+    if (!ctx.playerId || typeof spellKey !== 'string') return;
+    if (rejectIfReaction(ctx)) return;
+    const scope = scopedToken(ctx, mapId, tokenId);
+    if (!scope) return;
+    const { room, token } = scope;
+    if (rejectIfIncapacitated(ctx, token)) return;
 
     const spell = findSpell(spellKey);
     if (!spell) return;
@@ -153,8 +145,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
           socket.emit('chat:error', 'Нет ячейки нужного круга');
           return;
         }
-        const res = room.resources[ctx.playerId];
-        if (res) socket.emit('resources:update', res);
+        ctx.emitResources(room, ctx.playerId);
       } else if (token.statblock?.spellcasting) {
         if (!manager.spendTokenSpellSlot(room, token, castLevel)) {
           socket.emit('chat:error', 'Нет ячейки нужного круга');
@@ -174,12 +165,9 @@ export function registerSpellHandlers(ctx: ConnCtx) {
   });
 
   ctx.on('spell:endConcentration', ({ mapId, tokenId }) => {
-    if (!ctx.playerId) return;
-    const room = getRoom();
-    if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string') return;
-    const token = manager.findToken(room, mapId, tokenId);
-    if (!token) return;
-    if (!isDm() && !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
+    const scope = scopedToken(ctx, mapId, tokenId);
+    if (!scope) return;
+    const { room, token } = scope;
     const changed = manager.clearConcentration(room, token.id);
     if (!changed.length) return;
     for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);

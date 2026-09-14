@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
-import { rollLabelText, type ChatMessage, type DiceRollResult, type Token } from 'shared';
+import type { DiceRollResult, Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { pushRollMessage } from './messages';
 
 /** Сообщение-бросок спасброска в чат от имени системы. */
 export function pushSaveMessage(
@@ -12,22 +12,12 @@ export function pushSaveMessage(
   success: boolean,
   author = 'Система'
 ) {
-  const params = {
-    subject,
-    saveOutcome: (success ? 'success' : 'fail') as 'success' | 'fail',
-  };
-  const message: ChatMessage = {
-    id: randomUUID(),
-    kind: 'roll',
+  pushRollMessage(ctx, room, {
     author,
     roll,
-    label: ctx.cleanLabel(rollLabelText('save', params)),
-    rollKind: 'save',
-    labelParams: params,
-    ts: Date.now(),
-  };
-  ctx.manager.addMessage(room, message);
-  ctx.broadcastAll('chat:message', message);
+    kind: 'save',
+    params: { subject, saveOutcome: success ? 'success' : 'fail' },
+  });
 }
 
 /**

@@ -9,15 +9,15 @@ import {
   statsPaired,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { isReactionPending } from './reactions';
+import { playerScope, rejectIfReaction, scopedToken } from './guards';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
-  const { manager, getRoom, isDm, broadcastAll, canControlToken, emitToken, syncCombat, socket } = ctx;
+  const { manager, isDm, broadcastAll, emitToken, syncCombat, socket } = ctx;
 
     ctx.on('token:add', (payload) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (!room) return;
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      const { room, playerId } = scope;
       const x = Number(payload?.x);
       const y = Number(payload?.y);
       if (typeof payload?.mapId !== 'string' || typeof payload.libraryItemId !== 'string') return;
@@ -27,14 +27,14 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const map = manager.findMap(room, payload.mapId);
       if (!map) return;
       if (!isDm()) {
-        const characterId = room.controllers[ctx.playerId];
-        const characterName = manager.characterName(room, payload.mapId, ctx.playerId);
+        const characterId = room.controllers[playerId];
+        const characterName = manager.characterName(room, payload.mapId, playerId);
         const ownCharacter = item.isPlayerToken && item.id === characterId;
         const ownSummon = item.isPlayerToken && !!item.owner && item.owner === characterName;
         if (!ownCharacter && !ownSummon) return;
       }
       if (item.isPlayerToken && map.tokens.some((t) => t.libraryItemId === item.id)) return;
-      const token = manager.addToken(room, payload.mapId, item, x, y, ctx.playerId);
+      const token = manager.addToken(room, payload.mapId, item, x, y, playerId);
       if (!token) return;
       emitToken(room, 'token:add', payload.mapId, token);
       if (manager.combatOf(room, payload.mapId)?.active) {
@@ -44,14 +44,11 @@ export function registerTokenHandlers(ctx: ConnCtx) {
     });
 
     ctx.on('token:move', ({ mapId, id, x, y }) => {
-      const room = getRoom();
-      if (!room) return;
-      if (isReactionPending(room.code)) return;
-      if (typeof mapId !== 'string' || typeof id !== 'string') return;
+      if (rejectIfReaction(ctx, true)) return;
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      const token = manager.findToken(room, mapId, id);
-      if (!token) return;
-      if (!canControlToken(room, mapId, token)) return;
+      const scope = scopedToken(ctx, mapId, id);
+      if (!scope) return;
+      const { room, token } = scope;
       if (!isDm() && movementBlocked(token.conditions)) {
         socket.emit('chat:error', 'Существо не может двигаться (состояние)');
         return;
@@ -63,23 +60,20 @@ export function registerTokenHandlers(ctx: ConnCtx) {
     });
 
     ctx.on('token:lock', ({ mapId, id, lock }) => {
-      if (typeof lock !== 'boolean' || !ctx.playerId) return;
-      const room = getRoom();
-      if (!room) return;
-      const token = manager.findToken(room, mapId, id);
-      if (!token) return;
-      if (!canControlToken(room, mapId, token)) return;
+      if (typeof lock !== 'boolean') return;
+      const scope = scopedToken(ctx, mapId, id);
+      if (!scope) return;
+      const { room, token } = scope;
       token.lockedBy = lock ? ctx.playerId : null;
       manager.saveSoon(room);
       emitToken(room, 'token:update', mapId, token);
     });
 
     ctx.on('token:update', ({ mapId, id, patch }) => {
-      const room = getRoom();
-      if (!room) return;
-      const token = manager.findToken(room, mapId, id);
-      if (!token || !patch || typeof patch !== 'object') return;
-      if (!isDm() && !(ctx.playerId && manager.controlsToken(room, mapId, ctx.playerId, token))) return;
+      if (!patch || typeof patch !== 'object') return;
+      const scope = scopedToken(ctx, mapId, id);
+      if (!scope) return;
+      const { room, token } = scope;
       if (typeof patch.name === 'string') token.name = patch.name.slice(0, 40);
       if (typeof patch.description === 'string') token.description = patch.description.slice(0, 200);
       if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {
@@ -152,24 +146,17 @@ export function registerTokenHandlers(ctx: ConnCtx) {
     });
 
     ctx.on('token:hp', ({ mapId, id, delta }) => {
-      const room = getRoom();
-      if (!room || typeof mapId !== 'string' || typeof id !== 'string') return;
-      if (!isDm() || !Number.isFinite(delta)) return;
-      const token = manager.findToken(room, mapId, id);
-      if (!token) return;
-      const changed = manager.adjustTokenHp(room, mapId, token, Math.round(delta));
-      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-      const controllerId = manager.controllerOfToken(room, token);
-      if (controllerId) ctx.emitResources(room, controllerId);
-      broadcastAll('players:update', manager.toState(room).players);
+      if (!Number.isFinite(delta)) return;
+      const scope = scopedToken(ctx, mapId, id, { dmOnly: true });
+      if (!scope) return;
+      const { room, token } = scope;
+      ctx.applyHp(room, mapId, token, Math.round(delta), { concentration: false });
     });
 
     ctx.on('token:remove', ({ mapId, id }) => {
-      const room = getRoom();
-      if (!room) return;
-      const token = manager.findToken(room, mapId, id);
-      if (!token) return;
-      if (!canControlToken(room, mapId, token)) return;
+      const scope = scopedToken(ctx, mapId, id);
+      if (!scope) return;
+      const { room, token } = scope;
       // Эффекты снимаемого токена откатываются, его концентрация гаснет на всех картах.
       for (const effect of [...token.effects]) manager.removeEffect(room, token, effect.id);
       for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);

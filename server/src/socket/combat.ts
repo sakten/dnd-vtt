@@ -1,14 +1,12 @@
 import type { ConnCtx } from './context';
 import { tickActiveTurn } from './conditions';
+import { rejectIfReaction } from './guards';
 import { isReactionPending, triggerOpportunityAttacks } from './reactions';
 
 export function registerCombatHandlers(ctx: ConnCtx) {
   const { manager, dmRoom, syncCombat, getRoom, isDm } = ctx;
 
-  const blocked = () => {
-    const room = getRoom();
-    return !!room && isReactionPending(room.code);
-  };
+  const blocked = () => rejectIfReaction(ctx, true);
 
     ctx.on('combat:start', ({ mapId }) => {
       const room = dmRoom();

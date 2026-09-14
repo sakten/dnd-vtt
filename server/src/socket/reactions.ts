@@ -11,12 +11,9 @@ import {
   reactionFeatures,
   reactionSpellTrigger,
   rollDice,
-  rollLabelText,
   spellEffectDefs,
   superiorityDie,
   type AttackEntry,
-  type ChatMessage,
-  type DiceRollResult,
   type EffectInstance,
   type ReactionFeatureDef,
   type ReactionOffer,
@@ -27,6 +24,8 @@ import {
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { findSpell } from '../spells';
+import { controllerIdOfToken, hasResourceFor } from '../rooms';
+import { pushRollMessage } from './messages';
 import { applySpellEffects, resolveSpellCast, type SpellCastInput } from './spellResolve';
 import {
   applyWeaponAttackDamage,
@@ -124,10 +123,6 @@ function audienceOf(ctx: ConnCtx, room: Room, mapId: string, token: Token): stri
   return room.players.filter((p) => isDmViewer(room, p.id)).map((p) => p.id);
 }
 
-function characterController(room: Room, token: Token): string | undefined {
-  return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
-}
-
 function reactionSlotFree(manager: ConnCtx['manager'], room: Room, mapId: string, token: Token): boolean {
   const turn = manager.turnStateFor(room, mapId, token);
   return !turn || !turn.reactionUsed;
@@ -135,7 +130,7 @@ function reactionSlotFree(manager: ConnCtx['manager'], room: Room, mapId: string
 
 /** Заклинания токена: лист персонажа/выданные или список статблока. */
 function knownSpellKeys(room: Room, token: Token): string[] {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (sheet) {
     const keys = new Set<string>();
@@ -147,7 +142,7 @@ function knownSpellKeys(room: Room, token: Token): string[] {
 }
 
 function spellPayable(room: Room, token: Token, spellLevel: number, spellKey: string): boolean {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   if (cid) {
     const spell = findSpell(spellKey);
     if (!spell) return false;
@@ -183,7 +178,7 @@ function reactionSpellOptions(room: Room, token: Token, trigger: ReactionTrigger
 
 /** Боевые характеристики кастера для эффектов реакции. */
 function statsForCaster(room: Room, token: Token, spellKey: string) {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (sheet) {
     const own = sheet.spells.find((s) => s.key === spellKey);
@@ -225,7 +220,7 @@ function applyReactionChoice(
   const token = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
   if (!spell || !token) return;
 
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   if (spell.level > 0) {
     if (cid) {
       if (!ctx.manager.spendSpellSlot(room, cid, spell.level)) return;
@@ -288,29 +283,24 @@ function applyReactionChoice(
   ctx.syncCombat(room, choice.mapId);
 }
 
-function hasResource(room: Room, playerId: string, key: string, amount: number): boolean {
-  const item = room.resources[playerId]?.resources.find((r) => r.key === key);
-  return !!item && item.current >= amount;
-}
-
 /** Доступные персонажу реакционные черты под триггер (с оплатой ресурсов). */
 function availableFeatureReactions(
   room: Room,
   token: Token,
   trigger: ReactionTriggerKind
 ): ReactionFeatureDef[] {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!cid || !sheet) return [];
   return reactionFeatures(sheet.classes).filter((def) => {
     if (def.trigger !== trigger) return false;
     if (!def.resourceKey) return true;
-    return hasResource(room, cid, def.resourceKey, def.resourceAmount ?? 1);
+    return hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1);
   });
 }
 
 function classLevelOf(room: Room, token: Token, className: string): number {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   const sheet = cid ? room.sheets[cid] : undefined;
   return sheet?.classes.find((c) => c.className === className)?.level ?? 0;
 }
@@ -319,7 +309,7 @@ function classLevelOf(room: Room, token: Token, className: string): number {
 function featureOption(def: ReactionFeatureDef, room: Room, token: Token): ReactionOption {
   let name = def.name;
   if (def.resourceKey) {
-    const cid = characterController(room, token);
+    const cid = controllerIdOfToken(room, token);
     const item = cid ? room.resources[cid]?.resources.find((r) => r.key === def.resourceKey) : undefined;
     if (item) name = `${def.name} (${item.current})`;
   }
@@ -334,9 +324,9 @@ function featureOption(def: ReactionFeatureDef, room: Room, token: Token): React
 
 /** Тратит реакцию и ресурс черты (сначала проверка обоих). */
 function spendFeatureCost(ctx: ConnCtx, room: Room, token: Token, mapId: string, def: ReactionFeatureDef): boolean {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   if (def.resourceKey) {
-    if (!cid || !hasResource(room, cid, def.resourceKey, def.resourceAmount ?? 1)) return false;
+    if (!cid || !hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)) return false;
   }
   if (!ctx.manager.spendSlot(room, mapId, token, 'reaction')) return false;
   if (def.resourceKey && cid) {
@@ -581,7 +571,7 @@ function hostile(reactor: Token, mover: Token): boolean {
 }
 
 function meleeAttacks(room: Room, token: Token): AttackEntry[] {
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   const sheet = cid ? room.sheets[cid] : undefined;
   const list = sheet ? sheet.attacks : token.attacks;
   return list.filter((a) => a.hit && (a.rangeType === 'melee' || a.rangeType === 'none'));
@@ -591,7 +581,7 @@ function meleeAttacks(room: Room, token: Token): AttackEntry[] {
 function opportunityAttack(ctx: ConnCtx, room: Room, token: Token): AttackEntry | null {
   const melee = meleeAttacks(room, token);
   if (melee[0]) return melee[0];
-  const cid = characterController(room, token);
+  const cid = controllerIdOfToken(room, token);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!sheet) return null;
   const mod = ctx.manager.abilityModForToken(room, token, 'str');
@@ -727,27 +717,11 @@ function counterspellOffers(ctx: ConnCtx, room: Room, input: SpellCastInput): Re
   return offers;
 }
 
-function pushCheck(ctx: ConnCtx, room: Room, author: string, roll: DiceRollResult, subject: string) {
-  const params = { subject };
-  const message: ChatMessage = {
-    id: randomUUID(),
-    kind: 'roll',
-    author,
-    roll,
-    label: ctx.cleanLabel(rollLabelText('check', params)),
-    rollKind: 'check',
-    labelParams: params,
-    ts: Date.now(),
-  };
-  ctx.manager.addMessage(room, message);
-  ctx.broadcastAll('chat:message', message);
-}
-
 /** Применяет Counterspell реактора; true — каст отменён. */
 function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, input: SpellCastInput): boolean {
   const reactor = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
   if (!reactor) return false;
-  const cid = characterController(room, reactor);
+  const cid = controllerIdOfToken(room, reactor);
   if (cid) {
     if (!ctx.manager.spendSpellSlot(room, cid, COUNTERSPELL_LEVEL)) return false;
     ctx.emitResources(room, cid);
@@ -763,7 +737,12 @@ function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, inp
     const roll = rollDice(mod >= 0 ? `d20+${mod}` : `d20${mod}`);
     const dc = 10 + targetLevel;
     success = roll.total >= dc;
-    pushCheck(ctx, room, reactor.name, roll, `Counterspell: ${input.spell.name} (СЛ ${dc})`);
+    pushRollMessage(ctx, room, {
+      author: reactor.name,
+      roll,
+      kind: 'check',
+      params: { subject: `Counterspell: ${input.spell.name} (СЛ ${dc})` },
+    });
   }
   ctx.syncCombat(room, choice.mapId);
   return success;

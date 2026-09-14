@@ -6,26 +6,27 @@ import {
   syncResources,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { playerScope } from './guards';
 
 export function registerSheetHandlers(ctx: ConnCtx) {
-  const { socket, manager, getRoom, broadcastAll, emitToken, classIdentity } = ctx;
+  const { socket, manager, emitToken, classIdentity } = ctx;
 
     ctx.on('sheet:update', (sheet) => {
-      if (!ctx.playerId) return;
-      const room = getRoom();
-      if (!room) return;
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      const { room, playerId } = scope;
       if (!sheet || typeof sheet !== 'object') return;
-      const previous = room.sheets[ctx.playerId];
+      const previous = room.sheets[playerId];
       const normalized = normalizeSheet(sheet);
-      room.sheets[ctx.playerId] = normalized;
+      room.sheets[playerId] = normalized;
       // Имя персонажа из карточки — то же, что имя игрока в чате/списке.
       const charName = normalized.name.trim();
-      const selfPlayer = room.players.find((p) => p.id === ctx.playerId);
+      const selfPlayer = room.players.find((p) => p.id === playerId);
       if (selfPlayer && charName && selfPlayer.name !== charName) {
         selfPlayer.name = charName.slice(0, 30);
       }
       const mode = classIdentity(previous?.classes) === classIdentity(normalized.classes) ? 'soft' : 'full';
-      const prevRes = room.resources[ctx.playerId];
+      const prevRes = room.resources[playerId];
       const synced = syncResources(
         prevRes ?? emptyResources(),
         normalized.classes,
@@ -38,13 +39,13 @@ export function registerSheetHandlers(ctx: ConnCtx) {
         max: hpMax,
         current: prevRes ? Math.min(synced.hp.current, hpMax) : hpMax,
       };
-      room.resources[ctx.playerId] = synced;
-      const changed = manager.syncSheetToTokens(room, ctx.playerId);
+      room.resources[playerId] = synced;
+      const changed = manager.syncSheetToTokens(room, playerId);
       manager.saveSoon(room);
       socket.emit('sheet:update', { sheet: normalized });
-      socket.emit('resources:update', room.resources[ctx.playerId]);
+      ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
-      broadcastAll('players:update', manager.toState(room).players);
+      ctx.notifyPlayers(room);
     });
 
 }

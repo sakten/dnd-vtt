@@ -58,6 +58,22 @@ export function roomUploadUrls(room: Room): string[] {
   ];
 }
 
+/** id игрока-контролёра токена (персонажа/призыва). */
+export function controllerIdOfToken(room: Room, token: Token): string | undefined {
+  return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+}
+
+/** id игрока-контролёра предмета библиотеки. */
+export function controllerIdOfItem(room: Room, libraryItemId: string): string | undefined {
+  return Object.keys(room.controllers).find((pid) => room.controllers[pid] === libraryItemId);
+}
+
+/** Есть ли у игрока ресурс в нужном количестве. */
+export function hasResourceFor(room: Room, playerId: string, key: string, amount = 1): boolean {
+  const item = room.resources[playerId]?.resources.find((r) => r.key === key);
+  return !!item && item.current >= amount;
+}
+
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
@@ -248,7 +264,7 @@ export class RoomManager {
     const map = this.findMap(room, mapId);
     if (!map) return null;
     const cells = clampCells(item.cells || 1);
-    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === item.id);
+    const controllerId = controllerIdOfItem(room, item.id);
     const controllerSheet = controllerId ? room.sheets[controllerId] : undefined;
     const token: Token = {
       ...item,
@@ -338,9 +354,19 @@ export class RoomManager {
   }
 
   private findTokenById(room: Room, id: string): Token | null {
+    return this.locateToken(room, id)?.token ?? null;
+  }
+
+  /** Токен по id на любой карте комнаты. */
+  tokenById(room: Room, id: string): Token | null {
+    return this.findTokenById(room, id);
+  }
+
+  /** Карта и токен по id на любой карте комнаты. */
+  locateToken(room: Room, id: string): { mapId: string; token: Token } | null {
     for (const map of room.scene.maps) {
       const found = map.tokens.find((t) => t.id === id);
-      if (found) return found;
+      if (found) return { mapId: map.id, token: found };
     }
     return null;
   }
@@ -423,7 +449,7 @@ export class RoomManager {
   ): { speed: number; legendaryMax: number; extraActions: number; extraBonusActions: number } {
     const token = entry.tokenId ? this.findTokenById(room, entry.tokenId) : null;
     if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0, extraActions: 0, extraBonusActions: 0 };
-    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const controllerId = controllerIdOfToken(room, token);
     const sheetSpeed = controllerId ? room.sheets[controllerId]?.speed : undefined;
     const base = sheetSpeed ?? token.speed ?? DEFAULT_SPEED;
     const abilities = this.abilitiesForToken(room, token);
@@ -493,7 +519,7 @@ export class RoomManager {
 
   /** Число атак за действие: Extra Attack по листу или multiattack монстра. */
   attacksPerToken(room: Room, token: Token): number {
-    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const controllerId = controllerIdOfToken(room, token);
     const sheet = controllerId ? room.sheets[controllerId] : undefined;
     if (sheet) return attacksPerAction(sheet.classes);
     return Math.max(1, token.statblock?.multiattack ?? 1);
@@ -501,7 +527,7 @@ export class RoomManager {
 
   /** Эффективная скорость токена: лист/статблок + бонусы и множители эффектов. */
   tokenSpeed(room: Room, token: Token): number {
-    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const controllerId = controllerIdOfToken(room, token);
     const sheet = controllerId ? room.sheets[controllerId] : undefined;
     const base = sheet?.speed ?? token.speed ?? DEFAULT_SPEED;
     return Math.max(0, modifiedValue(base, token.effects, 'speed', {}, this.abilitiesForToken(room, token)));
@@ -529,7 +555,7 @@ export class RoomManager {
 
   /** Модификатор характеристики токена: из листа персонажа или статблока монстра. */
   abilityModForToken(room: Room, token: Token, ability: AbilityKey): number {
-    const controllerId = Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    const controllerId = controllerIdOfToken(room, token);
     const sheet = controllerId ? room.sheets[controllerId] : undefined;
     const score = sheet ? sheet.abilities[ability] : token.statblock?.abilities?.[ability];
     return abilityMod(score ?? 10);
@@ -628,8 +654,7 @@ export class RoomManager {
 
   /** Есть ли у игрока ресурс в нужном количестве. */
   hasResource(room: Room, playerId: string, key: string, amount = 1): boolean {
-    const item = room.resources[playerId]?.resources.find((r) => r.key === key);
-    return !!item && item.current >= amount;
+    return hasResourceFor(room, playerId, key, amount);
   }
 
   /** Списывает ресурс игрока; false — если ресурса нет или не хватает. */
@@ -673,7 +698,7 @@ export class RoomManager {
 
   /** id игрока-контролёра токена (персонажа/призыва). */
   controllerOfToken(room: Room, token: Token): string | undefined {
-    return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
+    return controllerIdOfToken(room, token);
   }
 
   /** Защиты токена: у персонажа — из листа, у монстра — из токена, плюс эффекты. */
