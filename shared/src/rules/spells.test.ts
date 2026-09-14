@@ -63,7 +63,7 @@ describe('нормализаторы полей', () => {
     expect(normalizeTime([{ number: 1, unit: 'action' }])).toEqual([{ number: 1, unit: 'action' }]);
     expect(normalizeTime(undefined)).toEqual([{ number: 1, unit: 'action' }]);
     const reaction = normalizeTime([{ number: 1, unit: 'reaction', condition: 'when hit' }]);
-    expect(reaction[0].condition).toBe('when hit');
+    expect(reaction[0]!.condition).toBe('when hit');
   });
 
   it('дистанция: точка/касание/я', () => {
@@ -76,8 +76,8 @@ describe('нормализаторы полей', () => {
 
   it('длительность: концентрация', () => {
     const d = normalizeDuration([{ type: 'timed', duration: { type: 'minute', amount: 1 }, concentration: true }]);
-    expect(d[0].concentration).toBe(true);
-    expect(d[0].duration).toEqual({ type: 'minute', amount: 1 });
+    expect(d[0]!.concentration).toBe(true);
+    expect(d[0]!.duration).toEqual({ type: 'minute', amount: 1 });
     expect(normalizeDuration(undefined)).toEqual([{ type: 'instant' }]);
   });
 

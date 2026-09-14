@@ -61,7 +61,7 @@ describe('normalizeScene', () => {
       },
       { keepAcHp: true }
     );
-    expect(scene.maps[0].tokens[0].hpCurrent).toBe(5);
-    expect(scene.maps[0].fog).toEqual(defaultFog(DEFAULT_GRID));
+    expect(scene.maps[0]!.tokens[0]!.hpCurrent).toBe(5);
+    expect(scene.maps[0]!.fog).toEqual(defaultFog(DEFAULT_GRID));
   });
 });

@@ -587,7 +587,7 @@ export function normalizeAttacks(
   if (result.every(attackIsEmpty) && legacy) {
     result = [coerceAttack(legacy)];
   } else {
-    while (result.length > 1 && attackIsEmpty(result[result.length - 1])) result.pop();
+    while (result.length > 1 && attackIsEmpty(result[result.length - 1]!)) result.pop();
   }
   if (result.length === 0) result = [emptyAttack()];
   return result;

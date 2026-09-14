@@ -5,7 +5,7 @@ function seq(values: number[]) {
   let i = 0;
   return () => {
     if (i >= values.length) throw new Error('rng exhausted');
-    return values[i++];
+    return values[i++]!;
   };
 }
 
@@ -26,7 +26,7 @@ describe('parseDiceExpression', () => {
   });
 
   it('парсит количество кубиков', () => {
-    expect(parseDiceExpression('2d6').dice[0].count).toBe(2);
+    expect(parseDiceExpression('2d6').dice[0]!.count).toBe(2);
   });
 
   it('игнорирует пробелы', () => {
@@ -40,17 +40,17 @@ describe('parseDiceExpression', () => {
   it('парсит несколько групп кубиков', () => {
     const r = parseDiceExpression('1d4+2d6+5');
     expect(r.dice).toHaveLength(2);
-    expect(r.dice[1].count).toBe(2);
+    expect(r.dice[1]!.count).toBe(2);
     expect(r.modifier).toBe(5);
   });
 
   it('парсит keep highest', () => {
-    expect(parseDiceExpression('4d6k3').dice[0].keep).toBe(3);
+    expect(parseDiceExpression('4d6k3').dice[0]!.keep).toBe(3);
   });
 
   it('парсит advantage и disadvantage', () => {
-    expect(parseDiceExpression('d20a').dice[0].advantage).toBe('a');
-    expect(parseDiceExpression('d20d').dice[0].advantage).toBe('d');
+    expect(parseDiceExpression('d20a').dice[0]!.advantage).toBe('a');
+    expect(parseDiceExpression('d20d').dice[0]!.advantage).toBe('d');
   });
 
   it('бросает ошибку на неверные выражения', () => {
@@ -66,7 +66,7 @@ describe('rollDice', () => {
   it('бросает d20 максимумом', () => {
     const r = rollDice('d20', () => 0.999);
     expect(r.total).toBe(20);
-    expect(r.dice[0].values).toEqual([20]);
+    expect(r.dice[0]!.values).toEqual([20]);
   });
 
   it('считает модификатор', () => {
@@ -82,15 +82,15 @@ describe('rollDice', () => {
   it('keep highest отбрасывает лишнее', () => {
     const r = rollDice('4d6k3', seq([0.999, 0.999, 0.999, 0]));
     expect(r.total).toBe(18);
-    expect(r.dice[0].values).toEqual([6, 6, 6]);
-    expect(r.dice[0].dropped).toEqual([1]);
+    expect(r.dice[0]!.values).toEqual([6, 6, 6]);
+    expect(r.dice[0]!.dropped).toEqual([1]);
   });
 
   it('advantage берёт больший бросок', () => {
     const r = rollDice('d20a', seq([0.5, 0.9]));
     expect(r.total).toBe(19);
-    expect(r.dice[0].values).toEqual([19]);
-    expect(r.dice[0].dropped).toEqual([11]);
+    expect(r.dice[0]!.values).toEqual([19]);
+    expect(r.dice[0]!.dropped).toEqual([11]);
   });
 
   it('disadvantage берёт меньший бросок', () => {
@@ -134,20 +134,20 @@ describe('isCriticalHit', () => {
 describe('rollDice с удвоением кубов (крит)', () => {
   it('удваивает все кубы урона, модификатор — один раз', () => {
     const r = rollDice('2d6+3', seq([0, 0, 0, 0]), { doubleDice: true });
-    expect(r.dice[0].values).toHaveLength(4);
+    expect(r.dice[0]!.values).toHaveLength(4);
     expect(r.total).toBe(4 * 1 + 3);
     expect(r.modifier).toBe(3);
   });
 
   it('удваивает несколько групп кубов', () => {
     const r = rollDice('1d8+2d6', seq([0, 0, 0, 0, 0, 0]), { doubleDice: true });
-    expect(r.dice[0].values).toHaveLength(2);
-    expect(r.dice[1].values).toHaveLength(4);
+    expect(r.dice[0]!.values).toHaveLength(2);
+    expect(r.dice[1]!.values).toHaveLength(4);
     expect(r.total).toBe(6);
   });
 
   it('без флага количество кубов не меняется', () => {
     const r = rollDice('2d6+3', seq([0, 0]), {});
-    expect(r.dice[0].values).toHaveLength(2);
+    expect(r.dice[0]!.values).toHaveLength(2);
   });
 });

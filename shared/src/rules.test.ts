@@ -372,7 +372,7 @@ describe('applyRest', () => {
     expect(s.resources.find((r) => r.id === 'a')?.current).toBe(3);
     expect(s.resources.find((r) => r.id === 'b')?.current).toBe(0);
     expect(s.pact.current).toBe(2);
-    expect(s.spellSlots[0].current).toBe(0);
+    expect(s.spellSlots[0]!.current).toBe(0);
   });
 
   it('долгий отдых: всё по max и HP', () => {
@@ -383,9 +383,9 @@ describe('applyRest', () => {
     res.resources = [{ id: 'b', name: 'LoH', current: 0, max: 10, reset: 'long' }];
     const s = applyRest(res, 'long');
     expect(s.hp).toEqual({ current: 20, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 });
-    expect(s.hitDice[0].current).toBe(3);
-    expect(s.spellSlots[0].current).toBe(2);
-    expect(s.resources[0].current).toBe(10);
+    expect(s.hitDice[0]!.current).toBe(3);
+    expect(s.spellSlots[0]!.current).toBe(2);
+    expect(s.resources[0]!.current).toBe(10);
   });
 
   it('заметки сохраняются при sync/sanitize/отдыхе', () => {

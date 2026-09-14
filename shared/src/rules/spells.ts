@@ -164,7 +164,7 @@ export function stripTags(input: string): string {
         case 'scaledamage':
         case 'scaledice': {
           const parts = (body ?? '').split('|');
-          return parts.length >= 3 ? parts[2] : first;
+          return parts[2] ?? first;
         }
         case 'hit':
           return /^[+-]/.test(first) ? first : `+${first}`;
@@ -222,7 +222,7 @@ function collectDamageDice(entries: unknown): string[] {
   const seen = new Set<string>();
   const re = /\{@(?:damage|dice|scaledamage|scaledice)\s+([^|{}]+)/g;
   for (const match of text.matchAll(re)) {
-    const value = match[1].trim();
+    const value = (match[1] ?? '').trim();
     if (!/^\d*d\d+/i.test(value) || seen.has(value)) continue;
     seen.add(value);
     dice.push(value);

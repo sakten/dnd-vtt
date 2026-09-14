@@ -88,11 +88,11 @@ export function reachableCells(
   const reach = new Map<string, GridCell>();
 
   best.set(stateKey(cx, cy, startP), 0);
-  buckets[0].push({ x: cx, y: cy, p: startP });
+  buckets[0]!.push({ x: cx, y: cy, p: startP });
   reach.set(`${cx},${cy}`, { cx, cy });
 
   for (let cost = 0; cost <= maxCells; cost++) {
-    const bucket = buckets[cost];
+    const bucket = buckets[cost]!;
     for (const state of bucket) {
       if ((best.get(stateKey(state.x, state.y, state.p)) ?? Infinity) < cost) continue;
       for (const [dx, dy] of NEIGHBORS) {
@@ -106,7 +106,7 @@ export function reachableCells(
         const key = stateKey(nx, ny, np);
         if (nextCost < (best.get(key) ?? Infinity)) {
           best.set(key, nextCost);
-          buckets[nextCost].push({ x: nx, y: ny, p: np });
+          buckets[nextCost]!.push({ x: nx, y: ny, p: np });
         }
         reach.set(`${nx},${ny}`, { cx: nx, cy: ny });
       }

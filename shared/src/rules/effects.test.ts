@@ -208,18 +208,18 @@ describe('каталог эффектов заклинаний', () => {
   it('Shield даёт +5 AC до конца хода', () => {
     const defs = spellEffectDefs('XPHB:Shield');
     expect(defs).toHaveLength(1);
-    expect(defs?.[0].to).toBe('self');
-    expect(defs?.[0].modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
+    expect(defs?.[0]!.to).toBe('self');
+    expect(defs![0]!.modifiers[0]!).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
   });
 
   it('Bless — концентрация, +1d4 к атакам и спасброскам', () => {
     const defs = spellEffectDefs('XPHB:Bless');
-    expect(defs?.[0].concentration).toBe(true);
-    expect(defs?.[0].modifiers.map((m) => m.target)).toEqual(['attack', 'save']);
+    expect(defs?.[0]!.concentration).toBe(true);
+    expect(defs?.[0]!.modifiers.map((m) => m.target)).toEqual(['attack', 'save']);
   });
 
   it('Haste ускоряет и даёт доп. действие', () => {
-    const targets = spellEffectDefs('XPHB:Haste')?.[0].modifiers.map((m) => m.target);
+    const targets = spellEffectDefs('XPHB:Haste')?.[0]!.modifiers.map((m) => m.target);
     expect(targets).toEqual(['ac', 'speed', 'extraActions']);
   });
 
@@ -229,10 +229,10 @@ describe('каталог эффектов заклинаний', () => {
 
   it('Hex привязывает бонус урона к метке', () => {
     const defs = spellEffectDefs('XPHB:Hex');
-    expect(defs?.[0].markTarget).toBe(true);
-    expect(defs?.[0].to).toBe('self');
-    expect(defs?.[0].modifiers[0]).toMatchObject({ target: 'damage', mode: 'add', value: '1d6' });
-    expect(defs?.[1].to).toBe('targets');
+    expect(defs?.[0]!.markTarget).toBe(true);
+    expect(defs?.[0]!.to).toBe('self');
+    expect(defs![0]!.modifiers[0]!).toMatchObject({ target: 'damage', mode: 'add', value: '1d6' });
+    expect(defs?.[1]!.to).toBe('targets');
   });
 
   it('Hold Person — паралич до успешного спасброска', () => {

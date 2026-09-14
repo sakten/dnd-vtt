@@ -61,7 +61,7 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
     if (m) {
       pushDie(
         m[1] ? parseInt(m[1], 10) : 1,
-        parseInt(m[2], 10),
+        parseInt(m[2]!, 10),
         m[4] ? parseInt(m[4], 10) : null,
         (m[3] as 'a' | 'd' | undefined) ?? null,
         1
@@ -73,7 +73,7 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
     if (m) {
       pushDie(
         m[2] ? parseInt(m[2], 10) : 1,
-        parseInt(m[3], 10),
+        parseInt(m[3]!, 10),
         m[5] ? parseInt(m[5], 10) : null,
         (m[4] as 'a' | 'd' | undefined) ?? null,
         m[1] === '-' ? -1 : 1
@@ -83,7 +83,7 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
     }
     m = rest.match(/^([+-])(\d+)/);
     if (m) {
-      modifier += parseInt(m[1] + m[2], 10);
+      modifier += parseInt((m[1] ?? '') + (m[2] ?? ''), 10);
       pos += m[0].length;
       continue;
     }
@@ -126,7 +126,7 @@ export function rollDice(
       const all = Array.from({ length: count * 2 }, () => rollOne(d.sides, rng));
       const sortedIdx = all
         .map((v, i) => i)
-        .sort((a, b) => (d.advantage === 'a' ? all[b] - all[a] : all[a] - all[b]));
+        .sort((a, b) => (d.advantage === 'a' ? all[b]! - all[a]! : all[a]! - all[b]!));
       const keptIdx = new Set(sortedIdx.slice(0, count));
       return {
         sides: d.sides,
@@ -140,7 +140,7 @@ export function rollDice(
     if (keep === null) {
       return { sides: d.sides, values: all, dropped: [], advantage: null, sign: d.sign };
     }
-    const sortedIdx = all.map((v, i) => i).sort((a, b) => all[b] - all[a]);
+    const sortedIdx = all.map((v, i) => i).sort((a, b) => all[b]! - all[a]!);
     const keptIdx = new Set(sortedIdx.slice(0, keep));
     return {
       sides: d.sides,

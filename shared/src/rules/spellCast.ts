@@ -42,7 +42,7 @@ function upcastDice(spell: Spell, castLevel: number): string | null {
   const text = (spell.higherLevel ?? []).join(' ');
   const match = text.match(/increases? by ([0-9][0-9d+\s]*) for each (?:spell )?slot level above (\d+)/i);
   if (!match) return null;
-  const per = match[1].trim().split(';')[0]?.trim();
+  const per = match[1]?.trim().split(';')[0]?.trim();
   const above = Number(match[2]);
   if (!per || !Number.isFinite(above)) return null;
   const extra = castLevel - above;
@@ -138,7 +138,7 @@ export function spellAttackCount(spell: Spell, castLevel: number, characterLvl: 
   const base = text.match(
     /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b\s+(?:fiery\s+|glowing\s+|magical\s+)?(?:rays?|beams?|darts?|bolts?|projectiles?)/i
   );
-  if (base) count = Math.max(count, parseCount(base[1]));
+  if (base) count = Math.max(count, parseCount(base[1] ?? ''));
 
   const upcast = higher.match(
     /creates?\s+(?:one|1|\d+)\s+(?:additional|more)\s+(?:fiery\s+|glowing\s+|magical\s+)?(?:ray|beam|dart|bolt|projectile)\s+for each\s+(?:spell\s+)?slot level above\s+(\d+)/i
@@ -149,7 +149,7 @@ export function spellAttackCount(spell: Spell, castLevel: number, characterLvl: 
     for (const tier of higher.matchAll(
       /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:beams?|rays?|darts?|bolts?|projectiles?)\s+(?:at\s+)?level\s+(\d+)/gi
     )) {
-      if (characterLvl >= Number(tier[2])) count = Math.max(count, parseCount(tier[1]));
+      if (characterLvl >= Number(tier[2])) count = Math.max(count, parseCount(tier[1] ?? ''));
     }
   }
 

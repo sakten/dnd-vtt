@@ -48,7 +48,7 @@ describe('normalizeAttacks', () => {
       hit: 'd20',
       damage: 'd6',
     });
-    expect(attacks[0].name).toBe('Меч');
+    expect(attacks[0]!.name).toBe('Меч');
   });
 });
 
@@ -60,7 +60,7 @@ describe('normalizeSheet', () => {
       attack: { name: 'Меч', hit: 'd20+5', damage: 'd8+3' },
     });
     expect(sheet.attacks).toHaveLength(1);
-    expect(sheet.attacks[0].name).toBe('Меч');
+    expect(sheet.attacks[0]!.name).toBe('Меч');
     expect(sheet.abilities.str).toBe(10);
   });
 
@@ -174,8 +174,8 @@ describe('normalizeCombatState', () => {
       turns: { e1: { actionUsed: true, movementMax: 30 } },
     });
     expect(combat.currentIndex).toBe(0);
-    expect(combat.turns.e1.actionUsed).toBe(true);
-    expect(combat.turns.e1.movementMax).toBe(30);
+    expect(combat.turns.e1!.actionUsed).toBe(true);
+    expect(combat.turns.e1!.movementMax).toBe(30);
   });
 
   it('пустой/мусорный вход', () => {
@@ -194,9 +194,9 @@ describe('normalizeConditions', () => {
     ]);
     expect(list).toHaveLength(3);
     expect(list[0]).toEqual({ key: 'prone', name: 'Сбит с ног', rounds: 2 });
-    expect(list[1].level).toBe(6);
-    expect(list[2].name).toBe('custom');
-    expect(list[2].rounds).toBeNull();
+    expect(list[1]!.level).toBe(6);
+    expect(list[2]!.name).toBe('custom');
+    expect(list[2]!.rounds).toBeNull();
   });
 });
 
@@ -216,8 +216,8 @@ describe('normalizeEffects', () => {
       { duration: { type: 'bad' } },
     ]);
     expect(effects).toHaveLength(1);
-    expect(effects[0].modifiers).toHaveLength(1);
-    expect(effects[0].modifiers[0].value).toBe('1d4');
+    expect(effects[0]!.modifiers).toHaveLength(1);
+    expect(effects[0]!.modifiers[0]!.value).toBe('1d4');
   });
 });
 
@@ -231,9 +231,9 @@ describe('normalizeActions', () => {
       null,
     ]);
     expect(list.map((a) => a.name)).toEqual(['Dash', 'Bite', 'Weird']);
-    expect(list[0].costs).toEqual(['action', 'bonus']);
-    expect(list[1].costs).toEqual(['action']);
-    expect(list[2].costs).toEqual(['action']);
+    expect(list[0]!.costs).toEqual(['action', 'bonus']);
+    expect(list[1]!.costs).toEqual(['action']);
+    expect(list[2]!.costs).toEqual(['action']);
   });
 });
 
@@ -293,7 +293,7 @@ describe('normalizeDamageDefenses', () => {
   it('normalizeSheet прокидывает защиты', () => {
     const sheet = normalizeSheet({ damageDefenses: [{ id: 'd1', type: 'immunity', damageType: 'poison' }] });
     expect(sheet.damageDefenses).toHaveLength(1);
-    expect(sheet.damageDefenses[0].damageType).toBe('poison');
+    expect(sheet.damageDefenses[0]!.damageType).toBe('poison');
   });
 });
 

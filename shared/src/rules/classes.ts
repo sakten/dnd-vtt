@@ -872,7 +872,7 @@ export function spellSlotMaxes(classes: ClassLevel[]): number[] {
 export function pactMax(classes: ClassLevel[]): { count: number; level: number } {
   const warlock = classes.find((c) => CLASSES[c.className]?.caster === 'pact');
   if (!warlock) return { count: 0, level: 0 };
-  return PACT_SLOTS[clampLevel(warlock.level) - 1];
+  return PACT_SLOTS[clampLevel(warlock.level) - 1] ?? { count: 0, level: 0 };
 }
 
 /** Кости хитов по размерам: количество = число уровней класса с такой костью. */
