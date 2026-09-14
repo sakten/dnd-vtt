@@ -1,12 +1,6 @@
-import {
-  clampCells,
-  normalizeAttacks,
-  normalizeDamageDefenses,
-  statsPaired,
-  type LibraryItem,
-  type Token,
-  type TokenFields,
-} from './types';
+import { clampCells, statsPaired } from './domain/core';
+import type { LibraryItem, Token, TokenFields } from './domain/token';
+import { normalizeAttacks, normalizeDamageDefenses } from './normalize/attacks';
 
 /**
  * Реестр полей токена/предмета библиотеки — единственное место, где описано,

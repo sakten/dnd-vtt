@@ -1,26 +1,9 @@
-import {
-  DEFAULT_GRID,
-  DEFAULT_SPEED,
-  defaultFog,
-  normalizeCombatState,
-  normalizeConditions,
-  normalizeEffects,
-  normalizeStatblock,
-  statNumber,
-  type FogState,
-  type GridSettings,
-  type LibraryItem,
-  type MapInfo,
-  type Scene,
-  type Token,
-  type TokenFields,
-} from './types';
-import { normalizeTokenFields } from './fields';
-
-/** Объект-запись (не null/массив) — общая проверка payload и данных с диска. */
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+import { DEFAULT_SPEED, statNumber } from '../domain/core';
+import type { LibraryItem, Token, TokenFields } from '../domain/token';
+import { normalizeTokenFields } from '../fields';
+import { normalizeStatblock } from './actions';
+import { normalizeConditions, normalizeEffects } from './effects';
+import { isRecord } from './guards';
 
 export interface NormalizeEntityOptions {
   /** Лимит имени: 40 — токен, 60 — предмет библиотеки. */
@@ -80,41 +63,5 @@ export function normalizeLibraryItem(raw: unknown): LibraryItem {
     ...(source as unknown as LibraryItem),
     ...fields,
     id: typeof source.id === 'string' ? source.id : '',
-  };
-}
-
-/** Полная нормализация карты: токены, туман и бой; остальные поля сохраняются. */
-export function normalizeMapInfo(
-  raw: unknown,
-  grid: GridSettings,
-  opts: NormalizeEntityOptions = {}
-): MapInfo {
-  const source = isRecord(raw) ? raw : {};
-  const fogSource = isRecord(source.fog) ? source.fog : null;
-  const fog: FogState = fogSource
-    ? {
-        ...(fogSource as unknown as FogState),
-        hidden: Array.isArray(fogSource.hidden) ? (fogSource.hidden as string[]) : [],
-      }
-    : defaultFog(grid);
-  return {
-    ...(source as unknown as MapInfo),
-    tokens: Array.isArray(source.tokens) ? source.tokens.map((t) => normalizeToken(t, opts)) : [],
-    fog,
-    combat: normalizeCombatState(source.combat),
-  };
-}
-
-/** Полная нормализация сцены: все карты через `normalizeMapInfo`, грид и активная карта. */
-export function normalizeScene(raw: unknown, opts: NormalizeEntityOptions = {}): Scene {
-  const source = isRecord(raw) ? raw : {};
-  const grid = isRecord(source.grid) ? (source.grid as unknown as GridSettings) : DEFAULT_GRID;
-  return {
-    ...(source as unknown as Scene),
-    maps: Array.isArray(source.maps)
-      ? source.maps.map((m) => normalizeMapInfo(m, grid, opts))
-      : [],
-    activeMapId: typeof source.activeMapId === 'string' ? source.activeMapId : null,
-    grid,
   };
 }
