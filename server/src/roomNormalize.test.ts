@@ -245,6 +245,25 @@ describe('hydrateRoom', () => {
     expect(fixture).toEqual(before);
   });
 
+  it('toPersistedRoom — снапшот, не зависящий от дальнейших мутаций', () => {
+    const room = hydrateRoom(
+      base({
+        scene: sceneWithMap({ tokens: [{ id: 't1', name: 'A' }] }),
+        library: [{ id: 'l1', name: 'Гоблин' }] as unknown as PersistedRoom['library'],
+        controllers: { p1: 'l1' },
+      })
+    );
+    const snapshot = toPersistedRoom(room);
+
+    room.scene.maps[0]!.tokens[0]!.name = 'B';
+    room.library[0]!.name = 'Орк';
+    room.controllers.p1 = 'l2';
+
+    expect(snapshot.scene.maps[0]!.tokens[0]!.name).toBe('A');
+    expect(snapshot.library[0]!.name).toBe('Гоблин');
+    expect(snapshot.controllers!.p1).toBe('l1');
+  });
+
   it('round-trip toPersisted → hydrate идемпотентен', () => {
     const fixture = base({
       name: 'Сессия',

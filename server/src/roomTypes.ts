@@ -31,9 +31,9 @@ export type PersistedRoom = Omit<Room, 'name' | 'players' | 'resources' | 'contr
   controllers?: Record<string, string>;
 };
 
-/** Снимок рантайм-комнаты для записи на диск. */
+/** Снимок рантайм-комнаты для записи на диск: глубокий клон, не зависящий от мутаций. */
 export function toPersistedRoom(room: Room): PersistedRoom {
-  return {
+  return structuredClone({
     code: room.code,
     name: room.name,
     scene: room.scene,
@@ -45,5 +45,5 @@ export function toPersistedRoom(room: Room): PersistedRoom {
     resources: room.resources,
     controllers: room.controllers,
     testMode: room.testMode,
-  };
+  });
 }
