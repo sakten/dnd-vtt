@@ -434,6 +434,11 @@ describe('RoomManager заклинания', () => {
 
     room.scene.maps[0]!.combat.turns.e1!.dodge = false;
     expect(manager.savePartsForToken(room, tk, 'dex').mode).toBeUndefined();
+
+    room.scene.maps[0]!.combat.turns.e1!.dodge = true;
+    tk.conditions = [{ key: 'paralyzed', name: 'Парализован', rounds: null }];
+    expect(manager.isDodging(room, 'm1', tk)).toBe(false);
+    expect(manager.savePartsForToken(room, tk, 'dex').mode).toBeUndefined();
   });
 });
 

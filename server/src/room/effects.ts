@@ -21,7 +21,7 @@ import {
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
-import { abilitiesForToken, turnStateFor } from './combat';
+import { abilitiesForToken, isDodging, turnStateFor } from './combat';
 import { controllerIdOfToken, locateToken } from './helpers';
 
 /** Зависимости домена эффектов: сохранение и зеркалирование HP персонажа в токены. */
@@ -57,7 +57,7 @@ export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey)
 function dodgeAdvantage(room: Room, token: Token, ability: AbilityKey): boolean {
   if (ability !== 'dex') return false;
   const found = locateToken(room, token.id);
-  return !!found && turnStateFor(room, found.mapId, found.token)?.dodge === true;
+  return !!found && isDodging(room, found.mapId, found.token);
 }
 
 /** Слагаемые/кости/режим спасброска токена: базовый бонус, эффекты, истощение. */

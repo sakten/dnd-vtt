@@ -259,6 +259,10 @@ export class RoomManager {
     return Combat.turnStateFor(room, mapId, token);
   }
 
+  isDodging(room: Room, mapId: string, token: Token): boolean {
+    return Combat.isDodging(room, mapId, token);
+  }
+
   isActiveToken(room: Room, mapId: string, tokenId: string): boolean {
     return Combat.isActiveToken(room, mapId, tokenId);
   }

@@ -8,6 +8,7 @@ import {
   emptyTurnState,
   exhaustionSpeedPenalty,
   initiativeBonus,
+  isIncapacitated,
   modifiedValue,
   rollDice,
   statNumber,
@@ -249,6 +250,11 @@ export function turnStateFor(room: Room, mapId: string, token: Token): TurnState
   if (!entry) return null;
   if (!combat.turns[entry.id]) beginTurn(room, mapId, entry.id);
   return combat.turns[entry.id] ?? null;
+}
+
+/** Действие «Уклонение» в силе: помеха атакам и преимущество на Dex-спасы. */
+export function isDodging(room: Room, mapId: string, token: Token): boolean {
+  return !isIncapacitated(token.conditions) && turnStateFor(room, mapId, token)?.dodge === true;
 }
 
 /** Активен ли токен в бою карты (вне боя — всегда true). */
