@@ -3,6 +3,7 @@ import {
   snapToGrid,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { asString, asTrimmedString } from './decode';
 
 export function registerMapHandlers(ctx: ConnCtx) {
   const { manager, dmRoom, broadcast, broadcastAll, broadcastMaps, emitToken } = ctx;
@@ -10,8 +11,8 @@ export function registerMapHandlers(ctx: ConnCtx) {
     ctx.on('map:add', (payload) => {
       const room = dmRoom();
       if (!room) return;
-      const name = typeof payload?.name === 'string' ? payload.name.trim().slice(0, 60) : '';
-      const url = typeof payload?.url === 'string' ? payload.url : '';
+      const name = asTrimmedString(payload?.name, 60) ?? '';
+      const url = asString(payload?.url) ?? '';
       const width = Number(payload?.width);
       const height = Number(payload?.height);
       if (!url || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
@@ -21,29 +22,34 @@ export function registerMapHandlers(ctx: ConnCtx) {
 
     ctx.on('map:remove', (id) => {
       const room = dmRoom();
-      if (!room) return;
-      manager.removeMap(room, id);
+      const mapId = asString(id);
+      if (!room || !mapId) return;
+      manager.removeMap(room, mapId);
       broadcastMaps(room);
     });
 
     ctx.on('map:rename', ({ id, name }) => {
       const room = dmRoom();
-      if (!room) return;
-      manager.renameMap(room, id, name.trim().slice(0, 60));
+      const mapId = asString(id);
+      const mapName = asTrimmedString(name, 60);
+      if (!room || !mapId || !mapName) return;
+      manager.renameMap(room, mapId, mapName);
       broadcastMaps(room);
     });
 
     ctx.on('map:bring', (id) => {
       const room = dmRoom();
-      if (!room) return;
-      if (!room.scene.maps.some((m) => m.id === id)) return;
-      room.scene.activeMapId = id;
-      broadcastAll('map:bring', { activeMapId: id });
+      const mapId = asString(id);
+      if (!room || !mapId) return;
+      if (!room.scene.maps.some((m) => m.id === mapId)) return;
+      room.scene.activeMapId = mapId;
+      broadcastAll('map:bring', { activeMapId: mapId });
     });
 
-    ctx.on('fog:update', ({ mapId, fog }) => {
+    ctx.on('fog:update', ({ mapId: rawMapId, fog }) => {
       const room = dmRoom();
-      if (!room) return;
+      const mapId = asString(rawMapId);
+      if (!room || !mapId) return;
       const map = room.scene.maps.find((m) => m.id === mapId);
       if (!map) return;
       if (!isRecord(fog)) return;

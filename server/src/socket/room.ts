@@ -1,6 +1,7 @@
 import type { Token } from 'shared';
 import { LEAVE_GRACE_MS, type ConnCtx } from './context';
 import { adminTokenOk } from './admin';
+import { asBool, asString, asTrimmedString } from './decode';
 
 export function registerRoomHandlers(ctx: ConnCtx) {
   const { socket, io, manager, getRoom, dmRoom, broadcast, broadcastAll, emitToken, broadcastLibrary, systemMessage, emitJoined, cancelPendingLeave, pendingLeaves } = ctx;
@@ -10,71 +11,81 @@ export function registerRoomHandlers(ctx: ConnCtx) {
         cb({ error: 'Нужен пароль ведущего' });
         return;
       }
-      const room = manager.create(roomName);
-      room.players.push({ id: clientId, name, role: 'dm', isConnected: true, socketId: socket.id });
+      const ownerId = asString(clientId);
+      if (!ownerId) {
+        cb({ error: 'Некорректный запрос' });
+        return;
+      }
+      const playerName = asString(name, 30) ?? '';
+      const room = manager.create(asString(roomName));
+      room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
       ctx.roomCode = room.code;
-      ctx.playerId = clientId;
+      ctx.playerId = ownerId;
       socket.join(room.code);
-      emitJoined(room, clientId);
+      emitJoined(room, ownerId);
       cb({ ok: true });
       broadcast('players:update', manager.toState(room).players);
     });
 
     ctx.on('room:join', ({ code, name, clientId }, cb) => {
-      if (typeof code !== 'string' || typeof clientId !== 'string') {
+      const roomCode = asString(code);
+      const playerId = asString(clientId);
+      if (!roomCode || !playerId) {
         cb({ error: 'Комната не найдена' });
         return;
       }
-      const room = manager.get(code.toUpperCase());
+      const room = manager.get(roomCode.toUpperCase());
       if (!room) {
         cb({ error: 'Комната не найдена' });
         return;
       }
-      const safeName = typeof name === 'string' ? name.trim().slice(0, 30) : '';
+      const safeName = asTrimmedString(name, 30) ?? '';
       const displayName = safeName || 'Игрок';
-      const existing = room.players.find((p) => p.id === clientId);
+      const existing = room.players.find((p) => p.id === playerId);
       if (existing) {
-        cancelPendingLeave(room.code, clientId);
+        cancelPendingLeave(room.code, playerId);
         existing.socketId = socket.id;
         existing.isConnected = true;
       } else {
-        room.players.push({ id: clientId, name: displayName, role: 'player', isConnected: true, socketId: socket.id });
+        room.players.push({ id: playerId, name: displayName, role: 'player', isConnected: true, socketId: socket.id });
         systemMessage(room, `${displayName} вошёл в комнату`);
       }
       ctx.roomCode = room.code;
-      ctx.playerId = clientId;
+      ctx.playerId = playerId;
       socket.join(room.code);
-      emitJoined(room, clientId);
+      emitJoined(room, playerId);
       cb({ ok: true });
       broadcast('players:update', manager.toState(room).players);
     });
 
     ctx.on('room:settings', ({ testMode }) => {
+      const enabled = asBool(testMode);
       const room = getRoom();
-      if (!room || typeof testMode !== 'boolean') return;
+      if (!room || enabled === undefined) return;
       const me = ctx.playerId ? room.players.find((p) => p.id === ctx.playerId) : undefined;
       if (me?.role !== 'dm') return; // настройку комнаты меняет только реальный ведущий
-      if (room.testMode === testMode) return;
-      manager.setTestMode(room, testMode);
+      if (room.testMode === enabled) return;
+      manager.setTestMode(room, enabled);
       // Переслать токены/библиотеку: в режиме тестов статы открываются всем.
       for (const map of room.scene.maps) {
         for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
       }
       broadcastLibrary(room);
-      broadcastAll('room:settings', { testMode });
+      broadcastAll('room:settings', { testMode: enabled });
       systemMessage(
         room,
-        testMode ? 'Режим тестов включён: у всех участников права ведущего' : 'Режим тестов выключен'
+        enabled ? 'Режим тестов включён: у всех участников права ведущего' : 'Режим тестов выключен'
       );
     });
 
     ctx.on('player:remove', ({ id }) => {
       const room = dmRoom();
-      if (!room || typeof id !== 'string' || id === ctx.playerId) return;
-      const target = room.players.find((p) => p.id === id);
+      const targetId = asString(id);
+      if (!room || !targetId || targetId === ctx.playerId) return;
+      const target = room.players.find((p) => p.id === targetId);
       if (!target) return;
       const targetSocket = target.socketId ? io.sockets.sockets.get(target.socketId) : undefined;
-      room.players = room.players.filter((p) => p.id !== id);
+      room.players = room.players.filter((p) => p.id !== targetId);
       ctx.notifyPlayers(room);
       if (targetSocket) {
         targetSocket.emit('player:kicked');
