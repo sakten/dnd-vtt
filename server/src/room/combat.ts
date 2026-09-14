@@ -84,7 +84,7 @@ export function startCombat(m: CombatDeps, room: Room, mapId: string) {
     round: entries.length ? 1 : 0,
     currentIndex: entries.length ? 0 : -1,
   };
-  if (entries.length) beginTurn(room, mapId, entries[0].id);
+  if (entries.length) beginTurn(room, mapId, entries[0]!.id);
   m.saveSoon(room);
 }
 
@@ -159,7 +159,7 @@ export function advanceTurn(m: CombatDeps, room: Room, mapId: string, delta: num
   }
   combat.round = Math.max(1, combat.round);
   combat.currentIndex = idx;
-  beginTurn(room, mapId, combat.entries[idx].id);
+  beginTurn(room, mapId, combat.entries[idx]!.id);
   m.saveSoon(room);
 }
 
@@ -173,7 +173,7 @@ export function setTurn(m: CombatDeps, room: Room, mapId: string, target: { id?:
   if (idx < 0 || idx >= combat.entries.length) return;
   combat.round = Math.max(1, combat.round);
   combat.currentIndex = idx;
-  beginTurn(room, mapId, combat.entries[idx].id);
+  beginTurn(room, mapId, combat.entries[idx]!.id);
   m.saveSoon(room);
 }
 
@@ -350,7 +350,7 @@ export function ensureActiveTurn(room: Room, mapId: string) {
     combat.currentIndex = 0;
     combat.round = Math.max(1, combat.round);
   }
-  const entry = combat.entries[combat.currentIndex];
+  const entry = combat.entries[combat.currentIndex]!;
   if (!combat.turns[entry.id]) beginTurn(room, mapId, entry.id);
 }
 
@@ -400,7 +400,7 @@ export function removeTokenFromCombat(m: CombatDeps, room: Room, mapId: string, 
   for (const e of removed) delete combat.turns[e.id];
   const activeRemoved = !!activeId && removed.some((e) => e.id === activeId);
   restoreActive(combat, activeRemoved ? undefined : activeId);
-  if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex].id);
+  if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
   m.saveSoon(room);
 }
 
@@ -414,7 +414,7 @@ export function removeCombatant(m: CombatDeps, room: Room, mapId: string, id: st
   delete combat.turns[id];
   const activeRemoved = activeId === id;
   restoreActive(combat, activeRemoved ? undefined : activeId);
-  if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex].id);
+  if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
   m.saveSoon(room);
 }
 
@@ -445,7 +445,7 @@ export function moveCombatant(m: CombatDeps, room: Room, mapId: string, id: stri
   if (from === to) return;
   const activeId = entries[combat.currentIndex]?.id;
   const [entry] = entries.splice(from, 1);
-  entries.splice(to, 0, entry);
+  entries.splice(to, 0, entry!);
   restoreActive(combat, activeId);
   m.saveSoon(room);
 }

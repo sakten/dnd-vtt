@@ -99,7 +99,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         roll = rollDice('d20');
       }
       const die = roll.dice.find((d) => d.sides === 20 && d.sign === 1);
-      const kept = die ? die.values.find((v) => !die.dropped.includes(v)) ?? die.values[0] : roll.total;
+      const kept = die ? die.values.find((v) => !die.dropped.includes(v)) ?? die.values[0] ?? 0 : roll.total;
       let outcome: RollLabelParams['outcome'];
       if (kept === 20) {
         res.hp.deathSuccesses = Math.min(3, res.hp.deathSuccesses + 2);

@@ -718,8 +718,8 @@ function pathLeavesReach(path: { x: number; y: number }[], reactor: Token, mover
   if (path.length < 2) return false;
   const box = (p: { x: number; y: number }) => ({ x: p.x, y: p.y, w: mover.w, h: mover.h });
   for (let i = 0; i < path.length - 1; i++) {
-    const before = gridDistanceFeet(box(path[i]), reactor, gridSize);
-    const after = gridDistanceFeet(box(path[i + 1]), reactor, gridSize);
+    const before = gridDistanceFeet(box(path[i]!), reactor, gridSize);
+    const after = gridDistanceFeet(box(path[i + 1]!), reactor, gridSize);
     if (before <= 5 && after > 5) return true;
   }
   return false;

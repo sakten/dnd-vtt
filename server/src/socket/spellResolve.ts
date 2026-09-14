@@ -210,6 +210,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     for (let i = 0; i < count; i++) {
       // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
       const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
+      if (!target) continue;
       const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
       const effectParts = attackRollParts(
         caster.effects,
@@ -292,6 +293,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     const count = spellAttackCount(spell, castLevel, characterLevel);
     for (let i = 0; i < count; i++) {
       const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
+      if (!target) continue;
       const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
       const damageRoll = rollDice(expression);
       applyDamage(ctx, {

@@ -50,11 +50,11 @@ describe('hydrateRoom', () => {
     const room = hydrateRoom(base({ scene: legacyScene }));
 
     expect(room.scene.maps).toHaveLength(1);
-    expect(room.scene.maps[0].url).toBe('/uploads/old.png');
-    expect(room.scene.maps[0].width).toBe(50);
-    expect(room.scene.maps[0].height).toBe(60);
-    expect(room.scene.maps[0].tokens).toHaveLength(2);
-    expect(room.scene.activeMapId).toBe(room.scene.maps[0].id);
+    expect(room.scene.maps[0]!.url).toBe('/uploads/old.png');
+    expect(room.scene.maps[0]!.width).toBe(50);
+    expect(room.scene.maps[0]!.height).toBe(60);
+    expect(room.scene.maps[0]!.tokens).toHaveLength(2);
+    expect(room.scene.activeMapId).toBe(room.scene.maps[0]!.id);
   });
 
   it('legacy map:null даёт пустой список карт', () => {
@@ -79,9 +79,9 @@ describe('hydrateRoom', () => {
       } as Partial<PersistedRoom>)
     );
 
-    expect(room.scene.maps[0].combat.active).toBe(true);
-    expect(room.scene.maps[0].combat.entries).toHaveLength(1);
-    expect(room.scene.maps[0].combat.entries[0].name).toBe('A');
+    expect(room.scene.maps[0]!.combat.active).toBe(true);
+    expect(room.scene.maps[0]!.combat.entries).toHaveLength(1);
+    expect(room.scene.maps[0]!.combat.entries[0]!.name).toBe('A');
   });
 
   it('добирает дефолты карты и токенов', () => {
@@ -92,8 +92,8 @@ describe('hydrateRoom', () => {
     } as unknown as Scene;
 
     const room = hydrateRoom(base({ scene }));
-    const map = room.scene.maps[0];
-    const token = map.tokens[0];
+    const map = room.scene.maps[0]!;
+    const token = map.tokens[0]!;
 
     expect(map.combat).toEqual(emptyCombatState());
     expect(map.fog.hidden).toEqual([]);
@@ -153,18 +153,18 @@ describe('hydrateRoom', () => {
     } as unknown as Scene;
 
     const room = hydrateRoom(base({ scene }));
-    const token = room.scene.maps[0].tokens[0];
+    const token = room.scene.maps[0]!.tokens[0]!;
 
     expect(token.hpTemp).toBe(0);
     expect(token.faction).toBe('enemy');
     expect(token.speed).toBe(DEFAULT_SPEED);
     expect(token.conditions).toEqual([{ key: 'prone', name: 'Сбит с ног', rounds: 2 }]);
     expect(token.effects).toHaveLength(1);
-    expect(token.effects[0].modifiers).toHaveLength(1);
-    expect(token.effects[0].modifiers[0].value).toBe('1d4');
+    expect(token.effects[0]!.modifiers).toHaveLength(1);
+    expect(token.effects[0]!.modifiers[0]!.value).toBe('1d4');
     expect(token.statblock?.abilities.str).toBe(15);
     expect(token.statblock?.saves?.str).toBe(5);
-    expect(token.statblock?.actions?.[0].name).toBe('Bite');
+    expect(token.statblock?.actions?.[0]?.name).toBe('Bite');
   });
 
   it('hpCurrent выводится из hpMax, если не задан', () => {
@@ -176,17 +176,17 @@ describe('hydrateRoom', () => {
 
     const room = hydrateRoom(base({ scene }));
 
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(17);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(17);
   });
 
   it('переводит library url в imageUrl и удаляет url', () => {
     const item = { id: 'l1', name: 'Гоблин', url: '/uploads/g.png' } as unknown as PersistedRoom['library'][number];
     const room = hydrateRoom(base({ library: [item] }));
 
-    expect(room.library[0].imageUrl).toBe('/uploads/g.png');
-    expect('url' in room.library[0]).toBe(false);
-    expect(room.library[0].cells).toBe(1);
-    expect(room.library[0].attacks).toHaveLength(1);
+    expect(room.library[0]!.imageUrl).toBe('/uploads/g.png');
+    expect('url' in room.library[0]!).toBe(false);
+    expect(room.library[0]!.cells).toBe(1);
+    expect(room.library[0]!.attacks).toHaveLength(1);
   });
 
   it('имя комнаты: дефолт, trim и обрезка', () => {
@@ -228,9 +228,9 @@ describe('hydrateRoom', () => {
       base({ sheets: { p1: { name: 'Герой' } as unknown as PersistedRoom['sheets'][string] } })
     );
 
-    expect(room.sheets.p1.name).toBe('Герой');
-    expect(room.sheets.p1.abilities.str).toBe(10);
-    expect(room.sheets.p1.proficiencyBonus).toBe('2');
+    expect(room.sheets.p1!.name).toBe('Герой');
+    expect(room.sheets.p1!.abilities.str).toBe(10);
+    expect(room.sheets.p1!.proficiencyBonus).toBe('2');
   });
 
   it('не мутирует вход (гидратация собирает новые объекты)', () => {

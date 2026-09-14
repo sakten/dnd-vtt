@@ -48,7 +48,8 @@ export function hydrateRoom(p: PersistedRoom): Room {
   if (isRecord(legacyCombat) && scene.maps.length) {
     const found = scene.maps.findIndex((m) => m.id === scene.activeMapId);
     const index = found >= 0 ? found : 0;
-    scene.maps[index] = { ...scene.maps[index], combat: normalizeCombatState(legacyCombat) };
+    const map = scene.maps[index]!;
+    scene.maps[index] = { ...map, combat: normalizeCombatState(legacyCombat) };
   }
   const controllers: Record<string, string> = {};
   if (isRecord(p.controllers)) {

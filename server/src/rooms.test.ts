@@ -31,23 +31,23 @@ describe('RoomManager ход', () => {
   it('startCombat инициализирует раунд, активного и ресурсы хода', () => {
     const manager = setup();
     const room = makeRoom();
-    room.scene.maps[0].tokens = [token('t1', { speed: 40 }), token('t2')];
+    room.scene.maps[0]!.tokens = [token('t1', { speed: 40 }), token('t2')];
 
     manager.startCombat(room, 'm1');
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
 
     expect(combat.active).toBe(true);
     expect(combat.entries).toHaveLength(2);
     expect(combat.round).toBe(1);
     expect(combat.currentIndex).toBe(0);
-    const active = combat.entries[0];
-    expect(combat.turns[active.id].movementMax).toBe(active.tokenId === 't1' ? 40 : DEFAULT_SPEED);
+    const active = combat.entries[0]!;
+    expect(combat.turns[active.id]!.movementMax).toBe(active.tokenId === 't1' ? 40 : DEFAULT_SPEED);
   });
 
   it('endTurn переходит по кругу и увеличивает раунд на обороте', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10)];
     combat.round = 1;
@@ -66,31 +66,31 @@ describe('RoomManager ход', () => {
   it('новый ход сбрасывает израсходованные ресурсы, сохраняя концентрацию', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10)];
     combat.currentIndex = 0;
     combat.round = 1;
     manager.beginTurn(room, 'm1', 'e1');
-    combat.turns.e1.actionUsed = true;
-    combat.turns.e1.bonusActionUsed = true;
-    combat.turns.e1.movementUsed = 30;
-    combat.turns.e1.concentrationId = 'ef1';
+    combat.turns.e1!.actionUsed = true;
+    combat.turns.e1!.bonusActionUsed = true;
+    combat.turns.e1!.movementUsed = 30;
+    combat.turns.e1!.concentrationId = 'ef1';
 
     manager.endTurn(room, 'm1');
     manager.endTurn(room, 'm1');
 
     expect(combat.currentIndex).toBe(0);
-    expect(combat.turns.e1.actionUsed).toBe(false);
-    expect(combat.turns.e1.bonusActionUsed).toBe(false);
-    expect(combat.turns.e1.movementUsed).toBe(0);
-    expect(combat.turns.e1.concentrationId).toBe('ef1');
+    expect(combat.turns.e1!.actionUsed).toBe(false);
+    expect(combat.turns.e1!.bonusActionUsed).toBe(false);
+    expect(combat.turns.e1!.movementUsed).toBe(0);
+    expect(combat.turns.e1!.concentrationId).toBe('ef1');
   });
 
   it('setTurn задаёт активного по id', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10)];
     combat.round = 1;
@@ -105,29 +105,29 @@ describe('RoomManager ход', () => {
   it('turnStateFor создаёт ход неактивного токена и реакция тратится в чужой ход', () => {
     const manager = setup();
     const room = makeRoom();
-    room.scene.maps[0].tokens = [token('t1'), token('t2')];
-    const combat = room.scene.maps[0].combat;
+    room.scene.maps[0]!.tokens = [token('t1'), token('t2')];
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10)];
     combat.currentIndex = 0;
     manager.beginTurn(room, 'm1', 'e1');
 
-    const t2 = room.scene.maps[0].tokens[1];
+    const t2 = room.scene.maps[0]!.tokens[1]!;
     expect(manager.turnForToken(room, 'm1', t2)).toBeNull();
     expect(combat.turns.e2).toBeUndefined();
 
     expect(manager.turnStateFor(room, 'm1', t2)).toBeDefined();
     expect(combat.turns.e2).toBeDefined();
     expect(manager.spendSlot(room, 'm1', t2, 'reaction')).toBe(true);
-    expect(combat.turns.e2.reactionUsed).toBe(true);
+    expect(combat.turns.e2!.reactionUsed).toBe(true);
     expect(manager.spendSlot(room, 'm1', t2, 'reaction')).toBe(false);
-    expect(combat.turns.e1.reactionUsed).toBe(false);
+    expect(combat.turns.e1!.reactionUsed).toBe(false);
   });
 
   it('перестановка в инициативе сохраняет активного', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10), entry('e3', 't3', 5)];
     combat.currentIndex = 1;
@@ -136,13 +136,13 @@ describe('RoomManager ход', () => {
     manager.moveCombatant(room, 'm1', 'e2', 2);
 
     expect(combat.entries.map((e) => e.id)).toEqual(['e1', 'e3', 'e2']);
-    expect(combat.entries[combat.currentIndex].id).toBe('e2');
+    expect(combat.entries[combat.currentIndex]!.id).toBe('e2');
   });
 
   it('удаление активного переводит ход на другого', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20), entry('e2', 't2', 10)];
     combat.currentIndex = 0;
@@ -152,14 +152,14 @@ describe('RoomManager ход', () => {
 
     expect(combat.entries).toHaveLength(1);
     expect(combat.currentIndex).toBe(0);
-    expect(combat.entries[0].id).toBe('e2');
+    expect(combat.entries[0]!.id).toBe('e2');
   });
 
   it('ре-ролл инициативы и добор токенов сохраняют активного', () => {
     const manager = setup();
     const room = makeRoom();
-    room.scene.maps[0].tokens = [token('t1'), token('t2')];
-    const combat = room.scene.maps[0].combat;
+    room.scene.maps[0]!.tokens = [token('t1'), token('t2')];
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20)];
     combat.currentIndex = 0;
@@ -167,65 +167,65 @@ describe('RoomManager ход', () => {
 
     manager.addMapTokensToCombat(room, 'm1');
     expect(combat.entries).toHaveLength(2);
-    expect(combat.entries[combat.currentIndex].id).toBe('e1');
+    expect(combat.entries[combat.currentIndex]!.id).toBe('e1');
 
     manager.rollCombat(room, 'm1');
-    expect(combat.entries[combat.currentIndex].id).toBe('e1');
+    expect(combat.entries[combat.currentIndex]!.id).toBe('e1');
   });
 
   it('добор токена в активный бой создаёт ресурсы хода', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.currentIndex = -1;
-    room.scene.maps[0].tokens = [token('t1', { speed: 40 })];
+    room.scene.maps[0]!.tokens = [token('t1', { speed: 40 })];
 
-    manager.addTokenToCombat(room, 'm1', room.scene.maps[0].tokens[0]);
+    manager.addTokenToCombat(room, 'm1', room.scene.maps[0]!.tokens[0]!);
 
     expect(combat.currentIndex).toBe(0);
-    const entry = combat.entries[0];
+    const entry = combat.entries[0]!;
     expect(combat.turns[entry.id]).toBeDefined();
-    expect(combat.turns[entry.id].movementMax).toBe(40);
+    expect(combat.turns[entry.id]!.movementMax).toBe(40);
   });
 
   it('consumeAttack: действие открывает запас мультиатаки', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20)];
     combat.currentIndex = 0;
     const tk = token('t1', { statblock: { abilities: { ...DEFAULT_ABILITIES }, multiattack: 3 } });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
     manager.beginTurn(room, 'm1', 'e1');
 
     expect(manager.attacksPerToken(room, tk)).toBe(3);
     expect(manager.consumeAttack(room, 'm1', tk)).toBe(true);
-    expect(combat.turns.e1.actionUsed).toBe(true);
-    expect(combat.turns.e1.attacksRemaining).toBe(2);
+    expect(combat.turns.e1!.actionUsed).toBe(true);
+    expect(combat.turns.e1!.attacksRemaining).toBe(2);
 
     expect(manager.consumeAttack(room, 'm1', tk)).toBe(true);
     expect(manager.consumeAttack(room, 'm1', tk)).toBe(true);
-    expect(combat.turns.e1.attacksRemaining).toBe(0);
+    expect(combat.turns.e1!.attacksRemaining).toBe(0);
     expect(manager.consumeAttack(room, 'm1', tk)).toBe(false);
   });
 
   it('setMovement фиксирует передвижение и не уходит в минус', () => {
     const manager = setup();
     const room = makeRoom();
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20)];
     combat.currentIndex = 0;
     manager.beginTurn(room, 'm1', 'e1');
 
     manager.setMovement(room, 'm1', 't1', 15, 3);
-    expect(combat.turns.e1.movementUsed).toBe(15);
-    expect(combat.turns.e1.diagonalsUsed).toBe(3);
+    expect(combat.turns.e1!.movementUsed).toBe(15);
+    expect(combat.turns.e1!.diagonalsUsed).toBe(3);
 
     manager.setMovement(room, 'm1', 't1', -5);
-    expect(combat.turns.e1.movementUsed).toBe(0);
+    expect(combat.turns.e1!.movementUsed).toBe(0);
   });
 
   it('скорость берётся из листа контролёра, легендарные — из статблока', () => {
@@ -271,15 +271,15 @@ describe('RoomManager ход', () => {
       },
     });
 
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 20)];
     combat.currentIndex = 0;
     manager.beginTurn(room, 'm1', 'e1');
 
-    expect(combat.turns.e1.movementMax).toBe(40);
-    expect(combat.turns.e1.legendaryMax).toBe(3);
-    expect(combat.turns.e1.legendaryRemaining).toBe(3);
+    expect(combat.turns.e1!.movementMax).toBe(40);
+    expect(combat.turns.e1!.legendaryMax).toBe(3);
+    expect(combat.turns.e1!.legendaryRemaining).toBe(3);
   });
 });
 
@@ -297,13 +297,13 @@ describe('RoomManager HP', () => {
   it('персонажу урон идёт в ресурсы и зеркалится в токен', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 10) } });
-    room.scene.maps[0].tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 10 })];
+    room.scene.maps[0]!.tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 10 })];
 
-    const changed = manager.adjustTokenHp(room, 'm1', room.scene.maps[0].tokens[0], -4);
+    const changed = manager.adjustTokenHp(room, 'm1', room.scene.maps[0]!.tokens[0]!, -4);
 
-    expect(room.resources.p1.hp.current).toBe(6);
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(6);
-    expect(changed[0].token.hpCurrent).toBe(6);
+    expect(room.resources.p1!.hp.current).toBe(6);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(6);
+    expect(changed[0]!.token.hpCurrent).toBe(6);
   });
 
   it('лечение не превышает максимум', () => {
@@ -319,21 +319,21 @@ describe('RoomManager HP', () => {
   it('лечение персонажа не превышает максимум ресурсов и зеркалится', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 8) } });
-    room.scene.maps[0].tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 8 })];
+    room.scene.maps[0]!.tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 8 })];
 
-    manager.adjustTokenHp(room, 'm1', room.scene.maps[0].tokens[0], 5);
+    manager.adjustTokenHp(room, 'm1', room.scene.maps[0]!.tokens[0]!, 5);
 
-    expect(room.resources.p1.hp.current).toBe(10);
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(10);
+    expect(room.resources.p1!.hp.current).toBe(10);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(10);
   });
 
   it('syncSheetToTokens без контролёра — no-op', () => {
     const manager = setup();
     const room = makeRoom();
-    room.scene.maps[0].tokens = [token('t1', { hpCurrent: 3 })];
+    room.scene.maps[0]!.tokens = [token('t1', { hpCurrent: 3 })];
 
     expect(manager.syncSheetToTokens(room, 'p1')).toEqual([]);
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(3);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(3);
   });
 
   it('syncSheetToTokens обновляет HP/AC/скорость связанного токена', () => {
@@ -358,10 +358,10 @@ describe('RoomManager HP', () => {
         },
       },
     });
-    room.scene.maps[0].tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '1', hpCurrent: 1 })];
+    room.scene.maps[0]!.tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '1', hpCurrent: 1 })];
 
     const changed = manager.syncSheetToTokens(room, 'p1');
-    const synced = room.scene.maps[0].tokens[0];
+    const synced = room.scene.maps[0]!.tokens[0]!;
 
     expect(synced.hpMax).toBe('12');
     expect(synced.hpCurrent).toBe(5);
@@ -380,7 +380,7 @@ describe('RoomManager заклинания', () => {
     const room = makeRoom({ resources: { p1: res } });
 
     expect(manager.spendSpellSlot(room, 'p1', 2)).toBe('slot');
-    expect(res.spellSlots[0].current).toBe(0);
+    expect(res.spellSlots[0]!.current).toBe(0);
     expect(manager.spendSpellSlot(room, 'p1', 2)).toBe('pact');
     expect(res.pact.current).toBe(0);
     expect(manager.spendSpellSlot(room, 'p1', 2)).toBeNull();
@@ -426,12 +426,12 @@ describe('RoomManager состояния', () => {
         { key: 'paralyzed', name: 'Парализован', rounds: null, save: { ability: 'con', dc: 0, timing: 'start' } },
       ],
     });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     const res = manager.tickConditions(room, tk, 'start');
     expect(res.removed).toContain('Сбит с ног');
     expect(res.saves).toHaveLength(1);
-    expect(res.saves[0].success).toBe(true);
+    expect(res.saves[0]!.success).toBe(true);
     expect(tk.conditions).toHaveLength(0);
   });
 
@@ -439,11 +439,11 @@ describe('RoomManager состояния', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 5) } });
     const tk = token('t1', { libraryItemId: 'lib1' });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     manager.adjustTokenHp(room, 'm1', tk, -12);
 
-    expect(room.resources.p1.hp.current).toBe(-7);
+    expect(room.resources.p1!.hp.current).toBe(-7);
     expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(true);
   });
 
@@ -451,27 +451,27 @@ describe('RoomManager состояния', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 0) } });
     const tk = token('t1', { libraryItemId: 'lib1' });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     manager.adjustTokenHp(room, 'm1', tk, -3);
-    expect(room.resources.p1.hp.deathFailures).toBe(1);
+    expect(room.resources.p1!.hp.deathFailures).toBe(1);
     manager.adjustTokenHp(room, 'm1', tk, -3, { crit: true });
 
-    expect(room.resources.p1.hp.deathFailures).toBe(3);
+    expect(room.resources.p1!.hp.deathFailures).toBe(3);
     expect(tk.conditions.some((c) => c.key === 'dead')).toBe(true);
   });
 
   it('лечение сбрасывает death-сейвы и снимает «Без сознания»', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 0) } });
-    room.resources.p1.hp.deathFailures = 2;
+    room.resources.p1!.hp.deathFailures = 2;
     const tk = token('t1', { libraryItemId: 'lib1' });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     manager.adjustTokenHp(room, 'm1', tk, 4);
 
-    expect(room.resources.p1.hp.current).toBe(4);
-    expect(room.resources.p1.hp.deathFailures).toBe(0);
+    expect(room.resources.p1!.hp.current).toBe(4);
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
     expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(false);
   });
 
@@ -490,15 +490,15 @@ describe('RoomManager состояния', () => {
     const manager = setup();
     const room = makeRoom();
     const tk = token('t1', { conditions: [{ key: 'exhaustion', name: 'Истощение', level: 2, rounds: null }] });
-    room.scene.maps[0].tokens = [tk];
-    const combat = room.scene.maps[0].combat;
+    room.scene.maps[0]!.tokens = [tk];
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 10)];
     combat.currentIndex = 0;
 
     manager.beginTurn(room, 'm1', 'e1');
 
-    expect(combat.turns.e1.movementMax).toBe(DEFAULT_SPEED - 10);
+    expect(combat.turns.e1!.movementMax).toBe(DEFAULT_SPEED - 10);
   });
 });
 
@@ -507,7 +507,7 @@ describe('RoomManager эффекты', () => {
     const manager = setup();
     const room = makeRoom();
     const tk = token('t1');
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     manager.applyEffect(room, tk, {
       id: 'ef1',
@@ -547,7 +547,7 @@ describe('RoomManager эффекты', () => {
     const manager = setup();
     const room = makeRoom();
     const tk = token('t1', { ac: '12' });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     manager.applyEffect(room, tk, {
       id: 'ef1',
@@ -573,13 +573,13 @@ describe('RoomManager эффекты', () => {
     expect(manager.acForToken(room, tk)).toBe(15);
     expect(manager.tokenSpeed(room, tk)).toBe(60);
 
-    const combat = room.scene.maps[0].combat;
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 10)];
     combat.currentIndex = 0;
     manager.beginTurn(room, 'm1', 'e1');
-    expect(combat.turns.e1.movementMax).toBe(60);
-    expect(combat.turns.e1.extraActions).toBe(1);
+    expect(combat.turns.e1!.movementMax).toBe(60);
+    expect(combat.turns.e1!.extraActions).toBe(1);
   });
 
   it('tickEffects: раунды и «до конца хода»', () => {
@@ -591,7 +591,7 @@ describe('RoomManager эффекты', () => {
         { id: 'ef2', name: 'Round', duration: { type: 'rounds', rounds: 1 }, modifiers: [] },
       ],
     });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     const res = manager.tickEffects(room, tk, 'start');
 
@@ -615,7 +615,7 @@ describe('RoomManager эффекты', () => {
         },
       ],
     });
-    room.scene.maps[0].tokens = [caster, ally];
+    room.scene.maps[0]!.tokens = [caster, ally];
 
     manager.tickEffects(room, caster, 'start');
 
@@ -639,8 +639,8 @@ describe('RoomManager эффекты', () => {
       ],
       conditions: [{ key: 'custom', name: 'X', effectId: 'ef1' }],
     });
-    room.scene.maps[0].tokens = [caster, ally];
-    const combat = room.scene.maps[0].combat;
+    room.scene.maps[0]!.tokens = [caster, ally];
+    const combat = room.scene.maps[0]!.combat;
     combat.active = true;
     combat.entries = [entry('e1', 't1', 10)];
     combat.currentIndex = 0;
@@ -652,7 +652,7 @@ describe('RoomManager эффекты', () => {
     expect(changed.map((c) => c.token.id)).toEqual(['t2']);
     expect(ally.effects).toHaveLength(0);
     expect(ally.conditions).toHaveLength(0);
-    expect(combat.turns.e1.concentrationId).toBeNull();
+    expect(combat.turns.e1!.concentrationId).toBeNull();
   });
 
   it('concentrationCheck: успех сохраняет, провал снимает эффекты', () => {
@@ -684,7 +684,7 @@ describe('RoomManager эффекты', () => {
         },
       ],
     });
-    room.scene.maps[0].tokens = [strong, weak];
+    room.scene.maps[0]!.tokens = [strong, weak];
 
     const ok = manager.concentrationCheck(room, strong, 40);
     expect(ok?.success).toBe(true);
@@ -713,7 +713,7 @@ describe('RoomManager эффекты', () => {
         },
       ],
     });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
 
     const defenses = manager.damageDefensesForToken(room, tk);
     expect(defenses.some((d) => d.type === 'resistance' && d.damageType === 'slashing')).toBe(true);
@@ -723,7 +723,7 @@ describe('RoomManager эффекты', () => {
     const manager = setup();
     const room = makeRoom();
     const tk = token('t1', { hpMax: '10', hpCurrent: 10 });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
     const aid: EffectInstance = {
       id: 'ef1',
       name: 'Aid',
@@ -744,7 +744,7 @@ describe('RoomManager эффекты', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(20, 10) } });
     const tk = token('t1', { libraryItemId: 'lib1' });
-    room.scene.maps[0].tokens = [tk];
+    room.scene.maps[0]!.tokens = [tk];
     const aid: EffectInstance = {
       id: 'ef1',
       name: 'Aid',
@@ -753,12 +753,12 @@ describe('RoomManager эффекты', () => {
     };
 
     manager.applyEffect(room, tk, aid);
-    expect(room.resources.p1.hp.max).toBe(25);
-    expect(room.resources.p1.hp.current).toBe(15);
+    expect(room.resources.p1!.hp.max).toBe(25);
+    expect(room.resources.p1!.hp.current).toBe(15);
 
     manager.removeEffect(room, tk, 'ef1');
-    expect(room.resources.p1.hp.max).toBe(20);
-    expect(room.resources.p1.hp.current).toBe(15);
+    expect(room.resources.p1!.hp.max).toBe(20);
+    expect(room.resources.p1!.hp.current).toBe(15);
   });
 
   it('clearEffectsForPlayer снимает эффекты, состояния и концентрацию', () => {
@@ -774,7 +774,7 @@ describe('RoomManager эффекты', () => {
     });
     const caster = token('t1', { libraryItemId: 'lib1' });
     const ally = token('t2');
-    room.scene.maps[0].tokens = [caster, ally];
+    room.scene.maps[0]!.tokens = [caster, ally];
 
     manager.applyEffect(room, caster, {
       id: 'ef1',
@@ -784,7 +784,7 @@ describe('RoomManager эффекты', () => {
     });
     manager.applyEffect(room, caster, { ...conc('ef2', 't1'), conditions: ['custom'] });
     manager.applyEffect(room, ally, conc('ef3', 't1'));
-    expect(room.resources.p1.hp.max).toBe(25);
+    expect(room.resources.p1!.hp.max).toBe(25);
     expect(caster.conditions).toHaveLength(1);
 
     const changed = manager.clearEffectsForPlayer(room, 'p1');
@@ -793,7 +793,7 @@ describe('RoomManager эффекты', () => {
     expect(caster.effects).toHaveLength(0);
     expect(caster.conditions).toHaveLength(0);
     expect(ally.effects).toHaveLength(0);
-    expect(room.resources.p1.hp.max).toBe(20);
+    expect(room.resources.p1!.hp.max).toBe(20);
   });
 });
 

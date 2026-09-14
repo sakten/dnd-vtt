@@ -115,7 +115,7 @@ function makeCtx(room: Room, opts: { playerId?: string | null; dm?: boolean } = 
   return { ctx, invoke, emitted, manager, room };
 }
 
-const combatOf = (room: Room) => room.scene.maps[0].combat;
+const combatOf = (room: Room) => room.scene.maps[0]!.combat;
 
 describe('combat:endTurn', () => {
   it('игрок, управляющий активным токеном, может завершить ход', () => {
@@ -133,7 +133,7 @@ describe('combat:endTurn', () => {
     registerCombatHandlers(f.ctx);
 
     // активируем второй токен, чтобы был куда перейти
-    room.scene.maps[0].tokens.push(makeToken('t2'));
+    room.scene.maps[0]!.tokens.push(makeToken('t2'));
     combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
     f.invoke('combat:endTurn', { mapId: 'm1' });
     expect(combatOf(room).currentIndex).toBe(0);
@@ -172,8 +172,8 @@ describe('combat:setTurn / setMovement', () => {
     const player = makeCtx(room, { playerId: 'p1' });
     registerCombatHandlers(player.ctx);
     player.invoke('combat:setMovement', { mapId: 'm1', tokenId: 't1', used: 20, diagonals: 2 });
-    expect(combatOf(room).turns.e1.movementUsed).toBe(20);
-    expect(combatOf(room).turns.e1.diagonalsUsed).toBe(2);
+    expect(combatOf(room).turns.e1!.movementUsed).toBe(20);
+    expect(combatOf(room).turns.e1!.diagonalsUsed).toBe(2);
   });
 
   it('setMovement чужого игрока игнорируется', () => {
@@ -181,7 +181,7 @@ describe('combat:setTurn / setMovement', () => {
     const f = makeCtx(room, { playerId: 'p2' });
     registerCombatHandlers(f.ctx);
     f.invoke('combat:setMovement', { mapId: 'm1', tokenId: 't1', used: 20 });
-    expect(combatOf(room).turns.e1.movementUsed).toBe(0);
+    expect(combatOf(room).turns.e1!.movementUsed).toBe(0);
   });
 });
 
@@ -193,38 +193,38 @@ describe('action:use', () => {
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash', slot: 'action' });
 
-    expect(combatOf(room).turns.e1.actionUsed).toBe(true);
-    expect(combatOf(room).turns.e1.movementMax).toBe(60);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+    expect(combatOf(room).turns.e1!.movementMax).toBe(60);
     expect(f.emitted.some((e) => e.event === 'system' && String(e.payload).includes('Рывок'))).toBe(true);
   });
 
   it('игрок не может действовать не в свой ход', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
-    room.scene.maps[0].tokens.push(makeToken('t2'));
+    room.scene.maps[0]!.tokens.push(makeToken('t2'));
     combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
     combatOf(room).currentIndex = 1;
     const f = makeCtx(room, { playerId: 'p1' });
     registerActionHandlers(f.ctx);
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
-    expect(combatOf(room).turns.e1.actionUsed).toBe(false);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
   });
 
   it('реакционное действие доступно не в свой ход и тратит реакцию', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
-    room.scene.maps[0].tokens[0].statblock = {
+    room.scene.maps[0]!.tokens[0]!.statblock = {
       abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
       actions: [{ id: 'parry', name: 'Парирование', source: 'monster', costs: ['reaction'] }],
     };
-    room.scene.maps[0].tokens.push(makeToken('t2'));
+    room.scene.maps[0]!.tokens.push(makeToken('t2'));
     combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
     combatOf(room).currentIndex = 1;
     const f = makeCtx(room, { playerId: 'p1' });
     registerActionHandlers(f.ctx);
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'parry', slot: 'reaction' });
-    expect(combatOf(room).turns.e1.reactionUsed).toBe(true);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(true);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(false);
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'parry', slot: 'reaction' });
@@ -235,7 +235,7 @@ describe('action:use', () => {
 
   it('Атака списывает действие и оружие бьёт', () => {
     const room = makeRoom([makeToken('t1')], {});
-    const token = room.scene.maps[0].tokens[0];
+    const token = room.scene.maps[0]!.tokens[0]!;
     token.attacks = [
       { name: 'Bite', hit: 'd20+5', damage: 'd6+3', rangeType: 'none', rangeNormal: 0, rangeLong: 0 },
     ];
@@ -244,8 +244,8 @@ describe('action:use', () => {
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0 });
 
-    expect(combatOf(room).turns.e1.actionUsed).toBe(true);
-    expect(combatOf(room).turns.e1.attacksRemaining).toBe(0);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+    expect(combatOf(room).turns.e1!.attacksRemaining).toBe(0);
     expect(room.chat.length).toBeGreaterThan(0);
   });
 });
@@ -255,7 +255,7 @@ describe('token:update права', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     const f = makeCtx(room, { playerId: 'p1' });
     registerTokenHandlers(f.ctx);
-    const token = room.scene.maps[0].tokens[0];
+    const token = room.scene.maps[0]!.tokens[0]!;
 
     f.invoke('token:update', {
       mapId: 'm1',
@@ -278,7 +278,7 @@ describe('token:update права', () => {
     const room = makeRoom([makeToken('t1')], {});
     const f = makeCtx(room, { dm: true });
     registerTokenHandlers(f.ctx);
-    const token = room.scene.maps[0].tokens[0];
+    const token = room.scene.maps[0]!.tokens[0]!;
 
     f.invoke('token:update', {
       mapId: 'm1',
@@ -339,8 +339,8 @@ describe('spell:cast', () => {
       origin: { x: 0, y: 0 },
     });
 
-    expect(room.resources.p1.spellSlots[0].current).toBe(0);
-    expect(combatOf(room).turns.e1.actionUsed).toBe(true);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
   });
 
@@ -353,7 +353,7 @@ describe('spell:cast', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Cure Wounds', slotLevel: 1 });
 
-    expect(room.resources.p1.spellSlots[0].current).toBe(1);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
   });
 
@@ -380,9 +380,9 @@ describe('spell:cast', () => {
       origin: { x: 300, y: 100 },
     });
 
-    const t2 = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
-    const t3 = room.scene.maps[0].tokens.find((t) => t.id === 't3')!;
-    const t5 = room.scene.maps[0].tokens.find((t) => t.id === 't5')!;
+    const t2 = room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!;
+    const t3 = room.scene.maps[0]!.tokens.find((t) => t.id === 't3')!;
+    const t5 = room.scene.maps[0]!.tokens.find((t) => t.id === 't5')!;
     const saves = room.chat.filter((m) => m.kind === 'roll' && m.rollKind === 'save');
     expect(saves).toHaveLength(2);
     expect(t2.hpCurrent).toBeLessThan(30);
@@ -426,8 +426,8 @@ describe('spell:cast', () => {
     expect(attacks).toHaveLength(3);
     const subject = (m: (typeof attacks)[number]) =>
       (m as { labelParams?: { subject?: string } }).labelParams?.subject ?? '';
-    expect(subject(attacks[0])).toContain('(1/3)');
-    expect(subject(attacks[2])).toContain('(3/3)');
+    expect(subject(attacks[0]!)).toContain('(1/3)');
+    expect(subject(attacks[2]!)).toContain('(3/3)');
   });
 
   it('иммунитет к типу урона обнуляет урон атаки', () => {
@@ -442,7 +442,7 @@ describe('spell:cast', () => {
       ],
       {}
     );
-    room.scene.maps[0].tokens[0].attacks = [
+    room.scene.maps[0]!.tokens[0]!.attacks = [
       { name: 'Огонь', hit: 'd20+20', damage: '2d6', damageType: 'fire', rangeType: 'none', rangeNormal: 0, rangeLong: 0 },
     ];
     const f = makeCtx(room, { dm: true });
@@ -450,7 +450,7 @@ describe('spell:cast', () => {
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
 
-    expect(room.scene.maps[0].tokens.find((t) => t.id === 't2')?.hpCurrent).toBe(30);
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')?.hpCurrent).toBe(30);
   });
 
   it('Shield накладывает +5 AC и тратит реакцию', () => {
@@ -462,17 +462,17 @@ describe('spell:cast', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
 
-    const tk = room.scene.maps[0].tokens[0];
+    const tk = room.scene.maps[0]!.tokens[0]!;
     expect(tk.effects).toHaveLength(1);
-    expect(tk.effects[0].modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
-    expect(combatOf(room).turns.e1.reactionUsed).toBe(true);
-    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(tk.effects[0]!.modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(true);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(f.manager.acForToken(room, tk)).toBe(17);
   });
 
   it('реакционное заклинание кастуется не в свой ход и тратит реакцию', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', ac: '12' })], { p1: 'lib1' });
-    room.scene.maps[0].tokens.push(makeToken('t2'));
+    room.scene.maps[0]!.tokens.push(makeToken('t2'));
     combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
     combatOf(room).currentIndex = 1;
     room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
@@ -482,9 +482,9 @@ describe('spell:cast', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
 
-    expect(combatOf(room).turns.e1.reactionUsed).toBe(true);
-    expect(room.scene.maps[0].tokens[0].effects).toHaveLength(1);
-    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(true);
+    expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(1);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(false);
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
@@ -508,19 +508,19 @@ describe('spell:cast', () => {
       targetIds: ['t2'],
     });
 
-    const target = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
+    const target = room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!;
     expect(target.effects).toHaveLength(1);
-    expect(target.effects[0].concentration).toBe(true);
-    expect(target.effects[0].sourceId).toBe('t1');
-    expect(combatOf(room).turns.e1.concentrationId).toBe(target.effects[0].id);
+    expect(target.effects[0]!.concentration).toBe(true);
+    expect(target.effects[0]!.sourceId).toBe('t1');
+    expect(combatOf(room).turns.e1!.concentrationId).toBe(target.effects[0]!.id);
 
-    const caster = room.scene.maps[0].tokens[0];
+    const caster = room.scene.maps[0]!.tokens[0]!;
     expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Bless' && e.concentration)).toBe(true);
 
     f.invoke('spell:endConcentration', { mapId: 'm1', tokenId: 't1' });
     expect(target.effects).toHaveLength(0);
     expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Bless')).toBe(false);
-    expect(combatOf(room).turns.e1.concentrationId).toBeNull();
+    expect(combatOf(room).turns.e1!.concentrationId).toBeNull();
   });
 
   it('Aid поднимает максимум и текущие HP цели', () => {
@@ -535,7 +535,7 @@ describe('spell:cast', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Aid', slotLevel: 2, targetIds: ['t2'] });
 
-    const target = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
+    const target = room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!;
     expect(target.hpMax).toBe('25');
     expect(target.hpCurrent).toBe(25);
     expect(target.effects).toHaveLength(1);
@@ -546,7 +546,7 @@ describe('spell:cast', () => {
       [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '40', hpCurrent: 40 })],
       { p1: 'lib1' }
     );
-    room.scene.maps[0].tokens[0].attacks = [
+    room.scene.maps[0]!.tokens[0]!.attacks = [
       { name: 'Меч', hit: 'd20+20', damage: '1d8', damageType: 'slashing', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
     ];
     room.sheets.p1 = {
@@ -564,10 +564,10 @@ describe('spell:cast', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Hex', slotLevel: 1, targetIds: ['t2'] });
 
-    const caster = room.scene.maps[0].tokens[0];
-    const target = room.scene.maps[0].tokens.find((t) => t.id === 't2')!;
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!;
     const hex = caster.effects.find((e) => e.sourceKey === 'XPHB:Hex');
-    expect(hex?.modifiers[0].filter?.targetId).toBe('t2');
+    expect(hex!.modifiers[0]!.filter?.targetId).toBe('t2');
     expect(target.effects.some((e) => e.sourceKey === 'XPHB:Hex')).toBe(true);
 
     f.invoke('dice:attack', { tokenId: 't1', targetId: 't2', attackIndex: 0 });
@@ -605,8 +605,8 @@ describe('spell:cast монстра (статблок)', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
 
-    const token = room.scene.maps[0].tokens[0];
-    expect(token.statblock?.spellcasting?.slots?.[0].current).toBe(1);
+    const token = room.scene.maps[0]!.tokens[0]!;
+    expect(token.statblock?.spellcasting?.slots?.[0]?.current).toBe(1);
     expect(token.effects).toHaveLength(1);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(false);
   });
@@ -625,8 +625,8 @@ describe('spell:cast монстра (статблок)', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
 
-    const token = room.scene.maps[0].tokens[0];
-    expect(token.statblock?.spellcasting?.slots?.[0].current).toBe(1);
+    const token = room.scene.maps[0]!.tokens[0]!;
+    expect(token.statblock?.spellcasting?.slots?.[0]?.current).toBe(1);
     expect(token.effects).toHaveLength(0);
     expect(
       f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('статблоке'))
@@ -651,7 +651,7 @@ describe('spell:cast монстра (статблок)', () => {
 
     f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield' });
 
-    expect(room.scene.maps[0].tokens[0].effects).toHaveLength(0);
+    expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
     expect(
       f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Нет ячейки'))
     ).toBe(true);
@@ -689,11 +689,11 @@ describe('реакции (R1)', () => {
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
 
-    const defender = room.scene.maps[0].tokens[1];
+    const defender = room.scene.maps[0]!.tokens[1]!;
     expect(defender.hpCurrent).toBe(30);
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].options.map((o) => o.id)).toContain('spell:XPHB:Shield');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('spell:XPHB:Shield');
 
     // Пока окно открыто, даже DM не может действовать (заморозка).
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
@@ -703,12 +703,12 @@ describe('реакции (R1)', () => {
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XPHB:Shield' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'spell:XPHB:Shield' });
     rand.mockRestore();
 
     expect(defender.effects.some((e) => e.sourceKey === 'XPHB:Shield')).toBe(true);
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
-    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(defender.hpCurrent).toBe(30);
   });
 
@@ -733,7 +733,7 @@ describe('реакции (R1)', () => {
     rand.mockRestore();
 
     expect(pendingOffers('TEST')).toHaveLength(0);
-    expect(room.scene.maps[0].tokens[1].hpCurrent).toBe(30);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
   });
 
   it('щит не предлагается, если попадание с запасом больше бонуса', () => {
@@ -757,7 +757,7 @@ describe('реакции (R1)', () => {
     rand.mockRestore();
 
     expect(pendingOffers('TEST')).toHaveLength(0);
-    expect(room.scene.maps[0].tokens[1].hpCurrent).toBeLessThan(30);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
   });
 
   it('без спец-реакций атака по возможности срабатывает автоматически', () => {
@@ -786,9 +786,9 @@ describe('реакции (R1)', () => {
     });
     rand.mockRestore();
 
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
-    expect(room.resources.p1.hp.current).toBe(25);
+    expect(room.resources.p1!.hp.current).toBe(25);
   });
 
   it('действие «Отход» отменяет атаку по возможности при движении', () => {
@@ -817,9 +817,9 @@ describe('реакции (R1)', () => {
       ],
     });
 
-    expect(combatOf(room).turns.e1.disengaged).toBe(true);
+    expect(combatOf(room).turns.e1!.disengaged).toBe(true);
     expect(combatOf(room).turns.e2?.reactionUsed ?? false).toBe(false);
-    expect(room.resources.p1.hp.current).toBe(30);
+    expect(room.resources.p1!.hp.current).toBe(30);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(false);
   });
 
@@ -835,7 +835,7 @@ describe('реакции (R1)', () => {
     registerActionHandlers(f.ctx);
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dodge' });
-    expect(combatOf(room).turns.e1.dodge).toBe(true);
+    expect(combatOf(room).turns.e1!.dodge).toBe(true);
 
     combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
     combatOf(room).currentIndex = 1;
@@ -847,7 +847,7 @@ describe('реакции (R1)', () => {
       | { roll?: { total?: number } }
       | undefined;
     expect(attack?.roll?.total).toBe(3); // помеха: взят меньший бросок
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(30);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30);
   });
 
   it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
@@ -869,20 +869,20 @@ describe('реакции (R1)', () => {
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
 
-    expect(room.resources.p1.hp.current).toBeLessThan(30);
+    expect(room.resources.p1!.hp.current).toBeLessThan(30);
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].trigger).toBe('damage');
-    expect(offers[0].options.map((o) => o.id)).toContain('spell:XPHB:Hellish Rebuke');
+    expect(offers[0]!.trigger).toBe('damage');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('spell:XPHB:Hellish Rebuke');
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XPHB:Hellish Rebuke' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'spell:XPHB:Hellish Rebuke' });
     rand.mockRestore();
 
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBeLessThan(30);
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
-    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBeLessThan(30);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
   });
 
   it('Невероятное уклонение уменьшает урон вдвое', () => {
@@ -911,15 +911,15 @@ describe('реакции (R1)', () => {
 
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].options.map((o) => o.id)).toContain('feature:rogue:uncannyDodge');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('feature:rogue:uncannyDodge');
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:rogue:uncannyDodge' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'feature:rogue:uncannyDodge' });
     rand.mockRestore();
 
-    expect(room.resources.p1.hp.current).toBe(27); // floor(7 / 2)
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.resources.p1!.hp.current).toBe(27); // floor(7 / 2)
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
   });
 
   it('Парирование тратит кость превосходства и повышает AC', () => {
@@ -961,16 +961,16 @@ describe('реакции (R1)', () => {
 
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].options.map((o) => o.id)).toContain('feature:fighter.battleMaster:parry');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('feature:fighter.battleMaster:parry');
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:fighter.battleMaster:parry' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'feature:fighter.battleMaster:parry' });
     rand.mockRestore();
 
-    expect(room.resources.p1.hp.current).toBe(30); // AC 16 + 7 = 23 > 17 → промах
-    expect(room.resources.p1.resources[0].current).toBe(3);
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.resources.p1!.hp.current).toBe(30); // AC 16 + 7 = 23 > 17 → промах
+    expect(room.resources.p1!.resources[0]!.current).toBe(3);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
   });
 
   it('Absorb Elements уменьшает урон и даёт сопротивление типу', () => {
@@ -1006,22 +1006,22 @@ describe('реакции (R1)', () => {
 
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].options.map((o) => o.id)).toContain('spell:XGE:Absorb Elements');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('spell:XGE:Absorb Elements');
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XGE:Absorb Elements' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'spell:XGE:Absorb Elements' });
     rand.mockRestore();
 
-    const defender = room.scene.maps[0].tokens[1];
-    expect(room.resources.p1.hp.current).toBe(27); // floor(7 / 2)
-    expect(room.resources.p1.spellSlots[0].current).toBe(0);
+    const defender = room.scene.maps[0]!.tokens[1]!;
+    expect(room.resources.p1!.hp.current).toBe(27); // floor(7 / 2)
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(
       defender.effects.some(
         (e) => e.sourceKey === 'XGE:Absorb Elements' && e.modifiers.some((m) => m.filter?.damageType === 'fire')
       )
     ).toBe(true);
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
   });
 
   it('Counterspell отменяет каст', () => {
@@ -1054,21 +1054,21 @@ describe('реакции (R1)', () => {
     });
 
     // Каст ещё не разрешён: цель невредима, открыто окно Counterspell.
-    expect(room.scene.maps[0].tokens[1].hpCurrent).toBe(30);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].options.map((o) => o.id)).toContain('spell:XPHB:Counterspell');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('spell:XPHB:Counterspell');
 
     const f2 = makeCtx(room, { playerId: 'p2' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'spell:XPHB:Counterspell' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'spell:XPHB:Counterspell' });
 
-    expect(room.scene.maps[0].tokens[1].hpCurrent).toBe(30);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
     expect(
       f.emitted.some((e) => e.event === 'system' && String(e.payload).includes('Counterspell'))
     ).toBe(true);
-    expect(combatOf(room).turns.e3.reactionUsed).toBe(true);
-    expect(room.resources.p2.spellSlots[0].current).toBe(0);
+    expect(combatOf(room).turns.e3!.reactionUsed).toBe(true);
+    expect(room.resources.p2!.spellSlots[0]!.current).toBe(0);
   });
 
   it('Палящая вспышка даёт помеху до броска и отменяет попадание', () => {
@@ -1112,21 +1112,21 @@ describe('реакции (R1)', () => {
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack')).toBe(false);
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].trigger).toBe('attackRoll');
-    expect(offers[0].options.map((o) => o.id)).toContain('feature:cleric.light:wardingFlare');
+    expect(offers[0]!.trigger).toBe('attackRoll');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('feature:cleric.light:wardingFlare');
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:cleric.light:wardingFlare' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'feature:cleric.light:wardingFlare' });
     rand.mockRestore();
 
     const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
       | { roll?: { total?: number } }
       | undefined;
     expect(attack?.roll?.total).toBe(3); // с помехой взят меньший бросок
-    expect(room.resources.p1.hp.current).toBe(30);
-    expect(room.resources.p1.resources[0].current).toBe(1);
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.resources.p1!.hp.current).toBe(30);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
   });
 
   it('Ответный удар после промаха бьёт по атакующему с костью превосходства', () => {
@@ -1169,18 +1169,18 @@ describe('реакции (R1)', () => {
 
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].trigger).toBe('attackMiss');
-    expect(offers[0].options.map((o) => o.id)).toContain('feature:fighter.battleMaster:riposte');
+    expect(offers[0]!.trigger).toBe('attackMiss');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('feature:fighter.battleMaster:riposte');
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'feature:fighter.battleMaster:riposte' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'feature:fighter.battleMaster:riposte' });
     rand.mockRestore();
 
     // Ответный удар (d20+20) попал: 1d8 + кость 1d8 = 2 при моке.
-    expect(room.scene.maps[0].tokens[0].hpCurrent).toBe(28);
-    expect(room.resources.p1.resources[0].current).toBe(3);
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(28);
+    expect(room.resources.p1!.resources[0]!.current).toBe(3);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
   });
 
@@ -1222,13 +1222,13 @@ describe('реакции (R1)', () => {
 
     const offers = pendingOffers('TEST');
     expect(offers).toHaveLength(1);
-    expect(offers[0].options.map((o) => o.id)).toContain('opportunity');
+    expect(offers[0]!.options.map((o) => o.id)).toContain('opportunity');
 
     const f2 = makeCtx(room, { playerId: 'p2' });
     registerReactionHandlers(f2.ctx);
-    f2.invoke('reaction:respond', { id: offers[0].id, optionId: 'opportunity' });
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'opportunity' });
 
-    expect(combatOf(room).turns.e2.reactionUsed).toBe(true);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
   });
 });
@@ -1244,7 +1244,7 @@ describe('состояния (ограничения и авто-эффекты)
 
     f.invoke('token:move', { mapId: 'm1', id: 't1', x: 500, y: 500 });
 
-    expect(room.scene.maps[0].tokens[0].x).toBe(0);
+    expect(room.scene.maps[0]!.tokens[0]!.x).toBe(0);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
   });
 
@@ -1258,7 +1258,7 @@ describe('состояния (ограничения и авто-эффекты)
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
 
-    expect(combatOf(room).turns.e1.actionUsed).toBe(false);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
     expect(f.emitted.some((e) => e.event === 'chat:error')).toBe(true);
   });
 
@@ -1276,7 +1276,7 @@ describe('состояния (ограничения и авто-эффекты)
       ],
       {}
     );
-    room.scene.maps[0].tokens[0].attacks = [
+    room.scene.maps[0]!.tokens[0]!.attacks = [
       { name: 'Меч', hit: 'd20+20', damage: '1d6', damageType: 'slashing', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 },
     ];
     const f = makeCtx(room, { dm: true });
@@ -1337,9 +1337,9 @@ describe('отдых и удаление токена', () => {
 
     f.invoke('resources:rest', { type: 'long' });
 
-    expect(room.resources.p1.hp.max).toBe(20);
-    expect(room.resources.p1.hp.current).toBe(20);
-    expect(room.scene.maps[0].tokens[0].effects).toHaveLength(0);
+    expect(room.resources.p1!.hp.max).toBe(20);
+    expect(room.resources.p1!.hp.current).toBe(20);
+    expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
   });
 
   it('удаление кастера снимает его концентрацию с других токенов', () => {
@@ -1366,7 +1366,7 @@ describe('отдых и удаление токена', () => {
 
     f.invoke('token:remove', { mapId: 'm1', id: 't1' });
 
-    expect(room.scene.maps[0].tokens.find((t) => t.id === 't2')?.effects).toHaveLength(0);
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')?.effects).toHaveLength(0);
   });
 });
 
@@ -1377,7 +1377,8 @@ describe('очередь окон реакций (R6.5)', () => {
     const f = makeCtx(room, { playerId: 'p1', dm: true });
     registerReactionHandlers(f.ctx);
 
-    const [t1, t2] = room.scene.maps[0].tokens;
+    const t1 = room.scene.maps[0]!.tokens[0]!;
+    const t2 = room.scene.maps[0]!.tokens[1]!;
     const resumed: string[] = [];
     const offer = (token: typeof t1, name: string) => ({
       token,
@@ -1403,14 +1404,14 @@ describe('очередь окон реакций (R6.5)', () => {
     expect(first).toBe(true);
     expect(second).toBe(true);
     expect(pendingOffers('TEST')).toHaveLength(1);
-    expect(pendingOffers('TEST')[0].options[0].name).toBe('OA1');
+    expect(pendingOffers('TEST')[0]!.options[0]!.name).toBe('OA1');
 
-    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0].id, optionId: null });
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
     expect(resumed).toEqual(['first']);
     expect(pendingOffers('TEST')).toHaveLength(1);
-    expect(pendingOffers('TEST')[0].options[0].name).toBe('OA2');
+    expect(pendingOffers('TEST')[0]!.options[0]!.name).toBe('OA2');
 
-    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0].id, optionId: null });
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
     expect(resumed).toEqual(['first', 'second']);
     expect(pendingOffers('TEST')).toHaveLength(0);
   });
