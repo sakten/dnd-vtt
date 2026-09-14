@@ -5,6 +5,7 @@ import {
   DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
+  emptyTurnState,
   type CharacterSheet,
   type EffectInstance,
   type InitiativeEntry,
@@ -413,6 +414,26 @@ describe('RoomManager заклинания', () => {
     expect(manager.saveBonusForToken(room, char, 'dex')).toBe(-1);
     expect(manager.saveBonusForToken(room, monster, 'dex')).toBe(9);
     expect(manager.saveBonusForToken(room, monster, 'str')).toBe(0);
+  });
+
+  it('Уклонение даёт преимущество на спасброски Ловкости', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1');
+    room.scene.maps[0]!.tokens = [tk];
+    room.scene.maps[0]!.combat = {
+      ...emptyCombatState(),
+      active: true,
+      entries: [entry('e1', 't1', 10)],
+      currentIndex: 0,
+      turns: { e1: { ...emptyTurnState(), dodge: true } },
+    };
+
+    expect(manager.savePartsForToken(room, tk, 'dex').mode).toBe('a');
+    expect(manager.savePartsForToken(room, tk, 'con').mode).toBeUndefined();
+
+    room.scene.maps[0]!.combat.turns.e1!.dodge = false;
+    expect(manager.savePartsForToken(room, tk, 'dex').mode).toBeUndefined();
   });
 });
 

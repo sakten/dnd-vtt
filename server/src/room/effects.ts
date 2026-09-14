@@ -22,7 +22,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { abilitiesForToken, turnStateFor } from './combat';
-import { controllerIdOfToken } from './helpers';
+import { controllerIdOfToken, locateToken } from './helpers';
 
 /** Зависимости домена эффектов: сохранение и зеркалирование HP персонажа в токены. */
 export interface EffectsDeps {
@@ -53,10 +53,18 @@ export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey)
   return abilityMod(sb?.abilities?.[ability] ?? 10);
 }
 
+/** Действие «Уклонение»: преимущество на спасброски Ловкости. */
+function dodgeAdvantage(room: Room, token: Token, ability: AbilityKey): boolean {
+  if (ability !== 'dex') return false;
+  const found = locateToken(room, token.id);
+  return !!found && turnStateFor(room, found.mapId, found.token)?.dodge === true;
+}
+
 /** Слагаемые/кости/режим спасброска токена: базовый бонус, эффекты, истощение. */
 export function savePartsForToken(room: Room, token: Token, ability: AbilityKey): RollParts {
   const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token));
   parts.flat += saveBonusForToken(room, token, ability) + exhaustionRollPenalty(token.conditions);
+  if (dodgeAdvantage(room, token, ability)) parts.mode = parts.mode === 'd' ? undefined : 'a';
   return parts;
 }
 
