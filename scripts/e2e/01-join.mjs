@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
-import { check, sleep } from '../lib/check.mjs';
-import { findButton } from '../lib/e2e-helpers.mjs';
+import { check } from '../lib/check.mjs';
+import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 
@@ -24,7 +24,7 @@ const createBtn = await findButton(S.page, '.join-actions button', 'Создат
 await createBtn.click();
 await S.page.waitForSelector('.table-screen');
 await S.page.waitForSelector('canvas');
-await sleep(800);
+await waitFor(S.page, () => !!(window.__vtt && window.__vtt.getState().roomCode));
 await S.page.screenshot({ path: path.join(S.OUT, '02-empty-table.png') });
 check(S.page.url().includes('room='), 'ссылка после входа содержит код комнаты');
 

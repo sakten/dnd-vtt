@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { eventOnce, waitFor, waitMsg, addLibrary } from '../lib/smoke-helpers.mjs';
+import { eventOnce, waitFor, waitMsg, addLibrary, setCharacter, spawnToken, waitToken } from '../lib/smoke-helpers.mjs';
 
 
 S.dm.emit('library:add', {
@@ -31,12 +31,11 @@ const goblinItem = await addLibrary(S, 'Гоблин-воин', {
   description: '',
   initiativeBonus: '',
 });
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: goblinItem, x: 100, y: 100 });
-const tokenAdd = await eventOnce(S.player, 'token:add');
-check(tokenAdd.token.name === 'Гоблин-воин', 'token add broadcast');
-check(tokenAdd.mapId === S.map1.id, 'токен попал на нужную карту');
-check(tokenAdd.token.cells === 1 && tokenAdd.token.w === 50, 'токен по умолчанию 1x1 (50px)');
-S.token = tokenAdd.token;
+const goblinAdd = await spawnToken(S, { libraryItemId: goblinItem, x: 100, y: 100, by: 'dm' });
+check(goblinAdd.token.name === 'Гоблин-воин', 'token add broadcast');
+check(goblinAdd.mapId === S.map1.id, 'токен попал на нужную карту');
+check(goblinAdd.token.cells === 1 && goblinAdd.token.w === 50, 'токен по умолчанию 1x1 (50px)');
+S.token = goblinAdd.token;
 
 const dragonItem = await addLibrary(S, 'Дракон', {
   imageUrl: '/uploads/fake.png',
@@ -45,8 +44,7 @@ const dragonItem = await addLibrary(S, 'Дракон', {
   description: 'Большой',
   initiativeBonus: '',
 });
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: dragonItem, x: 300, y: 300 });
-const bigAdd = await eventOnce(S.player, 'token:add');
+const bigAdd = await spawnToken(S, { libraryItemId: dragonItem, x: 300, y: 300, by: 'dm' });
 check(
   bigAdd.token.cells === 3 && bigAdd.token.w === 150 && bigAdd.token.round === true && bigAdd.token.description === 'Большой',
   'свойства перетащенного токена наследуются из библиотеки'
@@ -65,17 +63,11 @@ const heroItem = await addLibrary(S, 'Герой-Тест', {
   isPlayerToken: true,
   owner: '',
 });
-const badSet = await new Promise((resolve) =>
-  S.player.emit('player:setCharacter', { libraryItemId: goblinItem }, resolve)
-);
+const badSet = await setCharacter(S, goblinItem).catch((e) => ({ error: e.message }));
 check('error' in badSet, 'нельзя назначить персонажем обычный токен');
-const setChar = await new Promise((resolve) =>
-  S.player.emit('player:setCharacter', { libraryItemId: heroItem }, resolve)
-);
+const setChar = await setCharacter(S, heroItem);
 check('ok' in setChar, 'игрок назначает текущего персонажа');
-const heroAddPromise = eventOnce(S.player, 'token:add');
-S.player.emit('token:add', { mapId: S.map1.id, libraryItemId: heroItem, x: 500, y: 500 });
-const heroAdd = await heroAddPromise;
+const heroAdd = await spawnToken(S, { libraryItemId: heroItem, x: 500, y: 500 });
 check(heroAdd.token.libraryItemId === heroItem && heroAdd.token.isPlayerToken === true, 'игрок ставит своего персонажа на карту');
 S.player.emit('token:move', { mapId: S.map1.id, id: heroAdd.token.id, x: 550, y: 550 });
 const heroMoved = await eventOnce(S.dm, 'token:update');
@@ -105,9 +97,7 @@ const summonItem = await addLibrary(S, 'Волк', {
     { name: '', hit: '', damage: '' },
   ],
 });
-const summonAddPromise = eventOnce(S.player, 'token:add');
-S.player.emit('token:add', { mapId: S.map1.id, libraryItemId: summonItem, x: 600, y: 600 });
-const summonAdd = await summonAddPromise;
+const summonAdd = await spawnToken(S, { libraryItemId: summonItem, x: 600, y: 600 });
 check(summonAdd.token.owner === 'Герой-Тест', 'игрок ставит призыв со владельцем-персонажем');
 const summonHitP = waitMsg(S.player, (m) => m.kind === 'roll' && m.label === 'Атака: Волк — Коготь');
 S.player.emit('dice:attack', { tokenId: summonAdd.token.id, attackIndex: 0 });
@@ -132,15 +122,7 @@ S.dm.off('token:remove', onForeignRemove);
 S.dm.off('token:update', onForeignUpdate);
 check(!foreignRemoved, 'игрок не удаляет чужой токен');
 check(!foreignUpdated, 'игрок не меняет и не лочит чужой токен');
-const ownStatP = new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === summonAdd.token.id) {
-      S.dm.off('token:update', h);
-      resolve(p.token);
-    }
-  };
-  S.dm.on('token:update', h);
-});
+const ownStatP = waitToken(S, summonAdd.token.id, () => true, S.dm);
 S.player.emit('token:update', { mapId: S.map1.id, id: summonAdd.token.id, patch: { hpCurrent: 2, showStats: true } });
 const ownStat = await ownStatP;
 check(ownStat.hpCurrent === 2, 'контролёр меняет HP своего призыва');
@@ -153,9 +135,7 @@ const statueItem = await addLibrary(S, 'Статуя', {
   description: '',
   initiativeBonus: '',
 });
-const statueAddP = eventOnce(S.player, 'token:add');
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: statueItem, x: 1100, y: 600 });
-const statueAdd = await statueAddP;
+const statueAdd = await spawnToken(S, { libraryItemId: statueItem, x: 1100, y: 600, by: 'dm' });
 let foreignAdded = false;
 const onForeignAdd = (p) => {
   if (p.token.libraryItemId === statueItem) foreignAdded = true;
@@ -185,9 +165,7 @@ const targetItem = await addLibrary(S, 'Мишень', {
   ac: '10',
   hpMax: '20',
 });
-const targetAddP = eventOnce(S.player, 'token:add');
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: targetItem, x: 650, y: 600 });
-const targetAdd = await targetAddP;
+const targetAdd = await spawnToken(S, { libraryItemId: targetItem, x: 650, y: 600, by: 'dm' });
 check(targetAdd.token.ac === '' && targetAdd.token.hpMax === '', 'AC/HP врага скрыты от игрока');
 const statItem = await addLibrary(S, 'Стат-Предмет', {
   imageUrl: '/uploads/stat.png',
@@ -207,54 +185,23 @@ const revealedLib = S.lastLibrary.find((i) => i.id === statItem);
 check(revealedLib?.ac === '12' && revealedLib?.hpMax === '30', 'галка showStats у предмета раскрывает статы игроку');
 S.dm.emit('library:remove', statItem);
 await waitFor(() => S.lastLibrary && !S.lastLibrary.some((i) => i.id === statItem));
-const hiddenUpdP = new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === targetAdd.token.id) {
-      S.player.off('token:update', h);
-      resolve(p.token);
-    }
-  };
-  S.player.on('token:update', h);
-});
+const hiddenUpdP = waitToken(S, targetAdd.token.id, () => true, S.player);
 S.dm.emit('token:update', { mapId: S.map1.id, id: targetAdd.token.id, patch: { name: 'Мишень-2' } });
 const hiddenUpd = await hiddenUpdP;
 check(hiddenUpd.ac === '' && hiddenUpd.hpMax === '', 'token:update не раскрывает скрытые статы игроку');
 const dmgMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'damage' && m.labelParams?.subject === 'Волк — Яд');
-const hpUpdateP = new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === targetAdd.token.id && p.token.hpCurrent < 20) {
-      S.dm.off('token:update', h);
-      resolve(p);
-    }
-  };
-  S.dm.on('token:update', h);
-});
+const hpUpdateP = waitToken(S, targetAdd.token.id, (t) => t.hpCurrent < 20, S.dm);
 S.player.emit('dice:attack', { tokenId: summonAdd.token.id, targetId: targetAdd.token.id, attackIndex: 1 });
 await dmgMsgP;
 const hpUpdate = await hpUpdateP;
-check(hpUpdate.token.hpCurrent < 20, `урон вычтен из HP цели (${hpUpdate.token.hpCurrent}/20)`);
-const revealP = new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === targetAdd.token.id && p.token.ac === '10' && p.token.hpMax === '20') {
-      S.player.off('token:update', h);
-      resolve(p);
-    }
-  };
-  S.player.on('token:update', h);
-});
+check(hpUpdate.hpCurrent < 20, `урон вычтен из HP цели (${hpUpdate.hpCurrent}/20)`);
+const revealP = waitToken(S, targetAdd.token.id, (t) => t.ac === '10' && t.hpMax === '20', S.player);
 S.dm.emit('token:update', { mapId: S.map1.id, id: targetAdd.token.id, patch: { showStats: true } });
 const revealed = await revealP;
-check(revealed.token.hpMax === '20', 'DM-галка раскрывает AC/HP игроку');
-const pairGuard = await new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === targetAdd.token.id) {
-      S.dm.off('token:update', h);
-      resolve(p.token);
-    }
-  };
-  S.dm.on('token:update', h);
-  S.dm.emit('token:update', { mapId: S.map1.id, id: targetAdd.token.id, patch: { hpMax: '' } });
-});
+check(revealed.hpMax === '20', 'DM-галка раскрывает AC/HP игроку');
+const pairP = waitToken(S, targetAdd.token.id, () => true, S.dm);
+S.dm.emit('token:update', { mapId: S.map1.id, id: targetAdd.token.id, patch: { hpMax: '' } });
+const pairGuard = await pairP;
 check(pairGuard.hpMax === '20' && pairGuard.ac === '10', 'нельзя оставить Макс. ХП без AC (сервер игнорирует)');
 const targetRemoved = eventOnce(S.player, 'token:remove');
 S.dm.emit('token:remove', { mapId: S.map1.id, id: targetAdd.token.id });

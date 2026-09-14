@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { eventOnce, waitFor, waitMsg, addLibrary } from '../lib/smoke-helpers.mjs';
+import { eventOnce, waitFor, waitMsg, addLibrary, setCharacter, setSheet, spawnToken, waitToken } from '../lib/smoke-helpers.mjs';
 
 // Карта 1 активна у всех после предыдущих сценариев.
 S.dm.emit('map:bring', S.map1.id);
@@ -14,13 +14,9 @@ const casterItem = await addLibrary(S, 'Колдун-Тест', {
   initiativeBonus: '',
   isPlayerToken: true,
 });
-const setChar = await new Promise((resolve) =>
-  S.player.emit('player:setCharacter', { libraryItemId: casterItem }, resolve)
-);
+const setChar = await setCharacter(S, casterItem);
 check('ok' in setChar, 'кастер назначен текущим персонажем');
-const casterAddP = eventOnce(S.player, 'token:add');
-S.player.emit('token:add', { mapId: S.map1.id, libraryItemId: casterItem, x: 200, y: 200 });
-const caster = (await casterAddP).token;
+const caster = (await spawnToken(S, { libraryItemId: casterItem, x: 200, y: 200 })).token;
 
 const zombieItem = await addLibrary(S, 'Зомби-Тест', {
   imageUrl: '/x.png',
@@ -32,16 +28,13 @@ const zombieItem = await addLibrary(S, 'Зомби-Тест', {
   hpMax: '30',
   showStats: true,
 });
-const zombieAddP = eventOnce(S.player, 'token:add');
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: zombieItem, x: 250, y: 200 });
-const zombie = (await zombieAddP).token;
+const zombie = (await spawnToken(S, { libraryItemId: zombieItem, x: 250, y: 200, by: 'dm' })).token;
 
 let latestResources = null;
 S.player.on('resources:update', (r) => {
   latestResources = r;
 });
-const sheetP = eventOnce(S.player, 'sheet:update');
-S.player.emit('sheet:update', {
+await setSheet(S, {
   name: 'Гоблин-игрок',
   abilities: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 },
   proficiencyBonus: '3',
@@ -51,22 +44,13 @@ S.player.emit('sheet:update', {
   classes: [{ className: 'wizard', level: 5 }],
   spells: [{ key: 'XPHB:Fireball', className: 'wizard' }],
 });
-await sheetP;
 await waitFor(() => latestResources && latestResources.spellSlots.some((s) => s.level === 3 && s.max === 2));
 const slot3 = latestResources.spellSlots.find((s) => s.level === 3);
 check(slot3 && slot3.max === 2, 'у волшебника 5 есть ячейки 3 круга');
 
 const saveMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'save');
 const damageMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'damage');
-const hpP = new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === zombie.id && p.token.hpCurrent < 30) {
-      S.dm.off('token:update', h);
-      resolve(p.token);
-    }
-  };
-  S.dm.on('token:update', h);
-});
+const hpP = waitToken(S, zombie.id, (t) => t.hpCurrent < 30, S.dm);
 S.player.emit('spell:cast', {
   mapId: S.map1.id,
   tokenId: caster.id,

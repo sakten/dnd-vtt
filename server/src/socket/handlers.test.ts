@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  DEFAULT_GRID,
   DEFAULT_SPEED,
-  defaultFog,
-  emptyCombatState,
-  emptyTurnState,
   type CharacterSheet,
   type ClientToServerEvents,
   type PlayerResources,
@@ -14,6 +10,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { RoomManager } from '../rooms';
+import { makeCombatRoom as makeRoom, makeResources, makeToken } from '../test/fixtures';
 import type { ConnCtx } from './context';
 import { registerCombatHandlers } from './combat';
 import { registerRoomHandlers } from './room';
@@ -24,82 +21,6 @@ import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
 import { rollConcentrationOnDamage } from './effects';
 import { pendingOffers, registerReactionHandlers } from './reactions';
-
-function makeToken(id: string, overrides: Partial<Token> = {}): Token {
-  return {
-    id,
-    libraryItemId: '',
-    name: id,
-    description: '',
-    imageUrl: '',
-    cells: 1,
-    round: false,
-    initiativeBonus: '',
-    isPlayerToken: false,
-    owner: '',
-    attacks: [],
-    ac: '',
-    hpMax: '',
-    showStats: false,
-    x: 0,
-    y: 0,
-    w: 50,
-    h: 50,
-    scale: 1,
-    rotation: 0,
-    z: 0,
-    visible: true,
-    ownerId: '',
-    lockedBy: null,
-    hpCurrent: 0,
-    hpTemp: 0,
-    faction: 'neutral',
-    speed: DEFAULT_SPEED,
-    conditions: [],
-    effects: [],
-    damageDefenses: [],
-    ...overrides,
-  };
-}
-
-function makeRoom(tokens: Token[], controllers: Record<string, string>): Room {
-  const combat = {
-    ...emptyCombatState(),
-    active: true,
-    round: 1,
-    currentIndex: 0,
-    entries: [{ id: 'e1', tokenId: 't1', name: 'A', imageUrl: '', initiative: 10, bonus: '' }],
-    turns: { e1: { ...emptyTurnState(30), movementUsed: 0 } },
-  };
-  return {
-    code: 'TEST',
-    name: 'T',
-    scene: {
-      maps: [
-        {
-          id: 'm1',
-          name: 'M',
-          url: '',
-          width: 0,
-          height: 0,
-          tokens,
-          fog: defaultFog(DEFAULT_GRID),
-          combat,
-        },
-      ],
-      activeMapId: 'm1',
-      grid: { ...DEFAULT_GRID },
-    },
-    library: [],
-    sheets: {},
-    chat: [],
-    players: [],
-    nextZ: 0,
-    resources: {},
-    controllers,
-    testMode: false,
-  };
-}
 
 interface FakeCtx {
   ctx: ConnCtx;
@@ -390,14 +311,10 @@ function casterSheet(): CharacterSheet {
 }
 
 function casterResources(): PlayerResources {
-  return {
+  return makeResources({
     hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
-    hitDice: [],
     spellSlots: [{ level: 3, current: 1, max: 1 }],
-    pact: { current: 0, max: 0, level: 0 },
-    resources: [],
-    notes: '',
-  };
+  });
 }
 
 describe('spell:cast', () => {

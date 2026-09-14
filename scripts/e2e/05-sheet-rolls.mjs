@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { findButton } from '../lib/e2e-helpers.mjs';
+import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
   await S.page.keyboard.type('Конан', { delay: 30 });
@@ -46,7 +46,8 @@ await S.page.keyboard.type('d8+3', { delay: 30 });
 await S.page.screenshot({ path: path.join(S.OUT, '10c-sheet-filled.png') });
 const saveSheetBtn = await findButton(S.page, '.sheet-modal button', 'Сохранить');
 await saveSheetBtn.click();
-await sleep(500);
+await S.page.waitForFunction(() => !document.querySelector('.sheet-modal'));
+await waitFor(S.page, () => window.__vtt.getState().sheet?.name === 'Конан', 8000);
 const sheetState = await S.page.evaluate(() => window.__vtt.getState().sheet);
 check(
   sheetState &&
@@ -84,7 +85,7 @@ const attackItem = await findButton(S.page, '.roll-menu .roll-menu-item', 'Attac
 await attackItem.click();
 await S.page.waitForSelector('.aim-panel');
 await S.page.mouse.click(attackTarget.sx, attackTarget.sy);
-await sleep(900);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('Атака: Меч')));
 const attackLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
 const attackHit = attackLabels.some((t) => t.includes('Атака: Меч') && t.includes('d20 + 5'));
 const attackDamage = attackLabels.some((t) => t.includes('Урон: Меч') && t.includes('d8 + 3'));
@@ -96,9 +97,9 @@ check(
 
 await S.page.click('.roll-button');
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Save')).click();
-await sleep(200);
+await waitFor(S.page, () => [...document.querySelectorAll('.roll-menu .roll-menu-item')].some((el) => el.textContent?.includes('Ловкость')));
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Ловкость')).click();
-await sleep(800);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('Спасбросок: Ловкость')));
 const saveLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
 check(
   saveLabels.some((t) => t.includes('Спасбросок: Ловкость') && t.includes('d20 + d4 + 3')),
@@ -107,11 +108,11 @@ check(
 
 await S.page.click('.roll-button');
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Check')).click();
-await sleep(200);
+await waitFor(S.page, () => [...document.querySelectorAll('.roll-menu .roll-menu-item')].some((el) => el.textContent?.includes('Ловкость')));
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Ловкость')).click();
-await sleep(200);
+await waitFor(S.page, () => [...document.querySelectorAll('.roll-menu .roll-menu-item')].some((el) => el.textContent?.includes('Скрытность')));
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Скрытность')).click();
-await sleep(800);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('Проверка: Скрытность')));
 const checkLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
 check(
   checkLabels.some((t) => t.includes('Проверка: Скрытность') && t.includes('d20 + 2d4 + 3')),
@@ -121,28 +122,28 @@ check(
 const rollCountBefore = await S.page.$$eval('.chat-msg.roll', (els) => els.length);
 const firstRoll = await S.page.$('.chat-msg.roll');
 await firstRoll.click();
-await sleep(800);
+await S.page.waitForFunction((n) => document.querySelectorAll('.chat-msg.roll').length > n, {}, rollCountBefore);
 const rollCountAfter = await S.page.$$eval('.chat-msg.roll', (els) => els.length);
 check(rollCountAfter === rollCountBefore + 1, 'клик по броску повторяет его');
 
 const advChecks = await S.page.$$('.adv-check input');
 await advChecks[0].click();
-await sleep(200);
+await waitFor(S.page, () => document.querySelectorAll('.adv-check input')[0]?.checked === true);
 await advChecks[1].click();
-await sleep(200);
+await waitFor(S.page, () => document.querySelectorAll('.adv-check input')[1]?.checked === true);
 const bothChecked = await S.page.$$eval('.adv-check input', (els) => els.map((el) => el.checked));
 check(bothChecked[0] === false && bothChecked[1] === true, 'Adv и Dis не могут быть выбраны одновременно');
 await advChecks[1].click();
-await sleep(200);
+await waitFor(S.page, () => document.querySelectorAll('.adv-check input')[1]?.checked === false);
 await advChecks[0].click();
-await sleep(200);
+await waitFor(S.page, () => document.querySelectorAll('.adv-check input')[0]?.checked === true);
 const advOnly = await S.page.$$eval('.adv-check input', (els) => els.map((el) => el.checked));
 check(advOnly[0] === true && advOnly[1] === false, 'выбор Adv снимает Dis');
 await S.page.click('.roll-button');
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Attack')).click();
 await S.page.waitForSelector('.aim-panel');
 await S.page.mouse.click(attackTarget.sx, attackTarget.sy);
-await sleep(900);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('d20a')));
 const advLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
 const advHit = advLabels.some((t) => t.includes('Атака: Меч') && t.includes('d20a'));
 const advDamage = advLabels.some((t) => t.includes('Урон: Меч') && t.includes('d8 + 3'));
@@ -160,12 +161,12 @@ check(advState[0] === false && advState[1] === false, 'галочки Adv/Dis с
 
 const disChecks = await S.page.$$('.adv-check input');
 await disChecks[1].click();
-await sleep(200);
+await waitFor(S.page, () => document.querySelectorAll('.adv-check input')[1]?.checked === true);
 await S.page.click('.roll-button');
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Save')).click();
-await sleep(200);
+await waitFor(S.page, () => [...document.querySelectorAll('.roll-menu .roll-menu-item')].some((el) => el.textContent?.includes('Ловкость')));
 await (await findButton(S.page, '.roll-menu .roll-menu-item', 'Ловкость')).click();
-await sleep(800);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('d20d')));
 const disLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
 check(
   disLabels.some((t) => t.includes('Спасбросок: Ловкость') && t.includes('d20d')),
@@ -176,10 +177,10 @@ await S.page.click('.sheet-button');
 await S.page.waitForSelector('.sheet-modal');
 const weaponsBefore = await S.page.$$eval('.sheet-modal .weapon-block', (els) => els.length);
 await (await findButton(S.page, '.sheet-modal button', 'Добавить атаку')).click();
-await sleep(200);
+await S.page.waitForFunction((n) => document.querySelectorAll('.sheet-modal .weapon-block').length > n, {}, weaponsBefore);
 const weaponsAdded = await S.page.$$eval('.sheet-modal .weapon-block', (els) => els.length);
 await (await S.page.$('.sheet-modal .weapon-remove')).click();
-await sleep(200);
+await S.page.waitForFunction(() => document.querySelectorAll('.sheet-modal .weapon-block').length === 1);
 const weaponsRemoved = await S.page.$$eval('.sheet-modal .weapon-block', (els) => els.length);
 check(
   weaponsBefore === 1 && weaponsAdded === 2 && weaponsRemoved === 1,
@@ -187,7 +188,6 @@ check(
 );
 await S.page.keyboard.press('Escape');
 await S.page.waitForFunction(() => !document.querySelector('.sheet-modal'));
-await sleep(200);
 
 await S.fileInputs[0].uploadFile(S.map2Path);
-await sleep(1200);
+await waitFor(S.page, () => window.__vtt.getState().scene.maps.length >= 2, 8000);

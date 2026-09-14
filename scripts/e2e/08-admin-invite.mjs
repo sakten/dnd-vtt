@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
-import { check, sleep } from '../lib/check.mjs';
-import { errors, attachErrorLog, findButton } from '../lib/e2e-helpers.mjs';
+import { check } from '../lib/check.mjs';
+import { errors, attachErrorLog, findButton, waitFor } from '../lib/e2e-helpers.mjs';
 
 const n3 = await S.page3.$$('.admin-card input[type=text]');
 await n3[0].type('Третий');
@@ -76,7 +76,7 @@ await page5.evaluateOnNewDocument(
 );
 await page5.goto(`${S.BASE}?room=${S.code}`, { waitUntil: 'networkidle0' });
 await page5.waitForSelector('.table-screen');
-await sleep(800);
+await waitFor(page5, () => window.__vtt && window.__vtt.getState().role === 'dm' && document.querySelectorAll('canvas').length > 0, 8000);
 const inviteState = await page5.evaluate(() => ({
   role: window.__vtt.getState().role,
   hasDead: window.__vtt.getState().scene.maps.some((m) => m.tokens.some((t) => t.hpCurrent === 0)),
@@ -111,7 +111,7 @@ await page4.evaluate(() => {
 });
 await page4.keyboard.type('Переименовано', { delay: 30 });
 await page4.keyboard.press('Enter');
-await sleep(500);
+await waitFor(page4, () => !document.querySelector('.admin-room-name-input'));
 const renamedList = await page4.evaluate(
   () =>
     new Promise((resolve) =>
@@ -126,7 +126,7 @@ await targetRow.$eval('button.danger', (el) => el.click());
 await page4.waitForSelector('.modal');
 const confirmDeleteBtn = await findButton(page4, '.modal button', 'Удалить');
 await confirmDeleteBtn.click();
-await sleep(1000);
+await page4.waitForFunction((n) => document.querySelectorAll('.admin-room').length === n - 1, {}, roomsBefore);
 const roomsAfter = await page4.$$eval('.admin-room', (els) => els.length);
 check(roomsAfter === roomsBefore - 1, `удаление комнаты с подтверждением работает (${roomsBefore} -> ${roomsAfter})`);
 
@@ -137,10 +137,9 @@ await page4.evaluate(
     ),
   S.code
 );
-await sleep(1000);
 const refreshBtn = await findButton(page4, '.join-actions button', 'Обновить');
 await refreshBtn.click();
-await sleep(800);
+await page4.waitForFunction((n) => document.querySelectorAll('.admin-room').length === n - 2, {}, roomsBefore);
 const roomsFinal = await page4.$$eval('.admin-room', (els) => els.length);
 check(roomsFinal === roomsBefore - 2, `тестовые комнаты удалены после теста (${roomsBefore} -> ${roomsFinal})`);
 await ctx4.close();

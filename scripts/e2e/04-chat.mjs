@@ -1,14 +1,15 @@
 import { S } from './state.mjs';
-import { check, sleep } from '../lib/check.mjs';
+import { check } from '../lib/check.mjs';
+import { waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 const chatInput = await S.page.$('.chat-input input[type=text]');
 await chatInput.type('d20+3');
 await chatInput.press('Enter');
-await sleep(800);
+await waitFor(S.page, () => document.querySelectorAll('.chat-msg.roll').length >= 1);
 await chatInput.type('Всем привет!');
 await chatInput.press('Enter');
-await sleep(800);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg')].some((el) => el.textContent?.includes('Всем привет!')));
 const dmRolls = await S.page.$$eval('.chat-msg.roll .roll-total-big', (els) => els.map((el) => el.textContent));
 const dmTotal = Number(dmRolls[0]);
 check(
@@ -18,16 +19,16 @@ check(
 
 await chatInput.focus();
 await chatInput.press('ArrowUp');
-await sleep(200);
+await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === 'Всем привет!');
 const hist1 = await chatInput.evaluate((el) => el.value);
 await chatInput.press('ArrowUp');
-await sleep(200);
+await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === 'd20+3');
 const hist2 = await chatInput.evaluate((el) => el.value);
 await chatInput.press('ArrowDown');
-await sleep(200);
+await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === 'Всем привет!');
 const hist3 = await chatInput.evaluate((el) => el.value);
 await chatInput.press('ArrowDown');
-await sleep(200);
+await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === '');
 const hist4 = await chatInput.evaluate((el) => el.value);
 check(
   hist1 === 'Всем привет!' && hist2 === 'd20+3' && hist3 === 'Всем привет!' && hist4 === '',
@@ -37,7 +38,7 @@ await chatInput.type('');
 
 await chatInput.type('d4+d20+2');
 await chatInput.press('Enter');
-await sleep(800);
+await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('d20 + d4 + 2')));
 const mixedLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
 check(
   mixedLabels.some((t) => t.includes('d20 + d4 + 2')),

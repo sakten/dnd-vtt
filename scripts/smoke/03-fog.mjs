@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { waitFor, waitMsg } from '../lib/smoke-helpers.mjs';
+import { waitFor, waitMsg, setSheet } from '../lib/smoke-helpers.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -63,7 +63,7 @@ check(
 S.uploadedDir = path.resolve('server/data/uploads', S.created.room.code);
 check(fs.existsSync(S.uploadedDir), 'папка загрузок комнаты создана на диске');
 
-S.player.emit('sheet:update', {
+await setSheet(S, {
   name: 'Боец',
   abilities: { str: 10, dex: 12, con: 10, int: 10, wis: 10, cha: 10 },
   proficiencyBonus: '2',
@@ -76,7 +76,6 @@ S.player.emit('sheet:update', {
   ],
   classes: [],
 });
-await sleep(200);
 const attackHitP = waitMsg(S.dm, (m) => m.kind === 'roll' && m.label === 'Атака: Топор');
 const attackDmgP = waitMsg(S.dm, (m) => m.kind === 'roll' && m.label === 'Урон: Топор');
 S.player.emit('dice:attack', { attackIndex: 0 });

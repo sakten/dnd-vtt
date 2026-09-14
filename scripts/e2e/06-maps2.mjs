@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
-import { check, sleep } from '../lib/check.mjs';
-import { findButton } from '../lib/e2e-helpers.mjs';
+import { check } from '../lib/check.mjs';
+import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 S.maps2 = await S.page.evaluate(() => {
@@ -8,6 +8,7 @@ S.maps2 = await S.page.evaluate(() => {
   return {
     count: s.scene.maps.length,
     active: s.scene.activeMapId,
+    first: s.scene.maps[0]?.id ?? null,
     second: s.scene.maps[1]?.id ?? null,
     tokensOnSecond: s.scene.maps[1]?.tokens.length ?? -1,
   };
@@ -16,7 +17,7 @@ check(S.maps2.count === 2 && S.maps2.active === S.maps2.second, 'вторая к
 check(S.maps2.tokensOnSecond === 0, 'на новой карте нет токенов');
 const mapItems = await S.page.$$('.map-item');
 await mapItems[1].click();
-await sleep(800);
+await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.second);
 const dmViewsMap2 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const m = s.scene.maps.find((x) => x.id === s.viewMapId);
@@ -26,7 +27,7 @@ check(dmViewsMap2.name === 'test-map2' && dmViewsMap2.tokens === 0, 'ведущ�
 await S.page.screenshot({ path: path.join(S.OUT, '11-map2.png') });
 
 await mapItems[0].click();
-await sleep(800);
+await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.first);
 const backToMap1 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const m = s.scene.maps.find((x) => x.id === s.viewMapId);
@@ -34,7 +35,7 @@ const backToMap1 = await S.page.evaluate(() => {
 });
 check(backToMap1.name === 'test-map' && backToMap1.tokens === 2, 'переключение на первую карту вернуло её токены');
 await mapItems[1].click();
-await sleep(800);
+await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.second);
 const backToMap2 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const m = s.scene.maps.find((x) => x.id === s.viewMapId);
@@ -42,7 +43,7 @@ const backToMap2 = await S.page.evaluate(() => {
 });
 check(backToMap2.name === 'test-map2' && backToMap2.tokens === 0, 'переключение на вторую карту');
 await mapItems[0].click();
-await sleep(800);
+await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.first);
 
 await S.gridBtn.click();
 await S.page.waitForSelector('.modal');
@@ -53,7 +54,7 @@ await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('100', { delay: 30 });
 await (await findButton(S.page, '.modal button', 'Готово')).click();
-await sleep(900);
+await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 100);
 const grid100 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
@@ -72,7 +73,7 @@ await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('50', { delay: 30 });
 await (await findButton(S.page, '.modal button', 'Готово')).click();
-await sleep(900);
+await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 50);
 const grid50 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];

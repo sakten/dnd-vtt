@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { eventOnce, joinAndAck, waitMsg, addLibrary } from '../lib/smoke-helpers.mjs';
+import { eventOnce, joinAndAck, waitMsg, addLibrary, setSheet, spawnToken, waitToken } from '../lib/smoke-helpers.mjs';
 
 const dummyItem = await addLibrary(S, 'Манекен', {
   imageUrl: '/uploads/dummy.png',
@@ -11,18 +11,8 @@ const dummyItem = await addLibrary(S, 'Манекен', {
   hpMax: '15',
   ac: '10',
 });
-const dummyAddP = eventOnce(S.player, 'token:add');
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: dummyItem, x: 300, y: 300 });
-const dummyAdd = await dummyAddP;
-const dummyHpP = new Promise((resolve) => {
-  const h = (p) => {
-    if (p.token.id === dummyAdd.token.id && p.token.hpCurrent < 15) {
-      S.dm.off('token:update', h);
-      resolve(p);
-    }
-  };
-  S.dm.on('token:update', h);
-});
+const dummyAdd = await spawnToken(S, { libraryItemId: dummyItem, x: 300, y: 300, by: 'dm' });
+const dummyHpP = waitToken(S, dummyAdd.token.id, (t) => t.hpCurrent < 15, S.dm);
 S.player.emit('dice:attack', { targetId: dummyAdd.token.id, attackIndex: 1 });
 await dummyHpP;
 const dummyRemoved = eventOnce(S.player, 'token:remove');
@@ -53,10 +43,8 @@ let dmGotResources = false;
 S.dm.once('resources:update', () => {
   dmGotResources = true;
 });
-const sheetEchoPromise = eventOnce(S.player, 'sheet:update');
 const resourcesPromise = eventOnce(S.player, 'resources:update');
-S.player.emit('sheet:update', testSheet);
-const sheetEcho = await sheetEchoPromise;
+const sheetEcho = await setSheet(S, testSheet);
 check(sheetEcho.sheet.name === 'Гоблин-игрок', 'лист сохраняется и возвращается владельцу');
 check(sheetEcho.sheet.attacks?.[0]?.name === 'Кинжал', 'в листе три поля оружия');
 check(sheetEcho.sheet.classes?.[0]?.className === 'wizard', 'классы сохраняются в листе');

@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
-import { check, sleep } from '../lib/check.mjs';
-import { findButton } from '../lib/e2e-helpers.mjs';
+import { check } from '../lib/check.mjs';
+import { findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 await S.page.screenshot({ path: path.join(S.OUT, '08-token-menu.png') });
@@ -10,10 +10,9 @@ await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('Гоблин', { delay: 40 });
-await sleep(400);
 const menuDone = await findButton(S.page, '.modal button', 'Готово');
 await menuDone.click();
-await sleep(400);
+await waitFor(S.page, () => !document.querySelector('.modal'));
 const afterEdit = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
@@ -27,13 +26,21 @@ check(
 const sized = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
-  return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y } : null;
+  return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y, x: t.x, y: t.y } : null;
 });
 await S.page.mouse.move(sized.sx, sized.sy);
 await S.page.mouse.down();
 await S.page.mouse.move(sized.sx + 140, sized.sy + 110, { steps: 10 });
 await S.page.mouse.up();
-await sleep(800);
+await S.page.waitForFunction(
+  (old) => {
+    const s = window.__vtt.getState();
+    const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+    return !!t && (t.x !== old.x || t.y !== old.y);
+  },
+  {},
+  { x: sized.x, y: sized.y }
+);
 await S.page.screenshot({ path: path.join(S.OUT, '09-token-moved.png') });
 const moved2 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
@@ -46,10 +53,12 @@ check(
 );
 
 await S.fileInputs[1].uploadFile(S.tokenSquarePath);
-await sleep(800);
+await waitFor(S.page, () => {
+  const imgs = document.querySelectorAll('.token-panel-item img');
+  return imgs.length >= 2 && [...imgs].every((img) => img.complete && img.naturalWidth > 0);
+}, 8000);
 const thumbs = await S.page.$$('.token-panel-item img');
 await thumbs[1].click();
-await sleep(300);
 await thumbs[1].click();
 await S.page.waitForSelector('.modal');
 const hasPlayerTokenCheck = await S.page.evaluate(() =>
@@ -60,10 +69,9 @@ const hasPlayerTokenCheck = await S.page.evaluate(() =>
 check(hasPlayerTokenCheck, 'в свойствах предмета есть галка «Это токен игрока»');
 const roundCheck = await S.page.$('.modal input[type=checkbox]');
 await roundCheck.click();
-await sleep(200);
 const libRoundDone = await findButton(S.page, '.modal button', 'Готово');
 await libRoundDone.click();
-await sleep(400);
+await waitFor(S.page, () => !document.querySelector('.modal'));
 await S.page.evaluate(() => {
   const src = document.querySelectorAll('.token-panel-item img')[1];
   const target = document.querySelector('.table-top');
@@ -76,7 +84,11 @@ await S.page.evaluate(() => {
     new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: 800, clientY: 380 })
   );
 });
-await sleep(900);
+await waitFor(S.page, () => {
+  const s = window.__vtt.getState();
+  const map = s.scene.maps.find((m) => m.id === s.viewMapId);
+  return !!map && map.tokens.length > 1;
+}, 8000);
 const roundToken = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
@@ -86,6 +98,7 @@ check(
   roundToken && roundToken.round === true && roundToken.name === 'test-token-square',
   `перетащенный квадратный токен получил круглость (round=${roundToken?.round})`
 );
+await nextFrame(S.page);
 const corner = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
@@ -104,14 +117,13 @@ const roundPos = await S.page.evaluate(() => {
   return { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y };
 });
 await S.page.mouse.click(roundPos.sx, roundPos.sy);
-await sleep(80);
 await S.page.mouse.click(roundPos.sx, roundPos.sy);
 await S.page.waitForSelector('.modal');
 const roundToggle = await S.page.$('.modal input[type=checkbox]');
 await roundToggle.click();
 const roundMenuDone = await findButton(S.page, '.modal button', 'Готово');
 await roundMenuDone.click();
-await sleep(400);
+await waitFor(S.page, () => !document.querySelector('.modal'));
 const roundAfter = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   return s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1]?.round;
@@ -121,9 +133,11 @@ await S.page.screenshot({ path: path.join(S.OUT, '09b-round.png') });
 
 S.canvas = await S.page.$('canvas');
 const box = await S.canvas.boundingBox();
+const scaleBeforeZoom = await S.page.evaluate(() => window.__vtt.getState().view.scale);
 await S.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 await S.page.mouse.wheel({ deltaY: -240 });
-await sleep(500);
+await waitFor(S.page, (prev) => window.__vtt.getState().view.scale > prev, 5000, scaleBeforeZoom);
+await S.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 await S.page.screenshot({ path: path.join(S.OUT, '10-zoom.png') });
 
 const wheelToken = await S.page.evaluate(() => {
@@ -140,7 +154,7 @@ const wheelToken = await S.page.evaluate(() => {
 });
 await S.page.mouse.move(wheelToken.sx, wheelToken.sy);
 await S.page.mouse.wheel({ deltaY: -120 });
-await sleep(500);
+await waitFor(S.page, (prev) => window.__vtt.getState().view.scale > prev, 5000, wheelToken.viewScale);
 const wheelAfter = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];

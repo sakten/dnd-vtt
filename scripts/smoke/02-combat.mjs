@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { eventOnce, waitFor, addLibrary } from '../lib/smoke-helpers.mjs';
+import { eventOnce, waitFor, addLibrary, spawnToken } from '../lib/smoke-helpers.mjs';
 
 await waitFor(() => S.lastMaps && S.lastMaps.maps.length === 2);
 const map2 = S.lastMaps.maps[1];
@@ -20,8 +20,7 @@ const thirdItem = await addLibrary(S, 'Третий', {
   description: '',
   initiativeBonus: '+5',
 });
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: thirdItem, x: 50, y: 50 });
-const thirdAdd = await eventOnce(S.player, 'token:add');
+const thirdAdd = await spawnToken(S, { libraryItemId: thirdItem, x: 50, y: 50, by: 'dm' });
 check(thirdAdd.token.name === 'Третий', 'токен добавляется на указанную карту');
 check(thirdAdd.token.initiativeBonus === '+5', 'бонус инициативы наследуется из библиотеки');
 
@@ -73,8 +72,7 @@ const fifthItem = await addLibrary(S, 'Пятый', {
   description: '',
   initiativeBonus: '',
 });
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: fifthItem, x: 70, y: 70 });
-await eventOnce(S.player, 'token:add');
+await spawnToken(S, { libraryItemId: fifthItem, x: 70, y: 70, by: 'dm' });
 await waitFor(() => combatState.entries.length === 4);
 check(combatState.entries.length === 4, 'токен, добавленный в бою, попал в очередь');
 const addedEntry = combatState.entries.find((e) => e.name === 'Пятый');

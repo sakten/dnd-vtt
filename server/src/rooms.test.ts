@@ -9,82 +9,12 @@ import {
   type EffectInstance,
   type InitiativeEntry,
   type PlayerResources,
-  type Token,
 } from 'shared';
-import type { Room } from './roomTypes';
 import { RoomManager } from './rooms';
-
-function token(id: string, overrides: Partial<Token> = {}): Token {
-  return {
-    id,
-    libraryItemId: '',
-    name: id,
-    description: '',
-    imageUrl: '',
-    cells: 1,
-    round: false,
-    initiativeBonus: '',
-    isPlayerToken: false,
-    owner: '',
-    attacks: [],
-    ac: '',
-    hpMax: '',
-    showStats: false,
-    x: 0,
-    y: 0,
-    w: 0,
-    h: 0,
-    scale: 1,
-    rotation: 0,
-    z: 0,
-    visible: true,
-    ownerId: '',
-    lockedBy: null,
-    hpCurrent: 0,
-    hpTemp: 0,
-    faction: 'neutral',
-    speed: DEFAULT_SPEED,
-    conditions: [],
-    effects: [],
-    damageDefenses: [],
-    ...overrides,
-  };
-}
+import { makeResources, makeRoom, makeToken as token } from './test/fixtures';
 
 function entry(id: string, tokenId: string, initiative: number): InitiativeEntry {
   return { id, tokenId, name: tokenId, imageUrl: '', initiative, bonus: '' };
-}
-
-function makeRoom(overrides: Partial<Room> = {}): Room {
-  return {
-    code: 'TEST',
-    name: 'T',
-    scene: {
-      maps: [
-        {
-          id: 'm1',
-          name: 'M',
-          url: '',
-          width: 0,
-          height: 0,
-          tokens: [],
-          fog: defaultFog(DEFAULT_GRID),
-          combat: emptyCombatState(),
-        },
-      ],
-      activeMapId: 'm1',
-      grid: { ...DEFAULT_GRID },
-    },
-    library: [],
-    sheets: {},
-    chat: [],
-    players: [],
-    nextZ: 0,
-    resources: {},
-    controllers: {},
-    testMode: false,
-    ...overrides,
-  };
 }
 
 function setup(): RoomManager {
@@ -94,14 +24,7 @@ function setup(): RoomManager {
 }
 
 function resources(hpMax: number, current: number): PlayerResources {
-  return {
-    hp: { current, max: hpMax, temp: 0, deathSuccesses: 0, deathFailures: 0 },
-    hitDice: [],
-    spellSlots: [],
-    pact: { current: 0, max: 0, level: 0 },
-    resources: [],
-    notes: '',
-  };
+  return makeResources({ hp: { current, max: hpMax, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
 }
 
 describe('RoomManager ход', () => {

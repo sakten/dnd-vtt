@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { eventOnce, waitFor, addLibrary } from '../lib/smoke-helpers.mjs';
+import { eventOnce, waitFor, addLibrary, setCharacter, spawnToken, waitToken } from '../lib/smoke-helpers.mjs';
 
 // На карте 1 активен игрок; создаём его персонажа.
 S.dm.emit('map:bring', S.map1.id);
@@ -14,21 +14,10 @@ const patientItem = await addLibrary(S, 'Пациент', {
   initiativeBonus: '+20',
   isPlayerToken: true,
 });
-await new Promise((resolve) => S.player.emit('player:setCharacter', { libraryItemId: patientItem }, resolve));
-const addP = eventOnce(S.player, 'token:add');
-S.player.emit('token:add', { mapId: S.map1.id, libraryItemId: patientItem, x: 100, y: 100 });
-const patient = (await addP).token;
+await setCharacter(S, patientItem);
+const patient = (await spawnToken(S, { libraryItemId: patientItem, x: 100, y: 100 })).token;
 
-const withCondition = (id, predicate) =>
-  new Promise((resolve) => {
-    const h = (p) => {
-      if (p.token.id === id && predicate(p.token)) {
-        S.dm.off('token:update', h);
-        resolve(p.token);
-      }
-    };
-    S.dm.on('token:update', h);
-  });
+const withCondition = (id, predicate) => waitToken(S, id, predicate, S.dm);
 
 S.dm.emit('token:update', {
   mapId: S.map1.id,

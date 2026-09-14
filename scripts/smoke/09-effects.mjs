@@ -1,21 +1,12 @@
 import { S } from './state.mjs';
 import { check, sleep } from '../lib/check.mjs';
-import { eventOnce, waitFor, addLibrary } from '../lib/smoke-helpers.mjs';
+import { eventOnce, waitFor, addLibrary, setCharacter, setSheet, spawnToken, waitToken } from '../lib/smoke-helpers.mjs';
 
 // Карта 1 активна у всех после предыдущих сценариев.
 S.dm.emit('map:bring', S.map1.id);
 await waitFor(() => S.lastBring && S.lastBring.activeMapId === S.map1.id);
 
-const withToken = (id, predicate) =>
-  new Promise((resolve) => {
-    const h = (p) => {
-      if (p.token.id === id && predicate(p.token)) {
-        S.dm.off('token:update', h);
-        resolve(p.token);
-      }
-    };
-    S.dm.on('token:update', h);
-  });
+const withToken = (id, predicate) => waitToken(S, id, predicate, S.dm);
 
 const mageItem = await addLibrary(S, 'Магистр-Тест', {
   imageUrl: '/x.png',
@@ -25,13 +16,9 @@ const mageItem = await addLibrary(S, 'Магистр-Тест', {
   initiativeBonus: '',
   isPlayerToken: true,
 });
-const setChar = await new Promise((resolve) =>
-  S.player.emit('player:setCharacter', { libraryItemId: mageItem }, resolve)
-);
+const setChar = await setCharacter(S, mageItem);
 check('ok' in setChar, 'магистр назначен текущим персонажем');
-const mageAddP = eventOnce(S.player, 'token:add');
-S.player.emit('token:add', { mapId: S.map1.id, libraryItemId: mageItem, x: 300, y: 300 });
-const mage = (await mageAddP).token;
+const mage = (await spawnToken(S, { libraryItemId: mageItem, x: 300, y: 300 })).token;
 
 const allyItem = await addLibrary(S, 'Союзник-Тест', {
   imageUrl: '/x.png',
@@ -43,16 +30,13 @@ const allyItem = await addLibrary(S, 'Союзник-Тест', {
   hpMax: '20',
   showStats: true,
 });
-const allyAddP = eventOnce(S.player, 'token:add');
-S.dm.emit('token:add', { mapId: S.map1.id, libraryItemId: allyItem, x: 350, y: 300 });
-const ally = (await allyAddP).token;
+const ally = (await spawnToken(S, { libraryItemId: allyItem, x: 350, y: 300, by: 'dm' })).token;
 
 let latestResources = null;
 S.player.on('resources:update', (r) => {
   latestResources = r;
 });
-const sheetP = eventOnce(S.player, 'sheet:update');
-S.player.emit('sheet:update', {
+await setSheet(S, {
   name: 'Магистр',
   abilities: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 },
   proficiencyBonus: '3',
@@ -67,7 +51,6 @@ S.player.emit('sheet:update', {
     { key: 'XPHB:Hex', className: 'wizard' },
   ],
 });
-await sheetP;
 await waitFor(() => latestResources && latestResources.spellSlots.some((s) => s.level === 1));
 
 // Shield: self-эффект +5 AC.
@@ -176,8 +159,7 @@ S.dm.emit('library:remove', allyItem);
 await lib2P;
 
 // Возвращаем лист игрока к состоянию после 04b (его проверяет 05-persistence).
-const restoreP = eventOnce(S.player, 'sheet:update');
-S.player.emit('sheet:update', {
+await setSheet(S, {
   name: 'Гоблин-игрок',
   abilities: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 },
   proficiencyBonus: '3',
@@ -187,5 +169,4 @@ S.player.emit('sheet:update', {
   classes: [{ className: 'wizard', level: 5 }],
   spells: [{ key: 'XPHB:Fireball', className: 'wizard' }],
 });
-await restoreP;
 await sleep(200);

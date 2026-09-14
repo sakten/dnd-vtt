@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
-import { check, sleep } from '../lib/check.mjs';
-import { attachErrorLog, findButton } from '../lib/e2e-helpers.mjs';
+import { check } from '../lib/check.mjs';
+import { attachErrorLog, findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 S.code = await S.page.evaluate(() => window.__vtt.getState().roomCode);
@@ -19,7 +19,7 @@ const joinBtn = await findButton(S.page2, '.join-actions button.primary', 'Во�
 await joinBtn.click();
 await S.page2.waitForSelector('.table-screen');
 await S.page2.waitForSelector('canvas');
-await sleep(1500);
+await waitFor(S.page2, () => !!(window.__vtt && window.__vtt.getState().viewMapId));
 
 const p2Initial = await S.page2.evaluate(() => {
   const s = window.__vtt.getState();
@@ -29,11 +29,11 @@ check(p2Initial.view === p2Initial.defaultId, 'новичок попадает �
 const p2MapItems = await S.page2.$$('.map-item');
 const map1Id = await S.page.evaluate(() => window.__vtt.getState().scene.maps[0].id);
 await S.page.click('.map-item .map-bring');
-await sleep(900);
+await waitFor(S.page2, (id) => window.__vtt.getState().viewMapId === id, 5000, map1Id);
 const p2Brought = await S.page2.evaluate(() => window.__vtt.getState().viewMapId);
 check(p2Brought === map1Id, 'кнопка «Все» переносит игроков на карту');
 await p2MapItems[1].click();
-await sleep(800);
+await waitFor(S.page2, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.second);
 const p2Local = await S.page2.evaluate(() => window.__vtt.getState().viewMapId);
 const dmView = await S.page.evaluate(() => window.__vtt.getState().viewMapId);
 check(
@@ -41,7 +41,18 @@ check(
   'личное переключение игрока не меняет карту у ведущего'
 );
 await S.page.click('.map-item .map-bring');
-await sleep(900);
+await waitFor(S.page2, (id) => window.__vtt.getState().viewMapId === id, 5000, map1Id);
+await waitFor(S.page2, () => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
+  if (!t) return false;
+  const sx = t.x * s.view.scale + s.view.x;
+  const sy = t.y * s.view.scale + s.view.y;
+  const canvas = document.querySelectorAll('canvas')[3];
+  if (!canvas) return false;
+  const d = canvas.getContext('2d').getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
+  return d[0] > 100 && d[0] > d[2];
+}, 8000);
 await S.page2.screenshot({ path: path.join(S.OUT, '12-player.png') });
 
 const msgCount = await S.page2.$$eval('.chat-msg', (els) => els.length);
@@ -59,12 +70,21 @@ const fogBtn = await findButton(S.page, '.toolbar button', 'Туман');
 await fogBtn.click();
 await S.page.waitForSelector('.fog-panel');
 await (await findButton(S.page, '.fog-panel button', 'Прямоугольник')).click();
-await sleep(200);
 await S.page.mouse.move(300, 150);
 await S.page.mouse.down();
 await S.page.mouse.move(620, 400, { steps: 8 });
 await S.page.mouse.up();
-await sleep(1200);
+await waitFor(S.page, () => {
+  const s = window.__vtt.getState();
+  const m = s.scene.maps.find((x) => x.id === s.viewMapId);
+  return !!m && m.fog.hidden.length > 20;
+}, 5000);
+await waitFor(S.page2, () => {
+  const s = window.__vtt.getState();
+  const m = s.scene.maps.find((x) => x.id === s.viewMapId);
+  return !!m && m.fog.hidden.length > 20;
+}, 5000);
+await nextFrame(S.page2);
 const dmFog = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const m = s.scene.maps.find((x) => x.id === s.viewMapId);
@@ -105,14 +125,17 @@ const tokPxBefore = await S.page2.evaluate(() => {
 });
 check(tokPxBefore.r > 150, 'до тумана токен виден игроку');
 await (await findButton(S.page, '.fog-panel button', 'Кисть')).click();
-await sleep(200);
 const sizeButtons = await S.page.$$('.fog-panel .fog-group');
 await sizeButtons[2].$eval('button', (el) => el.click());
-await sleep(200);
 await S.page.mouse.move(tokPos.sx, tokPos.sy);
 await S.page.mouse.down();
 await S.page.mouse.up();
-await sleep(1200);
+await waitFor(S.page2, (n) => {
+  const s = window.__vtt.getState();
+  const m = s.scene.maps.find((x) => x.id === s.viewMapId);
+  return !!m && m.fog.hidden.length > n;
+}, 5000, playerFogCount);
+await nextFrame(S.page2);
 const tokPxAfter = await S.page2.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
@@ -125,8 +148,9 @@ const tokPxAfter = await S.page2.evaluate(() => {
 });
 check(tokPxAfter.a === 0, 'токен в тумане скрыт от игрока');
 await S.page2.screenshot({ path: path.join(S.OUT, '13-fog.png') });
-await (await findButton(S.page, '.fog-panel button', 'Готово')).click();
-await sleep(300);
+const fogDoneBtn = await findButton(S.page, '.fog-panel button', 'Готово');
+await fogDoneBtn.click();
+await waitFor(S.page, () => !document.querySelector('.fog-panel'));
 
 const combatBtn = await findButton(S.page, '.toolbar button', 'Бой');
 check(!!combatBtn, 'у ведущего есть кнопка боя');
@@ -139,7 +163,7 @@ check((await S.page2.$('.initiative-bar')) !== null, 'игрок видит по
 
 const firstChip = await S.page.$('.initiative-bar .initiative-chip');
 await firstChip.hover();
-await sleep(250);
+await waitFor(S.page, () => window.__vtt.getState().hoverTokenId !== null);
 const hoverOk = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const combat = s.scene.maps.find((m) => m.id === s.viewMapId)?.combat;
@@ -149,7 +173,7 @@ check(hoverOk, 'наведение на чип подсвечивает токе
 
 const endCombatBtn = await findButton(S.page, '.toolbar button', 'Конец боя');
 await endCombatBtn.click();
-await sleep(400);
+await waitFor(S.page, () => !document.querySelector('.initiative-bar'));
 check((await S.page.$('.initiative-bar')) === null, 'после конца боя полоса исчезла у ведущего');
 check((await S.page2.$('.initiative-bar')) === null, 'после конца боя полоса исчезла у игрока');
 
@@ -158,6 +182,6 @@ S.page3 = await S.ctx3.newPage();
 await S.page3.setViewport({ width: 1200, height: 800 });
 await S.page3.goto(`${S.BASE}?admin=1`, { waitUntil: 'networkidle0' });
 await S.page3.waitForSelector('.admin-card');
-await sleep(800);
+await waitFor(S.page3, () => document.querySelectorAll('.admin-room').length >= 1, 8000);
 const adminRooms = await S.page3.$$eval('.admin-room', (els) => els.length);
 check(adminRooms >= 1, `страница ведущего показывает список комнат (${adminRooms})`);
