@@ -41,7 +41,7 @@ export default function TokenMenu() {
   const isDm = useIsDm();
   const canEdit = useCanControlId(menuId);
   const spells = useSpells();
-  const spellByKey = useMemo(() => new Map<string, Spell>(spells.map((s) => [s.key, s])), [spells]);
+  const spellByKey = useMemo(() => new Map<string, Spell>((spells ?? []).map((s) => [s.key, s])), [spells]);
 
   const [tab, setTab] = useState<'main' | 'statblock' | 'spells'>('main');
   const [draft, setDraft] = useState<TokenFields | null>(null);

@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import { spellAutomated, type Spell } from 'shared';
+import { loadSpellIcons, spellIconsSync } from '../lib/spellIcons';
 import { spellVisual } from '../lib/spellIcon';
-import { SPELL_ICONS } from './spellIcons';
 import { SPELL_GLYPHS } from './spellGlyphs';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
@@ -32,10 +33,21 @@ function LevelBadge({ numeral, accent }: { numeral: string; accent: string }) {
  * плюс бейдж круга в правом верхнем углу (фокусы — пустой бейдж).
  */
 export default function SpellIcon({ spell, className }: { spell: Spell; className?: string }) {
+  const [icons, setIcons] = useState(spellIconsSync);
+  useEffect(() => {
+    let alive = true;
+    loadSpellIcons().then((map) => {
+      if (alive) setIcons(map);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const key = spell.name.toLowerCase();
   const { accent } = spellVisual(spell);
   const numeral = ROMAN[spell.level] ?? '';
-  const detailed = SPELL_ICONS[key];
+  const detailed = icons?.[key];
 
   return (
     <svg className={className} viewBox="3 3 58 58" fill="none" aria-hidden="true">

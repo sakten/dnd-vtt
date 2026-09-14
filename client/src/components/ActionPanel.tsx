@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   BASE_ACTIONS,
   actionSlotAvailable,
@@ -18,7 +18,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { characterTokenOf, tokenById } from '../store/selectors';
 import { useIsDm } from '../lib/control';
-import { loadSpells } from '../lib/spells';
+import { useSpells } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
@@ -64,18 +64,8 @@ export default function ActionPanel() {
   const resources = useGameStore((s) => s.resources);
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
-  const [spells, setSpells] = useState<Spell[] | null>(null);
+  const spells = useSpells();
   const [casting, setCasting] = useState<Spell | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    loadSpells().then((list) => {
-      if (alive) setSpells(list);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   const info = useMemo(() => {
     if (!map) return null;

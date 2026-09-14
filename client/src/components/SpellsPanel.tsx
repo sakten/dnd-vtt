@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ABILITIES,
   CLASSES,
@@ -22,7 +22,7 @@ import {
   type SheetSpell,
   type Spell,
 } from 'shared';
-import { loadSpells } from '../lib/spells';
+import { useSpells } from '../lib/useSpells';
 import { SPELL_SCHOOL_RU, spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
 import SpellPicker from './SpellPicker';
@@ -40,26 +40,16 @@ interface PanelProps {
 }
 
 export default function SpellsPanel({ sheet, onChange }: PanelProps) {
-  const [data, setData] = useState<Spell[] | null>(null);
+  const spells = useSpells();
   const [pickerFor, setPickerFor] = useState<ClassLevel | null>(null);
   const tip = useSpellTooltip();
 
-  useEffect(() => {
-    let alive = true;
-    loadSpells().then((spells) => {
-      if (alive) setData(spells);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const byKey = useMemo(() => new Map((data ?? []).map((s) => [s.key, s])), [data]);
+  const byKey = useMemo(() => new Map((spells ?? []).map((s) => [s.key, s])), [spells]);
   const casters = casterClasses(sheet.classes);
   const granted = useMemo(() => grantedSpells(sheet.classes), [sheet.classes]);
   const prof = sheetProficiencyBonus(sheet);
 
-  if (!data) return <div className="spells-note">Загрузка заклинаний…</div>;
+  if (!spells) return <div className="spells-note">Загрузка заклинаний…</div>;
   if (casters.length === 0) return <div className="spells-note">Нет заклинательных классов.</div>;
 
   const casterLevel = casterLevelOf(sheet.classes);
@@ -159,7 +149,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
         <SheetSpellPicker
           entry={pickerFor}
           sheet={sheet}
-          spells={data}
+          spells={spells}
           onChange={onChange}
           onClose={() => setPickerFor(null)}
         />

@@ -13,7 +13,7 @@ export default function ConditionsOverlay() {
   const isDm = useIsDm();
   const spells = useSpells();
 
-  const spellByKey = useMemo(() => new Map<string, Spell>(spells.map((s) => [s.key, s])), [spells]);
+  const spellByKey = useMemo(() => new Map<string, Spell>((spells ?? []).map((s) => [s.key, s])), [spells]);
   const map = useActiveMap();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
 

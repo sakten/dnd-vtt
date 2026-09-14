@@ -20,7 +20,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
   const spells = useSpells();
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const byKey = useMemo(() => new Map(spells.map((s) => [s.key, s])), [spells]);
+  const byKey = useMemo(() => new Map((spells ?? []).map((s) => [s.key, s])), [spells]);
   if (!sc) return null;
 
   const patch = (p: Partial<Spellcasting>) => onChange({ ...statblock, spellcasting: { ...sc, ...p } });
@@ -139,7 +139,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
         <SpellPicker
           title="Заклинания статблока"
           countLabel={`выбрано ${(sc.spells ?? []).length}`}
-          candidates={spells}
+          candidates={spells ?? []}
           levels={['all', ...SLOT_LEVELS]}
           stateOf={(s) => ({ added: (sc.spells ?? []).includes(s.key) })}
           onToggle={(s) => toggleSpell(s.key)}

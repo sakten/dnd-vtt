@@ -18,7 +18,7 @@ export default function ReactionPrompt() {
   const respond = useGameStore((s) => s.respondReaction);
   const forceSkip = useGameStore((s) => s.forceSkipReaction);
   const isDm = useIsDm();
-  const spells = useSpells();
+  const spells = useSpells() ?? [];
   const [, tick] = useState(0);
 
   useEffect(() => {
