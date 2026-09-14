@@ -23,6 +23,14 @@ export const LEAVE_GRACE_MS = 8000;
 export type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export type AppServer = SocketServer<ClientToServerEvents, ServerToClientEvents>;
 
+/** Права ведущего: реальная роль dm либо включённый режим тестов комнаты. */
+export function isDmViewer(room: Room, viewerId: string | null): boolean {
+  if (!viewerId) return false;
+  const viewer = room.players.find((p) => p.id === viewerId);
+  if (!viewer) return false;
+  return viewer.role === 'dm' || room.testMode === true;
+}
+
 export interface ConnCtx {
   io: AppServer;
   socket: AppSocket;
@@ -49,7 +57,15 @@ export interface ConnCtx {
   isDm: () => boolean;
   dmRoom: () => Room | null;
   canControlToken: (room: Room, mapId: string, token: Token) => boolean;
-  visibleToken: (room: Room, token: Token, viewerId: string | null) => Token;
+  /** Отправка события конкретному игроку (по его сокету). */
+  emitTo: <E extends keyof ServerToClientEvents>(
+    room: Room,
+    playerId: string,
+    event: E,
+    ...args: Parameters<ServerToClientEvents[E]>
+  ) => void;
+  /** Видимая зрителю версия токена; mapId можно передать, чтобы не искать токен заново. */
+  visibleToken: (room: Room, token: Token, viewerId: string | null, mapId?: string) => Token;
   visibleLibrary: (room: Room, viewerId: string | null) => LibraryItem[];
   broadcastLibrary: (room: Room) => void;
   emitToken: (room: Room, event: 'token:add' | 'token:update', mapId: string, token: Token) => void;
@@ -77,14 +93,6 @@ export interface ConnCtx {
 
 export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager): ConnCtx {
   const pendingLeaves = new Map<string, ReturnType<typeof setTimeout>>();
-
-  // Права ведущего: реальная роль dm либо включённый режим тестов комнаты.
-  const isDmViewer = (room: Room, viewerId: string | null): boolean => {
-    if (!viewerId) return false;
-    const viewer = room.players.find((p) => p.id === viewerId);
-    if (!viewer) return false;
-    return viewer.role === 'dm' || room.testMode === true;
-  };
 
   // После каждого события комната сохраняется сама: хендлеру не нужно помнить про saveSoon.
   const persist = () => {
@@ -129,14 +137,11 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     },
     broadcastMaps: (room) => {
       for (const p of room.players) {
-        if (!p.socketId) continue;
-        const s = io.sockets.sockets.get(p.socketId);
-        if (!s) continue;
         const maps = room.scene.maps.map((m) => ({
           ...m,
-          tokens: m.tokens.map((t) => ctx.visibleToken(room, t, p.id)),
+          tokens: m.tokens.map((t) => ctx.visibleToken(room, t, p.id, m.id)),
         }));
-        (s as { emit: (ev: string, payload: unknown) => void }).emit('maps:update', {
+        ctx.emitTo(room, p.id, 'maps:update', {
           maps,
           activeMapId: room.scene.activeMapId,
         });
@@ -162,15 +167,20 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!ctx.playerId) return false;
       return manager.controlsToken(room, mapId, ctx.playerId, token);
     },
+    emitTo: (room, playerId, event, ...args) => {
+      const player = room.players.find((p) => p.id === playerId);
+      if (!player?.socketId) return;
+      const s = io.sockets.sockets.get(player.socketId);
+      if (!s) return;
+      (s as { emit: (ev: string, ...a: unknown[]) => void }).emit(event, ...args);
+    },
     // AC/HP/статблок токена видят: DM (или любой игрок в режиме тестов) — всегда;
     // игрок — только для токенов, которыми управляет. Остальным статы не отдаём.
-    visibleToken: (room, token, viewerId) => {
+    visibleToken: (room, token, viewerId, mapId) => {
       if (isDmViewer(room, viewerId)) return token;
       if (token.showStats) return token;
-      if (viewerId) {
-        const found = manager.locateToken(room, token.id);
-        if (found && manager.controlsToken(room, found.mapId, viewerId, token)) return token;
-      }
+      const knownMapId = mapId ?? (viewerId ? manager.locateToken(room, token.id)?.mapId : undefined);
+      if (viewerId && knownMapId && manager.controlsToken(room, knownMapId, viewerId, token)) return token;
       return redactToken(token);
     },
     visibleLibrary: (room, viewerId) => {
@@ -179,30 +189,17 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     },
     broadcastLibrary: (room) => {
       for (const p of room.players) {
-        if (!p.socketId) continue;
-        const s = io.sockets.sockets.get(p.socketId);
-        if (!s) continue;
-        (s as { emit: (ev: string, payload: unknown) => void }).emit('library:update', ctx.visibleLibrary(room, p.id));
+        ctx.emitTo(room, p.id, 'library:update', ctx.visibleLibrary(room, p.id));
       }
     },
     emitToken: (room, event, mapId, token) => {
       for (const p of room.players) {
-        if (!p.socketId) continue;
-        const s = io.sockets.sockets.get(p.socketId);
-        if (!s) continue;
-        (s as { emit: (ev: string, payload: unknown) => void }).emit(event, {
-          mapId,
-          token: ctx.visibleToken(room, token, p.id),
-        });
+        ctx.emitTo(room, p.id, event, { mapId, token: ctx.visibleToken(room, token, p.id, mapId) });
       }
     },
     emitResources: (room, playerId) => {
-      const player = room.players.find((x) => x.id === playerId);
-      if (!player?.socketId) return;
-      const s = io.sockets.sockets.get(player.socketId);
       const res = room.resources[playerId];
-      if (!s || !res) return;
-      (s as { emit: (ev: string, payload: unknown) => void }).emit('resources:update', res);
+      if (res) ctx.emitTo(room, playerId, 'resources:update', res);
     },
     notifyPlayers: (room) => {
       ctx.broadcastAll('players:update', manager.toState(room).players);
@@ -250,7 +247,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
             ...state.scene,
             maps: state.scene.maps.map((m) => ({
               ...m,
-              tokens: m.tokens.map((t) => ctx.visibleToken(room, t, selfId)),
+              tokens: m.tokens.map((t) => ctx.visibleToken(room, t, selfId, m.id)),
             })),
           },
         },

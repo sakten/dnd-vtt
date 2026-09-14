@@ -26,10 +26,10 @@
 
 ## R6 — Серверное ядро
 
-- [ ] **R6.1. `RoomManager` — god-объект.** P1, L.
+- [ ] **R6.1. `RoomManager` — god-объект.** P1, L. **(срез 1 сделан, срезы 2–4 остались)**
   `server/src/rooms.ts:77-1237` (~90 методов): жизненный цикл + персистенция + карты/библиотека + чат + токены + бой/ход + ресурсы/ячейки + спасброски + условия/эффекты/HP + `toState`. Хендлеры мутируют состояние напрямую (`socket/token.ts:54-124`, `socket/map.ts:39-92`, `socket/resources.ts:28-112`, `socket/context.ts:229`).
-  **Что сделать:** `RoomManager` = реестр/жизненный цикл; поведение — в доменных модулях над `Room` (`room/combat.ts`, `room/effects.ts`, `room/resources.ts`, `room/tokens.ts`), хендлеры импортируют модуль. Дробить инкрементально, без big-bang.
-  **Зачем:** любая новая механика сейчас правит один 1200-строчный файл; юнит-тест требует весь менеджер.
+  **Срез 1 (сделано):** `server/src/room/helpers.ts` — чистые `controllerIdOfToken/Item`, `hasResourceFor`, `roomUploadUrls`, `findTokenById`/`tokenById`/`locateToken` (реэкспорт из `rooms.ts` сохранён); `server/src/room/combat.ts` — весь боевой домен (инициатива, ход, экономика, `abilitiesForToken`/`acForToken`/`tokenSpeed`, ростер боя, `ensureActiveTurn`) на `CombatDeps { saveSoon }`; `RoomManager` — тонкие делегаты. `rooms.ts` 1223 → 814 строк; тесты и smoke/e2e без изменений и зелёные.
+  **Осталось:** срез 2 — эффекты/состояния/HP/защиты (`applyEffect`/`tickEffects`/концентрация/`adjustTokenHp`/`changeMaxHp`/`rollSave`), срез 3 — ресурсы/листы (`syncSheetToTokens`, ячейки), срез 4 — токены/карты/библиотека и жизненный цикл/`toState`.
 
 - [x] **R6.2. Персистенция «кто забыл `saveSoon` — потерял данные».** P1, M.
   Исходно: мутация и save — отдельные строки (`token.ts:54-56`, `map.ts:84-95`, `resources.ts:49-52`); часть мутаций вообще не сохраняется: `clearLocks` (`rooms.ts:297-303`), `beginTurn` (`rooms.ts:415-430`), `changeMaxHp` (`rooms.ts:769-785`), `syncSheetToTokens` (`rooms.ts:1108-1131`); бывают двойные save (`token.ts:120` + `rooms.ts:1104`). Механика: фабрика вызывается дважды (`store.ts:47-52`), общий `${target}.tmp` (`store.ts:41`), `saveNow` мёртв (`rooms.ts:1203`), shutdown гоняет 3 с таймаут (`index.ts:33-37`).
@@ -48,10 +48,9 @@
   **Что сделать:** `ReactionQueue` — инстанс на комнату; типизированный `TriggerEvent`; `onTrigger(kind, resolver)`; `await queue.offer(...)`; несколько окон в очереди, а не дроп; изоляция ошибок с принудительной очисткой.
   **Зачем:** новый триггер («при попадании заклинанием», «враг подошёл на 30 фт») не должен искать 3 call-site; одновременные триггеры сейчас теряются.
 
-- [ ] **R6.6. Рассылка токенов скопирована 5 раз; `visibleToken` сканирует всё.** P2, S/M.
-  Цикл «найти сокет игрока и отправить»: `socket/context.ts:118-132,164-177,178-188,189-196`, `reactions.ts:110-115` (с неизбежными кастами). `visibleToken` ищет mapId через `manager.locateToken` (`context.ts:159`) — O(карты×токены) на каждый токен каждому игроку.
-  **Что сделать:** `emitTo(room, playerId, event, payload)` и `emitVisibleToken(room, mapId, event, token)`; `mapId` передавать в `visibleToken`; эти хелперы — единственный путь отправки токенов/библиотеки.
-  **Зачем:** новое серверное событие не должно копировать цикл или (хуже) уходить в `broadcastAll` с утечкой скрытых статов.
+- [x] **R6.6. Рассылка токенов скопирована 5 раз; `visibleToken` сканирует всё.** P2, S/M.
+  Исходно: цикл «найти сокет игрока и отправить»: `socket/context.ts:118-132,164-177,178-188,189-196`, `reactions.ts:110-115` (с неизбежными кастами). `visibleToken` ищет mapId через `manager.locateToken` (`context.ts:159`) — O(карты×токены) на каждый токен каждому игроку.
+  **Сделано:** `isDmViewer` экспортируется из `context.ts` (убран дубль в `reactions.ts`); `ctx.emitTo(room, playerId, event, …)` (типизированный) — единственный путь отправки конкретному игроку; `broadcastMaps`/`broadcastLibrary`/`emitToken`/`emitResources` и окна реакций (`reaction:offer`/`close`) используют его. `visibleToken(room, token, viewerId, mapId?)` принимает mapId, все вызовы передают его — `locateToken` больше не на горячем пути. Фикстура `handlers.test.ts` дополнена `emitTo` (тесты не добавлялись).
 
 - [ ] **R6.7. Типовые швы: `Room` vs `RoomState`, мутационная гидратация, слабая валидация.** P2, M/L.
   `Room` (`roomTypes.ts:7-20`) и `RoomState` (`shared/src/types.ts:1124-1134`) описывают комнату по-разному; `toPersistedRoom` копирует живые ссылки (`roomTypes.ts:35-48`); `roomNormalize.ts:23-46` — 138 строк мутаций с `as unknown as`; `noUncheckedIndexedAccess` выключен (`tsconfig.base.json:6`) — `room.controllers[playerId]` типизирован `string`, но может быть `undefined` (`rooms.ts:257,265`); payload-ы проверяются `typeof` вручную (`socket/token.ts:15-24`, `socket/map.ts:9-16`).
@@ -182,8 +181,8 @@
 3. **R6.2 + R6.3 — авто-save и `resolveActor`/гварды** (M+M). ✅ Сделано.
 4. **R8.1 — каталог `AutomationDef`** (L) вместе с **R7.2** (правила панели) — это уже старт фичи «каталог классовых действий».
 5. **R7.4 + R9.1** — быстрые выигрыши по бандлу и скорости тестов UI (можно параллельно).
-6. **R6.1** — распил `RoomManager` по доменам (L, инкрементально, по мере переноса логики).
+6. **R6.1** — распил `RoomManager` по доменам (L, инкрементально): срез 1 ✅ (`helpers` + `combat`), остались эффекты/HP, ресурсы, токены и жизненный цикл.
 7. **R6.5** — очередь реакций (L) перед тем, как расширять триггеры/Ready.
 8. Далее по P2/P3: R6.6–R6.9, R7.1, R7.3, R7.5–R7.10, R8.3–R8.6, R9.2–R9.4.
 
-**Старт:** R8.2, R6.4, R6.2, R6.3 — сделано. Следующие кандидаты: R6.6 (эмит-хелперы, S/M) → R6.1 (распил `RoomManager`, L) или R6.5 (очередь реакций, L).
+**Старт:** R8.2, R6.4, R6.2, R6.3, R6.6 — сделано; R6.1 — срез 1 (helpers + combat). Следующие: срез 2 эффектов/HP, срез 3 ресурсов, срез 4 токенов/жизненного цикла.

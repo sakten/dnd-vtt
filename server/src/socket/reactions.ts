@@ -22,7 +22,7 @@ import {
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
-import type { ConnCtx } from './context';
+import { isDmViewer, type ConnCtx } from './context';
 import { findSpell } from '../spells';
 import { controllerIdOfToken, hasResourceFor } from '../rooms';
 import { pushRollMessage } from './messages';
@@ -99,19 +99,6 @@ export interface ReactionOfferInput {
   token: Token;
   audience: string[];
   options: ReactionOption[];
-}
-
-function isDmViewer(room: Room, playerId: string | null): boolean {  if (!playerId) return false;
-  const viewer = room.players.find((p) => p.id === playerId);
-  if (!viewer) return false;
-  return viewer.role === 'dm' || room.testMode === true;
-}
-
-function emitToPlayer(ctx: ConnCtx, room: Room, playerId: string, event: string, payload: unknown) {
-  const player = room.players.find((p) => p.id === playerId);
-  if (!player?.socketId) return;
-  const s = ctx.io.sockets.sockets.get(player.socketId);
-  (s as { emit?: (ev: string, data: unknown) => void } | undefined)?.emit?.(event, payload);
 }
 
 /** Кто контролирует токен (игроки), иначе — все DM-зрители (в тестовом режиме все). */
@@ -483,7 +470,7 @@ export function openReactionWindow(
       options: input.options,
       expiresAt,
     };
-    for (const pid of input.audience) emitToPlayer(ctx, room, pid, 'reaction:offer', offer);
+    for (const pid of input.audience) ctx.emitTo(room, pid, 'reaction:offer', offer);
   }
 
   pendings.set(id, pending);
@@ -493,7 +480,7 @@ export function openReactionWindow(
 }
 
 function closeOffer(ctx: ConnCtx, room: Room, state: PendingOfferState) {
-  for (const pid of state.audience) emitToPlayer(ctx, room, pid, 'reaction:close', { id: state.id });
+    for (const pid of state.audience) ctx.emitTo(room, pid, 'reaction:close', { id: state.id });
 }
 
 function finishPending(id: string) {

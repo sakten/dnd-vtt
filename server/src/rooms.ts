@@ -7,7 +7,6 @@ import type {
   DamageDefense,
   DiceRollResult,
   EffectInstance,
-  InitiativeEntry,
   LibraryItem,
   MapInfo,
   RoomState,
@@ -18,22 +17,16 @@ import type {
 } from 'shared';
 import {
   abilityMod,
-  actionSlotAvailable,
-  attacksPerAction,
   autoFailSave,
   concentrationDc,
   concentratingEffects,
-  DEFAULT_AC,
   DEFAULT_GRID,
   DEFAULT_SPEED,
   defaultFog,
   effectDefenses,
   emptyCombatState,
-  emptyTurnState,
-  initiativeBonus,
   conditionName,
   exhaustionRollPenalty,
-  exhaustionSpeedPenalty,
   modifiedValue,
   normalizeTokenFields,
   normalizeTokenFieldsPatch,
@@ -47,32 +40,20 @@ import {
 import { createRoomRepository, removeRoomUploadDir, removeRoomUploads, type RoomRepository } from './store';
 import { toPersistedRoom, type Room } from './roomTypes';
 import { hydrateRoom } from './roomNormalize';
+import * as Combat from './room/combat';
+import {
+  controllerIdOfItem,
+  controllerIdOfToken,
+  findTokenById,
+  hasResourceFor,
+  locateToken,
+  roomUploadUrls,
+  tokenById,
+} from './room/helpers';
+
+export { controllerIdOfItem, controllerIdOfToken, hasResourceFor, roomUploadUrls } from './room/helpers';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-/** Все upload-ссылки, на которые ссылается состояние комнаты (карты, токены, библиотека). */
-export function roomUploadUrls(room: Room): string[] {
-  return [
-    ...room.library.map((i) => i.imageUrl),
-    ...room.scene.maps.flatMap((m) => [m.url, ...m.tokens.map((t) => t.imageUrl)]),
-  ];
-}
-
-/** id игрока-контролёра токена (персонажа/призыва). */
-export function controllerIdOfToken(room: Room, token: Token): string | undefined {
-  return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);
-}
-
-/** id игрока-контролёра предмета библиотеки. */
-export function controllerIdOfItem(room: Room, libraryItemId: string): string | undefined {
-  return Object.keys(room.controllers).find((pid) => room.controllers[pid] === libraryItemId);
-}
-
-/** Есть ли у игрока ресурс в нужном количестве. */
-export function hasResourceFor(room: Room, playerId: string, key: string, amount = 1): boolean {
-  const item = room.resources[playerId]?.resources.find((r) => r.key === key);
-  return !!item && item.current >= amount;
-}
 
 export class RoomManager {
   private rooms = new Map<string, Room>();
@@ -303,303 +284,98 @@ export class RoomManager {
     }
   }
 
-  private findTokenById(room: Room, id: string): Token | null {
-    return this.locateToken(room, id)?.token ?? null;
+  findTokenById(room: Room, id: string): Token | null {
+    return findTokenById(room, id);
   }
 
   /** Токен по id на любой карте комнаты. */
   tokenById(room: Room, id: string): Token | null {
-    return this.findTokenById(room, id);
+    return tokenById(room, id);
   }
 
   /** Карта и токен по id на любой карте комнаты. */
   locateToken(room: Room, id: string): { mapId: string; token: Token } | null {
-    for (const map of room.scene.maps) {
-      const found = map.tokens.find((t) => t.id === id);
-      if (found) return { mapId: map.id, token: found };
-    }
-    return null;
-  }
-
-  private initiativeBonusFor(room: Room, token: Token): string {
-    return initiativeBonus(token, room.players, room.sheets);
-  }
-
-  private rollInit(bonus: string): DiceRollResult {
-    const b = bonus.trim();
-    const expression = !b ? 'd20' : /^[+-]/.test(b) ? `d20${b}` : `d20+${b}`;
-    try {
-      return rollDice(expression);
-    } catch {
-      return rollDice('d20');
-    }
-  }
-
-  private makeEntry(room: Room, token: Token): InitiativeEntry {
-    const bonus = this.initiativeBonusFor(room, token);
-    const roll = this.rollInit(bonus);
-    return {
-      id: randomUUID(),
-      tokenId: token.id,
-      name: token.name,
-      imageUrl: token.imageUrl,
-      initiative: roll.total,
-      bonus,
-      roll,
-    };
-  }
-
-  private reRollEntry(room: Room, entry: InitiativeEntry) {
-    const token = entry.tokenId ? this.findTokenById(room, entry.tokenId) : null;
-    const bonus = token ? this.initiativeBonusFor(room, token) : entry.bonus;
-    const roll = this.rollInit(bonus);
-    entry.bonus = bonus;
-    entry.initiative = roll.total;
-    entry.roll = roll;
+    return locateToken(room, id);
   }
 
   combatOf(room: Room, mapId: string): CombatState | null {
-    return room.scene.maps.find((m) => m.id === mapId)?.combat ?? null;
+    return Combat.combatOf(room, mapId);
   }
 
   startCombat(room: Room, mapId: string) {
-    const map = room.scene.maps.find((m) => m.id === mapId);
-    if (!map) return;
-    const entries = map.tokens.map((t) => this.makeEntry(room, t));
-    entries.sort((a, b) => b.initiative - a.initiative);
-    map.combat = {
-      ...emptyCombatState(),
-      active: true,
-      entries,
-      round: entries.length ? 1 : 0,
-      currentIndex: entries.length ? 0 : -1,
-    };
-    if (entries.length) this.beginTurn(room, mapId, entries[0].id);
-    this.saveSoon(room);
+    Combat.startCombat(this, room, mapId);
   }
 
   endCombat(room: Room, mapId: string) {
-    const map = room.scene.maps.find((m) => m.id === mapId);
-    if (!map) return;
-    map.combat = emptyCombatState();
-    this.saveSoon(room);
+    Combat.endCombat(this, room, mapId);
   }
 
   clearCombat(room: Room, mapId: string) {
-    const map = room.scene.maps.find((m) => m.id === mapId);
-    if (!map) return;
-    map.combat = { ...emptyCombatState(), active: true };
-    this.saveSoon(room);
+    Combat.clearCombat(this, room, mapId);
   }
 
-  /** Максимум передвижения и легендарных действий для записи инициативы. */
-  private turnResources(
-    room: Room,
-    entry: InitiativeEntry
-  ): { speed: number; legendaryMax: number; extraActions: number; extraBonusActions: number } {
-    const token = entry.tokenId ? this.findTokenById(room, entry.tokenId) : null;
-    if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0, extraActions: 0, extraBonusActions: 0 };
-    const controllerId = controllerIdOfToken(room, token);
-    const sheetSpeed = controllerId ? room.sheets[controllerId]?.speed : undefined;
-    const base = sheetSpeed ?? token.speed ?? DEFAULT_SPEED;
-    const abilities = this.abilitiesForToken(room, token);
-    const afterExhaustion = Math.max(0, base + exhaustionSpeedPenalty(token.conditions));
-    return {
-      speed: Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, abilities)),
-      legendaryMax: token.statblock?.legendary?.max ?? 0,
-      extraActions: Math.max(0, modifiedValue(0, token.effects, 'extraActions', {}, abilities)),
-      extraBonusActions: Math.max(0, modifiedValue(0, token.effects, 'extraBonusActions', {}, abilities)),
-    };
-  }
-
-  /** Начинает/сбрасывает ход записи, сохраняя концентрацию заклинателя. */
   beginTurn(room: Room, mapId: string, entryId: string) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    const entry = combat.entries.find((e) => e.id === entryId);
-    if (!entry) return;
-    const { speed, legendaryMax, extraActions, extraBonusActions } = this.turnResources(room, entry);
-    const prev = combat.turns[entry.id];
-    combat.turns[entry.id] = {
-      ...emptyTurnState(speed),
-      extraActions,
-      extraBonusActions,
-      legendaryRemaining: legendaryMax,
-      legendaryMax,
-      concentrationId: prev?.concentrationId ?? null,
-    };
+    Combat.beginTurn(room, mapId, entryId);
   }
 
-  /** Завершает текущий ход, переходя к следующему по инициативе. */
   endTurn(room: Room, mapId: string) {
-    this.advanceTurn(room, mapId, 1);
+    Combat.endTurn(this, room, mapId);
   }
 
   advanceTurn(room: Room, mapId: string, delta: number) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat || !combat.active || combat.entries.length === 0) return;
-    const n = combat.entries.length;
-    let idx = combat.currentIndex < 0 ? (delta > 0 ? 0 : n - 1) : combat.currentIndex + delta;
-    if (idx >= n) {
-      idx -= n;
-      combat.round = Math.max(1, combat.round) + 1;
-    } else if (idx < 0) {
-      idx += n;
-      combat.round = Math.max(1, combat.round - 1);
-    }
-    combat.round = Math.max(1, combat.round);
-    combat.currentIndex = idx;
-    this.beginTurn(room, mapId, combat.entries[idx].id);
-    this.saveSoon(room);
+    Combat.advanceTurn(this, room, mapId, delta);
   }
 
-  /** DM задаёт активную запись по id или индексу. */
   setTurn(room: Room, mapId: string, target: { id?: string; index?: number }) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat || combat.entries.length === 0) return;
-    let idx = -1;
-    if (typeof target.id === 'string') idx = combat.entries.findIndex((e) => e.id === target.id);
-    else if (typeof target.index === 'number') idx = Math.round(target.index);
-    if (idx < 0 || idx >= combat.entries.length) return;
-    combat.round = Math.max(1, combat.round);
-    combat.currentIndex = idx;
-    this.beginTurn(room, mapId, combat.entries[idx].id);
-    this.saveSoon(room);
+    Combat.setTurn(this, room, mapId, target);
   }
 
-  /** Число атак за действие: Extra Attack по листу или multiattack монстра. */
   attacksPerToken(room: Room, token: Token): number {
-    const controllerId = controllerIdOfToken(room, token);
-    const sheet = controllerId ? room.sheets[controllerId] : undefined;
-    if (sheet) return attacksPerAction(sheet.classes);
-    return Math.max(1, token.statblock?.multiattack ?? 1);
+    return Combat.attacksPerToken(room, token);
   }
 
-  /** Эффективная скорость токена: лист/статблок + бонусы и множители эффектов. */
   tokenSpeed(room: Room, token: Token): number {
-    const controllerId = controllerIdOfToken(room, token);
-    const sheet = controllerId ? room.sheets[controllerId] : undefined;
-    const base = sheet?.speed ?? token.speed ?? DEFAULT_SPEED;
-    return Math.max(0, modifiedValue(base, token.effects, 'speed', {}, this.abilitiesForToken(room, token)));
+    return Combat.tokenSpeed(room, token);
   }
 
-  /** Характеристики токена: из листа персонажа либо из статблока монстра. */
   abilitiesForToken(room: Room, token: Token): Record<AbilityKey, number> | undefined {
-    const controllerId = this.controllerOfToken(room, token);
-    const sheet = controllerId ? room.sheets[controllerId] : undefined;
-    if (sheet) return sheet.abilities;
-    return token.statblock?.abilities;
+    return Combat.abilitiesForToken(room, token);
   }
 
-  /** Эффективный AC токена с учётом BAFF-эффектов (Shield, Mage Armor, Barkskin…). */
   acForToken(room: Room, token: Token): number {
-    const explicit = statNumber(token.ac);
-    return modifiedValue(
-      explicit > 0 ? explicit : DEFAULT_AC,
-      token.effects,
-      'ac',
-      {},
-      this.abilitiesForToken(room, token)
-    );
+    return Combat.acForToken(room, token);
   }
 
-  /** Модификатор характеристики токена: из листа персонажа или статблока монстра. */
   abilityModForToken(room: Room, token: Token, ability: AbilityKey): number {
-    const controllerId = controllerIdOfToken(room, token);
-    const sheet = controllerId ? room.sheets[controllerId] : undefined;
-    const score = sheet ? sheet.abilities[ability] : token.statblock?.abilities?.[ability];
-    return abilityMod(score ?? 10);
+    return Combat.abilityModForToken(room, token, ability);
   }
 
-  /** Добавляет передвижение на текущий ход (Рывок). */
   grantExtraMovement(room: Room, mapId: string, token: Token, feet: number) {
-    const turn = this.turnForToken(room, mapId, token);
-    if (!turn) return;
-    turn.movementMax += Math.max(0, Math.round(feet));
-    this.saveSoon(room);
+    Combat.grantExtraMovement(this, room, mapId, token, feet);
   }
 
-  /** Ресурсы хода токена, если он сейчас активен в бою карты; иначе null. */
   turnForToken(room: Room, mapId: string, token: Token): TurnState | null {
-    const combat = this.combatOf(room, mapId);
-    if (!combat?.active) return null;
-    const active = combat.entries[combat.currentIndex];
-    if (!active || active.tokenId !== token.id) return null;
-    return combat.turns[active.id] ?? null;
+    return Combat.turnForToken(room, mapId, token);
   }
 
-  /**
-   * Состояние хода записи инициативы токена, даже если он не активен (реакции
-   * в чужой ход). Создаёт состояние лениво, если запись есть, а ход не начинался.
-   */
   turnStateFor(room: Room, mapId: string, token: Token): TurnState | null {
-    const combat = this.combatOf(room, mapId);
-    if (!combat?.active) return null;
-    const entry = combat.entries.find((e) => e.tokenId === token.id);
-    if (!entry) return null;
-    if (!combat.turns[entry.id]) this.beginTurn(room, mapId, entry.id);
-    return combat.turns[entry.id] ?? null;
+    return Combat.turnStateFor(room, mapId, token);
   }
 
-  /** Активен ли токен в бою карты (вне боя — всегда true). */
   isActiveToken(room: Room, mapId: string, tokenId: string): boolean {
-    const combat = this.combatOf(room, mapId);
-    if (!combat?.active) return true;
-    const active = combat.entries[combat.currentIndex];
-    return !active || active.tokenId === tokenId;
+    return Combat.isActiveToken(room, mapId, tokenId);
   }
 
-  /** Доступна ли атака: есть запас мультиатаки или свободное действие. */
   canAttack(room: Room, mapId: string, token: Token): boolean {
-    const turn = this.turnForToken(room, mapId, token);
-    if (!turn) return true;
-    return turn.attacksRemaining > 0 || !turn.actionUsed || turn.extraActions > 0;
+    return Combat.canAttack(room, mapId, token);
   }
 
-  /** Списывает атаку (запас мультиатаки либо действие). */
   consumeAttack(room: Room, mapId: string, token: Token): boolean {
-    const turn = this.turnForToken(room, mapId, token);
-    if (!turn) return true;
-    if (turn.attacksRemaining > 0) {
-      turn.attacksRemaining -= 1;
-    } else if (turn.extraActions > 0) {
-      turn.extraActions -= 1;
-      turn.attacksRemaining = Math.max(0, this.attacksPerToken(room, token) - 1);
-    } else if (!turn.actionUsed) {
-      turn.actionUsed = true;
-      turn.attacksRemaining = Math.max(0, this.attacksPerToken(room, token) - 1);
-    } else {
-      return false;
-    }
-    this.saveSoon(room);
-    return true;
+    return Combat.consumeAttack(this, room, mapId, token);
   }
 
-  /** Списывает слот действия (action/bonus/reaction) для токена. */
   spendSlot(room: Room, mapId: string, token: Token, slot: ActionCost): boolean {
-    // Реакция доступна в чужой ход: берём состояние записи токена, не только активной.
-    const turn = slot === 'reaction' ? this.turnStateFor(room, mapId, token) : this.turnForToken(room, mapId, token);
-    if (!turn) return true;
-    switch (slot) {
-      case 'action':
-        if (!actionSlotAvailable(turn, 'action')) return false;
-        if (turn.extraActions > 0) turn.extraActions -= 1;
-        else turn.actionUsed = true;
-        break;
-      case 'bonus':
-        if (!actionSlotAvailable(turn, 'bonus')) return false;
-        if (turn.extraBonusActions > 0) turn.extraBonusActions -= 1;
-        else turn.bonusActionUsed = true;
-        break;
-      case 'reaction':
-        if (!actionSlotAvailable(turn, 'reaction')) return false;
-        turn.reactionUsed = true;
-        break;
-      default:
-        return true;
-    }
-    this.saveSoon(room);
-    return true;
+    return Combat.spendSlot(this, room, mapId, token, slot);
   }
 
   /** Есть ли у игрока ресурс в нужном количестве. */
@@ -946,108 +722,31 @@ export class RoomManager {
 
   /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */
   setMovement(room: Room, mapId: string, tokenId: string, used: number, diagonals?: number) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat || !Number.isFinite(used)) return;
-    const entry = combat.entries.find((e) => e.tokenId === tokenId);
-    if (!entry) return;
-    const turn = combat.turns[entry.id];
-    if (!turn) return;
-    turn.movementUsed = Math.max(0, Math.round(used));
-    if (typeof diagonals === 'number' && Number.isFinite(diagonals)) {
-      turn.diagonalsUsed = Math.max(0, Math.round(diagonals));
-    }
-    this.saveSoon(room);
+    Combat.setMovement(this, room, mapId, tokenId, used, diagonals);
   }
 
-  private restoreActive(combat: CombatState, entryId: string | undefined) {
-    if (entryId) {
-      const idx = combat.entries.findIndex((e) => e.id === entryId);
-      if (idx >= 0) {
-        combat.currentIndex = idx;
-        return;
-      }
-    }
-    if (combat.entries.length === 0) combat.currentIndex = -1;
-    else combat.currentIndex = Math.min(combat.entries.length - 1, Math.max(0, combat.currentIndex));
-  }
-
-  /**
-   * Гарантирует активную запись и её ресурсы хода: лечит легаси-бой без
-   * `currentIndex`/`turns` и добор токенов уже начатого боя.
-   */
-  private ensureActiveTurn(room: Room, mapId: string) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat || !combat.active || combat.entries.length === 0) return;
-    if (combat.currentIndex < 0 || combat.currentIndex >= combat.entries.length) {
-      combat.currentIndex = 0;
-      combat.round = Math.max(1, combat.round);
-    }
-    const entry = combat.entries[combat.currentIndex];
-    if (!combat.turns[entry.id]) this.beginTurn(room, mapId, entry.id);
+  ensureActiveTurn(room: Room, mapId: string) {
+    Combat.ensureActiveTurn(room, mapId);
   }
 
   addTokenToCombat(room: Room, mapId: string, token: Token) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    const activeId = combat.entries[combat.currentIndex]?.id;
-    const entry = this.makeEntry(room, token);
-    const at = combat.entries.findIndex((e) => e.initiative < entry.initiative);
-    if (at < 0) combat.entries.push(entry);
-    else combat.entries.splice(at, 0, entry);
-    this.restoreActive(combat, activeId);
-    this.ensureActiveTurn(room, mapId);
-    this.saveSoon(room);
+    Combat.addTokenToCombat(this, room, mapId, token);
   }
 
   addCombatToken(room: Room, mapId: string, tokenId: string): boolean {
-    const combat = this.combatOf(room, mapId);
-    if (!combat || combat.entries.some((e) => e.tokenId === tokenId)) return false;
-    const token = this.findToken(room, mapId, tokenId);
-    if (!token) return false;
-    this.addTokenToCombat(room, mapId, token);
-    return true;
+    return Combat.addCombatToken(this, room, mapId, tokenId);
   }
 
   addMapTokensToCombat(room: Room, mapId: string) {
-    const map = room.scene.maps.find((m) => m.id === mapId);
-    if (!map) return;
-    const combat = map.combat;
-    const existing = new Set(combat.entries.map((e) => e.tokenId));
-    const additions = map.tokens.filter((t) => !existing.has(t.id)).map((t) => this.makeEntry(room, t));
-    if (additions.length === 0) return;
-    const activeId = combat.entries[combat.currentIndex]?.id;
-    combat.entries = [...combat.entries, ...additions].sort((a, b) => b.initiative - a.initiative);
-    this.restoreActive(combat, activeId);
-    this.ensureActiveTurn(room, mapId);
-    this.saveSoon(room);
+    Combat.addMapTokensToCombat(this, room, mapId);
   }
 
   removeTokenFromCombat(room: Room, mapId: string, tokenId: string) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    const activeId = combat.entries[combat.currentIndex]?.id;
-    const removed = combat.entries.filter((e) => e.tokenId === tokenId);
-    if (removed.length === 0) return;
-    combat.entries = combat.entries.filter((e) => e.tokenId !== tokenId);
-    for (const e of removed) delete combat.turns[e.id];
-    const activeRemoved = !!activeId && removed.some((e) => e.id === activeId);
-    this.restoreActive(combat, activeRemoved ? undefined : activeId);
-    if (combat.active && combat.entries.length) this.beginTurn(room, mapId, combat.entries[combat.currentIndex].id);
-    this.saveSoon(room);
+    Combat.removeTokenFromCombat(this, room, mapId, tokenId);
   }
 
   removeCombatant(room: Room, mapId: string, id: string) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    const activeId = combat.entries[combat.currentIndex]?.id;
-    const before = combat.entries.length;
-    combat.entries = combat.entries.filter((e) => e.id !== id);
-    if (combat.entries.length === before) return;
-    delete combat.turns[id];
-    const activeRemoved = activeId === id;
-    this.restoreActive(combat, activeRemoved ? undefined : activeId);
-    if (combat.active && combat.entries.length) this.beginTurn(room, mapId, combat.entries[combat.currentIndex].id);
-    this.saveSoon(room);
+    Combat.removeCombatant(this, room, mapId, id);
   }
 
   updateCombatant(
@@ -1056,53 +755,19 @@ export class RoomManager {
     id: string,
     patch: { name?: string; initiative?: number; bonus?: string }
   ) {
-    const entry = this.combatOf(room, mapId)?.entries.find((e) => e.id === id);
-    if (!entry) return;
-    if (typeof patch.name === 'string') entry.name = patch.name.slice(0, 40);
-    if (typeof patch.bonus === 'string') entry.bonus = patch.bonus.slice(0, 10);
-    if (typeof patch.initiative === 'number' && Number.isFinite(patch.initiative)) {
-      entry.initiative = Math.round(patch.initiative);
-    }
-    this.saveSoon(room);
+    Combat.updateCombatant(this, room, mapId, id, patch);
   }
 
   moveCombatant(room: Room, mapId: string, id: string, toIndex: number) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    const entries = combat.entries;
-    const from = entries.findIndex((e) => e.id === id);
-    if (from < 0) return;
-    const to = Math.min(Math.max(0, Math.round(toIndex)), entries.length - 1);
-    if (from === to) return;
-    const activeId = entries[combat.currentIndex]?.id;
-    const [entry] = entries.splice(from, 1);
-    entries.splice(to, 0, entry);
-    this.restoreActive(combat, activeId);
-    this.saveSoon(room);
+    Combat.moveCombatant(this, room, mapId, id, toIndex);
   }
 
   rollCombat(room: Room, mapId: string, id?: string) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    if (id) {
-      const entry = combat.entries.find((e) => e.id === id);
-      if (entry) this.reRollEntry(room, entry);
-    } else {
-      const activeId = combat.entries[combat.currentIndex]?.id;
-      for (const entry of combat.entries) this.reRollEntry(room, entry);
-      combat.entries.sort((a, b) => b.initiative - a.initiative);
-      this.restoreActive(combat, activeId);
-    }
-    this.saveSoon(room);
+    Combat.rollCombat(this, room, mapId, id);
   }
 
   renameCombatantByToken(room: Room, mapId: string, tokenId: string, name: string) {
-    const combat = this.combatOf(room, mapId);
-    if (!combat) return;
-    const entry = combat.entries.find((e) => e.tokenId === tokenId);
-    if (!entry) return;
-    entry.name = name.slice(0, 40);
-    this.saveSoon(room);
+    Combat.renameCombatantByToken(this, room, mapId, tokenId, name);
   }
 
   /** Зеркалит HP/AC/скорость персонажа игрока в его токены на всех картах. */

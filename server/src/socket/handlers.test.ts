@@ -67,6 +67,9 @@ function makeCtx(room: Room, opts: { playerId?: string | null; dm?: boolean } = 
       dm || (!!pid && manager.controlsToken(r, mapId, pid, token)),
     visibleToken: (_room: Room, token: Token) => token,
     visibleLibrary: () => room.library,
+    emitTo: (_room: Room, _playerId: string, event: string, payload: unknown) => {
+      emitted.push({ event, payload });
+    },
     broadcastLibrary: () => {},
     emitToken: (event: string, mapId: string, token: Token) => {
       emitted.push({ event, payload: { mapId, token } });
