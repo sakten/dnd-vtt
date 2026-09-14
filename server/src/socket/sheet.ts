@@ -6,7 +6,7 @@ import {
   syncResources,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { playerScope } from './guards';
+import { playerScope, rejectIfReaction } from './guards';
 
 export function registerSheetHandlers(ctx: ConnCtx) {
   const { socket, manager, emitToken, classIdentity } = ctx;
@@ -14,6 +14,7 @@ export function registerSheetHandlers(ctx: ConnCtx) {
     ctx.on('sheet:update', (sheet) => {
       const scope = playerScope(ctx);
       if (!scope) return;
+      if (rejectIfReaction(ctx, true)) return;
       const { room, playerId } = scope;
       if (!sheet || typeof sheet !== 'object') return;
       const previous = room.sheets[playerId];
@@ -41,7 +42,6 @@ export function registerSheetHandlers(ctx: ConnCtx) {
       };
       room.resources[playerId] = synced;
       const changed = manager.syncSheetToTokens(room, playerId);
-      manager.saveSoon(room);
       socket.emit('sheet:update', { sheet: normalized });
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);

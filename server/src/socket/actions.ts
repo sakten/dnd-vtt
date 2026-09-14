@@ -29,11 +29,10 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, tokenId);
       if (!scope) return;
-      const { room, token } = scope;
+      const { room, token, character } = scope;
       if (rejectIfIncapacitated(ctx, token)) return;
 
-      const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
-      const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
+      const sheet = character?.sheet;
       const classAction = sheet ? classFeatures(sheet.classes).find((a) => a.id === actionId) : undefined;
       const action: ActionDef | undefined =
         token.statblock?.actions?.find((a) => a.id === actionId) ?? findBaseAction(actionId) ?? classAction;
@@ -50,7 +49,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
 
       if (action.id === 'attack') {
-        const attacks: AttackEntry[] = isCharacter ? sheet?.attacks ?? [] : token.attacks;
+        const attacks: AttackEntry[] = character ? sheet?.attacks ?? [] : token.attacks;
         const index = Math.round(Number(attackIndex));
         const entry = attacks[index];
         if (!entry || !Number.isFinite(index)) {
@@ -104,7 +103,6 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (action.id === 'class:fighter:actionSurge') {
         if (turn) {
           turn.extraActions += 1;
-          manager.saveSoon(room);
           syncCombat(room, mapId);
         }
         systemMessage(room, `${token.name}: Всплеск действия (+1 действие)`);

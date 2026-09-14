@@ -12,7 +12,6 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       }
       const room = manager.create(roomName);
       room.players.push({ id: clientId, name, role: 'dm', isConnected: true, socketId: socket.id });
-      manager.saveSoon(room);
       ctx.roomCode = room.code;
       ctx.playerId = clientId;
       socket.join(room.code);
@@ -42,7 +41,6 @@ export function registerRoomHandlers(ctx: ConnCtx) {
         room.players.push({ id: clientId, name: displayName, role: 'player', isConnected: true, socketId: socket.id });
         systemMessage(room, `${displayName} вошёл в комнату`);
       }
-      manager.saveSoon(room);
       ctx.roomCode = room.code;
       ctx.playerId = clientId;
       socket.join(room.code);
@@ -77,7 +75,6 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       if (!target) return;
       const targetSocket = target.socketId ? io.sockets.sockets.get(target.socketId) : undefined;
       room.players = room.players.filter((p) => p.id !== id);
-      manager.saveSoon(room);
       ctx.notifyPlayers(room);
       if (targetSocket) {
         targetSocket.emit('player:kicked');
@@ -100,7 +97,6 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       }
       player.socketId = null;
       manager.clearLocks(room, ctx.playerId);
-      manager.saveSoon(room);
       for (const { id, token } of lockedTokens) emitToken(room, 'token:update', id, token);
       // Не объявляем выход сразу: Socket.IO переподключения создают новый сокет,
       // и игрок успевает вернуться. Даём грейс-период и отменяем при повторном входе.

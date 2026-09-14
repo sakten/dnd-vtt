@@ -1,5 +1,4 @@
 import {
-  applyDamageDefenses,
   attackRange,
   attackRollParts,
   attackSubject,
@@ -13,7 +12,6 @@ import {
   resolveAttack,
   rollDice,
   rollMode,
-  statNumber,
   weaponRolls,
   withAdvantage,
   withRollParts,
@@ -23,6 +21,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { applyDamage } from './damage';
 import { pushRollMessage } from './messages';
 
 export interface AttackResolveInput {
@@ -299,27 +298,18 @@ export function applyWeaponAttackDamage(
 
   try {
     const damageRoll = rollDice(damageExpr, Math.random, { doubleDice: crit });
-    const defenses = target ? manager.damageDefensesForToken(room, target) : [];
-    const adjusted = applyDamageDefenses(damageRoll.total, attack.damageType, defenses);
-    const amount = mods.halveDamage ? Math.floor(adjusted.amount / 2) : adjusted.amount;
-    const damageParams: RollLabelParams = { ...baseParams, damageNote: adjusted.note };
-    pushRollMessage(ctx, room, {
-      author: plan.author,
+    const damage = applyDamage(ctx, {
+      target,
+      mapId: targetMapId,
+      amount: damageRoll.total,
+      damageType: attack.damageType,
+      halve: mods.halveDamage,
       roll: damageRoll,
-      kind: 'damage',
-      params: damageParams,
+      author: plan.author,
+      params: baseParams,
       crit,
     });
-
-    let applied = 0;
-    if (target && targetMapId && amount > 0) {
-      const isCharacter = Object.values(room.controllers).includes(target.libraryItemId);
-      if (statNumber(target.hpMax) > 0 || isCharacter) {
-        ctx.applyHp(room, targetMapId, target, -amount, { crit });
-        applied = amount;
-      }
-    }
-    return { roll: damageRoll, applied };
+    return { roll: damageRoll, applied: damage.applied ? damage.amount : 0 };
   } catch {
     ctx.socket.emit('chat:error', 'Не удалось распознать бросок');
     return undefined;

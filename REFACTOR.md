@@ -31,20 +31,17 @@
   **Что сделать:** `RoomManager` = реестр/жизненный цикл; поведение — в доменных модулях над `Room` (`room/combat.ts`, `room/effects.ts`, `room/resources.ts`, `room/tokens.ts`), хендлеры импортируют модуль. Дробить инкрементально, без big-bang.
   **Зачем:** любая новая механика сейчас правит один 1200-строчный файл; юнит-тест требует весь менеджер.
 
-- [ ] **R6.2. Персистенция «кто забыл `saveSoon` — потерял данные».** P1, M.
-  Мутация и save — отдельные строки (`token.ts:54-56`, `map.ts:84-95`, `resources.ts:49-52`); часть мутаций вообще не сохраняется: `clearLocks` (`rooms.ts:297-303`), `beginTurn` (`rooms.ts:415-430`), `changeMaxHp` (`rooms.ts:769-785`), `syncSheetToTokens` (`rooms.ts:1108-1131`); бывают двойные save (`token.ts:120` + `rooms.ts:1104`). Механика: фабрика вызывается дважды (`store.ts:47-52`), общий `${target}.tmp` (`store.ts:41`), `saveNow` мёртв (`rooms.ts:1203`), shutdown гоняет 3 с таймаут (`index.ts:33-37`).
-  **Что сделать:** грязный флаг в обёртке `ctx.on` (`socket/context.ts:94-102`) — после каждого хендлера авто-save тронутой комнаты; `RoomRepository` (`load/list/save/delete`) инъектируется в `RoomManager`; debounce и уникальные tmp — внутри репозитория; await flush с таймаутом при shutdown.
-  **Зачем:** забытый save = тихая потеря данных; тесты перестанут спайонить глобальный `store`.
+- [x] **R6.2. Персистенция «кто забыл `saveSoon` — потерял данные».** P1, M.
+  Исходно: мутация и save — отдельные строки (`token.ts:54-56`, `map.ts:84-95`, `resources.ts:49-52`); часть мутаций вообще не сохраняется: `clearLocks` (`rooms.ts:297-303`), `beginTurn` (`rooms.ts:415-430`), `changeMaxHp` (`rooms.ts:769-785`), `syncSheetToTokens` (`rooms.ts:1108-1131`); бывают двойные save (`token.ts:120` + `rooms.ts:1104`). Механика: фабрика вызывается дважды (`store.ts:47-52`), общий `${target}.tmp` (`store.ts:41`), `saveNow` мёртв (`rooms.ts:1203`), shutdown гоняет 3 с таймаут (`index.ts:33-37`).
+  **Сделано:** `RoomRepository`/`createRoomRepository` (`store.ts`): debounce, уникальный `${target}.${uuid}.tmp`, снимок вызывается только в момент записи, `remove` отменяет таймер + файл, `flush` — остановка. `RoomManager` принимает репозиторий в конструкторе (`init`/`deleteRoom`/`saveSoon` через него, `saveNow` удалён, `flushSaves` вместо глобального `flushRoomSaves`). Центральный авто-save: `socket/context.ts` сохраняет комнату в `finally` после каждого события и дисконнекта; 20 явных `manager.saveSoon(room)` из хендлеров удалены (в отложенном выходе `room.ts` явный save остаётся — он вне события).
 
-- [ ] **R6.3. Права/актор продублированы, guard-покрытие неровное.** P1, M.
-  Ручной `isDm()` почти в каждом хендлере; `dmRoom()` 9 раз (`socket/combat.ts:11-112`); проверка контролёра заново в `socket/actions.ts:35-37`, `socket/dice.ts:53-54`, `socket/spells.ts:40-41`, `socket/reactions.ts:133-135,292-294`; `attackResolve.ts:316` — инверсия через `Object.values(room.controllers)`; `isDmViewer` скопирован (`context.ts:80-85` и `reactions.ts:104-108`); `skipControl` (`guards.ts:23,36`) мёртв. Заморозка реакций не покрывает `resources:*`, `sheet:update`, `library:*`, `token:add/update`.
-  **Что сделать:** `resolveActor(ctx, mapId, tokenId) → { room, map, token, isDm, isController, sheet }` + декларативная обёртка `withScope({ dmOnly, control, freezeOnReaction, incapacitated })`; провести все хендлеры через неё; закрыть дыры заморозки.
-  **Зачем:** новое событие сейчас требует помнить комбинацию из 4–5 проверок в правильном порядке; расхождения = тихие баги прав.
+- [x] **R6.3. Права/актор продублированы, guard-покрытие неровное.** P1, M.
+  Исходно: ручной `isDm()` почти в каждом хендлере; `dmRoom()` 9 раз (`socket/combat.ts:11-112`); проверка контролёра заново в `socket/actions.ts:35-37`, `socket/dice.ts:53-54`, `socket/spells.ts:40-41`, `socket/reactions.ts:133-135,292-294`; `attackResolve.ts:316` — инверсия через `Object.values(room.controllers)`; `isDmViewer` скопирован (`context.ts:80-85` и `reactions.ts:104-108`); `skipControl` (`guards.ts:23,36`) мёртв. Заморозка реакций не покрывала `resources:*`, `sheet:update`, `library:*`, `token:add/update`.
+  **Сделано:** `scopedToken` возвращает `{ room, mapId, token, isDm, character: { playerId, sheet } }` (мёртвый `skipControl` удалён); `actions.ts`/`dice.ts` больше не выводят контролёра и лист вручную. Заморозка добавлена в `resources:update/hitDie/rest/deathSave`, `sheet:update`, `library:add/update/remove`, `token:add/update` (для «тихих» — без сообщения в чат). Декларативная обёртка `withScope` не вводилась: резолвер + явные проверки остались, чтобы не менять 50 хендлеров разом; вернуться при следующем новом событии.
 
-- [ ] **R6.4. Резолв урона/HP продублирован, гейты расходятся.** P1, M.
-  Четыре почти-копии «roll → защиты → `applyHp`»: `socket/attackResolve.ts:300-322`, `socket/spellResolve.ts:245-259,281-283,293-307`. Гейт «цель может получать урон» разный: `attackResolve.ts:316-317` (`Object.values(room.controllers).includes(...)`) vs `spellResolve.ts:305` (`target.id === caster.id`) — персонаж без `hpMax` получает оружейный урон, но не автоматический урон заклинания.
-  **Что сделать:** один `applyDamage(ctx, { source, target, mapId, amount, damageType, crit, halve, heal })`: защиты, `adjustTokenHp`, рассылка токенов/ресурсов, проверка концентрации. Резолверы строят план и вызывают его.
-  **Зачем:** новый урон-эффект = одна ветка вместо копии; фиксы (temp HP, концентрация) в одном месте.
+- [x] **R6.4. Резолв урона/HP продублирован, гейты расходятся.** P1, M.
+  Исходно: четыре почти-копии «roll → защиты → `applyHp`»: `socket/attackResolve.ts:300-322`, `socket/spellResolve.ts:245-259,281-283,293-307`. Гейт «цель может получать урон» разный: `attackResolve.ts:316-317` (`Object.values(room.controllers).includes(...)`) vs `spellResolve.ts:305` (`target.id === caster.id`) — персонаж без `hpMax` получает оружейный урон, но не автоматический урон заклинания.
+  **Сделано:** `server/src/socket/damage.ts` — единая `applyDamage` (защиты → половина → сообщение → HP) + `hasHpTracking` (свои max HP или ресурсы персонажа-контролёра); атака оружием и все три ветки заклинаний (`spellAttack`/`save`/`auto`) вызывают её. Поведение выровнено: урон заклинаний по персонажу с пустым `hpMax` теперь проходит, по токену без учёта HP — не проходит. Новых тестов нет (покрыто smoke `04-attacks`/`04b-spells`/`09-effects`; тесты не растут).
 
 - [ ] **R6.5. Движок реакций: глобальное состояние, одно окно, resume без try/catch.** P1, L.
   `pendings`/`roomPending`/`offerIndex`/`pendingContext` — модульные и по код-комнате (`socket/reactions.ts:72-76`); второй триггер молча теряется (`openReactionWindow` → false, `:450`), при этом атака сразу наносит урон; resume — замыкание над внешним `holder` (`attackResolve.ts:920-936`), вызывается из таймаута (`reactions.ts:499-520`) вне try/catch `ctx.on`: исключение = `uncaughtException` (`index.ts:30`). Расширение триггеров — правки в `attackResolve.ts:806-908`, `reactions.ts:393-436,637-803`, `socket/spells.ts:28-165`.
@@ -180,13 +177,13 @@
 
 Принцип: сначала снять «трение при добавлении поля/события», потом строить следующую фичу (каталог классовых действий + остаток Ф8) на новом фундаменте, крупные распилы — инкрементально.
 
-1. **R8.2 — реестр полей** (M). Поведение не меняется; сразу разблокирует `CharacterSheet.choices`/поля фич и убирает чек-лист из 6 мест.
-2. **R6.4 — единый `applyDamage`** (M). Поведение сохраняется (проверяется существующими smoke-тестами); нужен будущему executor'у автоматизации.
-3. **R6.2 + R6.3 — авто-save и `resolveActor`/гварды** (M+M). После них новый хендлер пишется в 3 строки; закрываются дыры заморозки.
+1. **R8.2 — реестр полей** (M). ✅ Сделано.
+2. **R6.4 — единый `applyDamage`** (M). ✅ Сделано.
+3. **R6.2 + R6.3 — авто-save и `resolveActor`/гварды** (M+M). ✅ Сделано.
 4. **R8.1 — каталог `AutomationDef`** (L) вместе с **R7.2** (правила панели) — это уже старт фичи «каталог классовых действий».
 5. **R7.4 + R9.1** — быстрые выигрыши по бандлу и скорости тестов UI (можно параллельно).
 6. **R6.1** — распил `RoomManager` по доменам (L, инкрементально, по мере переноса логики).
 7. **R6.5** — очередь реакций (L) перед тем, как расширять триггеры/Ready.
 8. Далее по P2/P3: R6.6–R6.9, R7.1, R7.3, R7.5–R7.10, R8.3–R8.6, R9.2–R9.4.
 
-**Старт:** R8.2 — сделано (см. выше). Следующий — R6.4 (единый `applyDamage`).
+**Старт:** R8.2, R6.4, R6.2, R6.3 — сделано. Следующие кандидаты: R6.6 (эмит-хелперы, S/M) → R6.1 (распил `RoomManager`, L) или R6.5 (очередь реакций, L).

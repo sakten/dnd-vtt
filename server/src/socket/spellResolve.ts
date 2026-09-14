@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  applyDamageDefenses,
   attackRollParts,
   autoCrit,
   autoFailSave,
@@ -18,7 +17,6 @@ import {
   spellEffectDefs,
   spellIsSelf,
   spellRangeFeet,
-  statNumber,
   withAdvantage,
   withRollParts,
   type EffectInstance,
@@ -28,6 +26,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { applyDamage } from './damage';
 import { pushRollMessage } from './messages';
 
 export interface SpellCastInput {
@@ -244,19 +243,17 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
       if (!hitSuccess) continue;
       const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target?.id }, abilities);
       const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
-      const adjusted = applyDamageDefenses(
-        damageRoll.total,
+      applyDamage(ctx, {
+        target,
+        mapId: input.mapId,
+        amount: damageRoll.total,
         damageType,
-        ctx.manager.damageDefensesForToken(room, target)
-      );
-      pushRollMessage(ctx, room, {
-        author,
         roll: damageRoll,
+        author,
         kind: healing ? 'heal' : 'damage',
-        params: { subject: label, damageType, damageNote: adjusted.note },
+        params: { subject: label, damageType },
         crit,
       });
-      ctx.applyHp(room, input.mapId, target, healing ? adjusted.amount : -adjusted.amount, { crit });
     }
     return {};
   }
@@ -278,9 +275,14 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
         params: { subject: `${spell.name} · ${target.name}`, saveOutcome: success ? 'success' : 'fail' },
       });
       if (success && !spell.saveHalf) continue;
-      let amount = success ? Math.floor(damageRoll.total / 2) : damageRoll.total;
-      amount = applyDamageDefenses(amount, damageType, ctx.manager.damageDefensesForToken(room, target)).amount;
-      if (amount) ctx.applyHp(room, input.mapId, target, healing ? amount : -amount);
+      applyDamage(ctx, {
+        target,
+        mapId: input.mapId,
+        amount: damageRoll.total,
+        damageType,
+        halve: success,
+        kind: healing ? 'heal' : 'damage',
+      });
     }
     return {};
   }
@@ -291,20 +293,16 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
       const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
       const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
       const damageRoll = rollDice(expression);
-      const adjusted = applyDamageDefenses(
-        damageRoll.total,
+      applyDamage(ctx, {
+        target,
+        mapId: input.mapId,
+        amount: damageRoll.total,
         damageType,
-        target ? ctx.manager.damageDefensesForToken(room, target) : []
-      );
-      pushRollMessage(ctx, room, {
-        author,
         roll: damageRoll,
+        author,
         kind: healing ? 'heal' : 'damage',
-        params: { subject: label, damageType, damageNote: adjusted.note },
+        params: { subject: label, damageType },
       });
-      if (target && (statNumber(target.hpMax) > 0 || target.id === caster.id)) {
-        ctx.applyHp(room, input.mapId, target, healing ? adjusted.amount : -adjusted.amount);
-      }
     }
     return {};
   }

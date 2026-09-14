@@ -37,7 +37,6 @@ export function registerMapHandlers(ctx: ConnCtx) {
       if (!room) return;
       if (!room.scene.maps.some((m) => m.id === id)) return;
       room.scene.activeMapId = id;
-      manager.saveSoon(room);
       broadcastAll('map:bring', { activeMapId: id });
     });
 
@@ -60,7 +59,6 @@ export function registerMapHandlers(ctx: ConnCtx) {
           ? fog.hidden.filter((k) => typeof k === 'string' && /^-?\d+,-?\d+$/.test(k)).slice(0, 50000)
           : [],
       };
-      manager.saveSoon(room);
       broadcast('fog:update', { mapId, fog: map.fog });
     });
 
@@ -92,7 +90,6 @@ export function registerMapHandlers(ctx: ConnCtx) {
           }
         }
       }
-      manager.saveSoon(room);
       broadcast('grid:update', next);
       for (const map of room.scene.maps) {
         for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);

@@ -9,7 +9,7 @@ import type { ClientToServerEvents, ServerToClientEvents } from 'shared';
 import { RoomManager, roomUploadUrls } from './rooms';
 import type { Room } from './roomTypes';
 import { registerSocket } from './socket';
-import { HERE, UPLOADS_DIR, dirSize, ensureDirs, flatUploadSize, flushRoomSaves, roomUploadDir } from './store';
+import { HERE, UPLOADS_DIR, dirSize, ensureDirs, flatUploadSize, roomUploadDir } from './store';
 import { ROOM_QUOTA_BYTES, ROOM_QUOTA_MB } from './config';
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -31,7 +31,7 @@ process.on('uncaughtException', (err) => console.error('uncaughtException:', err
 process.on('unhandledRejection', (err) => console.error('unhandledRejection:', err));
 
 const shutdown = async () => {
-  await flushRoomSaves();
+  await manager.flushSaves();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 };

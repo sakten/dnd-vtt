@@ -1,4 +1,5 @@
 import type { ConnCtx } from './context';
+import { rejectIfReaction } from './guards';
 
 export function registerLibraryHandlers(ctx: ConnCtx) {
   const { manager, getRoom, isDm, broadcastAll, broadcastLibrary } = ctx;
@@ -6,6 +7,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
     ctx.on('library:add', (payload) => {
       const room = getRoom();
       if (!room) return;
+      if (rejectIfReaction(ctx)) return;
       manager.addLibraryItem(room, payload);
       broadcastLibrary(room);
     });
@@ -13,6 +15,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
     ctx.on('library:update', ({ id, patch }) => {
       const room = getRoom();
       if (!room) return;
+      if (rejectIfReaction(ctx)) return;
       const safePatch = { ...patch };
       if (!isDm() && 'showStats' in safePatch) delete safePatch.showStats;
       manager.updateLibraryItem(room, id, safePatch);
@@ -28,6 +31,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
     ctx.on('library:remove', (id) => {
       const room = getRoom();
       if (!room) return;
+      if (rejectIfReaction(ctx)) return;
       manager.removeLibraryItem(room, id);
       for (const pid of manager.clearControllersForItem(room, id)) {
         broadcastAll('character:update', { playerId: pid, libraryItemId: null });
@@ -43,7 +47,6 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       }
       if (libraryItemId === null) {
         delete room.controllers[ctx.playerId];
-        manager.saveSoon(room);
         broadcastAll('character:update', { playerId: ctx.playerId, libraryItemId: null });
         cb({ ok: true });
         return;
@@ -73,7 +76,6 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
         return;
       }
       room.controllers[ctx.playerId] = libraryItemId;
-      manager.saveSoon(room);
       broadcastAll('character:update', { playerId: ctx.playerId, libraryItemId });
       cb({ ok: true });
     });

@@ -44,7 +44,7 @@ import {
   withAdvantage,
   withRollParts,
 } from 'shared';
-import { cancelRoomSave, loadPersistedRooms, removeRoomFile, removeRoomUploadDir, removeRoomUploads, saveRoomNow, saveRoomSoon } from './store';
+import { createRoomRepository, removeRoomUploadDir, removeRoomUploads, type RoomRepository } from './store';
 import { toPersistedRoom, type Room } from './roomTypes';
 import { hydrateRoom } from './roomNormalize';
 
@@ -77,8 +77,10 @@ export function hasResourceFor(room: Room, playerId: string, key: string, amount
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
+  constructor(private readonly repo: RoomRepository = createRoomRepository()) {}
+
   async init() {
-    const persisted = await loadPersistedRooms();
+    const persisted = await this.repo.loadAll();
     for (const p of persisted) {
       try {
         const room = hydrateRoom(p);
@@ -107,8 +109,7 @@ export class RoomManager {
     const room = this.rooms.get(code);
     if (!room) return false;
     this.rooms.delete(code);
-    cancelRoomSave(code);
-    removeRoomFile(code);
+    this.repo.remove(code);
     removeRoomUploadDir(code);
     removeRoomUploads(roomUploadUrls(room));
     return true;
@@ -1197,11 +1198,12 @@ export class RoomManager {
   }
 
   saveSoon(room: Room) {
-    saveRoomSoon(() => toPersistedRoom(room));
+    this.repo.save(room.code, () => toPersistedRoom(room));
   }
 
-  saveNow(room: Room) {
-    return saveRoomNow(toPersistedRoom(room));
+  /** Записать все отложенные комнаты (остановка сервера). */
+  flushSaves() {
+    return this.repo.flush();
   }
 
   /** Включает/выключает режим тестов (права ведущего у всех игроков). */

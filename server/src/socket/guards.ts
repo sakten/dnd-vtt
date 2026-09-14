@@ -1,4 +1,4 @@
-import { isIncapacitated, type Token } from 'shared';
+import { isIncapacitated, type CharacterSheet, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { isReactionPending } from './reactions';
@@ -14,13 +14,15 @@ export interface Scope {
   room: Room;
   mapId: string;
   token: Token;
+  /** Реальный DM или режим тестов комнаты. */
+  isDm: boolean;
+  /** Заполнено, если токен — персонаж игрока соединения (действия из листа). */
+  character: { playerId: string; sheet?: CharacterSheet } | null;
 }
 
 export interface ScopeOptions {
   /** Только реальный DM/режим тестов. */
   dmOnly?: boolean;
-  /** Не проверять права управления (нужны свои проверки). */
-  skipControl?: boolean;
 }
 
 /**
@@ -32,9 +34,15 @@ export function scopedToken(ctx: ConnCtx, mapId: unknown, tokenId: unknown, opts
   if (!room || typeof mapId !== 'string' || typeof tokenId !== 'string') return null;
   const token = ctx.manager.findToken(room, mapId, tokenId);
   if (!token) return null;
-  if (opts.dmOnly) return ctx.isDm() ? { room, mapId, token } : null;
-  if (!opts.skipControl && !ctx.canControlToken(room, mapId, token)) return null;
-  return { room, mapId, token };
+  const isDm = ctx.isDm();
+  if (opts.dmOnly && !isDm) return null;
+  if (!ctx.canControlToken(room, mapId, token)) return null;
+  const playerId = ctx.playerId;
+  const character =
+    playerId && room.controllers[playerId] === token.libraryItemId
+      ? { playerId, sheet: room.sheets[playerId] }
+      : null;
+  return { room, mapId, token, isDm, character };
 }
 
 /** true — открыто окно реакции, действие отклонено (в чат — сообщение, если не silent). */

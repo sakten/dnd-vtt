@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PersistedRoom } from './roomTypes';
@@ -33,47 +34,63 @@ export async function loadPersistedRooms(): Promise<PersistedRoom[]> {
   return rooms;
 }
 
-const saveTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; room: () => PersistedRoom }>();
-
 async function writeRoom(room: PersistedRoom) {
   await ensureDirs();
   const target = path.join(ROOMS_DIR, `${room.code}.json`);
-  const tmp = `${target}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(room, null, 2));
-  await fs.rename(tmp, target);
-}
-
-export function saveRoomSoon(room: () => PersistedRoom) {
-  const code = room().code;
-  const existing = saveTimers.get(code);
-  if (existing) clearTimeout(existing.timer);
-  const timer = setTimeout(() => {
-    saveTimers.delete(code);
-    writeRoom(room()).catch((e) => console.error(`Не удалось сохранить комнату ${code}:`, e));
-  }, 1000);
-  saveTimers.set(code, { timer, room });
-}
-
-export function cancelRoomSave(code: string) {
-  const existing = saveTimers.get(code);
-  if (existing) {
-    clearTimeout(existing.timer);
-    saveTimers.delete(code);
+  // Уникальный tmp: параллельные записи одной комнаты (таймер + flush) не пересекаются.
+  const tmp = `${target}.${randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(tmp, JSON.stringify(room, null, 2));
+    await fs.rename(tmp, target);
+  } catch (e) {
+    await fs.unlink(tmp).catch(() => void 0);
+    throw e;
   }
 }
 
-export async function saveRoomNow(room: PersistedRoom) {
-  await writeRoom(room);
+export interface RoomRepository {
+  loadAll(): Promise<PersistedRoom[]>;
+  /** Сохранить с дебаунсом (1 с): snapshot вызывается в момент записи. */
+  save(code: string, snapshot: () => PersistedRoom): void;
+  /** Отменить отложенную запись и удалить файл комнаты. */
+  remove(code: string): void;
+  /** Записать все отложенные комнаты (остановка сервера). */
+  flush(): Promise<void>;
 }
 
-export async function flushRoomSaves(): Promise<void> {
-  const pending = [...saveTimers.values()];
-  saveTimers.clear();
-  await Promise.all(
-    pending.map(({ room }) =>
-      writeRoom(room()).catch((e) => console.error('Не удалось сохранить комнату при остановке:', e))
-    )
-  );
+/** Персистенция комнат на диск: debounce, атомарная запись, flush. */
+export function createRoomRepository(): RoomRepository {
+  const timers = new Map<string, { timer: ReturnType<typeof setTimeout>; snapshot: () => PersistedRoom }>();
+
+  return {
+    loadAll: () => loadPersistedRooms(),
+    save(code, snapshot) {
+      const existing = timers.get(code);
+      if (existing) clearTimeout(existing.timer);
+      const timer = setTimeout(() => {
+        timers.delete(code);
+        writeRoom(snapshot()).catch((e) => console.error(`Не удалось сохранить комнату ${code}:`, e));
+      }, 1000);
+      timers.set(code, { timer, snapshot });
+    },
+    remove(code) {
+      const existing = timers.get(code);
+      if (existing) {
+        clearTimeout(existing.timer);
+        timers.delete(code);
+      }
+      fs.unlink(path.join(ROOMS_DIR, `${code}.json`)).catch(() => void 0);
+    },
+    async flush() {
+      const pending = [...timers.values()];
+      timers.clear();
+      await Promise.all(
+        pending.map(({ snapshot }) =>
+          writeRoom(snapshot()).catch((e) => console.error('Не удалось сохранить комнату при остановке:', e))
+        )
+      );
+    },
+  };
 }
 
 /** Имя плоского (legacy) файла из url вида `/uploads/<name>`; null — если это не он. */
@@ -131,8 +148,4 @@ export async function dirSize(dir: string): Promise<number> {
     }
   }
   return total;
-}
-
-export function removeRoomFile(code: string) {
-  fs.unlink(path.join(ROOMS_DIR, `${code}.json`)).catch(() => void 0);
 }

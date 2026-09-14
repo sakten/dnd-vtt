@@ -7,7 +7,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { playerScope, rejectIfReaction } from './guards';
+import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
 
@@ -49,9 +49,9 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       if (typeof tokenId === 'string' && tokenId) {
         const found = manager.locateToken(room, tokenId);
         if (!found) return;
-        if (!isDm() && !manager.controlsToken(room, found.mapId, playerId, found.token)) return;
-        const isCharacter = room.controllers[playerId] === found.token.libraryItemId;
-        attacks = isCharacter ? room.sheets[playerId]?.attacks : found.token.attacks;
+        const scope = scopedToken(ctx, found.mapId, tokenId);
+        if (!scope) return;
+        attacks = scope.character ? scope.character.sheet?.attacks : found.token.attacks;
         prefix = found.token.name;
         attacker = found.token;
         attackerMapId = found.mapId;

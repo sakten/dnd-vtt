@@ -10,7 +10,7 @@ import {
   type RollLabelParams,
 } from 'shared';
 import type { ConnCtx } from './context';
-import { playerScope } from './guards';
+import { playerScope, rejectIfReaction } from './guards';
 import { pushRollMessage } from './messages';
 
 export function registerResourceHandlers(ctx: ConnCtx) {
@@ -19,6 +19,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
     ctx.on('resources:update', (payload) => {
       const scope = playerScope(ctx);
       if (!scope) return;
+      if (rejectIfReaction(ctx, true)) return;
       const { room, playerId } = scope;
       if (!payload || typeof payload !== 'object') return;
       const sheet = room.sheets[playerId];
@@ -27,7 +28,6 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
       room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
       const changed = manager.syncSheetToTokens(room, playerId);
-      manager.saveSoon(room);
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
       ctx.notifyPlayers(room);
@@ -36,6 +36,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
     ctx.on('resources:hitDie', (payload) => {
       const scope = playerScope(ctx);
       if (!scope) return;
+      if (rejectIfReaction(ctx, true)) return;
       const { room, playerId } = scope;
       const sheet = room.sheets[playerId];
       const res = room.resources[playerId];
@@ -49,7 +50,6 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       entry.current -= 1;
       res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
       const changed = manager.syncSheetToTokens(room, playerId);
-      manager.saveSoon(room);
       const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
       pushRollMessage(ctx, room, {
         author,
@@ -64,6 +64,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
     ctx.on('resources:rest', ({ type }) => {
       const scope = playerScope(ctx);
       if (!scope) return;
+      if (rejectIfReaction(ctx)) return;
       const { room, playerId } = scope;
       if (type !== 'short' && type !== 'long') return;
       const res = room.resources[playerId];
@@ -78,7 +79,6 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       for (const c of manager.syncSheetToTokens(room, playerId)) {
         emitToken(room, 'token:update', c.mapId, c.token);
       }
-      manager.saveSoon(room);
       ctx.emitResources(room, playerId);
       ctx.notifyPlayers(room);
     });
@@ -86,6 +86,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
     ctx.on('resources:deathSave', (payload) => {
       const scope = playerScope(ctx);
       if (!scope) return;
+      if (rejectIfReaction(ctx, true)) return;
       const { room, playerId } = scope;
       const res = room.resources[playerId];
       if (!res) return;
@@ -112,7 +113,6 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         res.hp.deathFailures = Math.min(3, res.hp.deathFailures + 1);
         outcome = 'fail';
       }
-      manager.saveSoon(room);
       if (res.hp.deathFailures >= 3) {
         for (const c of manager.markControlledTokensDead(room, playerId, true)) {
           emitToken(room, 'token:update', c.mapId, c.token);

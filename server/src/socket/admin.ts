@@ -29,7 +29,6 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       const playerName = name.trim() || 'Ведущий';
       const room = manager.create(roomName);
       room.players.push({ id: clientId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
-      manager.saveSoon(room);
       ctx.roomCode = room.code;
       ctx.playerId = clientId;
       socket.join(room.code);
@@ -58,7 +57,6 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       } else {
         room.players.push({ id: clientId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
       }
-      manager.saveSoon(room);
       ctx.roomCode = room.code;
       ctx.playerId = clientId;
       socket.join(room.code);

@@ -15,6 +15,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
     ctx.on('token:add', (payload) => {
       const scope = playerScope(ctx);
       if (!scope) return;
+      if (rejectIfReaction(ctx)) return;
       const { room, playerId } = scope;
       const x = Number(payload?.x);
       const y = Number(payload?.y);
@@ -53,7 +54,6 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
       token.x = x;
       token.y = y;
-      manager.saveSoon(room);
       emitToken(room, 'token:update', mapId, token);
     });
 
@@ -63,12 +63,12 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (!scope) return;
       const { room, token } = scope;
       token.lockedBy = lock ? ctx.playerId : null;
-      manager.saveSoon(room);
       emitToken(room, 'token:update', mapId, token);
     });
 
     ctx.on('token:update', ({ mapId, id, patch }) => {
       if (!patch || typeof patch !== 'object') return;
+      if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;
       const { room, token } = scope;
@@ -117,7 +117,6 @@ export function registerTokenHandlers(ctx: ConnCtx) {
           else delete token.statblock;
         }
       }
-      manager.saveSoon(room);
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {
         manager.renameCombatantByToken(room, mapId, id, token.name);
       }

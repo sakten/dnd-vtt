@@ -86,6 +86,12 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     return viewer.role === 'dm' || room.testMode === true;
   };
 
+  // После каждого события комната сохраняется сама: хендлеру не нужно помнить про saveSoon.
+  const persist = () => {
+    const room = ctx.getRoom();
+    if (room) manager.saveSoon(room);
+  };
+
   const ctx: ConnCtx = {
     io,
     socket,
@@ -99,6 +105,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
           (handler as unknown as (...a: unknown[]) => void)(...args);
         } catch (err) {
           console.error(`socket ${String(event)} error:`, err);
+        } finally {
+          persist();
         }
       }) as never);
     },
@@ -108,6 +116,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
           handler();
         } catch (err) {
           console.error('socket disconnect error:', err);
+        } finally {
+          persist();
         }
       });
     },
@@ -227,7 +237,6 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
           created.hp = { ...created.hp, max: hpMax, current: hpMax };
         }
         room.resources[selfId] = created;
-        manager.saveSoon(room);
       }
       for (const c of manager.syncSheetToTokens(room, selfId)) {
         ctx.emitToken(room, 'token:update', c.mapId, c.token);
