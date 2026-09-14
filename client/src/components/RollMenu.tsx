@@ -102,7 +102,7 @@ export default function RollMenu() {
     const active = activeWithIndex(source.attacks);
     if (active.length === 0) return;
     if (active.length === 1) {
-      doWeapon(source, active[0].index);
+      doWeapon(source, active[0]!.index);
       return;
     }
     setSourceKey(source.key);
@@ -112,7 +112,7 @@ export default function RollMenu() {
   const chooseAttack = () => {
     const list = sources.filter((s) => activeWithIndex(s.attacks).length > 0);
     if (list.length === 0) return;
-    if (list.length === 1) pickSource(list[0]);
+    if (list.length === 1) pickSource(list[0]!);
     else setLevel('source');
   };
 

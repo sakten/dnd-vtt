@@ -94,7 +94,7 @@ export default function TableTop() {
     const out: { x: number; y: number; size: number }[] = [];
     for (const key of keys) {
       const [cx, cy] = key.split(',').map(Number);
-      if (cx < 0 || cy < 0) continue;
+      if (cx === undefined || cy === undefined || cx < 0 || cy < 0) continue;
       if (activeMap && (cx >= maxCx || cy >= maxCy)) continue;
       if (!isDm && hiddenSet.has(key)) continue;
       out.push({ x: g.offsetX + cx * size, y: g.offsetY + cy * size, size });
@@ -134,10 +134,14 @@ export default function TableTop() {
   const fogRects = useMemo(() => {
     if (!activeMap) return [];
     const f = activeMap.fog;
-    return f.hidden.map((key) => {
-      const [cx, cy] = key.split(',').map(Number);
-      return { x: f.offsetX + cx * f.size, y: f.offsetY + cy * f.size, size: f.size };
-    });
+    return f.hidden
+      .map((key) => {
+        const [cx, cy] = key.split(',').map(Number);
+        return cx === undefined || cy === undefined
+          ? null
+          : { x: f.offsetX + cx * f.size, y: f.offsetY + cy * f.size, size: f.size };
+      })
+      .filter((r): r is { x: number; y: number; size: number } => r !== null);
   }, [activeMap]);
 
   const isCellHidden = (x: number, y: number): boolean => {

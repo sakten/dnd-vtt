@@ -174,7 +174,7 @@ export default function ChatPanel() {
       if (history.length === 0) return;
       const idx = historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
       setHistoryIndex(idx);
-      setText(history[idx]);
+      setText(history[idx] ?? '');
       return;
     }
     if (e.key === 'ArrowDown') {
@@ -186,7 +186,7 @@ export default function ChatPanel() {
         setText('');
       } else {
         setHistoryIndex(idx);
-        setText(history[idx]);
+        setText(history[idx] ?? '');
       }
     }
   };

@@ -72,6 +72,6 @@ describe('combat slice: onCombatUpdate', () => {
   it('заменяет состояние боя карты', () => {
     const combat = { ...emptyCombatState(), active: true, round: 3, currentIndex: 1 };
     useGameStore.getState().onCombatUpdate({ mapId: 'm1', combat });
-    expect(useGameStore.getState().scene.maps[0].combat).toEqual(combat);
+    expect(useGameStore.getState().scene.maps[0]!.combat).toEqual(combat);
   });
 });

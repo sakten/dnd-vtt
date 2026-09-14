@@ -63,7 +63,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
       if (!d) return d;
       const classes = [...d.classes];
       while (classes.length <= index) classes.push({ className: '', level: 1 });
-      const next = { ...classes[index], ...patch };
+      const next: ClassLevel = { ...(classes[index] ?? { className: '', level: 1 }), ...patch };
       if (patch.className !== undefined) next.subclass = undefined;
       if (next.level < 3) next.subclass = undefined;
       classes[index] = next;

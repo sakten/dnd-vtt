@@ -74,7 +74,7 @@ function buildGeometry(): BuiltGeometry {
     const row = Math.floor(f / COLS);
     const verts = [a, b, c];
     for (let k = 0; k < 3; k++) {
-      const d = new THREE.Vector3().subVectors(verts[k], centroid);
+      const d = new THREE.Vector3().subVectors(verts[k]!, centroid);
       const cu = 0.5 + d.dot(right) * S;
       const cv = 0.5 + d.dot(up) * S;
       uv[(i0 + k) * 2] = (col + cu) / COLS;
@@ -136,8 +136,8 @@ export default function ThreeD20() {
     window.addEventListener('resize', resize);
 
     const idx = normals.length - 1;
-    const n = normals[idx];
-    const up = ups[idx];
+    const n = normals[idx]!;
+    const up = ups[idx]!;
     const right = up.clone().cross(n).normalize();
     const basis = new THREE.Matrix4().set(
       right.x, right.y, right.z, 0,

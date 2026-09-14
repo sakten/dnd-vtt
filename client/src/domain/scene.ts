@@ -12,7 +12,7 @@ export function updateMap(scene: Scene, mapId: string, updater: (map: MapInfo) =
   const idx = scene.maps.findIndex((m) => m.id === mapId);
   if (idx < 0) return scene;
   const maps = [...scene.maps];
-  maps[idx] = updater(maps[idx]);
+  maps[idx] = updater(maps[idx]!);
   return { ...scene, maps };
 }
 

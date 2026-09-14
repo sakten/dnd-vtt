@@ -34,8 +34,8 @@ const deactivateCombat = () => {
   });
 };
 
-const turn = () => useGameStore.getState().scene.maps[0].combat.turns.e1;
-const token = () => useGameStore.getState().scene.maps[0].tokens[0];
+const turn = () => useGameStore.getState().scene.maps[0]!.combat.turns.e1!;
+const token = () => useGameStore.getState().scene.maps[0]!.tokens[0]!;
 const hasEvent = (emitted: EmittedEvent[], event: string) => emitted.some((e) => e.event === event);
 
 let emitted: EmittedEvent[] = [];
@@ -111,7 +111,7 @@ describe('tokens slice: обновления', () => {
 
   it('onTokenAdd добавляет токен, onTokenRemove удаляет и чистит ссылки', () => {
     useGameStore.getState().onTokenAdd({ mapId: 'm1', token: makeToken('t2') });
-    expect(useGameStore.getState().scene.maps[0].tokens.map((t) => t.id)).toEqual(['t1', 't2']);
+    expect(useGameStore.getState().scene.maps[0]!.tokens.map((t) => t.id)).toEqual(['t1', 't2']);
 
     useGameStore.setState({
       selectedTokenId: 't1',
@@ -123,7 +123,7 @@ describe('tokens slice: обновления', () => {
     useGameStore.getState().onTokenRemove({ mapId: 'm1', id: 't1' });
 
     const st = useGameStore.getState();
-    expect(st.scene.maps[0].tokens.map((t) => t.id)).toEqual(['t2']);
+    expect(st.scene.maps[0]!.tokens.map((t) => t.id)).toEqual(['t2']);
     expect(st.selectedTokenId).toBeNull();
     expect(st.interaction).toBeNull();
     expect(st.hoverTokenId).toBeNull();
