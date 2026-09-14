@@ -68,16 +68,29 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>;
 }
 
+/** Параметры открытия окна реакций (офферы + продолжение резолва). */
+interface OpenWindowArgs {
+  mapId: string;
+  trigger: ReactionTriggerKind;
+  sourceName?: string;
+  offers: ReactionOfferInput[];
+  resume: (choices: ReactionChoice[]) => void;
+}
+
+/** Больше пары окон в очереди комнаты не держим (защита от лавины триггеров). */
+const MAX_WAITING = 16;
+
 /** Одна пауза на комнату и её офферы; состояние — в инстансе на комнату, не в модуле. */
 class ReactionQueue {
   private pending: Pending | null = null;
+  private readonly waiting: { ctx: ConnCtx; room: Room; args: OpenWindowArgs }[] = [];
   private readonly offerIndex = new Map<string, { pendingId: string; tokenId: string }>();
   private ctx: ConnCtx | null = null;
 
   constructor(readonly roomCode: string) {}
 
   get isPending(): boolean {
-    return this.pending !== null;
+    return this.pending !== null || this.waiting.length > 0;
   }
 
   get current(): Pending | null {
@@ -108,19 +121,23 @@ class ReactionQueue {
     return state ? { pending: this.pending, state } : null;
   }
 
-  /** Открывает окно; false — нет офферов или уже есть пауза. */
-  open(
-    ctx: ConnCtx,
-    room: Room,
-    args: {
-      mapId: string;
-      trigger: ReactionTriggerKind;
-      sourceName?: string;
-      offers: ReactionOfferInput[];
-      resume: (choices: ReactionChoice[]) => void;
+  /**
+   * Открывает окно; false — офферов нет. Если пауза уже идёт, запрос встаёт в
+   * очередь и откроется после неё (вызывающий всё равно ждёт resume).
+   */
+  open(ctx: ConnCtx, room: Room, args: OpenWindowArgs): boolean {
+    if (!args.offers.length) return false;
+    if (this.pending) {
+      if (this.waiting.length >= MAX_WAITING) return false;
+      this.waiting.push({ ctx, room, args });
+      return true;
     }
-  ): boolean {
-    if (!args.offers.length || this.pending) return false;
+    this.start(ctx, room, args, args.offers);
+    return true;
+  }
+
+  /** Создаёт паузу по (пере)проверенным офферам. */
+  private start(ctx: ConnCtx, room: Room, args: OpenWindowArgs, offers: ReactionOfferInput[]) {
     const id = randomUUID();
     const expiresAt = Date.now() + REACTION_TIMEOUT_MS;
     const pending: Pending = {
@@ -135,7 +152,7 @@ class ReactionQueue {
     };
     pending.timer.unref?.();
 
-    for (const input of args.offers) {
+    for (const input of offers) {
       const offerId = `${id}:${input.token.id}`;
       pending.offers.push({
         id: offerId,
@@ -161,7 +178,44 @@ class ReactionQueue {
 
     this.pending = pending;
     this.ctx = ctx;
-    return true;
+  }
+
+  /** Открывает следующее окно из очереди; пустые (оплата кончилась) — пропускает. */
+  private startNext() {
+    while (this.waiting.length) {
+      if (this.pending) return;
+      const next = this.waiting.shift()!;
+      const offers = this.revalidate(next.ctx, next.room, next.args.mapId, next.args.offers);
+      if (!offers.length) {
+        // Окно стало ненужным — сразу продолжаем резолв, чтобы вызывающий не завис.
+        next.args.resume([]);
+        continue;
+      }
+      this.start(next.ctx, next.room, next.args, offers);
+      return;
+    }
+  }
+
+  /** Отбрасывает офферы/варианты, которые больше не оплачиваются (слот реакции/ячейка/ресурс). */
+  private revalidate(ctx: ConnCtx, room: Room, mapId: string, offers: ReactionOfferInput[]): ReactionOfferInput[] {
+    const out: ReactionOfferInput[] = [];
+    for (const input of offers) {
+      const options = input.options.filter((o) => this.optionPayable(ctx, room, mapId, input.token, o));
+      if (options.length) out.push({ ...input, options });
+    }
+    return out;
+  }
+
+  private optionPayable(ctx: ConnCtx, room: Room, mapId: string, token: Token, option: ReactionOption): boolean {
+    if (!reactionSlotFree(ctx.manager, room, mapId, token)) return false;
+    if (option.kind === 'opportunity') return true;
+    if (option.kind === 'spell') {
+      const spell = option.spellKey ? findSpell(option.spellKey) : null;
+      return !!spell && spellPayable(room, token, spell.level, spell.key);
+    }
+    if (!option.resourceKey) return false;
+    const controllerId = controllerIdOfToken(room, token);
+    return !!controllerId && hasResourceFor(room, controllerId, option.resourceKey, option.resourceAmount ?? 1);
   }
 
   /** Пропускает неотвеченные офферы игрока (дисконнект). */
@@ -188,12 +242,16 @@ class ReactionQueue {
     this.pending = null;
     this.ctx = null;
     this.offerIndex.clear();
-    if (!this.isPending) queues.delete(this.roomCode);
 
     const room = ctx ? ctx.getRoom() ?? ctx.manager.get(pending.roomCode) ?? null : null;
     for (const state of pending.offers) {
       if (ctx && room) closeOffer(ctx, room, state);
     }
+    // Следующее окно открываем до resume: заморозка не прерывается, а новые
+    // триггеры из resume встанут в очередь за ним.
+    this.startNext();
+    if (!this.isPending) queues.delete(this.roomCode);
+
     // Резолв продолжается вне try/catch сокет-хендлера (таймаут/DM-скип) — изолируем.
     try {
       pending.resume(

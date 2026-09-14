@@ -20,7 +20,7 @@ import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
 import { rollConcentrationOnDamage } from './effects';
-import { pendingOffers, registerReactionHandlers } from './reactions';
+import { openReactionWindow, pendingOffers, registerReactionHandlers } from './reactions';
 
 interface FakeCtx {
   ctx: ConnCtx;
@@ -1308,5 +1308,51 @@ describe('отдых и удаление токена', () => {
     f.invoke('token:remove', { mapId: 'm1', id: 't1' });
 
     expect(room.scene.maps[0].tokens.find((t) => t.id === 't2')?.effects).toHaveLength(0);
+  });
+});
+
+describe('очередь окон реакций (R6.5)', () => {
+  it('второй триггер ждёт в очереди и открывается после первого', () => {
+    const room = makeRoom([makeToken('t1'), makeToken('t2')], { p1: 'lib1' });
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    const f = makeCtx(room, { playerId: 'p1', dm: true });
+    registerReactionHandlers(f.ctx);
+
+    const [t1, t2] = room.scene.maps[0].tokens;
+    const resumed: string[] = [];
+    const offer = (token: typeof t1, name: string) => ({
+      token,
+      audience: ['p1'],
+      options: [{ id: 'op', name, kind: 'opportunity' as const }],
+    });
+
+    const first = openReactionWindow(f.ctx, room, {
+      mapId: 'm1',
+      trigger: 'leaveReach',
+      sourceName: 'A',
+      offers: [offer(t1, 'OA1')],
+      resume: () => resumed.push('first'),
+    });
+    const second = openReactionWindow(f.ctx, room, {
+      mapId: 'm1',
+      trigger: 'damage',
+      sourceName: 'B',
+      offers: [offer(t2, 'OA2')],
+      resume: () => resumed.push('second'),
+    });
+
+    expect(first).toBe(true);
+    expect(second).toBe(true);
+    expect(pendingOffers('TEST')).toHaveLength(1);
+    expect(pendingOffers('TEST')[0].options[0].name).toBe('OA1');
+
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0].id, optionId: null });
+    expect(resumed).toEqual(['first']);
+    expect(pendingOffers('TEST')).toHaveLength(1);
+    expect(pendingOffers('TEST')[0].options[0].name).toBe('OA2');
+
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0].id, optionId: null });
+    expect(resumed).toEqual(['first', 'second']);
+    expect(pendingOffers('TEST')).toHaveLength(0);
   });
 });
