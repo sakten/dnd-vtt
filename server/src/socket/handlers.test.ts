@@ -2541,6 +2541,45 @@ describe('реакции (R1)', () => {
     expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30);
   });
 
+  it('Терпеливая оборона (фокус): помеха держится и после конца хода монаха', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, ac: '20', hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки', 'd20')], x: 150, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 2 }], spells: [] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' }],
+    };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    const f2 = makeCtx(room, { dm: true });
+    registerActionHandlers(f2.ctx);
+    registerCombatHandlers(f2.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:monk:focus/patientDefense' });
+    expect(room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.name === 'Уклонение')).toBe(true);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+
+    f2.invoke('combat:endTurn', { mapId: 'm1' });
+    expect(room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.name === 'Уклонение')).toBe(true);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValueOnce(0.9).mockReturnValueOnce(0.1); // 19 и 3
+    f2.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t1'] });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll?: { total?: number } }
+      | undefined;
+    expect(attack?.roll?.total).toBe(3); // помеха
+  });
+
   it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
     const room = makeRoom(
       [
