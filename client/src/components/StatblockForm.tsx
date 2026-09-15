@@ -7,7 +7,9 @@ import {
   type ActionDef,
   type TokenStatblock,
 } from 'shared';
+import { useState } from 'react';
 import { newId } from '../lib/id';
+import { parseSaveBonus } from '../lib/saves';
 import { Field } from './Field';
 
 interface Props {
@@ -29,14 +31,25 @@ const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 export default function StatblockForm({ value, onChange }: Props) {
   const sb: TokenStatblock = value ?? { abilities: { ...DEFAULT_ABILITIES } };
   const actions = sb.actions ?? [];
+  // Текст полей спасбросков: нужен, чтобы «-» по пути к «-1» не превращался в 0.
+  const [saveText, setSaveText] = useState<Partial<Record<AbilityKey, string>>>({});
 
   const setAbility = (key: AbilityKey, n: number) =>
     onChange({ ...sb, abilities: { ...sb.abilities, [key]: Math.min(30, Math.max(0, n)) } });
 
+  const saveValue = (key: AbilityKey) => {
+    const text = saveText[key];
+    if (text !== undefined) return text;
+    const stored = sb.saves?.[key];
+    return typeof stored === 'number' ? String(stored) : '';
+  };
+
   const setSave = (key: AbilityKey, raw: string) => {
+    setSaveText((t) => ({ ...t, [key]: raw }));
     const saves = { ...(sb.saves ?? {}) };
-    if (raw.trim() === '') delete saves[key];
-    else saves[key] = Math.round(Number(raw) || 0);
+    const value = parseSaveBonus(raw);
+    if (value === undefined) delete saves[key];
+    else saves[key] = value;
     onChange({ ...sb, saves: Object.keys(saves).length ? saves : undefined });
   };
 
@@ -94,7 +107,7 @@ export default function StatblockForm({ value, onChange }: Props) {
             <input
               type="text"
               placeholder="—"
-              value={sb.saves?.[a.key] ?? ''}
+              value={saveValue(a.key)}
               onChange={(e) => setSave(a.key, e.target.value)}
             />
           </Field>
