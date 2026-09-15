@@ -2872,6 +2872,69 @@ describe('реакции (R1)', () => {
     expect(combatOf(room).turns.e1!.reactionUsed).toBe(false);
   });
 
+  it('Кость вдохновения и Направленный удар — одна панель с обеими опциями', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '15' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [
+        { className: 'bard', level: 3 },
+        { className: 'cleric', level: 3, subclass: 'war' },
+      ],
+      spells: [],
+      attacks: [melee('Молот', 'd20+5')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    room.scene.maps[0]!.tokens[0]!.effects = [
+      {
+        id: 'bi1',
+        name: 'Бардовское вдохновение (d6)',
+        sourceKey: 'class:bard:bardicInspiration',
+        sourceId: 'bard',
+        duration: { type: 'rounds', rounds: 600 },
+        modifiers: [],
+        bonusDie: '1d6',
+      },
+    ];
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.3); // d20 = 7 — промах
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0]!.options.map((o) => o.id)).toEqual(
+      expect.arrayContaining(['feature:cleric.war:guidedStrike:self', 'bonusdie:bi1'])
+    );
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: null });
+  });
+
   it('Absorb Elements уменьшает урон и даёт сопротивление типу', () => {
     const room = makeRoom(
       [

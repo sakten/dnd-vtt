@@ -113,7 +113,27 @@ class ReactionQueue {
     };
     pending.timer.unref?.();
 
+    // Один оффер на токен: у одного токена бывает несколько источников вариантов
+    // (черты + кости вдохновения) — id оффера `пауза:токен` должен быть уникален.
+    const merged: ReactionOfferInput[] = [];
     for (const input of offers) {
+      const existing = merged.find((m) => m.token.id === input.token.id);
+      if (!existing) {
+        merged.push({ ...input, audience: [...input.audience], options: [...input.options] });
+        continue;
+      }
+      for (const pid of input.audience) {
+        if (!existing.audience.includes(pid)) existing.audience.push(pid);
+      }
+      const seen = new Set(existing.options.map((o) => o.id));
+      for (const option of input.options) {
+        if (seen.has(option.id)) continue;
+        existing.options.push(option);
+        seen.add(option.id);
+      }
+    }
+
+    for (const input of merged) {
       const offerId = `${id}:${input.token.id}`;
       pending.offers.push({
         id: offerId,
