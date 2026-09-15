@@ -44,7 +44,7 @@ export function registerSheetHandlers(ctx: ConnCtx) {
       };
       room.resources[playerId] = synced;
       const changed = manager.syncSheetToTokens(room, playerId);
-      for (const c of changed) syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes);
+      for (const c of changed) syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes, normalized.choices);
       socket.emit('sheet:update', { sheet: normalized });
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);

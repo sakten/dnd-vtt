@@ -57,16 +57,37 @@ export function normalizeSheetChoices(raw: unknown): FeatureChoice[] {
   if (!Array.isArray(raw)) return [];
   const out: FeatureChoice[] = [];
   const seen = new Set<string>();
+  const abilityKeys = new Set<string>(Object.keys(DEFAULT_ABILITIES));
   for (const item of raw) {
     if (out.length >= MAX_FEATURE_CHOICES) break;
     if (!item || typeof item !== 'object') continue;
     const c = item as Partial<FeatureChoice>;
     if (!CHOICE_KINDS.includes(c.kind as FeatureChoiceKind)) continue;
     if (typeof c.key !== 'string' || !c.key.trim()) continue;
-    const dedupe = `${c.kind}:${c.key}`;
+    const list = typeof c.list === 'string' && c.list.trim() ? c.list.trim().slice(0, 40) : undefined;
+    // Повторяемые фиты (Magic Initiate) различаются списком — дедуп учитывает его.
+    const dedupe = `${c.kind}:${c.key}:${list ?? ''}`;
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
-    out.push({ kind: c.kind as FeatureChoiceKind, key: c.key.trim().slice(0, 80) });
+    const ability = typeof c.ability === 'string' && abilityKeys.has(c.ability) ? (c.ability as AbilityKey) : undefined;
+    const spells = Array.isArray(c.spells)
+      ? [
+          ...new Set(
+            c.spells
+              .filter((s): s is string => typeof s === 'string' && !!s.trim())
+              .map((s) => s.trim().slice(0, 80))
+          ),
+        ].slice(0, 4)
+      : [];
+    const spell = typeof c.spell === 'string' && c.spell.trim() ? c.spell.trim().slice(0, 80) : undefined;
+    out.push({
+      kind: c.kind as FeatureChoiceKind,
+      key: c.key.trim().slice(0, 80),
+      ...(ability && { ability }),
+      ...(list && { list }),
+      ...(spells.length && { spells }),
+      ...(spell && { spell }),
+    });
   }
   return out;
 }

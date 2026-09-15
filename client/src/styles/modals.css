@@ -1,9 +1,22 @@
 .modal.sheet-modal {
-  max-height: 90vh;
-  overflow-y: auto;
+  /* Фиксированная высота: вкладки не «прыгают», скроллится только тело. */
+  height: min(90vh, 900px);
+  overflow: hidden;
   overflow-x: hidden;
   width: 540px;
   max-width: 96vw;
+}
+
+/* Тело вкладки — единственная скроллируемая область карточки. */
+.modal.sheet-modal > .sheet-body {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .sheet-modal > * {
@@ -807,3 +820,47 @@
 }
 
 
+
+/* ����� ��������� (����, ���� �������) */
+.feats-form { margin-top: 12px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.feat-row {
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  flex-shrink: 0;
+}
+.feat-head { display: flex; align-items: center; gap: 8px; }
+.feat-name { font-weight: 600; }
+.feat-cat { color: var(--text-dim); font-size: 12px; }
+.feat-remove { margin-left: auto; background: none; border: none; color: var(--text-dim); cursor: pointer; }
+.feat-hint { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+.feat-add { margin-top: 4px; }
+.feat-picker {
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 6px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.feat-picker-head { display: flex; gap: 8px; flex-shrink: 0; }
+.feat-search { flex: 1; }
+.feat-cats { display: flex; gap: 6px; margin: 8px 0; flex-shrink: 0; }
+.feat-cats button.active { background: var(--accent); color: #0b0f14; }
+.feat-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.feat-option { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; }
+.feat-option-name { font-weight: 600; }
+.feat-option-desc { color: var(--text-dim); font-size: 12px; white-space: pre-line; max-height: 54px; overflow: hidden; }
+.feat-option-req { color: var(--accent); font-size: 11px; }
+.feat-spells { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }

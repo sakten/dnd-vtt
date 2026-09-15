@@ -20,6 +20,7 @@ import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
 import { openReactionWindow, pendingOffers, registerReactionHandlers } from './reactions';
+import { registerSheetHandlers } from './sheet';
 import { createZoneFromDef } from './zones';
 
 const combatOf = (room: Room) => room.scene.maps[0]!.combat;
@@ -93,6 +94,25 @@ describe('combat:setTurn / setMovement', () => {
 });
 
 describe('action:use', () => {
+  it('фит Tough из выборов даёт скрытый эффект +2 HP за уровень', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    const sheet: CharacterSheet = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 6 }],
+      spells: [],
+      choices: [{ kind: 'feat', key: 'XPHB:tough' }],
+    };
+    room.sheets.p1 = sheet;
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSheetHandlers(f.ctx);
+
+    f.invoke('sheet:update', sheet);
+
+    const effect = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'feature:XPHB:tough#0');
+    expect(effect?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: 12 });
+    expect(effect?.hidden).toBe(true);
+  });
+
   it('Рывок тратит действие и добавляет передвижение', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', speed: 30 })], { p1: 'lib1' });
     const f = makeCtx(room, { playerId: 'p1' });

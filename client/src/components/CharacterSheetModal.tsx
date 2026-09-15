@@ -17,6 +17,7 @@ import { useGameStore } from '../store/useGameStore';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
+import FeatsForm from './FeatsForm';
 import Modal from './Modal';
 import SpellsPanel from './SpellsPanel';
 
@@ -29,7 +30,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
   const stored = useGameStore((s) => s.sheet);
   const setSheet = useGameStore((s) => s.setSheet);
   const [draft, setDraft] = useState<CharacterSheet | null>(null);
-  const [tab, setTab] = useState<'main' | 'spells'>('main');
+  const [tab, setTab] = useState<'main' | 'spells' | 'talents'>('main');
 
   useEffect(() => {
     if (!open) return;
@@ -94,7 +95,11 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           <button type="button" className={tab === 'spells' ? 'active' : ''} onClick={() => setTab('spells')}>
             Заклинания
           </button>
+          <button type="button" className={tab === 'talents' ? 'active' : ''} onClick={() => setTab('talents')}>
+            Таланты
+          </button>
         </div>
+        <div className="sheet-body">
         {tab === 'main' && (
         <>
         <label className="field">
@@ -292,6 +297,14 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         {tab === 'spells' && (
           <SpellsPanel sheet={draft} onChange={(spells) => setDraft((d) => (d ? { ...d, spells } : d))} />
         )}
+
+        {tab === 'talents' && (
+          <FeatsForm
+            choices={draft.choices ?? []}
+            onChange={(choices) => setDraft((d) => (d ? { ...d, choices } : d))}
+          />
+        )}
+        </div>
 
         <div className="modal-actions">
           <button

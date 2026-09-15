@@ -4,6 +4,7 @@ export * from './rules/attackRiders';
 export * from './rules/automation';
 export * from './rules/classActions';
 export * from './rules/conditions';
+export * from './rules/feats';
 export * from './rules/classes';
 export * from './rules/combat';
 export * from './rules/effects';

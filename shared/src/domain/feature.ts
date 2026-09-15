@@ -1,5 +1,6 @@
 import type { ActionCost, ActionTargeting } from './actions';
 import type { AutomationDef, AutomationEffect } from './automation';
+import type { AbilityKey } from './core';
 
 /** Черта класса/подкласса из сгенерированного каталога 5e.tools (R8.8). */
 export interface FeatureDef {
@@ -27,6 +28,14 @@ export type FeatureChoiceKind =
 export interface FeatureChoice {
   kind: FeatureChoiceKind;
   key: string;
+  /** Способность выбора (Magic Initiate: int/wis/cha и т.п.). */
+  ability?: AbilityKey;
+  /** Выбранные заклинания черты (ключи). */
+  spells?: string[];
+  /** Единственное заклинание черты 1+ круга (Magic Initiate). */
+  spell?: string;
+  /** Выбранный список/вариант (класс списка заклинаний и т.п.). */
+  list?: string;
 }
 
 /** Механика черты: кнопка, пассивка или слот выбора. */

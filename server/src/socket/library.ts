@@ -85,7 +85,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       const sheet = room.sheets[ctx.playerId];
       if (sheet) {
         for (const c of manager.syncSheetToTokens(room, ctx.playerId)) {
-          syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes);
+          syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
           ctx.emitToken(room, 'token:update', c.mapId, c.token);
         }
       }

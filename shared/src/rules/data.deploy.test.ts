@@ -5,6 +5,7 @@ import spellcastingRaw from '../data/spellcasting.json';
 import subclassRaw from '../data/subclassSpells.json';
 import featuresRaw from '../data/features.json';
 import weaponsRaw from '../data/weapons.json';
+import featsRaw from '../data/feats.json';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPELLS } from './automation';
@@ -23,6 +24,7 @@ const HASHES = {
   subclassSpells: '8c6c1ad0490e5a66',
   features: 'e5156ad5b8d1553a',
   weapons: '7910a91430bd729f',
+  feats: '91e403f27800ec45',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -82,7 +84,41 @@ describe('снимок данных', () => {
       subclassSpells: hash(subclassRaw),
       features: hash(featuresRaw),
       weapons: hash(weaponsRaw),
+      feats: hash(featsRaw),
     }).toEqual(HASHES);
+  });
+
+  it('feats.json: контракт записей', () => {
+    const data = featsRaw as unknown as {
+      count: number;
+      feats: {
+        key: string;
+        name: string;
+        category: string;
+        levelReq?: number;
+        abilityChoose?: string[];
+        spellLists?: { name: string; className: string }[];
+        description: string;
+      }[];
+    };
+    expect(data.feats.length).toBe(data.count);
+    const cats = new Set(['origin', 'general', 'fightingStyle']);
+    const bad: string[] = [];
+    const seen = new Set<string>();
+    for (const f of data.feats) {
+      if (!f.key.startsWith('XPHB:')) bad.push(`${f.key}: источник`);
+      if (seen.has(f.key)) bad.push(`${f.key}: дубль`);
+      seen.add(f.key);
+      if (!f.name || !f.description) bad.push(`${f.key}: имя/описание`);
+      if (!cats.has(f.category)) bad.push(`${f.key}: категория ${f.category}`);
+      if (f.levelReq !== undefined && !(f.levelReq >= 1 && f.levelReq <= 20)) bad.push(`${f.key}: уровень`);
+      if (f.spellLists?.some((l) => !l.className || !l.name)) bad.push(`${f.key}: списки заклинаний`);
+    }
+    expect(bad).toEqual([]);
+    expect(data.feats.filter((f) => f.category === 'epicBoon')).toEqual([]);
+    const magic = data.feats.find((f) => f.key === 'XPHB:magicInitiate');
+    expect(magic?.abilityChoose).toEqual(['int', 'wis', 'cha']);
+    expect(magic?.spellLists?.map((l) => l.className)).toEqual(['cleric', 'druid', 'wizard']);
   });
 
   it('weapons.json: контракт записей', () => {

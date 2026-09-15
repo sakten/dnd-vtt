@@ -237,7 +237,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         room.resources[selfId] = created;
       }
       for (const c of manager.syncSheetToTokens(room, selfId)) {
-        if (sheet) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes);
+        if (sheet) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
         ctx.emitToken(room, 'token:update', c.mapId, c.token);
       }
       const state = manager.toState(room);
