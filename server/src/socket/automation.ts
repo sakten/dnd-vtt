@@ -20,9 +20,11 @@ import {
   type AbilityKey,
   type AutomationDice,
   type AutomationDef,
+  type AutomationUtility,
   type DiceRollResult,
   type SpellStats,
   type Token,
+  type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
@@ -231,115 +233,302 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   );
 }
 
+type UtilityHandler = (u: {
+  ctx: ConnCtx;
+  room: Room;
+  input: AutomationInput;
+  utility: AutomationUtility;
+  turn: TurnState | null;
+}) => void;
+
+/** Обработчики простых утилит: доп. действие/движение, отход, доп. атаки, пул лечения, проверка. */
+const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
+  extraAction: ({ ctx, room, input, utility, turn }) => {
+    const amount = Math.max(1, Math.round(utility.amount ?? 1));
+    if (turn) turn.extraActions += amount;
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${amount} действие)`);
+  },
+  extraMovement: ({ ctx, room, input }) => {
+    const speed = ctx.manager.tokenSpeed(room, input.caster);
+    ctx.manager.grantExtraMovement(room, input.mapId, input.caster, speed);
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${speed} фт передвижения)`);
+  },
+  disengage: ({ ctx, room, input, turn }) => {
+    if (turn) turn.disengaged = true;
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name}`);
+  },
+  extraAttacks: ({ ctx, room, input, utility, turn }) => {
+    const amount = Math.max(1, Math.round(utility.amount ?? 2));
+    if (turn) turn.flurryAttacks += amount;
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${amount})`);
+  },
+  weaponAttack: ({ ctx, room, input, utility, turn }) => {
+    const amount = Math.max(1, Math.round(utility.amount ?? 1));
+    if (turn) turn.attacksRemaining += amount;
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${amount} атака оружием)`);
+  },
+  healPool: ({ ctx, room, input, utility }) => {
+    // Поддержание жизни: пул HP распределяется по раненым союзникам до половины максимума.
+    let pool = Math.max(0, Math.round(utility.amount ?? 0));
+    const halfOf = (token: Token) => Math.floor(statNumber(token.hpMax) / 2);
+    const wounded = [...input.targets]
+      .filter((token) => token.hpCurrent <= halfOf(token) && token.hpCurrent < statNumber(token.hpMax))
+      .sort(
+        (a, b) => a.hpCurrent / Math.max(1, statNumber(a.hpMax)) - b.hpCurrent / Math.max(1, statNumber(b.hpMax))
+      );
+    const healed: string[] = [];
+    for (const target of wounded) {
+      if (pool <= 0) break;
+      const space = Math.min(halfOf(target) - target.hpCurrent, statNumber(target.hpMax) - target.hpCurrent);
+      const amount = Math.min(pool, Math.max(0, space));
+      if (amount <= 0) continue;
+      applyDamage(ctx, { target, mapId: input.mapId, amount, kind: 'heal' });
+      pool -= amount;
+      healed.push(`${target.name} +${amount}`);
+    }
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(
+      room,
+      healed.length
+        ? `${input.caster.name}: ${input.def.name} → ${healed.join(', ')}`
+        : `${input.caster.name}: ${input.def.name} — нет раненых`
+    );
+  },
+  patientDefense: ({ ctx, room, input, turn }) => {
+    if (turn) turn.disengaged = true;
+    ctx.manager.applyEffect(room, input.caster, {
+      id: randomUUID(),
+      name: 'Уклонение',
+      sourceKey: `${input.def.key}:dodge`,
+      sourceId: input.caster.id,
+      duration: { type: 'endOfTurn', of: 'target' },
+      modifiers: [
+        { id: randomUUID(), target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+        { id: randomUUID(), target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
+      ],
+    });
+    ctx.emitToken(room, 'token:update', input.mapId, input.caster);
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (Отход + Уклонение)`);
+  },
+  stepOfTheWind: ({ ctx, room, input, turn }) => {
+    if (turn) turn.disengaged = true;
+    const speed = ctx.manager.tokenSpeed(room, input.caster);
+    ctx.manager.grantExtraMovement(room, input.mapId, input.caster, speed);
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (Отход + Рывок)`);
+  },
+  check: ({ ctx, room, input, utility }) => {
+    const ability = utility.ability ?? 'dex';
+    const mod = ctx.manager.abilityModForToken(room, input.caster, ability);
+    const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
+    const roll = rollDice(expression);
+    pushRollMessage(ctx, room, {
+      author: input.author,
+      roll,
+      kind: 'check',
+      params: { subject: `${input.def.name}: ${input.caster.name}` },
+    });
+  },
+};
+
 /** Простые утилиты действий (базовые и классовые): доп. действие/движение, отход, проверка. */
 function applyUtility(ctx: ConnCtx, input: AutomationInput): void {
   const room = ctx.getRoom();
   const utility = input.def.utility;
   if (!room || !utility) return;
-  const { caster, mapId, def } = input;
-  const turn = ctx.manager.turnForToken(room, mapId, caster);
+  UTILITY_HANDLERS[utility.kind]({
+    ctx,
+    room,
+    input,
+    utility,
+    turn: ctx.manager.turnForToken(room, input.mapId, input.caster),
+  });
+}
 
-  switch (utility.kind) {
-    case 'extraAction': {
-      const amount = Math.max(1, Math.round(utility.amount ?? 1));
-      if (turn) turn.extraActions += amount;
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name} (+${amount} действие)`);
-      return;
-    }
-    case 'extraMovement': {
-      const speed = ctx.manager.tokenSpeed(room, caster);
-      ctx.manager.grantExtraMovement(room, mapId, caster, speed);
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name} (+${speed} фт передвижения)`);
-      return;
-    }
-    case 'disengage': {
-      if (turn) turn.disengaged = true;
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name}`);
-      return;
-    }
-    case 'extraAttacks': {
-      const amount = Math.max(1, Math.round(utility.amount ?? 2));
-      if (turn) turn.flurryAttacks += amount;
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name} (+${amount})`);
-      return;
-    }
-    case 'weaponAttack': {
-      const amount = Math.max(1, Math.round(utility.amount ?? 1));
-      if (turn) turn.attacksRemaining += amount;
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name} (+${amount} атака оружием)`);
-      return;
-    }
-    case 'healPool': {
-      // Поддержание жизни: пул HP распределяется по раненым союзникам до половины максимума.
-      let pool = Math.max(0, Math.round(utility.amount ?? 0));
-      const halfOf = (token: Token) => Math.floor(statNumber(token.hpMax) / 2);
-      const wounded = [...input.targets]
-        .filter((token) => token.hpCurrent <= halfOf(token) && token.hpCurrent < statNumber(token.hpMax))
-        .sort(
-          (a, b) =>
-            a.hpCurrent / Math.max(1, statNumber(a.hpMax)) - b.hpCurrent / Math.max(1, statNumber(b.hpMax))
-        );
-      const healed: string[] = [];
-      for (const target of wounded) {
-        if (pool <= 0) break;
-        const space = Math.min(halfOf(target) - target.hpCurrent, statNumber(target.hpMax) - target.hpCurrent);
-        const amount = Math.min(pool, Math.max(0, space));
-        if (amount <= 0) continue;
-        applyDamage(ctx, { target, mapId, amount, kind: 'heal' });
-        pool -= amount;
-        healed.push(`${target.name} +${amount}`);
+/** Данные прогона автоматизации: всё, что нужно резолверам урона/лечения. */
+interface AutomationRun {
+  ctx: ConnCtx;
+  room: Room;
+  caster: Token;
+  def: AutomationDef;
+  mapId: string;
+  targets: Token[];
+  author: string;
+  abilities: Partial<Record<AbilityKey, number>> | undefined;
+  proficiency: number;
+  healing: boolean;
+  healMods: { bonus: number; selfHeal: boolean };
+  expression: string;
+  subject: string;
+  damageType: string | undefined;
+  adv: 'a' | 'd' | undefined;
+  count: number;
+}
+
+/** Лечение с бонусом Ученика жизни. */
+function healValue(run: AutomationRun, total: number): number {
+  return run.healing ? total + run.healMods.bonus : total;
+}
+
+/** Целитель-благословенный: леча других заклинанием с ячейкой, кастер лечится сам. */
+function healAfter(run: AutomationRun, target: Token): void {
+  if (run.healing && run.healMods.selfHeal && target.id !== run.caster.id) {
+    applyDamage(run.ctx, { target: run.caster, mapId: run.mapId, amount: run.healMods.bonus, kind: 'heal' });
+  }
+}
+
+/** Единая точка урона/лечения прогона: бонус Ученика жизни, сообщение, самолечение Целителя. */
+function applyResult(
+  run: AutomationRun,
+  target: Token,
+  roll: DiceRollResult,
+  opts: { subject?: string; halve?: boolean; kind?: 'damage' | 'heal'; crit?: boolean } = {}
+): void {
+  applyDamage(run.ctx, {
+    target,
+    mapId: run.mapId,
+    amount: healValue(run, roll.total),
+    damageType: run.damageType,
+    roll,
+    author: run.author,
+    kind: opts.kind ?? (run.healing ? 'heal' : 'damage'),
+    params: { subject: opts.subject ?? run.subject, damageType: run.damageType },
+    ...(opts.halve !== undefined && { halve: opts.halve }),
+    ...(opts.crit !== undefined && { crit: opts.crit }),
+  });
+  healAfter(run, target);
+}
+
+/** Спасбросок цели с сообщением в чат; true — успех. */
+function rollTargetSave(run: AutomationRun, target: Token, stats: SpellStats, ability: AbilityKey): boolean {
+  const { ctx, room, def, author } = run;
+  const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, { conditionsAutoFail: true });
+  pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
+  return success;
+}
+
+/** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
+function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
+  const { ctx, room, def, caster, mapId, targets, author, abilities, expression, subject, damageType, adv, count } = run;
+  if (!def.attack) return;
+  const { rangeType } = def.attack;
+  const castMap = ctx.manager.findMap(room, mapId);
+  const gridSize = gridSizeOf(room);
+  for (let i = 0; i < count; i++) {
+    // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
+    const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
+    if (!target) continue;
+    const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
+    const effectParts = attackRollParts(caster.effects, target.effects, { rangeType, attackType: rangeType }, abilities);
+    const { mode: advMode } = countAttackAdvantage({
+      explicit: adv,
+      attackerConditions: caster.conditions,
+      targetConditions: target.conditions,
+      rangeType,
+      effectMode: effectParts.mode,
+    });
+    const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
+    const penalty = exhaustionRollPenalty(caster.conditions);
+    const hitExpr = withRollParts(`d20+${stats.attack + penalty}`, { flat: effectParts.flat, dice: effectParts.dice });
+    const hitRoll = rollDice(withAdvantage(hitExpr, advMode));
+    const crit = isCriticalHit(hitRoll) || autoCrit(target.conditions, distance, rangeType);
+    const targetAc = ctx.manager.acForToken(room, target);
+    const hitSuccess = targetAc > 0 ? resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc) : true;
+    pushRollMessage(ctx, room, {
+      author,
+      roll: hitRoll,
+      kind: 'attack',
+      params: { subject: label, hit: hitSuccess ? 'hit' : 'miss' },
+    });
+    if (!hitSuccess) continue;
+    // Mirror Image: попадание может принять образ вместо цели.
+    if (misdirectCheck(ctx, room, mapId, target, caster)) continue;
+    const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
+    const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
+    applyResult(run, target, damageRoll, { subject: label, crit });
+    // Эффекты на попадании (Shocking Grasp: запрет OA до начала следующего хода).
+    for (const effectDef of def.effects ?? []) {
+      const recipients = effectDef.to === 'targets' ? [target] : [caster];
+      for (const recipient of recipients) {
+        applyEffectTo(ctx, room, {
+          sourceKey: def.key,
+          sourceId: caster.id,
+          mapId,
+          effectDef,
+          target: recipient,
+          markedId: effectDef.markTarget ? target.id : undefined,
+          untilSaveDc: stats.dc,
+          escapeDc: stats.dc,
+        });
       }
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(
-        room,
-        healed.length ? `${caster.name}: ${def.name} → ${healed.join(', ')}` : `${caster.name}: ${def.name} — нет раненых`
-      );
-      return;
     }
-    case 'patientDefense': {
-      if (turn) turn.disengaged = true;
-      ctx.manager.applyEffect(room, caster, {
-        id: randomUUID(),
-        name: 'Уклонение',
-        sourceKey: `${def.key}:dodge`,
-        sourceId: caster.id,
-        duration: { type: 'endOfTurn', of: 'target' },
-        modifiers: [
-          { id: randomUUID(), target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
-          { id: randomUUID(), target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
-        ],
-      });
-      ctx.emitToken(room, 'token:update', mapId, caster);
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name} (Отход + Уклонение)`);
-      return;
+  }
+}
+
+/** Божественная искра: союзник лечится, враждебная цель — спасбросок и урон (половина при успехе). */
+function runHealOrDamage(run: AutomationRun, stats: SpellStats): void {
+  const { def, caster, targets, abilities, proficiency } = run;
+  if (!def.save || !def.heal || !def.damage) return;
+  const healExpr = resolveDiceExpression(def.heal, abilities, proficiency);
+  const damageExpr = resolveDiceExpression(def.damage, abilities, proficiency);
+  for (const target of targets) {
+    const hostile = hostileTokens(caster, target);
+    const targetExpr = hostile ? damageExpr : healExpr;
+    if (!targetExpr) continue;
+    const roll = rollDice(targetExpr);
+    let halve: boolean | undefined;
+    if (hostile) {
+      const success = rollTargetSave(run, target, stats, def.save.ability);
+      if (success && !def.save.half) continue;
+      halve = success;
     }
-    case 'stepOfTheWind': {
-      if (turn) turn.disengaged = true;
-      const speed = ctx.manager.tokenSpeed(room, caster);
-      ctx.manager.grantExtraMovement(room, mapId, caster, speed);
-      ctx.syncCombat(room, mapId);
-      ctx.systemMessage(room, `${caster.name}: ${def.name} (Отход + Рывок)`);
-      return;
-    }
-    case 'check': {
-      const ability = utility.ability ?? 'dex';
-      const mod = ctx.manager.abilityModForToken(room, caster, ability);
-      const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
-      const roll = rollDice(expression);
-      pushRollMessage(ctx, room, {
-        author: input.author,
-        roll,
-        kind: 'check',
-        params: { subject: `${def.name}: ${caster.name}` },
-      });
-      return;
-    }
+    applyResult(run, target, roll, { kind: hostile ? 'damage' : 'heal', ...(halve !== undefined && { halve }) });
+  }
+}
+
+/** Спасбросок по площади: один бросок урона, половина при успехе. */
+function runSave(run: AutomationRun, stats: SpellStats): void {
+  const { ctx, room, def, caster, targets, abilities, expression } = run;
+  if (!def.save) return;
+  // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз).
+  const damageParts = damageRollParts(caster.effects, { damageType: run.damageType }, abilities);
+  const damageRoll = rollDice(withRollParts(expression, damageParts));
+  pushRollMessage(ctx, room, {
+    author: run.author,
+    roll: damageRoll,
+    kind: run.healing ? 'heal' : 'damage',
+    params: { subject: run.subject, damageType: run.damageType },
+  });
+  for (const target of targets) {
+    const success = rollTargetSave(run, target, stats, def.save.ability);
+    if (success && !def.save.half) continue;
+    applyResult(run, target, damageRoll, { halve: success });
+  }
+}
+
+/** Массовая цель без области (Mass Healing Word): каждая выбранная цель — один раз. */
+function runMultiTarget(run: AutomationRun): void {
+  const { def, targets, expression } = run;
+  if (!def.targets) return;
+  for (const target of targets.slice(0, Math.max(1, def.targets))) {
+    applyResult(run, target, rollDice(expression));
+  }
+}
+
+/** Одиночная цель (или повтор той же): по броску урона/лечения на цель. */
+function runSingleTargets(run: AutomationRun): void {
+  const { targets, subject, expression, count } = run;
+  for (let i = 0; i < count; i++) {
+    const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
+    if (!target) continue;
+    const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
+    applyResult(run, target, rollDice(expression), { subject: label });
   }
 }
 
@@ -347,21 +536,10 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   const room = ctx.getRoom();
   if (!room) return;
   const { caster, def, mapId, stats, author } = input;
-  const healing = !!def.heal;
   // Черты без выбора целей (Изгнание нежити): цели собираются по радиусу от кастера.
   const targets = def.autoTargets
     ? tokensAround(ctx, room, mapId, caster, def.autoTargets.feet, def.autoTargets.side)
     : input.targets;
-  const abilities = ctx.manager.abilitiesForToken(room, caster);
-  const proficiency = proficiencyFor(ctx, room, caster);
-  // Ученик жизни / Целитель-благословенный: бонус к лечению заклинанием с ячейкой.
-  const healMods = lifeHealing(room, caster, def, input.manual?.castLevel);
-  const healValue = (total: number) => (healing ? total + healMods.bonus : total);
-  const healAfter = (target: Token) => {
-    if (healing && healMods.selfHeal && target.id !== caster.id) {
-      applyDamage(ctx, { target: caster, mapId, amount: healMods.bonus, kind: 'heal' });
-    }
-  };
 
   if (def.resolution === 'utility' && def.utility) {
     applyUtility(ctx, { ...input, targets });
@@ -375,14 +553,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   // Для ауры на источнике точка берётся с кастера, даже если клиент её не прислал.
   const zoneOrigin = input.origin ?? (def.zone?.anchor === 'source' ? { x: caster.x, y: caster.y } : null);
   if (def.zone && zoneOrigin) {
-    createZoneFromDef(ctx, {
-      caster,
-      mapId,
-      def,
-      stats,
-      origin: zoneOrigin,
-      direction: input.direction,
-    });
+    createZoneFromDef(ctx, { caster, mapId, def, stats, origin: zoneOrigin, direction: input.direction });
   }
 
   if (def.resolution === 'effect' && def.effects?.length) {
@@ -395,6 +566,8 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     anchorConcentration(ctx, room, caster, mapId, def);
   }
 
+  const abilities = ctx.manager.abilitiesForToken(room, caster);
+  const proficiency = proficiencyFor(ctx, room, caster);
   const expression = resolveDiceExpression(def.damage ?? def.heal, abilities, proficiency);
   if (!expression) {
     if (def.zone) return; // зона уже создана; отдельного сообщения не нужно
@@ -406,186 +579,29 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     return;
   }
 
-  const subject = `${caster.name} — ${def.name}`;
-  const adv: 'a' | 'd' | undefined = input.advantage === 'a' || input.advantage === 'd' ? input.advantage : undefined;
-  const damageType = singleDamageType(def);
-  const count = Math.max(1, def.count ?? 1);
+  const run: AutomationRun = {
+    ctx,
+    room,
+    caster,
+    def,
+    mapId,
+    targets,
+    author,
+    abilities,
+    proficiency,
+    // Ученик жизни / Целитель-благословенный: бонус к лечению заклинанием с ячейкой.
+    healing: !!def.heal,
+    healMods: lifeHealing(room, caster, def, input.manual?.castLevel),
+    expression,
+    subject: `${caster.name} — ${def.name}`,
+    adv: input.advantage === 'a' || input.advantage === 'd' ? input.advantage : undefined,
+    damageType: singleDamageType(def),
+    count: Math.max(1, def.count ?? 1),
+  };
 
-  if (def.attack && stats) {
-    const { rangeType } = def.attack;
-    const castMap = ctx.manager.findMap(room, mapId);
-    const gridSize = gridSizeOf(room);
-    for (let i = 0; i < count; i++) {
-      // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
-      const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
-      if (!target) continue;
-      const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
-      const effectParts = attackRollParts(
-        caster.effects,
-        target.effects,
-        { rangeType, attackType: rangeType },
-        abilities
-      );
-      const { mode: advMode } = countAttackAdvantage({
-        explicit: adv,
-        attackerConditions: caster.conditions,
-        targetConditions: target.conditions,
-        rangeType,
-        effectMode: effectParts.mode,
-      });
-      const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
-      const penalty = exhaustionRollPenalty(caster.conditions);
-      const hitExpr = withRollParts(`d20+${stats.attack + penalty}`, {
-        flat: effectParts.flat,
-        dice: effectParts.dice,
-      });
-      const hitRoll = rollDice(withAdvantage(hitExpr, advMode));
-      const crit = isCriticalHit(hitRoll) || autoCrit(target.conditions, distance, rangeType);
-      const targetAc = ctx.manager.acForToken(room, target);
-      const hitSuccess = targetAc > 0 ? resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc) : true;
-      pushRollMessage(ctx, room, {
-        author,
-        roll: hitRoll,
-        kind: 'attack',
-        params: { subject: label, hit: hitSuccess ? 'hit' : 'miss' },
-      });
-      if (!hitSuccess) continue;
-      // Mirror Image: попадание может принять образ вместо цели.
-      if (misdirectCheck(ctx, room, mapId, target, caster)) continue;
-      const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
-      const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
-      applyDamage(ctx, {
-        target,
-        mapId,
-        amount: healValue(damageRoll.total),
-        damageType,
-        roll: damageRoll,
-        author,
-        kind: healing ? 'heal' : 'damage',
-        params: { subject: label, damageType },
-        crit,
-      });
-      healAfter(target);
-      // Эффекты на попадании (Shocking Grasp: запрет OA до начала следующего хода).
-      if (def.effects?.length) {
-        for (const effectDef of def.effects) {
-          const recipients = effectDef.to === 'targets' ? [target] : [caster];
-          for (const recipient of recipients) {
-            applyEffectTo(ctx, room, {
-              sourceKey: def.key,
-              sourceId: caster.id,
-              mapId,
-              effectDef,
-              target: recipient,
-              markedId: effectDef.markTarget ? target.id : undefined,
-              untilSaveDc: stats?.dc,
-              escapeDc: stats?.dc,
-            });
-          }
-        }
-      }
-    }
-    return;
-  }
-
-  // Божественная искра: союзник лечится, враждебная цель — спасбросок и урон (половина при успехе).
-  if (def.save && stats && def.heal && def.damage) {
-    const healExpr = resolveDiceExpression(def.heal, abilities, proficiency);
-    const sparkDamageExpr = resolveDiceExpression(def.damage, abilities, proficiency);
-    for (const target of targets) {
-      const hostile = hostileTokens(caster, target);
-      const targetExpr = hostile ? sparkDamageExpr : healExpr;
-      if (!targetExpr) continue;
-      const roll = rollDice(targetExpr);
-      let halve = false;
-      if (hostile) {
-        const saveAbility = def.save.ability;
-        const { roll: saveRoll, success } = ctx.manager.rollSave(room, target, saveAbility, stats.dc, {
-          conditionsAutoFail: true,
-        });
-        pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll: saveRoll, success });
-        if (success && !def.save.half) continue;
-        halve = success;
-      }
-      applyDamage(ctx, {
-        target,
-        mapId,
-        amount: roll.total,
-        damageType,
-        halve,
-        roll,
-        author,
-        kind: hostile ? 'damage' : 'heal',
-        params: { subject, damageType },
-      });
-    }
-    return;
-  }
-
-  if (def.save && stats) {
-    // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз).
-    const damageParts = damageRollParts(caster.effects, { damageType }, ctx.manager.abilitiesForToken(room, caster));
-    const damageRoll = rollDice(withRollParts(expression, damageParts));
-    pushRollMessage(ctx, room, {
-      author,
-      roll: damageRoll,
-      kind: healing ? 'heal' : 'damage',
-      params: { subject, damageType },
-    });
-    for (const target of targets) {
-      const saveAbility = def.save.ability;
-      const { roll: saveRoll, success } = ctx.manager.rollSave(room, target, saveAbility, stats.dc, {
-        conditionsAutoFail: true,
-      });
-      pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll: saveRoll, success });
-      if (success && !def.save.half) continue;
-      applyDamage(ctx, {
-        target,
-        mapId,
-        amount: healValue(damageRoll.total),
-        damageType,
-        halve: success,
-        kind: healing ? 'heal' : 'damage',
-      });
-      healAfter(target);
-    }
-    return;
-  }
-
-  // Массовая цель без области (Mass Healing Word): каждая выбранная цель — один раз.
-  if (def.targets) {
-    for (const target of targets.slice(0, Math.max(1, def.targets))) {
-      const damageRoll = rollDice(expression);
-      applyDamage(ctx, {
-        target,
-        mapId,
-        amount: healValue(damageRoll.total),
-        damageType,
-        roll: damageRoll,
-        author,
-        kind: healing ? 'heal' : 'damage',
-        params: { subject, damageType },
-      });
-      healAfter(target);
-    }
-    return;
-  }
-
-  for (let i = 0; i < count; i++) {
-    const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
-    if (!target) continue;
-    const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
-    const damageRoll = rollDice(expression);
-    applyDamage(ctx, {
-      target,
-      mapId,
-      amount: healValue(damageRoll.total),
-      damageType,
-      roll: damageRoll,
-      author,
-      kind: healing ? 'heal' : 'damage',
-      params: { subject: label, damageType },
-    });
-    healAfter(target);
-  }
+  if (def.attack && stats) return runWeaponAttacks(run, stats);
+  if (def.save && stats && def.heal && def.damage) return runHealOrDamage(run, stats);
+  if (def.save && stats) return runSave(run, stats);
+  if (def.targets) return runMultiTarget(run);
+  runSingleTargets(run);
 }

@@ -241,6 +241,8 @@ R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима
 
 **R8.8 — партия 10 (рефакторинг automation/reactions, срез 1) ✅:** общие хелперы вместо дублей — `sheetOfToken`/`gridSizeOf`/`withinFeet` (`server/src/room/helpers.ts`), `pushSaveMessage` (`socket/messages.ts`, экспорт из `socket/effects.ts` делегирует), `manager.rollSave` вместо ручных спас-блоков (automation ×3, attackRiders, reactions), `spellStatsFor`/`spellClassFor` (`socket/spellStats.ts` — убрал дубль статов у spells/reactions), `findFeatureReaction`/`featureOffer`/`choiceToken` в reactions. Осталось (срезы 2–4): разнести `executeAutomation` по резолверам и `applyUtility` по обработчикам, reactions → папка (`queue/features/attack/spells/opportunity`), разделить `shared/rules/automation.ts` на каталог и деривацию. Тесты не менялись: shared 336, server 161, client 57; smoke 130/0.
 
+**R8.8 — партия 11 (рефакторинг automation, срез 2) ✅:** `executeAutomation` разобран на резолверы — `runWeaponAttacks`/`runSave`/`runHealOrDamage`/`runMultiTarget`/`runSingleTargets` + общий `applyResult` (единая точка урона/лечения с бонусом Ученика жизни и самолечением Целителя — убрал 5 копий `applyDamage`+params), данные прогона в `AutomationRun`; `applyUtility` — карта `UTILITY_HANDLERS` по видам утилит. `executeAutomation` 245→70 строк, файл 591→607 (структура ценой пары типов). Тесты: shared 336, server 161, client 57; smoke 130/0.
+
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.
 
