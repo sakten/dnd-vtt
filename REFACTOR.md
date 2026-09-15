@@ -243,6 +243,8 @@ R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима
 
 **R8.8 — партия 11 (рефакторинг automation, срез 2) ✅:** `executeAutomation` разобран на резолверы — `runWeaponAttacks`/`runSave`/`runHealOrDamage`/`runMultiTarget`/`runSingleTargets` + общий `applyResult` (единая точка урона/лечения с бонусом Ученика жизни и самолечением Целителя — убрал 5 копий `applyDamage`+params), данные прогона в `AutomationRun`; `applyUtility` — карта `UTILITY_HANDLERS` по видам утилит. `executeAutomation` 245→70 строк, файл 591→607 (структура ценой пары типов). Тесты: shared 336, server 161, client 57; smoke 130/0.
 
+**R8.8 — партия 12 (рефакторинг reactions, срез 3) ✅:** файл `socket/reactions.ts` (1345 строк) разбит на папку `socket/reactions/` без изменения логики: `queue.ts` (окна/очередь, 329), `features.ts` (черты-реакции, 326), `attack.ts` (пайплайн атаки, 332), `spellReactions.ts` (Counterspell/заклинания, 206), `opportunity.ts` (OA, 126), `internal.ts` (мелкие общие хелперы, 90), `index.ts` (прежний публичный API, 12). Импортеры не менялись. Тесты: shared 336, server 161, client 57; smoke 130/0.
+
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.
 
