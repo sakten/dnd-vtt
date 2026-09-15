@@ -44,6 +44,8 @@ export interface AutomationEffect {
    * (Hex/Hunter's Mark накладываются на кастера, но бьют только по метке).
    */
   markTarget?: boolean;
+  /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
+  hidden?: boolean;
   /** Модификаторы без id — id присваивает сервер при наложении. */
   modifiers: Omit<Modifier, 'id'>[];
   conditions?: ConditionKey[];

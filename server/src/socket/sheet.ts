@@ -7,6 +7,7 @@ import {
   syncResources,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { syncFeatureEffects } from './features';
 import { playerScope, rejectIfReaction } from './guards';
 
 export function registerSheetHandlers(ctx: ConnCtx) {
@@ -43,6 +44,7 @@ export function registerSheetHandlers(ctx: ConnCtx) {
       };
       room.resources[playerId] = synced;
       const changed = manager.syncSheetToTokens(room, playerId);
+      for (const c of changed) syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes);
       socket.emit('sheet:update', { sheet: normalized });
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);

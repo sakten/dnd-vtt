@@ -130,6 +130,51 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
   });
 
+  it('Ярость вешает эффект: сопротивление B/P/S и бонус урона по уровню', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'barbarian', level: 9 }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'r1', key: 'barbarian:rage', name: 'Ярость', current: 2, max: 2, reset: 'short' }],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:barbarian:rage' });
+
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    const rage = tk.effects.find((e) => e.name === 'Ярость');
+    expect(rage).toBeDefined();
+    expect(rage!.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(rage!.modifiers.find((m) => m.target === 'damage' && m.mode === 'add')?.value).toBe(3);
+    expect(rage!.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(3);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+  });
+
+  it('Безрассудная атака: преимущество своим Str-атакам и атакам по себе', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'barbarian', level: 2 }],
+      spells: [],
+    };
+    room.resources.p1 = { ...casterResources(), spellSlots: [], resources: [] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:barbarian:recklessAttack' });
+
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    const reckless = tk.effects.find((e) => e.name === 'Безрассудная атака');
+    expect(reckless?.modifiers.map((m) => m.filter?.direction)).toEqual(['self', 'against']);
+  });
+
   it('«Выпутаться» снимает эффект проверкой характеристики', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     const tk = room.scene.maps[0]!.tokens[0]!;
@@ -485,6 +530,35 @@ describe('spell:cast', () => {
     expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
+  });
+
+  it('Ярость запрещает каст заклинаний', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    tk.effects = [
+      {
+        id: 'rage1',
+        name: 'Ярость',
+        duration: { type: 'rounds', rounds: 10 },
+        modifiers: [],
+        restrictions: { noSpells: true },
+      },
+    ];
+    room.sheets.p1 = casterSheet();
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 0, y: 0 },
+    });
+
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(casterResources().spellSlots[0]!.current);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
   });
 
   it('Shocking Grasp на попадании запрещает OA цели', () => {

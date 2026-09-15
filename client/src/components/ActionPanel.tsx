@@ -16,6 +16,7 @@ import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
+import FeatureIcon from './featureIcons';
 import SpellIcon from './SpellIcon';
 import SpellPopover from './SpellPopover';
 import WeaponIcon from './WeaponIcon';
@@ -216,7 +217,7 @@ export default function ActionPanel() {
           }
         }}
       >
-        <ActionIcon id={featureIconId(f)} className="ap-icon" />
+        <FeatureIcon id={f.id} fallback={featureIconId(f)} className="ap-icon" />
       </button>
     );
   };
@@ -300,7 +301,7 @@ export default function ActionPanel() {
       <div className="ap-head">
         <span className="ap-token">{token.name}</span>
         {token.conditions.length > 0 && <ConditionChips conditions={token.conditions} spellByKey={spellByKey} />}
-        {token.effects.length > 0 && (
+        {token.effects.some((e) => !e.hidden) && (
           <EffectChips effects={token.effects} spellByKey={spellByKey} tokenId={token.id} />
         )}
         {incap && <span className="ap-incap">Недееспособен</span>}

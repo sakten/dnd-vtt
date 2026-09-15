@@ -69,6 +69,11 @@ export interface ModifierFilter {
   rangeType?: AttackRangeType;
   /** Модификатор действует только против конкретного токена (Hex/Hunter's Mark). */
   targetId?: string;
+  /**
+   * Направление для модификаторов атаки: `self` — свои броски атаки,
+   * `against` — атаки по носителю. Без значения — как раньше (обе стороны).
+   */
+  direction?: 'self' | 'against';
 }
 
 export interface Modifier {
@@ -118,6 +123,8 @@ export interface Restrictions {
   actionOrBonusOnly?: boolean;
   /** Шанс провала заклинания с соматическим компонентом, % (Slow). */
   spellFailureChance?: number;
+  /** Нельзя использовать заклинания (Ярость и подобные эффекты). */
+  noSpells?: boolean;
 }
 
 export interface EffectInstance {
@@ -144,4 +151,6 @@ export interface EffectInstance {
   escape?: EffectEscape;
   /** Подмена попадания образами (Mirror Image): заряды, кость, порог. */
   misdirect?: { charges: number; die: string; threshold: number };
+  /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
+  hidden?: boolean;
 }

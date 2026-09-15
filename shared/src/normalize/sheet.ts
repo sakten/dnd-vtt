@@ -1,4 +1,5 @@
-import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_SHEET_SPELLS, type AbilityKey } from '../domain/core';
+import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_SHEET_SPELLS, type AbilityKey } from '../domain/core';
+import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
 import type { AttackEntry } from '../domain/token';
 import { normalizeAttacks, normalizeDamageDefenses } from './attacks';
@@ -40,6 +41,36 @@ export function normalizeSheetSpells(raw: unknown): SheetSpell[] {
   return out;
 }
 
+const CHOICE_KINDS: FeatureChoiceKind[] = [
+  'feat',
+  'invocation',
+  'maneuver',
+  'metamagic',
+  'fightingStyle',
+  'pactBoon',
+  'infusion',
+  'featureOption',
+];
+
+/** Чистит выборы способностей: известный вид, непустой ключ, дедуп, лимит. */
+export function normalizeSheetChoices(raw: unknown): FeatureChoice[] {
+  if (!Array.isArray(raw)) return [];
+  const out: FeatureChoice[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (out.length >= MAX_FEATURE_CHOICES) break;
+    if (!item || typeof item !== 'object') continue;
+    const c = item as Partial<FeatureChoice>;
+    if (!CHOICE_KINDS.includes(c.kind as FeatureChoiceKind)) continue;
+    if (typeof c.key !== 'string' || !c.key.trim()) continue;
+    const dedupe = `${c.kind}:${c.key}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    out.push({ kind: c.kind as FeatureChoiceKind, key: c.key.trim().slice(0, 80) });
+  }
+  return out;
+}
+
 export function normalizeSheet(
   raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
 ): CharacterSheet {
@@ -60,6 +91,7 @@ export function normalizeSheet(
     attacks: normalizeAttacks(raw.attacks, raw.attack),
     classes: normalizeClasses(raw.classes),
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
+    choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),

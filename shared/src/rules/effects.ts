@@ -21,6 +21,8 @@ export interface ModifierContext {
   damageType?: string;
   /** Цель действия (для эффектов с filter.targetId — Hex/Hunter's Mark). */
   targetId?: string;
+  /** Направление модификатора атаки (Reckless Attack и подобные). */
+  direction?: 'self' | 'against';
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -72,6 +74,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.skill && f.skill !== ctx.skill) return false;
   if (f.damageType && f.damageType !== ctx.damageType) return false;
   if (f.targetId && f.targetId !== ctx.targetId) return false;
+  if (f.direction && f.direction !== ctx.direction) return false;
   return true;
 }
 
@@ -159,10 +162,12 @@ export function attackRollParts(
   ctx: ModifierContext,
   attackerAbilities?: Partial<Record<AbilityKey, number>>
 ): RollParts {
-  const self = rollParts(collectModifiers(attackerEffects, 'attack', ctx), attackerAbilities);
+  const self = rollParts(collectModifiers(attackerEffects, 'attack', { ...ctx, direction: 'self' }), attackerAbilities);
   let adv = self.mode === 'a' ? 1 : 0;
   let dis = self.mode === 'd' ? 1 : 0;
-  const defenderBias = rollBias(collectModifiers(defenderEffects, 'attack', ctx).filter((m) => m.mode !== 'add'));
+  const defenderBias = rollBias(
+    collectModifiers(defenderEffects, 'attack', { ...ctx, direction: 'against' }).filter((m) => m.mode !== 'add')
+  );
   adv += defenderBias.adv;
   dis += defenderBias.dis;
   return { flat: self.flat, dice: self.dice, mode: rollMode(adv, dis) };
@@ -175,6 +180,7 @@ const BOOLEAN_RESTRICTIONS = [
   'noOpportunityAttacks',
   'oneAttackOnly',
   'actionOrBonusOnly',
+  'noSpells',
 ] as const;
 
 /**
@@ -305,6 +311,7 @@ function signedValue(value: number | string | undefined): string {
 
 /** Человекочитаемая суть эффекта для тултипа: состояния и модификаторы. */
 export function effectSummary(effect: EffectInstance): string | undefined {
+  if (effect.hidden) return undefined;
   const parts: string[] = [];
   for (const key of effect.conditions ?? []) parts.push(conditionName(key));
   if (effect.misdirect) parts.push(`зеркальные образы (${effect.misdirect.charges})`);

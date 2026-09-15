@@ -5,6 +5,7 @@ export type ErrorCode =
   | 'reactionPending'
   | 'reactionSpent'
   | 'incapacitated'
+  | 'spellsBlocked'
   | 'immobile'
   | 'notYourTurn'
   | 'actionSpent'
@@ -30,6 +31,7 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   reactionPending: 'Ожидание реакции',
   reactionSpent: 'Реакция уже потрачена',
   incapacitated: 'Существо недееспособно',
+  spellsBlocked: 'Нельзя использовать заклинания под этим эффектом',
   immobile: 'Существо не может двигаться (состояние)',
   notYourTurn: 'Сейчас не ваш ход',
   actionSpent: 'Действие уже потрачено',

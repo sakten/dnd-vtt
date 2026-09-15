@@ -19,7 +19,7 @@ import {
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { findSpell } from '../spells';
-import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
+import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { removeZonesOfSource } from './zones';
@@ -37,6 +37,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     if (!scope) return;
     const { room, token } = scope;
     if (rejectIfIncapacitated(ctx, token)) return;
+    if (rejectIfSpellsBlocked(ctx, token)) return;
 
     const spell = findSpell(spellKey);
     if (!spell) return;

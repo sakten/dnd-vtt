@@ -30,7 +30,7 @@ export const AUTOMATION_ACTIONS: Record<string, AutomationDef> = {
         duration: { type: 'endOfTurn', of: 'target' },
         to: 'self',
         modifiers: [
-          { target: 'attack', mode: 'disadvantage' },
+          { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
           { target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
         ],
       },

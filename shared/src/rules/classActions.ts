@@ -2,6 +2,8 @@ import type { ActionCost, ActionDef, ActionTargeting } from '../domain/actions';
 import type { AbilityKey } from '../domain/core';
 import type { ClassLevel } from '../domain/sheet';
 import { CLASSES, clampLevel } from './classes';
+import { featureMechanics } from './featureAutomation';
+import { featureByKey, featuresFor } from './features';
 
 /**
  * Классовые/подклассовые способности (Ф4). Каталог строится из ресурсов `CLASSES`:
@@ -221,18 +223,24 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
         const key = `${prefix}:${r.key}`;
         if (POOL_KEYS.has(key) || PASSIVE_KEYS.has(key)) continue;
         if (r.max(level, ZERO_MODS, totalLevel) <= 0) continue;
+        const catalog = featureByKey(key);
+        if (catalog && level < catalog.level) continue;
+        const mech = featureMechanics(key, classes);
+        if (mech && mech.trait !== 'active') continue;
         const meta = FEATURE_META[key] ?? {};
         const id = featureId(key);
         if (seen.has(id)) continue;
         seen.add(id);
         out.push({
           id,
-          name: meta.name ?? r.name,
+          name: catalog?.name ?? meta.name ?? r.name,
           source,
-          costs: meta.costs ?? ['special'],
-          targeting: meta.targeting,
+          costs: mech?.costs ?? meta.costs ?? ['special'],
+          targeting: mech?.targeting ?? meta.targeting,
           resourceKey: key,
-          resourceAmount: meta.amount ?? 1,
+          resourceAmount: mech?.resourceAmount ?? meta.amount ?? 1,
+          description: catalog?.description,
+          levelReq: catalog?.level,
         });
       }
     };
@@ -256,6 +264,26 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
       resourceKey: f.resourceKey,
       resourceAmount: f.resourceAmount,
       description: f.description,
+    });
+  }
+
+  // Активные черты без ресурса-счётчика (каталог features.json + ручной слой механик).
+  for (const feature of featuresFor(classes)) {
+    const mech = featureMechanics(feature.key, classes);
+    if (!mech || mech.trait !== 'active') continue;
+    const id = featureId(feature.key);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: feature.name,
+      source: feature.subclass ? 'subclass' : 'class',
+      costs: mech.costs ?? ['special'],
+      targeting: mech.targeting,
+      resourceKey: mech.resourceKey,
+      resourceAmount: mech.resourceAmount ?? 1,
+      description: feature.description,
+      levelReq: feature.level,
     });
   }
 

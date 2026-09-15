@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import spellcastingRaw from '../data/spellcasting.json';
 import subclassRaw from '../data/subclassSpells.json';
+import featuresRaw from '../data/features.json';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPELLS } from './automation';
@@ -19,6 +20,7 @@ const HASHES = {
   spells: 'c9d83da70bf365a0',
   spellcasting: '142392258946ec63',
   subclassSpells: '8c6c1ad0490e5a66',
+  features: 'e5156ad5b8d1553a',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -76,7 +78,26 @@ describe('снимок данных', () => {
       spells: hash(spellsRaw),
       spellcasting: hash(spellcastingRaw),
       subclassSpells: hash(subclassRaw),
+      features: hash(featuresRaw),
     }).toEqual(HASHES);
+  });
+
+  it('features.json: контракт записей', () => {
+    const data = featuresRaw as unknown as {
+      count: number;
+      features: { key: string; name: string; className: string; subclass?: string; level: number; source: string; description: string }[];
+    };
+    expect(data.features.length).toBe(data.count);
+    const bad: string[] = [];
+    for (const f of data.features) {
+      const [scope, name] = f.key.split(':');
+      if (!scope || !name || !/^[a-z]+(\.[a-zA-Z]+)?$/.test(scope)) bad.push(`${f.key}: формат ключа`);
+      if (!(f.className in CLASSES)) bad.push(`${f.key}: класс ${f.className}`);
+      if (!Number.isInteger(f.level) || f.level < 1 || f.level > 20) bad.push(`${f.key}: уровень ${f.level}`);
+      if (!SOURCES.has(f.source)) bad.push(`${f.key}: источник ${f.source}`);
+      if (!f.description) bad.push(`${f.key}: описание`);
+    }
+    expect(bad).toEqual([]);
   });
 
   it('spells.json: контракт записей', () => {

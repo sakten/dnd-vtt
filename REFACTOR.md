@@ -1,6 +1,6 @@
 # REFACTOR.md — реестр архитектурных работ
 
-> **Сейчас:** R8.1 (AutomationDef, зоны, Mirror Image) — сделано. Дальше: призывы + контент каталога партиями (Шаг 6), либо Шаг 7 (R7.3 `mutate`/ack, client).
+> **Сейчас:** R8.8 — фундамент каталога черт (features.json, merge с ресурсами, пассивки-эффекты, `choices`) — сделан. Дальше: партии по классам (механики + уникальные иконки), либо Шаг 7 (R7.3 `mutate`/ack, client).
 > **Проверки:** в цикле — `npm run check:quiet`; перед деплоем — полный `npm run verify` (обязателен).
 > Ниже — карточки R6–R9; актуальная очередь — «Шаг N» в конце файла.
 
@@ -218,6 +218,10 @@ R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима
 **Mirror Image (сделано):** `EffectInstance.misdirect` (заряды/кость/порог) + хук `socket/misdirect.ts` в обоих путях попадания (оружие — `applyWeaponAttackDamage`, spell-атаки — executor): бросок кости за каждый образ, любой ≥ порога принимает удар (образ гибнет, урона нет), 0 зарядов — эффект снимается; ослеплённый атакующий образами не обманывается (blindsight/truesight не моделируются); `effectSummary` показывает остаток. Каталог: `XPHB:Mirror Image` (3×d6≥3, 10 раундов). Тесты: каталог, тултип, редирект в `handlers.test` (урона нет, эффект снят). `check` 292+124+48, deploy 7+2, smoke 130/0.
 
 **Дальше по контенту каталога:** restrictions ✅ → зоны ✅ (движок) → призывы; заклинания/черты под них — партиями, по спорной механике спрашивать владельца. Полный каталог черт/фитов (`features.json` + `CharacterSheet.choices`) — отдельный план в `PLAN.md`.
+
+**R8.8 — каталог черт классов/подклассов (фундамент ✅, сделано):** `npm run features` → `shared/src/data/features.json` (829 черт, 13 классов/97 подклассов, XPHB/XGE/TCE, ≤20 ур., ключи совпадают с ресурсами `CLASSES`); `rules/features.ts` + merge в `classFeatures` (уровень из каталога гейтит ресурс, имена/описания из каталога, manual-заглушка печатает суть); ручной слой `rules/featureAutomation.ts` (`passive`/`active`/`choice`, уровневые функции); `EffectInstance.hidden` + синк пассивок (`server/src/socket/features.ts`, секция «Черты класса» в меню токена); `CharacterSheet.choices`.
+
+**R8.8 — партия 1 (варвар + воин, ядро) ✅:** фильтр `ModifierFilter.direction` (`self`/`against`) в движке эффектов (Reckless Attack, заодно починен Dodge); Ярость — эффект с уровневым уроном (+2/+3), сопротивлением B/P/S, преимуществом Str и запретом заклинаний (`restrictions.noSpells` + `rejectIfSpellsBlocked`); Безрассудная атака; пассивки варвара (Защита без доспехов = AC `10+dex+con`, Быстрое передвижение, Чувство опасности, Звериный инстинкт) скрытыми эффектами; Extra Attack / Two Extra Attacks / Improved Combat Superiority — `native`; уникальные иконки 18 активных кнопок (`client/src/components/featureIcons.tsx`) + deploy-покрытие по обработанным классам. `check:quiet` ✓, build ✓, smoke 130/0 (после перезапуска сервера). **Хвосты:** Чувство опасности — сузить до «видимых» эффектов после вижна; Ярость — запрет концентрации и реакционных заклинаний (сейчас только `spell:cast`). **Дальше:** партии подклассов (механики + иконки), attack riders под Sneak Attack/Divine Smite/манёвры, choices-пикер.
 
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.

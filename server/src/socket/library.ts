@@ -1,4 +1,5 @@
 import type { ConnCtx } from './context';
+import { syncFeatureEffects, syncFeatureEffectsForItem } from './features';
 import { rejectIfReaction } from './guards';
 
 export function registerLibraryHandlers(ctx: ConnCtx) {
@@ -24,6 +25,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
         for (const pid of manager.clearControllersForItem(room, id)) {
           broadcastAll('character:update', { playerId: pid, libraryItemId: null });
         }
+        syncFeatureEffectsForItem(ctx, room, id, undefined);
       }
       broadcastLibrary(room);
     });
@@ -36,6 +38,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       for (const pid of manager.clearControllersForItem(room, id)) {
         broadcastAll('character:update', { playerId: pid, libraryItemId: null });
       }
+      syncFeatureEffectsForItem(ctx, room, id, undefined);
       broadcastLibrary(room);
     });
 
@@ -46,7 +49,9 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
         return;
       }
       if (libraryItemId === null) {
+        const libId = room.controllers[ctx.playerId];
         delete room.controllers[ctx.playerId];
+        if (libId) syncFeatureEffectsForItem(ctx, room, libId, undefined);
         broadcastAll('character:update', { playerId: ctx.playerId, libraryItemId: null });
         cb({ ok: true });
         return;
@@ -77,6 +82,13 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       }
       room.controllers[ctx.playerId] = libraryItemId;
       broadcastAll('character:update', { playerId: ctx.playerId, libraryItemId });
+      const sheet = room.sheets[ctx.playerId];
+      if (sheet) {
+        for (const c of manager.syncSheetToTokens(room, ctx.playerId)) {
+          syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes);
+          ctx.emitToken(room, 'token:update', c.mapId, c.token);
+        }
+      }
       cb({ ok: true });
     });
 

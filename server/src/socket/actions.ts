@@ -2,7 +2,9 @@ import {
   actionSlotAvailable,
   automationForAction,
   classFeatures,
+  featureActionAutomation,
   findBaseAction,
+  firstSentence,
   rollDice,
   type ActionCost,
   type ActionDef,
@@ -145,7 +147,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       // Автоматизированные действия (базовые/классовые) — через общий executor.
-      const def = automationForAction(action, { classes: sheet?.classes });
+      const def = automationForAction(action, { classes: sheet?.classes }) ?? featureActionAutomation(action.id, sheet?.classes);
       if (def) {
         const targets: Token[] = [];
         for (const id of Array.isArray(targetIds) ? targetIds : []) {
@@ -165,7 +167,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      // Заглушки: Help/Ready/Grapple/Shove/UnarmedStrike/UseObject.
-      systemMessage(room, `${token.name}: ${action.name}`);
+      // Заглушки: Help/Ready/Grapple/Shove/UnarmedStrike/UseObject и черты без механики.
+      const summary = action.description ? firstSentence(action.description) : '';
+      systemMessage(room, summary ? `${token.name}: ${action.name} — ${summary}` : `${token.name}: ${action.name}`);
     });
 }

@@ -60,3 +60,10 @@ export function rejectIfIncapacitated(ctx: ConnCtx, token: Token): boolean {
   fail(ctx, 'incapacitated');
   return true;
 }
+
+/** true — каст заклинаний запрещён эффектом (Ярость и подобные): отклонено. */
+export function rejectIfSpellsBlocked(ctx: ConnCtx, token: Token): boolean {
+  if (ctx.isDm() || !restrictionsFor(token.conditions, token.effects).noSpells) return false;
+  fail(ctx, 'spellsBlocked');
+  return true;
+}

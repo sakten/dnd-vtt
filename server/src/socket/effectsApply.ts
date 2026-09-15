@@ -46,6 +46,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     zoneId,
     escape: effectDef.escape && escapeDc !== undefined ? { ...effectDef.escape, dc: escapeDc } : undefined,
     misdirect: effectDef.misdirect ? { ...effectDef.misdirect } : undefined,
+    hidden: effectDef.hidden,
   };
   ctx.manager.applyEffect(room, target, effect);
   ctx.emitToken(room, 'token:update', mapId, target);

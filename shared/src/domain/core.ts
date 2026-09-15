@@ -11,6 +11,8 @@ export const MAX_CLASSES = 2;
 export const MAX_ATTACKS = 10;
 /** Верхняя граница числа выбранных заклинаний в листе. */
 export const MAX_SHEET_SPELLS = 200;
+/** Верхняя граница числа выборов способностей (фиты/манёвры/метамагия). */
+export const MAX_FEATURE_CHOICES = 100;
 export const MAX_CONDITIONS = 20;
 export const MAX_EFFECTS = 20;
 export const MAX_MODIFIERS = 20;

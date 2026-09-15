@@ -26,6 +26,7 @@
     "verify": "npm run test:deploy && npm run verify:server && npm run build && npm run e2e && npm run shots",
     "smoke": "node scripts/smoke.mjs",
     "spells": "tsx scripts/build-spells.ts",
+    "features": "tsx scripts/build-features.ts",
     "e2e": "node scripts/e2e.mjs",
     "shots": "node scripts/check-screenshots.mjs",
     "devcheck": "node scripts/check-dev.mjs"

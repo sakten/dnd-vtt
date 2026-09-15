@@ -95,6 +95,15 @@ describe('атака: эффекты атакующего и защитника'
     expect(attackRollParts([], [faerie], {}).mode).toBe('a');
   });
 
+  it('direction разделяет свои атаки и атаки по носителю (Reckless Attack)', () => {
+    const own = effect({ modifiers: [mod({ target: 'attack', mode: 'advantage', filter: { direction: 'self' } })] });
+    const against = effect({ modifiers: [mod({ target: 'attack', mode: 'advantage', filter: { direction: 'against' } })] });
+    expect(attackRollParts([own], undefined, {}).mode).toBe('a');
+    expect(attackRollParts([against], undefined, {}).mode).toBeUndefined();
+    expect(attackRollParts(undefined, [against], {}).mode).toBe('a');
+    expect(attackRollParts(undefined, [own], {}).mode).toBeUndefined();
+  });
+
   it('Bless добавляет 1d4 к попаданию', () => {
     const bless = effect({ modifiers: [mod({ target: 'attack', mode: 'add', value: '1d4' })] });
     const parts = attackRollParts([bless], undefined, {});
@@ -275,5 +284,10 @@ describe('restrictionsFor', () => {
     expect(r.oneAttackOnly).toBe(true);
     expect(r.spellFailureChance).toBe(25);
     expect(r.noActions).toBeUndefined();
+  });
+
+  it('эффект может запрещать заклинания (Ярость)', () => {
+    const r = restrictionsFor(undefined, [effect({ restrictions: { noSpells: true } })]);
+    expect(r.noSpells).toBe(true);
   });
 });

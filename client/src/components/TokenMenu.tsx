@@ -3,6 +3,7 @@ import {
   DEFAULT_AC,
   DEFAULT_SPEED,
   effectDurationText,
+  effectSummary,
   modifiedValue,
   statNumber,
   type ConditionInstance,
@@ -102,6 +103,9 @@ export default function TokenMenu() {
       : token.statblock?.abilities;
   const acEffective = modifiedValue(acBase, token.effects ?? [], 'ac', {}, acAbilities);
   const acBonus = acEffective - acBase;
+
+  const visibleEffects = (token.effects ?? []).filter((e) => !e.hidden);
+  const hiddenEffects = (token.effects ?? []).filter((e) => e.hidden);
 
   const quickHp = (sign: 1 | -1) => {
     const delta = sign * Math.max(0, Math.round(hpAmount));
@@ -275,10 +279,10 @@ export default function TokenMenu() {
 
               <ConditionsForm value={conditions} onChange={setConditions} />
 
-              {(token.effects?.length ?? 0) > 0 && (
+              {visibleEffects.length > 0 && (
                 <div className="conditions-form">
-                  <div className="sheet-section-title">Эффекты ({token.effects.length})</div>
-                  {token.effects.map((e) => {
+                  <div className="sheet-section-title">Эффекты ({visibleEffects.length})</div>
+                  {visibleEffects.map((e) => {
                     const zoneAura = !!e.zoneId;
                     const ownConcentration = e.concentration === true && e.sourceId === token.id;
                     return (
@@ -317,6 +321,19 @@ export default function TokenMenu() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {hiddenEffects.length > 0 && (
+                <div className="conditions-form">
+                  <div className="sheet-section-title">Черты класса ({hiddenEffects.length})</div>
+                  {hiddenEffects.map((e) => (
+                    <div className="condition-row" key={e.id}>
+                      <span className="condition-label" title={`${e.name}${effectSummary(e) ? ` — ${effectSummary(e)}` : ''}`}>
+                        {e.name}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
 

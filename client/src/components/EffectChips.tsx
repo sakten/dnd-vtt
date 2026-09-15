@@ -14,7 +14,9 @@ interface Props {
 
 /** Чипы активных эффектов (Ф8): иконка источника, суть эффекта в тултипе. */
 export default function EffectChips({ effects, spellByKey, className, max = 3, tokenId }: Props) {
-  const items = effects.map((e) => {
+  const items = effects
+    .filter((e) => !e.hidden)
+    .map((e) => {
     const spell = e.sourceKey ? spellByKey?.get(e.sourceKey) : undefined;
     const ownConcentration = e.concentration === true && e.sourceId === tokenId;
     const summary = effectSummary(e);

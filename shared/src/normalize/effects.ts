@@ -46,6 +46,7 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (typeof f.damageType === 'string') out.damageType = f.damageType.slice(0, 40);
   if (f.rangeType === 'melee' || f.rangeType === 'ranged' || f.rangeType === 'none') out.rangeType = f.rangeType;
   if (typeof f.targetId === 'string' && f.targetId) out.targetId = f.targetId.slice(0, 80);
+  if (f.direction === 'self' || f.direction === 'against') out.direction = f.direction;
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -127,6 +128,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (typeof e.sourceKey === 'string' && e.sourceKey) effect.sourceKey = e.sourceKey;
     if (typeof e.sourceId === 'string' && e.sourceId) effect.sourceId = e.sourceId;
     if (e.concentration === true) effect.concentration = true;
+    if (e.hidden === true) effect.hidden = true;
     if (Array.isArray(e.conditions)) {
       const conditions = e.conditions.filter((c): c is ConditionKey => typeof c === 'string');
       if (conditions.length) effect.conditions = conditions.slice(0, MAX_CONDITIONS);

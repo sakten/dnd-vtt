@@ -14,7 +14,7 @@ export default function ConditionsOverlay() {
   const map = useActiveMap();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
 
-  const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.length > 0);
+  const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.some((e) => !e.hidden));
   if (!tokens.length) return null;
 
   return (

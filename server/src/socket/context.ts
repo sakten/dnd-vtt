@@ -16,6 +16,7 @@ import {
 import type { RoomManager } from '../rooms';
 import type { Room } from '../roomTypes';
 import { rollConcentrationOnDamage } from './effects';
+import { syncFeatureEffects } from './features';
 import { pushTextMessage } from './messages';
 
 export const LEAVE_GRACE_MS = 8000;
@@ -224,8 +225,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       pushTextMessage(ctx, room, text);
     },
     emitJoined: (room, selfId) => {
+      const sheet = room.sheets[selfId];
       if (!room.resources[selfId]) {
-        const sheet = room.sheets[selfId];
         const created = sheet
           ? syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full')
           : emptyResources();
@@ -236,6 +237,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         room.resources[selfId] = created;
       }
       for (const c of manager.syncSheetToTokens(room, selfId)) {
+        if (sheet) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes);
         ctx.emitToken(room, 'token:update', c.mapId, c.token);
       }
       const state = manager.toState(room);

@@ -66,4 +66,17 @@ describe('classFeatures', () => {
   it('неизвестный класс игнорируется', () => {
     expect(classFeatures([{ className: 'nope', level: 5 }])).toEqual([]);
   });
+
+  it('имя/описание и уровень черты берутся из каталога features.json', () => {
+    const rage = find([{ className: 'barbarian', level: 1 }], 'class:barbarian:rage');
+    expect(rage?.name).toBe('Rage');
+    expect(rage?.levelReq).toBe(1);
+    expect(rage?.description).toBeTruthy();
+  });
+
+  it('уровень черты из каталога гейтит ресурс (Corona of Light — 17)', () => {
+    expect(find([{ className: 'cleric', level: 12, subclass: 'light' }], 'class:cleric.light:coronaOfLight')).toBeUndefined();
+    const at17 = find([{ className: 'cleric', level: 17, subclass: 'light' }], 'class:cleric.light:coronaOfLight');
+    expect(at17?.levelReq).toBe(17);
+  });
 });

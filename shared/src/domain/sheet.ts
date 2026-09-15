@@ -1,5 +1,6 @@
 import type { AbilityKey, SkillLevel } from './core';
 import type { DamageDefense } from './damage';
+import type { FeatureChoice } from './feature';
 import type { AttackEntry } from './token';
 
 export interface ClassLevel {
@@ -45,6 +46,8 @@ export interface CharacterSheet {
   classes: ClassLevel[];
   /** Выбранные заклинания: ключ `источник:имя` и класс, из чьего списка взято. */
   spells: SheetSpell[];
+  /** Выборы способностей (фиты, инвокации, манёвры, метамагия) — R8.8. */
+  choices?: FeatureChoice[];
   hpMax: string;
   ac: string;
   /** Базовая скорость, футы. */
