@@ -151,6 +151,23 @@ export function spellAttackCount(spell: Spell, castLevel: number, characterLvl: 
   return Math.max(1, count);
 }
 
+/**
+ * Дополнительные цели за круг выше базового: «one additional creature/Humanoid/
+ * Beast/Undead for each spell slot level above N» (Hold Person, Bless, Bane).
+ * 0 — заклинание не расширяет число целей апкастом.
+ */
+export function spellExtraTargets(spell: Spell, castLevel: number): number {
+  const text = [...(spell.higherLevel ?? []), ...(spell.description ?? [])].join(' ');
+  const match = text.match(
+    /(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+additional\s+(?:willing\s+)?(?:creatures?|humanoids?|beasts?|undead)\s+for\s+each\s+(?:spell\s+)?slot level above\s+(\d+)/i
+  );
+  if (!match) return 0;
+  const per = parseCount(match[1] ?? '');
+  const above = Number(match[2]);
+  if (!per || !Number.isFinite(above)) return 0;
+  return Math.max(0, castLevel - above) * per;
+}
+
 const AOE_TAGS = new Set(['S', 'C', 'L', 'N', 'Q', 'R', 'Y']);
 
 /** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег. */
@@ -185,6 +202,34 @@ export function maxCastableFromSlots(
 }
 
 /**
+ * Круги ячеек, которыми заклинание реально можно наложить (`current > 0`), по
+ * возрастанию. Пустые промежуточные круги не попадают. Без настроенных ячеек
+ * (ни ресурсов, ни статблока) — базовый круг заклинания.
+ */
+export function castableLevels(
+  spell: Spell,
+  resources: PlayerResources | null,
+  monsterSlots?: { level: number; current: number }[]
+): number[] {
+  if (spell.level === 0) return [];
+  const levels = new Set<number>();
+  const fromSlots = (slots?: { level: number; current: number }[]) => {
+    for (const slot of slots ?? []) {
+      if (slot.current > 0 && slot.level >= spell.level) levels.add(slot.level);
+    }
+  };
+  if (resources) {
+    fromSlots(resources.spellSlots);
+    if (resources.pact.current > 0 && resources.pact.level >= spell.level) levels.add(resources.pact.level);
+  } else if (monsterSlots) {
+    fromSlots(monsterSlots);
+  } else {
+    return [spell.level];
+  }
+  return [...levels].sort((a, b) => a - b);
+}
+
+/**
  * Максимальный доступный круг ячейки под заклинание (0 — кантрип/нет ячеек).
  * У персонажа — `resources` (обычные + пакт), у монстра — `monsterSlots` статблока;
  * без настроенных ячеек монстра каст не ограничиваем (DM ведёт вручную).
@@ -195,15 +240,8 @@ export function maxCastableLevel(
   monsterSlots?: { level: number; current: number }[]
 ): number {
   if (spell.level === 0) return 0;
-  if (resources) {
-    let max = maxCastableFromSlots(spell, resources.spellSlots);
-    if (resources.pact.current > 0 && resources.pact.level >= spell.level) {
-      max = Math.max(max, resources.pact.level);
-    }
-    return max;
-  }
-  if (monsterSlots) return maxCastableFromSlots(spell, monsterSlots);
-  return spell.level;
+  const levels = castableLevels(spell, resources, monsterSlots);
+  return levels.length ? Math.max(...levels) : 0;
 }
 
 export interface SpellStats {

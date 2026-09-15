@@ -233,6 +233,54 @@ describe('hydrateRoom', () => {
     expect(room.sheets.p1!.proficiencyBonus).toBe('2');
   });
 
+  it('сносит зоны концентрации без живого якоря, живые оставляет', () => {
+    const zone = (id: string, sourceId: string) => ({
+      id,
+      name: 'Spirit Guardians',
+      sourceKey: 'XPHB:Spirit Guardians',
+      sourceId,
+      origin: { x: 0, y: 0 },
+      area: { shape: 'sphere', size: 15 },
+      duration: { type: 'concentration' },
+      concentration: true,
+    });
+    const scene = {
+      maps: [
+        { id: 'm1', name: 'A', url: '', width: 0, height: 0, tokens: [], zones: [zone('z1', 't1')] },
+        {
+          id: 'm2',
+          name: 'B',
+          url: '',
+          width: 0,
+          height: 0,
+          zones: [zone('z2', 't2')],
+          tokens: [
+            {
+              id: 't2',
+              effects: [
+                {
+                  id: 'a1',
+                  name: 'Spirit Guardians',
+                  sourceId: 't2',
+                  concentration: true,
+                  duration: { type: 'concentration' },
+                  modifiers: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      activeMapId: 'm1',
+      grid: { ...DEFAULT_GRID },
+    } as unknown as Scene;
+
+    const room = hydrateRoom(base({ scene }));
+
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
+    expect(room.scene.maps[1]!.zones).toHaveLength(1);
+  });
+
   it('не мутирует вход (гидратация собирает новые объекты)', () => {
     const fixture = base({
       scene: sceneWithMap({ tokens: [{ id: 't1', name: '  A  ' }] }),

@@ -34,6 +34,7 @@ export default function TokenMenu() {
   const setTokenFields = useGameStore((s) => s.setTokenFields);
   const removeToken = useGameStore((s) => s.removeToken);
   const adjustTokenHp = useGameStore((s) => s.adjustTokenHp);
+  const endConcentration = useGameStore((s) => s.endConcentration);
   const setCurrentCharacter = useGameStore((s) => s.setCurrentCharacter);
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
@@ -277,24 +278,45 @@ export default function TokenMenu() {
               {(token.effects?.length ?? 0) > 0 && (
                 <div className="conditions-form">
                   <div className="sheet-section-title">Эффекты ({token.effects.length})</div>
-                  {token.effects.map((e) => (
-                    <div className="condition-row" key={e.id}>
-                      <EffectChips effects={[e]} spellByKey={spellByKey} max={null} tokenId={token.id} />
-                      <span className="condition-label" title={`${e.name} — ${effectDurationText(e.duration)}`}>
-                        {effectDurationText(e.duration)}
-                      </span>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          className="condition-remove"
-                          onClick={() => removeEffect(e.id)}
-                          title="Снять эффект"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {token.effects.map((e) => {
+                    const zoneAura = !!e.zoneId;
+                    const ownConcentration = e.concentration === true && e.sourceId === token.id;
+                    return (
+                      <div className="condition-row" key={e.id}>
+                        <EffectChips effects={[e]} spellByKey={spellByKey} max={null} tokenId={token.id} />
+                        <span className="condition-label" title={`${e.name} — ${effectDurationText(e.duration)}`}>
+                          {effectDurationText(e.duration)}
+                        </span>
+                        {canEdit &&
+                          (zoneAura ? (
+                            <span
+                              className="condition-aura"
+                              title="Аура зоны: снимается выходом из зоны или прекращением концентрации"
+                            >
+                              аура зоны
+                            </span>
+                          ) : ownConcentration ? (
+                            <button
+                              type="button"
+                              className="condition-remove"
+                              onClick={() => endConcentration(token.id)}
+                              title="Прекратить концентрацию (снимет зоны и эффекты)"
+                            >
+                              Прекратить
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="condition-remove"
+                              onClick={() => removeEffect(e.id)}
+                              title="Снять эффект"
+                            >
+                              ✕
+                            </button>
+                          ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

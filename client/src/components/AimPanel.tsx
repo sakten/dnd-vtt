@@ -12,6 +12,7 @@ const SHAPE_RU: Record<string, string> = {
 export default function AimPanel() {
   const interaction = useGameStore((s) => s.interaction);
   const cancel = useGameStore((s) => s.cancelInteraction);
+  const finish = useGameStore((s) => s.finishMultiTarget);
 
   if (!interaction) return null;
 
@@ -47,11 +48,14 @@ export default function AimPanel() {
   return (
     <div className="aim-panel">
       <span className="aim-title">
-        Снаряды {multi.targets.length}/{multi.count}
+        {multi.distinct ? 'Цели' : 'Снаряды'} {multi.targets.length}/{multi.count}
       </span>
       <span className="aim-hint">
-        {left > 0 ? `Кликните цель (ещё ${left})` : 'Атаки…'} · Esc — отмена
+        {left > 0 ? `Кликните цель (ещё ${left})` : 'Все цели выбраны'} · Esc — отмена
       </span>
+      <button className="aim-apply" disabled={!multi.targets.length} onClick={finish}>
+        Применить
+      </button>
       <button className="aim-cancel" onClick={cancel}>
         Отмена
       </button>

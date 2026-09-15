@@ -337,8 +337,14 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         ],
       },
       triggers: {
-        startOfTurn: { damage: { dice: '2d6', types: ['cold'] } },
-        endOfTurn: { save: { ability: 'dex' }, damage: { dice: '2d6', types: ['acid'] } },
+        // «В области» для урона — любое пересечение клеток (краевые большие токены
+        // тоже бьются); слепота остаётся «полностью внутри» (аура).
+        startOfTurn: { containment: 'anyCell', damage: { dice: '2d6', types: ['cold'] } },
+        endOfTurn: {
+          containment: 'anyCell',
+          save: { ability: 'dex' },
+          damage: { dice: '2d6', types: ['acid'] },
+        },
       },
       flags: { difficultTerrain: true, blocksLight: true },
     },
@@ -433,6 +439,8 @@ export interface AutomationAddition {
   zone?: ZoneDef;
   /** Уточнить типы урона у деривации (у SG в данных acid/necrotic+radiant и т.п.). */
   damageTypes?: string[];
+  /** Массовая цель без области (Mass Healing Word/Prayer of Healing/Mass Cure Wounds). */
+  targets?: number;
 }
 
 export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
@@ -471,6 +479,9 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
       },
     },
   },
+  'XPHB:Mass Healing Word': { targets: 6 },
+  'XPHB:Prayer of Healing': { targets: 5 },
+  'XPHB:Mass Cure Wounds': { targets: 6 },
 };
 
 /** Подстановка выражения урона заклинания в кости триггеров зоны (`'$spell'`). */
@@ -515,6 +526,7 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
     };
     if (addition.zone) merged.zone = resolveZoneDice(addition.zone, spellDamage);
     if (addition.damageTypes && merged.damage) merged.damage = { ...merged.damage, types: addition.damageTypes };
+    if (addition.targets) merged.targets = addition.targets;
     return merged;
   };
 

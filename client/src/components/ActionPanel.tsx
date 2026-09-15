@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { BASE_ACTIONS, actionSlotAvailable, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import {
@@ -6,6 +7,7 @@ import {
   canUseFeature,
   featureSlot,
   maxCastableForSpell,
+  sortPanelSpells,
   spellSlotOf,
   type TurnContext,
 } from '../lib/actionRules';
@@ -20,6 +22,23 @@ import WeaponIcon from './WeaponIcon';
 
 /** Базовые действия, которые по правилам являются атаками (бейдж-меч). */
 const ATTACK_BADGED = new Set(['unarmedStrike', 'grapple', 'shove']);
+
+/** Тултип иконки: рисуется порталом, чтобы не резался скроллом панели. */
+interface IconTipState {
+  text: string;
+  x: number;
+  y: number;
+  below: boolean;
+}
+
+function IconTip({ tip }: { tip: IconTipState }) {
+  return createPortal(
+    <div className={`ap-tip${tip.below ? ' below' : ''}`} style={{ left: tip.x, top: tip.y }}>
+      {tip.text}
+    </div>,
+    document.body
+  );
+}
 
 /** Иконка классовой черты по ключу ресурса (fallback — искра). */
 function featureIconId(f: ActionDef): string {
@@ -54,6 +73,29 @@ export default function ActionPanel() {
   const spellByKey = useSpellByKey();
   const info = useActionContext();
   const [casting, setCasting] = useState<Spell | null>(null);
+  const [tip, setTip] = useState<IconTipState | null>(null);
+
+  const showTip = (e: ReactMouseEvent<HTMLDivElement>) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+    if (!el) {
+      setTip(null);
+      return;
+    }
+    const text = el.dataset.tip ?? '';
+    const rect = el.getBoundingClientRect();
+    const below = rect.top < 56;
+    const next: IconTipState = {
+      text,
+      x: rect.left + rect.width / 2,
+      y: below ? rect.bottom + 8 : rect.top - 8,
+      below,
+    };
+    setTip((prev) =>
+      prev && prev.text === next.text && prev.x === next.x && prev.y === next.y && prev.below === next.below
+        ? prev
+        : next
+    );
+  };
 
   if (!info) return null;
   const {
@@ -120,10 +162,10 @@ export default function ActionPanel() {
     featuresReaction.length > 0 ||
     panelSpells.some((s) => spellSlotOf(s) === 'reaction');
 
-  const spellsAction = panelSpells.filter((s) => spellSlotOf(s) === 'action');
-  const spellsBonus = panelSpells.filter((s) => spellSlotOf(s) === 'bonus');
-  const spellsReaction = panelSpells.filter((s) => spellSlotOf(s) === 'reaction');
-  const spellsOther = panelSpells.filter((s) => spellSlotOf(s) === 'other');
+  const spellsAction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'action'));
+  const spellsBonus = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'bonus'));
+  const spellsReaction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'reaction'));
+  const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'other'));
 
   const spellDisabled = (spell: Spell): boolean => {
     if (incap || !controlled) return true;
@@ -250,7 +292,11 @@ export default function ActionPanel() {
   };
 
   return (
-    <div className={`action-panel${!controlled ? ' ap-locked' : ''}`}>
+    <div
+      className={`action-panel${!controlled ? ' ap-locked' : ''}`}
+      onMouseOver={showTip}
+      onMouseLeave={() => setTip(null)}
+    >
       <div className="ap-head">
         <span className="ap-token">{token.name}</span>
         {token.conditions.length > 0 && <ConditionChips conditions={token.conditions} spellByKey={spellByKey} />}
@@ -319,6 +365,7 @@ export default function ActionPanel() {
         </section>
       )}
       {casting && <SpellPopover spell={casting} tokenId={token.id} onClose={() => setCasting(null)} />}
+      {tip && <IconTip tip={tip} />}
     </div>
   );
 }

@@ -46,11 +46,17 @@ function syncZoneOrigin(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneInsta
 }
 
 /** Токены внутри зоны (с учётом `containment`). */
-function insideTokens(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneInstance): Token[] {
+function insideTokens(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  zone: ZoneInstance,
+  containment: ZoneInstance['containment'] = zone.containment
+): Token[] {
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return [];
   const grid = gridOf(room);
-  if (zone.containment === 'fullyWithin') {
+  if (containment === 'fullyWithin') {
     return map.tokens.filter((t) => tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid));
   }
   return tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid);
@@ -206,11 +212,25 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
   return zone;
 }
 
+/** Есть ли у источника живой эффект концентрации; иначе зона осиротела. */
+function concentrationAlive(room: Room, sourceId: string): boolean {
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      if (token.effects.some((e) => e.concentration && e.sourceId === sourceId)) return true;
+    }
+  }
+  return false;
+}
+
 /** Тик активного токена: раунды зон, аура, вход/выход, start/endOfTurn. */
 export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token, phase: 'start' | 'end'): void {
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
   for (const zone of [...map.zones]) {
+    if (zone.concentration && !concentrationAlive(room, zone.sourceId)) {
+      removeZone(ctx, room, mapId, zone);
+      continue;
+    }
     if (!syncZoneOrigin(ctx, room, mapId, zone)) {
       removeZone(ctx, room, mapId, zone);
       continue;
@@ -224,8 +244,10 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
     }
     syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
     const payload = phase === 'start' ? zone.triggers?.startOfTurn : zone.triggers?.endOfTurn;
-    if (payload && (zone.occupants ?? []).includes(token.id)) {
-      applyZonePayload(ctx, room, mapId, zone, payload, [token]);
+    if (payload) {
+      // Триггер бьёт по своему `containment` (payload), а не по правилу ауры.
+      const targets = insideTokens(ctx, room, mapId, zone, payload.containment);
+      if (targets.some((t) => t.id === token.id)) applyZonePayload(ctx, room, mapId, zone, payload, [token]);
     }
   }
   ctx.broadcastMaps(room);
@@ -236,6 +258,10 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): vo
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
   for (const zone of [...map.zones]) {
+    if (zone.concentration && !concentrationAlive(room, zone.sourceId)) {
+      removeZone(ctx, room, mapId, zone);
+      continue;
+    }
     if (!syncZoneOrigin(ctx, room, mapId, zone)) {
       removeZone(ctx, room, mapId, zone);
       continue;

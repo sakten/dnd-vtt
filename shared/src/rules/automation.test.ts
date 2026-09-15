@@ -72,6 +72,35 @@ describe('automationForSpell', () => {
     expect(def.damage).toBeUndefined();
   });
 
+  it('массовое лечение: до 6/5 целей из добавлений', () => {
+    const mhwSpell = makeSpell({
+      key: 'XPHB:Mass Healing Word',
+      name: 'Mass Healing Word',
+      level: 3,
+      damage: { dice: ['2d4'], types: [] },
+      healing: true,
+    });
+    const mhw = automationForSpell(mhwSpell);
+    expect(mhw.targets).toBe(6);
+    expect(mhw.heal?.dice).toBe('2d4');
+    const prayer = makeSpell({
+      key: 'XPHB:Prayer of Healing',
+      name: 'Prayer of Healing',
+      level: 2,
+      damage: { dice: ['2d8'], types: [] },
+      healing: true,
+    });
+    expect(automationForSpell(prayer).targets).toBe(5);
+    const massCure = makeSpell({
+      key: 'XPHB:Mass Cure Wounds',
+      name: 'Mass Cure Wounds',
+      level: 5,
+      damage: { dice: ['5d8'], types: [] },
+      healing: true,
+    });
+    expect(automationForSpell(massCure).targets).toBe(6);
+  });
+
   it('без механики — manual', () => {
     const def = automationForSpell(makeSpell({ level: 0, automation: 'manual' }));
     expect(def.resolution).toBe('manual');
@@ -151,6 +180,8 @@ describe('automationForSpell', () => {
     );
     expect(def.zone?.containment).toBe('fullyWithin');
     expect(def.zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(def.zone?.triggers?.startOfTurn?.containment).toBe('anyCell');
+    expect(def.zone?.triggers?.endOfTurn?.containment).toBe('anyCell');
     expect(def.zone?.triggers?.startOfTurn?.damage?.types).toEqual(['cold']);
     expect(def.zone?.triggers?.endOfTurn?.save?.ability).toBe('dex');
     expect(def.zone?.flags).toMatchObject({ difficultTerrain: true, blocksLight: true });

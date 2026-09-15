@@ -65,6 +65,11 @@ export interface AutomationPayload {
   damage?: AutomationDice;
   heal?: AutomationDice;
   effects?: AutomationEffect[];
+  /**
+   * Как считать попадание для этого payload'а: `anyCell` — любое пересечение,
+   * `fullyWithin` — токен целиком внутри. Без значения — как у зоны.
+   */
+  containment?: 'anyCell' | 'fullyWithin';
 }
 
 export interface ZoneDef {
@@ -154,6 +159,8 @@ export interface AutomationDef extends AutomationPayload {
   count?: number;
   /** Область заклинания (для зон/фич; цели обычного каста собирает вызывающий). */
   area?: AreaSpec;
+  /** Массовая цель без области: до N существ (Mass Healing Word — 6). */
+  targets?: number;
   /** Стоимость/цель черты (для классовых действий). */
   costs?: ActionCost[];
   targeting?: ActionTargeting;

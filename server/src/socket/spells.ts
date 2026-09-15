@@ -83,6 +83,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     const targets: Token[] = [];
     let area = false;
+    let areaOrigin: { x: number; y: number } | null = null;
     if (spellHasArea(spell) && spell.areaSpec) {
       const map = manager.findMap(room, mapId);
       const grid = {
@@ -109,6 +110,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
         if (t.id !== token.id) targets.push(t);
       }
       area = true;
+      areaOrigin = originPt;
     } else {
       for (const id of Array.isArray(targetIds) ? targetIds : []) {
         if (typeof id !== 'string') continue;
@@ -128,7 +130,8 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       targets,
       advantage,
       area,
-      origin: isPoint(origin) ? origin : null,
+      // Для area-каста точка — серверная (эманация — от кастера), не доверяем payload.
+      origin: areaOrigin ?? (isPoint(origin) ? origin : null),
       direction: isPoint(direction) ? direction : null,
       author: room.players.find((p) => p.id === ctx.playerId)?.name ?? '?',
     };

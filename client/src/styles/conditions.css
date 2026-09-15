@@ -222,6 +222,13 @@
   white-space: nowrap;
 }
 
+.condition-aura {
+  color: var(--text-dim, #9aa4b2);
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
 .condition-glyph {
   width: 18px;
   height: 18px;

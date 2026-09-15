@@ -18,6 +18,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import type { Room } from '../roomTypes';
 import { applyDamage } from './damage';
 import { applyEffectTo } from './effectsApply';
 import { pushRollMessage } from './messages';
@@ -55,6 +56,30 @@ function diceExpression(def: AutomationDef): string | null {
   return def.damage?.dice ?? def.heal?.dice ?? null;
 }
 
+/** Снимает прежнюю концентрацию кастера: эффекты на всех токенах и его зоны. */
+function dropConcentration(ctx: ConnCtx, room: Room, casterId: string): void {
+  for (const changed of ctx.manager.clearConcentration(room, casterId)) {
+    ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+  }
+  removeZonesOfSource(ctx, room, casterId);
+}
+
+/** Якорь концентрации на кастере для зон без целевых эффектов (HoH, Spirit Guardians). */
+function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, mapId: string, def: AutomationDef): void {
+  const anchorId = randomUUID();
+  ctx.manager.applyEffect(room, caster, {
+    id: anchorId,
+    name: def.name,
+    sourceKey: def.key,
+    sourceId: caster.id,
+    concentration: true,
+    duration: { type: 'concentration' },
+    modifiers: [],
+  });
+  ctx.emitToken(room, 'token:update', mapId, caster);
+  ctx.manager.setConcentration(room, mapId, caster, anchorId);
+}
+
 /** Накладывает эффекты заклинания (баффы/дебаффы), включая спасброски целей. */
 function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const room = ctx.getRoom();
@@ -63,12 +88,6 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const effects = def.effects;
   if (!effects?.length) return;
 
-  if (def.concentration) {
-    for (const changed of ctx.manager.clearConcentration(room, caster.id)) {
-      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
-    removeZonesOfSource(ctx, room, caster.id);
-  }
   const applied: string[] = [];
   let anchor: string | undefined;
   for (const effectDef of effects) {
@@ -105,7 +124,10 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
       if (!anchor) anchor = effectId;
     }
   }
-  if (def.concentration && !effects.some((d) => d.to !== 'targets')) {
+  // Если эффекты ни на кого не легли и зоны нет — концентрации не остаётся
+  // (Hypnotic Pattern: все цели прошли спас). У зоны триггеры живут и без жертв.
+  const worthwhile = applied.length > 0 || !!def.zone;
+  if (worthwhile && def.concentration && !effects.some((d) => d.to !== 'targets')) {
     // Чистый target-only каст: на кастере держим якорь концентрации для чипа.
     const anchorId = randomUUID();
     ctx.manager.applyEffect(room, caster, {
@@ -120,7 +142,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
     ctx.emitToken(room, 'token:update', mapId, caster);
     if (!anchor) anchor = anchorId;
   }
-  if (def.concentration && anchor) ctx.manager.setConcentration(room, mapId, caster, anchor);
+  if (worthwhile && def.concentration && anchor) ctx.manager.setConcentration(room, mapId, caster, anchor);
   ctx.syncCombat(room, mapId);
   ctx.systemMessage(
     room,
@@ -186,14 +208,19 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     return;
   }
 
+  // Новая концентрация: прошлые эффекты и зоны снимаются до создания новой зоны.
+  if (def.concentration) dropConcentration(ctx, room, caster.id);
+
   // Зона создаётся независимо от мгновенного payload'а (спас/урон/эффекты — сразу).
-  if (def.zone && input.origin) {
+  // Для ауры на источнике точка берётся с кастера, даже если клиент её не прислал.
+  const zoneOrigin = input.origin ?? (def.zone?.anchor === 'source' ? { x: caster.x, y: caster.y } : null);
+  if (def.zone && zoneOrigin) {
     createZoneFromDef(ctx, {
       caster,
       mapId,
       def,
       stats,
-      origin: input.origin,
+      origin: zoneOrigin,
       direction: input.direction,
     });
   }
@@ -201,6 +228,11 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   if (def.resolution === 'effect' && def.effects?.length) {
     applyDefEffects(ctx, input);
     return;
+  }
+
+  // Зонная концентрация без целевых эффектов: якорь на кастере — чип и «Прекратить».
+  if (def.zone && def.concentration && !def.effects?.length) {
+    anchorConcentration(ctx, room, caster, mapId, def);
   }
 
   const expression = diceExpression(def);
@@ -328,6 +360,24 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
         damageType,
         halve: success,
         kind: healing ? 'heal' : 'damage',
+      });
+    }
+    return;
+  }
+
+  // Массовая цель без области (Mass Healing Word): каждая выбранная цель — один раз.
+  if (def.targets) {
+    for (const target of targets.slice(0, Math.max(1, def.targets))) {
+      const damageRoll = rollDice(expression);
+      applyDamage(ctx, {
+        target,
+        mapId,
+        amount: damageRoll.total,
+        damageType,
+        roll: damageRoll,
+        author,
+        kind: healing ? 'heal' : 'damage',
+        params: { subject, damageType },
       });
     }
     return;

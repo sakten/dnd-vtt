@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SPEED,
+  type AutomationDef,
   type CharacterSheet,
   type PlayerResources,
   type AttackEntry,
@@ -17,6 +18,7 @@ import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
 import { openReactionWindow, pendingOffers, registerReactionHandlers } from './reactions';
+import { createZoneFromDef } from './zones';
 
 const combatOf = (room: Room) => room.scene.maps[0]!.combat;
 
@@ -281,6 +283,159 @@ describe('token:update права', () => {
     expect(token.faction).toBe('enemy');
     expect(token.speed).toBe(50);
     expect(token.statblock?.abilities.str).toBe(20);
+  });
+});
+
+/** Синтетическая зона с эффектом на входе (Web-подобная). */
+const enterZoneDef: AutomationDef = {
+  key: 'TEST:Enter',
+  name: 'Вход',
+  resolution: 'auto',
+  zone: {
+    area: { shape: 'sphere', size: 20 },
+    origin: 'point',
+    duration: { type: 'rounds', rounds: 10 },
+    triggers: {
+      enter: {
+        effects: [
+          { name: 'Вход', duration: { type: 'permanent' }, to: 'targets', modifiers: [], conditions: ['restrained'] },
+        ],
+      },
+    },
+  },
+};
+
+describe('зоны и концентрация', () => {
+  it('зонный каст держит якорь концентрации; ручное снятие эффекта гасит зону', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 200, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Hunger of Hadar', className: 'wizard' }] };
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerTokenHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Hunger of Hadar',
+      slotLevel: 3,
+      origin: { x: 200, y: 100 },
+    });
+
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    expect(room.scene.maps[0]!.zones).toHaveLength(1);
+    expect(
+      caster.effects.some((e) => e.concentration && e.sourceId === 't1' && e.sourceKey === 'XPHB:Hunger of Hadar')
+    ).toBe(true);
+
+    // Сняли якорь вручную (меню токена) — зона и её аура гаснут.
+    f.invoke('token:update', { mapId: 'm1', id: 't1', patch: { effects: [] } });
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
+  });
+
+  it('нет концентрации, если все цели прошли спас (Hypnotic Pattern)', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 300, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { x: 350, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Hypnotic Pattern', className: 'wizard' }] };
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99); // d20 = 20 → все спаслись
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Hypnotic Pattern',
+      slotLevel: 3,
+      origin: { x: 300, y: 100 },
+    });
+    rand.mockRestore();
+
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    expect(caster.effects.some((e) => e.concentration)).toBe(false);
+    expect(combatOf(room).turns.e1!.concentrationId).toBeNull();
+  });
+
+  it('Mass Healing Word лечит всех выбранных существ (можно меньше шести)', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 10 }),
+        makeToken('t3', { x: 200, y: 100, hpMax: '30', hpCurrent: 5 }),
+        makeToken('t4', { x: 250, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Mass Healing Word', className: 'wizard' }] };
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Mass Healing Word',
+      slotLevel: 3,
+      targetIds: ['t2', 't3'],
+    });
+
+    const tokens = room.scene.maps[0]!.tokens;
+    expect(tokens[1]!.hpCurrent).toBeGreaterThan(10);
+    expect(tokens[2]!.hpCurrent).toBeGreaterThan(5);
+    expect(tokens[3]!.hpCurrent).toBe(30);
+  });
+
+  it('Hold Person с апкастом накрывает две цели', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { x: 200, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Hold Person', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → спас провален
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Hold Person',
+      slotLevel: 3,
+      targetIds: ['t2', 't3'],
+    });
+    rand.mockRestore();
+
+    const tokens = room.scene.maps[0]!.tokens;
+    expect(tokens[1]!.effects.some((e) => e.sourceKey === 'XPHB:Hold Person')).toBe(true);
+    expect(tokens[2]!.effects.some((e) => e.sourceKey === 'XPHB:Hold Person')).toBe(true);
+  });
+
+  it('перетаскивание токена в зону срабатывает вне его хода (enter)', () => {
+    const room = makeRoom([makeToken('t1'), makeToken('t2', { x: 500, y: 500, hpMax: '30', hpCurrent: 30 })], {});
+    const f = makeCtx(room, { dm: true });
+    registerTokenHandlers(f.ctx);
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: enterZoneDef, stats: null, origin: { x: 125, y: 125 } });
+
+    f.invoke('token:move', { mapId: 'm1', id: 't2', x: 125, y: 125 });
+
+    expect(room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.sourceKey === 'TEST:Enter')).toBe(true);
   });
 });
 
@@ -802,6 +957,142 @@ describe('реакции (R1)', () => {
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
   });
 
+  it('игрок со Щитом видит окно при выходе врага из досягаемости (не авто-OA)', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 150, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки')], x: 100, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const f = makeCtx(room, { dm: true });
+    registerCombatHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't2',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 400, y: 100 },
+      ],
+    });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0]!.tokenId).toBe('t1');
+    expect(offers[0]!.options.map((o) => o.id)).toEqual(['opportunity']);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(false);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30);
+    f.invoke('reaction:forceSkip', { id: offers[0]!.id });
+  });
+
+  it('реакционная черта (Рипост) даёт окно вместо авто-OA', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 150, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки')], x: 100, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      spells: [],
+      attacks: [melee('Рапира')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'fighter.battleMaster:superiorityDice',
+          name: 'Кости превосходства',
+          current: 4,
+          max: 4,
+          reset: 'short',
+        },
+      ],
+    };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const f = makeCtx(room, { dm: true });
+    registerCombatHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't2',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 400, y: 100 },
+      ],
+    });
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0]!.options.map((o) => o.id)).toEqual(['opportunity']);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(false);
+    f.invoke('reaction:forceSkip', { id: offers[0]!.id });
+  });
+
+  it('черта без ресурса (кости кончились) не открывает окно — авто-OA', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 150, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки')], x: 100, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      spells: [],
+      attacks: [melee('Рапира')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'fighter.battleMaster:superiorityDice',
+          name: 'Кости превосходства',
+          current: 0,
+          max: 4,
+          reset: 'short',
+        },
+      ],
+    };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const f = makeCtx(room, { dm: true });
+    registerCombatHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't2',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 400, y: 100 },
+      ],
+    });
+
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(true);
+  });
   it('без спец-реакций атака по возможности срабатывает автоматически', () => {
     const room = makeRoom(
       [

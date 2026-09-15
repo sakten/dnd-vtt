@@ -10,7 +10,7 @@ import {
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
-import { removeZonesOfSource } from './zones';
+import { handleMovementZones, removeZonesOfSource } from './zones';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
   const { manager, isDm, broadcastAll, emitToken, syncCombat } = ctx;
@@ -58,6 +58,8 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       token.x = x;
       token.y = y;
       emitToken(room, 'token:update', mapId, token);
+      // Перетаскивание (в т.ч. в чужой ход): аура и enter/exit зон тоже срабатывают.
+      handleMovementZones(ctx, room, mapId);
     });
 
     ctx.on('token:lock', ({ mapId, id, lock }) => {
@@ -95,14 +97,21 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (Array.isArray(patch.effects)) {
         const next = normalizeEffects(patch.effects);
         const nextIds = new Set(next.map((e) => e.id));
-        for (const old of token.effects) {
-          if (!nextIds.has(old.id)) manager.changeMaxHp(room, token, old, -1);
-        }
+        const removed = token.effects.filter((e) => !nextIds.has(e.id));
+        for (const old of removed) manager.changeMaxHp(room, token, old, -1);
         const oldIds = new Set(token.effects.map((e) => e.id));
         for (const effect of next) {
           if (!oldIds.has(effect.id)) manager.changeMaxHp(room, token, effect, 1);
         }
         token.effects = next;
+        // Ручное снятие якоря концентрации (меню токена): гасим связанные эффекты и зоны.
+        if (removed.some((e) => e.concentration && e.sourceId === token.id)) {
+          for (const changed of manager.clearConcentration(room, token.id)) {
+            if (changed.token !== token) emitToken(room, 'token:update', changed.mapId, changed.token);
+          }
+          removeZonesOfSource(ctx, room, token.id);
+          ctx.systemMessage(room, `${token.name}: концентрация прекращена`);
+        }
       }
       if (isDm()) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;

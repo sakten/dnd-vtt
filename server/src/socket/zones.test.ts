@@ -89,6 +89,42 @@ describe('движок зон', () => {
     expect(target.hpCurrent).toBe(22);
   });
 
+  it('payload containment: краевой 4×4 бьётся уроном, аура — только полностью внутри', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const def: AutomationDef = {
+      ...zoneDef,
+      key: 'TEST:Edge',
+      zone: {
+        ...zoneDef.zone!,
+        containment: 'fullyWithin',
+        triggers: { startOfTurn: { containment: 'anyCell', damage: { dice: '2d6', types: ['cold'] } } },
+      },
+    };
+    const big = makeToken('t3', { x: 375, y: 125, w: 200, h: 200, hpMax: '30', hpCurrent: 30 });
+    room.scene.maps[0]!.tokens.push(big);
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def, stats: null, origin: { x: 125, y: 125 } });
+
+    expect(big.effects).toHaveLength(0); // не полностью внутри — ауры нет
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // 2d6 = 8
+    tickZones(f.ctx, room, 'm1', big, 'start');
+    rand.mockRestore();
+
+    expect(big.hpCurrent).toBe(22); // касание края — урона триггер получает
+  });
+
+  it('зона концентрации без живого эффекта-источника снимается', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const def: AutomationDef = { ...zoneDef, key: 'TEST:Orphan', concentration: true };
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def, stats: null, origin: { x: 250, y: 100 } });
+    expect(room.scene.maps[0]!.zones).toHaveLength(1);
+
+    handleMovementZones(f.ctx, room, 'm1');
+
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
+  });
+
   it('снятие по источнику убирает зону и её ауру', () => {
     const { room, f } = setup();
     const caster = room.scene.maps[0]!.tokens[0]!;

@@ -4,12 +4,14 @@ import { normalizeSheet } from '../normalize';
 import type { Spell } from './spells';
 import {
   casterStats,
+  castableLevels,
   characterLevel,
   maxCastableLevel,
   spellActionCost,
   spellAreaOrigin,
   spellAttackCount,
   spellDamageExpression,
+  spellExtraTargets,
   spellHasArea,
   spellIsSelf,
   spellRangeFeet,
@@ -220,6 +222,65 @@ describe('maxCastableLevel', () => {
     expect(maxCastableLevel(spell, null, [{ level: 3, current: 0 }])).toBe(0);
     // без настроенных ячеек каст не ограничиваем
     expect(maxCastableLevel(spell, null)).toBe(2);
+  });
+});
+
+describe('castableLevels', () => {
+  it('только круги с ячейками, пустые промежуточные пропускаются', () => {
+    const spell = makeSpell({ level: 1 });
+    const res = resources({
+      spellSlots: [
+        { level: 1, current: 0, max: 2 },
+        { level: 2, current: 1, max: 1 },
+        { level: 3, current: 1, max: 1 },
+      ],
+    });
+    expect(castableLevels(spell, res)).toEqual([2, 3]);
+  });
+
+  it('пакт учитывается, круг ниже базового — нет', () => {
+    const spell = makeSpell({ level: 3 });
+    expect(castableLevels(spell, resources({}))).toEqual([]);
+    expect(castableLevels(spell, resources({ pact: { current: 1, max: 1, level: 5 } }))).toEqual([5]);
+    expect(castableLevels(spell, resources({ pact: { current: 1, max: 1, level: 2 } }))).toEqual([]);
+  });
+
+  it('ячейки монстра и фолбэк без настроенных ячеек', () => {
+    const spell = makeSpell({ level: 2 });
+    expect(
+      castableLevels(spell, null, [
+        { level: 3, current: 2 },
+        { level: 2, current: 0 },
+      ])
+    ).toEqual([3]);
+    expect(castableLevels(spell, null)).toEqual([2]);
+    expect(castableLevels(makeSpell({ level: 0 }), resources({}))).toEqual([]);
+  });
+});
+
+describe('spellExtraTargets', () => {
+  it('базовый круг — без прироста, апкаст — по кругу выше', () => {
+    const hold = makeSpell({
+      level: 2,
+      higherLevel: ['You can target one additional Humanoid for each spell slot level above 2.'],
+    });
+    expect(spellExtraTargets(hold, 2)).toBe(0);
+    expect(spellExtraTargets(hold, 3)).toBe(1);
+    expect(spellExtraTargets(hold, 5)).toBe(3);
+  });
+
+  it('не путает снаряды и свет с целями', () => {
+    const ray = makeSpell({
+      key: 'XPHB:Scorching Ray',
+      higherLevel: ['You create one additional ray for each spell slot level above 2.'],
+    });
+    expect(spellExtraTargets(ray, 5)).toBe(0);
+    const light = makeSpell({
+      key: 'XPHB:Light',
+      level: 0,
+      higherLevel: ['Dim Light for an additional 20 feet.'],
+    });
+    expect(spellExtraTargets(light, 5)).toBe(0);
   });
 });
 

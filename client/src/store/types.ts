@@ -161,6 +161,8 @@ export interface GameState {
   /** Выбор цели на каждый снаряд; когда все выбраны — каст. */
   startMultiTarget: (payload: Omit<MultiTargetState, 'targets'>) => void;
   addMultiTarget: (targetId: string) => void;
+  /** Применить выбранных целей меньше максимума. */
+  finishMultiTarget: () => void;
   cancelMultiTarget: () => void;
   setHoverToken: (id: string | null) => void;
   fitView: () => void;

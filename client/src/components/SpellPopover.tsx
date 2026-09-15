@@ -3,7 +3,7 @@ import { spellActionCost, spellAreaOrigin, spellAutomated, spellRangeFeet, type 
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { tokenById } from '../store/selectors';
-import { ACTION_COST_TEXT, spellCastInfo } from '../lib/actionRules';
+import { ACTION_COST_TEXT, castLevelsForSpell, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -22,16 +22,15 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const startAim = useGameStore((s) => s.startAim);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
   const startTargeting = useGameStore((s) => s.startTargeting);
-  const [level, setLevel] = useState(spell.level);
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
 
   const castToken = tokenById(map, tokenId);
   const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
+  const casterInfo: CasterInfo = { isCharacter: sheetCaster, resources, token: castToken ?? undefined };
+  const [level, setLevel] = useState(() => castLevelsForSpell(spell, casterInfo)[0] ?? spell.level);
   const info = spellCastInfo(spell, level, {
-    isCharacter: sheetCaster,
-    resources,
-    token: castToken ?? undefined,
+    ...casterInfo,
     classes: sheet?.classes ?? null,
   });
 
@@ -56,6 +55,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         slotLevel: info.slotLevel,
         advantage: mode,
         count: info.multiCount,
+        distinct: info.multiKind === 'targets',
       });
     } else if (info.self) {
       castSpell({
@@ -129,9 +129,9 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </div>
         ) : info.multi ? (
           <div className="sp-row">
-            <span className="sp-label">{info.effectTargetCount > 1 ? 'Цели' : 'Снаряды'}</span>
+            <span className="sp-label">{info.multiKind === 'targets' ? 'Цели' : 'Снаряды'}</span>
             <span className="sp-target">
-              {info.effectTargetCount > 1
+              {info.multiKind === 'targets'
                 ? `до ${info.effectTargetCount} · выбор на карте`
                 : `${info.projectiles} шт. · цель для каждого на карте`}
             </span>

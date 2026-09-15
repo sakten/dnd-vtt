@@ -159,4 +159,44 @@ describe('actions slice', () => {
     });
     expect(useGameStore.getState().interaction).toBeNull();
   });
+
+  it('multiTarget: меньше максимума — применение кнопкой, дубли целей игнорируются', () => {
+    useGameStore.getState().startMultiTarget({
+      tokenId: 't1',
+      spellKey: 'XPHB:Mass Healing Word',
+      slotLevel: 3,
+      count: 6,
+      distinct: true,
+    });
+    useGameStore.getState().addMultiTarget('a');
+    useGameStore.getState().addMultiTarget('b');
+    useGameStore.getState().addMultiTarget('a');
+    const multi = useGameStore.getState().interaction;
+    expect(multi?.mode === 'multi' ? multi.multi.targets : null).toEqual(['a', 'b']);
+    useGameStore.getState().finishMultiTarget();
+    expect(emitted).toContainEqual({
+      event: 'spell:cast',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Mass Healing Word',
+        slotLevel: 3,
+        targetIds: ['a', 'b'],
+      },
+    });
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
+  it('multiTarget: применение без целей ничего не шлёт', () => {
+    useGameStore.getState().startMultiTarget({
+      tokenId: 't1',
+      spellKey: 'XPHB:Mass Healing Word',
+      slotLevel: 3,
+      count: 6,
+      distinct: true,
+    });
+    useGameStore.getState().finishMultiTarget();
+    expect(emitted).toHaveLength(0);
+    expect(useGameStore.getState().interaction?.mode).toBe('multi');
+  });
 });

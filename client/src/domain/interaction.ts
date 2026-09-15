@@ -28,6 +28,8 @@ export interface MultiTargetState {
   advantage?: 'a' | 'd';
   count: number;
   targets: string[];
+  /** Существа-цели: без повторов, можно применить, выбрав меньше максимума. */
+  distinct?: boolean;
 }
 
 /** Режим выбора цели: после клика по способности ждём клик по токену на карте. */
@@ -199,6 +201,8 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
 export function pickMultiTarget(interaction: Interaction | null, targetId: string): InteractionResult {
   if (interaction?.mode !== 'multi') return { next: interaction };
   const mt = interaction.multi;
+  // Существа-цели не дублируются (одно существо — один раз); снаряды могут бить в одну цель.
+  if (mt.distinct && mt.targets.includes(targetId)) return { next: interaction };
   const targets = [...mt.targets, targetId];
   if (targets.length >= mt.count) {
     return {
@@ -216,6 +220,26 @@ export function pickMultiTarget(interaction: Interaction | null, targetId: strin
     };
   }
   return { next: { mode: 'multi', multi: { ...mt, targets } } };
+}
+
+/** Досрочное применение мульти-цели: выбранных меньше максимума (Mass Healing Word). */
+export function finishMulti(interaction: Interaction | null): InteractionResult {
+  if (interaction?.mode !== 'multi') return { next: interaction };
+  const mt = interaction.multi;
+  if (!mt.targets.length) return { next: interaction };
+  return {
+    next: null,
+    command: {
+      type: 'castSpell',
+      payload: {
+        tokenId: mt.tokenId,
+        spellKey: mt.spellKey,
+        slotLevel: mt.slotLevel,
+        advantage: mt.advantage,
+        targetIds: mt.targets,
+      },
+    },
+  };
 }
 
 /** Токен-владелец активного режима (для сброса UI при удалении токена). */

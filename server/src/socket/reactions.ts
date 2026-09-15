@@ -358,7 +358,14 @@ function hasPayableSpecial(manager: ConnCtx['manager'], room: Room, mapId: strin
     const spell = findSpell(key);
     if (trigger && spell && spellPayable(room, token, spell.level, key)) return true;
   }
-  return false;
+  // Реакционные черты (Рипост, Парирование, Невероятное уклонение…) — тоже варианты:
+  // окно открываем, чтобы игрок мог отказаться от OA и сохранить реакцию.
+  const cid = controllerIdOfToken(room, token);
+  const sheet = cid ? room.sheets[cid] : undefined;
+  if (!cid || !sheet) return false;
+  return reactionFeatures(sheet.classes).some(
+    (def) => !def.resourceKey || hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)
+  );
 }
 
 /** Применимые к триггеру оплачиваемые варианты-заклинания. */
@@ -662,7 +669,8 @@ export function registerReactionHandlers(ctx: ConnCtx) {
 
   ctx.on('reaction:forceSkip', ({ id }) => {
     if (!isDm() || typeof id !== 'string') return;
-    const queue = queueByPending(id);
+    // Клиент шлёт id оффера; принимаем и id паузы (диагностика/тесты).
+    const queue = queueByPending(id) ?? queueByOffer(id);
     if (!queue?.current) return;
     for (const state of queue.current.offers) state.answered = true;
     queue.finish();

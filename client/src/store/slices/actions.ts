@@ -1,6 +1,7 @@
 import {
   aimToCursor,
   confirmArea,
+  finishMulti,
   pickMultiTarget,
   pickTarget,
   startAim,
@@ -28,6 +29,7 @@ export const createActionSlice: Slice<
     | 'endConcentration'
     | 'startMultiTarget'
     | 'addMultiTarget'
+    | 'finishMultiTarget'
     | 'cancelMultiTarget'
     | 'adjustTokenHp'
   >
@@ -95,6 +97,12 @@ export const createActionSlice: Slice<
 
     addMultiTarget: (targetId) => {
       const { next, command } = pickMultiTarget(get().interaction, targetId);
+      _set({ interaction: next });
+      runCommand(command);
+    },
+
+    finishMultiTarget: () => {
+      const { next, command } = finishMulti(get().interaction);
       _set({ interaction: next });
       runCommand(command);
     },
