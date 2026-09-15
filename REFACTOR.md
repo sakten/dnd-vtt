@@ -245,6 +245,8 @@ R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима
 
 **R8.8 — партия 12 (рефакторинг reactions, срез 3) ✅:** файл `socket/reactions.ts` (1345 строк) разбит на папку `socket/reactions/` без изменения логики: `queue.ts` (окна/очередь, 329), `features.ts` (черты-реакции, 326), `attack.ts` (пайплайн атаки, 332), `spellReactions.ts` (Counterspell/заклинания, 206), `opportunity.ts` (OA, 126), `internal.ts` (мелкие общие хелперы, 90), `index.ts` (прежний публичный API, 12). Импортеры не менялись. Тесты: shared 336, server 161, client 57; smoke 130/0.
 
+**R8.8 — партия 13 (дубли: иконки, безоружный удар, уровни) ✅:** удалён мёртвый `spellGlyphs.tsx` (117 глифов, все перекрыты детальными иконками — fallback в `SpellIcon` был недостижим, −871 строка); безоружный удар считается одним `weapons.unarmedStrikeEntry` (кнопка в `actions.ts` и атака по возможности — теперь OA у персонажа с PB/костью монаха, а не только str-мод); `totalLevel` → `characterLevel()` в attackResolve/attackRiders/automation/reactions; `spells.ts` использует `spellClassFor`. Тесты: shared 336, server 161, client 57; smoke 130/0.
+
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.
 

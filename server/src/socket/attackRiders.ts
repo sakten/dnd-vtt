@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   abilityMod,
   attackRidersFor,
+  characterLevel,
   proficiencyBonus,
   type AbilityKey,
   type AttackRiderDef,
@@ -46,7 +47,7 @@ export function applyAttackRiders(
   const hasEffect = (key: string) => attacker.effects.some((e) => e.sourceKey === key);
   const saveDc =
     8 +
-    proficiencyBonus(sheet.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0)) +
+    proficiencyBonus(characterLevel(sheet.classes)) +
     wisMod;
 
   const parts: string[] = [];

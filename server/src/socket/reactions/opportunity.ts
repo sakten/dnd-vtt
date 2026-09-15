@@ -3,6 +3,7 @@ import {
   isIncapacitated,
   pathLeavesReach,
   restrictionsFor,
+  unarmedStrikeEntry,
   type AttackEntry,
   type ReactionOption,
   type Token,
@@ -27,16 +28,8 @@ export function opportunityAttack(ctx: ConnCtx, room: Room, token: Token): Attac
   if (melee[0]) return melee[0];
   const { sheet } = sheetOfToken(room, token);
   if (!sheet) return null;
-  const mod = ctx.manager.abilityModForToken(room, token, 'str');
-  return {
-    name: 'Безоружный удар',
-    hit: mod >= 0 ? `d20+${mod}` : `d20${mod}`,
-    damage: `${Math.max(1, 1 + mod)}`,
-    damageType: 'bludgeoning',
-    rangeType: 'melee',
-    rangeNormal: 5,
-    rangeLong: 0,
-  };
+  const abilities = ctx.manager.abilitiesForToken(room, token) ?? {};
+  return unarmedStrikeEntry(undefined, { abilities, classes: sheet.classes });
 }
 
 /** Немедленная атака по возможности (без окна). */

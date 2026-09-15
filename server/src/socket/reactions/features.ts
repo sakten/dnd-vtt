@@ -1,5 +1,6 @@
 import {
   abilityMod,
+  characterLevel,
   isIncapacitated,
   martialArtsDie,
   proficiencyBonus,
@@ -247,7 +248,7 @@ export function applyDeflectRedirect(
   const die = martialArtsDie(level);
   const abilities = (ctx.manager.abilitiesForToken(room, monk) ?? {}) as Partial<Record<string, number>>;
   const dexMod = abilityMod(abilities.dex ?? 10);
-  const totalLevel = (sheet?.classes ?? []).reduce((acc, c) => acc + Math.max(1, c.level), 0);
+  const totalLevel = characterLevel(sheet?.classes ?? []);
   const dc = 8 + proficiencyBonus(totalLevel) + abilityMod(abilities.wis ?? 10);
 
   const { roll, success } = ctx.manager.rollSave(room, attacker, def.redirect.save, dc, { conditionsAutoFail: true });

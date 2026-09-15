@@ -3,6 +3,7 @@ import {
   abilityMod,
   attackRollParts,
   autoCrit,
+  characterLevel,
   countAttackAdvantage,
   damageRollParts,
   exhaustionRollPenalty,
@@ -65,8 +66,7 @@ function singleDamageType(def: AutomationDef): string | undefined {
 /** Бонус владения кастера по его листу (монстры и токены без листа — 2). */
 function proficiencyFor(ctx: ConnCtx, room: Room, caster: Token): number {
   const { sheet } = sheetOfToken(room, caster);
-  const totalLevel = (sheet?.classes ?? []).reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
-  return proficiencyBonus(totalLevel || 1);
+  return proficiencyBonus(characterLevel(sheet?.classes ?? []) || 1);
 }
 
 /**

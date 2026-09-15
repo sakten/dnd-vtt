@@ -48,6 +48,25 @@ export function findUnarmedAttack(attacks: AttackEntry[] | undefined): AttackEnt
   return (attacks ?? []).find(isUnarmedAttack);
 }
 
+/** Безоружный удар: явная атака из листа переопределяет расчётную (у монаха — кость боевых искусств). */
+export function unarmedStrikeEntry(explicit: AttackEntry | undefined, ctx: WeaponContext): AttackEntry {
+  if (explicit && (explicit.hit.trim() || explicit.damage.trim())) return explicit;
+  const weapon = WEAPONS.find((w) => w.unarmed);
+  if (!weapon) {
+    const mod = abilityMod(ctx.abilities.str ?? 10);
+    return {
+      name: 'Безоружный удар',
+      hit: hitExpression(mod),
+      damage: `${Math.max(1, 1 + mod)}`,
+      damageType: 'bludgeoning',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+  }
+  return { ...weaponAttackEntry(weapon, ctx), name: 'Безоружный удар' };
+}
+
 export interface WeaponContext {
   abilities: Partial<Record<AbilityKey, number>>;
   classes: ClassLevel[];

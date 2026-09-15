@@ -3,6 +3,7 @@ import {
   attackRollParts,
   attackSubject,
   autoCrit,
+  characterLevel,
   countAttackAdvantage,
   critRangeFor,
   damageRollParts,
@@ -111,7 +112,7 @@ export function prepareWeaponAttack(
   const attackerSheet = attackerControllerId ? room.sheets[attackerControllerId] : undefined;
   const critMin = attackerSheet ? critRangeFor(attackerSheet.classes) : 20;
   const proficiency = attackerSheet
-    ? proficiencyBonus(attackerSheet.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0) || 1)
+    ? proficiencyBonus(characterLevel(attackerSheet.classes) || 1)
     : 2;
 
   let distanceFeet = 0;

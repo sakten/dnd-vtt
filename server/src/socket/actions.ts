@@ -1,5 +1,4 @@
 import {
-  abilityMod,
   actionSlotAvailable,
   automationForAction,
   casterStats,
@@ -8,9 +7,8 @@ import {
   findBaseAction,
   findUnarmedAttack,
   firstSentence,
-  martialArtsDie,
-  proficiencyBonus,
   rollDice,
+  unarmedStrikeEntry as computedUnarmedStrike,
   type ActionCost,
   type ActionDef,
   type AttackEntry,
@@ -67,7 +65,7 @@ function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
   ctx.systemMessage(room, `${token.name}: выпутался из «${effect.name}»`);
 }
 
-/** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — правила. */
+/** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */
 function unarmedStrikeEntry(
   ctx: ConnCtx,
   room: Scope['room'],
@@ -75,27 +73,8 @@ function unarmedStrikeEntry(
   sheet: CharacterSheet | undefined
 ): AttackEntry {
   const explicit = findUnarmedAttack(sheet?.attacks) ?? findUnarmedAttack(token.attacks);
-  if (explicit && (explicit.hit.trim() || explicit.damage.trim())) return explicit;
-
-  const abilities = (ctx.manager.abilitiesForToken(room, token) ?? {}) as Partial<Record<string, number>>;
-  const totalLevel = (sheet?.classes ?? []).reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
-  const prof = proficiencyBonus(totalLevel || 1);
-  const monkLevel = sheet?.classes.find((c) => c.className === 'monk')?.level ?? 0;
-  const monk = monkLevel > 0;
-  const mod = abilityMod((monk ? abilities.dex : abilities.str) ?? 10);
-  const bonus = prof + mod;
-  const hit = bonus >= 0 ? `d20+${bonus}` : `d20${bonus}`;
-  return {
-    name: 'Безоружный удар',
-    hit,
-    damage: monk
-      ? `1d${martialArtsDie(monkLevel)}${mod ? (mod > 0 ? `+${mod}` : `${mod}`) : ''}`
-      : `${Math.max(1, 1 + mod)}`,
-    damageType: 'bludgeoning',
-    rangeType: 'melee',
-    rangeNormal: 5,
-    rangeLong: 0,
-  };
+  const abilities = ctx.manager.abilitiesForToken(room, token) ?? {};
+  return computedUnarmedStrike(explicit, { abilities, classes: sheet?.classes ?? [] });
 }
 
 export function registerActionHandlers(ctx: ConnCtx) {

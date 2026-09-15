@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { spellAutomated, type Spell } from 'shared';
 import { loadSpellIcons, spellIconsSync } from '../lib/spellIcons';
 import { spellVisual } from '../lib/spellIcon';
-import { SPELL_GLYPHS } from './spellGlyphs';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
@@ -62,7 +61,7 @@ export default function SpellIcon({ spell, className }: { spell: Spell; classNam
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          {SPELL_GLYPHS[key] ?? <circle cx="12" cy="12" r="9" />}
+          <circle cx="12" cy="12" r="9" />
         </g>
       )}
       <LevelBadge numeral={numeral} accent={accent} />

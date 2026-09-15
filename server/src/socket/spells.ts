@@ -1,7 +1,6 @@
 import {
   actionSlotAvailable,
   characterLevel,
-  grantedSpells,
   isRecord,
   restrictionsFor,
   rollDice,
@@ -17,7 +16,7 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { findSpell } from '../spells';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
-import { spellStatsFor } from './spellStats';
+import { spellClassFor, spellStatsFor } from './spellStats';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { removeZonesOfSource } from './zones';
@@ -46,8 +45,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     let className: string | undefined;
     if (isCharacter && sheet) {
-      const own = sheet.spells.find((s) => s.key === spellKey);
-      className = own?.className ?? grantedSpells(sheet.classes).find((g) => g.key === spellKey)?.className;
+      className = spellClassFor(sheet, spellKey);
       if (!className) {
         fail(ctx, 'spellNotPrepared');
         return;
