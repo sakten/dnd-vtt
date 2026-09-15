@@ -34,7 +34,8 @@ export function registerSheetHandlers(ctx: ConnCtx) {
         prevRes ?? emptyResources(),
         normalized.classes,
         sheetMods(normalized.abilities),
-        mode
+        mode,
+        normalized.choices
       );
       const hpMax = effectiveMaxHp(normalized);
       synced.hp = {

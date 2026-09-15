@@ -1142,6 +1142,40 @@ describe('зоны и концентрация', () => {
     expect(room.resources.p1!.hp.current).toBe(23); // Целитель-благословенный: +3
   });
 
+  it('Magic Initiate: заклинание 1 круга кастуется без ячейки раз в долгий отдых', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, int: 16 },
+      classes: [],
+      spells: [],
+      choices: [
+        { kind: 'feat', key: 'XPHB:magicInitiate', list: 'wizard', ability: 'int', spell: 'XPHB:Shield' },
+      ],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'feat:XPHB:magicInitiate:freeCast',
+          name: 'Magic Initiate: каст без ячейки',
+          current: 1,
+          max: 1,
+          reset: 'long',
+        },
+      ],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shield', slotLevel: 1 });
+
+    expect(room.resources.p1!.resources[0]!.current).toBe(0);
+    expect(room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.sourceKey === 'XPHB:Shield')).toBe(true);
+  });
+
   it('Hold Person с апкастом накрывает две цели', () => {
     const room = makeRoom(
       [

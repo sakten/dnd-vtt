@@ -3,6 +3,7 @@ import {
   automationForSpell,
   castableLevels,
   characterLevel,
+  featSpellGrants,
   isHealingSpell,
   maxCastableLevel,
   spellActionCost,
@@ -62,18 +63,42 @@ export interface CasterInfo {
   isCharacter: boolean;
   resources: PlayerResources | null;
   token: Token | undefined;
+  /** Заклинания фитов с доступным бесплатным кастом (Magic Initiate). */
+  freeCastKeys?: Set<string>;
+}
+
+/** Заклинания фитов, доступные к бесплатному касту без ячейки (заряд ещё не потрачен). */
+export function featFreeCastKeys(
+  sheet: CharacterSheet | null | undefined,
+  resources: PlayerResources | null | undefined
+): Set<string> {
+  const keys = new Set<string>();
+  if (!sheet || !resources) return keys;
+  for (const grant of featSpellGrants(sheet.choices)) {
+    if (grant.level === 0) continue;
+    const item = resources.resources.find((r) => r.key === `${grant.className}:freeCast`);
+    if (item && item.current > 0) keys.add(grant.key);
+  }
+  return keys;
 }
 
 /** Максимальный доступный круг заклинания для кастера. */
 export function maxCastableForSpell(spell: Spell, caster: CasterInfo): number {
-  if (caster.isCharacter) return maxCastableLevel(spell, caster.resources ?? null);
-  return maxCastableLevel(spell, null, caster.token?.statblock?.spellcasting?.slots);
+  const base = caster.isCharacter
+    ? maxCastableLevel(spell, caster.resources ?? null)
+    : maxCastableLevel(spell, null, caster.token?.statblock?.spellcasting?.slots);
+  return caster.freeCastKeys?.has(spell.key) ? Math.max(base, spell.level) : base;
 }
 
 /** Круги ячеек в наличии для апкаста (без пустых промежуточных кругов). */
 export function castLevelsForSpell(spell: Spell, caster: CasterInfo): number[] {
-  if (caster.isCharacter) return castableLevels(spell, caster.resources ?? null);
-  return castableLevels(spell, null, caster.token?.statblock?.spellcasting?.slots);
+  const levels = caster.isCharacter
+    ? castableLevels(spell, caster.resources ?? null)
+    : castableLevels(spell, null, caster.token?.statblock?.spellcasting?.slots);
+  if (caster.freeCastKeys?.has(spell.key) && spell.level > 0 && !levels.includes(spell.level)) {
+    return [...levels, spell.level].sort((a, b) => a - b);
+  }
+  return levels;
 }
 
 /** Контекст хода для проверок экономики действий. */

@@ -27,7 +27,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const classes = sheet?.classes ?? [];
       const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);
       const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
-      room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax);
+      room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax, sheet?.choices);
       const changed = manager.syncSheetToTokens(room, playerId);
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);

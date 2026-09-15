@@ -3,6 +3,7 @@ import {
   attackIsActive,
   attacksPerAction,
   classFeatures,
+  featSpellGrants,
   grantedSpells,
   isIncapacitated,
   type ActionDef,
@@ -102,6 +103,7 @@ export function useActionContext(): ActionContext | null {
         const keys = new Set<string>();
         for (const s of sheet.spells ?? []) keys.add(s.key);
         for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
+        for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
         panelSpells = [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
       }
     } else {

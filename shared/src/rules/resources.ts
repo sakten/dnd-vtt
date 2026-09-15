@@ -1,5 +1,6 @@
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { ClassLevel, PlayerResources, ResourceItem, RestType } from '../domain/sheet';
+import type { FeatureChoice } from '../domain/feature';
 import {
   CLASSES,
   clampLevel,
@@ -8,6 +9,7 @@ import {
   spellSlotMaxes,
   type ResourceDef,
 } from './classes';
+import { FEAT_CAST_PREFIX, featByKey } from './feats';
 
 interface AutoDef {
   key: string;
@@ -16,7 +18,11 @@ interface AutoDef {
   max: number;
 }
 
-export function autoResourceDefs(classes: ClassLevel[], mods: Record<AbilityKey, number>): AutoDef[] {
+export function autoResourceDefs(
+  classes: ClassLevel[],
+  mods: Record<AbilityKey, number>,
+  choices?: FeatureChoice[]
+): AutoDef[] {
   const out: AutoDef[] = [];
   const totalLevel = classes.reduce((acc, c) => acc + clampLevel(c.level), 0);
   const push = (prefix: string, defs: ResourceDef[] | undefined, level: number) => {
@@ -29,6 +35,16 @@ export function autoResourceDefs(classes: ClassLevel[], mods: Record<AbilityKey,
     if (!def) continue;
     push(def.key, def.resources, entry.level);
     if (entry.subclass) push(`${def.key}.${entry.subclass}`, def.subclasses[entry.subclass]?.resources, entry.level);
+  }
+  // Фиты с бесплатным кастом (Magic Initiate): заряд 1/долгий отдых на каждый выбор со заклинанием.
+  for (const choice of choices ?? []) {
+    if (choice.kind !== 'feat' || !choice.spell) continue;
+    out.push({
+      key: `${FEAT_CAST_PREFIX}${choice.key}:freeCast`,
+      name: `${featByKey(choice.key)?.name ?? 'Фит'}: каст без ячейки`,
+      reset: 'long',
+      max: 1,
+    });
   }
   return out;
 }
@@ -66,9 +82,10 @@ export function syncResources(
   prev: PlayerResources,
   classes: ClassLevel[],
   mods: Record<AbilityKey, number>,
-  mode: 'soft' | 'full'
+  mode: 'soft' | 'full',
+  choices?: FeatureChoice[]
 ): PlayerResources {
-  const defs = autoResourceDefs(classes, mods);
+  const defs = autoResourceDefs(classes, mods, choices);
   const prevByKey = new Map(prev.resources.filter((r) => r.auto).map((r) => [r.key ?? r.id, r]));
   const autoResources: ResourceItem[] = defs.map((d) => {
     const before = prevByKey.get(d.key);
@@ -121,9 +138,10 @@ export function sanitizeResources(
   input: PlayerResources,
   classes: ClassLevel[],
   mods: Record<AbilityKey, number>,
-  hpMaxOverride?: number
+  hpMaxOverride?: number,
+  choices?: FeatureChoice[]
 ): PlayerResources {
-  const defs = autoResourceDefs(classes, mods);
+  const defs = autoResourceDefs(classes, mods, choices);
   const incomingByKey = new Map(
     (Array.isArray(input.resources) ? input.resources : []).filter((r) => r.auto).map((r) => [r.key, r])
   );

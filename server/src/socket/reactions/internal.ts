@@ -1,4 +1,5 @@
 import {
+  featSpellGrants,
   grantedSpells,
   maxCastableLevel,
   reactionFeatures,
@@ -39,6 +40,7 @@ export function knownSpellKeys(room: Room, token: Token): string[] {
     const keys = new Set<string>();
     for (const s of sheet.spells) keys.add(s.key);
     for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
+    for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
     return [...keys];
   }
   return token.statblock?.spellcasting?.spells ?? [];

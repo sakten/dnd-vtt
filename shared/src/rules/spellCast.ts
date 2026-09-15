@@ -3,6 +3,7 @@ import { abilityMod, type AbilityKey } from '../domain/core';
 import type { CharacterSheet, ClassLevel, PlayerResources } from '../domain/sheet';
 import type { Spell } from './spells';
 import { clampLevel } from './classes';
+import { FEAT_CAST_PREFIX } from './feats';
 import { sheetProficiencyBonus, spellcastingAbility } from './spellLimits';
 
 /**
@@ -251,10 +252,12 @@ export interface SpellStats {
   attack: number;
 }
 
-/** Боевые характеристики кастера для класса заклинания (DC, атака). */
+/** Боевые характеристики кастера для класса заклинания (DC, атака); `feat:*` — заклинания фитов. */
 export function casterStats(sheet: CharacterSheet, className: string): SpellStats | null {
   const entry = sheet.classes.find((c) => c.className === className);
-  const ability = spellcastingAbility(className, entry?.subclass);
+  const featKey = className.startsWith(FEAT_CAST_PREFIX) ? className.slice(FEAT_CAST_PREFIX.length) : null;
+  const feat = featKey ? sheet.choices?.find((c) => c.kind === 'feat' && c.key === featKey) : undefined;
+  const ability = feat ? (feat.ability ?? 'int') : spellcastingAbility(className, entry?.subclass);
   if (!ability) return null;
   const proficiency = sheetProficiencyBonus(sheet);
   const mod = abilityMod(sheet.abilities[ability] ?? 10);

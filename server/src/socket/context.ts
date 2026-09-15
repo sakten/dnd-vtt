@@ -228,7 +228,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       const sheet = room.sheets[selfId];
       if (!room.resources[selfId]) {
         const created = sheet
-          ? syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full')
+          ? syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full', sheet.choices)
           : emptyResources();
         if (sheet) {
           const hpMax = effectiveMaxHp(sheet);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FEATS, featByKey, featsByCategory, featChoiceEffects } from './feats';
+import { FEATS, featByKey, featsByCategory, featChoiceEffects, featSpellGrants } from './feats';
+import { casterStats } from './spellCast';
 
 describe('каталог фитов PHB24 (feats.json)', () => {
   it('Magic Initiate: три списка и выбор способности', () => {
@@ -43,5 +44,35 @@ describe('механики фитов из выборов', () => {
         [{ className: 'fighter', level: 1 }]
       )
     ).toEqual([]);
+  });
+});
+
+describe('заклинания фитов', () => {
+  it('featSpellGrants: заговоры и заклинание 1 круга — псевдокласс фита', () => {
+    const grants = featSpellGrants([
+      {
+        kind: 'feat',
+        key: 'XPHB:magicInitiate',
+        list: 'wizard',
+        ability: 'int',
+        spells: ['XPHB:Fire Bolt'],
+        spell: 'XPHB:Shield',
+      },
+    ]);
+    expect(grants).toEqual([
+      { key: 'XPHB:Fire Bolt', className: 'feat:XPHB:magicInitiate', level: 0 },
+      { key: 'XPHB:Shield', className: 'feat:XPHB:magicInitiate', level: 1 },
+    ]);
+  });
+
+  it('casterStats фита использует выбранную способность', () => {
+    const sheet = {
+      abilities: { str: 10, dex: 10, con: 10, int: 16, wis: 10, cha: 10 },
+      proficiencyBonus: '2',
+      classes: [],
+      choices: [{ kind: 'feat', key: 'XPHB:magicInitiate', list: 'wizard', ability: 'cha' }],
+    } as unknown as Parameters<typeof casterStats>[0];
+    const stats = casterStats(sheet, 'feat:XPHB:magicInitiate');
+    expect(stats).toMatchObject({ ability: 'cha', mod: 0, dc: 10 });
   });
 });

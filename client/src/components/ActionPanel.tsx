@@ -6,6 +6,7 @@ import {
   canSpendSlot,
   canUseFeature,
   featureSlot,
+  featFreeCastKeys,
   maxCastableForSpell,
   sortPanelSpells,
   spellSlotOf,
@@ -69,6 +70,7 @@ function Dots({ total, remaining, tone }: { total: number; remaining: number; to
 
 export default function ActionPanel() {
   const resources = useGameStore((s) => s.resources);
+  const sheet = useGameStore((s) => s.sheet);
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
   const spellByKey = useSpellByKey();
@@ -174,7 +176,12 @@ export default function ActionPanel() {
     const slot = spellSlotOf(spell);
     if (!isActive && slot !== 'reaction') return true;
     if (slot === 'reaction') {
-      const maxLevel = maxCastableForSpell(spell, { isCharacter, resources, token });
+      const maxLevel = maxCastableForSpell(spell, {
+        isCharacter,
+        resources,
+        token,
+        freeCastKeys: featFreeCastKeys(sheet, resources),
+      });
       if (spell.level > 0 && maxLevel < spell.level) return true;
       const t = isActive ? turn : ownTurn;
       if (t && !actionSlotAvailable(t, 'reaction')) return true;

@@ -80,3 +80,18 @@ export function featChoiceEffects(choices: FeatureChoice[] | undefined, classes:
   }
   return out;
 }
+
+/** Префикс псевдокласса заклинаний фита: `feat:XPHB:magicInitiate`. */
+export const FEAT_CAST_PREFIX = 'feat:';
+
+/** Заклинания, выданные фитами: заговоры (без лимита) и заклинание 1 круга (бесплатно 1/долгий отдых). */
+export function featSpellGrants(choices: FeatureChoice[] | undefined): { key: string; className: string; level: number }[] {
+  const out: { key: string; className: string; level: number }[] = [];
+  for (const choice of choices ?? []) {
+    if (choice.kind !== 'feat' || !choice.list) continue;
+    const className = `${FEAT_CAST_PREFIX}${choice.key}`;
+    for (const key of choice.spells ?? []) out.push({ key, className, level: 0 });
+    if (choice.spell) out.push({ key: choice.spell, className, level: 1 });
+  }
+  return out;
+}

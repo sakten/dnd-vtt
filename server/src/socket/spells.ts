@@ -1,6 +1,7 @@
 import {
   actionSlotAvailable,
   characterLevel,
+  featSpellGrants,
   isRecord,
   restrictionsFor,
   rollDice,
@@ -140,7 +141,16 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       return;
     }
 
-    if (spell.level > 0) {
+    // Magic Initiate: заклинание 1 круга можно скастовать бесплатно раз в долгий отдых.
+    const featGrant = sheet ? featSpellGrants(sheet.choices).find((g) => g.key === spellKey && g.level > 0) : undefined;
+    const featChargeKey = featGrant ? `${featGrant.className}:freeCast` : undefined;
+    const freeCast = !!featChargeKey && !!ctx.playerId && manager.hasResource(room, ctx.playerId, featChargeKey, 1);
+
+    if (spell.level > 0 && freeCast && featChargeKey) {
+      manager.spendResource(room, ctx.playerId!, featChargeKey, 1);
+      ctx.emitResources(room, ctx.playerId!);
+      ctx.systemMessage(room, `${token.name}: ${spell.name} — каст без ячейки (фит)`);
+    } else if (spell.level > 0) {
       if (className) {
         if (!manager.spendSpellSlot(room, ctx.playerId, castLevel)) {
           fail(ctx, 'noSlot');

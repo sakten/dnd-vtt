@@ -3,7 +3,7 @@ import { spellActionCost, spellAreaOrigin, spellAutomated, spellRangeFeet, type 
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { tokenById } from '../store/selectors';
-import { ACTION_COST_TEXT, castLevelsForSpell, spellCastInfo, type CasterInfo } from '../lib/actionRules';
+import { ACTION_COST_TEXT, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -27,7 +27,12 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
 
   const castToken = tokenById(map, tokenId);
   const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
-  const casterInfo: CasterInfo = { isCharacter: sheetCaster, resources, token: castToken ?? undefined };
+  const casterInfo: CasterInfo = {
+    isCharacter: sheetCaster,
+    resources,
+    token: castToken ?? undefined,
+    freeCastKeys: sheetCaster ? featFreeCastKeys(sheet, resources) : undefined,
+  };
   const [level, setLevel] = useState(() => castLevelsForSpell(spell, casterInfo)[0] ?? spell.level);
   const info = spellCastInfo(spell, level, {
     ...casterInfo,
