@@ -184,6 +184,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   },
   'monk:patientDefense': {
     trait: 'active',
+    name: 'Терпеливая оборона (Отход)',
     costs: ['bonus'],
     automation: {
       key: 'class:monk:patientDefense',
@@ -194,6 +195,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   },
   'monk:stepOfTheWind': {
     trait: 'active',
+    name: 'Шаг ветра (Рывок)',
     costs: ['bonus'],
     automation: {
       key: 'class:monk:stepOfTheWind',
@@ -229,6 +231,106 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
       utility: { kind: 'stepOfTheWind' },
     },
   },
+
+  // Жрец — ядро
+  'cleric:divineSpark': (classes) => {
+    const dice = clericLevel(classes) >= 18 ? '4d8' : clericLevel(classes) >= 13 ? '3d8' : clericLevel(classes) >= 7 ? '2d8' : '1d8';
+    return {
+      trait: 'active',
+      costs: ['action'],
+      targeting: { kind: 'creature', range: 30 },
+      resourceKey: 'cleric:channelDivinity',
+      automation: {
+        key: 'class:cleric:divineSpark',
+        name: 'Божественная искра',
+        resolution: 'save',
+        save: { ability: 'con', half: true },
+        damage: { dice: `${dice}+wis`, types: ['necrotic', 'radiant'] },
+        heal: { dice: `${dice}+wis` },
+      },
+    };
+  },
+  'cleric:turnUndead': (classes) => ({
+    trait: 'active',
+    costs: ['action'],
+    targeting: { kind: 'self' },
+    resourceKey: 'cleric:channelDivinity',
+    automation: {
+      key: 'class:cleric:turnUndead',
+      name: 'Изгнание нежити',
+      resolution: 'effect',
+      autoTargets: { feet: 30, side: 'hostile' },
+      save: { ability: 'wis' },
+      // Карающая нежить (5 ур.): кости по модификатору Мудрости, урон не снимает изгнание.
+      ...(clericLevel(classes) >= 5
+        ? { damage: { dice: '1d8', types: ['radiant'], abilityDice: { ability: 'wis', min: 1 } } }
+        : {}),
+      effects: [
+        {
+          name: 'Изгнание нежити',
+          duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+          to: 'targets',
+          wakeOnDamage: true,
+          modifiers: [],
+          conditions: ['frightened', 'incapacitated'],
+        },
+      ],
+    },
+  }),
+  'cleric:divineIntervention': {
+    trait: 'active',
+    costs: ['action'],
+    resourceKey: 'cleric:divineIntervention',
+    automation: {
+      key: 'class:cleric:divineIntervention',
+      name: 'Божественное вмешательство',
+      resolution: 'manual',
+    },
+  },
+
+  // Жрец — домены (XPHB)
+  'cleric.life:discipleOfLife': { trait: 'passive', native: true },
+  'cleric.life:blessedHealer': { trait: 'passive', native: true },
+  'cleric.life:preserveLife': (classes) => ({
+    trait: 'active',
+    costs: ['action'],
+    targeting: { kind: 'self' },
+    resourceKey: 'cleric:channelDivinity',
+    automation: {
+      key: 'class:cleric.life:preserveLife',
+      name: 'Поддержание жизни',
+      resolution: 'utility',
+      autoTargets: { feet: 30, side: 'ally' },
+      utility: { kind: 'healPool', amount: 5 * clericLevel(classes) },
+    },
+  }),
+  'cleric.light:wardingFlare': { trait: 'passive', native: true },
+  'cleric.light:improvedWardingFlare': { trait: 'passive', native: true },
+  'cleric.light:radianceOfTheDawn': (classes) => ({
+    trait: 'active',
+    costs: ['action'],
+    targeting: { kind: 'self' },
+    resourceKey: 'cleric:channelDivinity',
+    automation: {
+      key: 'class:cleric.light:radianceOfTheDawn',
+      name: 'Сияние рассвета',
+      resolution: 'save',
+      autoTargets: { feet: 30, side: 'hostile' },
+      save: { ability: 'con', half: true },
+      damage: { dice: `2d10+${clericLevel(classes)}`, types: ['radiant'] },
+    },
+  }),
+  'cleric.war:warPriest': {
+    trait: 'active',
+    costs: ['bonus'],
+    resourceKey: 'cleric.war:warPriest',
+    automation: {
+      key: 'class:cleric.war:warPriest',
+      name: 'Военный жрец',
+      resolution: 'utility',
+      utility: { kind: 'weaponAttack', amount: 1 },
+    },
+  },
 };
 
 function barbarianLevel(classes: ClassLevel[]): number {
@@ -237,6 +339,10 @@ function barbarianLevel(classes: ClassLevel[]): number {
 
 function monkLevel(classes: ClassLevel[]): number {
   return clampLevel(classes.find((c) => c.className === 'monk')?.level ?? 0);
+}
+
+function clericLevel(classes: ClassLevel[]): number {
+  return clampLevel(classes.find((c) => c.className === 'cleric')?.level ?? 0);
 }
 
 function permanent(name: string, modifiers: Omit<Modifier, 'id'>[]): AutomationEffect {

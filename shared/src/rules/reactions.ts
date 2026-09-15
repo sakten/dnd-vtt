@@ -44,11 +44,13 @@ export interface ReactionFeatureDef {
   subclass?: string;
   levelReq: number;
   trigger: ReactionTriggerKind;
-  kind: 'halveDamage' | 'acBonus' | 'disadvantage' | 'counterAttack' | 'reduceDamage' | 'acBonusAlly';
+  kind: 'halveDamage' | 'acBonus' | 'disadvantage' | 'counterAttack' | 'reduceDamage' | 'acBonusAlly' | 'rollBonus';
   resourceKey?: string;
   resourceAmount?: number;
   /** Максимальная дистанция до защищаемого союзника, футы. */
   rangeFeet?: number;
+  /** Готовый бонус к броску атаки (Направленный удар: +10). */
+  amount?: number;
   /** Кости эффекта (reduceDamage/acBonusAlly). */
   dice?: string;
   /** Плюс модификатор способности к снижению (Отражение атак, +Ловкость). */
@@ -136,6 +138,19 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     abilityBonus: 'dex',
     levelBonusClass: 'monk',
     redirect: { save: 'dex', meleeRangeFeet: 5, rangedRangeFeet: 60, martialArtsDice: 2 },
+  },
+  {
+    id: 'cleric.war:guidedStrike',
+    name: 'Направленный удар',
+    className: 'cleric',
+    subclass: 'war',
+    levelReq: 3,
+    trigger: 'attackMiss',
+    kind: 'rollBonus',
+    amount: 10,
+    resourceKey: 'cleric:channelDivinity',
+    resourceAmount: 1,
+    rangeFeet: 30,
   },
   {
     id: 'barbarian.berserker:retaliation',

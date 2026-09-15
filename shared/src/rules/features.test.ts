@@ -4,6 +4,7 @@ import { classFeatures } from './classActions';
 import { CLASSES, martialArtsDie } from './classes';
 import { featureActionAutomation, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
+import { reactionFeatures } from './reactions';
 
 /** Ресурсы, у которых нет пары в каталоге: кастомные ветки/подопции ядра. */
 const CUSTOM_RESOURCE_KEYS = new Set(['wizard.scribes:ritualMastery', 'wizard.scribes:manifestMindConjure']);
@@ -164,5 +165,84 @@ describe('каталог черт (features.json)', () => {
     expect(martialArtsDie(5)).toBe(8);
     expect(martialArtsDie(11)).toBe(10);
     expect(martialArtsDie(17)).toBe(12);
+  });
+
+  it('Божественная искра: лечение/урон по Мдр, 2d8 с 7 уровня, тратит Проведение', () => {
+    const at2 = featureActionAutomation('class:cleric:divineSpark', [{ className: 'cleric', level: 2 }]);
+    expect(at2?.heal).toEqual({ dice: '1d8+wis' });
+    expect(at2?.damage?.dice).toBe('1d8+wis');
+    expect(at2?.save).toEqual({ ability: 'con', half: true });
+    const at7 = featureActionAutomation('class:cleric:divineSpark', [{ className: 'cleric', level: 7 }]);
+    expect(at7?.heal?.dice).toBe('2d8+wis');
+    const button = classFeatures([{ className: 'cleric', level: 2 }]).find((a) => a.id === 'class:cleric:divineSpark');
+    expect(button?.costs).toEqual(['action']);
+    expect(button?.targeting).toEqual({ kind: 'creature', range: 30 });
+    expect(button?.resourceKey).toBe('cleric:channelDivinity');
+  });
+
+  it('Изгнание нежити: автоцели врагов в 30 фт, испуг+недееспособность, Карающая с 5 ур.', () => {
+    expect(featureActionAutomation('class:cleric:turnUndead', [{ className: 'cleric', level: 4 }])?.damage).toBeUndefined();
+    const def = featureActionAutomation('class:cleric:turnUndead', [{ className: 'cleric', level: 5 }]);
+    expect(def?.autoTargets).toEqual({ feet: 30, side: 'hostile' });
+    expect(def?.damage).toEqual({ dice: '1d8', types: ['radiant'], abilityDice: { ability: 'wis', min: 1 } });
+    expect(def?.effects?.[0]?.conditions).toEqual(['frightened', 'incapacitated']);
+    expect(def?.effects?.[0]?.wakeOnDamage).toBe(true);
+    const ids = classFeatures([{ className: 'cleric', level: 5 }]).map((a) => a.id);
+    expect(ids).toContain('class:cleric:turnUndead');
+    expect(ids).not.toContain('class:cleric:channelDivinity');
+  });
+
+  it('Божественное вмешательство: кнопка с 10 ур., ресурс 1/долгий отдых', () => {
+    const ids = classFeatures([{ className: 'cleric', level: 9 }]).map((a) => a.id);
+    expect(ids).not.toContain('class:cleric:divineIntervention');
+    const at10 = featureActionAutomation('class:cleric:divineIntervention', [{ className: 'cleric', level: 10 }]);
+    expect(at10?.resolution).toBe('manual');
+    const button = classFeatures([{ className: 'cleric', level: 10 }]).find((a) => a.id === 'class:cleric:divineIntervention');
+    expect(button?.resourceKey).toBe('cleric:divineIntervention');
+    expect(button?.costs).toEqual(['action']);
+  });
+
+  it('Поддержание жизни: пул 5×уровень по раненым союзникам в 30 фт', () => {
+    const def = featureActionAutomation('class:cleric.life:preserveLife', [
+      { className: 'cleric', level: 6, subclass: 'life' },
+    ]);
+    expect(def?.utility).toEqual({ kind: 'healPool', amount: 30 });
+    expect(def?.autoTargets).toEqual({ feet: 30, side: 'ally' });
+    expect(def?.resolution).toBe('utility');
+  });
+
+  it('Сияние рассвета: 2d10 + уровень жреца радиантом, CON-спас пополам', () => {
+    const def = featureActionAutomation('class:cleric.light:radianceOfTheDawn', [
+      { className: 'cleric', level: 3, subclass: 'light' },
+    ]);
+    expect(def?.damage).toEqual({ dice: '2d10+3', types: ['radiant'] });
+    expect(def?.save).toEqual({ ability: 'con', half: true });
+    expect(def?.autoTargets).toEqual({ feet: 30, side: 'hostile' });
+  });
+
+  it('Военный жрец: бонусная атака оружием; кнопки Ослепляющей вспышки нет (реакция)', () => {
+    const def = featureActionAutomation('class:cleric.war:warPriest', [
+      { className: 'cleric', level: 3, subclass: 'war' },
+    ]);
+    expect(def?.utility).toEqual({ kind: 'weaponAttack', amount: 1 });
+    const ids = classFeatures([{ className: 'cleric', level: 3, subclass: 'light' }]).map((a) => a.id);
+    expect(ids).not.toContain('class:cleric.light:wardingFlare');
+    expect(ids).toContain('class:cleric.light:radianceOfTheDawn');
+  });
+
+  it('Направленный удар: реакция +10 к промаху в 30 фт', () => {
+    const def = reactionFeatures([{ className: 'cleric', level: 3, subclass: 'war' }]).find(
+      (d) => d.id === 'cleric.war:guidedStrike'
+    );
+    expect(def).toMatchObject({ kind: 'rollBonus', amount: 10, trigger: 'attackMiss', rangeFeet: 30 });
+    expect(def?.resourceKey).toBe('cleric:channelDivinity');
+  });
+
+  it('Монах: в названиях бонусных действий видно, что они дают', () => {
+    const at2 = classFeatures([{ className: 'monk', level: 2 }]);
+    expect(at2.find((a) => a.id === 'class:monk:patientDefense')?.name).toBe('Терпеливая оборона (Отход)');
+    expect(at2.find((a) => a.id === 'class:monk:stepOfTheWind')?.name).toBe('Шаг ветра (Рывок)');
+    expect(at2.find((a) => a.id === 'class:monk:focus/patientDefense')?.name).toBe('Терпеливая оборона (Отход + Уклонение)');
+    expect(at2.find((a) => a.id === 'class:monk:focus/stepOfTheWind')?.name).toBe('Шаг ветра (Отход + Рывок)');
   });
 });

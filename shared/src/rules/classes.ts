@@ -234,7 +234,13 @@ export const CLASSES: Record<string, ClassDef> = {
         key: 'channelDivinity',
         name: 'Проведение божественности',
         reset: shortRest,
-        max: perLevel([0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3]),
+        max: perLevel([0, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4]),
+      },
+      {
+        key: 'divineIntervention',
+        name: 'Божественное вмешательство',
+        reset: always,
+        max: unlockAt(10),
       },
     ],
     subclasses: {

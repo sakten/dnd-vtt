@@ -1,7 +1,5 @@
 import {
-  abilityMod,
   actionSlotAvailable,
-  casterStats,
   characterLevel,
   grantedSpells,
   isRecord,
@@ -13,13 +11,13 @@ import {
   spellIsSelf,
   spellRangeFeet,
   tokensInArea,
-  type SpellStats,
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { findSpell } from '../spells';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
+import { spellStatsFor } from './spellStats';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { removeZonesOfSource } from './zones';
@@ -59,14 +57,8 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       return;
     }
 
-    let stats: SpellStats | null = null;
-    if (sheet && className) {
-      stats = casterStats(sheet, className);
-    } else if (token.statblock?.spellcasting) {
-      const sc = token.statblock.spellcasting;
-      const mod = abilityMod(token.statblock.abilities[sc.ability] ?? 10);
-      stats = { ability: sc.ability, mod, dc: sc.dc ?? 8 + mod, attack: sc.attack ?? mod };
-    }
+    // Боевые характеристики: лист персонажа (класс) или статблок монстра.
+    const stats = spellStatsFor(room, token, sheet && className ? className : undefined);
 
     const combat = manager.combatOf(room, mapId);
     const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);

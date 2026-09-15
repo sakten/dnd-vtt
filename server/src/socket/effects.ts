@@ -1,10 +1,10 @@
 import type { DiceRollResult, Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { pushRollMessage } from './messages';
+import { pushSaveMessage as pushSaveRoll } from './messages';
 import { removeZonesOfSource } from './zones';
 
-/** Сообщение-бросок спасброска в чат от имени системы. */
+/** Сообщение-бросок спасброска в чат от имени системы (обёртка над `messages`). */
 export function pushSaveMessage(
   ctx: ConnCtx,
   room: Room,
@@ -13,12 +13,7 @@ export function pushSaveMessage(
   success: boolean,
   author = 'Система'
 ) {
-  pushRollMessage(ctx, room, {
-    author,
-    roll,
-    kind: 'save',
-    params: { subject, saveOutcome: success ? 'success' : 'fail' },
-  });
+  return pushSaveRoll(ctx, room, { author, subject, roll, success });
 }
 
 /**

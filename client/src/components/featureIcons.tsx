@@ -22,6 +22,49 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
     </>
   ),
 
+  // Жрец
+  'class:cleric:divineSpark': (
+    <>
+      <path d="M12 3v4M5.6 5.6l2.8 2.8M18.4 5.6l-2.8 2.8" />
+      <circle cx="12" cy="14" r="5" />
+      <path d="M12 11v6M9.5 14h5" />
+    </>
+  ),
+  'class:cleric:turnUndead': (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" />
+      <path d="M10.5 13.5l1.5 2 1.5-2" />
+    </>
+  ),
+  'class:cleric:divineIntervention': (
+    <>
+      <path d="M4 6c2 1 5 1.5 8 1.5S18 7 20 6" />
+      <path d="M6 6v3.5C6 12 8.5 14 12 14s6-2 6-4.5V6" />
+      <path d="M12 14v5M8.5 19h7" />
+      <path d="M3 4l1.5 1.5M21 4l-1.5 1.5" />
+    </>
+  ),
+  'class:cleric.life:preserveLife': (
+    <>
+      <path d="M12 20s-7-4.4-7-9a3.7 3.7 0 0 1 7-1.6A3.7 3.7 0 0 1 19 11c0 4.6-7 9-7 9z" />
+      <path d="M12 9.5v5M9.5 12h5" />
+    </>
+  ),
+  'class:cleric.light:radianceOfTheDawn': (
+    <>
+      <path d="M4 18h16" />
+      <path d="M12 3v4M5.6 6.6l2.8 2.8M18.4 6.6l-2.8 2.8" />
+      <path d="M7 18a5 5 0 0 1 10 0" />
+    </>
+  ),
+  'class:cleric.war:warPriest': (
+    <>
+      <path d="M12 3l5 2.5V10c0 3-2 5.5-5 7-3-1.5-5-4-5-7V5.5z" />
+      <path d="M12 7v6M9.5 9h5" />
+    </>
+  ),
+
   // Монах
   'class:monk:bonusUnarmedStrike': (
     <>
@@ -34,15 +77,14 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
   ),
   'class:monk:patientDefense': (
     <>
-      <circle cx="12" cy="7" r="3" />
-      <path d="M4 20c2.5-4 5-6 8-6s5.5 2 8 6" />
-      <path d="M8 14l4 2 4-2" />
+      <path d="M19 5v14M15 5h4" />
+      <path d="M14 12H4M8 8l-4 4 4 4" />
     </>
   ),
   'class:monk:stepOfTheWind': (
     <>
-      <path d="M3 9h9a3 3 0 0 1 0 6H7" />
-      <path d="M6 12H3M11 6c3 0 5 1 7 3M13 20c4 0 7-2 8-6" />
+      <path d="M11 5l7 7-7 7" />
+      <path d="M4 5l7 7-7 7" />
     </>
   ),
   'class:monk:focus/flurryOfBlows': (
@@ -53,15 +95,14 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
   ),
   'class:monk:focus/patientDefense': (
     <>
-      <circle cx="12" cy="7" r="3" />
-      <path d="M4 20c2.5-4 5-6 8-6s5.5 2 8 6" />
-      <path d="M8 14l4 2 4-2" />
+      <path d="M12 3l5 2.2V10c0 3.2-2.2 5.6-5 6.8-2.8-1.2-5-3.6-5-6.8V5.2z" />
+      <path d="M14 12H6M9.5 8.5L6 12l3.5 3.5" />
     </>
   ),
   'class:monk:focus/stepOfTheWind': (
     <>
-      <path d="M3 9h9a3 3 0 0 1 0 6H7" />
-      <path d="M6 12H3M11 6c3 0 5 1 7 3M13 20c4 0 7-2 8-6" />
+      <path d="M13 5l6 7-6 7" />
+      <path d="M3 12h10M7 8l-4 4 4 4" />
     </>
   ),
   'class:monk.openHand:wholenessOfBody': (

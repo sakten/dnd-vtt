@@ -2,11 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   abilityMod,
   attackRidersFor,
-  autoFailSave,
   proficiencyBonus,
-  rollDice,
-  withAdvantage,
-  withRollParts,
   type AbilityKey,
   type AttackRiderDef,
   type EffectInstance,
@@ -15,7 +11,7 @@ import {
 import { controllerIdOfToken, hasResourceFor } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { pushRollMessage } from './messages';
+import { pushSaveMessage } from './messages';
 
 const USED_PREFIX = 'rider-used:';
 const RAGE_KEY = 'class:barbarian:rage';
@@ -131,15 +127,8 @@ function applyRiderSave(
 ): void {
   const save = rider.save;
   if (!save) return;
-  const parts = ctx.manager.savePartsForToken(room, target, save.ability);
-  const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
-  const success = !autoFailSave(target.conditions, save.ability) && roll.total >= dc;
-  pushRollMessage(ctx, room, {
-    author: attacker.name,
-    roll,
-    kind: 'save',
-    params: { subject: `${rider.name} · ${target.name}`, saveOutcome: success ? 'success' : 'fail' },
-  });
+  const { roll, success } = ctx.manager.rollSave(room, target, save.ability, dc, { conditionsAutoFail: true });
+  pushSaveMessage(ctx, room, { author: attacker.name, subject: `${rider.name} · ${target.name}`, roll, success });
   const id = randomUUID();
   const effect: EffectInstance = success
     ? {

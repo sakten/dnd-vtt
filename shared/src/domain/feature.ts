@@ -34,6 +34,8 @@ export type FeatureTrait = 'active' | 'passive' | 'choice';
 
 export interface FeatureMechanics {
   trait: FeatureTrait;
+  /** Имя кнопки-переопределение (если механика уточняет, что делает черта). */
+  name?: string;
   /** Активные: стоимость/таргетинг (приоритетнее FEATURE_META). */
   costs?: ActionCost[];
   targeting?: ActionTargeting;

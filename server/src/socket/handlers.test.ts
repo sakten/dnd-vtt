@@ -264,6 +264,253 @@ describe('action:use', () => {
     expect(room.resources.p1!.resources[0]!.current).toBe(0);
   });
 
+  it('Божественная искра: лечит союзника на 1d8 + Мдр и тратит Проведение', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'ally', x: 150, y: 100, hpMax: '30', hpCurrent: 20 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 2 }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // d8 = 5
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'class:cleric:divineSpark',
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(28); // 20 + 5 + Мдр 3
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+  });
+
+  it('Божественная искра: врагу CON-спас, при провале урон 1d8 + Мдр', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 2 }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValueOnce(0.6).mockReturnValue(0.1); // d8 = 5, d20 = 3
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'class:cleric:divineSpark',
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(22); // 30 − (5 + Мдр 3)
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+  });
+
+  it('Изгнание нежити: автоцели-враги в 30 фт, испуг+недееспособность и Карающая', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+        makeToken('t3', { faction: 'ally', x: 150, y: 150 }),
+        makeToken('t4', { faction: 'enemy', x: 100, y: 600, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 5 }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1, 3d8 = 3
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:cleric:turnUndead' });
+    rand.mockRestore();
+
+    const [, enemy, ally, far] = room.scene.maps[0]!.tokens;
+    expect(enemy!.hpCurrent).toBe(27); // 3d8 (по Мдр) радиантом
+    const turn = enemy!.effects.find((e) => e.name === 'Изгнание нежити');
+    expect(turn?.conditions).toEqual(['frightened', 'incapacitated']);
+    expect(turn?.duration).toMatchObject({ type: 'untilSave', ability: 'wis', dc: 14 });
+    expect(ally!.effects.length).toBe(0);
+    expect(far!.effects.length).toBe(0);
+    expect(far!.hpCurrent).toBe(30);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+  });
+
+  it('Сияние рассвета: автоцели-враги в 30 фт, CON-спас пополам, 2d10 + уровень', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+        makeToken('t3', { faction: 'ally', x: 150, y: 150 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 3, subclass: 'light' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // 2d10 = 2, d20 = 1 (провал)
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:cleric.light:radianceOfTheDawn' });
+    rand.mockRestore();
+
+    const [, enemy, ally] = room.scene.maps[0]!.tokens;
+    expect(enemy!.hpCurrent).toBe(25); // 30 − (2 + уровень 3)
+    expect(ally!.hpCurrent).toBe(0);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+  });
+
+  it('Поддержание жизни: пул 5×уровня лечит раненых союзников до половины максимума', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'ally', x: 150, y: 100, hpMax: '30', hpCurrent: 5 }),
+        makeToken('t3', { faction: 'ally', x: 150, y: 150, hpMax: '30', hpCurrent: 25 }),
+        makeToken('t4', { faction: 'enemy', x: 200, y: 100, hpMax: '30', hpCurrent: 5 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 6, subclass: 'life' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:cleric.life:preserveLife' });
+
+    const [, wounded, healthy, enemy] = room.scene.maps[0]!.tokens;
+    expect(wounded!.hpCurrent).toBe(15); // до половины максимума
+    expect(healthy!.hpCurrent).toBe(25); // не Bloodied — не тронут
+    expect(enemy!.hpCurrent).toBe(5);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+  });
+
+  it('Военный жрец: бонусное действие даёт одну атаку оружием и тратит ресурс', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 3, subclass: 'war' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        { id: 'r1', key: 'cleric.war:warPriest', name: 'Военный жрец', current: 3, max: 3, reset: 'short' },
+      ],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:cleric.war:warPriest' });
+
+    const turn = combatOf(room).turns.e1!;
+    expect(turn.attacksRemaining).toBeGreaterThanOrEqual(1);
+    expect(turn.bonusActionUsed).toBe(true);
+    expect(room.resources.p1!.resources[0]!.current).toBe(2);
+  });
+
   it('досягаемость: +10 фт в свой ход позволяет бить с 10 фт', () => {
     const sword: AttackEntry = {
       name: 'Меч',
@@ -837,6 +1084,42 @@ describe('зоны и концентрация', () => {
     expect(tokens[1]!.hpCurrent).toBeGreaterThan(10);
     expect(tokens[2]!.hpCurrent).toBeGreaterThan(5);
     expect(tokens[3]!.hpCurrent).toBe(30);
+  });
+
+  it('Ученик жизни и Целитель-благословенный добавляют 2 + круг к лечению', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'ally', x: 125, y: 100, hpMax: '30', hpCurrent: 5 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 6, subclass: 'life' }],
+      spells: [{ key: 'XPHB:Cure Wounds', className: 'cleric' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      hp: { current: 20, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 1, current: 1, max: 1 }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // 2d8 = 2
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Cure Wounds',
+      slotLevel: 1,
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(10); // 5 + 2d8 2 + (2 + круг 1)
+    expect(room.resources.p1!.hp.current).toBe(23); // Целитель-благословенный: +3
   });
 
   it('Hold Person с апкастом накрывает две цели', () => {
@@ -1930,6 +2213,59 @@ describe('реакции (R1)', () => {
 
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
     expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
+  });
+
+  it('Направленный удар: +10 к своему промаху без реакции, попадание и урон', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '15' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 3, subclass: 'war' }],
+      spells: [],
+      attacks: [melee('Молот', 'd20+5')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.3); // d20 = 7 (промах), d8 = 3
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:cleric.war:guidedStrike:self')
+    );
+    expect(offer).toBeDefined();
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'feature:cleric.war:guidedStrike:self' });
+    rand.mockRestore();
+
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(27); // 12 + 10 ≥ AC 15 → 1d8 3
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(false);
   });
 
   it('Absorb Elements уменьшает урон и даёт сопротивление типу', () => {

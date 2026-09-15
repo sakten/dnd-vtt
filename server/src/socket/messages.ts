@@ -41,3 +41,17 @@ export function pushTextMessage(ctx: ConnCtx, room: Room, text: string, author =
   ctx.broadcastAll('chat:message', message);
   return message;
 }
+
+/** Сообщение спасброска: метка «<subject> · успех/провал». */
+export function pushSaveMessage(
+  ctx: ConnCtx,
+  room: Room,
+  input: { author: string; subject: string; roll: DiceRollResult; success: boolean }
+): ChatMessage {
+  return pushRollMessage(ctx, room, {
+    author: input.author,
+    roll: input.roll,
+    kind: 'save',
+    params: { subject: input.subject, saveOutcome: input.success ? 'success' : 'fail' },
+  });
+}

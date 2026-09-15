@@ -2,12 +2,9 @@ import { randomUUID } from 'node:crypto';
 import {
   abilityMod,
   absorbTypesOf,
-  autoFailSave,
-  casterStats,
   characterLevel,
   COUNTERSPELL,
   grantedSpells,
-  gridDistanceFeet,
   hostileTokens as hostile,
   isIncapacitated,
   martialArtsDie,
@@ -20,8 +17,6 @@ import {
   rollDice,
   spellEffectDefs,
   superiorityDie,
-  withAdvantage,
-  withRollParts,
   type AttackEntry,
   type EffectInstance,
   type ReactionFeatureDef,
@@ -33,10 +28,11 @@ import {
 import type { Room } from '../roomTypes';
 import { isDmViewer, type ConnCtx } from './context';
 import { findSpell } from '../spells';
-import { controllerIdOfToken, hasResourceFor } from '../rooms';
+import { controllerIdOfToken, gridSizeOf, hasResourceFor, sheetOfToken, withinFeet } from '../rooms';
 import { applyDamage } from './damage';
 import { availableChoiceRiders } from './attackRiders';
-import { pushRollMessage } from './messages';
+import { pushRollMessage, pushSaveMessage } from './messages';
+import { spellClassFor, spellStatsFor } from './spellStats';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from './spellResolve';
 import {
   applyWeaponAttackDamage,
@@ -218,6 +214,12 @@ class ReactionQueue {
   }
 
   private optionPayable(ctx: ConnCtx, room: Room, mapId: string, token: Token, option: ReactionOption): boolean {
+    // «Для себя» (Направленный удар по своей атаке) — без слота реакции, только ресурс.
+    if (option.kind === 'feature' && option.id.endsWith(':self')) {
+      if (!option.resourceKey) return true;
+      const cid = controllerIdOfToken(room, token);
+      return !!cid && hasResourceFor(room, cid, option.resourceKey, option.resourceAmount ?? 1);
+    }
     if (!reactionSlotFree(ctx.manager, room, mapId, token)) return false;
     if (option.kind === 'opportunity') return true;
     if (option.kind === 'spell') {
@@ -335,8 +337,7 @@ function reactionSlotFree(manager: ConnCtx['manager'], room: Room, mapId: string
 
 /** Заклинания токена: лист персонажа/выданные или список статблока. */
 function knownSpellKeys(room: Room, token: Token): string[] {
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
+  const { sheet } = sheetOfToken(room, token);
   if (sheet) {
     const keys = new Set<string>();
     for (const s of sheet.spells) keys.add(s.key);
@@ -368,8 +369,7 @@ function hasPayableSpecial(manager: ConnCtx['manager'], room: Room, mapId: strin
   }
   // Реакционные черты (Рипост, Парирование, Невероятное уклонение…) — тоже варианты:
   // окно открываем, чтобы игрок мог отказаться от OA и сохранить реакцию.
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
+  const { controllerId: cid, sheet } = sheetOfToken(room, token);
   if (!cid || !sheet) return false;
   return reactionFeatures(sheet.classes).some(
     (def) => !def.resourceKey || hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)
@@ -390,19 +390,8 @@ function reactionSpellOptions(room: Room, token: Token, trigger: ReactionTrigger
 
 /** Боевые характеристики кастера для эффектов реакции. */
 function statsForCaster(room: Room, token: Token, spellKey: string) {
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
-  if (sheet) {
-    const own = sheet.spells.find((s) => s.key === spellKey);
-    const className = own?.className ?? grantedSpells(sheet.classes).find((g) => g.key === spellKey)?.className;
-    if (className) return casterStats(sheet, className);
-  }
-  const sc = token.statblock?.spellcasting;
-  if (sc) {
-    const mod = abilityMod(token.statblock?.abilities[sc.ability] ?? 10);
-    return { ability: sc.ability, mod, dc: sc.dc ?? 8 + mod, attack: sc.attack ?? mod };
-  }
-  return null;
+  const { sheet } = sheetOfToken(room, token);
+  return spellStatsFor(room, token, sheet ? spellClassFor(sheet, spellKey) : undefined);
 }
 
 /** Бонус к AC от эффектов варианта (Shield +5); 0 — если неизвестно. */
@@ -432,9 +421,8 @@ function applyReactionChoice(
   const token = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
   if (!spell || !token) return;
 
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
-  const stats = statsForCaster(room, token, key);
+  const { controllerId: cid, sheet } = sheetOfToken(room, token);
+  const stats = spellStatsFor(room, token, sheet ? spellClassFor(sheet, key) : undefined);
   const input: SpellCastInput = {
     caster: token,
     mapId: choice.mapId,
@@ -492,8 +480,7 @@ function availableFeatureReactions(
   token: Token,
   trigger: ReactionTriggerKind
 ): ReactionFeatureDef[] {
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
+  const { controllerId: cid, sheet } = sheetOfToken(room, token);
   if (!cid || !sheet) return [];
   return reactionFeatures(sheet.classes).filter((def) => {
     if (def.trigger !== trigger) return false;
@@ -503,8 +490,7 @@ function availableFeatureReactions(
 }
 
 function classLevelOf(room: Room, token: Token, className: string): number {
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
+  const { sheet } = sheetOfToken(room, token);
   return sheet?.classes.find((c) => c.className === className)?.level ?? 0;
 }
 
@@ -523,6 +509,40 @@ function featureOption(def: ReactionFeatureDef, room: Room, token: Token): React
     resourceKey: def.resourceKey,
     resourceAmount: def.resourceAmount,
   };
+}
+
+/** Черта-реакция по id варианта: ищем по триггерам (attackMiss/damage и т.п.). */
+function findFeatureReaction(
+  room: Room,
+  token: Token,
+  triggers: ReactionTriggerKind[],
+  id: string
+): ReactionFeatureDef | undefined {
+  for (const trigger of triggers) {
+    const def = availableFeatureReactions(room, token, trigger).find((d) => d.id === id);
+    if (def) return def;
+  }
+  return undefined;
+}
+
+/** Оффер окна реакции: токен + его варианты-черты. */
+function featureOffer(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  token: Token,
+  defs: ReactionFeatureDef[]
+): ReactionOfferInput {
+  return {
+    token,
+    audience: audienceOf(ctx, room, mapId, token),
+    options: defs.map((def) => featureOption(def, room, token)),
+  };
+}
+
+/** Токен, выбравший вариант в окне реакции. */
+function choiceToken(ctx: ConnCtx, room: Room, choice: ReactionChoice): Token | null {
+  return ctx.manager.findToken(room, choice.mapId, choice.tokenId);
 }
 
 /** Тратит реакцию и ресурс черты (сначала проверка обоих). */
@@ -553,7 +573,7 @@ function applyAttackRollChoices(
   for (const choice of choices) {
     if (choice.optionId?.startsWith('feature:')) {
       const id = choice.optionId.slice('feature:'.length);
-      const def = availableFeatureReactions(room, target, 'attackRoll').find((d) => d.id === id);
+      const def = findFeatureReaction(room, target, ['attackRoll'], id);
       if (!def || def.kind !== 'disadvantage') continue;
       if (imposed) continue; // помеха не складывается — остальным ресурс не тратим
       if (!spendFeatureCost(ctx, room, target, choice.mapId, def)) continue;
@@ -574,12 +594,9 @@ function applyCounterAttack(
 ): void {
   if (!opponent) return;
   const id = choice.optionId?.startsWith('feature:') ? choice.optionId.slice('feature:'.length) : '';
-  const reactor = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
+  const reactor = choiceToken(ctx, room, choice);
   if (!reactor) return;
-  const def = [
-    ...availableFeatureReactions(room, reactor, 'attackMiss'),
-    ...availableFeatureReactions(room, reactor, 'damage'),
-  ].find((d) => d.id === id);
+  const def = findFeatureReaction(room, reactor, ['attackMiss', 'damage'], id);
   if (!def || def.kind !== 'counterAttack') return;
   if (!spendFeatureCost(ctx, room, reactor, choice.mapId, def)) return;
   const attack = opportunityAttack(ctx, room, reactor);
@@ -619,19 +636,12 @@ function preRollOffers(ctx: ConnCtx, room: Room, prep: WeaponAttackPrep): Reacti
   if (!target || !input.targetMapId || !input.attacker || target.id === input.attacker.id) return [];
   if (!input.targetMapId) return [];
   if (!reactionSlotFree(ctx.manager, room, input.targetMapId, target)) return [];
-  const size = room.scene.grid.size || 50;
   const features = availableFeatureReactions(room, target, 'attackRoll').filter((def) => {
     if (def.kind !== 'disadvantage') return false;
-    return gridDistanceFeet(target, input.attacker!, size) <= 30;
+    return withinFeet(room, target, input.attacker!, 30);
   });
   if (!features.length) return [];
-  return [
-    {
-      token: target,
-      audience: audienceOf(ctx, room, input.targetMapId, target),
-      options: features.map((def) => featureOption(def, room, target)),
-    },
-  ];
+  return [featureOffer(ctx, room, input.targetMapId, target, features)];
 }
 
 /** Отражение атак: удар полностью погашен — окно «потратить 1 фокус и перенаправить». */
@@ -650,9 +660,8 @@ function openRedirectWindow(
   const def = availableFeatureReactions(room, monk, 'attackHit').find((d) => d.id === 'monk:deflectAttacks');
   if (!def?.redirect) return;
   const melee = plan.attack.rangeType !== 'ranged';
-  const size = room.scene.grid.size || 50;
-  const distance = gridDistanceFeet(monk, attacker, size);
-  if (distance > (melee ? def.redirect.meleeRangeFeet : def.redirect.rangedRangeFeet)) return;
+  const reach = melee ? def.redirect.meleeRangeFeet : def.redirect.rangedRangeFeet;
+  if (!withinFeet(room, monk, attacker, reach)) return;
 
   openReactionWindow(ctx, room, {
     mapId,
@@ -697,7 +706,7 @@ function applyDeflectRedirect(
   const monk = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
   const attacker = plan.attacker;
   if (!monk || !attacker || !def.redirect) return;
-  const cid = controllerIdOfToken(room, monk);
+  const { controllerId: cid, sheet } = sheetOfToken(room, monk);
   if (!cid || !hasResourceFor(room, cid, 'monk:focus', 1)) return;
   ctx.manager.spendResource(room, cid, 'monk:focus', 1);
   ctx.emitResources(room, cid);
@@ -706,18 +715,11 @@ function applyDeflectRedirect(
   const die = martialArtsDie(level);
   const abilities = (ctx.manager.abilitiesForToken(room, monk) ?? {}) as Partial<Record<string, number>>;
   const dexMod = abilityMod(abilities.dex ?? 10);
-  const totalLevel = (room.sheets[cid]?.classes ?? []).reduce((acc, c) => acc + Math.max(1, c.level), 0);
+  const totalLevel = (sheet?.classes ?? []).reduce((acc, c) => acc + Math.max(1, c.level), 0);
   const dc = 8 + proficiencyBonus(totalLevel) + abilityMod(abilities.wis ?? 10);
 
-  const parts = ctx.manager.savePartsForToken(room, attacker, def.redirect.save);
-  const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
-  const success = !autoFailSave(attacker.conditions, def.redirect.save) && roll.total >= dc;
-  pushRollMessage(ctx, room, {
-    author: monk.name,
-    roll,
-    kind: 'save',
-    params: { subject: `Отражение атак · ${attacker.name}`, saveOutcome: success ? 'success' : 'fail' },
-  });
+  const { roll, success } = ctx.manager.rollSave(room, attacker, def.redirect.save, dc, { conditionsAutoFail: true });
+  pushSaveMessage(ctx, room, { author: monk.name, subject: `Отражение атак · ${attacker.name}`, roll, success });
   if (!success) {
     const expr = `${def.redirect.martialArtsDice}d${die}${dexMod ? (dexMod > 0 ? `+${dexMod}` : `${dexMod}`) : ''}`;
     const damageRoll = rollDice(expr);
@@ -833,8 +835,7 @@ export function registerReactionHandlers(ctx: ConnCtx) {
 }
 
 function meleeAttacks(room: Room, token: Token): AttackEntry[] {
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
+  const { sheet } = sheetOfToken(room, token);
   const list = sheet ? sheet.attacks : token.attacks;
   return list.filter((a) => a.hit && (a.rangeType === 'melee' || a.rangeType === 'none'));
 }
@@ -843,8 +844,7 @@ function meleeAttacks(room: Room, token: Token): AttackEntry[] {
 function opportunityAttack(ctx: ConnCtx, room: Room, token: Token): AttackEntry | null {
   const melee = meleeAttacks(room, token);
   if (melee[0]) return melee[0];
-  const cid = controllerIdOfToken(room, token);
-  const sheet = cid ? room.sheets[cid] : undefined;
+  const { sheet } = sheetOfToken(room, token);
   if (!sheet) return null;
   const mod = ctx.manager.abilityModForToken(room, token, 'str');
   return {
@@ -897,7 +897,7 @@ export function triggerOpportunityAttacks(
   if (!map || path.length < 2) return;
   // «Отход»: движение в этом ходу не провоцирует атаки по возможности.
   if (ctx.manager.turnForToken(room, mapId, mover)?.disengaged) return;
-  const size = room.scene.grid.size || 50;
+  const size = gridSizeOf(room);
 
   const offers: ReactionOfferInput[] = [];
   for (const reactor of map.tokens) {
@@ -950,13 +950,12 @@ const { key: COUNTERSPELL_KEY, level: COUNTERSPELL_LEVEL, rangeFeet: COUNTERSPEL
 function counterspellOffers(ctx: ConnCtx, room: Room, input: SpellCastInput): ReactionOfferInput[] {
   const map = ctx.manager.findMap(room, input.mapId);
   if (!map) return [];
-  const grid = room.scene.grid.size || 50;
   const offers: ReactionOfferInput[] = [];
   for (const reactor of map.tokens) {
     if (reactor.id === input.caster.id) continue;
     if (!hostile(reactor, input.caster)) continue;
     if (isIncapacitated(reactor.conditions)) continue;
-    if (gridDistanceFeet(reactor, input.caster, grid) > COUNTERSPELL_RANGE_FEET) continue;
+    if (!withinFeet(room, reactor, input.caster, COUNTERSPELL_RANGE_FEET)) continue;
     if (!reactionSlotFree(ctx.manager, room, map.id, reactor)) continue;
     if (!knownSpellKeys(room, reactor).includes(COUNTERSPELL_KEY)) continue;
     if (!spellPayable(room, reactor, COUNTERSPELL_LEVEL, COUNTERSPELL_KEY)) continue;
@@ -1034,10 +1033,9 @@ function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, target: T
   if (isReactionPending(room.code)) return;
   if (isIncapacitated(target.conditions)) return;
   if (!reactionSlotFree(ctx.manager, room, mapId, target)) return;
-  const size = room.scene.grid.size || 50;
   const features = availableFeatureReactions(room, target, 'damage').filter((def) => {
     if (def.kind !== 'counterAttack') return false;
-    if (def.rangeFeet && gridDistanceFeet(target, source, size) > def.rangeFeet) return false;
+    if (def.rangeFeet && !withinFeet(room, target, source, def.rangeFeet)) return false;
     return true;
   });
   const options: ReactionOption[] = [
@@ -1063,6 +1061,63 @@ function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, target: T
       ctx.syncCombat(currentRoom, mapId);
     },
   });
+}
+
+/** Офферы Направленного удара (+10 к промаху): сам атакующий (без реакции) и союзники в 30 фт. */
+function rollBonusOffers(ctx: ConnCtx, room: Room, plan: WeaponAttackPlan): ReactionOfferInput[] {
+  const attacker = plan.attacker;
+  const attackerMapId = plan.attackerMapId;
+  if (!attacker || !attackerMapId) return [];
+  const offers: ReactionOfferInput[] = [];
+  for (const helper of ctx.manager.findMap(room, attackerMapId)?.tokens ?? []) {
+    const self = helper.id === attacker.id;
+    if (!self) {
+      if (isIncapacitated(helper.conditions)) continue;
+      if (!reactionSlotFree(ctx.manager, room, attackerMapId, helper)) continue;
+    }
+    const defs = availableFeatureReactions(room, helper, 'attackMiss').filter((def) => {
+      if (def.kind !== 'rollBonus') return false;
+      if (!self && def.rangeFeet && !withinFeet(room, helper, attacker, def.rangeFeet)) return false;
+      return true;
+    });
+    if (!defs.length) continue;
+    offers.push({
+      token: helper,
+      audience: audienceOf(ctx, room, attackerMapId, helper),
+      options: defs.map((def) => ({
+        ...featureOption(def, room, helper),
+        ...(self ? { id: `feature:${def.id}:self`, name: `${def.name} (без реакции)` } : {}),
+      })),
+    });
+  }
+  return offers;
+}
+
+/** Тратит ресурсы выбранных Направленных ударов; возвращает суммарный бонус к броску. */
+function applyRollBonusChoices(ctx: ConnCtx, room: Room, plan: WeaponAttackPlan, choices: ReactionChoice[]): number {
+  let bonus = 0;
+  for (const choice of choices) {
+    const id = choice.optionId ?? '';
+    if (!id.startsWith('feature:')) continue;
+    const key = id.slice('feature:'.length);
+    const self = key.endsWith(':self');
+    const defId = self ? key.slice(0, -':self'.length) : key;
+    const owner = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
+    if (!owner) continue;
+    const def = availableFeatureReactions(room, owner, 'attackMiss').find((d) => d.id === defId && d.kind === 'rollBonus');
+    if (!def) continue;
+    const cid = controllerIdOfToken(room, owner);
+    if (self) {
+      if (def.resourceKey) {
+        if (!cid || !hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)) continue;
+        ctx.manager.spendResource(room, cid, def.resourceKey, def.resourceAmount ?? 1);
+        ctx.emitResources(room, cid);
+      }
+    } else if (!spendFeatureCost(ctx, room, owner, choice.mapId, def)) continue;
+    bonus += def.amount ?? 0;
+    ctx.systemMessage(room, `${owner.name}: ${def.name} (+${def.amount ?? 0} к броску)`);
+  }
+  return bonus;
 }
 
 /** Фазы после броска: промах → attackMiss, попадание → attackHit, затем урон. */
@@ -1135,29 +1190,39 @@ function continueAfterRoll(
     return result;
   }
 
-  // Промах: Ответный удар (Riposte) и подобные.
+  // Промах: Ответный удар цели (реакция) и Направленный удар (+10; свой — без реакции).
   if (result.hitSuccess === false && target && targetMapId) {
     const melee = plan.attack.rangeType !== 'ranged';
-    const features = availableFeatureReactions(room, target, 'attackMiss');
+    const features = availableFeatureReactions(room, target, 'attackMiss').filter((def) => def.kind === 'counterAttack');
+    const offers: ReactionOfferInput[] = [];
     if (melee && features.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
+      offers.push({
+        token: target,
+        audience: audienceOf(ctx, room, targetMapId, target),
+        options: features.map((def) => featureOption(def, room, target)),
+      });
+    }
+    offers.push(...rollBonusOffers(ctx, room, plan));
+    if (offers.length) {
       const opened = openReactionWindow(ctx, room, {
         mapId: targetMapId,
         trigger: 'attackMiss',
         sourceName: plan.attacker?.name,
-        offers: [
-          {
-            token: target,
-            audience: audienceOf(ctx, room, targetMapId, target),
-            options: features.map((def) => featureOption(def, room, target)),
-          },
-        ],
+        offers,
         resume: (choices) => {
           const currentRoom = ctx.getRoom();
           if (!currentRoom) return;
           for (const choice of choices) {
             if (choice.optionId?.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, plan.attacker);
           }
+          const bonus = applyRollBonusChoices(ctx, currentRoom, plan, choices);
           ctx.syncCombat(currentRoom, targetMapId);
+          if (bonus > 0) {
+            plan.penalty += bonus;
+            plan.hitSuccess = true;
+            result.hitSuccess = true;
+            if (!openHitWindows()) applyDamageWithRiders();
+          }
         },
       });
       if (opened) return result;
@@ -1165,8 +1230,9 @@ function continueAfterRoll(
     return result;
   }
 
-  // Попадание: Shield/черты цели перед уроном.
-  if (target && targetMapId && result.hitSuccess === true && !result.crit) {
+  // Попадание: Shield/черты цели перед уроном (объявление — после промаха тоже зовёт).
+  function openHitWindows(): boolean {
+    if (!target || !targetMapId || result.hitSuccess !== true || result.crit) return false;
     const ac = ctx.manager.acForToken(room, target);
     const total = result.hitRoll ? result.hitRoll.total + plan.penalty : 0;
     const melee = plan.attack.rangeType !== 'ranged';
@@ -1193,7 +1259,6 @@ function continueAfterRoll(
     });
     const options: ReactionOption[] = [...spellOpts, ...features.map((def) => featureOption(def, room, target))];
     // Опции защитников-союзников: Щит духов (снижение урона) и Защитный манёвр (+AC).
-    const size = room.scene.grid.size || 50;
     const helperOffers: ReactionOfferInput[] = [];
     for (const helper of ctx.manager.findMap(room, targetMapId)?.tokens ?? []) {
       if (helper.id === target.id || helper.id === plan.attacker?.id) continue;
@@ -1201,16 +1266,12 @@ function continueAfterRoll(
       if (!reactionSlotFree(ctx.manager, room, targetMapId, helper)) continue;
       const defs = availableFeatureReactions(room, helper, 'attackHit').filter((def) => {
         if (def.kind !== 'reduceDamage' && def.kind !== 'acBonusAlly') return false;
-        if (def.rangeFeet && gridDistanceFeet(helper, target, size) > def.rangeFeet) return false;
+        if (def.rangeFeet && !withinFeet(room, helper, target, def.rangeFeet)) return false;
         if (def.kind === 'reduceDamage') return total > 0;
         return total < ac + diceMax(def.dice);
       });
       if (!defs.length) continue;
-      helperOffers.push({
-        token: helper,
-        audience: audienceOf(ctx, room, targetMapId, helper),
-        options: defs.map((def) => featureOption(def, room, helper)),
-      });
+      helperOffers.push(featureOffer(ctx, room, targetMapId, helper, defs));
     }
     const offers: ReactionOfferInput[] = [];
     if (options.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
@@ -1239,10 +1300,12 @@ function continueAfterRoll(
           applyDamageWithRiders(mods);
         },
       });
-      if (opened) return result;
+      if (opened) return true;
     }
+    return false;
   }
 
+  if (openHitWindows()) return result;
   applyDamageWithRiders();
   return result;
 }

@@ -2,6 +2,7 @@ import {
   abilityMod,
   actionSlotAvailable,
   automationForAction,
+  casterStats,
   classFeatures,
   featureActionAutomation,
   findBaseAction,
@@ -200,13 +201,17 @@ export function registerActionHandlers(ctx: ConnCtx) {
           if (found) targets.push(found);
         }
         if (!targets.length && def.targeting?.kind === 'self') targets.push(token);
+        // Классовые черты со спасбросками (Изгнание нежити, Сияние рассвета): СЛ из листа.
+        const classKey = actionId.startsWith('class:') ? actionId.slice('class:'.length).split(/[:.]/)[0] : undefined;
+        const stats = sheet && classKey ? casterStats(sheet, classKey) : null;
         executeAutomation(ctx, {
           caster: token,
           mapId,
           def: { ...def, name: action.name },
           targets,
-          stats: null,
+          stats,
           author,
+          manual: { description: action.description ? [action.description] : undefined },
         });
         return;
       }

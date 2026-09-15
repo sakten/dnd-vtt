@@ -33,7 +33,15 @@ import {
   tokenById,
 } from './room/helpers';
 
-export { controllerIdOfItem, controllerIdOfToken, hasResourceFor, roomUploadUrls } from './room/helpers';
+export {
+  controllerIdOfItem,
+  controllerIdOfToken,
+  gridSizeOf,
+  hasResourceFor,
+  roomUploadUrls,
+  sheetOfToken,
+  withinFeet,
+} from './room/helpers';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 

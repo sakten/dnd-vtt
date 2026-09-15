@@ -23,6 +23,7 @@ const POOL_KEYS = new Set<string>([
   'fighter.battleMaster:superiorityDice',
   'fighter.psiWarrior:psionicEnergyDice',
   'rogue.soulknife:psionicEnergyDice',
+  'cleric:channelDivinity',
 ]);
 
 /** Ресурсы без активируемого в бою применения (отдых/пассивка) — кнопкой не становятся. */
@@ -71,7 +72,7 @@ const FEATURE_META: Record<string, FeatureMeta> = {
   'cleric:channelDivinity': { costs: ['action'] },
   'cleric.light:wardingFlare': { costs: ['reaction'], targeting: { kind: 'creature', range: 30 } },
   'cleric.light:coronaOfLight': { costs: ['action'] },
-  'cleric.war:warPriest': { costs: ['bonus'], targeting: { kind: 'creature' } },
+  'cleric.war:warPriest': { costs: ['bonus'] },
   'cleric.forge:blessingOfTheForge': {},
   'cleric.grave:sentinelAtDeathsDoor': { costs: ['reaction'], targeting: { kind: 'creature', range: 30 } },
   'cleric.order:embodimentOfTheLaw': { costs: ['bonus'] },
@@ -199,8 +200,8 @@ interface NamedFeature extends ActionDef {
 /** Именованные черты, тратящие ресурсы-пулы, а также не привязанные к одному ресурсу. */
 const NAMED_FEATURES: NamedFeature[] = [
   { id: featureId('monk:focus/flurryOfBlows'), name: 'Шквал ударов', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], targeting: { kind: 'creature' }, resourceKey: 'monk:focus', resourceAmount: 1 },
-  { id: featureId('monk:focus/patientDefense'), name: 'Терпеливая оборона', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
-  { id: featureId('monk:focus/stepOfTheWind'), name: 'Шаг ветра', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
+  { id: featureId('monk:focus/patientDefense'), name: 'Терпеливая оборона (Отход + Уклонение)', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
+  { id: featureId('monk:focus/stepOfTheWind'), name: 'Шаг ветра (Отход + Рывок)', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
   { id: featureId('sorcerer:sorceryPoints/metamagic'), name: 'Метамагия', source: 'class', className: 'sorcerer', levelReq: 2, costs: ['special'], resourceKey: 'sorcerer:sorceryPoints', resourceAmount: 1 },
   { id: featureId('fighter.battleMaster:superiorityDice/maneuver'), name: 'Манёвр', source: 'subclass', className: 'fighter', subclass: 'battleMaster', levelReq: 3, costs: ['special'], targeting: { kind: 'creature' }, resourceKey: 'fighter.battleMaster:superiorityDice', resourceAmount: 1 },
 ];
@@ -233,7 +234,7 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
         seen.add(id);
         out.push({
           id,
-          name: catalog?.name ?? meta.name ?? r.name,
+          name: mech?.name ?? catalog?.name ?? meta.name ?? r.name,
           source,
           costs: mech?.costs ?? meta.costs ?? ['special'],
           targeting: mech?.targeting ?? meta.targeting,
@@ -275,8 +276,8 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
     if (seen.has(id)) continue;
     seen.add(id);
     out.push({
-      id,
-      name: feature.name,
+      id: featureId(feature.key),
+      name: mech.name ?? feature.name,
       source: feature.subclass ? 'subclass' : 'class',
       costs: mech.costs ?? ['special'],
       targeting: mech.targeting,

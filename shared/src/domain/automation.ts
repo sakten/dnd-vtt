@@ -29,6 +29,8 @@ export interface AutomationDice {
   types?: string[];
   /** Прибавка за уровень класса (Second Wind: `1d10` + уровень воина). */
   classLevelBonus?: { className: string; per?: number };
+  /** Число костей = модификатор характеристики, минимум `min` (Sear Undead: кd8 по Мдр). */
+  abilityDice?: { ability: AbilityKey; min?: number };
 }
 
 export interface AutomationEffect {
@@ -149,7 +151,16 @@ export interface SummonDef {
 }
 
 export interface AutomationUtility {
-  kind: 'extraAction' | 'extraMovement' | 'disengage' | 'check' | 'extraAttacks' | 'patientDefense' | 'stepOfTheWind';
+  kind:
+    | 'extraAction'
+    | 'extraMovement'
+    | 'disengage'
+    | 'check'
+    | 'extraAttacks'
+    | 'weaponAttack'
+    | 'healPool'
+    | 'patientDefense'
+    | 'stepOfTheWind';
   amount?: number;
   ability?: AbilityKey;
 }
@@ -167,6 +178,8 @@ export interface AutomationDef extends AutomationPayload {
   area?: AreaSpec;
   /** Массовая цель без области: до N существ (Mass Healing Word — 6). */
   targets?: number;
+  /** Автосбор целей в радиусе от кастера (черты без мультивыбора): враги или союзники. */
+  autoTargets?: { feet: number; side: 'hostile' | 'ally' };
   /** Стоимость/цель черты (для классовых действий). */
   costs?: ActionCost[];
   targeting?: ActionTargeting;
