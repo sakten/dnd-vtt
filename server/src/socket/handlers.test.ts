@@ -340,6 +340,32 @@ describe('action:use', () => {
     expect(f.manager.canAttack(room, 'm1', tk)).toBe(false);
   });
 
+  it('Безоружный удар монаха: атака действием, запас Extra Attack и Шквала', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 5 }], spells: [] };
+    room.resources.p1 = casterResources();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 = 19 — попадание
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike', targetIds: ['t2'] });
+    const turn = combatOf(room).turns.e1!;
+    expect(turn.actionUsed).toBe(true);
+    expect(turn.attacksRemaining).toBe(1); // Extra Attack монаха 5
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack')).toBe(true);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike', targetIds: ['t2'] });
+    expect(turn.attacksRemaining).toBe(0);
+
+    turn.flurryAttacks = 1;
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike', targetIds: ['t2'] });
+    rand.mockRestore();
+    expect(turn.flurryAttacks).toBe(0);
+  });
+
   it('Ошеломляющий удар: метка, CON-спас и stunned', () => {
     const room = makeRoom(
       [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })],

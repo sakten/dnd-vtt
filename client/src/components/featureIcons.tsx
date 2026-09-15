@@ -23,6 +23,15 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
   ),
 
   // Монах
+  'class:monk:bonusUnarmedStrike': (
+    <>
+      <path d="M7 11V9.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M10 11V8.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M13 11V9a1.5 1.5 0 0 1 3 0v2" />
+      <path d="M7 11h9v2.5a4.5 4.5 0 0 1-4.5 4.5h-1A3.5 3.5 0 0 1 7 14.5z" />
+      <path d="M19 6l1.5 1.5L22 6M19 10h3" />
+    </>
+  ),
   'class:monk:focus/flurryOfBlows': (
     <>
       <path d="M4 20L10 8M10 21L15 7M16 20L21 6" />

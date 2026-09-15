@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { attackRidersFor } from './attackRiders';
+import { classFeatures } from './classActions';
 import { CLASSES, martialArtsDie } from './classes';
 import { featureActionAutomation, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
@@ -126,6 +127,14 @@ describe('каталог черт (features.json)', () => {
     expect(at2?.utility).toEqual({ kind: 'extraAttacks', amount: 2 });
     const at10 = featureActionAutomation('class:monk:focus/flurryOfBlows', [{ className: 'monk', level: 10 }]);
     expect(at10?.utility?.amount).toBe(3);
+  });
+
+  it('Бонусный безоружный удар: бесплатно, +1 атака за бонусное действие', () => {
+    const strike = featureActionAutomation('class:monk:bonusUnarmedStrike', [{ className: 'monk', level: 1 }]);
+    expect(strike?.utility).toEqual({ kind: 'extraAttacks', amount: 1 });
+    const button = classFeatures([{ className: 'monk', level: 1 }]).find((a) => a.id === 'class:monk:bonusUnarmedStrike');
+    expect(button?.costs).toEqual(['bonus']);
+    expect(button?.resourceKey).toBeUndefined();
   });
 
   it('Ошеломляющий удар: доступен с 5 уровня, CON-спас и stunned', () => {

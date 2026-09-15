@@ -1,14 +1,18 @@
 import {
+  abilityMod,
   actionSlotAvailable,
   automationForAction,
   classFeatures,
   featureActionAutomation,
   findBaseAction,
   firstSentence,
+  martialArtsDie,
+  proficiencyBonus,
   rollDice,
   type ActionCost,
   type ActionDef,
   type AttackEntry,
+  type CharacterSheet,
   type Token,
   type TurnState,
 } from 'shared';
@@ -61,6 +65,34 @@ function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
   ctx.systemMessage(room, `${token.name}: выпутался из «${effect.name}»`);
 }
 
+/** Безоружный удар: у монаха — Ловкость и кость боевых искусств, иначе Сила и 1+мод. */
+function unarmedStrikeEntry(
+  ctx: ConnCtx,
+  room: Scope['room'],
+  token: Token,
+  sheet: CharacterSheet | undefined
+): AttackEntry {
+  const abilities = (ctx.manager.abilitiesForToken(room, token) ?? {}) as Partial<Record<string, number>>;
+  const totalLevel = (sheet?.classes ?? []).reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
+  const prof = proficiencyBonus(totalLevel || 1);
+  const monkLevel = sheet?.classes.find((c) => c.className === 'monk')?.level ?? 0;
+  const monk = monkLevel > 0;
+  const mod = abilityMod((monk ? abilities.dex : abilities.str) ?? 10);
+  const bonus = prof + mod;
+  const hit = bonus >= 0 ? `d20+${bonus}` : `d20${bonus}`;
+  return {
+    name: 'Безоружный удар',
+    hit,
+    damage: monk
+      ? `1d${martialArtsDie(monkLevel)}${mod ? (mod > 0 ? `+${mod}` : `${mod}`) : ''}`
+      : `${Math.max(1, 1 + mod)}`,
+    damageType: 'bludgeoning',
+    rangeType: 'melee',
+    rangeNormal: 5,
+    rangeLong: 0,
+  };
+}
+
 export function registerActionHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
@@ -94,11 +126,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
 
-      if (action.id === 'attack') {
-        const attacks: AttackEntry[] = character ? sheet?.attacks ?? [] : token.attacks;
+      if (action.id === 'attack' || action.id === 'unarmedStrike') {
         const index = Math.round(Number(attackIndex));
-        const entry = attacks[index];
-        if (!entry || !Number.isFinite(index)) {
+        const attacks: AttackEntry[] = character ? sheet?.attacks ?? [] : token.attacks;
+        const entry = action.id === 'unarmedStrike' ? unarmedStrikeEntry(ctx, room, token, sheet) : attacks[index];
+        if (!entry || (action.id === 'attack' && !Number.isFinite(index))) {
           fail(ctx, 'noWeapon');
           return;
         }
@@ -167,7 +199,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      // Заглушки: Help/Ready/Grapple/Shove/UnarmedStrike/UseObject и черты без механики.
+      // Заглушки: Help/Ready/Grapple/Shove/UseObject и черты без механики.
       const summary = action.description ? firstSentence(action.description) : '';
       systemMessage(room, summary ? `${token.name}: ${action.name} — ${summary}` : `${token.name}: ${action.name}`);
     });

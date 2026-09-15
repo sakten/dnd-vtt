@@ -192,6 +192,16 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   }),
   'monk:extraAttack': { trait: 'passive', native: true },
   'monk:empoweredStrikes': { trait: 'passive', native: true },
+  'monk:bonusUnarmedStrike': {
+    trait: 'active',
+    costs: ['bonus'],
+    automation: {
+      key: 'class:monk:bonusUnarmedStrike',
+      name: 'Безоружный удар (бонус)',
+      resolution: 'utility',
+      utility: { kind: 'extraAttacks', amount: 1 },
+    },
+  },
   'monk:stunningStrike': {
     trait: 'active',
     costs: ['free'],
