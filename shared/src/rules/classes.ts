@@ -875,11 +875,37 @@ function casterContribution(entry: ClassLevel): number {
   const def = CLASSES[entry.className];
   if (!def) return 0;
   if (def.caster === 'full') return entry.level;
-  // Полукастеры в мультиклассе округляются вниз, изобретатель по 2024 — вверх.
-  if (def.caster === 'half') return entry.className === 'artificer' ? Math.ceil(entry.level / 2) : Math.floor(entry.level / 2);
+  // Полукастеры в 2024 (паладин/рейнджер/изобретатель) округляются вверх.
+  if (def.caster === 'half') return Math.ceil(entry.level / 2);
   const sub = entry.subclass ? def.subclasses[entry.subclass] : undefined;
   if (def.caster === 'none' && sub?.caster === 'third') return Math.floor(entry.level / 3);
   return 0;
+}
+
+/** Ячейки Рыцаря-чародея/Мистического ловкача (2024) по уровню класса. */
+const THIRD_CASTER_SLOTS: number[][] = [
+  [], [],
+  [2], [3], [3], [3],
+  [4, 2], [4, 2], [4, 3], [4, 3],
+  [4, 3, 2], [4, 3, 2], [4, 3, 3], [4, 3, 3],
+  [4, 3, 3, 1], [4, 3, 3, 1], [4, 3, 3, 2], [4, 3, 3, 2],
+  [4, 3, 3, 3, 1], [4, 3, 3, 3, 1],
+];
+
+/**
+ * Ячейки одного класса по его собственной таблице (2024): нужны, чтобы
+ * мультикласс не давал меньше ячеек, чем любой из составляющих классов.
+ * Полукастер — общая таблица на половине уровня вверх; третичный — своя.
+ */
+function singleClassSlots(entry: ClassLevel): number[] {
+  const def = CLASSES[entry.className];
+  if (!def) return [];
+  const level = clampLevel(entry.level);
+  if (def.caster === 'full') return MULTICLASS_SLOTS[level - 1] ?? [];
+  if (def.caster === 'half') return MULTICLASS_SLOTS[Math.ceil(level / 2) - 1] ?? [];
+  const sub = entry.subclass ? def.subclasses[entry.subclass] : undefined;
+  if (def.caster === 'none' && sub?.caster === 'third') return THIRD_CASTER_SLOTS[level - 1] ?? [];
+  return [];
 }
 
 /** Суммарный caster level для мультиклассовых ячеек (pact не учитывается). */
@@ -888,9 +914,15 @@ export function casterLevelOf(classes: ClassLevel[]): number {
   return Math.min(20, Math.max(0, total));
 }
 
-/** Максимумы ячеек по уровням 1..9 (только стандартные, без pact). */
+/** Максимумы ячеек по уровням 1..9: мультикласс, но не меньше лучшего класса набора. */
 export function spellSlotMaxes(classes: ClassLevel[]): number[] {
-  return MULTICLASS_SLOTS[casterLevelOf(classes) - 1] ?? [];
+  const out = [...(MULTICLASS_SLOTS[casterLevelOf(classes) - 1] ?? [])];
+  for (const entry of classes) {
+    const single = singleClassSlots(entry);
+    for (let i = 0; i < single.length; i++) out[i] = Math.max(out[i] ?? 0, single[i] ?? 0);
+  }
+  while (out.length && (out[out.length - 1] ?? 0) === 0) out.pop();
+  return out;
 }
 
 /** Максимум ячеек Pact Magic и их уровень. */

@@ -34,9 +34,10 @@ describe('casterLevelOf', () => {
     expect(casterLevelOf([{ className: 'wizard', level: 5 }])).toBe(5);
   });
 
-  it('полукастер = уровень/2 (вниз), изобретатель — вверх', () => {
+  it('полукастер = уровень/2 (вверх, 2024)', () => {
     expect(casterLevelOf([{ className: 'paladin', level: 6 }])).toBe(3);
-    expect(casterLevelOf([{ className: 'ranger', level: 5 }])).toBe(2);
+    expect(casterLevelOf([{ className: 'ranger', level: 5 }])).toBe(3);
+    expect(casterLevelOf([{ className: 'ranger', level: 1 }])).toBe(1);
     expect(casterLevelOf([{ className: 'artificer', level: 3 }])).toBe(2);
     expect(casterLevelOf([{ className: 'artificer', level: 3 }, { className: 'wizard', level: 2 }])).toBe(4);
   });
@@ -64,6 +65,16 @@ describe('spellSlotMaxes', () => {
 
   it('мультикласс по общей таблице', () => {
     expect(spellSlotMaxes([{ className: 'cleric', level: 3 }, { className: 'paladin', level: 2 }])).toEqual([4, 3]);
+  });
+
+  it('мультикласс не меньше лучшего класса набора (2024)', () => {
+    // Полукастер 1 уровня уже имеет 2 ячейки; некастерные уровни их не отнимают.
+    expect(spellSlotMaxes([{ className: 'ranger', level: 1 }])).toEqual([2]);
+    expect(spellSlotMaxes([{ className: 'monk', level: 2 }, { className: 'ranger', level: 1 }])).toEqual([2]);
+    expect(spellSlotMaxes([{ className: 'paladin', level: 1 }])).toEqual([2]);
+    // Рыцарь-чародей 4: своя таблица даёт 3, мультиклассовое «1/3 вниз» — только 2.
+    expect(spellSlotMaxes([{ className: 'fighter', level: 4, subclass: 'eldritchKnight' }])).toEqual([3]);
+    expect(spellSlotMaxes([{ className: 'wizard', level: 3 }, { className: 'ranger', level: 1 }])).toEqual([4, 3]);
   });
 
   it('без кастеров — пусто', () => {
