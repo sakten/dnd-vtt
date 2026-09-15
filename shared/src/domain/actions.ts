@@ -42,7 +42,7 @@ export interface ActionDef {
 }
 
 /** Триггер, на который можно потратить реакцию. */
-export type ReactionTriggerKind = 'attackRoll' | 'attackHit' | 'attackMiss' | 'damage' | 'leaveReach' | 'spellCast';
+export type ReactionTriggerKind = 'attackRoll' | 'attackHit' | 'attackMiss' | 'damage' | 'leaveReach' | 'spellCast' | 'saveFail';
 
 /** Вариант реакции, предложенный сервером в окне. */
 export interface ReactionOption {

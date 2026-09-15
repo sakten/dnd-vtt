@@ -168,7 +168,8 @@ class ReactionQueue {
   }
 
   private optionPayable(ctx: ConnCtx, room: Room, mapId: string, token: Token, option: ReactionOption): boolean {
-    // «Для себя» (Направленный удар по своей атаке) — без слота реакции, только ресурс.
+    // Кости вдохновения и «для себя» — без слота реакции (только свой ресурс/эффект).
+    if (option.kind === 'feature' && option.id.startsWith('bonusdie:')) return true;
     if (option.kind === 'feature' && option.id.endsWith(':self')) {
       if (!option.resourceKey) return true;
       const cid = controllerIdOfToken(room, token);

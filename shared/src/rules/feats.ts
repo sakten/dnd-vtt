@@ -81,6 +81,14 @@ export function featChoiceEffects(choices: FeatureChoice[] | undefined, classes:
   return out;
 }
 
+/** Фиты с механикой из заклинаний (Magic Initiate и подобные). */
+const SPELL_FEATS = new Set(['XPHB:magicInitiate']);
+
+/** Реализована ли механика фита (иначе в UI показываем «(TODO)»). */
+export function featMechanicsImplemented(key: string): boolean {
+  return !!FEAT_MECHANICS[key] || SPELL_FEATS.has(key);
+}
+
 /** Префикс псевдокласса заклинаний фита: `feat:XPHB:magicInitiate`. */
 export const FEAT_CAST_PREFIX = 'feat:';
 

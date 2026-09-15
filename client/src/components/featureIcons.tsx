@@ -22,6 +22,16 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
     </>
   ),
 
+  // Бард
+  'class:bard:bardicInspiration': (
+    <>
+      <path d="M9 17V6l9-2v11" />
+      <circle cx="6.5" cy="17.5" r="2.5" />
+      <circle cx="15.5" cy="15.5" r="2.5" />
+      <path d="M19 5l2 2M21 10h-2" />
+    </>
+  ),
+
   // Жрец
   'class:cleric:divineSpark': (
     <>

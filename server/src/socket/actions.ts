@@ -74,7 +74,11 @@ function unarmedStrikeEntry(
 ): AttackEntry {
   const explicit = findUnarmedAttack(sheet?.attacks) ?? findUnarmedAttack(token.attacks);
   const abilities = ctx.manager.abilitiesForToken(room, token) ?? {};
-  return computedUnarmedStrike(explicit, { abilities, classes: sheet?.classes ?? [] });
+  return computedUnarmedStrike(explicit, {
+    abilities,
+    classes: sheet?.classes ?? [],
+    choices: sheet?.choices,
+  });
 }
 
 export function registerActionHandlers(ctx: ConnCtx) {

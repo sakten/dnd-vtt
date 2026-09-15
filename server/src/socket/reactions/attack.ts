@@ -27,6 +27,7 @@ import {
   spendFeatureCost,
 } from './features';
 import { acBonusOf, applyReactionChoice, reactionSpellOptions } from './spellReactions';
+import { applyBonusDieChoices, bonusDieOptions } from '../bonusDice';
 
 /** Выбранные в окне попадания черты → модификаторы урона (половина/AC/снижение). */
 function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: ReactionChoice[]): WeaponDamageMods {
@@ -190,6 +191,17 @@ function continueAfterRoll(
       });
     }
     offers.push(...rollBonusOffers(ctx, room, plan));
+    // Бардовское вдохновение: кости на самом атакующем (без реакции).
+    if (plan.attacker && plan.attackerMapId) {
+      const dice = bonusDieOptions(plan.attacker);
+      if (dice.length) {
+        offers.push({
+          token: plan.attacker,
+          audience: audienceOf(ctx, room, plan.attackerMapId, plan.attacker),
+          options: dice,
+        });
+      }
+    }
     if (offers.length) {
       const opened = openReactionWindow(ctx, room, {
         mapId: targetMapId,
@@ -203,9 +215,10 @@ function continueAfterRoll(
             if (choice.optionId?.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, plan.attacker);
           }
           const bonus = applyRollBonusChoices(ctx, currentRoom, plan, choices);
+          const inspiration = applyBonusDieChoices(ctx, currentRoom, plan, choices);
           ctx.syncCombat(currentRoom, targetMapId);
-          if (bonus > 0) {
-            plan.penalty += bonus;
+          if (bonus + inspiration > 0) {
+            plan.penalty += bonus + inspiration;
             plan.hitSuccess = true;
             result.hitSuccess = true;
             if (!openHitWindows()) applyDamageWithRiders();

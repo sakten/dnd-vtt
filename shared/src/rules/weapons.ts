@@ -1,5 +1,6 @@
 import raw from '../data/weapons.json';
 import { abilityMod, type AbilityKey } from '../domain/core';
+import type { FeatureChoice } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import type { AttackEntry } from '../domain/token';
 import { martialArtsDie, proficiencyBonus } from './classes';
@@ -64,12 +65,19 @@ export function unarmedStrikeEntry(explicit: AttackEntry | undefined, ctx: Weapo
       rangeLong: 0,
     };
   }
-  return { ...weaponAttackEntry(weapon, ctx), name: 'Безоружный удар' };
+  const base = { ...weaponAttackEntry(weapon, ctx), name: 'Безоружный удар' };
+  // Tavern Brawler: безоружный удар бьёт d4 + Сила (у монаха остаётся кость боевых искусств).
+  const brawler = (ctx.choices ?? []).some((c) => c.kind === 'feat' && c.key === 'XPHB:tavernBrawler');
+  const monk = ctx.classes.some((c) => c.className === 'monk' && c.level > 0);
+  if (!brawler || monk) return base;
+  return { ...base, kind: 'unarmed', damage: damageExpression('1d4', abilityMod(ctx.abilities.str ?? 10)) };
 }
 
 export interface WeaponContext {
   abilities: Partial<Record<AbilityKey, number>>;
   classes: ClassLevel[];
+  /** Выборы персонажа: фиты вроде Tavern Brawler меняют расчёт безоружного удара. */
+  choices?: FeatureChoice[];
 }
 
 function hitExpression(bonus: number): string {

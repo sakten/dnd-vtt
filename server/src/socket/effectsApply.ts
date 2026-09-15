@@ -47,6 +47,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     escape: effectDef.escape && escapeDc !== undefined ? { ...effectDef.escape, dc: escapeDc } : undefined,
     misdirect: effectDef.misdirect ? { ...effectDef.misdirect } : undefined,
     hidden: effectDef.hidden,
+    bonusDie: effectDef.bonusDie,
   };
   ctx.manager.applyEffect(room, target, effect);
   if (effectDef.tempHp) {

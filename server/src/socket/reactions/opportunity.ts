@@ -29,7 +29,7 @@ export function opportunityAttack(ctx: ConnCtx, room: Room, token: Token): Attac
   const { sheet } = sheetOfToken(room, token);
   if (!sheet) return null;
   const abilities = ctx.manager.abilitiesForToken(room, token) ?? {};
-  return unarmedStrikeEntry(undefined, { abilities, classes: sheet.classes });
+  return unarmedStrikeEntry(undefined, { abilities, classes: sheet.classes, choices: sheet.choices });
 }
 
 /** Немедленная атака по возможности (без окна). */

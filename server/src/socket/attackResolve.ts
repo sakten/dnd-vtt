@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   attackRange,
   attackRollParts,
@@ -26,6 +27,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import type { Room } from '../roomTypes';
 import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { fail } from './errors';
@@ -314,6 +316,40 @@ export interface WeaponDamageResult {
   applied: number;
 }
 
+/** Метка «Свирепый атакующий уже сработал в этом ходу». */
+const SAVAGE_MARKER = 'feat:XPHB:savageAttacker:used';
+
+/** Свирепый атакующий: раз в ход перебрасывает кости урона оружия и берёт лучший бросок. */
+function savageAttackerRoll(
+  ctx: ConnCtx,
+  room: Room,
+  plan: WeaponAttackPlan,
+  expression: string,
+  crit: boolean
+): DiceRollResult {
+  let roll = rollDice(expression, Math.random, { doubleDice: crit });
+  const attacker = plan.attacker;
+  if (!attacker) return roll;
+  const controllerId = controllerIdOfToken(room, attacker);
+  const hasFeat = (controllerId ? room.sheets[controllerId]?.choices : undefined)?.some(
+    (c) => c.kind === 'feat' && c.key === 'XPHB:savageAttacker'
+  );
+  if (!hasFeat || attacker.effects.some((e) => e.sourceKey === SAVAGE_MARKER)) return roll;
+  const again = rollDice(expression, Math.random, { doubleDice: crit });
+  if (again.total > roll.total) roll = again;
+  ctx.manager.applyEffect(room, attacker, {
+    id: randomUUID(),
+    name: 'Свирепый атакующий',
+    sourceKey: SAVAGE_MARKER,
+    sourceId: attacker.id,
+    duration: { type: 'rounds', rounds: 1 },
+    modifiers: [],
+    hidden: true,
+  });
+  if (plan.attackerMapId) ctx.emitToken(room, 'token:update', plan.attackerMapId, attacker);
+  return roll;
+}
+
 /** Урон по плану атаки; пересчитывает попадание (реакции могли поднять AC). */
 export function applyWeaponAttackDamage(
   ctx: ConnCtx,
@@ -340,7 +376,7 @@ export function applyWeaponAttackDamage(
       : { expr: '', notes: [] };
     for (const note of ride.notes) ctx.systemMessage(room, note);
     const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;
-    const damageRoll = rollDice(fullDamageExpr, Math.random, { doubleDice: crit });
+    const damageRoll = savageAttackerRoll(ctx, room, plan, fullDamageExpr, crit);
     const damage = applyDamage(ctx, {
       target,
       mapId: targetMapId,

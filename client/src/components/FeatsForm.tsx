@@ -3,6 +3,7 @@ import {
   ABILITIES,
   FEATS,
   featByKey,
+  featMechanicsImplemented,
   type AbilityKey,
   type FeatCategory,
   type FeatDef,
@@ -57,6 +58,7 @@ export default function FeatsForm({ choices, onChange }: Props) {
           <div className="feat-row" key={`${choice.key}:${choice.list ?? index}`}>
             <div className="feat-head">
               <span className="feat-name">{feat.name}</span>
+              {!featMechanicsImplemented(feat.key) && <span className="feat-todo">(TODO)</span>}
               <span className="feat-cat">{CATEGORY_NAMES[feat.category]}</span>
               <button className="feat-remove" title="Убрать фит" onClick={() => removeAt(index)}>
                 ✕
@@ -106,6 +108,7 @@ export default function FeatsForm({ choices, onChange }: Props) {
               >
                 <span className="feat-option-name">
                   {f.name}
+                  {!featMechanicsImplemented(f.key) && <span className="feat-todo"> (TODO)</span>}
                   {f.repeatable ? ' · повторяемый' : ''}
                 </span>
                 <span className="feat-option-desc">{f.description}</span>

@@ -3,6 +3,7 @@ import {
   abilityMod,
   attackRollParts,
   autoCrit,
+  autoFailSave,
   characterLevel,
   countAttackAdvantage,
   damageRollParts,
@@ -21,6 +22,7 @@ import {
   type AbilityKey,
   type AutomationDice,
   type AutomationDef,
+  type AutomationEffect,
   type AutomationUtility,
   type DiceRollResult,
   type SpellStats,
@@ -30,10 +32,13 @@ import {
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
 import { gridSizeOf, sheetOfToken } from '../rooms';
+import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { applyEffectTo } from './effectsApply';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { misdirectCheck } from './misdirect';
+import { audienceOf } from './reactions/internal';
+import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { createZoneFromDef, removeZonesOfSource } from './zones';
 
 /**
@@ -146,6 +151,73 @@ function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, mapId: str
   ctx.manager.setConcentration(room, mapId, caster, anchorId);
 }
 
+/** Результат спасброска цели: хранится для пересчёта Бардовским вдохновением. */
+interface TargetSave {
+  target: Token;
+  roll: DiceRollResult;
+  autoFail: boolean;
+  success: boolean;
+}
+
+/** Спасбросок цели с сообщением в чат; авто-провал хранится отдельно (для пересчёта костью). */
+function rollTargetSaveFor(
+  ctx: ConnCtx,
+  room: Room,
+  def: AutomationDef,
+  author: string,
+  target: Token,
+  stats: SpellStats,
+  ability: AbilityKey
+): TargetSave {
+  const autoFail = autoFailSave(target.conditions, ability);
+  const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, { conditionsAutoFail: true });
+  pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
+  return { target, roll, autoFail, success };
+}
+
+/** Окно Бардовского вдохновения на проваленные спасброски: кость к d20 и пересчёт успеха. */
+function openSaveInspiration(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  dc: number,
+  subject: string,
+  saves: TargetSave[],
+  resume: () => void
+): boolean {
+  const failed = saves.filter((s) => !s.success && s.target.effects.some((e) => e.bonusDie));
+  if (!failed.length) return false;
+  const offers: ReactionOfferInput[] = failed.map((s) => ({
+    token: s.target,
+    audience: audienceOf(ctx, room, mapId, s.target),
+    options: bonusDieOptions(s.target),
+  }));
+  const opened = openReactionWindow(ctx, room, {
+    mapId,
+    trigger: 'saveFail',
+    sourceName: subject,
+    offers,
+    resume: (choices) => {
+      const currentRoom = ctx.getRoom();
+      if (!currentRoom) return;
+      for (const choice of choices) {
+        const id = choice.optionId ?? '';
+        if (!id.startsWith('bonusdie:')) continue;
+        const save = failed.find((s) => s.target.id === choice.tokenId);
+        const target = ctx.manager.findToken(currentRoom, choice.mapId, choice.tokenId);
+        if (!save || !target) continue;
+        const bonus = spendBonusDie(ctx, currentRoom, choice.mapId, target, id.slice('bonusdie:'.length));
+        if (bonus > 0 && !save.autoFail && save.roll.total + bonus >= dc) {
+          save.success = true;
+          ctx.systemMessage(currentRoom, `${target.name}: Бардовское вдохновение — спасбросок успешен`);
+        }
+      }
+      resume();
+    },
+  });
+  return opened;
+}
+
 /** Накладывает эффекты заклинания (баффы/дебаффы), включая спасброски целей. */
 function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const room = ctx.getRoom();
@@ -162,75 +234,88 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const searType = searExpr ? singleDamageType(def) : undefined;
   let searRoll: DiceRollResult | null = null;
   let searSent = false;
+
+  // Сначала спасброски всех цели (окно вдохновения успевает пересчитать успех), затем эффекты.
+  const applications: { effectDef: AutomationEffect; target: Token; save?: TargetSave }[] = [];
   for (const effectDef of effects) {
     const recipients = effectDef.radiusFeet
       ? tokensAround(ctx, room, mapId, caster, effectDef.radiusFeet, 'ally', true)
       : effectDef.to === 'targets'
         ? targets
         : [caster];
-    const markedId = effectDef.markTarget ? targets[0]?.id : undefined;
     for (const target of recipients) {
       if (def.save && stats && effectDef.to === 'targets') {
-        const ability = def.save.ability;
-        const { roll: saveRoll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, {
-          conditionsAutoFail: true,
+        applications.push({
+          effectDef,
+          target,
+          save: rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability),
         });
-        pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll: saveRoll, success });
-        if (success) continue;
-        if (searExpr) {
-          if (!searRoll) searRoll = rollDice(searExpr);
-          if (!searSent) {
-            pushRollMessage(ctx, room, {
-              author,
-              roll: searRoll,
-              kind: 'damage',
-              params: { subject: `${def.name}: ${caster.name}`, damageType: searType },
-            });
-            searSent = true;
-          }
-          applyDamage(ctx, { target, mapId, amount: searRoll.total, damageType: searType });
+      } else {
+        applications.push({ effectDef, target });
+      }
+    }
+  }
+
+  const applyAll = () => {
+    for (const app of applications) {
+      if (app.save?.success) continue;
+      if (app.save && searExpr) {
+        if (!searRoll) searRoll = rollDice(searExpr);
+        if (!searSent) {
+          pushRollMessage(ctx, room, {
+            author,
+            roll: searRoll,
+            kind: 'damage',
+            params: { subject: `${def.name}: ${caster.name}`, damageType: searType },
+          });
+          searSent = true;
         }
+        applyDamage(ctx, { target: app.target, mapId, amount: searRoll.total, damageType: searType });
       }
       const effectId = applyEffectTo(ctx, room, {
         sourceKey: def.key,
         sourceId: caster.id,
         mapId,
-        effectDef,
-        target,
-        markedId,
+        effectDef: app.effectDef,
+        target: app.target,
+        markedId: app.effectDef.markTarget ? targets[0]?.id : undefined,
         untilSaveDc: stats?.dc,
         escapeDc: stats?.dc,
       });
-      applied.push(target.name);
+      applied.push(app.target.name);
       if (!anchor) anchor = effectId;
     }
-  }
-  // Если эффекты ни на кого не легли и зоны нет — концентрации не остаётся
-  // (Hypnotic Pattern: все цели прошли спас). У зоны триггеры живут и без жертв.
-  const worthwhile = applied.length > 0 || !!def.zone;
-  if (worthwhile && def.concentration && !effects.some((d) => d.to !== 'targets')) {
-    // Чистый target-only каст: на кастере держим якорь концентрации для чипа.
-    const anchorId = randomUUID();
-    ctx.manager.applyEffect(room, caster, {
-      id: anchorId,
-      name: def.name,
-      sourceKey: def.key,
-      sourceId: caster.id,
-      concentration: true,
-      duration: { type: 'concentration' },
-      modifiers: [],
-    });
-    ctx.emitToken(room, 'token:update', mapId, caster);
-    if (!anchor) anchor = anchorId;
-  }
-  if (worthwhile && def.concentration && anchor) ctx.manager.setConcentration(room, mapId, caster, anchor);
-  ctx.syncCombat(room, mapId);
-  ctx.systemMessage(
-    room,
-    applied.length
-      ? `${caster.name}: ${def.name} → ${applied.join(', ')}`
-      : `${caster.name}: ${def.name} — без эффекта`
-  );
+    // Если эффекты ни на кого не легли и зоны нет — концентрации не остаётся
+    // (Hypnotic Pattern: все цели прошли спас). У зоны триггеры живут и без жертв.
+    const worthwhile = applied.length > 0 || !!def.zone;
+    if (worthwhile && def.concentration && !effects.some((d) => d.to !== 'targets')) {
+      // Чистый target-only каст: на кастере держим якорь концентрации для чипа.
+      const anchorId = randomUUID();
+      ctx.manager.applyEffect(room, caster, {
+        id: anchorId,
+        name: def.name,
+        sourceKey: def.key,
+        sourceId: caster.id,
+        concentration: true,
+        duration: { type: 'concentration' },
+        modifiers: [],
+      });
+      ctx.emitToken(room, 'token:update', mapId, caster);
+      if (!anchor) anchor = anchorId;
+    }
+    if (worthwhile && def.concentration && anchor) ctx.manager.setConcentration(room, mapId, caster, anchor);
+    ctx.syncCombat(room, mapId);
+    ctx.systemMessage(
+      room,
+      applied.length
+        ? `${caster.name}: ${def.name} → ${applied.join(', ')}`
+        : `${caster.name}: ${def.name} — без эффекта`
+    );
+  };
+
+  const saves = applications.map((a) => a.save).filter((s): s is TargetSave => !!s);
+  if (stats && openSaveInspiration(ctx, room, mapId, stats.dc, def.name, saves, applyAll)) return;
+  applyAll();
 }
 
 type UtilityHandler = (u: {
@@ -405,14 +490,6 @@ function applyResult(
   healAfter(run, target);
 }
 
-/** Спасбросок цели с сообщением в чат; true — успех. */
-function rollTargetSave(run: AutomationRun, target: Token, stats: SpellStats, ability: AbilityKey): boolean {
-  const { ctx, room, def, author } = run;
-  const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, { conditionsAutoFail: true });
-  pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
-  return success;
-}
-
 /** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
 function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   const { ctx, room, def, caster, mapId, targets, author, abilities, expression, subject, damageType, adv, count } = run;
@@ -484,9 +561,9 @@ function runHealOrDamage(run: AutomationRun, stats: SpellStats): void {
     const roll = rollDice(targetExpr);
     let halve: boolean | undefined;
     if (hostile) {
-      const success = rollTargetSave(run, target, stats, def.save.ability);
-      if (success && !def.save.half) continue;
-      halve = success;
+      const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability);
+      if (save.success && !def.save.half) continue;
+      halve = save.success;
     }
     applyResult(run, target, roll, { kind: hostile ? 'damage' : 'heal', ...(halve !== undefined && { halve }) });
   }
@@ -505,11 +582,20 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
     kind: run.healing ? 'heal' : 'damage',
     params: { subject: run.subject, damageType: run.damageType },
   });
+  const saves: TargetSave[] = [];
+  const half = def.save.half;
   for (const target of targets) {
-    const success = rollTargetSave(run, target, stats, def.save.ability);
-    if (success && !def.save.half) continue;
-    applyResult(run, target, damageRoll, { halve: success });
+    const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability);
+    saves.push(save);
   }
+  const applyAll = () => {
+    for (const save of saves) {
+      if (save.success && !half) continue;
+      applyResult(run, save.target, damageRoll, { halve: save.success });
+    }
+  };
+  if (openSaveInspiration(ctx, room, run.mapId, stats.dc, def.name, saves, applyAll)) return;
+  applyAll();
 }
 
 /** Массовая цель без области (Mass Healing Word): каждая выбранная цель — один раз. */

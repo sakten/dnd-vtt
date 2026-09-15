@@ -862,6 +862,15 @@ export function martialArtsDie(level: number): number {
   return 6;
 }
 
+/** Кость Бардовского вдохновения по уровню барда (d6→d8→d10→d12). */
+export function bardicDie(level: number): number {
+  const lvl = clampLevel(level);
+  if (lvl >= 15) return 12;
+  if (lvl >= 10) return 10;
+  if (lvl >= 5) return 8;
+  return 6;
+}
+
 function casterContribution(entry: ClassLevel): number {
   const def = CLASSES[entry.className];
   if (!def) return 0;

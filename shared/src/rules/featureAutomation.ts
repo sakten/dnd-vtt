@@ -2,7 +2,7 @@ import type { AutomationDef, AutomationEffect } from '../domain/automation';
 import type { Modifier } from '../domain/effects';
 import type { FeatureMechanics } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
-import { clampLevel } from './classes';
+import { bardicDie, clampLevel, proficiencyBonus } from './classes';
 import { featuresFor } from './features';
 
 /**
@@ -330,6 +330,41 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
       resolution: 'utility',
       utility: { kind: 'weaponAttack', amount: 1 },
     },
+  },
+
+  // Бард — ядро
+  'bard:bardicInspiration': (classes) => {
+    const level = classes.find((c) => c.className === 'bard')?.level ?? 0;
+    return {
+      trait: 'active',
+      costs: ['bonus'],
+      targeting: { kind: 'creature', range: 60 },
+      resourceKey: 'bard:bardicInspiration',
+      automation: {
+        key: 'class:bard:bardicInspiration',
+        name: 'Бардовское вдохновение',
+        resolution: 'effect',
+        effects: [
+          {
+            name: `Бардовское вдохновение (d${bardicDie(level)})`,
+            duration: { type: 'rounds', rounds: 600 },
+            to: 'targets',
+            bonusDie: `1d${bardicDie(level)}`,
+            modifiers: [],
+          },
+        ],
+      },
+    };
+  },
+  'bard:jackOfAllTrades': (classes) => {
+    const bard = classes.find((c) => c.className === 'bard')?.level ?? 0;
+    if (bard < 2) return { trait: 'passive' };
+    const total = classes.reduce((acc, c) => acc + clampLevel(c.level), 0) || 1;
+    const half = Math.max(1, Math.floor(proficiencyBonus(total) / 2));
+    return {
+      trait: 'passive',
+      effects: [permanent('Всезнайка', [{ target: 'check', mode: 'add', value: half }])],
+    };
   },
 };
 

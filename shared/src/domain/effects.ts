@@ -155,6 +155,8 @@ export interface EffectInstance {
   escape?: EffectEscape;
   /** Подмена попадания образами (Mirror Image): заряды, кость, порог. */
   misdirect?: { charges: number; die: string; threshold: number };
+  /** Кость бонуса к d20-тесту, тратится при использовании (Бардовское вдохновение). */
+  bonusDie?: string;
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
 }

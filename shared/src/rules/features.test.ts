@@ -167,6 +167,22 @@ describe('каталог черт (features.json)', () => {
     expect(martialArtsDie(17)).toBe(12);
   });
 
+  it('Бард: кость вдохновения d6→d10, Всезнайка — половина бонуса владения', () => {
+    const at1 = featureActionAutomation('class:bard:bardicInspiration', [{ className: 'bard', level: 1 }]);
+    expect(at1?.effects?.[0]?.bonusDie).toBe('1d6');
+    const at10 = featureActionAutomation('class:bard:bardicInspiration', [{ className: 'bard', level: 10 }]);
+    expect(at10?.effects?.[0]?.bonusDie).toBe('1d10');
+    const button = classFeatures([{ className: 'bard', level: 1 }]).find(
+      (a) => a.id === 'class:bard:bardicInspiration'
+    );
+    expect(button?.costs).toEqual(['bonus']);
+    expect(button?.targeting).toEqual({ kind: 'creature', range: 60 });
+    expect(button?.resourceKey).toBe('bard:bardicInspiration');
+    const passives = passiveFeatures([{ className: 'bard', level: 2 }]);
+    expect(passives.some((p) => p.key === 'bard:jackOfAllTrades')).toBe(true);
+    expect(passiveFeatures([{ className: 'bard', level: 1 }]).some((p) => p.key === 'bard:jackOfAllTrades')).toBe(false);
+  });
+
   it('Божественная искра: лечение/урон по Мдр, 2d8 с 7 уровня, тратит Проведение', () => {
     const at2 = featureActionAutomation('class:cleric:divineSpark', [{ className: 'cleric', level: 2 }]);
     expect(at2?.heal).toEqual({ dice: '1d8+wis' });

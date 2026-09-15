@@ -1176,6 +1176,206 @@ describe('зоны и концентрация', () => {
     expect(room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.sourceKey === 'XPHB:Shield')).toBe(true);
   });
 
+  it('Свирепый атакующий: перебрасывает урон и берёт лучший бросок раз в ход', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword], x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 4 }],
+      spells: [],
+      attacks: [sword],
+      choices: [{ kind: 'feat', key: 'XPHB:savageAttacker' }],
+    };
+    room.resources.p1 = casterResources();
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.9) // попадание (d20 19)
+      .mockReturnValueOnce(0) // первый бросок урона: 1
+      .mockReturnValueOnce(0.9); // второй бросок: 8
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(22); // 30 − 8 (лучший из 1 и 8)
+    expect(
+      room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.sourceKey === 'feat:XPHB:savageAttacker:used')
+    ).toBe(true);
+  });
+
+  it('Бардовское вдохновение: кость на союзнике и трата на промахе', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+2',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword], x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '15' }),
+        makeToken('t3', { libraryItemId: 'lib3', x: 150, y: 150 }),
+      ],
+      { p1: 'lib1', p2: 'lib3' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 1 }],
+      spells: [],
+      attacks: [sword],
+    };
+    room.sheets.p2 = {
+      ...casterSheet(),
+      name: 'Бард',
+      classes: [{ className: 'bard', level: 5 }],
+      spells: [],
+    };
+    room.resources.p1 = casterResources();
+    room.resources.p2 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'bard:bardicInspiration',
+          name: 'Бардовское вдохновение',
+          current: 3,
+          max: 3,
+          reset: 'long',
+        },
+      ],
+    };
+    combatOf(room).active = false;
+    const f = makeCtx(room, { playerId: 'p2' });
+    registerActionHandlers(f.ctx);
+
+    // Бард даёт кость бойцу.
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't3',
+      actionId: 'class:bard:bardicInspiration',
+      targetIds: ['t1'],
+    });
+    const dice = room.scene.maps[0]!.tokens[0]!.effects.filter((e) => e.bonusDie);
+    expect(dice).toHaveLength(1);
+    expect(dice[0]!.bonusDie).toBe('1d8');
+    expect(room.resources.p2!.resources[0]!.current).toBe(2);
+
+    // Промах бойца: окно вдохновения превращает его в попадание.
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.2) // d20 = 5 → промах
+      .mockReturnValueOnce(0.9) // кость вдохновения: 8
+      .mockReturnValueOnce(0.9); // урон: 8
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f2.ctx);
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id.startsWith('bonusdie:'))
+    );
+    expect(offer).toBeDefined();
+    const f3 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f3.ctx);
+    f3.invoke('reaction:respond', {
+      id: offer!.id,
+      optionId: offer!.options.find((op) => op.id.startsWith('bonusdie:'))!.id,
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(22); // 5+2+8=15 → попадание, 1d8 8
+    expect(room.scene.maps[0]!.tokens[0]!.effects.filter((e) => e.bonusDie)).toHaveLength(0);
+  });
+
+  it('Бардовское вдохновение на проваленном спасброске превращает его в успех', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib2', faction: 'enemy', x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1', p2: 'lib2' }
+    );
+    room.players.push(
+      { id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null },
+      { id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 3, subclass: 'light' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const target = room.scene.maps[0]!.tokens[1]!;
+    target.effects = [
+      {
+        id: 'bi1',
+        name: 'Бардовское вдохновение (d12)',
+        sourceKey: 'class:bard:bardicInspiration',
+        sourceId: 'bard',
+        duration: { type: 'rounds', rounds: 600 },
+        modifiers: [],
+        bonusDie: '1d12',
+      },
+    ];
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0) // 2d10 = 2
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.1) // спас DEX: d20 3 → провал
+      .mockReturnValueOnce(0.9); // кость вдохновения: 12 → 15 ≥ DC 13
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:cleric.light:radianceOfTheDawn' });
+    const offer = pendingOffers('TEST').find((o) => o.options.some((op) => op.id.startsWith('bonusdie:')));
+    expect(offer).toBeDefined();
+
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', {
+      id: offer!.id,
+      optionId: offer!.options.find((op) => op.id.startsWith('bonusdie:'))!.id,
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(28); // 5 урона, спас успешен → половина (2)
+    expect(room.scene.maps[0]!.tokens[1]!.effects.filter((e) => e.bonusDie)).toHaveLength(0);
+  });
+
   it('Hold Person с апкастом накрывает две цели', () => {
     const room = makeRoom(
       [

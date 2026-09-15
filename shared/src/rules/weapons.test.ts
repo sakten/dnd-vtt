@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WEAPONS, findUnarmedAttack, isUnarmedAttack, weaponAttackEntry } from './weapons';
+import { WEAPONS, findUnarmedAttack, isUnarmedAttack, unarmedStrikeEntry, weaponAttackEntry } from './weapons';
 
 const abilities = { str: 16, dex: 14, con: 12, int: 10, wis: 12, cha: 8 };
 
@@ -42,5 +42,16 @@ describe('weaponAttackEntry', () => {
     expect(isUnarmedAttack({ name: 'Безоружный удар' } as never)).toBe(true);
     const found = findUnarmedAttack([{ name: 'Меч' } as never, { name: 'x', kind: 'unarmed' } as never]);
     expect(found?.kind).toBe('unarmed');
+  });
+
+  it('Tavern Brawler: безоружный удар бьёт 1d4 + Сила, у монаха — кость боевых искусств', () => {
+    const choices = [{ kind: 'feat', key: 'XPHB:tavernBrawler' }] as Parameters<typeof unarmedStrikeEntry>[1]['choices'];
+    const fighter = unarmedStrikeEntry(undefined, { abilities, classes: [{ className: 'fighter', level: 1 }], choices });
+    expect(fighter.damage).toBe('1d4+3');
+    expect(fighter.kind).toBe('unarmed');
+    const monk = unarmedStrikeEntry(undefined, { abilities, classes: [{ className: 'monk', level: 5 }], choices });
+    expect(monk.damage).toBe('1d8+2');
+    const plain = unarmedStrikeEntry(undefined, { abilities, classes: [{ className: 'fighter', level: 1 }] });
+    expect(plain.damage).toBe('1+3');
   });
 });

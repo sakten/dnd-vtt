@@ -59,6 +59,8 @@ export interface AutomationEffect {
   wakeOnDamage?: boolean;
   /** Временные HP, выдаваемые при наложении (Fighting Spirit и подобные). */
   tempHp?: number;
+  /** Кость бонуса к d20-тесту, тратится при использовании (Бардовское вдохновение). */
+  bonusDie?: string;
   /** Подмена попадания дубликатами (Mirror Image): бросок die ≥ threshold уничтожает заряд. */
   misdirect?: { charges: number; die: string; threshold: number };
   /** Ограничения экономики/действий, пока эффект активен. */

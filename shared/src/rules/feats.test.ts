@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FEATS, featByKey, featsByCategory, featChoiceEffects, featSpellGrants } from './feats';
+import { FEATS, featByKey, featChoiceEffects, featMechanicsImplemented, featSpellGrants, featsByCategory } from './feats';
 import { casterStats } from './spellCast';
 
 describe('каталог фитов PHB24 (feats.json)', () => {
@@ -16,6 +16,13 @@ describe('каталог фитов PHB24 (feats.json)', () => {
     expect(featsByCategory('general').length).toBeGreaterThan(30);
     expect(featsByCategory('fightingStyle').length).toBeGreaterThan(8);
     expect(FEATS.every((f) => f.description)).toBe(true);
+  });
+
+  it('метка механик: Tough/Alert/Magic Initiate реализованы, Actor — нет', () => {
+    expect(featMechanicsImplemented('XPHB:tough')).toBe(true);
+    expect(featMechanicsImplemented('XPHB:alert')).toBe(true);
+    expect(featMechanicsImplemented('XPHB:magicInitiate')).toBe(true);
+    expect(featMechanicsImplemented('XPHB:actor')).toBe(false);
   });
 });
 

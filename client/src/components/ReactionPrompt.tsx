@@ -6,6 +6,7 @@ import ActionIcon from './ActionIcon';
 import SpellIcon from './SpellIcon';
 
 const TRIGGER_RU: Record<string, string> = {
+  saveFail: 'провален спасбросок',
   attackHit: 'попадание по нему',
   damage: 'получен урон',
   leaveReach: 'выход из зоны досягаемости',
