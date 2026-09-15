@@ -170,6 +170,39 @@ describe('normalizeSpell', () => {
     );
     expect(spell.conditions).toEqual(['prone', 'frightened']);
   });
+
+  it('бросок по таблице ({@dice}) не считается уроном (Mirror Image)', () => {
+    const spell = normalizeSpell(
+      {
+        name: 'Mirror Image',
+        source: 'XPHB',
+        level: 2,
+        school: 'I',
+        entries: [
+          "Each time a creature hits you with an attack roll, roll a {@dice d6} for each of your remaining duplicates. If any of the d6s rolls a 3 or higher, one of the duplicates is hit instead of you.",
+        ],
+      },
+      ['wizard']
+    );
+    expect(spell.damage).toBeUndefined();
+    expect(spell.healing).toBeUndefined();
+    expect(spell.automation).toBe('manual');
+  });
+
+  it('лечение берётся из {@dice} с контекстом «regains … Hit Points»', () => {
+    const spell = normalizeSpell(
+      {
+        name: 'Cure Wounds',
+        source: 'XPHB',
+        level: 1,
+        school: 'A',
+        entries: ['The target regains {@dice 2d8} + your spellcasting ability modifier Hit Points.'],
+      },
+      ['cleric']
+    );
+    expect(spell.damage?.dice).toEqual(['2d8']);
+    expect(spell.healing).toBe(true);
+  });
 });
 
 describe('deriveAreaSpec', () => {

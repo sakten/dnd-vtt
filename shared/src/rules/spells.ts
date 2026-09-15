@@ -219,18 +219,38 @@ export function collectText(value: unknown, out: string[] = []): string[] {
   return out;
 }
 
-function collectDamageDice(entries: unknown): string[] {
+const DICE_VALUE_RE = /^\d*d\d+/i;
+/** Контекст лечения: «regains … Hit Points», «Temporary Hit Points», рост максимума HP. */
+const HEAL_CONTEXT_RE = /regain|heal|temporary hit point|hit point.{0,30}increas/i;
+const DAMAGE_CONTEXT_RE = /damage/i;
+const MITIGATION_CONTEXT_RE = /\breduc/i;
+
+/**
+ * Кости из тегов 5e.tools: `{@damage}`/`{@scaledamage}` — всегда урон;
+ * `{@dice}`/`{@scaledice}` — только если рядом урон/лечение (иначе это бросок
+ * по таблице, «roll a d6» и т.п. — как у Mirror Image или Blink).
+ */
+function collectTaggedDice(entries: unknown): { damage: string[]; heal: string[] } {
   const text = JSON.stringify(entries ?? '');
-  const dice: string[] = [];
+  const out = { damage: [] as string[], heal: [] as string[] };
   const seen = new Set<string>();
-  const re = /\{@(?:damage|dice|scaledamage|scaledice)\s+([^|{}]+)/g;
+  const re = /\{@(damage|dice|scaledamage|scaledice)\s+([^|{}]+)/g;
   for (const match of text.matchAll(re)) {
-    const value = (match[1] ?? '').trim();
-    if (!/^\d*d\d+/i.test(value) || seen.has(value)) continue;
+    const value = (match[2] ?? '').trim();
+    if (!DICE_VALUE_RE.test(value) || seen.has(value)) continue;
+    const explicit = match[1] === 'damage' || match[1] === 'scaledamage';
+    const start = match.index ?? 0;
+    const window = text.slice(Math.max(0, start - 140), start + match[0].length + 80);
+    if (!explicit && HEAL_CONTEXT_RE.test(window)) {
+      out.heal.push(value);
+    } else if (explicit || (DAMAGE_CONTEXT_RE.test(window) && !MITIGATION_CONTEXT_RE.test(window))) {
+      out.damage.push(value);
+    } else {
+      continue;
+    }
     seen.add(value);
-    dice.push(value);
   }
-  return dice;
+  return out;
 }
 
 export function normalizeTime(raw: unknown): SpellTime[] {
@@ -340,8 +360,9 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
     .filter((a): a is AbilityKey => !!a);
   const attackCode = toStringArray(raw.spellAttack)[0]?.toLowerCase();
   const spellAttack = attackCode === 'r' ? 'ranged' : attackCode === 'm' ? 'melee' : undefined;
-  const damageDice = collectDamageDice([raw.entries, raw.entriesHigherLevel]);
+  const tagged = collectTaggedDice([raw.entries, raw.entriesHigherLevel]);
   const damageTypes = toStringArray(raw.damageInflict);
+  const damageDice = tagged.damage.length ? tagged.damage : tagged.heal;
   const damage: SpellDamage | undefined =
     damageDice.length || damageTypes.length ? { dice: damageDice, types: damageTypes } : undefined;
   const paragraphs = collectText(raw.entries);
@@ -349,7 +370,7 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
   const higherLevel = raw.srd52 ? collectText(raw.entriesHigherLevel) : [];
   const conditions = toStringArray(raw.conditionInflict).map((c) => conditionKeyOf(c));
   const rulesText = collectText([raw.entries, raw.entriesHigherLevel]).join(' ').toLowerCase();
-  const healing = damageDice.length && !damageTypes.length ? true : undefined;
+  const healing = tagged.heal.length && !tagged.damage.length && !damageTypes.length ? true : undefined;
   const saveHalf =
     save.length && damageDice.length && /half as much damage|half the damage|half the initial damage/.test(rulesText)
       ? true

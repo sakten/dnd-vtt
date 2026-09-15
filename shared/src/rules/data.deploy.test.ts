@@ -19,7 +19,7 @@ import type { Spell } from './spells';
  * обновить hash ниже — иначе тест падает и сигналит, какой файл изменился.
  */
 const HASHES = {
-  spells: 'c9d83da70bf365a0',
+  spells: 'f82b12f43ec96ea9',
   spellcasting: '142392258946ec63',
   subclassSpells: '8c6c1ad0490e5a66',
   features: 'e5156ad5b8d1553a',
