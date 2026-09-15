@@ -23,6 +23,8 @@ export interface ModifierContext {
   targetId?: string;
   /** Направление модификатора атаки (Reckless Attack и подобные). */
   direction?: 'self' | 'against';
+  /** Бросок атаки оружием (true) или заклинанием (false/undefined). */
+  weapon?: boolean;
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -75,6 +77,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.damageType && f.damageType !== ctx.damageType) return false;
   if (f.targetId && f.targetId !== ctx.targetId) return false;
   if (f.direction && f.direction !== ctx.direction) return false;
+  if (f.weapon !== undefined && f.weapon !== ctx.weapon) return false;
   return true;
 }
 
@@ -364,11 +367,13 @@ export function effectSummary(effect: EffectInstance): string | undefined {
                             ? 'доп. действие'
                             : mod.target === 'extraBonusActions'
                               ? 'доп. бонусное действие'
-                              : mod.target === 'spellAttack'
-                                ? 'к атаке заклинанием'
-                                : mod.target === 'spellDc'
-                                  ? 'к СЛ заклинаний'
-                                  : '';
+                                : mod.target === 'spellAttack'
+                                  ? 'к атаке заклинанием'
+                                  : mod.target === 'spellDc'
+                                    ? 'к СЛ заклинаний'
+                                    : mod.target === 'reach'
+                                      ? 'фт досягаемости'
+                                      : '';
         parts.push(target ? `${v} ${target}` : v);
         break;
       }

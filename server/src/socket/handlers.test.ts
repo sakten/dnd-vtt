@@ -14,6 +14,7 @@ import { registerCombatHandlers } from './combat';
 import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
 import { registerActionHandlers } from './actions';
+import { resolveWeaponAttack } from './attackResolve';
 import { applyAttackRiders } from './attackRiders';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
@@ -129,6 +130,188 @@ describe('action:use', () => {
     expect(room.resources.p1!.hp.current).toBe(22); // 10 + 9 + 3
     expect(room.resources.p1!.resources[0]!.current).toBe(1);
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+  });
+
+  it('Боевой дух самурая: 5 временных HP и преимущество на атаки оружием', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 3, subclass: 'samurai' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        { id: 'r1', key: 'fighter.samurai:fightingSpirit', name: 'Боевой дух', current: 3, max: 3, reset: 'long' },
+      ],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:fighter.samurai:fightingSpirit' });
+
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    expect(room.resources.p1!.hp.temp).toBe(5);
+    const effect = tk.effects.find((e) => e.name === 'Боевой дух');
+    expect(effect?.modifiers[0]?.filter).toEqual({ direction: 'self', weapon: true });
+    expect(room.resources.p1!.resources[0]!.current).toBe(2);
+  });
+
+  it('временные HP поглощаются до основных', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.resources.p1 = {
+      ...casterResources(),
+      hp: { current: 10, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [],
+      resources: [],
+    };
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    const f = makeCtx(room, { playerId: 'p1' });
+
+    f.manager.grantTempHp(room, tk, 5);
+    expect(room.resources.p1!.hp.temp).toBe(5);
+
+    f.manager.adjustTokenHp(room, 'm1', tk, -7);
+    expect(room.resources.p1!.hp.temp).toBe(0);
+    expect(room.resources.p1!.hp.current).toBe(8); // 10 − 2
+  });
+
+  it('Чемпион критует на 19, прочие — нет', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword] }),
+        makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 3, subclass: 'champion' }],
+      spells: [],
+    };
+    room.resources.p1 = casterResources();
+    const [attacker, target] = room.scene.maps[0]!.tokens;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 = 19
+    const f = makeCtx(room, { playerId: 'p1' });
+    const casterInput = {
+      attacker: attacker!,
+      attackerMapId: 'm1',
+      target: target!,
+      targetMapId: 'm1',
+      attack: sword,
+      prefix: 't1',
+      author: 't1',
+    };
+    const crit = resolveWeaponAttack(f.ctx, casterInput);
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'fighter', level: 3 }], spells: [] };
+    const plain = resolveWeaponAttack(f.ctx, casterInput);
+    rand.mockRestore();
+
+    expect(crit.crit).toBe(true);
+    expect(plain.crit).toBe(false);
+  });
+
+  it('Фанатичное присутствие: преимущество союзникам в 30 фт без выбора целей', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'ally', x: 150, y: 100 }),
+        makeToken('t3', { faction: 'enemy', x: 150, y: 150 }),
+        makeToken('t4', { faction: 'ally', x: 100, y: 600 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'barbarian', level: 10, subclass: 'zealot' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'barbarian.zealot:zealousPresence',
+          name: 'Фанатичное присутствие',
+          current: 1,
+          max: 1,
+          reset: 'long',
+        },
+      ],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:barbarian.zealot:zealousPresence' });
+
+    const [, ally, enemy, far] = room.scene.maps[0]!.tokens;
+    const hasBuff = (t: (typeof room.scene.maps)[0]['tokens'][number]) =>
+      t.effects.some((e) => e.name === 'Фанатичное присутствие');
+    expect(hasBuff(ally!)).toBe(true);
+    expect(hasBuff(enemy!)).toBe(false);
+    expect(hasBuff(far!)).toBe(false);
+    expect(room.resources.p1!.resources[0]!.current).toBe(0);
+  });
+
+  it('досягаемость: +10 фт в свой ход позволяет бить с 10 фт', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword], x: 100, y: 100 }),
+        makeToken('t2', { x: 200, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [] };
+    room.resources.p1 = casterResources();
+    combatOf(room).active = false;
+    const [attacker, target] = room.scene.maps[0]!.tokens;
+    attacker!.effects = [
+      {
+        id: 'reach1',
+        name: 'Досягаемость',
+        duration: { type: 'endOfTurn', of: 'target' },
+        modifiers: [{ id: 'm1', target: 'reach', mode: 'add', value: 10 }],
+      },
+    ];
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 = 19
+    const f = makeCtx(room, { playerId: 'p1' });
+    const input = {
+      attacker: attacker!,
+      attackerMapId: 'm1',
+      target: target!,
+      targetMapId: 'm1',
+      attack: sword,
+      prefix: 't1',
+      author: 't1',
+    };
+    const withReach = resolveWeaponAttack(f.ctx, input);
+    attacker!.effects = [];
+    const without = resolveWeaponAttack(f.ctx, input);
+    rand.mockRestore();
+
+    expect(withReach.error).toBeUndefined();
+    expect(withReach.hitSuccess).toBe(true);
+    expect(without.error).toContain('досягаемости');
   });
 
   it('Ярость вешает эффект: сопротивление B/P/S и бонус урона по уровню', () => {

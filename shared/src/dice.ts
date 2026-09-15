@@ -103,8 +103,8 @@ export interface RollOptions {
   doubleDice?: boolean;
 }
 
-export function isCriticalHit(roll: DiceRollResult): boolean {
-  return roll.dice.some((d) => d.sides === 20 && d.sign === 1 && d.values.includes(20));
+export function isCriticalHit(roll: DiceRollResult, minFace = 20): boolean {
+  return roll.dice.some((d) => d.sides === 20 && d.sign === 1 && d.values.some((value) => value >= minFace));
 }
 
 export function isCriticalFail(roll: DiceRollResult): boolean {

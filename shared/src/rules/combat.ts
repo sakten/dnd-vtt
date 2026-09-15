@@ -1,7 +1,7 @@
 import { abilityMod } from '../domain/core';
 import type { ConditionInstance } from '../domain/effects';
-import type { CharacterSheet } from '../domain/sheet';
-import type { AttackEntry, AttackRangeType } from '../domain/token';
+import type { CharacterSheet, ClassLevel } from '../domain/sheet';
+import type { AttackEntry, AttackRangeType, Token } from '../domain/token';
 import { advantageAgainst, attackerAdvantage, attackerDisadvantage, disadvantageAgainst } from './conditions';
 import { rollMode } from './effects';
 
@@ -117,6 +117,30 @@ export function gridDistanceFeet(a: GridBox, b: GridBox, gridSize: number, feetP
  * Попадание атаки по AC: нат. 20 — всегда попадание, нат. 1 — промах,
  * иначе сравнение суммы с AC. AC <= 0 — проверки нет (считаем попаданием).
  */
+/**
+ * Сторона существа: разные `isPlayerToken` — враждебны; нейтралы друг друга
+ * не считают врагами; иначе сравниваются фракции (OA, выбор союзников).
+ */
+export function hostileTokens(
+  a: Pick<Token, 'isPlayerToken' | 'faction'>,
+  b: Pick<Token, 'isPlayerToken' | 'faction'>
+): boolean {
+  if (a.isPlayerToken !== b.isPlayerToken) return true;
+  if (a.faction === 'neutral' || b.faction === 'neutral') return false;
+  return a.faction !== b.faction;
+}
+
+/**
+ * Минимальная грань d20 для критического попадания (Чемпион: 19 со 3 ур.,
+ * 18 с 15 ур.; прочие — только natural 20).
+ */
+export function critRangeFor(classes: ClassLevel[]): number {
+  const champion = classes.find((c) => c.className === 'fighter' && c.subclass === 'champion')?.level ?? 0;
+  if (champion >= 15) return 18;
+  if (champion >= 3) return 19;
+  return 20;
+}
+
 export function resolveAttack(total: number, crit: boolean, fumble: boolean, ac: number): boolean {
   if (ac <= 0) return true;
   if (crit) return true;
@@ -134,12 +158,13 @@ export function resolveAttack(total: number, crit: boolean, fumble: boolean, ac:
 export function attackRange(
   attack: Pick<AttackEntry, 'rangeType' | 'rangeNormal' | 'rangeLong'>,
   distanceFeet: number,
-  adjacentEnemy: boolean
+  adjacentEnemy: boolean,
+  reachBonus = 0
 ): AttackRangeResult {
   const type = attack.rangeType ?? 'none';
   if (type === 'none') return { outOfRange: false, disadvantage: false, distanceFeet };
   if (type === 'melee') {
-    const reach = attack.rangeNormal > 0 ? attack.rangeNormal : 5;
+    const reach = (attack.rangeNormal > 0 ? attack.rangeNormal : 5) + Math.max(0, reachBonus);
     if (distanceFeet > reach) {
       return { outOfRange: true, disadvantage: false, distanceFeet, reason: 'Вне досягаемости' };
     }

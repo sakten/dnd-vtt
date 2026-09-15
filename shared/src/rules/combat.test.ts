@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countAttackAdvantage } from './combat';
+import { attackRange, countAttackAdvantage, critRangeFor } from './combat';
 import { rollMode } from './effects';
 import type { ConditionInstance } from '../domain/effects';
 
@@ -56,5 +56,24 @@ describe('rollMode', () => {
     expect(rollMode(2, 0)).toBe('a');
     expect(rollMode(0, 2)).toBe('d');
     expect(rollMode(0, 0)).toBeUndefined();
+  });
+});
+
+describe('attackRange и досягаемость', () => {
+  it('бонус досягаемости расширяет melee-дистанцию', () => {
+    const sword = { rangeType: 'melee' as const, rangeNormal: 5, rangeLong: 0 };
+    expect(attackRange(sword, 10, false).outOfRange).toBe(true);
+    expect(attackRange(sword, 10, false, 10).outOfRange).toBe(false);
+    expect(attackRange(sword, 15, false, 10).outOfRange).toBe(false);
+    expect(attackRange(sword, 20, false, 10).outOfRange).toBe(true);
+  });
+});
+
+describe('critRangeFor (Чемпион)', () => {
+  it('19–20 с 3 уровня, 18–20 с 15, у прочих — только 20', () => {
+    expect(critRangeFor([{ className: 'fighter', level: 3 }])).toBe(20);
+    expect(critRangeFor([{ className: 'fighter', subclass: 'champion', level: 3 }])).toBe(19);
+    expect(critRangeFor([{ className: 'fighter', subclass: 'champion', level: 15 }])).toBe(18);
+    expect(critRangeFor([{ className: 'champion', level: 20 }])).toBe(20);
   });
 });

@@ -4,11 +4,13 @@ import {
   attackSubject,
   autoCrit,
   countAttackAdvantage,
+  critRangeFor,
   damageRollParts,
   exhaustionRollPenalty,
   gridDistanceFeet,
   isCriticalFail,
   isCriticalHit,
+  modifiedValue,
   resolveAttack,
   rollDice,
   rollMode,
@@ -26,6 +28,7 @@ import { applyDamage } from './damage';
 import { fail } from './errors';
 import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
+import { controllerIdOfToken } from '../rooms';
 
 export interface AttackResolveInput {
   /** Атакующий токен; null — атака только по листу (без токена на карте). */
@@ -87,6 +90,7 @@ export interface WeaponAttackPrep {
   damageExpr: string;
   hasHit: boolean;
   hasDamage: boolean;
+  critMin: number;
 }
 
 /**
@@ -101,11 +105,24 @@ export function prepareWeaponAttack(
   const room = ctx.getRoom();
   if (!room) return {};
   const { attacker, attackerMapId, target, targetMapId, attack } = input;
+  const attackerControllerId = attacker ? controllerIdOfToken(room, attacker) : undefined;
+  const attackerSheet = attackerControllerId ? room.sheets[attackerControllerId] : undefined;
+  const critMin = attackerSheet ? critRangeFor(attackerSheet.classes) : 20;
 
   let distanceFeet = 0;
   let hasTarget = false;
   let forcedDisadvantage = false;
   let forcedDisadvantageCode: RollLabelParams['disadvantage'];
+
+  // Досягаемость: бонус эффекта учитывается только в свой ход (Battering Roots).
+  const reachBonus =
+    attacker && attackerMapId
+      ? (() => {
+          const combat = manager.combatOf(room, attackerMapId);
+          if (combat?.active && !manager.isActiveToken(room, attackerMapId, attacker.id)) return 0;
+          return modifiedValue(0, attacker.effects, 'reach');
+        })()
+      : 0;
 
   if (attacker && attackerMapId && target && targetMapId === attackerMapId && target.id !== attacker.id) {
     const map = manager.findMap(room, attackerMapId);
@@ -116,7 +133,7 @@ export function prepareWeaponAttack(
         const adjacentEnemy = map.tokens.some(
           (t) => t.id !== attacker.id && t.isPlayerToken === false && gridDistanceFeet(attacker, t, size) <= 5
         );
-        const range = attackRange(attack, distanceFeet, adjacentEnemy);
+        const range = attackRange(attack, distanceFeet, adjacentEnemy, reachBonus);
         if (range.outOfRange) {
           return { error: `${range.reason ?? 'Вне зоны'}: ${Math.round(distanceFeet)} фт` };
         }
@@ -138,6 +155,7 @@ export function prepareWeaponAttack(
     {
       rangeType: attack.rangeType,
       attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
+      weapon: true,
     },
     abilities
   );
@@ -189,6 +207,7 @@ export function prepareWeaponAttack(
       damageExpr,
       hasHit: !!hit,
       hasDamage: !!damage,
+      critMin,
     },
   };
 }
@@ -213,7 +232,7 @@ export function rollPreparedAttack(
     if (prep.hasHit) {
       const hitRoll = rollDice(withAdvantage(prep.attackExpr, adv));
       crit =
-        isCriticalHit(hitRoll) ||
+        isCriticalHit(hitRoll, prep.critMin) ||
         (prep.hasTarget && !!target && autoCrit(target.conditions, prep.distanceFeet, attack.rangeType));
       if (prep.targetAc > 0) {
         hitSuccess = resolveAttack(hitRoll.total + prep.penalty, crit, isCriticalFail(hitRoll), prep.targetAc);

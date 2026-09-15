@@ -347,6 +347,10 @@ export class RoomManager {
     Effects.changeMaxHp(this, room, token, effect, sign);
   }
 
+  grantTempHp(room: Room, token: Token, amount: number) {
+    Effects.grantTempHp(this, room, token, amount);
+  }
+
   tickEffects(
     room: Room,
     token: Token,

@@ -7,6 +7,7 @@ import {
   COUNTERSPELL,
   grantedSpells,
   gridDistanceFeet,
+  hostileTokens as hostile,
   isIncapacitated,
   maxCastableLevel,
   pathLeavesReach,
@@ -716,13 +717,6 @@ export function registerReactionHandlers(ctx: ConnCtx) {
     const pid = ctx.playerId;
     for (const queue of [...queues.values()]) queue.skipPlayer(pid);
   });
-}
-
-/** Сторона: чужой, если разные стороны (игрок/монстр) или разные фракции. */
-function hostile(reactor: Token, mover: Token): boolean {
-  if (reactor.isPlayerToken !== mover.isPlayerToken) return true;
-  if (reactor.faction === 'neutral' || mover.faction === 'neutral') return false;
-  return reactor.faction !== mover.faction;
 }
 
 function meleeAttacks(room: Room, token: Token): AttackEntry[] {

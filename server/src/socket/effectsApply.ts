@@ -49,6 +49,11 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     hidden: effectDef.hidden,
   };
   ctx.manager.applyEffect(room, target, effect);
+  if (effectDef.tempHp) {
+    ctx.manager.grantTempHp(room, target, effectDef.tempHp);
+    const controllerId = ctx.manager.controllerOfToken(room, target);
+    if (controllerId) ctx.emitResources(room, controllerId);
+  }
   ctx.emitToken(room, 'token:update', mapId, target);
   return effectId;
 }

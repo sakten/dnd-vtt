@@ -39,6 +39,8 @@ export interface AutomationEffect {
   to?: 'self' | 'targets';
   /** Максимум целей (мультицелевые баффы/дебаффы, напр. Bless — 3). */
   targets?: number;
+  /** Наложить на союзников в радиусе от кастера без выбора целей (Zealous Presence). */
+  radiusFeet?: number;
   /**
    * Привязать эффект к цели каста: модификаторам проставляется filter.targetId
    * (Hex/Hunter's Mark накладываются на кастера, но бьют только по метке).
@@ -53,6 +55,8 @@ export interface AutomationEffect {
   escalate?: EffectEscalation;
   /** Урон/встряска снимает эффект (Sleep, Hypnotic Pattern). */
   wakeOnDamage?: boolean;
+  /** Временные HP, выдаваемые при наложении (Fighting Spirit и подобные). */
+  tempHp?: number;
   /** Подмена попадания дубликатами (Mirror Image): бросок die ≥ threshold уничтожает заряд. */
   misdirect?: { charges: number; die: string; threshold: number };
   /** Ограничения экономики/действий, пока эффект активен. */

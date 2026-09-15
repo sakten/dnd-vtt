@@ -17,36 +17,40 @@ export type FeatureMechanicsSource = FeatureMechanics | ((classes: ClassLevel[])
 
 export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   // Варвар — ядро
-  'barbarian:rage': (classes) => ({
-    trait: 'active',
-    automation: {
-      key: 'class:barbarian:rage',
-      name: 'Ярость',
-      resolution: 'effect',
-      targeting: { kind: 'self' },
-      effects: [
-        {
-          name: 'Ярость',
-          duration: { type: 'rounds', rounds: 10 },
-          to: 'self',
-          restrictions: { noSpells: true },
-          modifiers: [
-            {
-              target: 'damage',
-              mode: 'add',
-              value: barbarianLevel(classes) >= 9 ? 3 : 2,
-              filter: { attackType: 'melee' },
-            },
-            { target: 'check', mode: 'advantage', filter: { ability: 'str' } },
-            { target: 'save', mode: 'advantage', filter: { ability: 'str' } },
-            { target: 'damage', mode: 'resistance', filter: { damageType: 'bludgeoning' } },
-            { target: 'damage', mode: 'resistance', filter: { damageType: 'piercing' } },
-            { target: 'damage', mode: 'resistance', filter: { damageType: 'slashing' } },
-          ],
-        },
-      ],
-    },
-  }),
+  'barbarian:rage': (classes) => {
+    const worldTree = classes.find((c) => c.className === 'barbarian' && c.subclass === 'worldTree')?.level ?? 0;
+    return {
+      trait: 'active',
+      automation: {
+        key: 'class:barbarian:rage',
+        name: 'Ярость',
+        resolution: 'effect',
+        targeting: { kind: 'self' },
+        effects: [
+          {
+            name: 'Ярость',
+            duration: { type: 'rounds', rounds: 10 },
+            to: 'self',
+            restrictions: { noSpells: true },
+            ...(worldTree >= 3 ? { tempHp: barbarianLevel(classes) } : {}),
+            modifiers: [
+              {
+                target: 'damage',
+                mode: 'add',
+                value: barbarianLevel(classes) >= 9 ? 3 : 2,
+                filter: { attackType: 'melee' },
+              },
+              { target: 'check', mode: 'advantage', filter: { ability: 'str' } },
+              { target: 'save', mode: 'advantage', filter: { ability: 'str' } },
+              { target: 'damage', mode: 'resistance', filter: { damageType: 'bludgeoning' } },
+              { target: 'damage', mode: 'resistance', filter: { damageType: 'piercing' } },
+              { target: 'damage', mode: 'resistance', filter: { damageType: 'slashing' } },
+            ],
+          },
+        ],
+      },
+    };
+  },
   'barbarian:recklessAttack': {
     trait: 'active',
     costs: ['free'],
@@ -107,6 +111,54 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
           to: 'self',
           hidden: true,
           modifiers: [],
+        },
+      ],
+    },
+  },
+  'fighter.champion:improvedCritical': { trait: 'passive', native: true },
+  'fighter.samurai:fightingSpirit': (classes) => {
+    const level = classes.find((c) => c.className === 'fighter')?.level ?? 0;
+    return {
+      trait: 'active',
+      automation: {
+        key: 'class:fighter.samurai:fightingSpirit',
+        name: 'Боевой дух',
+        resolution: 'effect',
+        targeting: { kind: 'self' },
+        effects: [
+          {
+            name: 'Боевой дух',
+            duration: { type: 'endOfTurn', of: 'target' },
+            to: 'self',
+            tempHp: level >= 15 ? 15 : level >= 10 ? 10 : 5,
+            modifiers: [{ target: 'attack', mode: 'advantage', filter: { direction: 'self', weapon: true } }],
+          },
+        ],
+      },
+    };
+  },
+  'barbarian.worldTree:vitalityOfTheTree': { trait: 'passive', native: true },
+  'barbarian.worldTree:batteringRoots': {
+    trait: 'passive',
+    effects: [permanent('Досягаемость мирового древа', [{ target: 'reach', mode: 'add', value: 10 }])],
+  },
+  'barbarian.zealot:zealousPresence': {
+    trait: 'active',
+    automation: {
+      key: 'class:barbarian.zealot:zealousPresence',
+      name: 'Фанатичное присутствие',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      effects: [
+        {
+          name: 'Фанатичное присутствие',
+          duration: { type: 'endOfTurn', of: 'source' },
+          radiusFeet: 30,
+          to: 'targets',
+          modifiers: [
+            { target: 'attack', mode: 'advantage', filter: { direction: 'self' } },
+            { target: 'save', mode: 'advantage' },
+          ],
         },
       ],
     },

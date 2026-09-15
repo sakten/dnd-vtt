@@ -49,7 +49,9 @@ export type ModifierTarget =
   | 'spellDc'
   | 'spellAttack'
   | 'extraActions'
-  | 'extraBonusActions';
+  | 'extraBonusActions'
+  /** Бонус к досягаемости ближних атак, футы. */
+  | 'reach';
 
 export type ModifierMode =
   | 'add'
@@ -74,6 +76,8 @@ export interface ModifierFilter {
    * `against` — атаки по носителю. Без значения — как раньше (обе стороны).
    */
   direction?: 'self' | 'against';
+  /** Только броски атак оружием (не заклинаниями). */
+  weapon?: boolean;
 }
 
 export interface Modifier {

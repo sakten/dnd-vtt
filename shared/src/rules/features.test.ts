@@ -81,4 +81,43 @@ describe('каталог черт (features.json)', () => {
     const psi = attackRidersFor([{ className: 'fighter', subclass: 'psiWarrior', level: 12 }]).map((r) => r.id);
     expect(psi).toEqual(['fighter.psiWarrior:psionicStrike']);
   });
+
+  it('Боевой дух: 5/10/15 временных HP, преимущество только на оружие', () => {
+    const at3 = featureActionAutomation('class:fighter.samurai:fightingSpirit', [
+      { className: 'fighter', subclass: 'samurai', level: 3 },
+    ]);
+    const effect = at3?.effects?.[0];
+    expect(effect?.tempHp).toBe(5);
+    expect(effect?.modifiers[0]?.filter).toEqual({ direction: 'self', weapon: true });
+    const at10 = featureActionAutomation('class:fighter.samurai:fightingSpirit', [
+      { className: 'fighter', subclass: 'samurai', level: 10 },
+    ]);
+    expect(at10?.effects?.[0]?.tempHp).toBe(10);
+  });
+
+  it('Ярость мирового древа даёт временные HP по уровню варвара', () => {
+    const tree = featureActionAutomation('class:barbarian:rage', [
+      { className: 'barbarian', subclass: 'worldTree', level: 6 },
+    ]);
+    expect(tree?.effects?.[0]?.tempHp).toBe(6);
+    const plain = featureActionAutomation('class:barbarian:rage', [{ className: 'barbarian', level: 6 }]);
+    expect(plain?.effects?.[0]?.tempHp).toBeUndefined();
+  });
+
+  it('Фанатичное присутствие: бафф союзников в 30 фт до начала своего следующего хода', () => {
+    const def = featureActionAutomation('class:barbarian.zealot:zealousPresence', [
+      { className: 'barbarian', subclass: 'zealot', level: 10 },
+    ]);
+    const effect = def?.effects?.[0];
+    expect(effect?.radiusFeet).toBe(30);
+    expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    expect(effect?.modifiers.map((m) => m.target)).toEqual(['attack', 'save']);
+    expect(effect?.modifiers[0]?.filter).toEqual({ direction: 'self' });
+  });
+
+  it('Battering Roots — пассивная досягаемость +10 фт', () => {
+    const passives = passiveFeatures([{ className: 'barbarian', subclass: 'worldTree', level: 10 }]);
+    const roots = passives.find((p) => p.key === 'barbarian.worldTree:batteringRoots');
+    expect(roots?.effects[0]?.modifiers[0]).toMatchObject({ target: 'reach', mode: 'add', value: 10 });
+  });
 });

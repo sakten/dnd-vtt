@@ -167,6 +167,25 @@ export function changeMaxHp(m: EffectsDeps, room: Room, token: Token, effect: Ef
 }
 
 /**
+ * Выдаёт временные HP (не складываются: сохраняется большее значение).
+ * Персонажу — в ресурсы с зеркалом в токены, монстру — в токен.
+ */
+export function grantTempHp(m: EffectsDeps, room: Room, token: Token, amount: number): void {
+  const value = Math.max(0, Math.round(amount));
+  if (!value) return;
+  const controllerId = controllerIdOfToken(room, token);
+  const res = controllerId ? room.resources[controllerId] : undefined;
+  if (controllerId && res) {
+    res.hp.temp = Math.max(res.hp.temp, value);
+    m.saveSoon(room);
+    m.syncSheetToTokens(room, controllerId);
+    return;
+  }
+  token.hpTemp = Math.max(token.hpTemp, value);
+  m.saveSoon(room);
+}
+
+/**
  * Тик эффектов в начале/конце хода носителя: повторные спасброски, раунды,
  * эскалация состояний (Sleep). `endOfTurn` снимаются в начале хода владельца
  * (`of: 'target'`) или источника (`of: 'source'`, в т.ч. с чужих токенов) —
@@ -411,6 +430,11 @@ export function adjustTokenHp(
   const controllerId = controllerIdOfToken(room, token);
   const res = controllerId ? room.resources[controllerId] : undefined;
   if (controllerId && res && res.hp.max > 0) {
+    if (delta < 0 && res.hp.temp > 0) {
+      const absorbed = Math.min(res.hp.temp, -delta);
+      res.hp.temp -= absorbed;
+      delta += absorbed;
+    }
     const before = res.hp.current;
     let next = before + delta;
     next = Math.min(res.hp.max, next);
@@ -429,6 +453,11 @@ export function adjustTokenHp(
     return changed;
   }
   const max = statNumber(token.hpMax);
+  if (delta < 0 && token.hpTemp > 0) {
+    const absorbed = Math.min(token.hpTemp, -delta);
+    token.hpTemp -= absorbed;
+    delta += absorbed;
+  }
   let next = token.hpCurrent + delta;
   if (max > 0) next = Math.min(max, next);
   token.hpCurrent = next;

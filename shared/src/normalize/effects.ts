@@ -24,6 +24,7 @@ const MODIFIER_TARGETS: ModifierTarget[] = [
   'spellAttack',
   'extraActions',
   'extraBonusActions',
+  'reach',
 ];
 const MODIFIER_MODES: ModifierMode[] = [
   'add',
@@ -47,6 +48,7 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (f.rangeType === 'melee' || f.rangeType === 'ranged' || f.rangeType === 'none') out.rangeType = f.rangeType;
   if (typeof f.targetId === 'string' && f.targetId) out.targetId = f.targetId.slice(0, 80);
   if (f.direction === 'self' || f.direction === 'against') out.direction = f.direction;
+  if (typeof f.weapon === 'boolean') out.weapon = f.weapon;
   return Object.keys(out).length ? out : undefined;
 }
 

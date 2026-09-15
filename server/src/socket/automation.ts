@@ -80,6 +80,17 @@ function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, mapId: str
   ctx.manager.setConcentration(room, mapId, caster, anchorId);
 }
 
+/** Союзники кастера (совпадение не-нейтральной фракции) в радиусе, включая его самого. */
+function alliedTokensInRange(ctx: ConnCtx, room: Room, mapId: string, caster: Token, radiusFeet: number): Token[] {
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map) return [caster];
+  const size = room.scene.grid.size || 50;
+  return map.tokens.filter(
+    (token) =>
+      token.faction === caster.faction && token.faction !== 'neutral' && gridDistanceFeet(token, caster, size) <= radiusFeet
+  );
+}
+
 /** Накладывает эффекты заклинания (баффы/дебаффы), включая спасброски целей. */
 function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const room = ctx.getRoom();
@@ -91,7 +102,11 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const applied: string[] = [];
   let anchor: string | undefined;
   for (const effectDef of effects) {
-    const recipients = effectDef.to === 'targets' ? targets : [caster];
+    const recipients = effectDef.radiusFeet
+      ? alliedTokensInRange(ctx, room, mapId, caster, effectDef.radiusFeet)
+      : effectDef.to === 'targets'
+        ? targets
+        : [caster];
     const markedId = effectDef.markTarget ? targets[0]?.id : undefined;
     for (const target of recipients) {
       if (def.save && stats && effectDef.to === 'targets') {
