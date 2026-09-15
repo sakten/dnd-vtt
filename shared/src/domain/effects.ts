@@ -121,6 +121,8 @@ export interface Restrictions {
   noReactions?: boolean;
   /** Нельзя атаковать по возможности (Shocking Grasp). */
   noOpportunityAttacks?: boolean;
+  /** Движение не провоцирует атаки по возможности (Мантия вдохновения). */
+  ignoresOpportunityAttacks?: boolean;
   /** Если действие «Атака» — только одна атака за ход (Slow). */
   oneAttackOnly?: boolean;
   /** Действие или бонусное действие, но не оба (Slow). */

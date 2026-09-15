@@ -68,6 +68,30 @@ describe('actions slice', () => {
     });
   });
 
+  it('startMultiTarget с actionId шлёт action:use со всеми целями', () => {
+    useGameStore.getState().startMultiTarget({
+      tokenId: 't1',
+      actionId: 'class:bard.glamour:mantleOfInspiration',
+      slot: 'bonus',
+      count: 2,
+      distinct: true,
+    });
+    useGameStore.getState().addMultiTarget('t2');
+    expect(useGameStore.getState().interaction?.mode).toBe('multi');
+    useGameStore.getState().addMultiTarget('t3');
+    expect(emitted).toContainEqual({
+      event: 'action:use',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        actionId: 'class:bard.glamour:mantleOfInspiration',
+        slot: 'bonus',
+        targetIds: ['t2', 't3'],
+      },
+    });
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
   it('startTargeting + resolveTargeting для ROLL-атаки шлют dice:attack с целью', () => {
     useGameStore.getState().startTargeting({ kind: 'rollAttack', tokenId: 't1', attackIndex: 2, label: 'Атака: Меч' });
     useGameStore.getState().resolveTargeting('t2');

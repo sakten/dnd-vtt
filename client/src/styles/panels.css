@@ -162,6 +162,17 @@
   white-space: nowrap;
 }
 
+.initiative-move-only {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-text, #ffe9a8);
+  background: rgba(255, 200, 80, 0.16);
+  border: 1px solid rgba(255, 200, 80, 0.35);
+}
+
 .initiative-resources {
   display: flex;
   align-items: center;

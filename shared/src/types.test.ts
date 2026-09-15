@@ -10,11 +10,14 @@ import {
   normalizeConditions,
   normalizeDamageDefenses,
   normalizeEffects,
+  normalizeLibraryItem,
   normalizeSheet,
   normalizeSheetSpells,
   normalizeStatblock,
+  normalizeToken,
   normalizeTurnState,
 } from './normalize';
+import { redactLibraryItem, redactToken } from './fields';
 
 describe('normalizeAttacks', () => {
   it('по умолчанию — одна пустая строка', () => {
@@ -139,6 +142,7 @@ describe('turn state', () => {
       legendaryRemaining: 0,
       legendaryMax: 0,
       disengaged: false,
+      movementOnly: false,
       concentrationId: null,
     });
   });
@@ -320,5 +324,28 @@ describe('applyDamageDefenses', () => {
     expect(
       applyDamageDefenses(21, 'fire', [def('resistance', 'fire'), def('vulnerability', 'fire')])
     ).toEqual({ amount: 21 });
+  });
+});
+
+describe('статблок в полях токена/библиотеки', () => {
+  it('библиотека хранит статблок, игрокам он скрыт', () => {
+    const item = normalizeLibraryItem({
+      id: 'l1',
+      name: 'Гоблин',
+      statblock: { abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 }, multiattack: 2 },
+    });
+    expect(item.statblock?.multiattack).toBe(2);
+    expect(redactLibraryItem(item).statblock).toBeUndefined();
+  });
+
+  it('токен получает статблок из библиотеки, игрокам он скрыт', () => {
+    const item = normalizeLibraryItem({
+      id: 'l1',
+      name: 'Гоблин',
+      statblock: { abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 }, multiattack: 2 },
+    });
+    const token = normalizeToken({ ...item, libraryItemId: 'l1' });
+    expect(token.statblock?.multiattack).toBe(2);
+    expect(redactToken(token).statblock).toBeUndefined();
   });
 });

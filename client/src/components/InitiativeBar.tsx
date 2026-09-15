@@ -56,6 +56,7 @@ export default function InitiativeBar() {
       <div className="initiative-turn">
         <span className="initiative-round">Раунд {combat.round || 1}</span>
         {activeEntry && <span className="initiative-active-name">{activeEntry.name}</span>}
+        {turn?.movementOnly && <span className="initiative-move-only">только движение</span>}
         {turn && (
           <span className="initiative-resources">
             <span

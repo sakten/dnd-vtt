@@ -33,6 +33,8 @@ export interface TurnState {
   legendaryMax: number;
   /** Действие «Отход»: движение в этом ходу не провоцирует атаки по возможности. */
   disengaged: boolean;
+  /** Ход только для движения (Мантия вдохновения): действия/бонусы/реакции недоступны. */
+  movementOnly: boolean;
   /** id активного эффекта концентрации. */
   concentrationId: string | null;
 }
@@ -52,6 +54,7 @@ export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {
     legendaryRemaining: 0,
     legendaryMax: 0,
     disengaged: false,
+    movementOnly: false,
     concentrationId: null,
   };
 }
@@ -65,6 +68,10 @@ export interface CombatState {
   currentIndex: number;
   /** Состояние хода по id записи инициативы. */
   turns: Record<string, TurnState>;
+  /** Прерывание хода (Мантия вдохновения): очередь ходов «только движение». */
+  moveQueue?: string[];
+  /** id записи, чей ход продолжается после очереди движения. */
+  moveReturn?: string | null;
 }
 
 export function emptyCombatState(): CombatState {

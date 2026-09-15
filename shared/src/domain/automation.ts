@@ -163,10 +163,17 @@ export interface AutomationUtility {
     | 'extraAttacks'
     | 'weaponAttack'
     | 'healPool'
+    | 'tempHp'
     | 'patientDefense'
     | 'stepOfTheWind';
   amount?: number;
   ability?: AbilityKey;
+  /** Кость временных HP (tempHp), бросается один раз на всех. */
+  dice?: string;
+  /** Множитель брошенной кости (Мантия вдохновения: 2×кость). */
+  multiplier?: number;
+  /** После выдачи — ходы «только движение» в порядке инициативы (Мантия вдохновения). */
+  thenMove?: boolean;
 }
 
 export interface AutomationDef extends AutomationPayload {
@@ -182,6 +189,8 @@ export interface AutomationDef extends AutomationPayload {
   area?: AreaSpec;
   /** Массовая цель без области: до N существ (Mass Healing Word — 6). */
   targets?: number;
+  /** Максимум целей = модификатор способности (Мантия вдохновения: Харизма, min 1). */
+  targetsAbility?: AbilityKey;
   /** Автосбор целей в радиусе от кастера (черты без мультивыбора): враги или союзники. */
   autoTargets?: { feet: number; side: 'hostile' | 'ally' };
   /** Стоимость/цель черты (для классовых действий). */

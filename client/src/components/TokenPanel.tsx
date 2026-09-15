@@ -3,8 +3,10 @@ import type { LibraryItem, TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
-import { canAddLibraryItem, canSetAsCharacter } from '../lib/control';
+import { canAddLibraryItem, canSetAsCharacter, useIsDm } from '../lib/control';
 import Modal from './Modal';
+import StatblockForm from './StatblockForm';
+import StatblockSpells from './StatblockSpells';
 import TokenFieldsForm from './TokenFieldsForm';
 
 export default function TokenPanel() {
@@ -14,8 +16,10 @@ export default function TokenPanel() {
   const removeLibraryItem = useGameStore((s) => s.removeLibraryItem);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const setCurrentCharacter = useGameStore((s) => s.setCurrentCharacter);
+  const isDm = useIsDm();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'main' | 'statblock' | 'spells'>('main');
   const fileRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-token-panel') === 'collapsed');
@@ -49,10 +53,17 @@ export default function TokenPanel() {
         hpMax: editing.hpMax,
         showStats: editing.showStats,
         damageDefenses: editing.damageDefenses ?? [],
+        statblock: editing.statblock,
       });
+      setTab('main');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- черновик инициализируется при открытии редактора
   }, [editingId]);
+
+  // Сняли галку «кастер» — вкладка заклинаний исчезает, уходим на статблок.
+  useEffect(() => {
+    if (tab === 'spells' && !draft?.statblock?.spellcasting) setTab('statblock');
+  }, [tab, draft]);
 
   const handleItemClick = (id: string) => {
     setSelectedId(id);
@@ -179,8 +190,63 @@ export default function TokenPanel() {
       )}
 
       {editing && draft && (
-        <Modal onClose={() => setEditingId(null)} title="Свойства токена" className="token-modal">
-          <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
+        <Modal onClose={() => setEditingId(null)} className="token-modal">
+          <div className="tm-header">
+            <div className="tm-portrait">
+              {draft.imageUrl ? <img src={draft.imageUrl} alt={draft.name} draggable={false} /> : <span>?</span>}
+            </div>
+            <div className="tm-head-info">
+              <div className="tm-name">{draft.name || 'Без имени'}</div>
+              <div className="tm-stats">
+                <span>
+                  {draft.cells}×{draft.cells}
+                </span>
+              </div>
+              <div className="tm-sub">
+                {draft.isPlayerToken && (
+                  <span className="tm-owner">Токен игрока{draft.owner ? `: ${draft.owner}` : ''}</span>
+                )}
+              </div>
+            </div>
+            <button className="tm-close" aria-label="Закрыть" onClick={() => setEditingId(null)}>
+              ×
+            </button>
+          </div>
+          <div className="tm-tabs">
+            <button className={`tm-tab${tab === 'main' ? ' active' : ''}`} onClick={() => setTab('main')}>
+              Основное
+            </button>
+            {isDm && (
+              <button
+                className={`tm-tab${tab === 'statblock' ? ' active' : ''}`}
+                onClick={() => setTab('statblock')}
+              >
+                Статблок
+              </button>
+            )}
+            {isDm && draft.statblock?.spellcasting && (
+              <button className={`tm-tab${tab === 'spells' ? ' active' : ''}`} onClick={() => setTab('spells')}>
+                Заклинания
+              </button>
+            )}
+          </div>
+          <div className="tm-body">
+            {tab === 'main' && (
+              <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
+            )}
+            {tab === 'statblock' && isDm && (
+              <StatblockForm
+                value={draft.statblock}
+                onChange={(statblock) => setDraft({ ...draft, statblock })}
+              />
+            )}
+            {tab === 'spells' && isDm && draft.statblock?.spellcasting && (
+              <StatblockSpells
+                statblock={draft.statblock}
+                onChange={(statblock) => setDraft({ ...draft, statblock })}
+              />
+            )}
+          </div>
           <div className="modal-actions spread">
             <button
               className="danger"

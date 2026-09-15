@@ -361,6 +361,35 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     };
   },
   'bard.valor:extraAttack': { trait: 'passive', native: true },
+  // Мантия вдохновения (Обаяние, 3): бонусное действие, трата BI, 2×кость временных HP до CHA существ.
+  'bard.glamour:mantleOfInspiration': (classes) => {
+    const bard = classes.find((c) => c.className === 'bard');
+    const level = bard?.level ?? 0;
+    if (level < 3) return { trait: 'passive' };
+    return {
+      trait: 'active',
+      costs: ['bonus'],
+      targeting: { kind: 'creature', range: 60 },
+      resourceKey: 'bard:bardicInspiration',
+      automation: {
+        key: 'class:bard.glamour:mantleOfInspiration',
+        name: 'Мантия вдохновения',
+        resolution: 'utility',
+        targetsAbility: 'cha',
+        utility: { kind: 'tempHp', dice: `1d${bardicDie(level)}`, multiplier: 2, thenMove: true },
+        // Движение без провокации атак по возможности до конца следующего хода цели.
+        effects: [
+          {
+            name: 'Мантия вдохновения',
+            duration: { type: 'endOfTurn', of: 'target' },
+            to: 'targets',
+            restrictions: { ignoresOpportunityAttacks: true },
+            modifiers: [],
+          },
+        ],
+      },
+    };
+  },
   'bard:jackOfAllTrades': (classes) => {
     const bard = classes.find((c) => c.className === 'bard')?.level ?? 0;
     if (bard < 2) return { trait: 'passive' };

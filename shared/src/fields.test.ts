@@ -25,6 +25,7 @@ const FULL_FIELDS: TokenFields = {
   hpMax: '40',
   showStats: true,
   damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'fire' }],
+  statblock: { abilities: { ...DEFAULT_ABILITIES }, multiattack: 2 },
 };
 
 const FULL_TOKEN: Token = {
@@ -47,7 +48,6 @@ const FULL_TOKEN: Token = {
   speed: 30,
   conditions: [],
   effects: [],
-  statblock: { abilities: { ...DEFAULT_ABILITIES } },
 };
 
 describe('реестр полей', () => {
@@ -66,11 +66,16 @@ describe('реестр полей', () => {
       'hpMax',
       'showStats',
       'damageDefenses',
+      'statblock',
     ];
     expect(Object.keys(TOKEN_FIELD_SPECS).sort()).toEqual([...expected].sort());
 
     const fields = normalizeTokenFields({}, 40);
     for (const key of Object.keys(TOKEN_FIELD_SPECS) as (keyof TokenFields)[]) {
+      if (key === 'statblock') {
+        expect(fields.statblock).toBeUndefined();
+        continue;
+      }
       expect(fields[key], key).toBeDefined();
     }
   });
@@ -132,7 +137,7 @@ describe('redactToken / redactLibraryItem', () => {
     expect(redacted.statblock).toBeUndefined();
   });
 
-  it('предмет библиотеки: скрывает AC/HP, атаки и защиты', () => {
+  it('предмет библиотеки: скрывает AC/HP, атаки, защиты и статблок', () => {
     const item: LibraryItem = { ...FULL_FIELDS, id: 'l1' };
     const redacted = redactLibraryItem(item);
     expect(redacted).toMatchObject({
@@ -143,6 +148,7 @@ describe('redactToken / redactLibraryItem', () => {
       name: 'Гоблин',
       imageUrl: '/uploads/goblin.png',
     });
+    expect(redacted.statblock).toBeUndefined();
   });
 
   it('не мутирует исходный объект', () => {

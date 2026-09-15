@@ -236,6 +236,14 @@ export class RoomManager {
     Combat.setTurn(this, room, mapId, target);
   }
 
+  beginMovementTurn(room: Room, mapId: string, entryId: string) {
+    Combat.beginMovementTurn(this, room, mapId, entryId);
+  }
+
+  setTurnPointer(room: Room, mapId: string, entryId: string) {
+    Combat.setTurnPointer(this, room, mapId, entryId);
+  }
+
   attacksPerToken(room: Room, token: Token): number {
     return Combat.attacksPerToken(room, token);
   }

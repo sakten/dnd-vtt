@@ -21,6 +21,7 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     legendaryRemaining: clampInt(t.legendaryRemaining, 0, 99, 0),
     legendaryMax: clampInt(t.legendaryMax, 0, 99, 0),
     disengaged: t.disengaged === true,
+    movementOnly: t.movementOnly === true,
     concentrationId: typeof t.concentrationId === 'string' && t.concentrationId ? t.concentrationId : null,
   };
 }
@@ -33,11 +34,16 @@ export function normalizeCombatState(raw: unknown): CombatState {
   if (c.turns && typeof c.turns === 'object') {
     for (const [id, turn] of Object.entries(c.turns)) turns[id] = normalizeTurnState(turn);
   }
+  const moveQueue = Array.isArray(c.moveQueue)
+    ? c.moveQueue.filter((id): id is string => typeof id === 'string')
+    : undefined;
   return {
     active: c.active === true,
     entries,
     round: clampInt(c.round, 0, 100000, 0),
     currentIndex: entries.length ? clampInt(c.currentIndex, -1, entries.length - 1, -1) : -1,
     turns,
+    ...(moveQueue?.length ? { moveQueue } : {}),
+    ...(typeof c.moveReturn === 'string' && c.moveReturn ? { moveReturn: c.moveReturn } : {}),
   };
 }

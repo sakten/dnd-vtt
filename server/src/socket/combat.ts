@@ -3,6 +3,7 @@ import type { ConnCtx } from './context';
 import { tickActiveTurn } from './conditions';
 import { rejectIfReaction } from './guards';
 import { isReactionPending, triggerOpportunityAttacks } from './reactions';
+import { finishMovementTurn } from './moveTurns';
 import { handleMovementZones } from './zones';
 
 export function registerCombatHandlers(ctx: ConnCtx) {
@@ -94,6 +95,12 @@ export function registerCombatHandlers(ctx: ConnCtx) {
         if (!ctx.playerId || !active?.tokenId) return;
         const token = manager.findToken(room, mapId, active.tokenId);
         if (!token || !manager.controlsToken(room, mapId, ctx.playerId, token)) return;
+      }
+      // Ход «только движение» (Мантия вдохновения): без тиков эффектов и смены раунда.
+      if (active && combat.turns[active.id]?.movementOnly) {
+        finishMovementTurn(ctx, room, mapId);
+        syncCombat(room, mapId);
+        return;
       }
       tickActiveTurn(ctx, room, mapId, 'end');
       manager.endTurn(room, mapId);

@@ -37,6 +37,7 @@ import { applyDamage } from './damage';
 import { applyEffectTo } from './effectsApply';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { misdirectCheck } from './misdirect';
+import { startMovementTurns } from './moveTurns';
 import { audienceOf } from './reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { createZoneFromDef, removeZonesOfSource } from './zones';
@@ -383,6 +384,41 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
         ? `${input.caster.name}: ${input.def.name} → ${healed.join(', ')}`
         : `${input.caster.name}: ${input.def.name} — нет раненых`
     );
+  },
+  tempHp: ({ ctx, room, input, utility }) => {
+    // Временные HP одной костью на всех (Мантия вдохновения: 2×кость).
+    const roll = rollDice(utility.dice ?? '1d6');
+    const amount = roll.total * (utility.multiplier ?? 1);
+    if (amount <= 0) return;
+    const combat = ctx.manager.combatOf(room, input.mapId);
+    for (const target of input.targets) {
+      ctx.manager.grantTempHp(room, target, amount);
+      // Эффекты дара (движение без провокации атак по возможности и подобные):
+      // только в бою — вне боя эффект нечему завершать (нет ходов).
+      const inCombat = !!combat?.active && combat.entries.some((e) => e.tokenId === target.id);
+      if (inCombat) {
+        for (const effectDef of input.def.effects ?? []) {
+          applyEffectTo(ctx, room, {
+            sourceKey: input.def.key,
+            sourceId: input.caster.id,
+            mapId: input.mapId,
+            effectDef,
+            target,
+          });
+        }
+      }
+      const cid = ctx.manager.controllerOfToken(room, target);
+      if (cid) ctx.emitResources(room, cid);
+      ctx.emitToken(room, 'token:update', input.mapId, target);
+    }
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(
+      room,
+      `${input.caster.name}: ${input.def.name} → ${input.targets
+        .map((t) => `${t.name} +${amount} врем. HP`)
+        .join(', ')}`
+    );
+    if (utility.thenMove) startMovementTurns(ctx, room, input.mapId, input.caster, input.targets);
   },
   patientDefense: ({ ctx, room, input, turn }) => {
     if (turn) turn.disengaged = true;

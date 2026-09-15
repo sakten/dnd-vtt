@@ -1,6 +1,7 @@
 import { clampCells, statsPaired } from './domain/core';
 import type { LibraryItem, Token, TokenFields } from './domain/token';
 import { normalizeAttacks, normalizeDamageDefenses } from './normalize/attacks';
+import { normalizeStatblock } from './normalize/actions';
 
 /**
  * Реестр полей токена/предмета библиотеки — единственное место, где описано,
@@ -110,6 +111,14 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     patch: (raw) => (Array.isArray(raw.damageDefenses) ? normalizeDamageDefenses(raw.damageDefenses) : undefined),
     hidden: { token: [], library: [] },
   },
+  statblock: {
+    full: (raw) => normalizeStatblock(raw.statblock),
+    // Патч статблока — только DM (у токенов DM-ветка обрабатывает его отдельно).
+    patch: (raw, _prev, includeDm) =>
+      includeDm && raw.statblock !== undefined ? normalizeStatblock(raw.statblock) : undefined,
+    // Статблок — данные DM: игрокам ни у токена, ни в библиотеке.
+    hidden: { token: undefined, library: undefined },
+  },
 };
 
 export function normalizeTokenFields(
@@ -141,7 +150,7 @@ export function normalizeTokenFieldsPatch(
 
 /**
  * Версия статов для игроков без прав: поля с `hidden.token` заменяются заглушками.
- * `hpCurrent`/`statblock` — вне `TokenFields`, поэтому скрываются явно.
+ * `hpCurrent` — вне `TokenFields`, поэтому скрывается явно.
  */
 export function redactToken(token: Token): Token {
   const out: Token = { ...token };
@@ -150,7 +159,6 @@ export function redactToken(token: Token): Token {
     if (hidden && 'token' in hidden) (out as unknown as Record<string, unknown>)[key] = hidden.token;
   }
   out.hpCurrent = 0;
-  out.statblock = undefined;
   return out;
 }
 

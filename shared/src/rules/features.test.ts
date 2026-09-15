@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { attackRidersFor } from './attackRiders';
 import { classFeatures } from './classActions';
 import { CLASSES, martialArtsDie } from './classes';
-import { featureActionAutomation, passiveFeatures } from './featureAutomation';
+import { featureActionAutomation, featureMechanics, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
 import { reactionFeatures } from './reactions';
 
@@ -279,6 +279,18 @@ describe('каталог черт (features.json)', () => {
       { className: 'bard', level: 6, subclass: 'lore' },
     ]);
     expect(lore?.effects?.[0]?.bonusDieUses).toBeUndefined();
+  });
+
+  it('Мантия вдохновения: 2×кость временных HP до CHA существ за BI', () => {
+    const mech = featureMechanics('bard.glamour:mantleOfInspiration', [
+      { className: 'bard', level: 6, subclass: 'glamour' },
+    ]);
+    expect(mech?.resourceKey).toBe('bard:bardicInspiration');
+    expect(mech?.automation?.targetsAbility).toBe('cha');
+    expect(mech?.automation?.utility).toMatchObject({ kind: 'tempHp', dice: '1d8', multiplier: 2 });
+    const effect = mech?.automation?.effects?.[0];
+    expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'target' });
+    expect(effect?.restrictions?.ignoresOpportunityAttacks).toBe(true);
   });
 
   it('Монах: в названиях бонусных действий видно, что они дают', () => {

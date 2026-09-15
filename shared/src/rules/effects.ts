@@ -181,6 +181,7 @@ const BOOLEAN_RESTRICTIONS = [
   'noBonus',
   'noReactions',
   'noOpportunityAttacks',
+  'ignoresOpportunityAttacks',
   'oneAttackOnly',
   'actionOrBonusOnly',
   'noSpells',

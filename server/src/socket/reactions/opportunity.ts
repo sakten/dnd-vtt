@@ -71,6 +71,8 @@ export function triggerOpportunityAttacks(
   if (!map || path.length < 2) return;
   // «Отход»: движение в этом ходу не провоцирует атаки по возможности.
   if (ctx.manager.turnForToken(room, mapId, mover)?.disengaged) return;
+  // Эффекты движения без провокации (Мантия вдохновения).
+  if (restrictionsFor(mover.conditions, mover.effects).ignoresOpportunityAttacks) return;
   const size = gridSizeOf(room);
 
   const offers: ReactionOfferInput[] = [];

@@ -173,9 +173,42 @@ export function setTurn(m: CombatDeps, room: Room, mapId: string, target: { id?:
   if (typeof target.id === 'string') idx = combat.entries.findIndex((e) => e.id === target.id);
   else if (typeof target.index === 'number') idx = Math.round(target.index);
   if (idx < 0 || idx >= combat.entries.length) return;
+  // Ручной перевод хода отменяет очередь движения (Мантия вдохновения).
+  combat.moveQueue = undefined;
+  combat.moveReturn = null;
   combat.round = Math.max(1, combat.round);
   combat.currentIndex = idx;
   beginTurn(room, mapId, combat.entries[idx]!.id);
+  m.saveSoon(room);
+}
+
+/** Ход «только движение» (Мантия вдохновения): действия/бонусы/реакции недоступны. */
+export function beginMovementTurn(m: CombatDeps, room: Room, mapId: string, entryId: string) {
+  const combat = combatOf(room, mapId);
+  const idx = combat ? combat.entries.findIndex((e) => e.id === entryId) : -1;
+  if (!combat || idx < 0) return;
+  combat.currentIndex = idx;
+  beginTurn(room, mapId, entryId);
+  const turn = combat.turns[entryId];
+  if (!turn) return;
+  turn.movementOnly = true;
+  turn.actionUsed = true;
+  turn.bonusActionUsed = true;
+  turn.reactionUsed = true;
+  turn.attacksRemaining = 0;
+  turn.flurryAttacks = 0;
+  turn.extraActions = 0;
+  turn.extraBonusActions = 0;
+  turn.legendaryRemaining = 0;
+  m.saveSoon(room);
+}
+
+/** Перевод указателя хода без сброса состояния (возврат к прерванному ходу). */
+export function setTurnPointer(m: CombatDeps, room: Room, mapId: string, entryId: string) {
+  const combat = combatOf(room, mapId);
+  const idx = combat ? combat.entries.findIndex((e) => e.id === entryId) : -1;
+  if (!combat || idx < 0) return;
+  combat.currentIndex = idx;
   m.saveSoon(room);
 }
 

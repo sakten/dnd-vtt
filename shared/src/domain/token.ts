@@ -19,6 +19,8 @@ export interface TokenFields {
   showStats: boolean;
   /** Сопротивления/иммунитеты/уязвимости к типам урона. */
   damageDefenses: DamageDefense[];
+  /** Статблок монстра: у токена и в библиотеке (раздаётся при выставлении). */
+  statblock?: TokenStatblock;
 }
 
 export interface LibraryItem extends TokenFields {
@@ -47,8 +49,6 @@ export interface Token extends TokenFields {
   speed: number;
   conditions: ConditionInstance[];
   effects: EffectInstance[];
-  /** Статблок монстра; в библиотеку не протекает. */
-  statblock?: TokenStatblock;
 }
 
 /** Данные монстра, которые DM вводит вручную (позже — бестиарий). */

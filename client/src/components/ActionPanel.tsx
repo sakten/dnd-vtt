@@ -1,6 +1,6 @@
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BASE_ACTIONS, actionSlotAvailable, isUnarmedAttack, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { BASE_ACTIONS, abilityMod, actionSlotAvailable, featureActionAutomation, isUnarmedAttack, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import {
   canSpendSlot,
@@ -73,6 +73,7 @@ export default function ActionPanel() {
   const sheet = useGameStore((s) => s.sheet);
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
+  const startMultiTarget = useGameStore((s) => s.startMultiTarget);
   const spellByKey = useSpellByKey();
   const info = useActionContext();
   const [casting, setCasting] = useState<Spell | null>(null);
@@ -217,7 +218,13 @@ export default function ActionPanel() {
         disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
         onClick={() => {
           const slot = featureSlot(f, turnCtx);
-          if (f.targeting?.kind === 'creature') {
+          const auto = sheet ? featureActionAutomation(f.id, sheet.classes) : undefined;
+          const maxTargets = auto?.targetsAbility
+            ? Math.max(1, abilityMod(sheet?.abilities[auto.targetsAbility] ?? 10))
+            : auto?.targets ?? 1;
+          if (f.targeting?.kind === 'creature' && maxTargets > 1) {
+            startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
+          } else if (f.targeting?.kind === 'creature') {
             startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, label: f.name });
           } else {
             runAction(token.id, f.id, { slot });

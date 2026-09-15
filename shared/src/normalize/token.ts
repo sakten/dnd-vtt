@@ -1,7 +1,6 @@
 import { DEFAULT_SPEED, statNumber } from '../domain/core';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
 import { normalizeTokenFields } from '../fields';
-import { normalizeStatblock } from './actions';
 import { normalizeConditions, normalizeEffects } from './effects';
 import { isRecord } from './guards';
 
@@ -21,7 +20,6 @@ export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}):
   const fields = normalizeTokenFields(source as Partial<TokenFields>, opts.nameLimit ?? 40, {
     keepAcHp: opts.keepAcHp === true,
   });
-  const statblock = normalizeStatblock(source.statblock);
   const token: Token = {
     ...(source as unknown as Token),
     ...fields,
@@ -45,8 +43,7 @@ export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}):
     conditions: normalizeConditions(source.conditions),
     effects: normalizeEffects(source.effects),
   };
-  if (statblock) token.statblock = statblock;
-  else delete token.statblock;
+  if (!token.statblock) delete token.statblock;
   return token;
 }
 

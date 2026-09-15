@@ -11,6 +11,7 @@ import type { Room } from '../roomTypes';
 import { makeCombatRoom as makeRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx as makeCtx } from '../test/ctx';
 import { registerCombatHandlers } from './combat';
+import { registerLibraryHandlers } from './library';
 import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
 import { registerActionHandlers } from './actions';
@@ -1376,6 +1377,80 @@ describe('зоны и концентрация', () => {
     expect(room.scene.maps[0]!.tokens[1]!.effects.filter((e) => e.bonusDie)).toHaveLength(0);
   });
 
+  it('Мантия вдохновения: 2×кость временных HP и ходы движения по инициативе', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib1', x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { libraryItemId: 'lib1', x: 150, y: 150, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, cha: 16 },
+      classes: [{ className: 'bard', level: 6, subclass: 'glamour' }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'bard:bardicInspiration',
+          name: 'Бардовское вдохновение',
+          current: 3,
+          max: 3,
+          reset: 'short',
+        },
+      ],
+    };
+    combatOf(room).entries.push(
+      { id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' },
+      { id: 'e3', tokenId: 't3', name: 'C', imageUrl: '', initiative: 1, bonus: '' }
+    );
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // кость d8: 8 → 16 врем. HP
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerCombatHandlers(f.ctx);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'class:bard.glamour:mantleOfInspiration',
+      targetIds: ['t2', 't3'],
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpTemp).toBe(16);
+    expect(room.scene.maps[0]!.tokens[2]!.hpTemp).toBe(16);
+    expect(
+      room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.restrictions?.ignoresOpportunityAttacks)
+    ).toBe(true);
+    expect(room.resources.p1!.resources[0]!.current).toBe(2);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+    // Ход прерван: первым двигается t2 (только движение, без действий/реакции).
+    expect(combatOf(room).currentIndex).toBe(1);
+    expect(combatOf(room).turns.e2).toMatchObject({
+      movementOnly: true,
+      actionUsed: true,
+      bonusActionUsed: true,
+      reactionUsed: true,
+      movementMax: 30,
+    });
+    // Завершение: следом t3, затем возврат к прерванному ходу барда.
+    f.invoke('combat:endTurn', { mapId: 'm1' });
+    expect(combatOf(room).currentIndex).toBe(2);
+    expect(combatOf(room).turns.e3!.movementOnly).toBe(true);
+    expect(room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.sourceKey?.includes('mantleOfInspiration'))).toBe(false);
+    f.invoke('combat:endTurn', { mapId: 'm1' });
+    expect(combatOf(room).currentIndex).toBe(0);
+    expect(combatOf(room).moveQueue).toBeUndefined();
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+    expect(combatOf(room).turns.e1!.movementOnly).toBe(false);
+  });
+
   it('Режущие слова: кость барда-знания превращает попадание врага в промах', () => {
     const sword: AttackEntry = {
       name: 'Меч',
@@ -2402,6 +2477,43 @@ describe('реакции (R1)', () => {
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(false);
   });
 
+  it('Мантия вдохновения: эффект отменяет атаки по возможности при движении', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки')], x: 150, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.resources.p1 = casterResources();
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerCombatHandlers(f.ctx);
+
+    f.manager.applyEffect(room, room.scene.maps[0]!.tokens[0]!, {
+      id: 'mantle1',
+      name: 'Мантия вдохновения',
+      sourceKey: 'class:bard.glamour:mantleOfInspiration',
+      sourceId: 'bard',
+      duration: { type: 'endOfTurn', of: 'target' },
+      modifiers: [],
+      restrictions: { ignoresOpportunityAttacks: true },
+    });
+    f.invoke('combat:setMovement', {
+      mapId: 'm1',
+      tokenId: 't1',
+      used: 30,
+      path: [
+        { x: 100, y: 100 },
+        { x: 300, y: 100 },
+      ],
+    });
+
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(combatOf(room).turns.e2?.reactionUsed ?? false).toBe(false);
+  });
+
   it('действие «Уклонение» помечает ход и даёт помеху на атаки по токену', () => {
     const room = makeRoom(
       [
@@ -3199,5 +3311,35 @@ describe('очередь окон реакций (R6.5)', () => {
     f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
     expect(resumed).toEqual(['first', 'second']);
     expect(pendingOffers('TEST')).toHaveLength(0);
+  });
+});
+
+describe('библиотека и статблок', () => {
+  it('статблок из библиотеки переезжает на выставленный токен', () => {
+    const room = makeRoom([], {});
+    const f = makeCtx(room, { dm: true });
+    registerLibraryHandlers(f.ctx);
+    registerTokenHandlers(f.ctx);
+    f.invoke('library:add', {
+      name: 'Гоблин',
+      description: '',
+      imageUrl: '',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '12',
+      hpMax: '7',
+      showStats: false,
+      damageDefenses: [],
+      statblock: { abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 }, multiattack: 2 },
+    });
+    const item = room.library[0]!;
+    expect(item.statblock?.multiattack).toBe(2);
+
+    f.invoke('token:add', { mapId: 'm1', libraryItemId: item.id, x: 100, y: 100 });
+    expect(room.scene.maps[0]!.tokens[0]!.statblock?.multiattack).toBe(2);
   });
 });

@@ -23,7 +23,10 @@ export interface AimState {
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
 export interface MultiTargetState {
   tokenId: string;
-  spellKey: string;
+  /** Заклинание; при `actionId` — классовая черта (Мантия вдохновения). */
+  spellKey?: string;
+  actionId?: string;
+  slot?: ActionCost;
   slotLevel?: number;
   advantage?: 'a' | 'd';
   count: number;
@@ -205,21 +208,31 @@ export function pickMultiTarget(interaction: Interaction | null, targetId: strin
   if (mt.distinct && mt.targets.includes(targetId)) return { next: interaction };
   const targets = [...mt.targets, targetId];
   if (targets.length >= mt.count) {
-    return {
-      next: null,
-      command: {
-        type: 'castSpell',
-        payload: {
-          tokenId: mt.tokenId,
-          spellKey: mt.spellKey,
-          slotLevel: mt.slotLevel,
-          advantage: mt.advantage,
-          targetIds: targets,
-        },
-      },
-    };
+    return { next: null, command: multiCommand(mt, targets) };
   }
   return { next: { mode: 'multi', multi: { ...mt, targets } } };
+}
+
+/** Команда применения мульти-цели: заклинание или классовая черта. */
+function multiCommand(mt: MultiTargetState, targets: string[]): InteractionCommand {
+  if (mt.actionId) {
+    return {
+      type: 'runAction',
+      tokenId: mt.tokenId,
+      actionId: mt.actionId,
+      extra: { targetIds: targets, slot: mt.slot ?? 'bonus' },
+    };
+  }
+  return {
+    type: 'castSpell',
+    payload: {
+      tokenId: mt.tokenId,
+      spellKey: mt.spellKey ?? '',
+      slotLevel: mt.slotLevel,
+      advantage: mt.advantage,
+      targetIds: targets,
+    },
+  };
 }
 
 /** Досрочное применение мульти-цели: выбранных меньше максимума (Mass Healing Word). */
@@ -227,19 +240,7 @@ export function finishMulti(interaction: Interaction | null): InteractionResult 
   if (interaction?.mode !== 'multi') return { next: interaction };
   const mt = interaction.multi;
   if (!mt.targets.length) return { next: interaction };
-  return {
-    next: null,
-    command: {
-      type: 'castSpell',
-      payload: {
-        tokenId: mt.tokenId,
-        spellKey: mt.spellKey,
-        slotLevel: mt.slotLevel,
-        advantage: mt.advantage,
-        targetIds: mt.targets,
-      },
-    },
-  };
+  return { next: null, command: multiCommand(mt, mt.targets) };
 }
 
 /** Токен-владелец активного режима (для сброса UI при удалении токена). */
