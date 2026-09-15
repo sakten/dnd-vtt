@@ -78,6 +78,14 @@ export default function ActionPanel() {
   const info = useActionContext();
   const [casting, setCasting] = useState<Spell | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
+
+  const toggleCollapsed = () => {
+    setCollapsed((v) => {
+      localStorage.setItem('vtt-action-panel', v ? 'open' : 'collapsed');
+      return !v;
+    });
+  };
 
   const showTip = (e: ReactMouseEvent<HTMLDivElement>) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tip]');
@@ -307,7 +315,7 @@ export default function ActionPanel() {
 
   return (
     <div
-      className={`action-panel${!controlled ? ' ap-locked' : ''}`}
+      className={`action-panel${!controlled ? ' ap-locked' : ''}${collapsed ? ' collapsed' : ''}`}
       onMouseOver={showTip}
       onMouseLeave={() => setTip(null)}
     >
@@ -339,7 +347,16 @@ export default function ActionPanel() {
         ) : (
           <span className="ap-count dim">{controlled ? 'Вне боя' : 'Не ваш токен'}</span>
         )}
+        <button
+          className="icon ap-collapse"
+          title={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
+          onClick={toggleCollapsed}
+        >
+          {collapsed ? '▲' : '▼'}
+        </button>
       </div>
+      {!collapsed && (
+        <>
       <div className="ap-body">
         <section className="ap-panel actions">
           <div className="ap-panel-head">
@@ -377,6 +394,8 @@ export default function ActionPanel() {
             {spellsOther.map(spellButton)}
           </div>
         </section>
+      )}
+        </>
       )}
       {casting && <SpellPopover spell={casting} tokenId={token.id} onClose={() => setCasting(null)} />}
       {tip && <IconTip tip={tip} />}

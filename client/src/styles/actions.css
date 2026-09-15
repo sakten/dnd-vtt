@@ -20,6 +20,17 @@
   opacity: 0.6;
 }
 
+.action-panel.collapsed {
+  min-height: 0;
+  padding: 8px 14px;
+  gap: 0;
+}
+
+.ap-collapse {
+  padding: 0 8px;
+  flex: 0 0 auto;
+}
+
 .ap-head {
   display: flex;
   align-items: center;
