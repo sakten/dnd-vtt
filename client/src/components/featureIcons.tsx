@@ -59,6 +59,14 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
       <path d="M4 20c3-2 13-2 16 0" />
     </>
   ),
+  'class:fighter.psiWarrior:psionicStrike': (
+    <>
+      <path d="M12 3v10" />
+      <path d="M7 8l5-5 5 5" />
+      <path d="M4 16c2 2 4 3 8 3s6-1 8-3" />
+      <path d="M7 20c1.5.8 3.2 1.2 5 1.2s3.5-.4 5-1.2" />
+    </>
+  ),
   'class:fighter.arcaneArcher:arcaneShot': (
     <>
       <path d="M5 4a15 15 0 0 1 15 15" />

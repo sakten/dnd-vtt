@@ -91,6 +91,39 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   'fighter:extraAttack': { trait: 'passive', native: true },
   'fighter:twoExtraAttacks': { trait: 'passive', native: true },
   'fighter.battleMaster:improvedCombatSuperiority': { trait: 'passive', native: true },
+  'fighter.psiWarrior:psionicStrike': {
+    trait: 'active',
+    costs: ['free'],
+    targeting: { kind: 'self' },
+    automation: {
+      key: 'class:fighter.psiWarrior:psionicStrike',
+      name: 'Псионический удар',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      effects: [
+        {
+          name: 'Псионический удар: наготове',
+          duration: { type: 'endOfTurn', of: 'source' },
+          to: 'self',
+          hidden: true,
+          modifiers: [],
+        },
+      ],
+    },
+  },
+  'fighter.psiWarrior:guardedMind': {
+    trait: 'passive',
+    effects: [permanent('Защищённый разум', [{ target: 'damage', mode: 'resistance', filter: { damageType: 'psychic' } }])],
+  },
+  'fighter.champion:remarkableAthlete': {
+    trait: 'passive',
+    effects: [
+      permanent('Выдающийся атлет', [
+        { target: 'initiative', mode: 'advantage' },
+        { target: 'check', mode: 'advantage', filter: { skill: 'athletics' } },
+      ]),
+    ],
+  },
 };
 
 function barbarianLevel(classes: ClassLevel[]): number {

@@ -1,0 +1,85 @@
+import type { AbilityKey } from '../domain/core';
+import type { ClassLevel } from '../domain/sheet';
+
+/**
+ * Бонусный урон классовых черт при попадании оружием (R8.8, партия подклассов).
+ * Срабатывают автоматически в момент нанесения урона (`applyWeaponAttackDamage`),
+ * условия (ярость/безрассудство/метка/ресурс) проверяет сервер.
+ */
+export interface AttackRiderDef {
+  /** Ключ черты (`класс[.подкласс]:имя`). */
+  id: string;
+  name: string;
+  className: string;
+  subclass?: string;
+  levelReq: number;
+  /** Нужна активная Ярость (эффект `class:barbarian:rage`). */
+  requiresRage?: boolean;
+  /** Только при активной Безрассудной атаке. */
+  requiresReckless?: boolean;
+  /** Срабатывает только с активной меткой (`sourceKey` эффекта-метки). */
+  requiresMarker?: string;
+  /** Расход ресурса при срабатывании. */
+  resourceKey?: string;
+  resourceAmount?: number;
+  /** Добавочные кости (`2d6`); у Frenzy подставляются по уровню варвара. */
+  dice?: string;
+  /** Кости = бонус урона Ярости: 2d6 до 9 уровня, 3d6 с 9-го. */
+  rageDamageDice?: boolean;
+  /** Плоский бонус = половина уровня класса (вверх) — Divine Fury. */
+  halfLevelBonus?: string;
+  /** Плоский бонус = модификатор способности — Psionic Strike (+Int). */
+  abilityBonus?: AbilityKey;
+  /** Тип урона добавки (не задан — как у атаки). */
+  damageType?: string;
+}
+
+export const ATTACK_RIDERS: AttackRiderDef[] = [
+  {
+    id: 'barbarian.zealot:divineFury',
+    name: 'Божественная ярость',
+    className: 'barbarian',
+    subclass: 'zealot',
+    levelReq: 3,
+    requiresRage: true,
+    dice: '1d6',
+    halfLevelBonus: 'barbarian',
+    damageType: 'radiant',
+  },
+  {
+    id: 'barbarian.berserker:frenzy',
+    name: 'Неистовство',
+    className: 'barbarian',
+    subclass: 'berserker',
+    levelReq: 3,
+    requiresRage: true,
+    requiresReckless: true,
+    rageDamageDice: true,
+  },
+  {
+    id: 'fighter.psiWarrior:psionicStrike',
+    name: 'Псионический удар',
+    className: 'fighter',
+    subclass: 'psiWarrior',
+    levelReq: 3,
+    requiresMarker: 'class:fighter.psiWarrior:psionicStrike',
+    resourceKey: 'fighter.psiWarrior:psionicEnergyDice',
+    resourceAmount: 1,
+    dice: '1d6',
+    abilityBonus: 'int',
+    damageType: 'force',
+  },
+];
+
+/** Бонусные «наездники» персонажа по классам/подклассам и уровню. */
+export function attackRidersFor(classes: ClassLevel[]): AttackRiderDef[] {
+  const out: AttackRiderDef[] = [];
+  for (const def of ATTACK_RIDERS) {
+    const entry = classes.find((c) => c.className === def.className);
+    if (!entry) continue;
+    if (def.subclass && entry.subclass !== def.subclass) continue;
+    if (entry.level < def.levelReq) continue;
+    out.push(def);
+  }
+  return out;
+}

@@ -33,7 +33,8 @@ export function absorbTypesOf(spellKey: string): string[] {
 
 /**
  * Реакционные черты классов/подклассов (ручной каталог). Эффекты автоматизируются
- * на сервере по `kind`: halveDamage — половина урона атаки, acBonus — кость в AC.
+ * на сервере по `kind`: halveDamage — половина урона атаки, acBonus — кость в AC,
+ * reduceDamage — снижение урона союзнику на кости, acBonusAlly — кость в AC союзнику.
  */
 export interface ReactionFeatureDef {
   id: string;
@@ -42,9 +43,13 @@ export interface ReactionFeatureDef {
   subclass?: string;
   levelReq: number;
   trigger: ReactionTriggerKind;
-  kind: 'halveDamage' | 'acBonus' | 'disadvantage' | 'counterAttack';
+  kind: 'halveDamage' | 'acBonus' | 'disadvantage' | 'counterAttack' | 'reduceDamage' | 'acBonusAlly';
   resourceKey?: string;
   resourceAmount?: number;
+  /** Максимальная дистанция до защищаемого союзника, футы. */
+  rangeFeet?: number;
+  /** Кости эффекта (reduceDamage/acBonusAlly). */
+  dice?: string;
 }
 
 const REACTION_FEATURES: ReactionFeatureDef[] = [
@@ -88,6 +93,40 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     kind: 'counterAttack',
     resourceKey: 'fighter.battleMaster:superiorityDice',
     resourceAmount: 1,
+  },
+  {
+    id: 'barbarian.ancestralGuardian:spiritShield',
+    name: 'Щит духов',
+    className: 'barbarian',
+    subclass: 'ancestralGuardian',
+    levelReq: 6,
+    trigger: 'attackHit',
+    kind: 'reduceDamage',
+    rangeFeet: 30,
+    dice: '2d6',
+  },
+  {
+    id: 'fighter.cavalier:wardingManeuver',
+    name: 'Защитный манёвр',
+    className: 'fighter',
+    subclass: 'cavalier',
+    levelReq: 7,
+    trigger: 'attackHit',
+    kind: 'acBonusAlly',
+    rangeFeet: 5,
+    dice: '1d8',
+    resourceKey: 'fighter.cavalier:wardingManeuver',
+    resourceAmount: 1,
+  },
+  {
+    id: 'barbarian.berserker:retaliation',
+    name: 'Возмездие',
+    className: 'barbarian',
+    subclass: 'berserker',
+    levelReq: 10,
+    trigger: 'damage',
+    kind: 'counterAttack',
+    rangeFeet: 5,
   },
 ];
 

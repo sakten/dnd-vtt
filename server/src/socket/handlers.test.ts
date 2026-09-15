@@ -14,6 +14,7 @@ import { registerCombatHandlers } from './combat';
 import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
 import { registerActionHandlers } from './actions';
+import { applyAttackRiders } from './attackRiders';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
@@ -1377,6 +1378,147 @@ describe('реакции (R1)', () => {
 
     expect(room.resources.p1!.hp.current).toBe(30); // AC 16 + 7 = 23 > 17 → промах
     expect(room.resources.p1!.resources[0]!.current).toBe(3);
+    expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
+  });
+
+  it('наездники: Божественная ярость (+1d6+полуровень) — один раз за ход', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'barbarian', subclass: 'zealot', level: 4 }],
+      spells: [],
+    };
+    room.resources.p1 = { ...casterResources(), spellSlots: [], resources: [] };
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    tk.effects = [
+      {
+        id: 'rage',
+        name: 'Rage',
+        sourceKey: 'class:barbarian:rage',
+        sourceId: tk.id,
+        duration: { type: 'rounds', rounds: 10 },
+        modifiers: [],
+      },
+    ];
+    const f = makeCtx(room, { playerId: 'p1' });
+
+    const first = applyAttackRiders(f.ctx, room, tk, 'm1');
+    expect(first.expr).toBe('1d6+2');
+    expect(first.notes).toHaveLength(1);
+    expect(applyAttackRiders(f.ctx, room, tk, 'm1').expr).toBe('');
+  });
+
+  it('Псионический удар: без метки нет, с меткой тратит кость пси-энергии', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', subclass: 'psiWarrior', level: 3 }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'fighter.psiWarrior:psionicEnergyDice',
+          name: 'Кости пси-энергии',
+          current: 1,
+          max: 4,
+          reset: 'short',
+        },
+      ],
+    };
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    const f = makeCtx(room, { playerId: 'p1' });
+    expect(applyAttackRiders(f.ctx, room, tk, 'm1').expr).toBe('');
+
+    tk.effects = [
+      {
+        id: 'armed',
+        name: 'Псионический удар: наготове',
+        sourceKey: 'class:fighter.psiWarrior:psionicStrike',
+        sourceId: tk.id,
+        duration: { type: 'endOfTurn', of: 'source' },
+        modifiers: [],
+        hidden: true,
+      },
+    ];
+    const ride = applyAttackRiders(f.ctx, room, tk, 'm1');
+    expect(ride.expr).toMatch(/^1d6(\+\d+)?$/);
+    expect(room.resources.p1!.resources[0]!.current).toBe(0);
+    expect(tk.effects.some((e) => e.sourceKey === 'class:fighter.psiWarrior:psionicStrike')).toBe(false);
+  });
+
+  it('Щит духов союзника снижает урон атаки', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')], x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+        makeToken('t3', { libraryItemId: 'lib2', x: 200, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p2: 'lib2' }
+    );
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p2 = {
+      ...casterSheet(),
+      classes: [{ className: 'barbarian', level: 6, subclass: 'ancestralGuardian' }],
+      spells: [],
+    };
+    room.resources.p2 = casterResources();
+    combatOf(room).entries.push({ id: 'e3', tokenId: 't3', name: 'T3', imageUrl: '', initiative: 5, bonus: '' });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 17 (попадение), 1d8 7, 2d6 10
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const shield = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:barbarian.ancestralGuardian:spiritShield')
+    );
+    expect(shield).toBeDefined();
+
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: shield!.id, optionId: 'feature:barbarian.ancestralGuardian:spiritShield' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30); // 7 − 10 → 0
+    expect(combatOf(room).turns.e3!.reactionUsed).toBe(true);
+  });
+
+  it('Возмездие: реакция-атака по ударившему в 5 фт', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [melee('Меч', 'd20')], x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { libraryItemId: 'lib2', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'barbarian', level: 10, subclass: 'berserker' }],
+      spells: [],
+      attacks: [melee('Топор')],
+    };
+    room.resources.p1 = { ...casterResources(), spellSlots: [], resources: [] };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'T2', imageUrl: '', initiative: 5, bonus: '' });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const offers = pendingOffers('TEST');
+    expect(offers.some((o) => o.options.some((op) => op.id === 'feature:barbarian.berserker:retaliation'))).toBe(true);
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'feature:barbarian.berserker:retaliation' });
+    rand.mockRestore();
+
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
     expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
   });
 

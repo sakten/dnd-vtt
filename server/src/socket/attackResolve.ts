@@ -21,6 +21,7 @@ import {
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { fail } from './errors';
 import { pushRollMessage } from './messages';
@@ -271,6 +272,8 @@ export interface WeaponDamageMods {
   halveDamage?: boolean;
   /** Прибавка к AC при пересчёте попадания (Парирование и т.п.). */
   extraAc?: number;
+  /** Снижение урона до применения (Щит духов и подобные). */
+  flatReduction?: number;
 }
 
 export interface WeaponDamageResult {
@@ -300,11 +303,16 @@ export function applyWeaponAttackDamage(
   if (target && targetMapId && misdirectCheck(ctx, room, targetMapId, target, plan.attacker)) return undefined;
 
   try {
-    const damageRoll = rollDice(damageExpr, Math.random, { doubleDice: crit });
+    const ride = plan.attacker && plan.attackerMapId
+      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId)
+      : { expr: '', notes: [] };
+    for (const note of ride.notes) ctx.systemMessage(room, note);
+    const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;
+    const damageRoll = rollDice(fullDamageExpr, Math.random, { doubleDice: crit });
     const damage = applyDamage(ctx, {
       target,
       mapId: targetMapId,
-      amount: damageRoll.total,
+      amount: Math.max(0, damageRoll.total - (mods.flatReduction ?? 0)),
       damageType: attack.damageType,
       halve: mods.halveDamage,
       roll: damageRoll,

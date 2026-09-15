@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { attackRidersFor } from './attackRiders';
 import { CLASSES } from './classes';
 import { featureActionAutomation, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
@@ -70,5 +71,14 @@ describe('каталог черт (features.json)', () => {
     const reckless = featureActionAutomation('class:barbarian:recklessAttack', [{ className: 'barbarian', level: 2 }]);
     const directions = reckless?.effects?.[0]?.modifiers.map((m) => m.filter?.direction);
     expect(directions).toEqual(['self', 'against']);
+  });
+
+  it('attackRidersFor фильтрует по подклассу и уровню', () => {
+    const zealot = attackRidersFor([{ className: 'barbarian', subclass: 'zealot', level: 3 }]).map((r) => r.id);
+    expect(zealot).toEqual(['barbarian.zealot:divineFury']);
+    const berserker = attackRidersFor([{ className: 'barbarian', subclass: 'berserker', level: 2 }]).map((r) => r.id);
+    expect(berserker).toEqual([]);
+    const psi = attackRidersFor([{ className: 'fighter', subclass: 'psiWarrior', level: 12 }]).map((r) => r.id);
+    expect(psi).toEqual(['fighter.psiWarrior:psionicStrike']);
   });
 });
