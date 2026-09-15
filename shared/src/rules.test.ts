@@ -451,13 +451,17 @@ describe('attackSubject', () => {
 });
 
 describe('withAdvantage', () => {
-  it('навешивает преимущество/помеху только на первый d20', () => {
-    expect(withAdvantage('d20+5', 'a')).toBe('d20a+5');
-    expect(withAdvantage('d20+5', 'd')).toBe('d20d+5');
-    expect(withAdvantage('d20', 'a')).toBe('d20a');
-    expect(withAdvantage('2d20+5', 'a')).toBe('2d20+5');
-    expect(withAdvantage('d20+5', null)).toBe('d20+5');
-  });
+    it('навешивает преимущество/помеху только на первый d20', () => {
+      expect(withAdvantage('d20+5', 'a')).toBe('d20a+5');
+      expect(withAdvantage('d20+5', 'd')).toBe('d20d+5');
+      expect(withAdvantage('d20', 'a')).toBe('d20a');
+      expect(withAdvantage('2d20+5', 'a')).toBe('2d20+5');
+      expect(withAdvantage('d20+5', null)).toBe('d20+5');
+      // Формулы из листа бывают «1d20…» и «D20…» — режим не должен теряться.
+      expect(withAdvantage('1d20+3+d4', 'd')).toBe('1d20d+3+d4');
+      expect(withAdvantage('D20 + 3 + d4', 'd')).toBe('d20d + 3 + d4');
+      expect(withAdvantage('d20a+5', 'd')).toBe('d20d+5');
+    });
 });
 
 describe('attackRange', () => {

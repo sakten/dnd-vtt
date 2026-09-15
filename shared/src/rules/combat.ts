@@ -24,10 +24,11 @@ export function initiativeBonus(
   return mod >= 0 ? `+${mod}` : `${mod}`;
 }
 
-/** Помечает нат. d20 преимуществом/помехой: 'd20+5' → 'd20a+5' / 'd20d+5'. */
+/** Помечает нат. d20 преимуществом/помехой: 'd20+5' → 'd20a+5' / 'd20d+5'.
+ *  Терпимо к «1d20» и «D20» (иначе режим молча терялся) и к уже стоящей метке. */
 export function withAdvantage(expression: string, mode: 'a' | 'd' | null | undefined): string {
   if (mode !== 'a' && mode !== 'd') return expression;
-  return expression.replace(/^d20(?![0-9])/, `d20${mode}`);
+  return expression.replace(/^(1?)d20[ad]?(?![0-9])/i, `$1d20${mode}`);
 }
 
 export interface AttackAdvantageInput {

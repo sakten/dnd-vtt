@@ -2606,6 +2606,46 @@ describe('реакции (R1)', () => {
     expect(attack?.roll?.total).toBe(3); // помеха
   });
 
+  it('формулы «1d20…»/«D20…» не теряют помеху от Уклонения', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { x: 100, y: 100, ac: '20', hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', {
+          attacks: [
+            {
+              name: 'Бонк',
+              hit: 'D20 + 3 + d4',
+              damage: 'd8 + 3',
+              damageType: 'bludgeoning',
+              rangeType: 'melee',
+              rangeNormal: 5,
+              rangeLong: 0,
+            },
+          ],
+          x: 150,
+          y: 100,
+          faction: 'enemy',
+        }),
+      ],
+      {}
+    );
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dodge' });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).currentIndex = 1;
+    const rand = vi.spyOn(Math, 'random').mockReturnValueOnce(0.2).mockReturnValueOnce(0.9).mockReturnValueOnce(0.1);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t1'] });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll?: { total?: number; dice?: { advantage?: string | null }[] } }
+      | undefined;
+    expect(attack?.roll?.dice?.[0]?.advantage).toBe('d');
+    expect(attack?.roll?.total).toBe(5 + 3 + 1); // меньший d20 (5) + 3 + d4 (1)
+  });
+
   it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
     const room = makeRoom(
       [

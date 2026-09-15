@@ -3,6 +3,7 @@ import {
   ABILITIES,
   SKILLS,
   attackIsActive,
+  withAdvantage,
   type AbilityKey,
   type AttackEntry,
 } from 'shared';
@@ -21,9 +22,7 @@ interface AttackSource {
 }
 
 function applyAdvantage(expression: string, adv: boolean, dis: boolean): string {
-  if (adv === dis) return expression;
-  const suffix = adv ? 'a' : 'd';
-  return expression.replace(/^d20(?![0-9])/, `d20${suffix}`);
+  return withAdvantage(expression, adv === dis ? null : adv ? 'a' : 'd');
 }
 
 export default function RollMenu() {
