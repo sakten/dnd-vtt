@@ -16,3 +16,4 @@ export * from './rules/spellCast';
 export * from './rules/spellLimits';
 export * from './rules/spells';
 export * from './rules/subclassSpells';
+export * from './rules/weapons';

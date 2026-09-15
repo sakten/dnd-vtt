@@ -279,22 +279,34 @@ export function isActiveToken(room: Room, mapId: string, tokenId: string): boole
   return !active || active.tokenId === tokenId;
 }
 
-/** Доступна ли атака: есть запас мультиатаки, Шквала или свободное действие. */
-export function canAttack(room: Room, mapId: string, token: Token): boolean {
+/** Доступна ли атака: запас мультиатаки/Шквала (безоружные) или свободное действие. */
+export function canAttack(
+  room: Room,
+  mapId: string,
+  token: Token,
+  opts: { unarmed?: boolean } = {}
+): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
   if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
-  return turn.attacksRemaining > 0 || turn.flurryAttacks > 0 || !turn.actionUsed || turn.extraActions > 0;
+  const flurry = opts.unarmed === true && turn.flurryAttacks > 0;
+  return turn.attacksRemaining > 0 || flurry || !turn.actionUsed || turn.extraActions > 0;
 }
 
 /** Списывает атаку (запас мультиатаки/Шквала либо действие). */
-export function consumeAttack(m: CombatDeps, room: Room, mapId: string, token: Token): boolean {
+export function consumeAttack(
+  m: CombatDeps,
+  room: Room,
+  mapId: string,
+  token: Token,
+  opts: { unarmed?: boolean } = {}
+): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
   if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
   if (turn.attacksRemaining > 0) {
     turn.attacksRemaining -= 1;
-  } else if (turn.flurryAttacks > 0) {
+  } else if (opts.unarmed === true && turn.flurryAttacks > 0) {
     turn.flurryAttacks -= 1;
   } else if (turn.extraActions > 0) {
     turn.extraActions -= 1;

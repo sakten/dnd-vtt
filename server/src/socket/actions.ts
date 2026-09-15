@@ -5,6 +5,7 @@ import {
   classFeatures,
   featureActionAutomation,
   findBaseAction,
+  findUnarmedAttack,
   firstSentence,
   martialArtsDie,
   proficiencyBonus,
@@ -65,13 +66,16 @@ function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
   ctx.systemMessage(room, `${token.name}: выпутался из «${effect.name}»`);
 }
 
-/** Безоружный удар: у монаха — Ловкость и кость боевых искусств, иначе Сила и 1+мод. */
+/** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — правила. */
 function unarmedStrikeEntry(
   ctx: ConnCtx,
   room: Scope['room'],
   token: Token,
   sheet: CharacterSheet | undefined
 ): AttackEntry {
+  const explicit = findUnarmedAttack(sheet?.attacks) ?? findUnarmedAttack(token.attacks);
+  if (explicit && (explicit.hit.trim() || explicit.damage.trim())) return explicit;
+
   const abilities = (ctx.manager.abilitiesForToken(room, token) ?? {}) as Partial<Record<string, number>>;
   const totalLevel = (sheet?.classes ?? []).reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
   const prof = proficiencyBonus(totalLevel || 1);
@@ -134,11 +138,19 @@ export function registerActionHandlers(ctx: ConnCtx) {
           fail(ctx, 'noWeapon');
           return;
         }
-        if (!manager.canAttack(room, mapId, token)) {
-          fail(ctx, 'actionSpent');
-          return;
+        if (action.id === 'unarmedStrike' || entry.kind === 'unarmed') {
+          if (!manager.canAttack(room, mapId, token, { unarmed: true })) {
+            fail(ctx, 'actionSpent');
+            return;
+          }
+          manager.consumeAttack(room, mapId, token, { unarmed: true });
+        } else {
+          if (!manager.canAttack(room, mapId, token)) {
+            fail(ctx, 'actionSpent');
+            return;
+          }
+          manager.consumeAttack(room, mapId, token);
         }
-        manager.consumeAttack(room, mapId, token);
         syncCombat(room, mapId);
 
         const targetId = targetIds?.[0];

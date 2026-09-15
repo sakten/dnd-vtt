@@ -20,6 +20,8 @@ export interface AttackRiderDef {
   requiresReckless?: boolean;
   /** Срабатывает только с активной меткой (`sourceKey` эффекта-метки). */
   requiresMarker?: string;
+  /** Не автоматический: предлагается окном после попадания (Ошеломляющий удар). */
+  choiceOnHit?: boolean;
   /** Расход ресурса при срабатывании. */
   resourceKey?: string;
   resourceAmount?: number;
@@ -68,7 +70,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     className: 'fighter',
     subclass: 'psiWarrior',
     levelReq: 3,
-    requiresMarker: 'class:fighter.psiWarrior:psionicStrike',
+    choiceOnHit: true,
     resourceKey: 'fighter.psiWarrior:psionicEnergyDice',
     resourceAmount: 1,
     dice: '1d6',
@@ -80,7 +82,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     name: 'Ошеломляющий удар',
     className: 'monk',
     levelReq: 5,
-    requiresMarker: 'class:monk:stunningStrike',
+    choiceOnHit: true,
     resourceKey: 'monk:focus',
     resourceAmount: 1,
     save: { ability: 'con', condition: 'stunned', halfSpeedOnSuccess: true },

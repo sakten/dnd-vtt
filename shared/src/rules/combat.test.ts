@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attackRange, countAttackAdvantage, critRangeFor } from './combat';
+import { attackRange, countAttackAdvantage, critRangeFor, resolveAbilityMods } from './combat';
 import { rollMode } from './effects';
 import type { ConditionInstance } from '../domain/effects';
 
@@ -66,6 +66,32 @@ describe('attackRange и досягаемость', () => {
     expect(attackRange(sword, 10, false, 10).outOfRange).toBe(false);
     expect(attackRange(sword, 15, false, 10).outOfRange).toBe(false);
     expect(attackRange(sword, 20, false, 10).outOfRange).toBe(true);
+  });
+});
+
+describe('resolveAbilityMods', () => {
+  const abilities = { str: 16, dex: 14 };
+  it('подставляет модификаторы в формулы', () => {
+    expect(resolveAbilityMods('d20+str', abilities)).toBe('d20+3');
+    expect(resolveAbilityMods('d20 + str', abilities)).toBe('d20+3');
+    expect(resolveAbilityMods('d20-str', abilities)).toBe('d20-3');
+    expect(resolveAbilityMods('1d8+dex', abilities)).toBe('1d8+2');
+    expect(resolveAbilityMods('d20+5', abilities)).toBe('d20+5');
+    expect(resolveAbilityMods('str', abilities)).toBe('+3');
+  });
+
+  it('бонус владения: pb/prof', () => {
+    expect(resolveAbilityMods('d20+pb', abilities, 3)).toBe('d20+3');
+    expect(resolveAbilityMods('1d8+pb', abilities, 4)).toBe('1d8+4');
+    expect(resolveAbilityMods('d20+prof', abilities, 2)).toBe('d20+2');
+    expect(resolveAbilityMods('d20+pb')).toBe('d20+2');
+    expect(resolveAbilityMods('d20-pb', abilities, 3)).toBe('d20-3');
+    expect(resolveAbilityMods('1d6+dex+pb', abilities, 3)).toBe('1d6+2+3');
+  });
+
+  it('неизвестные характеристики — модификатор 10', () => {
+    expect(resolveAbilityMods('d20+cha', abilities)).toBe('d20+0');
+    expect(resolveAbilityMods('d20+constitution', abilities)).toBe('d20+constitution');
   });
 });
 

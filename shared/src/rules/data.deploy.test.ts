@@ -4,6 +4,7 @@ import spellsRaw from '../data/spells.json';
 import spellcastingRaw from '../data/spellcasting.json';
 import subclassRaw from '../data/subclassSpells.json';
 import featuresRaw from '../data/features.json';
+import weaponsRaw from '../data/weapons.json';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPELLS } from './automation';
@@ -21,6 +22,7 @@ const HASHES = {
   spellcasting: '142392258946ec63',
   subclassSpells: '8c6c1ad0490e5a66',
   features: 'e5156ad5b8d1553a',
+  weapons: '7910a91430bd729f',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -79,7 +81,40 @@ describe('снимок данных', () => {
       spellcasting: hash(spellcastingRaw),
       subclassSpells: hash(subclassRaw),
       features: hash(featuresRaw),
+      weapons: hash(weaponsRaw),
     }).toEqual(HASHES);
+  });
+
+  it('weapons.json: контракт записей', () => {
+    const data = weaponsRaw as unknown as {
+      count: number;
+      weapons: {
+        key: string;
+        name: string;
+        category: string;
+        rangeType: string;
+        damage: string;
+        damageType: string;
+        rangeNormal: number;
+        rangeLong: number;
+        properties: string[];
+        mastery: string[];
+        unarmed?: boolean;
+      }[];
+    };
+    expect(data.weapons.length).toBe(data.count);
+    const bad: string[] = [];
+    for (const w of data.weapons) {
+      if (!w.key || !w.name) bad.push(`${w.key}: имя/ключ`);
+      if (w.category !== 'simple' && w.category !== 'martial') bad.push(`${w.key}: категория ${w.category}`);
+      if (w.rangeType !== 'melee' && w.rangeType !== 'ranged') bad.push(`${w.key}: дальность ${w.rangeType}`);
+      if (!/^\d+(d\d+)?$/.test(w.damage)) bad.push(`${w.key}: кость ${w.damage}`);
+      if (!w.damageType) bad.push(`${w.key}: тип урона`);
+      if (!(w.rangeNormal > 0)) bad.push(`${w.key}: дистанция ${w.rangeNormal}`);
+      if (!Array.isArray(w.properties) || !Array.isArray(w.mastery)) bad.push(`${w.key}: свойства`);
+    }
+    expect(bad).toEqual([]);
+    expect(data.weapons.filter((w) => w.unarmed)).toHaveLength(1);
   });
 
   it('features.json: контракт записей', () => {

@@ -87,14 +87,15 @@ export interface TurnContext {
 }
 
 /** Доступен ли слот для действия (без учёта ресурсов/ячеек). */
-export function canSpendSlot(ctx: TurnContext, slot: ActionCost, actionId: string): boolean {
+export function canSpendSlot(ctx: TurnContext, slot: ActionCost, actionId: string, unarmed = false): boolean {
   if (ctx.incapacitated || !ctx.controlled) return false;
   if (!ctx.combatActive) return true;
   if (!ctx.isActive && slot !== 'reaction') return false;
   const turn = ctx.isActive ? ctx.turn : ctx.ownTurn;
   if (!turn) return ctx.isActive ? false : true;
   if (actionId === 'attack' || actionId === 'unarmedStrike') {
-    return turn.attacksRemaining > 0 || turn.flurryAttacks > 0 || actionSlotAvailable(turn, slot);
+    const isUnarmed = unarmed || actionId === 'unarmedStrike';
+    return turn.attacksRemaining > 0 || (isUnarmed && turn.flurryAttacks > 0) || actionSlotAvailable(turn, slot);
   }
   return actionSlotAvailable(turn, slot);
 }

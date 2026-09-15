@@ -81,6 +81,20 @@ describe('каталог черт (features.json)', () => {
     expect(berserker).toEqual([]);
     const psi = attackRidersFor([{ className: 'fighter', subclass: 'psiWarrior', level: 12 }]).map((r) => r.id);
     expect(psi).toEqual(['fighter.psiWarrior:psionicStrike']);
+    const psiRider = attackRidersFor([{ className: 'fighter', subclass: 'psiWarrior', level: 12 }]).find(
+      (r) => r.id === 'fighter.psiWarrior:psionicStrike'
+    );
+    expect(psiRider?.choiceOnHit).toBe(true);
+  });
+
+  it('Терпеливая оборона/Шаг ветра: база бесплатна (Отход/Рывок)', () => {
+    const monk = [{ className: 'monk', level: 2 }];
+    expect(featureActionAutomation('class:monk:patientDefense', monk)?.utility).toEqual({ kind: 'disengage' });
+    expect(featureActionAutomation('class:monk:stepOfTheWind', monk)?.utility).toEqual({ kind: 'extraMovement' });
+    const patient = classFeatures(monk).find((a) => a.id === 'class:monk:patientDefense');
+    expect(patient?.costs).toEqual(['bonus']);
+    expect(patient?.resourceKey).toBeUndefined();
+    expect(classFeatures(monk).map((a) => a.id)).toContain('class:monk:stepOfTheWind');
   });
 
   it('Боевой дух: 5/10/15 временных HP, преимущество только на оружие', () => {
@@ -142,6 +156,7 @@ describe('каталог черт (features.json)', () => {
     const rider = attackRidersFor([{ className: 'monk', level: 5 }]).find((r) => r.id === 'monk:stunningStrike');
     expect(rider?.save).toEqual({ ability: 'con', condition: 'stunned', halfSpeedOnSuccess: true });
     expect(rider?.resourceKey).toBe('monk:focus');
+    expect(rider?.choiceOnHit).toBe(true);
   });
 
   it('Кость боевых искусств растёт по уровню', () => {

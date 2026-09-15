@@ -1,4 +1,4 @@
-import { abilityMod } from '../domain/core';
+import { abilityMod, type AbilityKey } from '../domain/core';
 import type { ConditionInstance } from '../domain/effects';
 import type { CharacterSheet, ClassLevel } from '../domain/sheet';
 import type { AttackEntry, AttackRangeType, Token } from '../domain/token';
@@ -77,6 +77,31 @@ export function attackSubject(entry: AttackEntry, prefix?: string): string {
 }
 
 /** Выражения бросков попадания/урона из записи атаки (null — поле пустое). */
+/** Токены характеристик и бонуса владения в формулах атак (`d20+str`, `+pb`). */
+const ABILITY_TOKENS = /([+-]?)(str|dex|con|int|wis|cha|pb|prof)\b/gi;
+
+/**
+ * Подставляет модификаторы характеристик и бонус владения в формулу:
+ * `d20+str` → `d20+3`, `d20+pb` → `d20+2`. Неизвестная характеристика — 0.
+ * Пробелы удаляются.
+ */
+export function resolveAbilityMods(
+  expression: string,
+  abilities?: Partial<Record<AbilityKey, number>>,
+  proficiency = 2
+): string {
+  const compact = expression.replace(/\s+/g, '');
+  return compact.replace(ABILITY_TOKENS, (_match, sign: string, key: string) => {
+    const token = key.toLowerCase();
+    const base =
+      token === 'pb' || token === 'prof'
+        ? Math.round(proficiency)
+        : abilityMod(abilities?.[token as AbilityKey] ?? 10);
+    const value = sign === '-' ? -base : base;
+    return value >= 0 ? `+${value}` : `${value}`;
+  });
+}
+
 export function weaponRolls(entry: AttackEntry): { hit: string | null; damage: string | null } {
   const hit = entry.hit.trim();
   const damage = entry.damage.trim();

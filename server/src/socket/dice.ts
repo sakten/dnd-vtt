@@ -72,11 +72,11 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           fail(ctx, 'notYourTurn');
           return;
         }
-        if (!isDm() && !manager.canAttack(room, attackerMapId, attacker)) {
+        if (!isDm() && !manager.canAttack(room, attackerMapId, attacker, { unarmed: entry.kind === 'unarmed' })) {
           fail(ctx, 'actionSpent');
           return;
         }
-        manager.consumeAttack(room, attackerMapId, attacker);
+        manager.consumeAttack(room, attackerMapId, attacker, { unarmed: entry.kind === 'unarmed' });
         syncCombat(room, attackerMapId);
       }
 

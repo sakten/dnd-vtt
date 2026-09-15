@@ -95,26 +95,6 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   'fighter:extraAttack': { trait: 'passive', native: true },
   'fighter:twoExtraAttacks': { trait: 'passive', native: true },
   'fighter.battleMaster:improvedCombatSuperiority': { trait: 'passive', native: true },
-  'fighter.psiWarrior:psionicStrike': {
-    trait: 'active',
-    costs: ['free'],
-    targeting: { kind: 'self' },
-    automation: {
-      key: 'class:fighter.psiWarrior:psionicStrike',
-      name: 'Псионический удар',
-      resolution: 'effect',
-      targeting: { kind: 'self' },
-      effects: [
-        {
-          name: 'Псионический удар: наготове',
-          duration: { type: 'endOfTurn', of: 'source' },
-          to: 'self',
-          hidden: true,
-          modifiers: [],
-        },
-      ],
-    },
-  },
   'fighter.champion:improvedCritical': { trait: 'passive', native: true },
   'fighter.samurai:fightingSpirit': (classes) => {
     const level = classes.find((c) => c.className === 'fighter')?.level ?? 0;
@@ -202,24 +182,24 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
       utility: { kind: 'extraAttacks', amount: 1 },
     },
   },
-  'monk:stunningStrike': {
+  'monk:patientDefense': {
     trait: 'active',
-    costs: ['free'],
-    targeting: { kind: 'self' },
+    costs: ['bonus'],
     automation: {
-      key: 'class:monk:stunningStrike',
-      name: 'Ошеломляющий удар',
-      resolution: 'effect',
-      targeting: { kind: 'self' },
-      effects: [
-        {
-          name: 'Ошеломляющий удар: наготове',
-          duration: { type: 'endOfTurn', of: 'source' },
-          to: 'self',
-          hidden: true,
-          modifiers: [],
-        },
-      ],
+      key: 'class:monk:patientDefense',
+      name: 'Терпеливая оборона',
+      resolution: 'utility',
+      utility: { kind: 'disengage' },
+    },
+  },
+  'monk:stepOfTheWind': {
+    trait: 'active',
+    costs: ['bonus'],
+    automation: {
+      key: 'class:monk:stepOfTheWind',
+      name: 'Шаг ветра',
+      resolution: 'utility',
+      utility: { kind: 'extraMovement' },
     },
   },
   'monk:focus/flurryOfBlows': (classes) => ({

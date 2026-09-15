@@ -333,11 +333,12 @@ describe('action:use', () => {
     expect(turn.bonusActionUsed).toBe(true);
     expect(room.resources.p1!.resources[0]!.current).toBe(1);
     turn.actionUsed = true;
-    expect(f.manager.canAttack(room, 'm1', tk)).toBe(true);
-    f.manager.consumeAttack(room, 'm1', tk);
-    f.manager.consumeAttack(room, 'm1', tk);
+    expect(f.manager.canAttack(room, 'm1', tk)).toBe(false); // оружием запас Шквала не потратить
+    expect(f.manager.canAttack(room, 'm1', tk, { unarmed: true })).toBe(true);
+    f.manager.consumeAttack(room, 'm1', tk, { unarmed: true });
+    f.manager.consumeAttack(room, 'm1', tk, { unarmed: true });
     expect(turn.flurryAttacks).toBe(0);
-    expect(f.manager.canAttack(room, 'm1', tk)).toBe(false);
+    expect(f.manager.canAttack(room, 'm1', tk, { unarmed: true })).toBe(false);
   });
 
   it('Безоружный удар монаха: атака действием, запас Extra Attack и Шквала', () => {
@@ -366,38 +367,115 @@ describe('action:use', () => {
     expect(turn.flurryAttacks).toBe(0);
   });
 
-  it('Ошеломляющий удар: метка, CON-спас и stunned', () => {
+  it('явный безоружный удар из листа переопределяет расчётный', () => {
     const room = makeRoom(
-      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })],
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
       { p1: 'lib1' }
     );
-    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 5 }], spells: [] };
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'monk', level: 5 }],
+      spells: [],
+      attacks: [
+        {
+          name: 'Unarmed Strike',
+          kind: 'unarmed',
+          hit: 'd20+99',
+          damage: '7',
+          damageType: 'bludgeoning',
+          rangeType: 'melee',
+          rangeNormal: 5,
+          rangeLong: 0,
+        },
+      ],
+    };
+    room.resources.p1 = casterResources();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike', targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(f.emitted.filter((e) => e.event === 'chat:error').map((e) => e.payload)).toEqual([]);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(23); // 30 − 7 из листа
+  });
+
+  it('формулы атак понимают характеристики и бонус владения (str/dex/pb)', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, str: 16, dex: 14 },
+      classes: [{ className: 'fighter', level: 5 }],
+      spells: [],
+      attacks: [
+        {
+          name: 'Меч',
+          hit: 'd20+str',
+          damage: 'd6+dex+pb',
+          damageType: 'slashing',
+          rangeType: 'melee',
+          rangeNormal: 5,
+          rangeLong: 0,
+        },
+      ],
+    };
+    room.resources.p1 = casterResources();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 19 (попадание), d6 6
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(f.emitted.filter((e) => e.event === 'chat:error').map((e) => e.payload)).toEqual([]);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(19); // 30 − (6 + Ловкость 2 + PB 3)
+  });
+
+  it('Ошеломляющий удар: окно после попадания, CON-спас и stunned', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, dex: 14 },
+      classes: [{ className: 'monk', level: 5 }],
+      spells: [],
+    };
     room.resources.p1 = {
       ...casterResources(),
       spellSlots: [],
       resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' }],
     };
-    const [monk, target] = room.scene.maps[0]!.tokens;
-    monk!.effects = [
-      {
-        id: 'armed',
-        name: 'Ошеломляющий удар: наготове',
-        sourceKey: 'class:monk:stunningStrike',
-        sourceId: monk!.id,
-        duration: { type: 'endOfTurn', of: 'source' },
-        modifiers: [],
-        hidden: true,
-      },
-    ];
-    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // d20 = 3 — провал спасброска
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.9) // попадание безоружным (d20 19)
+      .mockReturnValueOnce(0.1) // провал CON-спасброска (d20 3)
+      .mockReturnValueOnce(0.9); // урон 1d8 = 8
     const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
 
-    applyAttackRiders(f.ctx, room, monk!, 'm1', target!);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike', targetIds: ['t2'] });
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'rider:monk:stunningStrike')
+    );
+    expect(offer).toBeDefined();
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'rider:monk:stunningStrike' });
     rand.mockRestore();
 
-    expect(target!.conditions.some((c) => c.key === 'stunned')).toBe(true);
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.conditions.some((c) => c.key === 'stunned')).toBe(true);
     expect(room.resources.p1!.resources[0]!.current).toBe(1);
-    expect(monk!.effects.some((e) => e.sourceKey === 'class:monk:stunningStrike')).toBe(false);
+    expect(target.hpCurrent).toBe(20); // 30 − (8 + Ловкость 2) после окна
   });
 
   it('Отражение атак: снижает урон и открывает окно перенаправления', () => {
@@ -1726,12 +1804,27 @@ describe('реакции (R1)', () => {
     expect(applyAttackRiders(f.ctx, room, tk, 'm1').expr).toBe('');
   });
 
-  it('Псионический удар: без метки нет, с меткой тратит кость пси-энергии', () => {
-    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+  it('Псионический удар: окно после попадания тратит кость пси-энергии', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
+      { p1: 'lib1' }
+    );
     room.sheets.p1 = {
       ...casterSheet(),
+      abilities: { ...casterSheet().abilities, int: 16 },
       classes: [{ className: 'fighter', subclass: 'psiWarrior', level: 3 }],
       spells: [],
+      attacks: [
+        {
+          name: 'Меч',
+          hit: 'd20',
+          damage: '1d8',
+          damageType: 'slashing',
+          rangeType: 'melee',
+          rangeNormal: 5,
+          rangeLong: 0,
+        },
+      ],
     };
     room.resources.p1 = {
       ...casterResources(),
@@ -1741,31 +1834,30 @@ describe('реакции (R1)', () => {
           id: 'r1',
           key: 'fighter.psiWarrior:psionicEnergyDice',
           name: 'Кости пси-энергии',
-          current: 1,
+          current: 4,
           max: 4,
           reset: 'short',
         },
       ],
     };
-    const tk = room.scene.maps[0]!.tokens[0]!;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 19, d8 8, d6 6
     const f = makeCtx(room, { playerId: 'p1' });
-    expect(applyAttackRiders(f.ctx, room, tk, 'm1').expr).toBe('');
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
 
-    tk.effects = [
-      {
-        id: 'armed',
-        name: 'Псионический удар: наготове',
-        sourceKey: 'class:fighter.psiWarrior:psionicStrike',
-        sourceId: tk.id,
-        duration: { type: 'endOfTurn', of: 'source' },
-        modifiers: [],
-        hidden: true,
-      },
-    ];
-    const ride = applyAttackRiders(f.ctx, room, tk, 'm1');
-    expect(ride.expr).toMatch(/^1d6(\+\d+)?$/);
-    expect(room.resources.p1!.resources[0]!.current).toBe(0);
-    expect(tk.effects.some((e) => e.sourceKey === 'class:fighter.psiWarrior:psionicStrike')).toBe(false);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'rider:fighter.psiWarrior:psionicStrike')
+    );
+    expect(offer).toBeDefined();
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'rider:fighter.psiWarrior:psionicStrike' });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.resources[0]!.current).toBe(3);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(13); // 30 − (8 + 1d6 6 + Инт 3)
   });
 
   it('Щит духов союзника снижает урон атаки', () => {

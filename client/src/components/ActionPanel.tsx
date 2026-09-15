@@ -1,6 +1,6 @@
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BASE_ACTIONS, actionSlotAvailable, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { BASE_ACTIONS, actionSlotAvailable, isUnarmedAttack, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import {
   canSpendSlot,
@@ -226,7 +226,6 @@ export default function ActionPanel() {
     const buttons: ReactNode[] = [];
     const hasAttack = BASE_ACTIONS.some((a) => a.id === 'attack' && a.costs.includes(slot));
     if (hasAttack) {
-      const enabled = canSpendSlot(turnCtx, slot, 'attack');
       if (weapons.length === 0) {
         buttons.push(
           <button
@@ -248,7 +247,7 @@ export default function ActionPanel() {
               className="ap-icon-btn"
               data-tip={`Атака: ${label}`}
               aria-label={`Атака: ${label}`}
-              disabled={!enabled}
+              disabled={!canSpendSlot(turnCtx, slot, 'attack', isUnarmedAttack(entry))}
               onClick={() => fire('attack', slot, index, `Атака: ${label}`)}
             >
               <WeaponIcon name={entry.name} className="ap-icon" />

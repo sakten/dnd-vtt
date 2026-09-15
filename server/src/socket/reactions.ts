@@ -35,6 +35,7 @@ import { isDmViewer, type ConnCtx } from './context';
 import { findSpell } from '../spells';
 import { controllerIdOfToken, hasResourceFor } from '../rooms';
 import { applyDamage } from './damage';
+import { availableChoiceRiders } from './attackRiders';
 import { pushRollMessage } from './messages';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from './spellResolve';
 import {
@@ -1089,6 +1090,45 @@ function continueAfterRoll(
     }
   };
 
+  // Необязательные наездники атакующего (Ошеломляющий удар): окно после попадания.
+  const applyDamageWithRiders = (mods: WeaponDamageMods = {}) => {
+    const currentRoom = ctx.getRoom();
+    const riders = currentRoom && plan.attacker ? availableChoiceRiders(ctx, currentRoom, plan.attacker) : [];
+    if (!riders.length || !plan.attacker || !plan.attackerMapId || !currentRoom) {
+      applyDamage(mods);
+      return;
+    }
+    const windowMapId = targetMapId ?? plan.attackerMapId;
+    openReactionWindow(ctx, currentRoom, {
+      mapId: windowMapId,
+      trigger: 'attackHit',
+      sourceName: target?.name,
+      offers: [
+        {
+          token: plan.attacker,
+          audience: audienceOf(ctx, currentRoom, plan.attackerMapId, plan.attacker),
+          options: riders.map((rider) => ({
+            id: `rider:${rider.id}`,
+            name: rider.name,
+            kind: 'feature',
+            resourceKey: rider.resourceKey,
+            resourceAmount: rider.resourceAmount,
+          })),
+        },
+      ],
+      resume: (riderChoices) => {
+        const roomAfter = ctx.getRoom();
+        if (!roomAfter) return;
+        const activated = riderChoices
+          .map((choice) => choice.optionId)
+          .filter((id): id is string => !!id && id.startsWith('rider:'))
+          .map((id) => id.slice('rider:'.length));
+        applyDamage({ ...mods, riders: activated });
+        ctx.syncCombat(roomAfter, windowMapId);
+      },
+    });
+  };
+
   // Атака по возможности сама окон не открывает (нет вложенных пауз).
   if (input.ignoreRange) {
     applyDamage();
@@ -1196,14 +1236,14 @@ function continueAfterRoll(
             }
           }
           ctx.syncCombat(currentRoom, targetMapId);
-          applyDamage(mods);
+          applyDamageWithRiders(mods);
         },
       });
       if (opened) return result;
     }
   }
 
-  applyDamage();
+  applyDamageWithRiders();
   return result;
 }
 

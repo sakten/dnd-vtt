@@ -268,12 +268,12 @@ export class RoomManager {
     return Combat.isActiveToken(room, mapId, tokenId);
   }
 
-  canAttack(room: Room, mapId: string, token: Token): boolean {
-    return Combat.canAttack(room, mapId, token);
+  canAttack(room: Room, mapId: string, token: Token, opts: { unarmed?: boolean } = {}): boolean {
+    return Combat.canAttack(room, mapId, token, opts);
   }
 
-  consumeAttack(room: Room, mapId: string, token: Token): boolean {
-    return Combat.consumeAttack(this, room, mapId, token);
+  consumeAttack(room: Room, mapId: string, token: Token, opts: { unarmed?: boolean } = {}): boolean {
+    return Combat.consumeAttack(this, room, mapId, token, opts);
   }
 
   spendSlot(room: Room, mapId: string, token: Token, slot: ActionCost): boolean {

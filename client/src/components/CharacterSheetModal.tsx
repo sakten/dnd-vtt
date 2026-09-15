@@ -279,6 +279,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           title="Оружие"
           itemLabel="Оружие"
           namePlaceholder="Например: Меч"
+          weaponContext={{ abilities: draft.abilities, classes: draft.classes }}
           onChange={(attacks) => setDraft((d) => (d ? { ...d, attacks } : d))}
         />
         <DamageDefensesForm

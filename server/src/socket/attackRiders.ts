@@ -37,7 +37,8 @@ export function applyAttackRiders(
   room: Room,
   attacker: Token,
   mapId: string,
-  target?: Token | null
+  target?: Token | null,
+  activated?: string[]
 ): AppliedRiders {
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
@@ -58,6 +59,7 @@ export function applyAttackRiders(
     if (rider.requiresRage && !hasEffect(RAGE_KEY)) continue;
     if (rider.requiresReckless && !hasEffect(RECKLESS_KEY)) continue;
     if (rider.requiresMarker && !hasEffect(rider.requiresMarker)) continue;
+    if (rider.choiceOnHit && !activated?.includes(rider.id)) continue;
     if (hasEffect(`${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
 
@@ -74,6 +76,28 @@ export function applyAttackRiders(
     if (rider.save && target) applyRiderSave(ctx, room, mapId, attacker, target, rider, saveDc);
   }
   return { expr: parts.join('+'), notes };
+}
+
+/** Выбранные в окне наездники атакующего (choiceOnHit) с оплачиваемым ресурсом. */
+export interface ChoiceRider {
+  id: string;
+  name: string;
+  resourceKey?: string;
+  resourceAmount?: number;
+}
+
+export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token): ChoiceRider[] {
+  const cid = controllerIdOfToken(room, attacker);
+  const sheet = cid ? room.sheets[cid] : undefined;
+  if (!cid || !sheet) return [];
+  const out: ChoiceRider[] = [];
+  for (const rider of attackRidersFor(sheet.classes)) {
+    if (!rider.choiceOnHit) continue;
+    if (attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;
+    if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
+    out.push({ id: rider.id, name: rider.name, resourceKey: rider.resourceKey, resourceAmount: rider.resourceAmount });
+  }
+  return out;
 }
 
 function riderExpression(

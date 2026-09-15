@@ -23,6 +23,7 @@ function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry
     rangeNormal: Number.isFinite(rangeNormal) ? Math.max(0, Math.round(rangeNormal)) : 5,
     rangeLong: Number.isFinite(rangeLong) ? Math.max(0, Math.round(rangeLong)) : 0,
     damageType: typeof raw?.damageType === 'string' && raw.damageType ? raw.damageType.slice(0, 20) : undefined,
+    kind: raw?.kind === 'unarmed' ? 'unarmed' : undefined,
   };
 }
 

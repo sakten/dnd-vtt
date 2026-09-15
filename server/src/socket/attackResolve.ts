@@ -11,6 +11,8 @@ import {
   isCriticalFail,
   isCriticalHit,
   modifiedValue,
+  proficiencyBonus,
+  resolveAbilityMods,
   resolveAttack,
   rollDice,
   rollMode,
@@ -108,6 +110,9 @@ export function prepareWeaponAttack(
   const attackerControllerId = attacker ? controllerIdOfToken(room, attacker) : undefined;
   const attackerSheet = attackerControllerId ? room.sheets[attackerControllerId] : undefined;
   const critMin = attackerSheet ? critRangeFor(attackerSheet.classes) : 20;
+  const proficiency = attackerSheet
+    ? proficiencyBonus(attackerSheet.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0) || 1)
+    : 2;
 
   let distanceFeet = 0;
   let hasTarget = false;
@@ -144,11 +149,14 @@ export function prepareWeaponAttack(
     }
   }
 
-  const { hit, damage } = weaponRolls(attack);
-  if (!hit && !damage) return {};
+  const { hit: rawHit, damage: rawDamage } = weaponRolls(attack);
+  if (!rawHit && !rawDamage) return {};
 
   // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
   const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
+  // Формулы могут содержать характеристики и бонус владения: d20+str, d20+pb.
+  const hit = rawHit ? resolveAbilityMods(rawHit, abilities, proficiency) : '';
+  const damage = rawDamage ? resolveAbilityMods(rawDamage, abilities, proficiency) : '';
   const effectParts = attackRollParts(
     attacker?.effects,
     target?.effects,
@@ -295,6 +303,8 @@ export interface WeaponDamageMods {
   flatReduction?: number;
   /** Отражение атак монаха: после полного снижения можно перенаправить (окно). */
   redirect?: { reactorId: string; mapId: string };
+  /** Выбранные в окне наездники атакующего (choiceOnHit). */
+  riders?: string[];
 }
 
 export interface WeaponDamageResult {
@@ -325,7 +335,7 @@ export function applyWeaponAttackDamage(
 
   try {
     const ride = plan.attacker && plan.attackerMapId
-      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target)
+      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders)
       : { expr: '', notes: [] };
     for (const note of ride.notes) ctx.systemMessage(room, note);
     const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;

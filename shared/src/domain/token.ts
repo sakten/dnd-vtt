@@ -85,4 +85,6 @@ export interface AttackEntry {
   rangeLong: number;
   /** Тип урона (ключ: bludgeoning/piercing/fire/…). */
   damageType?: string;
+  /** Особый вид атаки: `unarmed` — переопределяет расчётный безоружный удар. */
+  kind?: 'unarmed';
 }

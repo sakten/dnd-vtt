@@ -57,7 +57,7 @@ describe('parseDiceExpression', () => {
     expect(() => parseDiceExpression('abc')).toThrow(DiceParseError);
     expect(() => parseDiceExpression('d1')).toThrow(DiceParseError);
     expect(() => parseDiceExpression('d20k5')).toThrow(DiceParseError);
-    expect(() => parseDiceExpression('5')).toThrow(DiceParseError);
+    expect(parseDiceExpression('5')).toEqual({ dice: [], modifier: 5 });
     expect(() => parseDiceExpression('')).toThrow(DiceParseError);
   });
 });

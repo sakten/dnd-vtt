@@ -40,6 +40,7 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
 
   const dice: ParsedDie[] = [];
   let modifier = 0;
+  let sawNumber = false;
   let pos = 0;
 
   const pushDie = (
@@ -84,13 +85,21 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
     m = rest.match(/^([+-])(\d+)/);
     if (m) {
       modifier += parseInt((m[1] ?? '') + (m[2] ?? ''), 10);
+      sawNumber = true;
+      pos += m[0].length;
+      continue;
+    }
+    m = rest.match(/^(\d+)/);
+    if (m) {
+      modifier += parseInt(m[1]!, 10);
+      sawNumber = true;
       pos += m[0].length;
       continue;
     }
     throw new DiceParseError(`Не понял символ «${rest[0]}» в выражении «${expr}»`);
   }
 
-  if (dice.length === 0) throw new DiceParseError('В выражении нет кубиков (например: d20, 2d6+3)');
+  if (dice.length === 0 && !sawNumber) throw new DiceParseError('В выражении нет кубиков (например: d20, 2d6+3)');
   return { dice, modifier };
 }
 
