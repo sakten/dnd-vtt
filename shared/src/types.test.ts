@@ -135,6 +135,7 @@ describe('turn state', () => {
       extraActions: 0,
       extraBonusActions: 0,
       attacksRemaining: 0,
+      flurryAttacks: 0,
       legendaryRemaining: 0,
       legendaryMax: 0,
       disengaged: false,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { attackRidersFor } from './attackRiders';
-import { CLASSES } from './classes';
+import { CLASSES, martialArtsDie } from './classes';
 import { featureActionAutomation, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
 
@@ -119,5 +119,26 @@ describe('каталог черт (features.json)', () => {
     const passives = passiveFeatures([{ className: 'barbarian', subclass: 'worldTree', level: 10 }]);
     const roots = passives.find((p) => p.key === 'barbarian.worldTree:batteringRoots');
     expect(roots?.effects[0]?.modifiers[0]).toMatchObject({ target: 'reach', mode: 'add', value: 10 });
+  });
+
+  it('Шквал ударов: 2 доп. удара, с 10 уровня — 3', () => {
+    const at2 = featureActionAutomation('class:monk:focus/flurryOfBlows', [{ className: 'monk', level: 2 }]);
+    expect(at2?.utility).toEqual({ kind: 'extraAttacks', amount: 2 });
+    const at10 = featureActionAutomation('class:monk:focus/flurryOfBlows', [{ className: 'monk', level: 10 }]);
+    expect(at10?.utility?.amount).toBe(3);
+  });
+
+  it('Ошеломляющий удар: доступен с 5 уровня, CON-спас и stunned', () => {
+    expect(attackRidersFor([{ className: 'monk', level: 4 }]).map((r) => r.id)).not.toContain('monk:stunningStrike');
+    const rider = attackRidersFor([{ className: 'monk', level: 5 }]).find((r) => r.id === 'monk:stunningStrike');
+    expect(rider?.save).toEqual({ ability: 'con', condition: 'stunned', halfSpeedOnSuccess: true });
+    expect(rider?.resourceKey).toBe('monk:focus');
+  });
+
+  it('Кость боевых искусств растёт по уровню', () => {
+    expect(martialArtsDie(1)).toBe(6);
+    expect(martialArtsDie(5)).toBe(8);
+    expect(martialArtsDie(11)).toBe(10);
+    expect(martialArtsDie(17)).toBe(12);
   });
 });

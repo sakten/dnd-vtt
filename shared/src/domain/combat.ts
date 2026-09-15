@@ -27,6 +27,8 @@ export interface TurnState {
   extraBonusActions: number;
   /** Остаток атак в текущем действии «Атака» (Extra Attack/мультиатака). */
   attacksRemaining: number;
+  /** Доп. безоружные удары бонусным действием (Шквал ударов). */
+  flurryAttacks: number;
   legendaryRemaining: number;
   legendaryMax: number;
   /** Действие «Отход»: движение в этом ходу не провоцирует атаки по возможности. */
@@ -46,6 +48,7 @@ export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {
     extraActions: 0,
     extraBonusActions: 0,
     attacksRemaining: 0,
+    flurryAttacks: 0,
     legendaryRemaining: 0,
     legendaryMax: 0,
     disengaged: false,

@@ -1,4 +1,5 @@
 import type { ReactionTriggerKind } from '../domain/actions';
+import type { AbilityKey } from '../domain/core';
 import type { ClassLevel } from '../domain/sheet';
 
 /**
@@ -50,6 +51,12 @@ export interface ReactionFeatureDef {
   rangeFeet?: number;
   /** Кости эффекта (reduceDamage/acBonusAlly). */
   dice?: string;
+  /** Плюс модификатор способности к снижению (Отражение атак, +Ловкость). */
+  abilityBonus?: AbilityKey;
+  /** Плюс уровень класса к снижению (Отражение атак, +уровень монаха). */
+  levelBonusClass?: string;
+  /** Полное снижение урона даёт окно перенаправления (Отражение атак). */
+  redirect?: { save: AbilityKey; meleeRangeFeet: number; rangedRangeFeet: number; martialArtsDice: number };
 }
 
 const REACTION_FEATURES: ReactionFeatureDef[] = [
@@ -117,6 +124,18 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     dice: '1d8',
     resourceKey: 'fighter.cavalier:wardingManeuver',
     resourceAmount: 1,
+  },
+  {
+    id: 'monk:deflectAttacks',
+    name: 'Отражение атак',
+    className: 'monk',
+    levelReq: 3,
+    trigger: 'attackHit',
+    kind: 'reduceDamage',
+    dice: '1d10',
+    abilityBonus: 'dex',
+    levelBonusClass: 'monk',
+    redirect: { save: 'dex', meleeRangeFeet: 5, rangedRangeFeet: 60, martialArtsDice: 2 },
   },
   {
     id: 'barbarian.berserker:retaliation',

@@ -17,6 +17,7 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     extraActions: clampInt(t.extraActions, 0, 99, 0),
     extraBonusActions: clampInt(t.extraBonusActions, 0, 99, 0),
     attacksRemaining: clampInt(t.attacksRemaining, 0, 99, 0),
+    flurryAttacks: clampInt(t.flurryAttacks, 0, 99, 0),
     legendaryRemaining: clampInt(t.legendaryRemaining, 0, 99, 0),
     legendaryMax: clampInt(t.legendaryMax, 0, 99, 0),
     disengaged: t.disengaged === true,

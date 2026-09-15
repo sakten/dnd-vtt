@@ -279,21 +279,23 @@ export function isActiveToken(room: Room, mapId: string, tokenId: string): boole
   return !active || active.tokenId === tokenId;
 }
 
-/** Доступна ли атака: есть запас мультиатаки или свободное действие. */
+/** Доступна ли атака: есть запас мультиатаки, Шквала или свободное действие. */
 export function canAttack(room: Room, mapId: string, token: Token): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
   if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
-  return turn.attacksRemaining > 0 || !turn.actionUsed || turn.extraActions > 0;
+  return turn.attacksRemaining > 0 || turn.flurryAttacks > 0 || !turn.actionUsed || turn.extraActions > 0;
 }
 
-/** Списывает атаку (запас мультиатаки либо действие). */
+/** Списывает атаку (запас мультиатаки/Шквала либо действие). */
 export function consumeAttack(m: CombatDeps, room: Room, mapId: string, token: Token): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
   if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
   if (turn.attacksRemaining > 0) {
     turn.attacksRemaining -= 1;
+  } else if (turn.flurryAttacks > 0) {
+    turn.flurryAttacks -= 1;
   } else if (turn.extraActions > 0) {
     turn.extraActions -= 1;
     turn.attacksRemaining = Math.max(0, attacksPerToken(room, token) - 1);

@@ -149,7 +149,7 @@ export interface SummonDef {
 }
 
 export interface AutomationUtility {
-  kind: 'extraAction' | 'extraMovement' | 'disengage' | 'check';
+  kind: 'extraAction' | 'extraMovement' | 'disengage' | 'check' | 'extraAttacks' | 'patientDefense' | 'stepOfTheWind';
   amount?: number;
   ability?: AbilityKey;
 }

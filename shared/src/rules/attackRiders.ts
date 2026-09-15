@@ -1,4 +1,5 @@
 import type { AbilityKey } from '../domain/core';
+import type { ConditionKey } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
 
 /**
@@ -32,6 +33,11 @@ export interface AttackRiderDef {
   abilityBonus?: AbilityKey;
   /** Тип урона добавки (не задан — как у атаки). */
   damageType?: string;
+  /**
+   * Спасбросок цели при срабатывании (Ошеломляющий удар): при провале — condition,
+   * при успехе — скорость ×1/2. СЛ = 8 + бонус владения + мод Мудрости монаха.
+   */
+  save?: { ability: AbilityKey; condition: ConditionKey; halfSpeedOnSuccess?: boolean };
 }
 
 export const ATTACK_RIDERS: AttackRiderDef[] = [
@@ -68,6 +74,16 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     dice: '1d6',
     abilityBonus: 'int',
     damageType: 'force',
+  },
+  {
+    id: 'monk:stunningStrike',
+    name: 'Ошеломляющий удар',
+    className: 'monk',
+    levelReq: 5,
+    requiresMarker: 'class:monk:stunningStrike',
+    resourceKey: 'monk:focus',
+    resourceAmount: 1,
+    save: { ability: 'con', condition: 'stunned', halfSpeedOnSuccess: true },
   },
 ];
 

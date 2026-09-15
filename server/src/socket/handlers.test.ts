@@ -314,6 +314,115 @@ describe('action:use', () => {
     expect(without.error).toContain('досягаемости');
   });
 
+  it('Шквал ударов: бонусное действие, фокус и +2 доп. атаки', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 2 }], spells: [] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' }],
+    };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:monk:focus/flurryOfBlows' });
+
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    const turn = combatOf(room).turns.e1!;
+    expect(turn.flurryAttacks).toBe(2);
+    expect(turn.bonusActionUsed).toBe(true);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    turn.actionUsed = true;
+    expect(f.manager.canAttack(room, 'm1', tk)).toBe(true);
+    f.manager.consumeAttack(room, 'm1', tk);
+    f.manager.consumeAttack(room, 'm1', tk);
+    expect(turn.flurryAttacks).toBe(0);
+    expect(f.manager.canAttack(room, 'm1', tk)).toBe(false);
+  });
+
+  it('Ошеломляющий удар: метка, CON-спас и stunned', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 5 }], spells: [] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' }],
+    };
+    const [monk, target] = room.scene.maps[0]!.tokens;
+    monk!.effects = [
+      {
+        id: 'armed',
+        name: 'Ошеломляющий удар: наготове',
+        sourceKey: 'class:monk:stunningStrike',
+        sourceId: monk!.id,
+        duration: { type: 'endOfTurn', of: 'source' },
+        modifiers: [],
+        hidden: true,
+      },
+    ];
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // d20 = 3 — провал спасброска
+    const f = makeCtx(room, { playerId: 'p1' });
+
+    applyAttackRiders(f.ctx, room, monk!, 'm1', target!);
+    rand.mockRestore();
+
+    expect(target!.conditions.some((c) => c.key === 'stunned')).toBe(true);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    expect(monk!.effects.some((e) => e.sourceKey === 'class:monk:stunningStrike')).toBe(false);
+  });
+
+  it('Отражение атак: снижает урон и открывает окно перенаправления', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [sword], x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib2', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 3 }], spells: [] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' }],
+    };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'T2', imageUrl: '', initiative: 5, bonus: '' });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 17, 1d8 7, 1d10 9
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const deflect = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:monk:deflectAttacks')
+    );
+    expect(deflect).toBeDefined();
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: deflect!.id, optionId: 'feature:monk:deflectAttacks' });
+    rand.mockRestore();
+
+    const redirect = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:monk:deflectAttacks:redirect')
+    );
+    expect(redirect).toBeDefined();
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30); // урон погашен
+    f2.invoke('reaction:respond', { id: redirect!.id, optionId: null });
+  });
+
   it('Ярость вешает эффект: сопротивление B/P/S и бонус урона по уровню', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.sheets.p1 = {

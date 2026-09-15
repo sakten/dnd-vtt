@@ -847,6 +847,15 @@ export function subclassList(className: string): { key: string; name: string; so
   return Object.entries(def.subclasses).map(([key, sub]) => ({ key, name: sub.name, source: sub.source }));
 }
 
+/** Кость боевых искусств монаха по уровню: d6 → d8 (5 ур.) → d10 (11) → d12 (17). */
+export function martialArtsDie(level: number): number {
+  const lvl = clampLevel(level);
+  if (lvl >= 17) return 12;
+  if (lvl >= 11) return 10;
+  if (lvl >= 5) return 8;
+  return 6;
+}
+
 function casterContribution(entry: ClassLevel): number {
   const def = CLASSES[entry.className];
   if (!def) return 0;

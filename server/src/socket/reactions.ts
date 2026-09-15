@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   abilityMod,
   absorbTypesOf,
+  autoFailSave,
   casterStats,
   characterLevel,
   COUNTERSPELL,
@@ -9,14 +10,18 @@ import {
   gridDistanceFeet,
   hostileTokens as hostile,
   isIncapacitated,
+  martialArtsDie,
   maxCastableLevel,
   pathLeavesReach,
+  proficiencyBonus,
   reactionFeatures,
   reactionSpellTrigger,
   restrictionsFor,
   rollDice,
   spellEffectDefs,
   superiorityDie,
+  withAdvantage,
+  withRollParts,
   type AttackEntry,
   type EffectInstance,
   type ReactionFeatureDef,
@@ -29,6 +34,7 @@ import type { Room } from '../roomTypes';
 import { isDmViewer, type ConnCtx } from './context';
 import { findSpell } from '../spells';
 import { controllerIdOfToken, hasResourceFor } from '../rooms';
+import { applyDamage } from './damage';
 import { pushRollMessage } from './messages';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from './spellResolve';
 import {
@@ -627,6 +633,106 @@ function preRollOffers(ctx: ConnCtx, room: Room, prep: WeaponAttackPrep): Reacti
   ];
 }
 
+/** Отражение атак: удар полностью погашен — окно «потратить 1 фокус и перенаправить». */
+function openRedirectWindow(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  plan: WeaponAttackPlan,
+  redirect: { reactorId: string; mapId: string }
+): void {
+  const monk = ctx.manager.findToken(room, redirect.mapId, redirect.reactorId);
+  const attacker = plan.attacker;
+  if (!monk || !attacker) return;
+  const cid = controllerIdOfToken(room, monk);
+  if (!cid || !hasResourceFor(room, cid, 'monk:focus', 1)) return;
+  const def = availableFeatureReactions(room, monk, 'attackHit').find((d) => d.id === 'monk:deflectAttacks');
+  if (!def?.redirect) return;
+  const melee = plan.attack.rangeType !== 'ranged';
+  const size = room.scene.grid.size || 50;
+  const distance = gridDistanceFeet(monk, attacker, size);
+  if (distance > (melee ? def.redirect.meleeRangeFeet : def.redirect.rangedRangeFeet)) return;
+
+  openReactionWindow(ctx, room, {
+    mapId,
+    trigger: 'attackHit',
+    sourceName: attacker.name,
+    offers: [
+      {
+        token: monk,
+        audience: audienceOf(ctx, room, mapId, monk),
+        options: [
+          {
+            id: 'feature:monk:deflectAttacks:redirect',
+            name: 'Перенаправить (1 фокус)',
+            kind: 'feature',
+            resourceKey: 'monk:focus',
+            resourceAmount: 1,
+          },
+        ],
+      },
+    ],
+    resume: (choices) => {
+      const currentRoom = ctx.getRoom();
+      if (!currentRoom) return;
+      for (const choice of choices) {
+        if (choice.optionId === 'feature:monk:deflectAttacks:redirect') {
+          applyDeflectRedirect(ctx, currentRoom, choice, plan, def);
+        }
+      }
+      ctx.syncCombat(currentRoom, mapId);
+    },
+  });
+}
+
+/** Перенаправление: спасбросок Ловкости атакующего или 2 кости боевых искусств + Ловкость. */
+function applyDeflectRedirect(
+  ctx: ConnCtx,
+  room: Room,
+  choice: ReactionChoice,
+  plan: WeaponAttackPlan,
+  def: ReactionFeatureDef
+): void {
+  const monk = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
+  const attacker = plan.attacker;
+  if (!monk || !attacker || !def.redirect) return;
+  const cid = controllerIdOfToken(room, monk);
+  if (!cid || !hasResourceFor(room, cid, 'monk:focus', 1)) return;
+  ctx.manager.spendResource(room, cid, 'monk:focus', 1);
+  ctx.emitResources(room, cid);
+
+  const level = classLevelOf(room, monk, 'monk') || 1;
+  const die = martialArtsDie(level);
+  const abilities = (ctx.manager.abilitiesForToken(room, monk) ?? {}) as Partial<Record<string, number>>;
+  const dexMod = abilityMod(abilities.dex ?? 10);
+  const totalLevel = (room.sheets[cid]?.classes ?? []).reduce((acc, c) => acc + Math.max(1, c.level), 0);
+  const dc = 8 + proficiencyBonus(totalLevel) + abilityMod(abilities.wis ?? 10);
+
+  const parts = ctx.manager.savePartsForToken(room, attacker, def.redirect.save);
+  const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+  const success = !autoFailSave(attacker.conditions, def.redirect.save) && roll.total >= dc;
+  pushRollMessage(ctx, room, {
+    author: monk.name,
+    roll,
+    kind: 'save',
+    params: { subject: `Отражение атак · ${attacker.name}`, saveOutcome: success ? 'success' : 'fail' },
+  });
+  if (!success) {
+    const expr = `${def.redirect.martialArtsDice}d${die}${dexMod ? (dexMod > 0 ? `+${dexMod}` : `${dexMod}`) : ''}`;
+    const damageRoll = rollDice(expr);
+    applyDamage(ctx, {
+      target: attacker,
+      mapId: choice.mapId,
+      amount: damageRoll.total,
+      damageType: plan.attack.damageType,
+      roll: damageRoll,
+      author: monk.name,
+      params: { subject: 'Отражение атак' },
+    });
+  }
+  ctx.systemMessage(room, `${monk.name}: Отражение атак${success ? ` — ${attacker.name} увернулся` : ` → ${attacker.name}`}`);
+}
+
 /** Выбранные в окне попадания черты → модификаторы урона (половина/AC/снижение). */
 function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: ReactionChoice[]): WeaponDamageMods {
   const mods: WeaponDamageMods = {};
@@ -644,9 +750,15 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
       continue;
     }
     if (def.kind === 'reduceDamage') {
-      const roll = rollDice(def.dice ?? '2d6');
-      mods.flatReduction = (mods.flatReduction ?? 0) + roll.total;
-      ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${roll.total} урона)`);
+      let reduction = rollDice(def.dice ?? '2d6').total;
+      if (def.abilityBonus) {
+        const abilities = (ctx.manager.abilitiesForToken(room, reactor) ?? {}) as Partial<Record<string, number>>;
+        reduction += abilityMod(abilities[def.abilityBonus] ?? 10);
+      }
+      if (def.levelBonusClass) reduction += classLevelOf(room, reactor, def.levelBonusClass);
+      mods.flatReduction = (mods.flatReduction ?? 0) + reduction;
+      if (def.redirect) mods.redirect = { reactorId: reactor.id, mapId: choiceMapId };
+      ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${reduction} урона)`);
       continue;
     }
     if (def.kind === 'acBonus') {
@@ -967,6 +1079,11 @@ function continueAfterRoll(
     const damage = applyWeaponAttackDamage(ctx, plan, mods);
     if (!damage) return;
     result.damageRoll = damage.roll;
+    // Отражение атак: полностью погашен удар — окно «перенаправить» (1 фокус).
+    if (mods.redirect && damage.roll.total <= (mods.flatReduction ?? 0) && plan.attacker && targetMapId) {
+      openRedirectWindow(ctx, room, targetMapId, plan, mods.redirect);
+      return;
+    }
     if (damage.applied > 0 && target && targetMapId && plan.attacker && !input.ignoreRange) {
       offerDamageReactions(ctx, room, targetMapId, target, plan.attacker);
     }
@@ -1015,6 +1132,14 @@ function continueAfterRoll(
     const melee = plan.attack.rangeType !== 'ranged';
     const features = availableFeatureReactions(room, target, 'attackHit').filter((def) => {
       if (def.kind === 'halveDamage') return true;
+      if (def.kind === 'reduceDamage') {
+        if (!def.redirect) return false;
+        return (
+          plan.attack.damageType === 'bludgeoning' ||
+          plan.attack.damageType === 'piercing' ||
+          plan.attack.damageType === 'slashing'
+        );
+      }
       if (def.kind === 'acBonus') {
         if (!melee) return false;
         return total < ac + superiorityDie(classLevelOf(room, target, def.className) || 1);

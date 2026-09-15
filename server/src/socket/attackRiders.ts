@@ -1,8 +1,21 @@
 import { randomUUID } from 'node:crypto';
-import { abilityMod, attackRidersFor, type AbilityKey, type AttackRiderDef, type Token } from 'shared';
+import {
+  abilityMod,
+  attackRidersFor,
+  autoFailSave,
+  proficiencyBonus,
+  rollDice,
+  withAdvantage,
+  withRollParts,
+  type AbilityKey,
+  type AttackRiderDef,
+  type EffectInstance,
+  type Token,
+} from 'shared';
 import { controllerIdOfToken, hasResourceFor } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { pushRollMessage } from './messages';
 
 const USED_PREFIX = 'rider-used:';
 const RAGE_KEY = 'class:barbarian:rage';
@@ -19,14 +32,25 @@ export interface AppliedRiders {
  * Применяет бонусные черты при попадании оружием: условия (ярость/безрассудство/метка),
  * расход ресурса, учёт «раз в ход» скрытой меткой. Вызывается перед броском урона.
  */
-export function applyAttackRiders(ctx: ConnCtx, room: Room, attacker: Token, mapId: string): AppliedRiders {
+export function applyAttackRiders(
+  ctx: ConnCtx,
+  room: Room,
+  attacker: Token,
+  mapId: string,
+  target?: Token | null
+): AppliedRiders {
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!cid || !sheet) return { expr: '', notes: [] };
 
   const abilities = ctx.manager.abilitiesForToken(room, attacker) ?? {};
+  const wisMod = abilityMod((abilities as Partial<Record<string, number>>).wis ?? 10);
   const level = (className: string) => sheet.classes.find((c) => c.className === className)?.level ?? 0;
   const hasEffect = (key: string) => attacker.effects.some((e) => e.sourceKey === key);
+  const saveDc =
+    8 +
+    proficiencyBonus(sheet.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0)) +
+    wisMod;
 
   const parts: string[] = [];
   const notes: string[] = [];
@@ -38,15 +62,16 @@ export function applyAttackRiders(ctx: ConnCtx, room: Room, attacker: Token, map
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
 
     const expr = riderExpression(rider, level, abilities);
-    if (!expr) continue;
+    if (!expr && !rider.save) continue;
 
     if (rider.resourceKey) {
       ctx.manager.spendResource(room, cid, rider.resourceKey, rider.resourceAmount ?? 1);
       ctx.emitResources(room, cid);
     }
-    parts.push(expr);
-    notes.push(`${attacker.name}: ${rider.name} (+${expr})`);
+    if (expr) parts.push(expr);
+    notes.push(expr ? `${attacker.name}: ${rider.name} (+${expr})` : `${attacker.name}: ${rider.name}`);
     markUsed(ctx, room, mapId, attacker, rider);
+    if (rider.save && target) applyRiderSave(ctx, room, mapId, attacker, target, rider, saveDc);
   }
   return { expr: parts.join('+'), notes };
 }
@@ -68,6 +93,50 @@ function riderExpression(
     if (mod) parts.push(String(mod));
   }
   return parts.join('+');
+}
+
+/** Спасбросок цели от наездника (Ошеломляющий удар): провал — условие, успех — скорость ×1/2. */
+function applyRiderSave(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  target: Token,
+  rider: AttackRiderDef,
+  dc: number
+): void {
+  const save = rider.save;
+  if (!save) return;
+  const parts = ctx.manager.savePartsForToken(room, target, save.ability);
+  const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+  const success = !autoFailSave(target.conditions, save.ability) && roll.total >= dc;
+  pushRollMessage(ctx, room, {
+    author: attacker.name,
+    roll,
+    kind: 'save',
+    params: { subject: `${rider.name} · ${target.name}`, saveOutcome: success ? 'success' : 'fail' },
+  });
+  const id = randomUUID();
+  const effect: EffectInstance = success
+    ? {
+        id,
+        name: `${rider.name}: успех`,
+        sourceKey: `rider:${rider.id}`,
+        sourceId: attacker.id,
+        duration: { type: 'endOfTurn', of: 'source' },
+        modifiers: [{ id: `${id}:m0`, target: 'speed', mode: 'multiply', value: 0.5 }],
+      }
+    : {
+        id,
+        name: rider.name,
+        sourceKey: `rider:${rider.id}`,
+        sourceId: attacker.id,
+        duration: { type: 'endOfTurn', of: 'source' },
+        modifiers: [],
+        conditions: [save.condition],
+      };
+  ctx.manager.applyEffect(room, target, effect);
+  ctx.emitToken(room, 'token:update', mapId, target);
 }
 
 /** Ставит скрытую метку «использовано до конца хода» и снимает метку-активатор. */

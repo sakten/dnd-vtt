@@ -176,10 +176,77 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
       ]),
     ],
   },
+
+  // Монах — ядро
+  'monk:unarmoredDefense': {
+    trait: 'passive',
+    effects: [permanent('Защита без доспехов', [{ target: 'ac', mode: 'set', value: '10+dex+wis' }])],
+  },
+  'monk:unarmoredMovement': (classes) => ({
+    trait: 'passive',
+    effects: [
+      permanent('Движение без доспехов', [
+        { target: 'speed', mode: 'add', value: monkLevel(classes) >= 9 ? 15 : 10 },
+      ]),
+    ],
+  }),
+  'monk:extraAttack': { trait: 'passive', native: true },
+  'monk:empoweredStrikes': { trait: 'passive', native: true },
+  'monk:stunningStrike': {
+    trait: 'active',
+    costs: ['free'],
+    targeting: { kind: 'self' },
+    automation: {
+      key: 'class:monk:stunningStrike',
+      name: 'Ошеломляющий удар',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      effects: [
+        {
+          name: 'Ошеломляющий удар: наготове',
+          duration: { type: 'endOfTurn', of: 'source' },
+          to: 'self',
+          hidden: true,
+          modifiers: [],
+        },
+      ],
+    },
+  },
+  'monk:focus/flurryOfBlows': (classes) => ({
+    trait: 'active',
+    automation: {
+      key: 'class:monk:focus/flurryOfBlows',
+      name: 'Шквал ударов',
+      resolution: 'utility',
+      utility: { kind: 'extraAttacks', amount: monkLevel(classes) >= 10 ? 3 : 2 },
+    },
+  }),
+  'monk:focus/patientDefense': {
+    trait: 'active',
+    automation: {
+      key: 'class:monk:focus/patientDefense',
+      name: 'Терпеливая оборона',
+      resolution: 'utility',
+      utility: { kind: 'patientDefense' },
+    },
+  },
+  'monk:focus/stepOfTheWind': {
+    trait: 'active',
+    automation: {
+      key: 'class:monk:focus/stepOfTheWind',
+      name: 'Шаг ветра',
+      resolution: 'utility',
+      utility: { kind: 'stepOfTheWind' },
+    },
+  },
 };
 
 function barbarianLevel(classes: ClassLevel[]): number {
   return clampLevel(classes.find((c) => c.className === 'barbarian')?.level ?? 0);
+}
+
+function monkLevel(classes: ClassLevel[]): number {
+  return clampLevel(classes.find((c) => c.className === 'monk')?.level ?? 0);
 }
 
 function permanent(name: string, modifiers: Omit<Modifier, 'id'>[]): AutomationEffect {

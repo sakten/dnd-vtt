@@ -196,6 +196,39 @@ function applyUtility(ctx: ConnCtx, input: AutomationInput): void {
       ctx.systemMessage(room, `${caster.name}: ${def.name}`);
       return;
     }
+    case 'extraAttacks': {
+      const amount = Math.max(1, Math.round(utility.amount ?? 2));
+      if (turn) turn.flurryAttacks += amount;
+      ctx.syncCombat(room, mapId);
+      ctx.systemMessage(room, `${caster.name}: ${def.name} (+${amount})`);
+      return;
+    }
+    case 'patientDefense': {
+      if (turn) turn.disengaged = true;
+      ctx.manager.applyEffect(room, caster, {
+        id: randomUUID(),
+        name: 'Уклонение',
+        sourceKey: `${def.key}:dodge`,
+        sourceId: caster.id,
+        duration: { type: 'endOfTurn', of: 'target' },
+        modifiers: [
+          { id: randomUUID(), target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+          { id: randomUUID(), target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
+        ],
+      });
+      ctx.emitToken(room, 'token:update', mapId, caster);
+      ctx.syncCombat(room, mapId);
+      ctx.systemMessage(room, `${caster.name}: ${def.name} (Отход + Уклонение)`);
+      return;
+    }
+    case 'stepOfTheWind': {
+      if (turn) turn.disengaged = true;
+      const speed = ctx.manager.tokenSpeed(room, caster);
+      ctx.manager.grantExtraMovement(room, mapId, caster, speed);
+      ctx.syncCombat(room, mapId);
+      ctx.systemMessage(room, `${caster.name}: ${def.name} (Отход + Рывок)`);
+      return;
+    }
     case 'check': {
       const ability = utility.ability ?? 'dex';
       const mod = ctx.manager.abilityModForToken(room, caster, ability);

@@ -3,7 +3,7 @@ import { CLASSES, classFeatures, type ClassLevel } from 'shared';
 import { FEATURE_ICONS } from './featureIcons';
 
 /** Классы, у которых уникальные иконки уже нарисованы (партии R8.8). */
-const PROCESSED = new Set(['barbarian', 'fighter']);
+const PROCESSED = new Set(['barbarian', 'fighter', 'monk']);
 
 /** Id всех активных кнопок класса на уровне (сам класс + каждый подкласс). */
 function featureIds(classKey: string, level: number): Set<string> {

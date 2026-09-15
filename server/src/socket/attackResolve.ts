@@ -293,6 +293,8 @@ export interface WeaponDamageMods {
   extraAc?: number;
   /** Снижение урона до применения (Щит духов и подобные). */
   flatReduction?: number;
+  /** Отражение атак монаха: после полного снижения можно перенаправить (окно). */
+  redirect?: { reactorId: string; mapId: string };
 }
 
 export interface WeaponDamageResult {
@@ -323,7 +325,7 @@ export function applyWeaponAttackDamage(
 
   try {
     const ride = plan.attacker && plan.attackerMapId
-      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId)
+      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target)
       : { expr: '', notes: [] };
     for (const note of ride.notes) ctx.systemMessage(room, note);
     const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;

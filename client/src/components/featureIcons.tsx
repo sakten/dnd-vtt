@@ -22,6 +22,48 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
     </>
   ),
 
+  // Монах
+  'class:monk:focus/flurryOfBlows': (
+    <>
+      <path d="M4 20L10 8M10 21L15 7M16 20L21 6" />
+      <path d="M6 6l2 2M14 4l2 2M20 12l2 2" />
+    </>
+  ),
+  'class:monk:focus/patientDefense': (
+    <>
+      <circle cx="12" cy="7" r="3" />
+      <path d="M4 20c2.5-4 5-6 8-6s5.5 2 8 6" />
+      <path d="M8 14l4 2 4-2" />
+    </>
+  ),
+  'class:monk:focus/stepOfTheWind': (
+    <>
+      <path d="M3 9h9a3 3 0 0 1 0 6H7" />
+      <path d="M6 12H3M11 6c3 0 5 1 7 3M13 20c4 0 7-2 8-6" />
+    </>
+  ),
+  'class:monk:stunningStrike': (
+    <>
+      <path d="M6 12V10a1.5 1.5 0 0 1 3 0v1M9 11V8.5a1.5 1.5 0 0 1 3 0V11M12 11V9a1.5 1.5 0 0 1 3 0v3" />
+      <path d="M6 12h9v2a4 4 0 0 1-4 4H9a3 3 0 0 1-3-3z" />
+      <path d="M18 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+    </>
+  ),
+  'class:monk.openHand:wholenessOfBody': (
+    <>
+      <path d="M8 13V7a1.5 1.5 0 0 1 3 0v5M11 12V6a1.5 1.5 0 0 1 3 0v6M14 12.5V9a1.5 1.5 0 0 1 3 0v5a6 6 0 0 1-6 6h-1a5 5 0 0 1-5-5v-2" />
+      <path d="M18 4v4M16 6h4" />
+    </>
+  ),
+  'class:monk.mercy:flurryOfHealingAndHarm': (
+    <>
+      <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z" />
+      <path d="M12 3a4.5 9 0 0 1 0 18" />
+      <path d="M7 9v4M5 11h4" />
+      <path d="M15 8l2 2M17 8l-2 2" />
+    </>
+  ),
+
   // Воин
   'class:fighter:secondWind': (
     <>
