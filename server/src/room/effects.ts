@@ -14,6 +14,7 @@ import {
   withAdvantage,
   withRollParts,
   type AbilityKey,
+  type ConditionKey,
   type DamageDefense,
   type DiceRollResult,
   type EffectInstance,
@@ -21,8 +22,8 @@ import {
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
-import { abilitiesForToken, isDodging, turnStateFor } from './combat';
-import { controllerIdOfToken, locateToken } from './helpers';
+import { abilitiesForToken, turnStateFor } from './combat';
+import { controllerIdOfToken } from './helpers';
 
 /** Зависимости домена эффектов: сохранение и зеркалирование HP персонажа в токены. */
 export interface EffectsDeps {
@@ -53,18 +54,10 @@ export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey)
   return abilityMod(sb?.abilities?.[ability] ?? 10);
 }
 
-/** Действие «Уклонение»: преимущество на спасброски Ловкости. */
-function dodgeAdvantage(room: Room, token: Token, ability: AbilityKey): boolean {
-  if (ability !== 'dex') return false;
-  const found = locateToken(room, token.id);
-  return !!found && isDodging(room, found.mapId, found.token);
-}
-
 /** Слагаемые/кости/режим спасброска токена: базовый бонус, эффекты, истощение. */
 export function savePartsForToken(room: Room, token: Token, ability: AbilityKey): RollParts {
   const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token));
   parts.flat += saveBonusForToken(room, token, ability) + exhaustionRollPenalty(token.conditions);
-  if (dodgeAdvantage(room, token, ability)) parts.mode = parts.mode === 'd' ? undefined : 'a';
   return parts;
 }
 
@@ -175,16 +168,24 @@ export function changeMaxHp(m: EffectsDeps, room: Room, token: Token, effect: Ef
 
 /**
  * Тик эффектов в начале/конце хода носителя: повторные спасброски, раунды,
- * «до конца хода». Эффекты `endOfTurn` источника снимаются со всех токенов.
+ * эскалация состояний (Sleep). `endOfTurn` снимаются в начале хода владельца
+ * (`of: 'target'`) или источника (`of: 'source'`, в т.ч. с чужих токенов) —
+ * это же трактуется как «до начала следующего хода».
  */
 export function tickEffects(
   m: EffectsDeps,
   room: Room,
   token: Token,
   phase: 'start' | 'end'
-): { changed: boolean; saves: { name: string; roll: DiceRollResult; success: boolean }[]; removed: string[] } {
+): {
+  changed: boolean;
+  saves: { name: string; roll: DiceRollResult; success: boolean }[];
+  removed: string[];
+  escalated: { name: string; condition: ConditionKey }[];
+} {
   const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
   const removed: string[] = [];
+  const escalated: { name: string; condition: ConditionKey }[] = [];
   let changed = false;
 
   const kept = token.effects.filter((effect) => {
@@ -194,6 +195,20 @@ export function tickEffects(
       const { roll, success } = rollSave(room, token, d.ability, d.dc);
       saves.push({ name: effect.name, roll, success });
       if (success) remove = true;
+      else if (effect.escalate) {
+        // Провал повторного спасброска: состояние меняется (Sleep → без сознания).
+        const next = effect.escalate;
+        effect.duration = next.duration ?? effect.duration;
+        effect.conditions = [next.condition];
+        effect.escalate = undefined;
+        for (const cond of token.conditions) {
+          if (cond.effectId !== effect.id) continue;
+          cond.key = next.condition;
+          cond.name = conditionName(next.condition);
+        }
+        escalated.push({ name: effect.name, condition: next.condition });
+        changed = true;
+      }
     }
     if (!remove && d.type === 'rounds' && phase === 'start') {
       d.rounds -= 1;
@@ -222,7 +237,12 @@ export function tickEffects(
     for (const other of map.tokens) {
       if (other === token) continue;
       const keptOther = other.effects.filter((effect) => {
-        if (effect.duration.type === 'endOfTurn' && effect.duration.of === 'source' && effect.sourceId === token.id) {
+        if (
+          phase === 'start' &&
+          effect.duration.type === 'endOfTurn' &&
+          effect.duration.of === 'source' &&
+          effect.sourceId === token.id
+        ) {
           changeMaxHp(m, room, other, effect, -1);
           other.conditions = other.conditions.filter((c) => c.effectId !== effect.id);
           removed.push(effect.name);
@@ -236,7 +256,7 @@ export function tickEffects(
   }
 
   if (changed) m.saveSoon(room);
-  return { changed, saves, removed };
+  return { changed, saves, removed, escalated };
 }
 
 /** Эффекты концентрации существа-источника на всех картах. */
@@ -369,6 +389,16 @@ export function markControlledTokensDead(
  * Лечение сбрасывает death-сейвы; урон лежачему добавляет провал (крит — 2);
  * HP ≤ 0 → «Без сознания»/«Мёртв». Возвращает изменившиеся токены для рассылки.
  */
+/** Урон снимает эффекты с `wakeOnDamage` (Sleep, Hypnotic Pattern) вместе с их состояниями. */
+function wakeOnDamage(m: EffectsDeps, room: Room, token: Token) {
+  const waking = token.effects.filter((e) => e.wakeOnDamage);
+  if (!waking.length) return;
+  const ids = new Set(waking.map((e) => e.id));
+  for (const effect of waking) changeMaxHp(m, room, token, effect, -1);
+  token.effects = token.effects.filter((e) => !ids.has(e.id));
+  token.conditions = token.conditions.filter((c) => !(c.effectId && ids.has(c.effectId)));
+}
+
 export function adjustTokenHp(
   m: EffectsDeps,
   room: Room,
@@ -377,6 +407,7 @@ export function adjustTokenHp(
   delta: number,
   opts: { crit?: boolean } = {}
 ): { mapId: string; token: Token }[] {
+  if (delta < 0) wakeOnDamage(m, room, token);
   const controllerId = controllerIdOfToken(room, token);
   const res = controllerId ? room.resources[controllerId] : undefined;
   if (controllerId && res && res.hp.max > 0) {

@@ -2,6 +2,7 @@ import type { DiceRollResult, Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushRollMessage } from './messages';
+import { removeZonesOfSource } from './zones';
 
 /** Сообщение-бросок спасброска в чат от имени системы. */
 export function pushSaveMessage(
@@ -31,6 +32,7 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
   pushSaveMessage(ctx, room, `Концентрация: ${result.names.join(', ')}`, result.roll, result.success);
   if (!result.success) {
     for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    removeZonesOfSource(ctx, room, token.id);
     ctx.systemMessage(room, `${token.name}: концентрация прервана (${result.names.join(', ')})`);
   }
 }

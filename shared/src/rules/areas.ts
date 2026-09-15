@@ -143,6 +143,20 @@ export function areaCells(
   return keys;
 }
 
+/** Все занятые клетки токена внутри шаблона (Hunger of Hadar: «полностью внутри»). */
+export function tokenFullyInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
+  token: S,
+  spec: AreaSpec,
+  origin: AreaPoint,
+  direction: AreaPoint | null,
+  grid: AreaGrid,
+  metric: DistanceMetric = 'euclidean'
+): boolean {
+  const cells = new Set(areaCells(spec, origin, direction, grid, metric));
+  const own = tokenCells(token, grid);
+  return own.length > 0 && own.every((key) => cells.has(key));
+}
+
 /** Существа, у которых хотя бы одна занятая клетка попала в шаблон. */
 export function tokensInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   tokens: S[],

@@ -1,3 +1,4 @@
+import type { ZoneInstance } from './automation';
 import type { CombatState } from './combat';
 import type { Token } from './token';
 
@@ -39,6 +40,8 @@ export interface MapInfo {
   width: number;
   height: number;
   tokens: Token[];
+  /** Активные зоны/области (Web, Spirit Guardians…). */
+  zones: ZoneInstance[];
   fog: FogState;
   combat: CombatState;
 }

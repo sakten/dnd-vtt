@@ -1,5 +1,6 @@
 import {
   actionSlotAvailable,
+  automationForAction,
   classFeatures,
   findBaseAction,
   rollDice,
@@ -10,8 +11,9 @@ import {
   type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { executeAutomation } from './automation';
 import { fail } from './errors';
-import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
+import { rejectIfIncapacitated, rejectIfReaction, scopedToken, type Scope } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
 
@@ -20,6 +22,41 @@ function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: Act
   const order = requested && costs.includes(requested) ? [requested, ...costs.filter((c) => c !== requested)] : costs;
   if (!turn) return order[0] ?? 'action';
   return order.find((c) => actionSlotAvailable(turn, c)) ?? order[order.length - 1] ?? 'action';
+}
+
+/** Действие «Выпутаться»: проверка характеристики снимает эффект (Web: STR/Athletics). */
+function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
+  const { room, mapId, token } = scope;
+  const effect = token.effects.find((e) => e.id === effectId);
+  const escape = effect?.escape;
+  if (!effect || !escape) return;
+
+  const combat = ctx.manager.combatOf(room, mapId);
+  const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, token.id);
+  if (combat?.active && !isActive && !ctx.isDm()) {
+    fail(ctx, 'notYourTurn');
+    return;
+  }
+  if (!ctx.manager.spendSlot(room, mapId, token, 'action')) {
+    fail(ctx, 'noActions');
+    return;
+  }
+  ctx.syncCombat(room, mapId);
+
+  const mod = ctx.manager.abilityCheckModForToken(room, token, escape.ability, escape.skill);
+  const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
+  const roll = rollDice(expression);
+  const success = roll.total >= escape.dc;
+  pushRollMessage(ctx, room, {
+    author: token.name,
+    roll,
+    kind: 'check',
+    params: { subject: `Выпутаться: ${effect.name}` },
+  });
+  if (!success) return;
+  ctx.manager.removeEffect(room, token, effect.id);
+  ctx.emitToken(room, 'token:update', mapId, token);
+  ctx.systemMessage(room, `${token.name}: выпутался из «${effect.name}»`);
 }
 
 export function registerActionHandlers(ctx: ConnCtx) {
@@ -32,6 +69,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (!scope) return;
       const { room, token, character } = scope;
       if (rejectIfIncapacitated(ctx, token)) return;
+
+      // «Выпутаться» (Web и подобные): действие, проверка характеристики против СЛ эффекта.
+      if (actionId.startsWith('escape:')) {
+        escapeEffect(ctx, scope, actionId.slice('escape:'.length));
+        return;
+      }
 
       const sheet = character?.sheet;
       const classAction = sheet ? classFeatures(sheet.classes).find((a) => a.id === actionId) : undefined;
@@ -101,62 +144,24 @@ export function registerActionHandlers(ctx: ConnCtx) {
         ctx.emitResources(room, ctx.playerId);
       }
 
-      if (action.id === 'class:fighter:actionSurge') {
-        if (turn) {
-          turn.extraActions += 1;
-          syncCombat(room, mapId);
+      // Автоматизированные действия (базовые/классовые) — через общий executor.
+      const def = automationForAction(action, { classes: sheet?.classes });
+      if (def) {
+        const targets: Token[] = [];
+        for (const id of Array.isArray(targetIds) ? targetIds : []) {
+          if (typeof id !== 'string') continue;
+          const found = manager.findToken(room, mapId, id);
+          if (found) targets.push(found);
         }
-        systemMessage(room, `${token.name}: Всплеск действия (+1 действие)`);
-        return;
-      }
-
-      if (action.id === 'class:fighter:secondWind') {
-        const fighterLevel = sheet?.classes.find((c) => c.className === 'fighter')?.level ?? 1;
-        const heal = Math.max(0, rollDice(`1d10+${Math.max(1, fighterLevel)}`).total);
-        ctx.applyHp(room, mapId, token, heal);
-        systemMessage(room, `${token.name}: Второе дыхание (+${heal} HP)`);
-        return;
-      }
-
-      if (action.id === 'dash') {
-        const speed = manager.tokenSpeed(room, token);
-        manager.grantExtraMovement(room, mapId, token, speed);
-        syncCombat(room, mapId);
-        systemMessage(room, `${token.name}: Рывок (+${speed} фт передвижения)`);
-        return;
-      }
-
-      if (action.id === 'hide' || action.id === 'search') {
-        const ability = action.id === 'hide' ? 'dex' : 'wis';
-        const mod = manager.abilityModForToken(room, token, ability);
-        const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
-        try {
-          const roll = rollDice(expression);
-          pushRollMessage(ctx, room, {
-            author,
-            roll,
-            kind: 'check',
-            params: { subject: `${action.name}: ${token.name}` },
-          });
-        } catch {
-          fail(ctx, 'checkFailed');
-        }
-        return;
-      }
-
-      if (action.id === 'disengage') {
-        // Действие «Отход»: движение в этом ходу не провоцирует атаки по возможности.
-        if (turn) turn.disengaged = true;
-        syncCombat(room, mapId);
-        systemMessage(room, `${token.name}: Отход`);
-        return;
-      }
-
-      if (action.id === 'dodge') {
-        // Действие «Уклонение»: помеха на атаки по токену до начала его следующего хода.
-        if (turn) turn.dodge = true;
-        syncCombat(room, mapId);
-        systemMessage(room, `${token.name}: Уклонение`);
+        if (!targets.length && def.targeting?.kind === 'self') targets.push(token);
+        executeAutomation(ctx, {
+          caster: token,
+          mapId,
+          def: { ...def, name: action.name },
+          targets,
+          stats: null,
+          author,
+        });
         return;
       }
 

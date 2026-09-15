@@ -8,9 +8,10 @@ import {
   emptyTurnState,
   exhaustionSpeedPenalty,
   initiativeBonus,
-  isIncapacitated,
   modifiedValue,
+  restrictionsFor,
   rollDice,
+  sheetProficiencyBonus,
   statNumber,
   type AbilityKey,
   type ActionCost,
@@ -222,6 +223,24 @@ export function abilityModForToken(room: Room, token: Token, ability: AbilityKey
   return abilityMod(score ?? 10);
 }
 
+/** Модификатор проверки характеристики с владением навыком (Выпутаться: STR/Athletics). */
+export function abilityCheckModForToken(
+  room: Room,
+  token: Token,
+  ability: AbilityKey,
+  skill?: string
+): number {
+  const mod = abilityModForToken(room, token, ability);
+  if (!skill) return mod;
+  const controllerId = controllerIdOfToken(room, token);
+  const sheet = controllerId ? room.sheets[controllerId] : undefined;
+  if (!sheet) return mod;
+  const level = sheet.skills[skill] ?? 0;
+  if (level <= 0) return mod;
+  const prof = sheetProficiencyBonus(sheet);
+  return mod + (level >= 2 ? prof * 2 : prof);
+}
+
 /** Добавляет передвижение на текущий ход (Рывок). */
 export function grantExtraMovement(m: CombatDeps, room: Room, mapId: string, token: Token, feet: number) {
   const turn = turnForToken(room, mapId, token);
@@ -252,11 +271,6 @@ export function turnStateFor(room: Room, mapId: string, token: Token): TurnState
   return combat.turns[entry.id] ?? null;
 }
 
-/** Действие «Уклонение» в силе: помеха атакам и преимущество на Dex-спасы. */
-export function isDodging(room: Room, mapId: string, token: Token): boolean {
-  return !isIncapacitated(token.conditions) && turnStateFor(room, mapId, token)?.dodge === true;
-}
-
 /** Активен ли токен в бою карты (вне боя — всегда true). */
 export function isActiveToken(room: Room, mapId: string, tokenId: string): boolean {
   const combat = combatOf(room, mapId);
@@ -269,6 +283,7 @@ export function isActiveToken(room: Room, mapId: string, tokenId: string): boole
 export function canAttack(room: Room, mapId: string, token: Token): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
+  if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
   return turn.attacksRemaining > 0 || !turn.actionUsed || turn.extraActions > 0;
 }
 
@@ -276,6 +291,7 @@ export function canAttack(room: Room, mapId: string, token: Token): boolean {
 export function consumeAttack(m: CombatDeps, room: Room, mapId: string, token: Token): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
+  if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
   if (turn.attacksRemaining > 0) {
     turn.attacksRemaining -= 1;
   } else if (turn.extraActions > 0) {
@@ -296,18 +312,24 @@ export function spendSlot(m: CombatDeps, room: Room, mapId: string, token: Token
   // Реакция доступна в чужой ход: берём состояние записи токена, не только активной.
   const turn = slot === 'reaction' ? turnStateFor(room, mapId, token) : turnForToken(room, mapId, token);
   if (!turn) return true;
+  const restrictions = restrictionsFor(token.conditions, token.effects);
   switch (slot) {
     case 'action':
+      if (restrictions.noActions) return false;
+      if (restrictions.actionOrBonusOnly && turn.bonusActionUsed) return false;
       if (!actionSlotAvailable(turn, 'action')) return false;
       if (turn.extraActions > 0) turn.extraActions -= 1;
       else turn.actionUsed = true;
       break;
     case 'bonus':
+      if (restrictions.noBonus) return false;
+      if (restrictions.actionOrBonusOnly && turn.actionUsed) return false;
       if (!actionSlotAvailable(turn, 'bonus')) return false;
       if (turn.extraBonusActions > 0) turn.extraBonusActions -= 1;
       else turn.bonusActionUsed = true;
       break;
     case 'reaction':
+      if (restrictions.noReactions) return false;
       if (!actionSlotAvailable(turn, 'reaction')) return false;
       turn.reactionUsed = true;
       break;

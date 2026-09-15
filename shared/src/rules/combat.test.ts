@@ -38,10 +38,9 @@ describe('countAttackAdvantage', () => {
     expect(countAttackAdvantage({ targetConditions: [cond('prone')], rangeType: 'melee', includeTarget: false }).mode).toBeUndefined();
   });
 
-  it('Уклонение цели даёт помеху и отменяется любым преимуществом', () => {
-    expect(countAttackAdvantage({ targetDodging: true }).mode).toBe('d');
-    expect(countAttackAdvantage({ targetDodging: true, explicit: 'a' }).mode).toBeUndefined();
-    expect(countAttackAdvantage({ targetDodging: true, includeTarget: false }).mode).toBeUndefined();
+  it('помеха от эффекта (Уклонение) отменяется любым преимуществом', () => {
+    expect(countAttackAdvantage({ effectMode: 'd' }).mode).toBe('d');
+    expect(countAttackAdvantage({ effectMode: 'd', explicit: 'a' }).mode).toBeUndefined();
   });
 
   it('несколько эффектов преимущества и один эффект помехи — отмена', () => {

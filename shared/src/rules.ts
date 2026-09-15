@@ -1,5 +1,6 @@
 export * from './rules/actions';
 export * from './rules/areas';
+export * from './rules/automation';
 export * from './rules/classActions';
 export * from './rules/conditions';
 export * from './rules/classes';
@@ -9,7 +10,6 @@ export * from './rules/movement';
 export * from './rules/reactions';
 export * from './rules/resources';
 export * from './rules/spellCast';
-export * from './rules/spellEffects';
 export * from './rules/spellLimits';
 export * from './rules/spells';
 export * from './rules/subclassSpells';

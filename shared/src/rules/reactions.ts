@@ -16,6 +16,9 @@ export function reactionSpellTrigger(key: string): ReactionTriggerKind | undefin
   return REACTION_SPELL_TRIGGERS[key];
 }
 
+/** Параметры Counterspell (R1/R2): ключ, круг, дистанция срабатывания. */
+export const COUNTERSPELL = { key: 'XPHB:Counterspell', level: 3, rangeFeet: 60 } as const;
+
 /** Типы урона Absorb Elements (при получении — сопротивление до следующего хода). */
 export const ABSORB_ELEMENTS_TYPES = ['acid', 'cold', 'fire', 'lightning', 'thunder'];
 

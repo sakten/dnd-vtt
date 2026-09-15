@@ -5,6 +5,8 @@ import {
   characterLevel,
   grantedSpells,
   isRecord,
+  restrictionsFor,
+  rollDice,
   spellActionCost,
   spellAreaOrigin,
   spellHasArea,
@@ -20,6 +22,7 @@ import { findSpell } from '../spells';
 import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
+import { removeZonesOfSource } from './zones';
 
 const isPoint = (p: unknown): p is { x: number; y: number } =>
   isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y);
@@ -125,6 +128,8 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       targets,
       advantage,
       area,
+      origin: isPoint(origin) ? origin : null,
+      direction: isPoint(direction) ? direction : null,
       author: room.players.find((p) => p.id === ctx.playerId)?.name ?? '?',
     };
 
@@ -162,6 +167,16 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     manager.spendSlot(room, mapId, token, cost);
     syncCombat(room, mapId);
 
+    // Замедление (и подобное): шанс провала заклинания с соматическим компонентом.
+    const failureChance = restrictionsFor(token.conditions, token.effects).spellFailureChance;
+    if (failureChance && spell.components.s) {
+      const d100 = rollDice('d100');
+      if (d100.total <= failureChance) {
+        ctx.systemMessage(room, `${token.name}: ${spell.name} — провал (${failureChance}%)`);
+        return;
+      }
+    }
+
     const result = resolveSpellCastWithReactions(ctx, input);
     if (result.error) socket.emit('chat:error', result.error);
   });
@@ -171,6 +186,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     if (!scope) return;
     const { room, token } = scope;
     const changed = manager.clearConcentration(room, token.id);
+    removeZonesOfSource(ctx, room, token.id);
     if (!changed.length) return;
     for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
     ctx.systemMessage(room, `${token.name}: концентрация прекращена`);

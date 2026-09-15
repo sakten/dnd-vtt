@@ -4,12 +4,15 @@ import {
   absorbTypesOf,
   casterStats,
   characterLevel,
+  COUNTERSPELL,
   grantedSpells,
   gridDistanceFeet,
   isIncapacitated,
   maxCastableLevel,
+  pathLeavesReach,
   reactionFeatures,
   reactionSpellTrigger,
+  restrictionsFor,
   rollDice,
   spellEffectDefs,
   superiorityDie,
@@ -26,7 +29,7 @@ import { isDmViewer, type ConnCtx } from './context';
 import { findSpell } from '../spells';
 import { controllerIdOfToken, hasResourceFor } from '../rooms';
 import { pushRollMessage } from './messages';
-import { applySpellEffects, resolveSpellCast, type SpellCastInput } from './spellResolve';
+import { resolveSpellCast, validateSpellCast, type SpellCastInput } from './spellResolve';
 import {
   applyWeaponAttackDamage,
   prepareWeaponAttack,
@@ -317,6 +320,7 @@ function audienceOf(ctx: ConnCtx, room: Room, mapId: string, token: Token): stri
 }
 
 function reactionSlotFree(manager: ConnCtx['manager'], room: Room, mapId: string, token: Token): boolean {
+  if (restrictionsFor(token.conditions, token.effects).noReactions) return false;
   const turn = manager.turnStateFor(room, mapId, token);
   return !turn || !turn.reactionUsed;
 }
@@ -414,6 +418,20 @@ function applyReactionChoice(
   if (!spell || !token) return;
 
   const cid = controllerIdOfToken(room, token);
+  const sheet = cid ? room.sheets[cid] : undefined;
+  const stats = statsForCaster(room, token, key);
+  const input: SpellCastInput = {
+    caster: token,
+    mapId: choice.mapId,
+    spell,
+    castLevel: spell.level,
+    characterLevel: sheet ? characterLevel(sheet.classes) : 1,
+    stats,
+    targets,
+    author: token.name,
+  };
+  if (validateSpellCast(room, input)) return;
+
   if (spell.level > 0) {
     if (cid) {
       if (!ctx.manager.spendSpellSlot(room, cid, spell.level)) return;
@@ -423,8 +441,6 @@ function applyReactionChoice(
     }
   }
   if (!ctx.manager.spendSlot(room, choice.mapId, token, 'reaction')) return;
-
-  const stats = statsForCaster(room, token, key);
 
   // Absorb Elements: сопротивление типу сработавшего урона до следующего хода.
   const absorb = absorbTypesOf(key);
@@ -451,28 +467,7 @@ function applyReactionChoice(
     return;
   }
 
-  if (spellEffectDefs(key)?.length) {
-    applySpellEffects(ctx, {
-      caster: token,
-      spell,
-      mapId: choice.mapId,
-      targets: [token],
-      stats,
-      author: token.name,
-    });
-  } else {
-    const sheet = cid ? room.sheets[cid] : undefined;
-    resolveSpellCast(ctx, {
-      caster: token,
-      mapId: choice.mapId,
-      spell,
-      castLevel: spell.level,
-      characterLevel: sheet ? characterLevel(sheet.classes) : 1,
-      stats,
-      targets,
-      author: token.name,
-    });
-  }
+  resolveSpellCast(ctx, input);
   ctx.syncCombat(room, choice.mapId);
 }
 
@@ -714,17 +709,6 @@ function opportunityAttack(ctx: ConnCtx, room: Room, token: Token): AttackEntry 
   };
 }
 
-function pathLeavesReach(path: { x: number; y: number }[], reactor: Token, mover: Token, gridSize: number): boolean {
-  if (path.length < 2) return false;
-  const box = (p: { x: number; y: number }) => ({ x: p.x, y: p.y, w: mover.w, h: mover.h });
-  for (let i = 0; i < path.length - 1; i++) {
-    const before = gridDistanceFeet(box(path[i]!), reactor, gridSize);
-    const after = gridDistanceFeet(box(path[i + 1]!), reactor, gridSize);
-    if (before <= 5 && after > 5) return true;
-  }
-  return false;
-}
-
 /** Немедленная атака по возможности (без окна). */
 export function executeOpportunityAttack(
   ctx: ConnCtx,
@@ -771,6 +755,7 @@ export function triggerOpportunityAttacks(
     if (reactor.id === mover.id) continue;
     if (!hostile(reactor, mover)) continue;
     if (isIncapacitated(reactor.conditions)) continue;
+    if (restrictionsFor(reactor.conditions, reactor.effects).noOpportunityAttacks) continue;
     if (!reactionSlotFree(ctx.manager, room, mapId, reactor)) continue;
     if (!pathLeavesReach(path, reactor, mover, size)) continue;
     const attack = opportunityAttack(ctx, room, reactor);
@@ -810,9 +795,7 @@ export function triggerOpportunityAttacks(
   });
 }
 
-const COUNTERSPELL_KEY = 'XPHB:Counterspell';
-const COUNTERSPELL_LEVEL = 3;
-const COUNTERSPELL_RANGE_FEET = 60;
+const { key: COUNTERSPELL_KEY, level: COUNTERSPELL_LEVEL, rangeFeet: COUNTERSPELL_RANGE_FEET } = COUNTERSPELL;
 
 /** Офферы Counterspell: враги кастера в 60 фт с оплачиваемым заклинанием. */
 function counterspellOffers(ctx: ConnCtx, room: Room, input: SpellCastInput): ReactionOfferInput[] {

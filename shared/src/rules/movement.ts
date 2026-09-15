@@ -1,3 +1,5 @@
+import { gridDistanceFeet, type GridBox } from './combat';
+
 export const DEFAULT_FEET_PER_CELL = 5;
 
 /** Точка на сетке (мировые координаты, обычно центр токена). */
@@ -64,6 +66,20 @@ const NEIGHBORS: [number, number][] = [
   [-1, 1],
   [-1, -1],
 ];
+
+/**
+ * Покидает ли путь (цепочка мировых точек) досягаемость реактора: где-то был в
+ * 5 фт, а после шага стал дальше. Размер мувера берётся из `mover`.
+ */
+export function pathLeavesReach(path: GridPoint[], reactor: GridBox, mover: GridBox, gridSize: number): boolean {
+  if (path.length < 2) return false;
+  for (let i = 0; i < path.length - 1; i++) {
+    const before = gridDistanceFeet({ ...path[i]!, w: mover.w, h: mover.h }, reactor, gridSize);
+    const after = gridDistanceFeet({ ...path[i + 1]!, w: mover.w, h: mover.h }, reactor, gridSize);
+    if (before <= 5 && after > 5) return true;
+  }
+  return false;
+}
 
 /**
  * Клетки, достижимые за `remainingFeet` из клетки (cx, cy) с учётом

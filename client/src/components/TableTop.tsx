@@ -9,6 +9,7 @@ import { activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
 import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
 import GridLayer from './GridLayer';
+import ZoneLayer from './ZoneLayer';
 import ConditionsOverlay from './ConditionsOverlay';
 import TokenView from './TokenView';
 
@@ -385,6 +386,9 @@ export default function TableTop() {
             )}
           </Layer>
           <GridLayer grid={grid} view={view} viewport={size} />
+          <Layer listening={false}>
+            <ZoneLayer zones={activeMap?.zones ?? []} grid={grid} />
+          </Layer>
           <Layer>
             {movementCells.map((c) => (
               <Rect

@@ -1,6 +1,8 @@
+import { conditionName } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushSaveMessage } from './effects';
+import { tickZones } from './zones';
 
 /**
  * Тик активного бойца в начале/конце его хода: состояния (спасброски, раунды)
@@ -28,6 +30,12 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
   for (const name of effects.removed) {
     ctx.systemMessage(room, `${token.name}: эффект «${name}» окончен`);
   }
+  for (const esc of effects.escalated) {
+    ctx.systemMessage(room, `${token.name}: «${esc.name}» — ${conditionName(esc.condition)}`);
+  }
+
+  // Зоны: аура, вход/выход, startOfTurn/endOfTurn.
+  tickZones(ctx, room, mapId, token, phase);
 
   if (conditions.changed || effects.changed) ctx.emitToken(room, 'token:update', mapId, token);
 }

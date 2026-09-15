@@ -101,6 +101,59 @@ describe('action:use', () => {
     expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('Рывок'))).toBe(true);
   });
 
+  it('Второе дыхание лечит 1d10 + уровень воина и тратит ресурс', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 3 }],
+      spells: [],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      hp: { current: 10, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [],
+      resources: [
+        { id: 'r1', key: 'fighter:secondWind', name: 'Второе дыхание', current: 2, max: 2, reset: 'short' },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d10 = 9
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:fighter:secondWind' });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.hp.current).toBe(22); // 10 + 9 + 3
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+  });
+
+  it('«Выпутаться» снимает эффект проверкой характеристики', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    tk.effects = [
+      {
+        id: 'web1',
+        name: 'Web',
+        duration: { type: 'permanent' },
+        modifiers: [],
+        conditions: ['restrained'],
+        escape: { ability: 'str', skill: 'athletics', dc: 15 },
+      },
+    ];
+    tk.conditions = [{ key: 'restrained', name: 'Обездвижен', effectId: 'web1' }];
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.7); // d20 = 15
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'escape:web1' });
+    rand.mockRestore();
+
+    expect(tk.effects).toHaveLength(0);
+    expect(tk.conditions).toHaveLength(0);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+  });
+
   it('игрок не может действовать не в свой ход', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.scene.maps[0]!.tokens.push(makeToken('t2'));
@@ -150,6 +203,38 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(combatOf(room).turns.e1!.attacksRemaining).toBe(0);
     expect(room.chat.length).toBeGreaterThan(0);
+  });
+
+  it('Mirror Image: попадание принимает образ, урона нет', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          attacks: [{ name: 'Bite', hit: 'd20+5', damage: 'd6+3', rangeType: 'none', rangeNormal: 0, rangeLong: 0 }],
+        }),
+        makeToken('t2', { hpMax: '30', hpCurrent: 30 }),
+      ],
+      {}
+    );
+    const target = room.scene.maps[0]!.tokens[1]!;
+    target.effects = [
+      {
+        id: 'mi1',
+        name: 'Mirror Image',
+        duration: { type: 'rounds', rounds: 10 },
+        modifiers: [],
+        misdirect: { charges: 1, die: 'd6', threshold: 3 },
+      },
+    ];
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17 (попал), d6 = 5 (образ)
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(target.hpCurrent).toBe(30);
+    expect(target.effects).toHaveLength(0);
+    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('образ принял удар'))).toBe(true);
   });
 });
 
@@ -245,6 +330,60 @@ describe('spell:cast', () => {
     expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
+  });
+
+  it('Shocking Grasp на попадании запрещает OA цели', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Shocking Grasp', className: 'wizard' }] };
+    room.resources.p1 = casterResources();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shocking Grasp', targetIds: ['t2'] });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.effects.some((e) => e.restrictions?.noOpportunityAttacks)).toBe(true);
+    expect(target.hpCurrent).toBeLessThan(30);
+  });
+
+  it('замедление: шанс провала заклинания с соматическим компонентом', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = casterSheet();
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    f.ctx.manager.applyEffect(room, room.scene.maps[0]!.tokens[0]!, {
+      id: 'slow1',
+      name: 'Slow',
+      sourceId: 't2',
+      duration: { type: 'untilSave', ability: 'wis', dc: 20, timing: 'end' },
+      modifiers: [],
+      restrictions: { spellFailureChance: 25 },
+    });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // d100 = 11 → провал
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 0, y: 0 },
+    });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
+    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('провал'))).toBe(true);
   });
 
   it('без выбранного заклинания не кастует', () => {
@@ -738,7 +877,7 @@ describe('реакции (R1)', () => {
     registerActionHandlers(f.ctx);
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dodge' });
-    expect(combatOf(room).turns.e1!.dodge).toBe(true);
+    expect(room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.name === 'Уклонение')).toBe(true);
 
     combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
     combatOf(room).currentIndex = 1;

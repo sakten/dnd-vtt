@@ -138,7 +138,6 @@ describe('turn state', () => {
       legendaryRemaining: 0,
       legendaryMax: 0,
       disengaged: false,
-      dodge: false,
       concentrationId: null,
     });
   });

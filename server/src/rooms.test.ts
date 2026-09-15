@@ -5,7 +5,6 @@ import {
   DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
-  emptyTurnState,
   type CharacterSheet,
   type EffectInstance,
   type InitiativeEntry,
@@ -263,6 +262,7 @@ describe('RoomManager ход', () => {
                 statblock: { abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, legendary: { max: 3, actions: [] } },
               }),
             ],
+            zones: [],
             fog: defaultFog(DEFAULT_GRID),
             combat: emptyCombatState(),
           },
@@ -416,29 +416,48 @@ describe('RoomManager заклинания', () => {
     expect(manager.saveBonusForToken(room, monster, 'str')).toBe(0);
   });
 
-  it('Уклонение даёт преимущество на спасброски Ловкости', () => {
+  it('«Уклонение» (эффект) даёт преимущество на спасброски Ловкости', () => {
     const manager = setup();
     const room = makeRoom();
     const tk = token('t1');
     room.scene.maps[0]!.tokens = [tk];
-    room.scene.maps[0]!.combat = {
-      ...emptyCombatState(),
-      active: true,
-      entries: [entry('e1', 't1', 10)],
-      currentIndex: 0,
-      turns: { e1: { ...emptyTurnState(), dodge: true } },
-    };
+    manager.applyEffect(room, tk, {
+      id: 'd1',
+      name: 'Уклонение',
+      sourceId: 't1',
+      duration: { type: 'endOfTurn', of: 'target' },
+      modifiers: [
+        { id: 'd1:m0', target: 'attack', mode: 'disadvantage' },
+        { id: 'd1:m1', target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
+      ],
+    });
 
     expect(manager.savePartsForToken(room, tk, 'dex').mode).toBe('a');
     expect(manager.savePartsForToken(room, tk, 'con').mode).toBeUndefined();
+  });
 
-    room.scene.maps[0]!.combat.turns.e1!.dodge = false;
-    expect(manager.savePartsForToken(room, tk, 'dex').mode).toBeUndefined();
+  it('ограничения эффекта блокируют слоты (Slow)', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1');
+    room.scene.maps[0]!.tokens = [tk];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    manager.applyEffect(room, tk, {
+      id: 'slow1',
+      name: 'Slow',
+      sourceId: 't2',
+      duration: { type: 'untilSave', ability: 'wis', dc: 20, timing: 'end' },
+      modifiers: [],
+      restrictions: { noReactions: true, actionOrBonusOnly: true },
+    });
 
-    room.scene.maps[0]!.combat.turns.e1!.dodge = true;
-    tk.conditions = [{ key: 'paralyzed', name: 'Парализован', rounds: null }];
-    expect(manager.isDodging(room, 'm1', tk)).toBe(false);
-    expect(manager.savePartsForToken(room, tk, 'dex').mode).toBeUndefined();
+    expect(manager.spendSlot(room, 'm1', tk, 'reaction')).toBe(false);
+    expect(manager.spendSlot(room, 'm1', tk, 'action')).toBe(true);
+    expect(manager.spendSlot(room, 'm1', tk, 'bonus')).toBe(false);
   });
 });
 
@@ -646,6 +665,49 @@ describe('RoomManager эффекты', () => {
     manager.tickEffects(room, caster, 'start');
 
     expect(ally.effects).toHaveLength(0);
+  });
+
+  it('tickEffects: escalate меняет состояние при провале повторного спаса (Sleep)', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Sleep',
+          duration: { type: 'untilSave', ability: 'wis', dc: 100, timing: 'end' },
+          conditions: ['incapacitated'],
+          escalate: { condition: 'unconscious', duration: { type: 'concentration' } },
+          modifiers: [],
+        },
+      ],
+      conditions: [{ key: 'incapacitated', name: 'Недееспособен', effectId: 'ef1' }],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    const res = manager.tickEffects(room, tk, 'end');
+
+    expect(res.escalated).toEqual([{ name: 'Sleep', condition: 'unconscious' }]);
+    expect(tk.effects[0]!.duration.type).toBe('concentration');
+    expect(tk.conditions[0]!.key).toBe('unconscious');
+  });
+
+  it('урон снимает эффект с wakeOnDamage (Sleep)', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [{ id: 'ef1', name: 'Sleep', duration: { type: 'concentration' }, wakeOnDamage: true, modifiers: [] }],
+      conditions: [{ key: 'unconscious', name: 'Без сознания', effectId: 'ef1' }],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, -3);
+
+    expect(tk.effects).toHaveLength(0);
+    expect(tk.conditions).toHaveLength(0);
+    expect(tk.hpCurrent).toBe(7);
   });
 
   it('clearConcentration снимает эффекты и чистит concentrationId', () => {

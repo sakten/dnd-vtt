@@ -10,6 +10,7 @@ import {
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
+import { removeZonesOfSource } from './zones';
 
 export function registerTokenHandlers(ctx: ConnCtx) {
   const { manager, isDm, broadcastAll, emitToken, syncCombat } = ctx;
@@ -138,9 +139,10 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;
       const { room, token } = scope;
-      // Эффекты снимаемого токена откатываются, его концентрация гаснет на всех картах.
+      // Эффекты снимаемого токена откатываются, его концентрация и зоны гаснут на всех картах.
       for (const effect of [...token.effects]) manager.removeEffect(room, token, effect.id);
       for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);
+      removeZonesOfSource(ctx, room, id);
       manager.removeToken(room, mapId, id);
       broadcastAll('token:remove', { mapId, id });
       if (manager.combatOf(room, mapId)?.active) {

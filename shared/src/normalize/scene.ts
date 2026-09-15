@@ -1,9 +1,36 @@
+import type { ZoneInstance } from '../domain/automation';
 import { DEFAULT_GRID, defaultFog } from '../domain/scene';
 import type { FogState, GridSettings, MapInfo, Scene } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
 import { normalizeToken } from './token';
 import type { NormalizeEntityOptions } from './token';
+
+/** Нормализация зоны: обязательны id/источник/область/точка/длительность. */
+function normalizeZone(raw: unknown): ZoneInstance | null {
+  if (!isRecord(raw)) return null;
+  const origin = isRecord(raw.origin) ? raw.origin : null;
+  if (
+    typeof raw.id !== 'string' ||
+    !raw.id ||
+    typeof raw.sourceKey !== 'string' ||
+    typeof raw.sourceId !== 'string' ||
+    !isRecord(raw.area) ||
+    !origin ||
+    !Number.isFinite(origin.x) ||
+    !Number.isFinite(origin.y) ||
+    !isRecord(raw.duration)
+  ) {
+    return null;
+  }
+  return {
+    ...(raw as unknown as ZoneInstance),
+    origin: { x: Number(origin.x), y: Number(origin.y) },
+    occupants: Array.isArray(raw.occupants)
+      ? (raw.occupants as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [],
+  };
+}
 
 /** Полная нормализация карты: токены, туман и бой; остальные поля сохраняются. */
 export function normalizeMapInfo(
@@ -22,6 +49,9 @@ export function normalizeMapInfo(
   return {
     ...(source as unknown as MapInfo),
     tokens: Array.isArray(source.tokens) ? source.tokens.map((t) => normalizeToken(t, opts)) : [],
+    zones: Array.isArray(source.zones)
+      ? source.zones.map(normalizeZone).filter((z): z is ZoneInstance => !!z)
+      : [],
     fog,
     combat: normalizeCombatState(source.combat),
   };

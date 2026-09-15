@@ -2,6 +2,7 @@ export * from './domain/core';
 export * from './domain/damage';
 export * from './domain/effects';
 export * from './domain/actions';
+export * from './domain/automation';
 export * from './domain/token';
 export * from './domain/sheet';
 export * from './domain/combat';

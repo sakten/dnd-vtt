@@ -4,6 +4,7 @@ import type {
   AbilityKey,
   ChatMessage,
   CombatState,
+  ConditionKey,
   DamageDefense,
   DiceRollResult,
   EffectInstance,
@@ -247,6 +248,10 @@ export class RoomManager {
     return Combat.abilityModForToken(room, token, ability);
   }
 
+  abilityCheckModForToken(room: Room, token: Token, ability: AbilityKey, skill?: string): number {
+    return Combat.abilityCheckModForToken(room, token, ability, skill);
+  }
+
   grantExtraMovement(room: Room, mapId: string, token: Token, feet: number) {
     Combat.grantExtraMovement(this, room, mapId, token, feet);
   }
@@ -257,10 +262,6 @@ export class RoomManager {
 
   turnStateFor(room: Room, mapId: string, token: Token): TurnState | null {
     return Combat.turnStateFor(room, mapId, token);
-  }
-
-  isDodging(room: Room, mapId: string, token: Token): boolean {
-    return Combat.isDodging(room, mapId, token);
   }
 
   isActiveToken(room: Room, mapId: string, tokenId: string): boolean {
@@ -350,7 +351,12 @@ export class RoomManager {
     room: Room,
     token: Token,
     phase: 'start' | 'end'
-  ): { changed: boolean; saves: { name: string; roll: DiceRollResult; success: boolean }[]; removed: string[] } {
+  ): {
+    changed: boolean;
+    saves: { name: string; roll: DiceRollResult; success: boolean }[];
+    removed: string[];
+    escalated: { name: string; condition: ConditionKey }[];
+  } {
     return Effects.tickEffects(this, room, token, phase);
   }
 

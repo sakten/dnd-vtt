@@ -20,7 +20,6 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     legendaryRemaining: clampInt(t.legendaryRemaining, 0, 99, 0),
     legendaryMax: clampInt(t.legendaryMax, 0, 99, 0),
     disengaged: t.disengaged === true,
-    dodge: t.dodge === true,
     concentrationId: typeof t.concentrationId === 'string' && t.concentrationId ? t.concentrationId : null,
   };
 }

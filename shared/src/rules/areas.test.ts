@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Token } from '../domain/token';
-import { areaCells, cellCenter, tokenCells, tokensInArea, type AreaGrid } from './areas';
+import { areaCells, cellCenter, tokenCells, tokenFullyInArea, tokensInArea, type AreaGrid } from './areas';
 
 const grid: AreaGrid = { size: 50, offsetX: 0, offsetY: 0 };
 const origin = cellCenter(0, 0, grid);
@@ -68,5 +68,11 @@ describe('tokenCells / tokensInArea', () => {
     const hit = tokensInArea(tokens, { shape: 'sphere', size: 10 }, origin, null, grid);
     expect(hit).toHaveLength(1);
     expect(hit[0]).toBe(tokens[0]);
+  });
+
+  it('tokenFullyInArea требует все занятые клетки внутри («полностью внутри»)', () => {
+    const big = { x: 75, y: 25, w: 150, h: 50 }; // занимает клетки 0..2 (центры 0/5/10 фт)
+    expect(tokenFullyInArea(big, { shape: 'sphere', size: 5 }, origin, null, grid)).toBe(false);
+    expect(tokenFullyInArea(big, { shape: 'sphere', size: 10 }, origin, null, grid)).toBe(true);
   });
 });

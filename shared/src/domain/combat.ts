@@ -31,8 +31,6 @@ export interface TurnState {
   legendaryMax: number;
   /** Действие «Отход»: движение в этом ходу не провоцирует атаки по возможности. */
   disengaged: boolean;
-  /** Действие «Уклонение»: помеха на атаки по владельцу до начала его следующего хода. */
-  dodge: boolean;
   /** id активного эффекта концентрации. */
   concentrationId: string | null;
 }
@@ -51,7 +49,6 @@ export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {
     legendaryRemaining: 0,
     legendaryMax: 0,
     disengaged: false,
-    dodge: false,
     concentrationId: null,
   };
 }

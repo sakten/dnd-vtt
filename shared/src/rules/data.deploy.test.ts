@@ -5,7 +5,7 @@ import spellcastingRaw from '../data/spellcasting.json';
 import subclassRaw from '../data/subclassSpells.json';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
-import { SPELL_EFFECTS } from './spellEffects';
+import { AUTOMATION_SPELLS } from './automation';
 import { ABSORB_SPELL_TYPES, REACTION_SPELL_TRIGGERS } from './reactions';
 import { spellAttackCount, spellDamageExpression } from './spellCast';
 import type { Spell } from './spells';
@@ -52,6 +52,23 @@ const SCHOOLS = new Set([
 ]);
 const ABILITIES = new Set(['str', 'dex', 'con', 'int', 'wis', 'cha']);
 const AREA_SHAPES = new Set(['sphere', 'cone', 'cube', 'line', 'cylinder']);
+
+/** Состояния с авто-эффектами в `conditions.ts` (charmed/deafened — только чипы). */
+const MECHANICAL_CONDITIONS = new Set([
+  'blinded',
+  'exhaustion',
+  'frightened',
+  'grappled',
+  'incapacitated',
+  'invisible',
+  'paralyzed',
+  'petrified',
+  'poisoned',
+  'prone',
+  'restrained',
+  'stunned',
+  'unconscious',
+]);
 
 describe('снимок данных', () => {
   it('hash файлов не менялся', () => {
@@ -100,11 +117,22 @@ describe('снимок данных', () => {
   it('каталоги кода ссылаются на существующие заклинания', () => {
     const keys = new Set(SPELLS.map((s) => s.key));
     const catalogKeys = [
-      ...Object.keys(SPELL_EFFECTS),
+      ...Object.keys(AUTOMATION_SPELLS),
       ...Object.keys(REACTION_SPELL_TRIGGERS),
       ...Object.keys(ABSORB_SPELL_TYPES),
     ];
     expect(catalogKeys.filter((key) => !keys.has(key))).toEqual([]);
+
+    const badCatalog: string[] = [];
+    for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
+      if (def.key !== key) badCatalog.push(`${key}: ключ def ${def.key}`);
+      if (!def.name) badCatalog.push(`${key}: пустое имя`);
+      if (def.resolution === 'effect' && !def.effects?.length) badCatalog.push(`${key}: effect без эффектов`);
+      if (def.resolution === 'manual' && (def.damage || def.effects?.length)) {
+        badCatalog.push(`${key}: manual с механикой`);
+      }
+    }
+    expect(badCatalog).toEqual([]);
 
     const bad: string[] = [];
     const checkGrants = (label: string, list: { key: string; level: number }[]) => {
@@ -129,12 +157,28 @@ describe('снимок данных', () => {
     expect(bad).toEqual([]);
   });
 
-  it('условия каталога эффектов — валидные ключи', () => {
+  it('состояния каталога механически действуют (без «чипов»)', () => {
     const bad: string[] = [];
-    for (const [key, defs] of Object.entries(SPELL_EFFECTS)) {
-      for (const def of defs) {
-        for (const condition of def.conditions ?? []) {
+    for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
+      for (const effect of def.effects ?? []) {
+        const conditions = effect.conditions ?? [];
+        if (conditions.length && !conditions.some((c) => MECHANICAL_CONDITIONS.has(c))) {
+          bad.push(`${key}: ${conditions.join(', ')}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('условия каталога автоматизации — валидные ключи', () => {
+    const bad: string[] = [];
+    for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
+      for (const effect of def.effects ?? []) {
+        for (const condition of effect.conditions ?? []) {
           if (!CONDITION_KEYS.includes(condition)) bad.push(`${key}: ${condition}`);
+        }
+        if (effect.escalate && !CONDITION_KEYS.includes(effect.escalate.condition)) {
+          bad.push(`${key}: escalate ${effect.escalate.condition}`);
         }
       }
     }

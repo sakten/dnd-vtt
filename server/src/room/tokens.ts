@@ -37,6 +37,7 @@ export function addMap(
     ...input,
     id: randomUUID(),
     tokens: [],
+    zones: [],
     fog: defaultFog(room.scene.grid),
     combat: emptyCombatState(),
   };

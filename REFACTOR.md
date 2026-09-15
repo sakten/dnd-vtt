@@ -9,10 +9,9 @@
 
 | ID | Задача | Область | Трудо-затраты |
 |----|--------|---------|---------------|
-| R8.1 | Каталог `AutomationDef` + generic-executor | shared/server | L |
 | R9.1 | jsdom + Testing Library для логики панелей/модалок | client/tests | M |
 
-Закрытые P1: R8.2, R6.1–R6.5, R6.8, R7.1, R7.2, R7.4 (из P2 — R6.6).
+Закрытые P1: R8.1, R8.2, R6.1–R6.5, R6.8, R7.1, R7.2, R7.4 (из P2 — R6.6).
 
 ---
 
@@ -116,9 +115,17 @@
 
 ## R8 — Shared: контракт и данные
 
-- [ ] **R8.1. Автоматизация заклинаний/черт — bespoke-ветки, а не каталог.** P1, L.
+- [x] **R8.1. Автоматизация заклинаний/черт — bespoke-ветки, а не каталог.** P1, L.
   Data-driven только `SPELL_EFFECTS` (20 ключей, `shared/src/rules/spellEffects.ts:32-232`); дальше 5 хардкод-веток (`server/src/socket/spellResolve.ts:197-316`); Counterspell/Absorb захардкожены (`reactions.ts:236-259,693`); `acBonusOf` реверс-инжинирит эффекты (`reactions.ts:197-206`); геометрия выхода из reach — в socket-слое (`reactions.ts:599-608`), хотя есть `shared/rules/movement.ts`; `validateSpellCast` прогоняется дважды (`spells.ts:129` + `spellResolve.ts:186`). Из 229 manual-заклинаний не покрыто 214, при этом 103 уже имеют `save`/`conditions`/`areaSpec` (Charm Person, Sleep). `FEATURE_META` даёт 118 кнопок без реализации (`classActions.ts:43-187` + стаб `socket/actions.ts:104-149`).
-  **Что сделать:** единая схема `AutomationDef` (kind: damage/heal/save/buff/debuff/control; duration; modifiers; conditions; scaling) + generic-executor на сервере, данные — строки; классовые фичи — та же схема; явный `automation: 'manual'` как fallback; counterspell-параметры и reach-геометрия в shared; catalog-level тесты.
+  **Что сделать:** единая схема `AutomationDef` + generic-executor на сервере, данные — строки; классовые фичи — та же схема; явный `automation: 'manual'` как fallback; counterspell-параметры и reach-геометрия в shared; catalog-level тесты.
+  **Согласованная форма (отличается от исходной):** `resolution` (`attack`/`save`/`auto`/`effect`/`utility`/`manual`) — способ разрешения, payload-поля (`save`/`damage`/`heal`/`effects`) ортогональны и комбинируются (Wall of Fire = урон + зона). `ZoneDef` — per-trigger (`enter`/`exit`/`startOfTurn`/`endOfTurn`) + `aura`/`containment`/`anchor`/`flags`; `SummonDef` зарезервирован. Строка каталога появляется только вместе с движком, который её обслуживает, иначе спелл — `manual`. Порядок движков после R8.1: restrictions → зоны → призывы.
+  **Срез 1 (сделано):** `domain/automation.ts` — типы (`AutomationDef`, `AutomationEffect` c `escalate`/`wakeOnDamage`/`misdirect`, `AutomationPayload`, `ZoneDef`, `SummonDef`, `AutomationUtility`); `rules/automation.ts` — каталог `AUTOMATION_SPELLS` (20 записей, перенос `SPELL_EFFECTS`) + `automationForSpell` (каталог → деривация атака/спасбросок/автоурон/лечение → `manual`; уровни применяются к `dice`/`count`) + `spellEffectDefs`/`spellAutomated`; `spellEffects.ts` удалён, шима не оставлено. Поведение не менялось. Тесты `automation.test.ts` (+7, essential) и обновлён `data.deploy.test.ts` (каталог, key-инварианты, условия). `check` 277+112+48, `test:deploy` 6+2.
+  **Срез 2 (сделано):** `server/src/socket/automation.ts` — generic-executor `executeAutomation` (порт 5 веток + `applyDefEffects`); `spellResolve.ts` 318 → 91 строки (`validateSpellCast`/`resolveSpellCast` на def, без веток по заклинаниям); двойной `validateSpellCast` убран (валидация — в `spells.ts` до списания, реакции валидируют у себя до списания); `applyReactionChoice` ходит одним `resolveSpellCast` (эффектные реакции — через executor). Поведение не менялось. `check` 278+112+48, smoke 130/0.
+  **Срез 3 (сделано, контент-партия 1):** движок: `EffectInstance.escalate`/`wakeOnDamage` (+`EffectEscalation` в domain), `tickEffects` — эскалация состояния при провале повторного спаса (событие в чат), `adjustTokenHp` — урон снимает эффекты с `wakeOnDamage`; `endOfTurn/of:'source'` с чужих токенов снимается только в начале хода источника (было и в конце — эффект на чужих не доживал до следующего хода). Каталог (+4): Color Spray, Hold Monster, Hypnotic Pattern, Sleep (спас → механически действующее состояние; Sleep — `escalate` в без сознания). `check` 279+114+48 (юниты на escalate/wake), smoke 130/0.
+  **Принцип владельца (решение):** ложная автоматизация не допускается — Charm Person/Charm Monster/Animal Friendship/Suggestion возвращены в `manual`: `charmed` в движке не имеет авто-эффектов (нет запрета атак по очаровавшему, соц-преимущества, исполнения внушения). Закреплено deploy-инвариантом «состояния каталога механически действуют». Вернуться к ним вместе с механикой charmed/отношений.
+  **Срез 4 (сделано, классовые действия):** `rules/automationActions.ts` — каталог `AUTOMATION_ACTIONS` (ключ — `ActionDef.id`): базовые `dash`/`disengage`/`hide`/`search` + `class:fighter:actionSurge`/`class:fighter:secondWind`; `automationForAction` со скейлом `classLevelBonus` (Second Wind `1d10+уровень`). Executor получил `utility`-ветку (extraAction/extraMovement/disengage/check); `action:use` списавшие экономику/ресурсы автоматизированные действия гонит через `executeAutomation` (self-таргетинг из `def.targeting`), остальные — заглушка. Поведение мигрированных действий сохранено (новый handlers-тест на Second Wind). `check` 282+115+48, smoke 130/0. Остальные 100+ черт — контент-партии (нужны движки restrictions/зон; по спорной механике — спрашивать владельца).
+  **Срез 5 (сделано, реакции + R8.7):** параметры Counterspell → shared (`COUNTERSPELL`), геометрия выхода из reach → `shared/rules/movement.ts` (`pathLeavesReach`), `acBonusOf`/`applyReactionChoice` уже через def (срез 2). Dodge полностью переведён на эффект — см. R8.7. `check` 282+115+48, smoke 130/0.
+  **После срезов — движок restrictions (сделано):** `Restrictions` + `restrictionsFor` (условия → запреты действий/бонусов/реакций, эффекты — точечно); проверки в `spendSlot` (noActions/noBonus/noReactions/actionOrBonusOnly), `canAttack`/`consumeAttack` (oneAttackOnly), `reactionSlotFree` и OA (noOpportunityAttacks), `spells.ts` (spellFailureChance для соматики); `rejectIfIncapacitated` обобщён до restrictions. Возможность «эффекты на попадании» в executor (`applyEffectTo`). Каталог: **Shocking Grasp** (деривация + `AUTOMATION_ADDITIONS`: запрет OA до начала следующего хода) и **Slow** (спас, −2 AC/DEX-спасы, ×0.5 скорость, noReactions/actionOrBonusOnly/oneAttackOnly/25% соматика). `check` 286+118+48, smoke 130/0. Не сделано: кап «до 6 существ» у Slow (область берёт всех) и клиентское дизейблирование по ограничениям (сервер отклоняет).
   **Зачем:** следующая большая фича (каталог классовых действий и остаток Ф8) без этого — сотни строк ручных веток и правки в 4–6 файлах на заклинание.
 
 - [x] **R8.2. Добавление поля Token/Sheet — чек-лист из 6+ мест.** P1, M.
@@ -149,10 +156,9 @@
   **Что сделать:** новые сообщения без `label` (чтение legacy оставить), стили — из `rollKind`, форматтер с локалью.
   **Зачем:** локализация сейчас заблокирована сохранёнными строками и text-sniffing'ом.
 
-- [ ] **R8.7. Боевые состояния действий — эффектами, а не флагами `TurnState`.** P2, M. **(TODO, по следам Dodge)**
-  Dodge — `TurnState.dodge` + `Combat.isDodging` (`server/src/room/combat.ts`), проверка протянута через фасад `RoomManager` (`rooms.ts`), оба резолвера атак (`attackResolve.ts`, `spellResolve.ts`) и `savePartsForToken` (`room/effects.ts`): новое правило = 5–6 файлов на каждую ветку.
-  **Что сделать:** выдавать Dodge как `EffectInstance` — модификаторы `attack`+`disadvantage` на владельце (уже читается `attackRollParts` как «атаки по нему») и `save`+`advantage` с фильтром `dex` (уже читается `saveRollParts`); добавить `EffectDuration` `startOfTurn`/`of: 'target'` (снятие в начале следующего хода владельца в `tickEffects`); авто-снятие эффекта при недееспособности владельца; убрать `TurnState.dodge` и обвязку в резолверах.
-  **Зачем:** правки в резолверах не нужны вообще, adv/dis для атак и спасов идут через движок эффектов — то же направление, что R8.1 (`AutomationDef`: действия — данные). Цена: эффект станет виден в `EffectChips` (условно приемлемо). `TurnState.disengaged` пока можно оставить флагом (правило движения, не модификатор броска).
+- [x] **R8.7. Боевые состояния действий — эффектами, а не флагами `TurnState`.** P2, M.
+  **Сделано:** Dodge — строка `AUTOMATION_ACTIONS.dodge` (`resolution: 'effect'`, targeting self): эффект с `attack`+`disadvantage` (читается `attackRollParts` как «атаки по владельцу») и `save`+`advantage`/фильтр `dex`, длительность `endOfTurn/of: 'target'` (снимается в начале следующего хода владельца существующим `tickEffects` — `startOfTurn` не понадобился). Удалены `TurnState.dodge`, `Combat.isDodging` + фасад `RoomManager.isDodging`, `dodgeAdvantage` в `savePartsForToken`, `targetDodging` из `countAttackAdvantage` и оба резолвера атак. `TurnState.disengaged` оставлен флагом (правило движения). Цена принята: эффект виден в `EffectChips`. Тест `rooms.test` переписан на эффект, handlers-тест «Уклонение» зелёный.
+  **Зачем:** правки в резолверах не нужны вообще, adv/dis для атак и спасов идут через движок эффектов — то же направление, что R8.1 (`AutomationDef`: действия — данные).
 
 ---
 
@@ -196,11 +202,15 @@
 ### Шаг 5. R8.3 — снимок-тест данных (S/M). ✅ Сделано
 Deploy-бакет `*.deploy.test.ts` + `npm run test:deploy` (первый шаг `verify`): hash трёх JSON, контракт записей и каталогов, свип парсеров, покрытие иконок. Обычный `check` бакет не подхватывает.
 
-### Шаг 6. R8.4 + R8.1 — распил `types.ts` и каталог `AutomationDef` (M + L) — старт фичи
-R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима удалена. Далее R8.1: единый `AutomationDef` + generic-executor, классовые фичи на той же схеме — «каталог классовых действий» и остаток Ф8.
+### Шаг 6. R8.4 + R8.1 — распил `types.ts` и каталог `AutomationDef` (M + L). ✅ Сделано
+R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима удалена. R8.1 ✅ (срезы 1–5): схема `AutomationDef` + деривация, каталоги `AUTOMATION_SPELLS`/`AUTOMATION_ACTIONS`, generic-executor, контент-партия спеллов (Color Spray/Hold Monster/Hypnotic Pattern/Sleep), базовые действия и первые черты, реакции/Counterspell/reach в shared, Dodge → эффект (R8.7). Подробности — в карточке R8.1.
 
-**Старт R8.1 (инвентаризация под срез 1):** bespoke-ветки — `server/src/socket/spellResolve.ts` (5 веток: spellAttack/save/auto/effect/manual), `reactions.ts` (Counterspell/Absorb, `acBonusOf` реверс эффектов), геометрия выхода из reach в socket-слое (`reactions.ts:599-608`), двойной `validateSpellCast` (`socket/spells.ts:129` + `spellResolve.ts:186`), 118 кнопок `FEATURE_META` без реализации (`classActions.ts` + стаб `socket/actions.ts`); из 229 manual-заклинаний 103 уже имеют `save`/`conditions`/`areaSpec` (Charm Person, Sleep).
-**Срезы:** (1) схема `AutomationDef` в `domain/automation.ts` + данные-каталог; (2) generic-executor на сервере (kind: damage/heal/save/buff/debuff/control; duration; modifiers; conditions; scaling) с `automation: 'manual'` как fallback; (3) перевод `SPELL_EFFECTS` и хардкод-веток; (4) классовые фичи; (5) R8.7 (Dodge → эффект) как первый потребитель схемы.
+**Движок зон (сделано):** `ZoneInstance` в `MapInfo.zones` (персистентность через `normalize/scene`), `socket/zones.ts` — создание при касте (`createZoneFromDef`), аура (`zoneId` на эффектах), триггеры enter/exit/startOfTurn/endOfTurn, `enterOncePerTurn`, `containment: 'fullyWithin'` (`tokenFullyInArea`), раунды, снятие по концентрации (`removeZonesOfSource` во всех путях), синк клиенту через `maps:update`; `ZoneLayer` на столе. Executor создаёт зону независимо от мгновенного payload'а (`origin`/`direction` протянуты из `spell:cast`). Тесты: `zones.test.ts` (4, синтетическая зона), `tokenFullyInArea`; `check` 287+122+48, build зелёный. **Контент зон (сделано):** **Web** (концентрация, DEX-спас при касте/входе/начале хода → restrained; «Выпутаться» — STR/Athletics против СЛ), **Grease** (cube 10, `rounds:10`, DEX-спас при касте/входе/конце хода → prone), **Stinking Cloud** (концентрация, CON-спас в начале хода → poisoned до конца хода + noActions/noBonus), **Spirit Guardians** (деривация урона + `AUTOMATION_ADDITIONS`: зона `anchor:'source'`, `enterOncePerTurn`, кости `'$spell'` с апкастом, аура speed ×0.5, `damageTypes:['radiant']`), **Hunger of Hadar** (containment `fullyWithin`: аура blinded, начало хода — 2d6 cold без спаса, конец — DEX-спас и 2d6 acid). «Выпутаться» — динамическое действие панели (`escape:` в `action:use`, `EffectInstance.escape`, владение навыком). `check` 291+123+48, deploy 7+2, smoke 130/0.
+**Зоны — хвосты:** флаги `difficultTerrain`/`obscured`/`blocksLight` пока только данные — **TODO к вижну/движению** (Stinking Cloud `obscured:'heavy'`, HoH `blocksLight` = darkness); у HoH урон-триггеры тоже `fullyWithin` (краевые токены не бьются — отклонение от RAW, вернуться с per-payload containment); кап целей Slow (6) и клиентское дизейблирование по ограничениям — по-прежнему хвосты.
+
+**Mirror Image (сделано):** `EffectInstance.misdirect` (заряды/кость/порог) + хук `socket/misdirect.ts` в обоих путях попадания (оружие — `applyWeaponAttackDamage`, spell-атаки — executor): бросок кости за каждый образ, любой ≥ порога принимает удар (образ гибнет, урона нет), 0 зарядов — эффект снимается; ослеплённый атакующий образами не обманывается (blindsight/truesight не моделируются); `effectSummary` показывает остаток. Каталог: `XPHB:Mirror Image` (3×d6≥3, 10 раундов). Тесты: каталог, тултип, редирект в `handlers.test` (урона нет, эффект снят). `check` 292+124+48, deploy 7+2, smoke 130/0.
+
+**Дальше по контенту каталога:** restrictions ✅ → зоны ✅ (движок) → призывы; заклинания/черты под них — партиями, по спорной механике спрашивать владельца. Полный каталог черт/фитов (`features.json` + `CharacterSheet.choices`) — отдельный план в `PLAN.md`.
 
 ### Шаг 7. R7.3 — `mutate`/ack + тосты (M/L, client)
 Единый идиом оптимистичных мутаций с откатом и ошибками — под новые действия/фичи каталога.
@@ -209,8 +219,8 @@ R8.4 ✅: `domain/*`, `labels.ts`, `socket/contract.ts`, `normalize/*`, шима
 R7.5 (`TableTop`: туман/камера/оверлеи), R7.7 (селекторы/перф), R7.6 (права в UI), R7.9 (CSS-токены/z-index + `data-testid`), R7.10 (черновики форм).
 
 ### Шаг 9. По мере надобности
-R8.6 (метки без RU-текста — перед локализацией), R8.7 (Dodge → эффекты, лучше вместе с R8.1), R9.2 (smoke: самостоятельные сценарии, admin env), R9.3 (e2e env/пиксели), R9.1 (jsdom+TL — когда понадобятся быстрые тесты модалок).
+R8.6 (метки без RU-текста — перед локализацией), R9.2 (smoke: самостоятельные сценарии, admin env), R9.3 (e2e env/пиксели), R9.1 (jsdom+TL — когда понадобятся быстрые тесты модалок).
 
 **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 
-**Старт:** R8.2, R6.1–R6.9, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3, R8.4 (срезы 1, 3) — сделано. Следующий — R8.1 (каталог `AutomationDef`).
+**Старт:** R8.2, R6.1–R6.9, R7.1, R7.2, R7.4, R6.7 (срезы 1–5), R8.5, R8.3, R8.4 (срезы 1, 3), R8.1 (срезы 1–5), R8.7 — сделано. Дальше: движок restrictions → зоны → призывы; контент каталога партиями.

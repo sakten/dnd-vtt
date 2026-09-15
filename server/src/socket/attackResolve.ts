@@ -24,6 +24,7 @@ import type { ConnCtx } from './context';
 import { applyDamage } from './damage';
 import { fail } from './errors';
 import { pushRollMessage } from './messages';
+import { misdirectCheck } from './misdirect';
 
 export interface AttackResolveInput {
   /** Атакующий токен; null — атака только по листу (без токена на карте). */
@@ -130,7 +131,6 @@ export function prepareWeaponAttack(
 
   // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
   const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
-  const targetDodging = hasTarget && target && targetMapId ? manager.isDodging(room, targetMapId, target) : false;
   const effectParts = attackRollParts(
     attacker?.effects,
     target?.effects,
@@ -146,7 +146,6 @@ export function prepareWeaponAttack(
     targetConditions: target?.conditions,
     rangeType: attack.rangeType,
     forcedDisadvantage,
-    targetDodging,
     effectMode: effectParts.mode,
     includeTarget: hasTarget,
   });
@@ -297,6 +296,8 @@ export function applyWeaponAttackDamage(
     if (ac > 0) hitSuccess = resolveAttack(plan.hitRoll.total + plan.penalty, crit, false, ac);
   }
   if (hitSuccess === false) return undefined;
+  // Mirror Image: попадание может принять образ вместо цели (урона нет).
+  if (target && targetMapId && misdirectCheck(ctx, room, targetMapId, target, plan.attacker)) return undefined;
 
   try {
     const damageRoll = rollDice(damageExpr, Math.random, { doubleDice: crit });

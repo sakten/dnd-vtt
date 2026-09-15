@@ -12,11 +12,12 @@ import {
   hasConcentration,
   isDiceValue,
   modifiedValue,
+  restrictionsFor,
   rollParts,
   saveRollParts,
   withRollParts,
 } from './effects';
-import { spellEffectDefs, spellAutomated } from './spellEffects';
+import { spellAutomated, spellEffectDefs } from './automation';
 import type { EffectInstance, Modifier } from '../domain/effects';
 
 let seq = 0;
@@ -200,6 +201,9 @@ describe('effectSummary (тултипы)', () => {
     });
     expect(effectSummary(stoneskin)).toBe('сопротивление: Режущий');
 
+    const images = effect({ modifiers: [], misdirect: { charges: 3, die: 'd6', threshold: 3 } });
+    expect(effectSummary(images)).toBe('зеркальные образы (3)');
+
     expect(effectSummary(effect({ modifiers: [] }))).toBeUndefined();
   });
 });
@@ -250,5 +254,26 @@ describe('каталог эффектов заклинаний', () => {
     expect(spellAutomated({ key: 'XPHB:Fireball', automation: 'full' })).toBe(true);
     expect(spellAutomated({ key: 'XPHB:Shield', automation: 'manual' })).toBe(true);
     expect(spellAutomated({ key: 'XPHB:Light', automation: 'manual' })).toBe(false);
+  });
+});
+
+describe('restrictionsFor', () => {
+  it('недееспособность запрещает действия/бонусы/реакции', () => {
+    const r = restrictionsFor([{ key: 'stunned', name: 'Ошеломлён', rounds: null }], []);
+    expect(r.noActions).toBe(true);
+    expect(r.noBonus).toBe(true);
+    expect(r.noReactions).toBe(true);
+    expect(r.noOpportunityAttacks).toBeUndefined();
+  });
+
+  it('эффекты добавляют ограничения и максимальный шанс провала', () => {
+    const r = restrictionsFor(undefined, [
+      effect({ restrictions: { noReactions: true, spellFailureChance: 25 } }),
+      effect({ restrictions: { oneAttackOnly: true, spellFailureChance: 10 } }),
+    ]);
+    expect(r.noReactions).toBe(true);
+    expect(r.oneAttackOnly).toBe(true);
+    expect(r.spellFailureChance).toBe(25);
+    expect(r.noActions).toBeUndefined();
   });
 });

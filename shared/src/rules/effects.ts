@@ -1,9 +1,16 @@
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { DamageDefense } from '../domain/damage';
-import type { EffectDuration, EffectInstance, Modifier, ModifierTarget } from '../domain/effects';
+import type {
+  ConditionInstance,
+  EffectDuration,
+  EffectInstance,
+  Modifier,
+  ModifierTarget,
+  Restrictions,
+} from '../domain/effects';
 import type { AttackRangeType } from '../domain/token';
 import { damageTypeName } from '../labels';
-import { conditionName } from './conditions';
+import { conditionName, isIncapacitated } from './conditions';
 
 /** Контекст применения модификатора (фильтры attackType/ability/skill/damageType). */
 export interface ModifierContext {
@@ -161,6 +168,42 @@ export function attackRollParts(
   return { flat: self.flat, dice: self.dice, mode: rollMode(adv, dis) };
 }
 
+const BOOLEAN_RESTRICTIONS = [
+  'noActions',
+  'noBonus',
+  'noReactions',
+  'noOpportunityAttacks',
+  'oneAttackOnly',
+  'actionOrBonusOnly',
+] as const;
+
+/**
+ * Суммарные ограничения экономики/действий: недееспособность запрещает
+ * действия/бонусы/реакции, эффекты добавляют точечные (`restrictions`).
+ */
+export function restrictionsFor(
+  conditions: ConditionInstance[] | undefined,
+  effects: EffectInstance[] | undefined
+): Restrictions {
+  const out: Restrictions = {};
+  if (isIncapacitated(conditions)) {
+    out.noActions = true;
+    out.noBonus = true;
+    out.noReactions = true;
+  }
+  for (const effect of effects ?? []) {
+    const added = effect.restrictions;
+    if (!added) continue;
+    for (const key of BOOLEAN_RESTRICTIONS) {
+      if (added[key]) out[key] = true;
+    }
+    if (added.spellFailureChance) {
+      out.spellFailureChance = Math.max(out.spellFailureChance ?? 0, added.spellFailureChance);
+    }
+  }
+  return out;
+}
+
 /** Бонусы/помехи к спасброску (модификаторы на самом бросающем). */
 export function saveRollParts(
   effects: EffectInstance[] | undefined,
@@ -264,6 +307,7 @@ function signedValue(value: number | string | undefined): string {
 export function effectSummary(effect: EffectInstance): string | undefined {
   const parts: string[] = [];
   for (const key of effect.conditions ?? []) parts.push(conditionName(key));
+  if (effect.misdirect) parts.push(`зеркальные образы (${effect.misdirect.charges})`);
   for (const mod of effect.modifiers) {
     const v = signedValue(mod.value);
     switch (mod.mode) {

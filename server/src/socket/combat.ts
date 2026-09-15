@@ -3,6 +3,7 @@ import type { ConnCtx } from './context';
 import { tickActiveTurn } from './conditions';
 import { rejectIfReaction } from './guards';
 import { isReactionPending, triggerOpportunityAttacks } from './reactions';
+import { handleMovementZones } from './zones';
 
 export function registerCombatHandlers(ctx: ConnCtx) {
   const { manager, dmRoom, syncCombat, getRoom, isDm } = ctx;
@@ -125,6 +126,7 @@ export function registerCombatHandlers(ctx: ConnCtx) {
       }
       manager.setMovement(room, mapId, tokenId, used, typeof diagonals === 'number' ? diagonals : undefined);
       syncCombat(room, mapId);
+      handleMovementZones(ctx, room, mapId);
 
       // Атаки по возможности: активный токен в бою, вне окна реакций.
       const combat = manager.combatOf(room, mapId);

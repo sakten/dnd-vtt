@@ -82,7 +82,17 @@ export function useActionContext(): ActionContext | null {
     const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
       .map((entry, index) => ({ entry, index }))
       .filter((x) => attackIsActive(x.entry));
-    const features = isCharacter && sheet ? classFeatures(sheet.classes) : [];
+    // «Выпутаться» (Web и подобные): динамические действия из эффектов токена.
+    const escapeActions: ActionDef[] = token.effects
+      .filter((e) => e.escape)
+      .map((e) => ({
+        id: `escape:${e.id}`,
+        name: 'Выпутаться',
+        source: 'basic' as const,
+        costs: ['action' as const],
+        description: e.name,
+      }));
+    const features = [...(isCharacter && sheet ? classFeatures(sheet.classes) : []), ...escapeActions];
     const attacksPer = isCharacter ? attacksPerAction(sheet?.classes ?? []) : Math.max(1, token.statblock?.multiattack ?? 1);
 
     const byKey = new Map((spells ?? []).map((s) => [s.key, s]));

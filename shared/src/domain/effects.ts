@@ -87,6 +87,39 @@ export type EffectDuration =
   | { type: 'concentration' }
   | { type: 'permanent' };
 
+/** Смена состояния при провале повторного спасброска (Sleep: incapacitated → unconscious). */
+export interface EffectEscalation {
+  condition: ConditionKey;
+  /** Новая длительность после эскалации (по умолчанию — прежняя). */
+  duration?: EffectDuration;
+}
+
+/** Действие «Выпутаться»: проверка характеристики против СЛ эффекта (Web и подобные). */
+export interface EffectEscape {
+  ability: AbilityKey;
+  /** Навык (Athletics и т.п.), даёт владение при броске. */
+  skill?: string;
+  dc: number;
+}
+
+/**
+ * Ограничения экономики/действий от эффектов (Slow, Stinking Cloud).
+ * Условия дают базовые запреты (`isIncapacitated`), эффекты — точечные.
+ */
+export interface Restrictions {
+  noActions?: boolean;
+  noBonus?: boolean;
+  noReactions?: boolean;
+  /** Нельзя атаковать по возможности (Shocking Grasp). */
+  noOpportunityAttacks?: boolean;
+  /** Если действие «Атака» — только одна атака за ход (Slow). */
+  oneAttackOnly?: boolean;
+  /** Действие или бонусное действие, но не оба (Slow). */
+  actionOrBonusOnly?: boolean;
+  /** Шанс провала заклинания с соматическим компонентом, % (Slow). */
+  spellFailureChance?: number;
+}
+
 export interface EffectInstance {
   id: string;
   name: string;
@@ -99,4 +132,16 @@ export interface EffectInstance {
   modifiers: Modifier[];
   /** Ключи накладываемых состояний. */
   conditions?: ConditionKey[];
+  /** При провале повторного спасброска состояние меняется (Sleep). */
+  escalate?: EffectEscalation;
+  /** Урон снимает эффект (Sleep, Hypnotic Pattern). */
+  wakeOnDamage?: boolean;
+  /** Ограничения экономики/действий, пока эффект активен. */
+  restrictions?: Restrictions;
+  /** id зоны-источника (аура): снимается при выходе из зоны и её окончании. */
+  zoneId?: string;
+  /** Можно ли выпутаться действием (Web: STR/Athletics против СЛ). */
+  escape?: EffectEscape;
+  /** Подмена попадания образами (Mirror Image): заряды, кость, порог. */
+  misdirect?: { charges: number; die: string; threshold: number };
 }

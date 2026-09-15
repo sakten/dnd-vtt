@@ -1,4 +1,4 @@
-import { isIncapacitated, type CharacterSheet, type Token } from 'shared';
+import { restrictionsFor, type CharacterSheet, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -54,9 +54,9 @@ export function rejectIfReaction(ctx: ConnCtx, silent = false): boolean {
   return true;
 }
 
-/** true — существо недееспособно (и это не DM): действие отклонено. */
+/** true — действия запрещены (недееспособность или ограничения эффекта): отклонено. */
 export function rejectIfIncapacitated(ctx: ConnCtx, token: Token): boolean {
-  if (ctx.isDm() || !isIncapacitated(token.conditions)) return false;
+  if (ctx.isDm() || !restrictionsFor(token.conditions, token.effects).noActions) return false;
   fail(ctx, 'incapacitated');
   return true;
 }
