@@ -507,12 +507,30 @@ describe('action:use', () => {
   });
 
   it('Военный жрец: бонусное действие даёт одну атаку оружием и тратит ресурс', () => {
-    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
     room.sheets.p1 = {
       ...casterSheet(),
       abilities: { ...casterSheet().abilities, wis: 16 },
       classes: [{ className: 'cleric', level: 3, subclass: 'war' }],
       spells: [],
+      attacks: [
+        {
+          name: 'Молот',
+          hit: 'd20',
+          damage: '1d8',
+          damageType: 'bludgeoning',
+          rangeType: 'melee',
+          rangeNormal: 5,
+          rangeLong: 0,
+        },
+      ],
     };
     room.resources.p1 = {
       ...casterResources(),
@@ -521,6 +539,7 @@ describe('action:use', () => {
         { id: 'r1', key: 'cleric.war:warPriest', name: 'Военный жрец', current: 3, max: 3, reset: 'short' },
       ],
     };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 = 19 — попадание
     const f = makeCtx(room, { playerId: 'p1' });
     registerActionHandlers(f.ctx);
 
@@ -530,6 +549,13 @@ describe('action:use', () => {
     expect(turn.attacksRemaining).toBeGreaterThanOrEqual(1);
     expect(turn.bonusActionUsed).toBe(true);
     expect(room.resources.p1!.resources[0]!.current).toBe(2);
+
+    // Дополнительная атака тратит запас, а не действие.
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+    expect(turn.attacksRemaining).toBe(0);
+    expect(turn.actionUsed).toBe(false);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack')).toBe(true);
   });
 
   it('досягаемость: +10 фт в свой ход позволяет бить с 10 фт', () => {
