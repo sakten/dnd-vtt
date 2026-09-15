@@ -19,6 +19,11 @@
   gap: 12px;
 }
 
+/* Блоки тела не сжимаются (иначе вложенные скролл-списки вроде навыков схлопываются). */
+.modal.sheet-modal > .sheet-body > * {
+  flex-shrink: 0;
+}
+
 .sheet-modal > * {
   flex-shrink: 0;
 }
