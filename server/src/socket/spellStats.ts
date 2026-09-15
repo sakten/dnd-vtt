@@ -1,12 +1,22 @@
-import { abilityMod, casterStats, featSpellGrants, grantedSpells, type CharacterSheet, type SpellStats, type Token } from 'shared';
+import {
+  abilityMod,
+  casterStats,
+  choiceSpellGrants,
+  featSpellGrants,
+  grantedSpells,
+  type CharacterSheet,
+  type SpellStats,
+  type Token,
+} from 'shared';
 import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
 
-/** Класс заклинания по ключу: свой из листа, выданный классом/подклассом или фитом. */
+/** Класс заклинания по ключу: свой из листа, выданный классом/подклассом, выбором или фитом. */
 export function spellClassFor(sheet: CharacterSheet, spellKey: string): string | undefined {
   return (
     sheet.spells.find((s) => s.key === spellKey)?.className ??
     grantedSpells(sheet.classes).find((g) => g.key === spellKey)?.className ??
+    choiceSpellGrants(sheet.choices).find((g) => g.key === spellKey)?.className ??
     featSpellGrants(sheet.choices).find((g) => g.key === spellKey)?.className
   );
 }

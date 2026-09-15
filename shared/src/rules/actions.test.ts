@@ -26,6 +26,12 @@ describe('attacksPerAction', () => {
     expect(attacksPerAction([{ className: 'fighter', level: 11 }, { className: 'wizard', level: 5 }])).toBe(3);
     expect(attacksPerAction([{ className: 'monk', level: 5 }, { className: 'fighter', level: 4 }])).toBe(2);
   });
+
+  it('бард-доблесть: вторая атака с 6 уровня', () => {
+    expect(attacksPerAction([{ className: 'bard', level: 5, subclass: 'valor' }])).toBe(1);
+    expect(attacksPerAction([{ className: 'bard', level: 6, subclass: 'valor' }])).toBe(2);
+    expect(attacksPerAction([{ className: 'bard', level: 6, subclass: 'lore' }])).toBe(1);
+  });
 });
 
 describe('BASE_ACTIONS', () => {

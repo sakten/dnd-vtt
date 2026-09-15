@@ -1376,6 +1376,244 @@ describe('зоны и концентрация', () => {
     expect(room.scene.maps[0]!.tokens[1]!.effects.filter((e) => e.bonusDie)).toHaveLength(0);
   });
 
+  it('Режущие слова: кость барда-знания превращает попадание врага в промах', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+8',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib2', faction: 'enemy', x: 150, y: 100, attacks: [sword] }),
+        makeToken('t3', { faction: 'ally', x: 200, y: 100, hpMax: '30', hpCurrent: 30, ac: '15' }),
+      ],
+      { p1: 'lib1', p2: 'lib2' }
+    );
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'bard', level: 3, subclass: 'lore' }], spells: [] };
+    room.sheets.p2 = { ...casterSheet(), classes: [{ className: 'fighter', level: 1 }], spells: [], attacks: [sword] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'bard:bardicInspiration',
+          name: 'Бардовское вдохновение',
+          current: 3,
+          max: 3,
+          reset: 'long',
+        },
+      ],
+    };
+    room.resources.p2 = casterResources();
+    combatOf(room).active = false;
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // d20 11 + 8 = 19 → попадание по AC 15
+      .mockReturnValueOnce(0.9); // кость d8: 8
+    const f = makeCtx(room, { playerId: 'p2' });
+    registerActionHandlers(f.ctx);
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t3'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:bard.lore:cuttingWords')
+    );
+    expect(offer).toBeDefined();
+
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'feature:bard.lore:cuttingWords' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[2]!.hpCurrent).toBe(30); // 19 − 8 = 11 < AC 15 → промах
+    expect(room.resources.p1!.resources[0]!.current).toBe(2);
+  });
+
+  it('Режущие слова: кость снижает урон оружия', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+8',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib2', faction: 'enemy', x: 150, y: 100, attacks: [sword] }),
+        makeToken('t3', { faction: 'ally', x: 200, y: 100, hpMax: '30', hpCurrent: 30, ac: '15' }),
+      ],
+      { p1: 'lib1', p2: 'lib2' }
+    );
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'bard', level: 3, subclass: 'lore' }], spells: [] };
+    room.sheets.p2 = { ...casterSheet(), classes: [{ className: 'fighter', level: 1 }], spells: [], attacks: [sword] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'bard:bardicInspiration',
+          name: 'Бардовское вдохновение',
+          current: 3,
+          max: 3,
+          reset: 'long',
+        },
+      ],
+    };
+    room.resources.p2 = casterResources();
+    combatOf(room).active = false;
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.9) // d20 19 + 8 = 27 → попадание (кость не перебить)
+      .mockReturnValueOnce(0.5) // кость d6 (бард 3): 4
+      .mockReturnValueOnce(0.9); // урон d8: 8
+    const f = makeCtx(room, { playerId: 'p2' });
+    registerActionHandlers(f.ctx);
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t3'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:bard.lore:cuttingWords:damage')
+    );
+    expect(offer).toBeDefined();
+    expect(offer!.options.some((op) => op.id === 'feature:bard.lore:cuttingWords')).toBe(false);
+
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'feature:bard.lore:cuttingWords:damage' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[2]!.hpCurrent).toBe(26); // 8 − 4 = 4 урона
+    expect(room.resources.p1!.resources[0]!.current).toBe(2);
+  });
+
+  it('Боевое вдохновение: кость доблести добавляется к урону без реакции', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'bard', level: 6, subclass: 'valor' }],
+      spells: [],
+      attacks: [
+        {
+          name: 'Меч',
+          hit: 'd20',
+          damage: '1d8',
+          damageType: 'slashing',
+          rangeType: 'melee',
+          rangeNormal: 5,
+          rangeLong: 0,
+        },
+      ],
+    };
+    room.resources.p1 = casterResources();
+    room.scene.maps[0]!.tokens[0]!.effects = [
+      {
+        id: 'bi1',
+        name: 'Бардовское вдохновение (d8)',
+        sourceKey: 'class:bard:bardicInspiration',
+        sourceId: 'bard',
+        duration: { type: 'rounds', rounds: 600 },
+        modifiers: [],
+        bonusDie: '1d8',
+        bonusDieUses: ['damage', 'ac'],
+      },
+    ];
+    combatOf(room).active = false;
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // d20 11 → попадание
+      .mockReturnValueOnce(0.3) // кость d8: 3
+      .mockReturnValueOnce(0.9); // урон d8: 8
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'bonusdie:bi1:damage')
+    );
+    expect(offer).toBeDefined();
+
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'bonusdie:bi1:damage' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(19); // 8 + 3 = 11 урона
+    expect(room.scene.maps[0]!.tokens[0]!.effects.filter((e) => e.bonusDie)).toHaveLength(0);
+  });
+
+  it('Боевое вдохновение: кость доблести поднимает AC и отменяет попадание', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+5',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, attacks: [sword] }),
+        makeToken('t2', { libraryItemId: 'lib2', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '15' }),
+      ],
+      { p1: 'lib1', p2: 'lib2' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'fighter', level: 1 }],
+      spells: [],
+      attacks: [sword],
+    };
+    room.resources.p1 = casterResources();
+    room.scene.maps[0]!.tokens[1]!.effects = [
+      {
+        id: 'bi2',
+        name: 'Бардовское вдохновение (d8)',
+        sourceKey: 'class:bard:bardicInspiration',
+        sourceId: 'bard',
+        duration: { type: 'rounds', rounds: 600 },
+        modifiers: [],
+        bonusDie: '1d8',
+        bonusDieUses: ['damage', 'ac'],
+      },
+    ];
+    combatOf(room).active = false;
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5) // d20 11 + 5 = 16 → попадание по AC 15
+      .mockReturnValueOnce(0.9); // кость d8: 8 → 16 < 23 → промах
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'bonusdie:bi2:ac')
+    );
+    expect(offer).toBeDefined();
+
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'bonusdie:bi2:ac' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30); // кость подняла AC → промах
+    expect(room.scene.maps[0]!.tokens[1]!.effects.filter((e) => e.bonusDie)).toHaveLength(0);
+  });
+
   it('Hold Person с апкастом накрывает две цели', () => {
     const room = makeRoom(
       [

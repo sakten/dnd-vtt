@@ -6,6 +6,7 @@ import {
   casterClasses,
   casterLevelOf,
   cantripsMax,
+  choiceSpellGrants,
   grantedSpells,
   maxSpellLevel,
   pactMax,
@@ -46,7 +47,13 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
 
   const byKey = useMemo(() => new Map((spells ?? []).map((s) => [s.key, s])), [spells]);
   const casters = casterClasses(sheet.classes);
-  const granted = useMemo(() => grantedSpells(sheet.classes), [sheet.classes]);
+  const granted = useMemo(
+    () => [
+      ...grantedSpells(sheet.classes),
+      ...choiceSpellGrants(sheet.choices).map((g) => ({ ...g, level: 0 })),
+    ],
+    [sheet.classes, sheet.choices]
+  );
   const prof = sheetProficiencyBonus(sheet);
 
   if (!spells) return <div className="spells-note">Загрузка заклинаний…</div>;
@@ -174,7 +181,11 @@ function SheetSpellPicker({ entry, sheet, spells, onChange, onClose }: PickerPro
   const preparedMax = spellsMax(className, level, subclass);
   const listClass = spellListClass(className, subclass);
 
-  const grantedKeys = useMemo(() => new Set(grantedSpells([entry]).map((g) => g.key)), [entry]);
+  const grantedKeys = useMemo(() => {
+    const keys = new Set(grantedSpells([entry]).map((g) => g.key));
+    for (const g of choiceSpellGrants(sheet.choices)) if (g.className === className) keys.add(g.key);
+    return keys;
+  }, [entry, className, sheet.choices]);
   const pool = poolSpells([entry]);
   const chosen = (sheet.spells ?? []).filter((s) => s.className === className);
   const chosenKeys = new Set(chosen.map((s) => s.key));

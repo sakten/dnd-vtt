@@ -48,6 +48,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     misdirect: effectDef.misdirect ? { ...effectDef.misdirect } : undefined,
     hidden: effectDef.hidden,
     bonusDie: effectDef.bonusDie,
+    bonusDieUses: effectDef.bonusDieUses ? [...effectDef.bonusDieUses] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
   if (effectDef.tempHp) {

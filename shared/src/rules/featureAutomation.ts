@@ -334,7 +334,10 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
 
   // Бард — ядро
   'bard:bardicInspiration': (classes) => {
-    const level = classes.find((c) => c.className === 'bard')?.level ?? 0;
+    const bard = classes.find((c) => c.className === 'bard');
+    const level = bard?.level ?? 0;
+    // Боевое вдохновение (Доблесть, 3): кость можно тратить на урон и AC.
+    const combat = bard?.subclass === 'valor' && level >= 3;
     return {
       trait: 'active',
       costs: ['bonus'],
@@ -350,12 +353,14 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
             duration: { type: 'rounds', rounds: 600 },
             to: 'targets',
             bonusDie: `1d${bardicDie(level)}`,
+            ...(combat ? { bonusDieUses: ['damage', 'ac'] as ('damage' | 'ac')[] } : {}),
             modifiers: [],
           },
         ],
       },
     };
   },
+  'bard.valor:extraAttack': { trait: 'passive', native: true },
   'bard:jackOfAllTrades': (classes) => {
     const bard = classes.find((c) => c.className === 'bard')?.level ?? 0;
     if (bard < 2) return { trait: 'passive' };

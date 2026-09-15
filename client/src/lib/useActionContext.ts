@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   attackIsActive,
   attacksPerAction,
+  choiceSpellGrants,
   classFeatures,
   featSpellGrants,
   grantedSpells,
@@ -104,6 +105,7 @@ export function useActionContext(): ActionContext | null {
         for (const s of sheet.spells ?? []) keys.add(s.key);
         for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
         for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
+        for (const g of choiceSpellGrants(sheet.choices)) keys.add(g.key);
         panelSpells = [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
       }
     } else {

@@ -44,7 +44,16 @@ export interface ReactionFeatureDef {
   subclass?: string;
   levelReq: number;
   trigger: ReactionTriggerKind;
-  kind: 'halveDamage' | 'acBonus' | 'disadvantage' | 'counterAttack' | 'reduceDamage' | 'acBonusAlly' | 'rollBonus';
+  kind:
+    | 'halveDamage'
+    | 'acBonus'
+    | 'disadvantage'
+    | 'counterAttack'
+    | 'reduceDamage'
+    | 'acBonusAlly'
+    | 'rollBonus'
+    | 'rollPenalty'
+    | 'damagePenalty';
   resourceKey?: string;
   resourceAmount?: number;
   /** Максимальная дистанция до защищаемого союзника, футы. */
@@ -53,6 +62,8 @@ export interface ReactionFeatureDef {
   amount?: number;
   /** Кости эффекта (reduceDamage/acBonusAlly). */
   dice?: string;
+  /** Кость по уровню класса (Режущие слова: бардовская). */
+  diceFrom?: string;
   /** Плюс модификатор способности к снижению (Отражение атак, +Ловкость). */
   abilityBonus?: AbilityKey;
   /** Плюс уровень класса к снижению (Отражение атак, +уровень монаха). */
@@ -161,6 +172,32 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     trigger: 'damage',
     kind: 'counterAttack',
     rangeFeet: 5,
+  },
+  {
+    id: 'bard.lore:cuttingWords',
+    name: 'Режущие слова',
+    className: 'bard',
+    subclass: 'lore',
+    levelReq: 3,
+    trigger: 'attackHit',
+    kind: 'rollPenalty',
+    diceFrom: 'bard',
+    resourceKey: 'bard:bardicInspiration',
+    resourceAmount: 1,
+    rangeFeet: 60,
+  },
+  {
+    id: 'bard.lore:cuttingWords:damage',
+    name: 'Режущие слова (урон)',
+    className: 'bard',
+    subclass: 'lore',
+    levelReq: 3,
+    trigger: 'attackHit',
+    kind: 'damagePenalty',
+    diceFrom: 'bard',
+    resourceKey: 'bard:bardicInspiration',
+    resourceAmount: 1,
+    rangeFeet: 60,
   },
 ];
 

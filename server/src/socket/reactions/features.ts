@@ -1,5 +1,6 @@
 import {
   abilityMod,
+  bardicDie,
   characterLevel,
   isIncapacitated,
   martialArtsDie,
@@ -82,6 +83,12 @@ export function featureOffer(
     audience: audienceOf(ctx, room, mapId, token),
     options: defs.map((def) => featureOption(def, room, token)),
   };
+}
+
+/** Кость реакционной черты: фиксированная или по уровню класса (Режущие слова — бардовская). */
+export function reactionDieExpr(def: ReactionFeatureDef, room: Room, token: Token): string | undefined {
+  if (def.diceFrom === 'bard') return `1d${bardicDie(classLevelOf(room, token, 'bard') || 1)}`;
+  return def.dice;
 }
 
 /** Тратит реакцию и ресурс черты (сначала проверка обоих). */

@@ -61,6 +61,8 @@ export interface AutomationEffect {
   tempHp?: number;
   /** Кость бонуса к d20-тесту, тратится при использовании (Бардовское вдохновение). */
   bonusDie?: string;
+  /** Доп. способы траты кости (Боевое вдохновение): урон/AC. */
+  bonusDieUses?: ('damage' | 'ac')[];
   /** Подмена попадания дубликатами (Mirror Image): бросок die ≥ threshold уничтожает заряд. */
   misdirect?: { charges: number; die: string; threshold: number };
   /** Ограничения экономики/действий, пока эффект активен. */

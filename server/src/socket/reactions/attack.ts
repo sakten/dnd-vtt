@@ -1,4 +1,4 @@
-import { abilityMod, absorbTypesOf, isIncapacitated, rollDice, superiorityDie, type ReactionOption, type Token } from 'shared';
+import { abilityMod, absorbTypesOf, hostileTokens, isIncapacitated, rollDice, superiorityDie, type ReactionOption, type Token } from 'shared';
 import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
 import { withinFeet } from '../../rooms';
@@ -23,11 +23,12 @@ import {
   featureOption,
   openRedirectWindow,
   preRollOffers,
+  reactionDieExpr,
   rollBonusOffers,
   spendFeatureCost,
 } from './features';
 import { acBonusOf, applyReactionChoice, reactionSpellOptions } from './spellReactions';
-import { applyBonusDieChoices, bonusDieOptions } from '../bonusDice';
+import { applyBonusDieChoices, applyCombatInspirationChoices, bonusDieOptions } from '../bonusDice';
 
 /** Выбранные в окне попадания черты → модификаторы урона (половина/AC/снижение). */
 function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: ReactionChoice[]): WeaponDamageMods {
@@ -68,6 +69,19 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
       const roll = rollDice(def.dice ?? '1d8');
       mods.extraAc = (mods.extraAc ?? 0) + roll.total;
       ctx.systemMessage(room, `${reactor.name}: ${def.name} (+${roll.total} к AC)`);
+      continue;
+    }
+    if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
+      const expr = reactionDieExpr(def, room, reactor);
+      if (!expr) continue;
+      const roll = rollDice(expr);
+      if (def.kind === 'rollPenalty') {
+        mods.extraAc = (mods.extraAc ?? 0) + roll.total;
+        ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${roll.total} к атаке)`);
+      } else {
+        mods.flatReduction = (mods.flatReduction ?? 0) + roll.total;
+        ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${roll.total} урона)`);
+      }
     }
   }
   return mods;
@@ -250,6 +264,14 @@ function continueAfterRoll(
         if (!melee) return false;
         return total < ac + superiorityDie(classLevelOf(room, target, def.className) || 1);
       }
+      // Режущие слова носителя (Знание): −кость к атаке врага или к урону.
+      if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
+        if (!plan.attacker || !hostileTokens(target, plan.attacker)) return false;
+        if (def.rangeFeet && !withinFeet(room, target, plan.attacker, def.rangeFeet)) return false;
+        if (def.kind === 'damagePenalty') return true;
+        const expr = reactionDieExpr(def, room, target);
+        return !!expr && total - diceMax(expr) < ac;
+      }
       return false;
     });
     const spellOpts = reactionSpellOptions(room, target, 'attackHit').filter((o) => {
@@ -257,7 +279,11 @@ function continueAfterRoll(
       if (absorb.length) return !!plan.attack.damageType && absorb.includes(plan.attack.damageType);
       return total < ac + acBonusOf(o);
     });
-    const options: ReactionOption[] = [...spellOpts, ...features.map((def) => featureOption(def, room, target))];
+    const options: ReactionOption[] = [
+      ...spellOpts,
+      ...features.map((def) => featureOption(def, room, target)),
+      ...bonusDieOptions(target, 'ac'),
+    ];
     // Опции защитников-союзников: Щит духов (снижение урона) и Защитный манёвр (+AC).
     const helperOffers: ReactionOfferInput[] = [];
     for (const helper of ctx.manager.findMap(room, targetMapId)?.tokens ?? []) {
@@ -265,6 +291,14 @@ function continueAfterRoll(
       if (isIncapacitated(helper.conditions)) continue;
       if (!reactionSlotFree(ctx.manager, room, targetMapId, helper)) continue;
       const defs = availableFeatureReactions(room, helper, 'attackHit').filter((def) => {
+        // Режущие слова (Знание): кость снимается с атаки/урона врага, дистанция — до атакующего.
+        if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
+          if (!plan.attacker || !hostileTokens(helper, plan.attacker)) return false;
+          if (def.rangeFeet && !withinFeet(room, helper, plan.attacker, def.rangeFeet)) return false;
+          if (def.kind === 'damagePenalty') return true;
+          const expr = reactionDieExpr(def, room, helper);
+          return !!expr && total - diceMax(expr) < ac;
+        }
         if (def.kind !== 'reduceDamage' && def.kind !== 'acBonusAlly') return false;
         if (def.rangeFeet && !withinFeet(room, helper, target, def.rangeFeet)) return false;
         if (def.kind === 'reduceDamage') return total > 0;
@@ -273,11 +307,23 @@ function continueAfterRoll(
       if (!defs.length) continue;
       helperOffers.push(featureOffer(ctx, room, targetMapId, helper, defs));
     }
+    // Боевое вдохновение (Доблесть): кость атакующего в урон — без реакции.
+    const attackerOffers: ReactionOfferInput[] = [];
+    if (plan.attacker && plan.attackerMapId) {
+      const dice = bonusDieOptions(plan.attacker, 'damage');
+      if (dice.length) {
+        attackerOffers.push({
+          token: plan.attacker,
+          audience: audienceOf(ctx, room, plan.attackerMapId, plan.attacker),
+          options: dice,
+        });
+      }
+    }
     const offers: ReactionOfferInput[] = [];
     if (options.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
       offers.push({ token: target, audience: audienceOf(ctx, room, targetMapId, target), options });
     }
-    offers.push(...helperOffers);
+    offers.push(...helperOffers, ...attackerOffers);
     if (offers.length) {
       const opened = openReactionWindow(ctx, room, {
         mapId: targetMapId,
@@ -290,7 +336,10 @@ function continueAfterRoll(
             applyDamage();
             return;
           }
+          const combat = applyCombatInspirationChoices(ctx, currentRoom, plan, target, choices);
           const mods = attackWindowMods(ctx, currentRoom, targetMapId, choices);
+          if (combat.extraDamage) mods.extraDamage = (mods.extraDamage ?? 0) + combat.extraDamage;
+          if (combat.extraAc) mods.extraAc = (mods.extraAc ?? 0) + combat.extraAc;
           for (const choice of choices) {
             if (choice.optionId?.startsWith('spell:')) {
               applyReactionChoice(ctx, currentRoom, choice, [target], plan.attack.damageType);

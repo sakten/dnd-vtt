@@ -304,6 +304,8 @@ export interface WeaponDamageMods {
   extraAc?: number;
   /** Снижение урона до применения (Щит духов и подобные). */
   flatReduction?: number;
+  /** Прибавка к урону (Боевое вдохновение: кость в урон). */
+  extraDamage?: number;
   /** Отражение атак монаха: после полного снижения можно перенаправить (окно). */
   redirect?: { reactorId: string; mapId: string };
   /** Выбранные в окне наездники атакующего (choiceOnHit). */
@@ -380,7 +382,7 @@ export function applyWeaponAttackDamage(
     const damage = applyDamage(ctx, {
       target,
       mapId: targetMapId,
-      amount: Math.max(0, damageRoll.total - (mods.flatReduction ?? 0)),
+      amount: Math.max(0, damageRoll.total + (mods.extraDamage ?? 0) - (mods.flatReduction ?? 0)),
       damageType: attack.damageType,
       halve: mods.halveDamage,
       roll: damageRoll,

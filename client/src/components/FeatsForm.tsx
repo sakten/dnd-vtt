@@ -2,9 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ABILITIES,
   FEATS,
+  MAGICAL_DISCOVERIES_KEY,
+  MAGICAL_DISCOVERIES_LISTS,
   featByKey,
   featMechanicsImplemented,
+  magicalDiscoveriesAvailable,
+  magicalDiscoveriesSpells,
+  maxSpellLevel,
   type AbilityKey,
+  type ClassLevel,
   type FeatCategory,
   type FeatDef,
   type FeatureChoice,
@@ -20,19 +26,22 @@ const CATEGORY_NAMES: Record<FeatCategory, string> = {
 
 interface Props {
   choices: FeatureChoice[];
+  classes: ClassLevel[];
   onChange: (choices: FeatureChoice[]) => void;
 }
 
-/** Выборы фитов персонажа: пикер каталога + настройка заклинаний Magic Initiate. */
-export default function FeatsForm({ choices, onChange }: Props) {
+/** Выборы фитов и черт персонажа: пикер каталога, заклинания Magic Initiate, Магические находки. */
+export default function FeatsForm({ choices, classes, onChange }: Props) {
   const [picking, setPicking] = useState(false);
   const [category, setCategory] = useState<'all' | FeatCategory>('all');
   const [query, setQuery] = useState('');
   const [spells, setSpells] = useState<Spell[] | null>(null);
 
+  const discovers = magicalDiscoveriesAvailable(classes);
+
   useEffect(() => {
-    if (picking && !spells) void loadSpells().then(setSpells);
-  }, [picking, spells]);
+    if ((picking || discovers) && !spells) void loadSpells().then(setSpells);
+  }, [picking, discovers, spells]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -48,6 +57,22 @@ export default function FeatsForm({ choices, onChange }: Props) {
   const feats = choices
     .map((choice, index) => ({ choice, index }))
     .filter(({ choice }) => choice.kind === 'feat' && !!featByKey(choice.key));
+
+  const discoveriesIndex = choices.findIndex(
+    (c) => c.kind === 'featureOption' && c.key === MAGICAL_DISCOVERIES_KEY
+  );
+  const discoveries = magicalDiscoveriesSpells(choices);
+  const patchDiscoveries = (patch: Partial<FeatureChoice>) => {
+    if (discoveriesIndex >= 0) patchAt(discoveriesIndex, patch);
+    else onChange([...choices, { kind: 'featureOption', key: MAGICAL_DISCOVERIES_KEY, spells: [], ...patch }]);
+  };
+  const discoveryPool = useMemo(() => {
+    if (!discovers || !spells) return [];
+    const level = classes.find((c) => c.className === 'bard')?.level ?? 0;
+    const maxLvl = maxSpellLevel('bard', level, 'lore');
+    const lists = new Set(MAGICAL_DISCOVERIES_LISTS.map((l) => l.className));
+    return spells.filter((s) => s.level <= maxLvl && s.classes.some((c) => lists.has(c)));
+  }, [discovers, spells, classes]);
 
   return (
     <div className="feats-form">
@@ -71,6 +96,45 @@ export default function FeatsForm({ choices, onChange }: Props) {
           </div>
         );
       })}
+      {discovers && (
+        <div className="feat-row">
+          <div className="feat-head">
+            <span className="feat-name">Магические находки</span>
+            <span className="feat-cat">Коллегия Знания</span>
+          </div>
+          <div className="feat-hint">
+            Два заклинания из списков жреца, друида или волшебника: заговор или круг, доступный барду.
+            Всегда подготовлены, кастуются слотами.
+          </div>
+          {!spells && <div className="feat-hint">Загрузка заклинаний…</div>}
+          {spells && (
+            <div className="feat-spells">
+              {[0, 1].map((slot) => (
+                <label className="field" key={slot}>
+                  <span>Заклинание {slot + 1}</span>
+                  <select
+                    value={discoveries[slot] ?? ''}
+                    onChange={(e) => {
+                      const next = [...discoveries];
+                      next[slot] = e.target.value;
+                      patchDiscoveries({ spells: next.filter(Boolean) });
+                    }}
+                  >
+                    <option value="">— не выбрано —</option>
+                    {discoveryPool
+                      .filter((s) => s.key === discoveries[slot] || !discoveries.includes(s.key))
+                      .map((s) => (
+                        <option key={s.key} value={s.key}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {!picking && (
         <button className="feat-add" onClick={() => setPicking(true)}>
           + Добавить фит

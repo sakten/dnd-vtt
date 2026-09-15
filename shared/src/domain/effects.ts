@@ -157,6 +157,8 @@ export interface EffectInstance {
   misdirect?: { charges: number; die: string; threshold: number };
   /** Кость бонуса к d20-тесту, тратится при использовании (Бардовское вдохновение). */
   bonusDie?: string;
+  /** Доп. способы траты кости (Боевое вдохновение коллегии Доблести): урон/AC. */
+  bonusDieUses?: ('damage' | 'ac')[];
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
 }

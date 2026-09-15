@@ -9,13 +9,18 @@ import type { ReactionChoice } from './reactions/internal';
  * Тратятся без слота реакции на промах атаки или проваленный спасбросок.
  */
 
-/** Варианты окна для костей на токене. */
-export function bonusDieOptions(token: Token): ReactionOption[] {
+/** Варианты окна для костей на токене; `use` — трата на урон/AC (Боевое вдохновение). */
+export function bonusDieOptions(token: Token, use?: 'damage' | 'ac'): ReactionOption[] {
   return token.effects
-    .filter((e) => e.bonusDie)
+    .filter((e) => e.bonusDie && (!use || e.bonusDieUses?.includes(use)))
     .map((e) => ({
-      id: `bonusdie:${e.id}`,
-      name: e.name || 'Бардовское вдохновение',
+      id: use ? `bonusdie:${e.id}:${use}` : `bonusdie:${e.id}`,
+      name:
+        use === 'damage'
+          ? `${e.name || 'Бардовское вдохновение'} (урон)`
+          : use === 'ac'
+            ? `${e.name || 'Бардовское вдохновение'} (AC)`
+            : e.name || 'Бардовское вдохновение',
       kind: 'feature' as const,
     }));
 }
@@ -47,4 +52,42 @@ export function applyBonusDieChoices(
     bonus += spendBonusDie(ctx, room, plan.attackerMapId, attacker, id.slice('bonusdie:'.length));
   }
   return bonus;
+}
+
+export interface CombatInspirationMods {
+  extraDamage: number;
+  extraAc: number;
+}
+
+/**
+ * Боевое вдохновение (Доблесть): выбранные кости на урон (без реакции) и на AC
+ * (реакция носителя). Возвращает модификаторы для пересчёта урона.
+ */
+export function applyCombatInspirationChoices(
+  ctx: ConnCtx,
+  room: Room,
+  plan: WeaponAttackPlan,
+  target: Token | undefined,
+  choices: ReactionChoice[]
+): CombatInspirationMods {
+  const mods: CombatInspirationMods = { extraDamage: 0, extraAc: 0 };
+  for (const choice of choices) {
+    const id = choice.optionId ?? '';
+    if (!id.startsWith('bonusdie:')) continue;
+    const [effectId, use] = id.slice('bonusdie:'.length).split(':');
+    if (use !== 'damage' && use !== 'ac') continue;
+    const holder = use === 'damage' ? plan.attacker : target;
+    const fallbackMapId = use === 'damage' ? plan.attackerMapId : plan.targetMapId;
+    const mapId = choice.mapId ?? fallbackMapId;
+    if (!holder || !mapId || !effectId) continue;
+    const value = spendBonusDie(ctx, room, mapId, holder, effectId);
+    if (!value) continue;
+    if (use === 'damage') {
+      mods.extraDamage += value;
+    } else {
+      ctx.manager.spendSlot(room, mapId, holder, 'reaction');
+      mods.extraAc += value;
+    }
+  }
+  return mods;
 }

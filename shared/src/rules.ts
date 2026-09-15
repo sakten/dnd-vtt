@@ -14,6 +14,7 @@ export * from './rules/movement';
 export * from './rules/reactions';
 export * from './rules/resources';
 export * from './rules/spellCast';
+export * from './rules/spellChoices';
 export * from './rules/spellLimits';
 export * from './rules/spells';
 export * from './rules/subclassSpells';

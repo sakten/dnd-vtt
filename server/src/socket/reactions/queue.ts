@@ -168,8 +168,11 @@ class ReactionQueue {
   }
 
   private optionPayable(ctx: ConnCtx, room: Room, mapId: string, token: Token, option: ReactionOption): boolean {
-    // Кости вдохновения и «для себя» — без слота реакции (только свой ресурс/эффект).
-    if (option.kind === 'feature' && option.id.startsWith('bonusdie:')) return true;
+    // Кости вдохновения — без слота реакции; вариант на AC (Боевое вдохновение) — реакция носителя.
+    if (option.kind === 'feature' && option.id.startsWith('bonusdie:')) {
+      if (!option.id.endsWith(':ac')) return true;
+      return reactionSlotFree(ctx.manager, room, mapId, token);
+    }
     if (option.kind === 'feature' && option.id.endsWith(':self')) {
       if (!option.resourceKey) return true;
       const cid = controllerIdOfToken(room, token);

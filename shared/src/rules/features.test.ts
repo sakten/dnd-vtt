@@ -254,6 +254,33 @@ describe('каталог черт (features.json)', () => {
     expect(def?.resourceKey).toBe('cleric:channelDivinity');
   });
 
+  it('Режущие слова: две реакции барда-знания (−к атаке и −к урону)', () => {
+    const defs = reactionFeatures([{ className: 'bard', level: 3, subclass: 'lore' }]).filter((d) =>
+      d.id.startsWith('bard.lore:cuttingWords')
+    );
+    expect(defs).toHaveLength(2);
+    expect(defs[0]).toMatchObject({
+      kind: 'rollPenalty',
+      trigger: 'attackHit',
+      rangeFeet: 60,
+      resourceKey: 'bard:bardicInspiration',
+      diceFrom: 'bard',
+    });
+    expect(defs[1]?.kind).toBe('damagePenalty');
+    expect(reactionFeatures([{ className: 'bard', level: 3 }])).toHaveLength(0);
+  });
+
+  it('Боевое вдохновение: кость доблести умеет урон и AC', () => {
+    const valor = featureActionAutomation('class:bard:bardicInspiration', [
+      { className: 'bard', level: 6, subclass: 'valor' },
+    ]);
+    expect(valor?.effects?.[0]?.bonusDieUses).toEqual(['damage', 'ac']);
+    const lore = featureActionAutomation('class:bard:bardicInspiration', [
+      { className: 'bard', level: 6, subclass: 'lore' },
+    ]);
+    expect(lore?.effects?.[0]?.bonusDieUses).toBeUndefined();
+  });
+
   it('Монах: в названиях бонусных действий видно, что они дают', () => {
     const at2 = classFeatures([{ className: 'monk', level: 2 }]);
     expect(at2.find((a) => a.id === 'class:monk:patientDefense')?.name).toBe('Терпеливая оборона (Отход)');

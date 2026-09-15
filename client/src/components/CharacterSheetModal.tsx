@@ -301,6 +301,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         {tab === 'talents' && (
           <FeatsForm
             choices={draft.choices ?? []}
+            classes={draft.classes}
             onChange={(choices) => setDraft((d) => (d ? { ...d, choices } : d))}
           />
         )}
