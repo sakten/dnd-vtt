@@ -2646,6 +2646,70 @@ describe('реакции (R1)', () => {
     expect(attack?.roll?.total).toBe(5 + 3 + 1); // меньший d20 (5) + 3 + d4 (1)
   });
 
+  it('Терпеливая оборона + «Щит» (Magic Initiate): помеха сохраняется в окне реакции', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, ac: '19', hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t2', { attacks: [melee('Клыки', 'd20')], x: 150, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, int: 16 },
+      ac: '19',
+      classes: [{ className: 'monk', level: 2 }],
+      spells: [],
+      choices: [
+        { kind: 'feat', key: 'XPHB:magicInitiate', list: 'wizard', ability: 'int', spell: 'XPHB:Shield' },
+      ],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        { id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' },
+        {
+          id: 'r2',
+          key: 'feat:XPHB:magicInitiate:freeCast',
+          name: 'Magic Initiate: каст без ячейки',
+          current: 1,
+          max: 1,
+          reset: 'long',
+        },
+      ],
+    };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    const f2 = makeCtx(room, { dm: true });
+    registerActionHandlers(f2.ctx);
+    registerCombatHandlers(f2.ctx);
+    registerReactionHandlers(f2.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:monk:focus/patientDefense' });
+    f2.invoke('combat:endTurn', { mapId: 'm1' });
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // оба d20 = 19 — попадание
+    f2.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t1'] });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll?: { total?: number; dice?: { advantage?: string | null }[] } }
+      | undefined;
+    expect(attack?.roll?.dice?.[0]?.advantage).toBe('d'); // помеха на броске
+
+    const offer = pendingOffers('TEST').find((o) => o.options.some((op) => op.id === 'spell:XPHB:Shield'));
+    expect(offer).toBeDefined();
+    const f3 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f3.ctx);
+    f3.invoke('reaction:respond', { id: offer!.id, optionId: 'spell:XPHB:Shield' });
+    expect(room.scene.maps[0]!.tokens[0]!.effects.some((e) => e.sourceKey === 'XPHB:Shield')).toBe(true);
+    expect(room.resources.p1!.resources.find((r) => r.key === 'feat:XPHB:magicInitiate:freeCast')!.current).toBe(0);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30); // AC 19 + 5 → урона нет
+  });
+
   it('после урона открывается окно Hellish Rebuke и бьёт по атакующему', () => {
     const room = makeRoom(
       [

@@ -21,7 +21,7 @@ import { pushRollMessage } from '../messages';
 import { spellClassFor, spellStatsFor } from '../spellStats';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
-import { audienceOf, knownSpellKeys, reactionSlotFree, spellPayable, type ReactionChoice } from './internal';
+import { audienceOf, featFreeCastKey, knownSpellKeys, reactionSlotFree, spellPayable, type ReactionChoice } from './internal';
 
 /** Применимые к триггеру оплачиваемые варианты-заклинания. */
 export function reactionSpellOptions(room: Room, token: Token, trigger: ReactionTriggerKind): ReactionOption[] {
@@ -83,7 +83,13 @@ export function applyReactionChoice(
   if (validateSpellCast(room, input)) return;
 
   if (spell.level > 0) {
-    if (cid) {
+    const chargeKey = cid ? featFreeCastKey(room, token, key) : undefined;
+    if (cid && chargeKey) {
+      // Magic Initiate: приоритет бесплатного каста, как в `spell:cast`.
+      ctx.manager.spendResource(room, cid, chargeKey, 1);
+      ctx.emitResources(room, cid);
+      ctx.systemMessage(room, `${token.name}: ${spell.name} — каст без ячейки (фит)`);
+    } else if (cid) {
       if (!ctx.manager.spendSpellSlot(room, cid, spell.level)) return;
       ctx.emitResources(room, cid);
     } else if (!ctx.manager.spendTokenSpellSlot(room, token, spell.level)) {

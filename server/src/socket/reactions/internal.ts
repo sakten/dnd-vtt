@@ -48,12 +48,26 @@ export function knownSpellKeys(room: Room, token: Token): string[] {
   return token.statblock?.spellcasting?.spells ?? [];
 }
 
+/** Ключ оплачиваемого заряда бесплатного каста фита (Magic Initiate) под заклинание. */
+export function featFreeCastKey(room: Room, token: Token, spellKey: string): string | undefined {
+  const { sheet } = sheetOfToken(room, token);
+  const cid = controllerIdOfToken(room, token);
+  if (!sheet || !cid) return undefined;
+  const grant = featSpellGrants(sheet.choices).find((g) => g.key === spellKey && g.level > 0);
+  if (!grant) return undefined;
+  const key = `${grant.className}:freeCast`;
+  const item = room.resources[cid]?.resources.find((r) => r.key === key);
+  return item && item.current > 0 ? key : undefined;
+}
+
 export function spellPayable(room: Room, token: Token, spellLevel: number, spellKey: string): boolean {
   const cid = controllerIdOfToken(room, token);
   if (cid) {
     const spell = findSpell(spellKey);
     if (!spell) return false;
-    return maxCastableLevel(spell, room.resources[cid] ?? null) >= spellLevel;
+    if (maxCastableLevel(spell, room.resources[cid] ?? null) >= spellLevel) return true;
+    // Magic Initiate: заряд бесплатного каста того же заклинания 1 круга.
+    return !!featFreeCastKey(room, token, spellKey);
   }
   const spell = findSpell(spellKey);
   if (!spell) return false;
