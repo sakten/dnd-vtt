@@ -22,9 +22,10 @@
 `lib/control.ts:25-34` (`canControlWith`) есть, но контроль выводится заново: `ActionPanel.tsx:113-114`, `SpellPopover.tsx:51`, `TokenMenu.tsx:104-107`, `InitiativeBar.tsx:21-29`, `TableTop.tsx:54-62`; `useIsDm()` (тест-режим) vs сырой `s.role === 'dm'` (`Toolbar.tsx:42`) без фиксации намерения.
 **Что сделать:** `useCanControlToken(id)`, `useIsRealDm()`, `selectIsCharacter`; документировать разницу тест-режим/реальный DM в хелпере.
 
-## R7.7. Грубые селекторы → перерисовки/пересчёты. P2, M.
-`ResourcesPanel.tsx:103,116-127` подписан на `scene.maps` и сканирует всё ради концентрации; `TableTop.tsx:64-84` пересчитывает `reachableCells` на любой апдейт сцены (включая каждый кадр драга); `fogRects` (`:133-140`) и фильтр токенов (`:445-449`) тоже; `RollMenu.tsx:47-64` пересчитывает `sources` и всегда смонтирован (`ChatPanel.tsx:214`); `memo` в `TokenView.tsx:187` не работает из-за смены identity токена; `fitView` через `setTimeout` (`maps.ts:19,24`).
-**Что сделать:** селекторы по entity (map by id), `useShallow`/мемоизация производных, `fitView` в `useEffect` по mapId+viewport, концентрация через `characterTokenOf`.
+## R7.7. Грубые селекторы → перерисовки/пересчёты. P3, S/M (частично закрыто).
+Сделано (история git, `0772081`): `fogRects`/`veilRects` зависят от данных (туман, стены/тьма/области/зоны/размер), а не от identity карты; `useVisionViewers` стабилен по подписи зрителей (позиции+сенсы); `memo` в `TokenView` работает — патчится только изменённый токен.
+Осталось: `ResourcesPanel.tsx:102-127` подписан на `scene.maps` и сканирует всё ради концентрации; `TableTop.tsx:142-162` пересчитывает `reachableCells` на любой апдейт сцены (в бою — на каждый шаг); фильтр токенов (`:445-449`); `RollMenu.tsx:47-64` пересчитывает `sources` и всегда смонтирован (`ChatPanel.tsx:214`); `fitView` через `setTimeout` (`maps.ts:19,24`).
+**Что сделать:** селекторы по entity (map by id)/`useShallow` там, где осталось, `fitView` в `useEffect` по mapId+viewport, концентрация через `characterTokenOf`.
 
 ## R7.8. У socket-bridge нет teardown. P3, S.
 `net/bridge.ts:44-54`: `setInterval` heartbeat и `onAny` на каждый `attachSocketBridge` без dispose; `slices/room.ts:10-15` защищается только от второго сокета — ре-инит/HMR копит слушатели.
