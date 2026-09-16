@@ -46,8 +46,10 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const entry =
         res.hitDice.find((h) => h.current > 0 && h.die === requested) ?? res.hitDice.find((h) => h.current > 0);
       if (!entry) return;
-      const roll = rollDice(`1d${entry.die}`);
-      const heal = Math.max(0, roll.total + sheetMods(sheet.abilities).con);
+      // Кость хитов лечит кость + модификатор Телосложения (в броске — явным слагаемым).
+      const con = sheetMods(sheet.abilities).con;
+      const roll = rollDice(`1d${entry.die}${con > 0 ? `+${con}` : con < 0 ? `${con}` : ''}`);
+      const heal = Math.max(0, roll.total);
       entry.current -= 1;
       res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
       const changed = manager.syncSheetToTokens(room, playerId);

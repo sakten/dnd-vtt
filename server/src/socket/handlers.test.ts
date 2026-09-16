@@ -3440,6 +3440,32 @@ describe('room:settings (режим тестов)', () => {
 });
 
 describe('отдых и удаление токена', () => {
+  it('хит дайс лечит кость + модификатор Телосложения', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, con: 16 },
+      classes: [{ className: 'fighter', level: 3 }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      hp: { current: 10, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      hitDice: [{ die: 10, current: 3, max: 3 }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d10 = 6
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:hitDie', { die: 10 });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.hitDice[0]!.current).toBe(2);
+    expect(room.resources.p1!.hp.current).toBe(10 + 6 + 3); // кость + Телосложение (+3)
+    const roll = room.chat.find((m) => m.kind === 'roll') as { roll?: { expression?: string; total?: number } } | undefined;
+    expect(roll?.roll?.expression).toBe('1d10+3');
+    expect(roll?.roll?.total).toBe(9);
+  });
+
   it('долгий отдых снимает эффекты и восстанавливает HP', () => {
     const room = makeRoom(
       [

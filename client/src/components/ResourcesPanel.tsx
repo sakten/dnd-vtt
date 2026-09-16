@@ -249,7 +249,7 @@ export default function ResourcesPanel() {
                   <button
                     className="hit-die-btn"
                     disabled={h.current <= 0}
-                    title={`Потратить кость d${h.die} и восстановить хиты`}
+                    title={`Потратить кость d${h.die} + мод. Телосложения и восстановить хиты`}
                     onClick={() => rollHitDie(h.die)}
                   >
                     Кинуть
