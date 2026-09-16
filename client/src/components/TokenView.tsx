@@ -2,24 +2,24 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import {
-  areaCells,
+  areaKindAt,
   canSee,
-  cellCenter,
-  findPath,
   movementBlocked,
-  nearestFreeCell,
-  pointCell,
+  planWalk,
   snapToGrid,
   statNumber,
-  tokenCells,
+  strongestKind,
   tokenSenses,
+  visionRadiiCells,
+  zoneVisionKindAt,
   type FoundPath,
   type Token,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
+import { visibleCells, visionViewers } from '../lib/los';
 import { useImage } from '../lib/useImage';
-import { useCanControl, useIsDm } from '../lib/control';
+import { canControlTokenWith, characterNameOf, useCanControl, useIsDm } from '../lib/control';
 
 function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
@@ -50,6 +50,10 @@ function TokenView({ token }: { token: Token }) {
   const stepRef = useRef(-1);
   const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
   const displayPos = animPos ?? (moving && moving.points.length > 0 ? moving.points[0]! : null);
+  const role = useGameStore((s) => s.role);
+  const testMode = useGameStore((s) => s.testMode);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
@@ -60,67 +64,59 @@ function TokenView({ token }: { token: Token }) {
     return snapToGrid(v, offset, grid.size, token.cells);
   };
 
-  /** Путь от стартовой точки токена до перетащенной: A* со стенами, союзниками и сложной местностью. */
+  /** Путь токена: видимость, стены, союзники (×2), полная слепота — 1 клетка. */
   const computeRoute = (world: { x: number; y: number }): FoundPath | null => {
     const st = useGameStore.getState();
     const map = activeMapOf(st);
     if (!map) return null;
     const pathGrid = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
-    const cols = Math.max(1, Math.ceil(map.width / pathGrid.size));
-    const rows = Math.max(1, Math.ceil(map.height / pathGrid.size));
-    const blocked = new Set<string>();
-    const difficult = new Set<string>();
-    for (const other of map.tokens) {
-      if (other.id === token.id) continue;
-      const friendly = other.faction === 'ally';
-      for (const key of tokenCells(other, pathGrid)) {
-        if (friendly) difficult.add(key);
-        else blocked.add(key);
-      }
-    }
-    for (const zone of map.zones) {
-      if (!zone.flags?.difficultTerrain) continue;
-      for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, pathGrid)) difficult.add(key);
-    }
-    const target = nearestFreeCell(pointCell(world, pathGrid), blocked, { cols, rows });
-    if (!target) return null;
     const entry =
       map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
     const turn = entry?.tokenId === token.id ? map.combat.turns[entry.id] : undefined;
-    const diagonalsBefore = turn?.diagonalsUsed ?? 0;
-    const found = findPath({
-      from: { x: token.x, y: token.y },
-      to: cellCenter(target.cx, target.cy, pathGrid),
-      grid: pathGrid,
-      bounds: { cols, rows },
-      walls: map.walls,
-      blocked,
-      difficult,
-      diagonalsBefore,
-    });
-    if (!found) return null;
-    const anchor = (x: number, y: number) => ({
-      x: snapToGrid(x, pathGrid.offsetX, pathGrid.size, token.cells),
-      y: snapToGrid(y, pathGrid.offsetY, pathGrid.size, token.cells),
-    });
-    // Узел клетки: для чётных размеров — пересечение (левый верхний угол клетки),
-    // для нечётных — центр клетки.
-    const cellNode = (cx: number, cy: number) => {
-      if (token.cells % 2 === 0) {
-        return { x: pathGrid.offsetX + cx * pathGrid.size, y: pathGrid.offsetY + cy * pathGrid.size };
+
+    let visible: Set<string> | null = null;
+    let blind = false;
+    if (!isDm) {
+      const viewers = visionViewers(map.tokens, map.vision.los, (t) =>
+        canControlTokenWith({ role, testMode, selfId, currentCharacterId }, t, selfName)
+      );
+      if (viewers.length > 0) {
+        visible = visibleCells({
+          width: map.width,
+          height: map.height,
+          cellSize: map.fog.size,
+          offsetX: map.fog.offsetX,
+          offsetY: map.fog.offsetY,
+          walls: map.walls,
+          darkness: map.vision.darkness,
+          areas: map.lightAreas,
+          zones: map.zones,
+          viewers,
+        });
+        const kind = strongestKind(
+          areaKindAt(map.lightAreas, { x: token.x, y: token.y }),
+          zoneVisionKindAt(map.zones, { x: token.x, y: token.y }, pathGrid)
+        );
+        const radii = visionRadiiCells(map.vision.darkness, tokenSenses(token), kind);
+        blind = radii.length === 1 && radii[0] === 0;
       }
-      return cellCenter(cx, cy, pathGrid);
-    };
-    const points: { x: number; y: number }[] = [];
-    for (let i = 0; i < found.cells.length; i++) {
-      const cell = found.cells[i]!;
-      const snapped = i === found.cells.length - 1 ? anchor(world.x, world.y) : cellNode(cell.cx, cell.cy);
-      const last = points[points.length - 1];
-      if (!last || last.x !== snapped.x || last.y !== snapped.y) points.push(snapped);
     }
-    // Поход всегда начинается с текущей позиции токена (без прыжка в первый узел).
-    points[0] = { x: token.x, y: token.y };
-    return { ...found, points };
+
+    return planWalk({
+      from: { x: token.x, y: token.y },
+      to: world,
+      grid: pathGrid,
+      mapWidth: map.width,
+      mapHeight: map.height,
+      walls: map.walls,
+      tokens: map.tokens,
+      moverId: token.id,
+      cells: token.cells,
+      zones: map.zones,
+      visible,
+      blind,
+      diagonalsBefore: turn?.diagonalsUsed ?? 0,
+    });
   };
 
   const onDragStart = () => {

@@ -1,10 +1,7 @@
-import {
-  clampCells,
-  movementCost,
-  type Token,
-} from 'shared';
+import { clampCells, movementCost, type Token } from 'shared';
 import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
 import { emitInMap } from '../helpers';
+import { newId } from '../../lib/id';
 import { activeMapOf, tokenById } from '../selectors';
 import { clearTokenUiFor } from '../uiReset';
 import type { GameState, MovingToken, Slice } from '../types';
@@ -14,6 +11,9 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
   const patchTokenInMap = (mapId: string, id: string, patch: Partial<Token>) =>
     set((s) => ({ scene: patchToken(s.scene, mapId, id, patch) }));
+
+  /** Свои начатые походы: по moveId игнорируем собственное эхо token:walk. */
+  const ownWalks = new Map<string, number>();
 
   return {
     onTokenAdd: ({ mapId, token }) => set((s) => ({ scene: upsertToken(s.scene, mapId, token) })),
@@ -75,7 +75,9 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
         dragGhost: null,
         dragPath: null,
       }));
-      emitInMap(get, 'token:walk', { id, path: path.points });
+      const moveId = newId();
+      ownWalks.set(moveId, Date.now());
+      emitInMap(get, 'token:walk', { id, path: path.points, moveId });
     },
 
     finishTokenWalk: (id, walked) => {
@@ -140,7 +142,8 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
     setDragPath: (dragPath) => set({ dragPath }),
 
-    onTokenWalk: ({ id, path }) => {
+    onTokenWalk: ({ id, path, moveId }) => {
+      if (moveId && ownWalks.delete(moveId)) return;
       if (get().movingTokens[id]) return;
       if (!Array.isArray(path) || path.length < 2) return;
       set((s) => ({

@@ -1,6 +1,7 @@
 import { gridDistanceFeet, type GridBox } from './combat';
-import type { Wall } from '../domain/scene';
-import { areaCellKey, cellCenter, pointCell, type AreaGrid } from './areas';
+import type { ZoneInstance } from '../domain/automation';
+import { snapToGrid, type Wall } from '../domain/scene';
+import { areaCellKey, areaCells, cellCenter, pointCell, tokenCells, type AreaGrid } from './areas';
 import { crossesWalls } from './walls';
 
 export const DEFAULT_FEET_PER_CELL = 5;
@@ -146,6 +147,8 @@ export interface PathfindInput {
   blocked?: Set<string>;
   /** Клетки удвоенной стоимости (союзники, сложная местность). */
   difficult?: Set<string>;
+  /** Если задано — входить можно только в эти клетки (старт разрешён всегда). */
+  allow?: Set<string>;
   /** Сколько диагоналей уже пройдено в этом ходу (чередование 5-10-5). */
   diagonalsBefore?: number;
   feetPerCell?: number;
@@ -231,6 +234,7 @@ export function findPath(input: PathfindInput): FoundPath | null {
       if (!inBounds(cx, cy)) continue;
       const key = areaCellKey(cx, cy);
       if (blocked.has(key)) continue;
+      if (input.allow && !input.allow.has(key) && !(cx === start.cx && cy === start.cy)) continue;
       const diagonal = dx !== 0 && dy !== 0;
       const to = cellCenter(cx, cy, grid);
       if (crossesWalls(from, to, walls, 'move')) continue;
@@ -258,10 +262,11 @@ export function findPath(input: PathfindInput): FoundPath | null {
 export function nearestFreeCell(
   target: GridCell,
   blocked: Set<string>,
-  bounds?: { cols: number; rows: number } | null
+  bounds?: { cols: number; rows: number } | null,
+  allowed?: Set<string> | null
 ): GridCell | null {
   const key = areaCellKey(target.cx, target.cy);
-  if (!blocked.has(key)) return target;
+  if (!blocked.has(key) && (!allowed || allowed.has(key))) return target;
   for (let r = 1; r <= 4; r++) {
     let best: GridCell | null = null;
     let bestDist = Infinity;
@@ -271,7 +276,9 @@ export function nearestFreeCell(
         const cx = target.cx + dx;
         const cy = target.cy + dy;
         if (bounds && (cx < 0 || cy < 0 || cx >= bounds.cols || cy >= bounds.rows)) continue;
-        if (blocked.has(areaCellKey(cx, cy))) continue;
+        const candidate = areaCellKey(cx, cy);
+        if (blocked.has(candidate)) continue;
+        if (allowed && !allowed.has(candidate)) continue;
         const dist = Math.hypot(dx, dy);
         if (dist < bestDist) {
           bestDist = dist;
@@ -282,4 +289,129 @@ export function nearestFreeCell(
     if (best) return best;
   }
   return null;
+}
+
+export interface PlanWalkMover {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  faction: string;
+}
+
+export interface PlanWalkInput {
+  /** Центр токена-ходока (старт). */
+  from: GridPoint;
+  /** Целевая точка (курсор). */
+  to: GridPoint;
+  grid: AreaGrid;
+  mapWidth: number;
+  mapHeight: number;
+  walls: Wall[];
+  /** Все токены карты; ходок исключается по `moverId`. */
+  tokens: PlanWalkMover[];
+  moverId: string;
+  /** Размер ходока в клетках: чётные привязаны к пересечениям, нечётные — к центрам. */
+  cells: number;
+  zones: ZoneInstance[];
+  /** Клетки, видимые игроку: ходить можно только по ним (null — без ограничения). */
+  visible?: Set<string> | null;
+  /** Полная слепота (магическая тьма/мгла без зрения): не больше одной клетки за ход. */
+  blind?: boolean;
+  diagonalsBefore?: number;
+}
+
+/**
+ * План похода: A* со стенами/дверями; клетки врагов/нейтралов непроходимы,
+ * союзников и сложная местность — ×2; цель при занятости сдвигается к ближайшей
+ * свободной. Первая точка — ровно текущая позиция токена (без прыжка).
+ */
+export function planWalk(input: PlanWalkInput): FoundPath | null {
+  const { grid, walls } = input;
+  const cols = Math.max(1, Math.ceil(input.mapWidth / grid.size));
+  const rows = Math.max(1, Math.ceil(input.mapHeight / grid.size));
+  const blocked = new Set<string>();
+  const difficult = new Set<string>();
+  for (const other of input.tokens) {
+    if (other.id === input.moverId) continue;
+    const friendly = other.faction === 'ally';
+    for (const key of tokenCells(other, grid)) {
+      if (friendly) difficult.add(key);
+      else blocked.add(key);
+    }
+  }
+  for (const zone of input.zones) {
+    if (!zone.flags?.difficultTerrain) continue;
+    for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, grid)) difficult.add(key);
+  }
+  const bounds = { cols, rows };
+  const even = input.cells % 2 === 0;
+  const node = (cell: GridCell) =>
+    even
+      ? { x: grid.offsetX + cell.cx * grid.size, y: grid.offsetY + cell.cy * grid.size }
+      : cellCenter(cell.cx, cell.cy, grid);
+
+  // Полная слепота: шаг только в одну соседнюю свободную клетку (без опоры на видимость).
+  if (input.blind) {
+    const fromCell = pointCell(input.from, grid);
+    let best: GridCell | null = null;
+    let bestDist = Infinity;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const cx = fromCell.cx + dx;
+        const cy = fromCell.cy + dy;
+        if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
+        if (blocked.has(areaCellKey(cx, cy))) continue;
+        const center = cellCenter(cx, cy, grid);
+        if (crossesWalls(input.from, center, walls, 'move')) continue;
+        const distance = Math.hypot(center.x - input.to.x, center.y - input.to.y);
+        if (distance < bestDist) {
+          bestDist = distance;
+          best = { cx, cy };
+        }
+      }
+    }
+    if (!best) return null;
+    const point = node(best);
+    const cost = movementCost(input.from, point, grid.size, input.diagonalsBefore ?? 0);
+    return { cells: [fromCell, best], points: [input.from, point], feet: cost.feet, diagonals: cost.diagonals };
+  }
+
+  const visible = input.visible ?? null;
+  const targetCell = pointCell(input.to, grid);
+  // В невидимую клетку ходить нельзя: маршрут отменяется (кроме режима слепоты выше).
+  if (visible && !visible.has(areaCellKey(targetCell.cx, targetCell.cy))) return null;
+  const target = nearestFreeCell(targetCell, blocked, bounds);
+  if (!target) return null;
+  const startCell = pointCell(input.from, grid);
+  if (target.cx === startCell.cx && target.cy === startCell.cy) return null;
+  const found = findPath({
+    from: input.from,
+    to: cellCenter(target.cx, target.cy, grid),
+    grid,
+    bounds,
+    walls,
+    blocked,
+    difficult,
+    allow: visible ?? undefined,
+    diagonalsBefore: input.diagonalsBefore ?? 0,
+  });
+  if (!found) return null;
+  const points: GridPoint[] = [];
+  for (let i = 0; i < found.cells.length; i++) {
+    const cell = found.cells[i]!;
+    const snapped =
+      i === found.cells.length - 1
+        ? {
+            x: snapToGrid(input.to.x, grid.offsetX, grid.size, input.cells),
+            y: snapToGrid(input.to.y, grid.offsetY, grid.size, input.cells),
+          }
+        : node(cell);
+    const last = points[points.length - 1];
+    if (!last || last.x !== snapped.x || last.y !== snapped.y) points.push(snapped);
+  }
+  points[0] = { x: input.from.x, y: input.from.y };
+  return { ...found, points };
 }

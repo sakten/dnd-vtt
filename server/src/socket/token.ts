@@ -63,7 +63,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       handleMovementZones(ctx, room, mapId);
     });
 
-    ctx.on('token:walk', ({ mapId, id, path }) => {
+    ctx.on('token:walk', ({ mapId, id, path, moveId }) => {
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;
       if (!Array.isArray(path) || path.length < 2) return;
@@ -72,7 +72,8 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
         .slice(0, 400);
       if (walkPath.length < 2) return;
-      broadcastAll('token:walk', { mapId, id, path: walkPath });
+      const walkId = typeof moveId === 'string' && moveId ? moveId.slice(0, 64) : undefined;
+      broadcastAll('token:walk', { mapId, id, path: walkPath, ...(walkId ? { moveId: walkId } : {}) });
     });
 
     ctx.on('token:step', ({ mapId, id, x, y }) => {

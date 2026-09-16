@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { ZoneInstance } from '../domain/automation';
 import type { Wall } from '../domain/scene';
-import { diagonalStepCost, findPath, movementCost, nearestFreeCell, reachableCells } from './movement';
+import { diagonalStepCost, findPath, movementCost, nearestFreeCell, planWalk, reachableCells } from './movement';
 
 describe('diagonalStepCost', () => {
   it('чередует 5 и 10 футов', () => {
@@ -138,5 +139,53 @@ describe('findPath', () => {
       findPath({ from: { x: 25, y: 25 }, to: { x: 125, y: 25 }, grid: GRID, bounds: BOUNDS, walls: [], blocked })
     ).toBeNull();
     expect(nearestFreeCell({ cx: 2, cy: 0 }, blocked, BOUNDS)).toEqual({ cx: 1, cy: 0 });
+  });
+});
+
+describe('planWalk', () => {
+  const base = {
+    grid: GRID,
+    mapWidth: 250,
+    mapHeight: 150,
+    walls: [] as Wall[],
+    tokens: [],
+    moverId: 't1',
+    cells: 1,
+    zones: [] as ZoneInstance[],
+  };
+
+  it('1×1 идёт по центрам, старт — ровно позиция токена', () => {
+    const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 } });
+    expect(path?.points[0]).toEqual({ x: 25, y: 75 });
+    expect(path?.points[path.points.length - 1]).toEqual({ x: 125, y: 75 });
+    expect(path?.feet).toBe(10);
+  });
+
+  it('2×2 идёт по пересечениям линий', () => {
+    const path = planWalk({ ...base, cells: 2, from: { x: 100, y: 100 }, to: { x: 200, y: 100 } });
+    expect(path).not.toBeNull();
+    expect(path!.points.every((p) => p.x % GRID.size === 0 && p.y % GRID.size === 0)).toBe(true);
+  });
+
+  it('видимость ограничивает маршрут, в невидимую цель — отмена', () => {
+    const visible = new Set(['0,1', '1,1', '2,1']);
+    const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, visible });
+    expect(path?.cells.map((c) => `${c.cx},${c.cy}`)).toEqual(['0,1', '1,1', '2,1']);
+    expect(planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 225, y: 75 }, visible })).toBeNull();
+  });
+
+  it('полная слепота: ровно один шаг в соседнюю клетку к курсору', () => {
+    const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 225, y: 25 }, blind: true });
+    expect(path?.points).toHaveLength(2);
+    expect(path?.cells[1]).toEqual({ cx: 1, cy: 0 });
+    expect(path?.feet).toBe(5);
+  });
+
+  it('враги/нейтралы блокируют, союзники — сложная местность', () => {
+    const enemy = [{ id: 'e1', x: 75, y: 75, w: 50, h: 50, faction: 'enemy' }];
+    expect(planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 75, y: 75 }, tokens: enemy })).toBeNull();
+    const ally = [{ id: 'a1', x: 75, y: 75, w: 50, h: 50, faction: 'ally' }];
+    const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: ally });
+    expect(path?.feet).toBe(15);
   });
 });

@@ -74,8 +74,23 @@ describe('tokens slice: передвижение', () => {
     useGameStore.getState().startTokenWalk('t1', path);
     expect(token().x).toBe(0);
     expect(useGameStore.getState().movingTokens.t1?.own).toBe(true);
-    expect(emitted).toContainEqual({ event: 'token:walk', payload: { mapId: 'm1', id: 't1', path: path.points } });
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        event: 'token:walk',
+        payload: expect.objectContaining({ mapId: 'm1', id: 't1', path: path.points }),
+      })
+    );
     expect(hasEvent(emitted, 'combat:setMovement')).toBe(false);
+  });
+
+  it('эхо своего token:walk (moveId) игнорируется', () => {
+    useGameStore.getState().startTokenWalk('t1', path);
+    const walk = emitted.find((e) => e.event === 'token:walk');
+    const moveId = (walk?.payload as { moveId?: string } | undefined)?.moveId;
+    expect(moveId).toBeTruthy();
+    useGameStore.setState({ movingTokens: {} });
+    useGameStore.getState().onTokenWalk({ mapId: 'm1', id: 't1', path: path.points, moveId });
+    expect(useGameStore.getState().movingTokens.t1).toBeUndefined();
   });
 
   it('finishTokenWalk фиксирует позицию, учёт движения и setMovement', () => {
