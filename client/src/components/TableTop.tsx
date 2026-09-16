@@ -1,13 +1,14 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage, Line, Text } from 'react-konva';
 import Konva from 'konva';
-import type { MapInfo } from 'shared';
+import type { MapInfo, Wall } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
 import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
+import { newId } from '../lib/id';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
 import ConditionsOverlay from './ConditionsOverlay';
@@ -27,11 +28,29 @@ interface WorldPoint {
 const cellIndex = (v: number, offset: number, size: number) => Math.floor((v - offset) / size);
 const cellKey = (cx: number, cy: number) => `${cx},${cy}`;
 
+const WALL_COLORS: Record<Wall['kind'], string> = {
+  wall: '#e6e8ee',
+  door: '#e0a458',
+  window: '#7cc7e8',
+};
+
+/** Расстояние от точки до отрезка стены (для удаления правым кликом). */
+function distToSegment(p: { x: number; y: number }, w: Wall): number {
+  const dx = w.x2 - w.x1;
+  const dy = w.y2 - w.y1;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((p.x - w.x1) * dx + (p.y - w.y1) * dy) / len2)) : 0;
+  return Math.hypot(p.x - (w.x1 + t * dx), p.y - (w.y1 + t * dy));
+}
+
 export default function TableTop() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const paintRef = useRef<{ pressed: boolean; start: WorldPoint | null }>({ pressed: false, start: null });
   const [rectPreview, setRectPreview] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const [wallStart, setWallStart] = useState<{ x: number; y: number } | null>(null);
+  const [wallCursor, setWallCursor] = useState<{ x: number; y: number } | null>(null);
+  const wallPressRef = useRef<{ x: number; y: number } | null>(null);
 
   const view = useGameStore((s) => s.view);
   const setView = useGameStore((s) => s.setView);
@@ -44,6 +63,8 @@ export default function TableTop() {
   const hoverTokenId = useGameStore((s) => s.hoverTokenId);
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
+  const wallsMode = useGameStore((s) => s.wallsMode);
+  const updateWalls = useGameStore((s) => s.updateWalls);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
   const aim = interaction?.mode === 'aim' ? interaction.aim : null;
@@ -51,6 +72,13 @@ export default function TableTop() {
   const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
   const activeMap = useActiveMap();
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
+
+  useEffect(() => {
+    if (!wallsMode.active) {
+      setWallStart(null);
+      setWallCursor(null);
+    }
+  }, [wallsMode.active]);
 
   // id активной записи инициативы, которой управляет текущий пользователь (для подсветки хода).
   const activeControlId = useGameStore((s) => {
@@ -201,6 +229,11 @@ export default function TableTop() {
     y: (p.y - stage.y()) / stage.scaleX(),
   });
 
+  const snapWall = (p: { x: number; y: number }) => ({
+    x: snapToGrid(p.x, grid.offsetX, grid.size, 0),
+    y: snapToGrid(p.y, grid.offsetY, grid.size, 0),
+  });
+
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     const stage = e.target.getStage();
@@ -223,6 +256,12 @@ export default function TableTop() {
   };
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (wallsMode.active) {
+      // Запоминаем точку нажатия левой кнопкой: короткий клик ставит узел, драг — панорамирует карту.
+      const pointer = e.evt.button === 0 ? e.target.getStage()?.getPointerPosition() : null;
+      wallPressRef.current = pointer ? { x: pointer.x, y: pointer.y } : null;
+      return;
+    }
     if (!fogMode.active) {
       if (aim || targeting) return;
       if (e.target === e.target.getStage()) {
@@ -245,6 +284,12 @@ export default function TableTop() {
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (wallsMode.active) {
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) setWallCursor(snapWall(toWorld(stage, pointer)));
+      return;
+    }
     if (aim) {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
@@ -273,7 +318,59 @@ export default function TableTop() {
     setRectPreview(null);
   };
 
+  const toggleDoor = (id: string) => {
+    if (!activeMap) return;
+    updateWalls(
+      activeMap.id,
+      activeMap.walls.map((w) => (w.id === id ? { ...w, open: !w.open } : w))
+    );
+  };
+
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (wallsMode.active) {
+      if (!isDm || e.evt.button !== 0) return;
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      const press = wallPressRef.current;
+      wallPressRef.current = null;
+      if (!stage || !pointer || !activeMap) return;
+      if (press && (pointer.x - press.x) ** 2 + (pointer.y - press.y) ** 2 > 25) return;
+      const raw = toWorld(stage, pointer);
+      const door = activeMap.walls.find(
+        (w) => w.kind === 'door' && distToSegment(raw, w) <= 10 / view.scale
+      );
+      if (door) {
+        toggleDoor(door.id);
+        return;
+      }
+      const p = snapWall(raw);
+      if (!wallStart) {
+        setWallStart(p);
+        return;
+      }
+      if (p.x === wallStart.x && p.y === wallStart.y) return;
+      updateWalls(activeMap.id, [
+        ...activeMap.walls,
+        { id: newId(), kind: wallsMode.tool, x1: wallStart.x, y1: wallStart.y, x2: p.x, y2: p.y },
+      ]);
+      setWallStart(p);
+      return;
+    }
+    if (isDm && activeMap && e.evt.button === 0 && !fogMode.active) {
+      // Дверь можно открыть/закрыть и вне режима «Стены».
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) {
+        const p = toWorld(stage, pointer);
+        const door = activeMap.walls.find(
+          (w) => w.kind === 'door' && distToSegment(p, w) <= 10 / view.scale
+        );
+        if (door) {
+          toggleDoor(door.id);
+          return;
+        }
+      }
+    }
     if (aim) {
       e.evt.preventDefault();
       const stage = e.target.getStage();
@@ -354,6 +451,16 @@ export default function TableTop() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onClick={handleClick}
+          onContextMenu={(e) => {
+            if (!wallsMode.active || !isDm || !activeMap) return;
+            e.evt.preventDefault();
+            const stage = e.target.getStage();
+            const pointer = stage?.getPointerPosition();
+            if (!stage || !pointer) return;
+            const p = toWorld(stage, pointer);
+            const hit = activeMap.walls.find((w) => distToSegment(p, w) <= 10 / view.scale);
+            if (hit) updateWalls(activeMap.id, activeMap.walls.filter((w) => w.id !== hit.id));
+          }}
           onTouchStart={(e) => {
             if (!fogMode.active && e.target === e.target.getStage()) {
               setSelected(null);
@@ -362,6 +469,41 @@ export default function TableTop() {
         >
           <Layer>{activeMap && <MapSprite map={activeMap} />}</Layer>
           <Layer listening={false}>
+            {isDm &&
+              activeMap?.walls.map((w) => {
+                const openDoor = w.kind === 'door' && w.open === true;
+                return (
+                  <Line
+                    key={w.id}
+                    points={[w.x1, w.y1, w.x2, w.y2]}
+                    stroke={openDoor ? '#4ecb71' : WALL_COLORS[w.kind]}
+                    strokeWidth={5 / view.scale}
+                    lineCap="round"
+                    opacity={openDoor ? 0.55 : 0.9}
+                    dash={openDoor ? [10 / view.scale, 7 / view.scale] : undefined}
+                    listening={false}
+                  />
+                );
+              })}
+            {wallStart && wallCursor && (
+              <Line
+                points={[wallStart.x, wallStart.y, wallCursor.x, wallCursor.y]}
+                stroke="#7c9cff"
+                strokeWidth={3 / view.scale}
+                dash={[8 / view.scale, 5 / view.scale]}
+                listening={false}
+              />
+            )}
+            {wallStart && (
+              <Rect
+                x={wallStart.x - 4 / view.scale}
+                y={wallStart.y - 4 / view.scale}
+                width={8 / view.scale}
+                height={8 / view.scale}
+                fill="#7c9cff"
+                listening={false}
+              />
+            )}
             {fogRects.map((r) => (
               <Rect
                 key={`${r.x},${r.y}`}

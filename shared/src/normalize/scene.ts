@@ -1,6 +1,6 @@
 import type { ZoneInstance } from '../domain/automation';
 import { DEFAULT_GRID, defaultFog } from '../domain/scene';
-import type { FogState, GridSettings, MapInfo, Scene } from '../domain/scene';
+import type { FogState, GridSettings, MapInfo, Scene, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
 import { normalizeToken } from './token';
@@ -32,6 +32,30 @@ function normalizeZone(raw: unknown): ZoneInstance | null {
   };
 }
 
+const WALL_KINDS: WallKind[] = ['wall', 'door', 'window'];
+
+/** Нормализация стены: числовые координаты, известный вид, лимит сегментов. */
+export function normalizeWalls(raw: unknown): Wall[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Wall[] = [];
+  for (const item of raw.slice(0, 2000)) {
+    if (!isRecord(item)) continue;
+    const { x1, y1, x2, y2 } = item;
+    if (![x1, y1, x2, y2].every((v) => Number.isFinite(v))) continue;
+    const kind = WALL_KINDS.includes(item.kind as WallKind) ? (item.kind as WallKind) : 'wall';
+    out.push({
+      id: String(item.id ?? ''),
+      kind,
+      x1: Number(x1),
+      y1: Number(y1),
+      x2: Number(x2),
+      y2: Number(y2),
+      ...(kind === 'door' && item.open === true ? { open: true } : {}),
+    });
+  }
+  return out;
+}
+
 /** Полная нормализация карты: токены, туман и бой; остальные поля сохраняются. */
 export function normalizeMapInfo(
   raw: unknown,
@@ -52,6 +76,7 @@ export function normalizeMapInfo(
     zones: Array.isArray(source.zones)
       ? source.zones.map(normalizeZone).filter((z): z is ZoneInstance => !!z)
       : [],
+    walls: normalizeWalls(source.walls),
     fog,
     combat: normalizeCombatState(source.combat),
   };

@@ -6,6 +6,7 @@ import {
   type MapInfo,
   type Scene,
   type Token,
+  type Wall,
 } from 'shared';
 
 export function updateMap(scene: Scene, mapId: string, updater: (map: MapInfo) => MapInfo): Scene {
@@ -63,6 +64,10 @@ export function patchCombatTurn(
 
 export function setFog(scene: Scene, mapId: string, fog: FogState): Scene {
   return updateMap(scene, mapId, (m) => ({ ...m, fog }));
+}
+
+export function setWalls(scene: Scene, mapId: string, walls: Wall[]): Scene {
+  return updateMap(scene, mapId, (m) => ({ ...m, walls }));
 }
 
 export function setGrid(scene: Scene, grid: GridSettings): Scene {

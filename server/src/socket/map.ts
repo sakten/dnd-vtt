@@ -1,6 +1,7 @@
 import {
   isRecord,
   snapToGrid,
+  type Wall,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { asString, asTrimmedString } from './decode';
@@ -69,6 +70,38 @@ export function registerMapHandlers(ctx: ConnCtx) {
       broadcast('fog:update', { mapId, fog: map.fog });
     });
 
+
+    ctx.on('walls:update', ({ mapId: rawMapId, walls }) => {
+      const room = dmRoom();
+      const mapId = asString(rawMapId);
+      if (!room || !mapId || !Array.isArray(walls)) return;
+      const map = room.scene.maps.find((m) => m.id === mapId);
+      if (!map) return;
+      const kinds = new Set(['wall', 'door', 'window']);
+      map.walls = walls
+        .filter(isRecord)
+        .map((w) => ({
+          id: asString(w.id) ?? '',
+          kind: asString(w.kind) ?? 'wall',
+          open: w.open === true,
+          x1: Number(w.x1),
+          y1: Number(w.y1),
+          x2: Number(w.x2),
+          y2: Number(w.y2),
+        }))
+        .filter((w) => w.id && kinds.has(w.kind) && [w.x1, w.y1, w.x2, w.y2].every(Number.isFinite))
+        .slice(0, 2000)
+        .map((w) => ({
+          id: w.id,
+          kind: w.kind as Wall['kind'],
+          x1: w.x1,
+          y1: w.y1,
+          x2: w.x2,
+          y2: w.y2,
+          ...(w.kind === 'door' && w.open ? { open: true } : {}),
+        }));
+      broadcast('walls:update', { mapId, walls: map.walls });
+    });
 
     ctx.on('grid:update', (grid) => {
       const room = dmRoom();

@@ -10,6 +10,8 @@ export default function Toolbar() {
   const isDm = useIsDm();
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
+  const wallsActive = useGameStore((s) => s.wallsMode.active);
+  const setWallsMode = useGameStore((s) => s.setWallsMode);
   const combatActive = useGameStore((s) => activeMapOf(s)?.combat.active ?? false);
   const startCombat = useGameStore((s) => s.startCombat);
   const endCombat = useGameStore((s) => s.endCombat);
@@ -34,9 +36,24 @@ export default function Toolbar() {
         <button
           className={fogActive ? 'active' : ''}
           title="Туман войны"
-          onClick={() => setFogMode({ active: !fogActive })}
+          onClick={() => {
+            setFogMode({ active: !fogActive });
+            if (!fogActive) setWallsMode({ active: false });
+          }}
         >
           Туман
+        </button>
+      )}
+      {isDm && (
+        <button
+          className={wallsActive ? 'active' : ''}
+          title="Стены: клик по узлам сетки, правый клик — удалить сегмент"
+          onClick={() => {
+            setWallsMode({ active: !wallsActive });
+            if (!wallsActive) setFogMode({ active: false });
+          }}
+        >
+          Стены
         </button>
       )}
       {role === 'dm' && (

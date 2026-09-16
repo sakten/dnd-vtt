@@ -30,6 +30,7 @@ function normalizePersistedScene(raw: Scene): Scene {
           height: legacy.map.height,
           tokens: legacy.tokens ?? [],
           zones: [],
+          walls: [],
           fog: defaultFog(grid),
           combat: emptyCombatState(),
         },

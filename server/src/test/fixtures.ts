@@ -60,7 +60,7 @@ function baseRoom(tokens: Token[], controllers: Record<string, string>, combat =
           width: 0,
           height: 0,
           tokens,
-          zones: [],
+          zones: [],          walls: [],
           fog: defaultFog(DEFAULT_GRID),
           combat,
         },

@@ -262,7 +262,7 @@ describe('RoomManager ход', () => {
                 statblock: { abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, legendary: { max: 3, actions: [] } },
               }),
             ],
-            zones: [],
+            zones: [],            walls: [],
             fog: defaultFog(DEFAULT_GRID),
             combat: emptyCombatState(),
           },

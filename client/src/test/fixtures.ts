@@ -55,7 +55,7 @@ export function makeMap(id: string, tokens: Token[] = [], grid: GridSettings = D
     width: 500,
     height: 500,
     tokens,
-    zones: [],
+    zones: [],    walls: [],
     fog: defaultFog(grid),
     combat: emptyCombatState(),
   };

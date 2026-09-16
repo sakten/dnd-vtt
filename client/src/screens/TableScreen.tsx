@@ -11,6 +11,7 @@ import GridSettingsModal from '../components/GridSettingsModal';
 import RoomSettingsModal from '../components/RoomSettingsModal';
 import TokenMenu from '../components/TokenMenu';
 import FogPanel from '../components/FogPanel';
+import WallsPanel from '../components/WallsPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
@@ -28,6 +29,8 @@ export default function TableScreen() {
   const roomName = useGameStore((s) => s.roomName);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
+  const wallsActive = useGameStore((s) => s.wallsMode.active);
+  const setWallsMode = useGameStore((s) => s.setWallsMode);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
 
   useEffect(() => {
@@ -47,17 +50,19 @@ export default function TableScreen() {
         }
         setSelected(null);
         if (st.fogMode.active) setFogMode({ active: false });
+        if (st.wallsMode.active) setWallsMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, removeToken, setSelected, setFogMode]);
+  }, [selected, removeToken, setSelected, setFogMode, setWallsMode]);
 
   return (
     <div className="table-screen">
       <TableTop />
       <Toolbar />
       {fogActive && <FogPanel />}
+      {wallsActive && <WallsPanel />}
       <MapsPanel />
       <TokenPanel />
       <ChatPanel />

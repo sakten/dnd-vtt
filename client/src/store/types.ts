@@ -14,6 +14,7 @@ import type {
   ServerToClientEvents,
   Token,
   TokenFields,
+  Wall,
 } from 'shared';
 import type { AppSocket } from '../net/socket';
 import type {
@@ -35,6 +36,11 @@ export interface FogMode {
   tool: 'brush' | 'rect';
   action: 'hide' | 'reveal';
   brush: number;
+}
+
+export interface WallsMode {
+  active: boolean;
+  tool: 'wall' | 'door';
 }
 
 export interface CritHit {
@@ -77,6 +83,7 @@ export interface GameState {
   roomSettingsOpen: boolean;
   tokenMenuId: string | null;
   fogMode: FogMode;
+  wallsMode: WallsMode;
   critHit: CritHit | null;
   /** Активные окна реакций (R1). */
   reactionOffers: ReactionOffer[];
@@ -132,6 +139,8 @@ export interface GameState {
   setTokenMenu: (id: string | null) => void;
   setFogMode: (patch: Partial<FogMode>) => void;
   updateFog: (mapId: string, fog: FogState) => void;
+  setWallsMode: (patch: Partial<WallsMode>) => void;
+  updateWalls: (mapId: string, walls: Wall[]) => void;
   startCombat: () => void;
   endCombat: () => void;
   addCombatant: (tokenId: string) => void;
@@ -178,6 +187,7 @@ export interface GameState {
   onMapsUpdate: (payload: Parameters<ServerToClientEvents['maps:update']>[0]) => void;
   onMapBring: (payload: Parameters<ServerToClientEvents['map:bring']>[0]) => void;
   onFogUpdate: (payload: Parameters<ServerToClientEvents['fog:update']>[0]) => void;
+  onWallsUpdate: (payload: Parameters<ServerToClientEvents['walls:update']>[0]) => void;
   onGridUpdate: (grid: GridSettings) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;
   onCombatUpdate: (payload: Parameters<ServerToClientEvents['combat:update']>[0]) => void;
