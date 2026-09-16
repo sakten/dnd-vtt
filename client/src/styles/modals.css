@@ -870,3 +870,4 @@
 .feat-option-desc { color: var(--text-dim); font-size: 12px; white-space: pre-line; max-height: 54px; overflow: hidden; }
 .feat-option-req { color: var(--accent); font-size: 11px; }
 .feat-spells { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }
+.grid-auto-status { font-size: 12px; color: var(--text-dim); align-self: center; }

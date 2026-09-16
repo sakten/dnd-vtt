@@ -2,11 +2,14 @@ import { useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { useIsDm } from '../lib/control';
 import { readImageSize, uploadImage } from '../lib/api';
+import { detectGridFromUrl } from '../lib/gridDetectImage';
+import { GRID_AUTO_CONFIDENCE } from '../lib/gridDetect';
 
 export default function MapsPanel() {
   const maps = useGameStore((s) => s.scene.maps);
   const activeMapId = useGameStore((s) => s.viewMapId);
   const addMap = useGameStore((s) => s.addMap);
+  const updateGrid = useGameStore((s) => s.updateGrid);
   const removeMap = useGameStore((s) => s.removeMap);
   const renameMap = useGameStore((s) => s.renameMap);
   const switchMap = useGameStore((s) => s.switchMap);
@@ -18,6 +21,20 @@ export default function MapsPanel() {
 
   const isDm = useIsDm();
 
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+
+  // Автовыравнивание сетки по изображению новой карты (если сетка на ней есть и уверенность высокая).
+  const autoAlign = async (url: string) => {
+    try {
+      const found = await detectGridFromUrl(url);
+      if (found && found.confidence >= GRID_AUTO_CONFIDENCE) {
+        updateGrid({ size: round1(found.size), offsetX: round1(found.offsetX), offsetY: round1(found.offsetY) });
+      }
+    } catch {
+      // изображение недоступно для анализа (CORS и т.п.) — оставляем сетку как есть
+    }
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -26,6 +43,7 @@ export default function MapsPanel() {
       const url = await uploadImage(file);
       const size = await readImageSize(url);
       addMap(file.name.replace(/\.[^.]+$/, ''), url, size.width, size.height);
+      void autoAlign(url);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить карту');
     }

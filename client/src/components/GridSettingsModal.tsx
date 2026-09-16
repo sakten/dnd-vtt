@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { GridSettings } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { activeMapOf } from '../store/selectors';
+import { GRID_AUTO_CONFIDENCE } from '../lib/gridDetect';
+import { detectGridFromUrl } from '../lib/gridDetectImage';
 import { CheckboxRow, Field } from './Field';
 import Modal from './Modal';
 
@@ -8,7 +11,9 @@ export default function GridSettingsModal() {
   const grid = useGameStore((s) => s.scene.grid);
   const updateGrid = useGameStore((s) => s.updateGrid);
   const close = useGameStore((s) => s.setGridModalOpen);
+  const map = useGameStore(activeMapOf);
   const [draft, setDraft] = useState<GridSettings | null>(null);
+  const [autoStatus, setAutoStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft({ ...grid });
@@ -17,6 +22,25 @@ export default function GridSettingsModal() {
   const value = draft ?? grid;
   const setValue = (patch: Partial<GridSettings>) => {
     setDraft((d) => (d ? { ...d, ...patch } : d));
+  };
+
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+
+  const alignToImage = async () => {
+    if (!map) return;
+    setAutoStatus('Ищем сетку…');
+    try {
+      const found = await detectGridFromUrl(map.url);
+      if (!found) {
+        setAutoStatus('Сетка на изображении не найдена');
+        return;
+      }
+      setValue({ size: round1(found.size), offsetX: round1(found.offsetX), offsetY: round1(found.offsetY) });
+      const low = found.confidence < GRID_AUTO_CONFIDENCE ? ' — низкая уверенность, проверь' : '';
+      setAutoStatus(`Найдено: ~${Math.round(found.size)}px, сдвиг ${Math.round(found.offsetX)}, ${Math.round(found.offsetY)}${low}`);
+    } catch {
+      setAutoStatus('Не удалось проанализировать изображение');
+    }
   };
 
   return (
@@ -56,6 +80,12 @@ export default function GridSettingsModal() {
         <Field label="Сдвиг Y">
           <input type="number" value={value.offsetY} onChange={(e) => setValue({ offsetY: Number(e.target.value) || 0 })} />
         </Field>
+      </div>
+      <div className="field-row">
+        <button type="button" onClick={alignToImage} disabled={!map}>
+          Выровнять по изображению
+        </button>
+        {autoStatus && <span className="grid-auto-status">{autoStatus}</span>}
       </div>
       <div className="modal-actions">
         <button
