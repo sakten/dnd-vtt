@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Sense, Token, Wall } from 'shared';
-import { partyViewers, visionRadii, visibleCells } from './los';
+import { visionRadii, visionViewers, visibleCells } from './los';
 
 const VISION_BASE = { width: 250, height: 150, cellSize: 50, offsetX: 0, offsetY: 0 };
 
@@ -25,15 +25,28 @@ describe('visionRadii', () => {
   });
 });
 
-describe('partyViewers', () => {
+describe('visionViewers', () => {
   const base = { x: 25, y: 25 };
-  it('берёт только токены игроков и их восприятие', () => {
-    const tokens = [
-      { ...base, isPlayerToken: true, senses: [{ type: 'darkvision', range: 60 }] },
-      { ...base, x: 225, isPlayerToken: false, senses: [{ type: 'blindsight', range: 30 }] },
-    ] as Token[];
-    expect(partyViewers(tokens, false)).toEqual([{ x: 25, y: 25, radii: [null] }]);
-    expect(partyViewers(tokens, true)).toEqual([{ x: 25, y: 25, radii: [12] }]);
+  const ownOne = (t: Token) => t.name === 'Свой';
+  const tokens = [
+    { ...base, name: 'Свой', isPlayerToken: true, senses: [{ type: 'darkvision', range: 60 }] },
+    { ...base, x: 225, name: 'Чужой', isPlayerToken: true, senses: [{ type: 'blindsight', range: 30 }] },
+  ] as Token[];
+
+  it('объединение — все токены игроков, свои — только контролируемые', () => {
+    expect(visionViewers(tokens, false, true, ownOne)).toEqual([
+      { x: 25, y: 25, radii: [null] },
+      { x: 225, y: 25, radii: [null] },
+    ]);
+    expect(visionViewers(tokens, true, true, ownOne)).toEqual([
+      { x: 25, y: 25, radii: [12] },
+      { x: 225, y: 25, radii: [6] },
+    ]);
+    expect(visionViewers(tokens, true, false, ownOne)).toEqual([{ x: 25, y: 25, radii: [12] }]);
+  });
+
+  it('без своих токенов — откат к объединению', () => {
+    expect(visionViewers(tokens, false, false, () => false)).toHaveLength(2);
   });
 });
 

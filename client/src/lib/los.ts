@@ -28,11 +28,17 @@ export function visionRadii(darkness: boolean, senses: Sense[]): (number | null)
   return radii.length > 0 ? radii : [1];
 }
 
-/** Зрители обзора партии: токены с галкой «токен игрока». */
-export function partyViewers(tokens: Token[], darkness: boolean): Viewer[] {
-  return tokens
-    .filter((t) => t.isPlayerToken)
-    .map((t) => ({ x: t.x, y: t.y, radii: visionRadii(darkness, t.senses ?? []) }));
+/** Зрители обзора: объединение всех токенов игроков либо только свои (флаг «Объединять обзор игроков»). */
+export function visionViewers(
+  tokens: Token[],
+  darkness: boolean,
+  merge: boolean,
+  isOwn: (token: Token) => boolean
+): Viewer[] {
+  const party = tokens.filter((t) => t.isPlayerToken);
+  const own = party.filter(isOwn);
+  const use = merge || own.length === 0 ? party : own;
+  return use.map((t) => ({ x: t.x, y: t.y, radii: visionRadii(darkness, t.senses ?? []) }));
 }
 
 /**

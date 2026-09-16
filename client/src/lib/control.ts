@@ -13,7 +13,7 @@ export function characterNameOf(s: State, charId: string | null): string {
   return s.library.find((i) => i.id === charId)?.name ?? '';
 }
 
-export function isDmWith(s: State): boolean {
+export function isDmWith(s: Pick<State, 'role' | 'testMode'>): boolean {
   return s.role === 'dm' || s.testMode;
 }
 
@@ -22,15 +22,22 @@ export function useIsDm(): boolean {
   return useGameStore((s) => s.role === 'dm' || s.testMode);
 }
 
-export function canControlWith(s: State, token: Token): boolean {
+type ControlState = Pick<State, 'role' | 'testMode' | 'selfId' | 'currentCharacterId'>;
+
+/**
+ * Проверка контроля по минимальному срезу состояния (для мемоизированных предикатов,
+ * где нельзя тянуть весь стор): DM/тест — да, свой персонаж или токен с именем персонажа.
+ */
+export function canControlTokenWith(s: ControlState, token: Token, charName: string): boolean {
   if (isDmWith(s)) return true;
   if (!s.selfId) return false;
   if (s.currentCharacterId && token.libraryItemId === s.currentCharacterId) return true;
-  if (token.owner) {
-    const name = characterNameOf(s, s.currentCharacterId);
-    if (name && token.owner === name) return true;
-  }
+  if (token.owner && charName && token.owner === charName) return true;
   return false;
+}
+
+export function canControlWith(s: State, token: Token): boolean {
+  return canControlTokenWith(s, token, characterNameOf(s, s.currentCharacterId));
 }
 
 export function canAddLibraryItemWith(

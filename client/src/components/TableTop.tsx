@@ -1,14 +1,14 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
-import type { MapInfo, Wall } from 'shared';
+import type { MapInfo, Token, Wall } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
-import { partyViewers, visibleCells } from '../lib/los';
-import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
+import { visibleCells, visionViewers } from '../lib/los';
+import { canAddLibraryItem, canControlTokenWith, canControlWith, characterNameOf, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
@@ -74,6 +74,15 @@ export default function TableTop() {
   const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
   const activeMap = useActiveMap();
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
+  const selfId = useGameStore((s) => s.selfId);
+  const role = useGameStore((s) => s.role);
+  const testMode = useGameStore((s) => s.testMode);
+  const ownToken = useCallback(
+    (t: Token) => canControlTokenWith({ role, testMode, selfId, currentCharacterId }, t, selfName),
+    [role, testMode, selfId, currentCharacterId, selfName]
+  );
 
   useEffect(() => {
     if (!wallsMode.active) {
@@ -177,7 +186,7 @@ export default function TableTop() {
 
   const veilRects = useMemo(() => {
     const map = activeMap;
-    if (!map || !map.vision.los || isDm) return null;
+    if (!map || isDm) return null;
     const visible = visibleCells({
       width: map.width,
       height: map.height,
@@ -185,7 +194,7 @@ export default function TableTop() {
       offsetX: map.fog.offsetX,
       offsetY: map.fog.offsetY,
       walls: map.walls,
-      viewers: partyViewers(map.tokens, map.vision.darkness),
+      viewers: visionViewers(map.tokens, map.vision.darkness, map.vision.los, ownToken),
     });
     if (visible === null) return null;
     const cols = Math.ceil(map.width / map.fog.size);
@@ -203,7 +212,7 @@ export default function TableTop() {
       }
     }
     return rects;
-  }, [activeMap, isDm, hiddenSet]);
+  }, [activeMap, isDm, hiddenSet, ownToken]);
 
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;

@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import type { Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
-import { useIsDm } from '../lib/control';
+import { canControlTokenWith, characterNameOf, useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
-import { partyViewers, visibleCells } from '../lib/los';
+import { visibleCells, visionViewers } from '../lib/los';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 
@@ -14,8 +15,17 @@ export default function ConditionsOverlay() {
   const spellByKey = useSpellByKey();
   const map = useActiveMap();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
+  const selfId = useGameStore((s) => s.selfId);
+  const role = useGameStore((s) => s.role);
+  const testMode = useGameStore((s) => s.testMode);
+  const ownToken = useCallback(
+    (t: Token) => canControlTokenWith({ role, testMode, selfId, currentCharacterId }, t, selfName),
+    [role, testMode, selfId, currentCharacterId, selfName]
+  );
   const veil = useMemo(() => {
-    if (!map || !map.vision.los || isDm) return null;
+    if (!map || isDm) return null;
     return visibleCells({
       width: map.width,
       height: map.height,
@@ -23,9 +33,9 @@ export default function ConditionsOverlay() {
       offsetX: map.fog.offsetX,
       offsetY: map.fog.offsetY,
       walls: map.walls,
-      viewers: partyViewers(map.tokens, map.vision.darkness),
+      viewers: visionViewers(map.tokens, map.vision.darkness, map.vision.los, ownToken),
     });
-  }, [map, isDm]);
+  }, [map, isDm, ownToken]);
 
   const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.some((e) => !e.hidden));
   if (!tokens.length) return null;
