@@ -46,9 +46,9 @@ const readJson = (file) => {
     return null;
   }
 };
-// Запись с дебаунсом: ждём появления файлов (~5 с после последнего события).
-for (let i = 0; i < 40 && !fs.existsSync(savedFile); i++) await sleep(250);
-let persisted = readJson(savedFile);
+// Запись с дебаунсом: просим сервер сбросить отложенные файлы (детерминированно, без ожидания).
+await ack((cb) => S.dm.emit('admin:flush', { adminToken: '' }, cb));
+const persisted = readJson(savedFile);
 check(!!persisted, 'room persisted to disk');
 if (persisted) {
   check(persisted.name === 'Переименованная', 'название комнаты persisted');
@@ -70,11 +70,7 @@ if (persisted) {
   );
   check(persisted.chat === undefined, 'чат вынесен из файла комнаты');
 }
-let persistedChat = readJson(chatFile);
-for (let i = 0; i < 40 && !persistedChat; i++) {
-  await sleep(250);
-  persistedChat = readJson(chatFile);
-}
+const persistedChat = readJson(chatFile);
 check(Array.isArray(persistedChat) && persistedChat.length >= 2, 'чат persisted отдельным файлом');
 
 const delRoomCode = adminCreated.room.code;

@@ -94,6 +94,15 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       cb({ ok: true });
     });
 
+    ctx.on('admin:flush', async ({ adminToken }, cb) => {
+      if (!adminTokenOk(adminToken)) {
+        cb({ error: 'Неверный пароль ведущего' });
+        return;
+      }
+      await manager.flushSaves();
+      cb({ ok: true });
+    });
+
     ctx.on('admin:delete', ({ adminToken, code }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: 'Неверный пароль ведущего' });

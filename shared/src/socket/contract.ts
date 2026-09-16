@@ -174,5 +174,10 @@ export interface ClientToServerEvents {
     payload: { adminToken: string; code: string; name: string },
     cb: (res: { ok: true } | { error: string }) => void
   ) => void;
+  /** Записать отложенные сохранения комнат на диск (смоук/админ). */
+  'admin:flush': (
+    payload: { adminToken: string },
+    cb: (res: { ok: true } | { error: string }) => void
+  ) => void;
   'ping': () => void;
 }

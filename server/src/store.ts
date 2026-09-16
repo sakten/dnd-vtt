@@ -21,7 +21,7 @@ export async function ensureDirs() {
 
 export interface RoomRepository {
   loadAll(): Promise<PersistedRoom[]>;
-  /** Сохранить с дебаунсом: комната и чат — раздельными файлами (по умолчанию 5 с). */
+  /** Сохранить с дебаунсом: комната и чат — раздельными файлами (по умолчанию 2 мин, env). */
   save(code: string, snapshot: () => PersistedRoom, chat?: () => PersistedRoom['chat']): void;
   /** Отменить отложенные записи и удалить файлы комнаты (включая чат). */
   remove(code: string): void;

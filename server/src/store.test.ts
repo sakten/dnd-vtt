@@ -77,7 +77,7 @@ describe('roomRepository', () => {
       await expect(readFile(path.join(dir, 'TEST1.json'))).rejects.toThrow();
       await expect(readFile(path.join(dir, 'TEST1.chat.json'))).rejects.toThrow();
     } finally {
-      await rm(dir, { recursive: true, force: true });
+      await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     }
   });
 
@@ -90,7 +90,7 @@ describe('roomRepository', () => {
       await repo.flush();
       await expect(readFile(path.join(dir, 'T2.chat.json'))).rejects.toThrow();
     } finally {
-      await rm(dir, { recursive: true, force: true });
+      await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     }
   });
 });
