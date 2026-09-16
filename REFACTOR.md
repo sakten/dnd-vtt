@@ -7,10 +7,10 @@
 > **Правило тестов:** количество не растёт; новые — только «самые необходимые», вместо устаревших.
 > **Порядок дальше:** движок restrictions → зоны → призывы (сделаны; хвосты — в карточках).
 
-## R7.3. Оптимистичные апдейты без единого идиома и отката. P1, M/L.
-Локальные патчи: `store/slices/tokens.ts:76-90,126-140`, `library.ts:12-21`, `maps.ts:51-67`, `sheet.ts:17-20`; fire-and-forget: `actions.ts:24-30`, `combat.ts:9-29`, `sheet.ts:13-15`; подтверждение иногда игнорируется (`tokens.ts:56-57` — серверный `token:update` дропается во время драга). Единственный канал ошибки — чат (`chat.ts:23-28`): отказ молча расходится со стейтом.
-**Что сделать:** `mutate(event, { optimistic, rollbackOn })` с pending-id и общим `*:error`/ack; внедрять послайсово.
-**Зачем:** каждая новая мутация сейчас заново решает «оптимистично или нет» и изобретает откат.
+## R7.3. Оптимистичные апдейты без единого идиома и отката. P2, M (частично закрыто).
+Сделано (`617628f`): `store/optimistic.ts` — `beginOptimistic(get, key, rollback, message)` / `settleOptimistic(Prefix)` / `clearOptimistic`; подтверждение — доменное эхо, таймаут 4 с → откат + `chatError`. Мигрированы: `tokens.setTokenFields` (ключ `token:update:<id>`), `sheet.updateResources`, `library.updateLibraryItem`; ожидания сбрасываются при дисконнекте/смене комнаты.
+Осталось послайсово: `maps.ts` (`updateFog`/`updateWalls`/`updateVision`/`updateAreas` — троттлинг, ключ по mapId); fire-and-forget `actions.ts`/`combat.ts` (оптимизма нет — нужен канал ошибки, не откат); буфер серверного `token:update` во время драга (`tokens.ts`).
+**Что сделать:** распространить идиом на остальные мутации; при появлении ack в контракте заменить эхо-подтверждение точным ack.
 
 ## R7.5. `TableTop` смешивает Konva-ввод, туман, камеру и рендер. P2, M.
 Геометрия кисти тумана: `TableTop.tsx:133-140,142-182,184-191`, mouse-хендлеры `:219-268`, `rectPreview`; камера `:198-217`; drop `:284-317`; линейка `:111-118,451-472`; оверлеи `:64-109,384-449`. Фильтр токенов для тумана дублирует логику `ConditionsOverlay.tsx:18-29`.
@@ -39,9 +39,9 @@
 `TokenMenu.tsx:57-83` и `TokenPanel.tsx:36-55` вручную копируют 13 полей; `CharacterSheetModal.tsx:34-45` — правила листа в компоненте; сброс черновиков держится на `eslint-disable` deps.
 **Что сделать:** `useDraft(open, value, toDraft, fromDraft)` + один `tokenFieldsFrom(token)`; поля — из реестра R8.2.
 
-## R9.1. Нет тестов компонентов; логика заперта в них. P1, M.
-`client/vitest.config.ts:4-6`: `environment: 'node'`, только `src/**/*.test.ts`; нет jsdom/@testing-library; все UI-сценарии — только Puppeteer (~60–85 с). Тестируемые правила в компонентах: `ActionPanel.canSpend:160-168`, `SpellPopover.submit:76-114`, `RollMenu.applyAdvantage:23-27`.
-**Что сделать:** вынести правила в `lib/` (см. R7.2), добавить jsdom + Testing Library для модалок/панелей, `data-testid` на e2e-критичных узлах.
+## R9.1. Нет тестов компонентов; логика заперта в них. P2, M (частично закрыто).
+Сделано (`617628f`): `client/vitest.config.ts` — проекты `node`/`ui` (jsdom + Testing Library + jest-dom, `src/test/setup.ts`); первые тесты: `SensesForm` (5), `ConditionChips` (4); `advantagedExpression` вынесена из `RollMenu` в `lib/rollMode.ts` с тестом (правило `canSpendSlot` уже в `lib/actionRules.ts`, R7.2).
+Осталось: тесты модалок/панелей со стором (`CharacterSheetModal`, `SpellsPanel`, `TokenMenu`, `ActionPanel`), `data-testid` на e2e-критичных узлах (пересекается с R7.9).
 **Зачем:** сейчас любая правка UI-правила проверяется только полным e2e.
 
 ## R9.2. Smoke: сценарии не самодостаточны, покрытие реакций дырявое. P2, M.
