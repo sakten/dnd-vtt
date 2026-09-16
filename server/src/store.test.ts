@@ -73,7 +73,7 @@ describe('roomRepository', () => {
       expect(reloaded).toHaveLength(1);
       expect(reloaded[0]!.chat).toEqual(room.chat);
 
-      repo.remove(room.code);
+      await repo.remove(room.code);
       await expect(readFile(path.join(dir, 'TEST1.json'))).rejects.toThrow();
       await expect(readFile(path.join(dir, 'TEST1.chat.json'))).rejects.toThrow();
     } finally {

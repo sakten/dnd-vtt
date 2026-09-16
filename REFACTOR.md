@@ -41,7 +41,7 @@
 
 ## R9.1. Нет тестов компонентов; логика заперта в них. P2, M (частично закрыто).
 Сделано (`617628f`): `client/vitest.config.ts` — проекты `node`/`ui` (jsdom + Testing Library + jest-dom, `src/test/setup.ts`); первые тесты: `SensesForm` (5), `ConditionChips` (4); `advantagedExpression` вынесена из `RollMenu` в `lib/rollMode.ts` с тестом (правило `canSpendSlot` уже в `lib/actionRules.ts`, R7.2).
-Осталось: тесты модалок/панелей со стором (`CharacterSheetModal`, `SpellsPanel`, `TokenMenu`, `ActionPanel`), `data-testid` на e2e-критичных узлах (пересекается с R7.9).
+Осталось: тесты `SpellsPanel`/`FeatsForm` (ленивые данные заклинаний), `data-testid` на e2e-критичных узлах (пересекается с R7.9).
 **Зачем:** сейчас любая правка UI-правила проверяется только полным e2e.
 
 ## R9.2. Smoke: сценарии не самодостаточны, покрытие реакций дырявое. P2, M.

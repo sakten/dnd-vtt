@@ -24,7 +24,7 @@ export interface RoomRepository {
   /** Сохранить с дебаунсом: комната и чат — раздельными файлами (по умолчанию 2 мин, env). */
   save(code: string, snapshot: () => PersistedRoom, chat?: () => PersistedRoom['chat']): void;
   /** Отменить отложенные записи и удалить файлы комнаты (включая чат). */
-  remove(code: string): void;
+  remove(code: string): Promise<void>;
   /** Записать все отложенные комнаты и чаты (остановка сервера). */
   flush(): Promise<void>;
 }
@@ -131,8 +131,10 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
         chatTimers.delete(code);
       }
       lastChat.delete(code);
-      fs.unlink(roomPath(code)).catch(() => void 0);
-      fs.unlink(chatPath(code)).catch(() => void 0);
+      return Promise.all([
+        fs.unlink(roomPath(code)).catch(() => void 0),
+        fs.unlink(chatPath(code)).catch(() => void 0),
+      ]).then(() => void 0);
     },
     async flush() {
       const pending = [...roomTimers.entries()];

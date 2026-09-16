@@ -219,6 +219,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
                   type="number"
                   min={0}
                   max={30}
+                  aria-label={a.name}
                   value={draft.abilities[a.key]}
                   onChange={(e) => setAbility(a.key, e.target.valueAsNumber)}
                 />
