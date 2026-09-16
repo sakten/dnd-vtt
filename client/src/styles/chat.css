@@ -156,10 +156,10 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  font-size: 14px;
+  font-size: calc(16px * var(--chat-scale));
   font-weight: 700;
   color: var(--accent);
-  padding: 3px 4px;
+  padding: calc(3px * var(--chat-scale)) calc(4px * var(--chat-scale));
   background: var(--panel);
 }
 
