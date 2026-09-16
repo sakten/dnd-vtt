@@ -489,7 +489,7 @@ export class RoomManager {
   }
 
   saveSoon(room: Room) {
-    this.repo.save(room.code, () => toPersistedRoom(room));
+    this.repo.save(room.code, () => toPersistedRoom(room), () => room.chat);
   }
 
   /** Записать все отложенные комнаты (остановка сервера). */

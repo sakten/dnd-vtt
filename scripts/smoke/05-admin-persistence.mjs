@@ -35,10 +35,20 @@ check(
   'админ входит в новую игру как ведущий'
 );
 
-await sleep(1500);
-const savedFile = path.resolve('server/data/rooms', `${S.created.room.code}.json`);
-let persisted = null;
-if (fs.existsSync(savedFile)) persisted = JSON.parse(fs.readFileSync(savedFile, 'utf8'));
+const roomsDir = path.resolve('server/data/rooms');
+const savedFile = path.join(roomsDir, `${S.created.room.code}.json`);
+const chatFile = path.join(roomsDir, `${S.created.room.code}.chat.json`);
+const readJson = (file) => {
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+// Запись с дебаунсом: ждём появления файлов (~5 с после последнего события).
+for (let i = 0; i < 40 && !fs.existsSync(savedFile); i++) await sleep(250);
+let persisted = readJson(savedFile);
 check(!!persisted, 'room persisted to disk');
 if (persisted) {
   check(persisted.name === 'Переименованная', 'название комнаты persisted');
@@ -58,8 +68,14 @@ if (persisted) {
       persisted.resources['smoke-p1'].hitDice?.[0]?.current === 2,
     'resources persisted'
   );
-  check(persisted.chat.length >= 2, 'chat persisted');
+  check(persisted.chat === undefined, 'чат вынесен из файла комнаты');
 }
+let persistedChat = readJson(chatFile);
+for (let i = 0; i < 40 && !persistedChat; i++) {
+  await sleep(250);
+  persistedChat = readJson(chatFile);
+}
+check(Array.isArray(persistedChat) && persistedChat.length >= 2, 'чат persisted отдельным файлом');
 
 const delRoomCode = adminCreated.room.code;
 const deletedEventPromise = eventOnce(S.dm, 'room:deleted');
@@ -68,14 +84,16 @@ await deletedEventPromise;
 const listAfter = await ack((cb) => S.player.emit('admin:list', { adminToken: '' }, cb));
 check(!listAfter.rooms.some((r) => r.code === delRoomCode), 'комната удалена из списка');
 await sleep(500);
-const delFile = path.resolve('server/data/rooms', `${delRoomCode}.json`);
-check(!fs.existsSync(delFile), 'файл комнаты удалён с диска');
+const delFile = path.join(roomsDir, `${delRoomCode}.json`);
+const delChatFile = path.join(roomsDir, `${delRoomCode}.chat.json`);
+check(!fs.existsSync(delFile) && !fs.existsSync(delChatFile), 'файлы комнаты и чата удалены с диска');
 
 if (S.uploadedDir) check(fs.existsSync(S.uploadedDir), 'папка загрузок комнаты существует до удаления');
 await ack((cb) => S.player.emit('admin:delete', { adminToken: '', code: S.created.room.code }, cb));
 await sleep(500);
-const room1File = path.resolve('server/data/rooms', `${S.created.room.code}.json`);
-check(!fs.existsSync(room1File), 'тестовая комната удалена после теста (файл стёрт)');
+const room1File = path.join(roomsDir, `${S.created.room.code}.json`);
+const room1ChatFile = path.join(roomsDir, `${S.created.room.code}.chat.json`);
+check(!fs.existsSync(room1File) && !fs.existsSync(room1ChatFile), 'тестовая комната удалена после теста (файлы стёрты)');
 if (S.uploadedDir) check(!fs.existsSync(S.uploadedDir), 'папка загрузок комнаты удалена вместе с комнатой');
 
 S.dm.close();
