@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
+import { Stage, Layer, Rect, Group, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
 import type { LightArea, MapInfo, Token, Wall } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
@@ -24,6 +24,28 @@ function MapSprite({ map }: { map: MapInfo }) {
 interface WorldPoint {
   x: number;
   y: number;
+}
+
+/** Бледная копия токена на месте начала перетаскивания. */
+function TokenGhost({ token, x, y }: { token: Token; x: number; y: number }) {
+  const image = useImage(token.imageUrl);
+  return (
+    <Group
+      x={x}
+      y={y}
+      scaleX={token.scale}
+      scaleY={token.scale}
+      rotation={token.rotation}
+      opacity={0.35}
+      listening={false}
+    >
+      {image ? (
+        <KonvaImage image={image} width={token.w} height={token.h} offsetX={token.w / 2} offsetY={token.h / 2} />
+      ) : (
+        <Rect x={-token.w / 2} y={-token.h / 2} width={token.w} height={token.h} fill="#3a4150" />
+      )}
+    </Group>
+  );
 }
 
 const cellIndex = (v: number, offset: number, size: number) => Math.floor((v - offset) / size);
@@ -732,19 +754,7 @@ export default function TableTop() {
               (() => {
                 const ghost = activeMap.tokens.find((t) => t.id === dragGhost.id);
                 if (!ghost) return null;
-                return (
-                  <Rect
-                    x={dragGhost.x - ghost.w / 2}
-                    y={dragGhost.y - ghost.h / 2}
-                    width={ghost.w}
-                    height={ghost.h}
-                    stroke="#ffffff"
-                    strokeWidth={2 / view.scale}
-                    dash={[8 / view.scale, 6 / view.scale]}
-                    opacity={0.45}
-                    listening={false}
-                  />
-                );
+                return <TokenGhost token={ghost} x={dragGhost.x} y={dragGhost.y} />;
               })()}
             {dragPath && dragPath.points.length > 1 && (
               <>
