@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { rollMessageLabel, type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
+import { useDragSize } from '../lib/useDragSize';
 import RollMenu from './RollMenu';
 import CharacterSheetModal from './CharacterSheetModal';
 import PlayersDrawer from './PlayersDrawer';
@@ -21,7 +22,7 @@ function DieIcon({ sides, value, dropped }: { sides: number; value: number; drop
   if (sides === 20 && value === 20) fill = '#4ecb71';
   else if (sides === 20 && value === 1) fill = '#ff6b6b';
   return (
-    <svg className="die-icon" viewBox="-16 -16 32 32" width="28" height="28" opacity={dropped ? 0.55 : 1}>
+    <svg className="die-icon" viewBox="-16 -16 32 32" width="26" height="26" opacity={dropped ? 0.55 : 1}>
       <polygon points={points} fill={fill} stroke="#7c9cff" strokeWidth="1.5" />
       {dropped && <line x1="-14" y1="-14" x2="14" y2="14" stroke="#ff6b6b" strokeWidth="3" />}
       <text x="0" y="4.5" textAnchor="middle" fontSize="11" fontWeight="700" fill="#ffffff">
@@ -87,12 +88,12 @@ function formulaFromRoll(roll: DiceRollResult): string {
   return out;
 }
 
-function MessageView({ message }: { message: ChatMessage }) {
+function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boolean }) {
   const rollDice = useGameStore((s) => s.rollDice);
   if (message.kind === 'text') {
     return (
-      <div className="chat-msg">
-        <span className="chat-author">{message.author}:</span>
+      <div className={`chat-msg${grouped ? ' grouped' : ''}`}>
+        {!grouped && <span className="chat-author">{message.author}:</span>}
         <span className="chat-text"> {message.text}</span>
       </div>
     );
@@ -106,15 +107,15 @@ function MessageView({ message }: { message: ChatMessage }) {
 
   return (
     <div
-      className={`chat-msg roll roll-card ${labelType}`}
-      title="Клик — повторить бросок"
+      className={`chat-msg roll roll-card ${labelType}${grouped ? ' grouped' : ''}`}
+      title={label ? `${label} · клик — повторить бросок` : 'Клик — повторить бросок'}
       onClick={() => rollDice(message.roll.expression, label)}
     >
-      <div className="roll-head-left">{message.author}</div>
-      <div className="roll-head-divider" />
-      <div className="roll-head-right">
-        {label && <span className="roll-label">{label}</span>}
-      </div>
+      {label && (
+        <div className="roll-label-row">
+          <span className="roll-label">{label}</span>
+        </div>
+      )}
       <div className={`roll-total-big ${crit ?? ''}`}>{message.roll.total}</div>
       <div className="roll-divider" />
       <div className="roll-right-col">
@@ -150,11 +151,27 @@ export default function ChatPanel() {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const clampWidth = useCallback(
+    (v: number) => Math.max(300, Math.min(v, Math.min(900, window.innerWidth - 320))),
+    []
+  );
+  const measureWidth = useCallback(() => panelRef.current?.offsetWidth ?? 360, []);
+  const {
+    size: panelWidth,
+    onPointerDown: onResizeDown,
+    onPointerMove: onResizeMove,
+  } = useDragSize('vtt-chat-width', 'x', clampWidth, 360, measureWidth);
 
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat.length, chatError]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--chat-w', `${panelWidth ?? 360}px`);
+  }, [panelWidth]);
 
   const send = () => {
     if (!text.trim()) return;
@@ -191,8 +208,28 @@ export default function ChatPanel() {
     }
   };
 
+  // Серии подряд от одного автора: имя — один заголовок на серию (системные не разрывают).
+  const groups: { key: string; author?: string; items: ChatMessage[] }[] = [];
+  for (const m of chat) {
+    const last = groups[groups.length - 1];
+    if (m.author === 'Система') {
+      if (last) last.items.push(m);
+      else groups.push({ key: m.id, items: [m] });
+      continue;
+    }
+    if (last?.author === m.author) last.items.push(m);
+    else groups.push({ key: m.id, author: m.author, items: [m] });
+  }
+
+  const chatScale = Math.min(1.8, Math.max(0.9, (panelWidth ?? 360) / 360));
+  const panelStyle = {
+    ...(panelWidth != null ? { width: panelWidth } : {}),
+    '--chat-scale': String(chatScale),
+  } as React.CSSProperties;
+
   return (
-    <div className="chat-panel">
+    <div className="chat-panel" ref={panelRef} style={panelStyle}>
+      <div className="chat-resizer" onPointerDown={onResizeDown} onPointerMove={onResizeMove} />
       <div className="chat-header">
         <strong title={`${roomName ?? ''} (${roomCode ?? ''})`}>Комната: {roomName || shortCode}</strong>
         <div className="chat-header-actions">
@@ -205,8 +242,13 @@ export default function ChatPanel() {
         </div>
       </div>
       <div className="chat-messages" ref={listRef}>
-        {chat.map((m) => (
-          <MessageView key={m.id} message={m} />
+        {groups.map((g) => (
+          <div className="chat-group" key={g.key}>
+            {g.author && <div className="chat-group-author">{g.author}</div>}
+            {g.items.map((m) => (
+              <MessageView key={m.id} message={m} grouped={!!g.author} />
+            ))}
+          </div>
         ))}
         {chatError && <div className="chat-error">{chatError}</div>}
       </div>

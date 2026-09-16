@@ -4,12 +4,28 @@
   right: 0;
   bottom: 0;
   width: 360px;
+  --chat-scale: 1;
   background: var(--panel);
   border-left: 1px solid var(--panel-border);
   display: flex;
   flex-direction: column;
   z-index: 10;
   overflow: hidden;
+}
+
+.chat-resizer {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.chat-resizer:hover,
+.chat-resizer:active {
+  background: rgba(124, 156, 255, 0.3);
 }
 
 .chat-header {
@@ -110,20 +126,41 @@
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .chat-msg {
   background: #1c2026;
   border: 1px solid #2a3039;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: calc(8px * var(--chat-scale)) calc(10px * var(--chat-scale));
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.4;
   word-break: break-word;
+}
+
+.chat-msg.grouped {
+  margin-left: 16px;
+}
+
+.chat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-group-author {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 3px 4px;
+  background: var(--panel);
 }
 
 .chat-author {
@@ -144,32 +181,19 @@
   cursor: pointer;
   display: grid;
   grid-template-columns: auto 1px 1fr;
-  column-gap: 10px;
-  row-gap: 5px;
+  column-gap: calc(10px * var(--chat-scale));
+  row-gap: calc(5px * var(--chat-scale));
   align-items: center;
 }
 
-.roll-head-left {
-  font-size: 11px;
-  color: var(--text-dim);
-  font-weight: 600;
-  text-align: center;
-  word-break: break-word;
-}
-
-.roll-head-divider {
-  width: 1px;
-  align-self: stretch;
-}
-
-.roll-head-right {
-  display: flex;
-  justify-content: flex-start;
+.roll-label-row {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .roll-formula {
   font-family: Consolas, monospace;
-  font-size: 13px;
+  font-size: calc(13px * var(--chat-scale));
   color: var(--text);
   word-break: break-word;
 }
@@ -178,16 +202,16 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: calc(5px * var(--chat-scale));
 }
 
 .roll-total-big {
   font-family: Consolas, monospace;
-  font-size: 38px;
+  font-size: calc(32px * var(--chat-scale));
   font-weight: 800;
   line-height: 1;
   color: var(--text);
-  min-width: 64px;
+  min-width: calc(52px * var(--chat-scale));
   text-align: center;
   justify-self: center;
 }
@@ -208,14 +232,16 @@
 
 .die-icon {
   display: block;
+  width: calc(26px * var(--chat-scale));
+  height: calc(26px * var(--chat-scale));
 }
 
 .roll-terms {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
-  max-width: 160px;
+  gap: calc(4px * var(--chat-scale));
+  max-width: calc(160px * var(--chat-scale));
   min-width: 0;
 }
 
@@ -237,7 +263,12 @@
 }
 
 .roll-label {
-  font-size: 11px;
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(12px * var(--chat-scale));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
