@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee } from './vision';
+import { canSee, zoneVisionCells, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -89,6 +90,37 @@ describe('canSee: области', () => {
     expect(canSee(from, target, devilsight, { ...SIGHT, areas: area('obscured') })).toBe(false);
     expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('obscured') })).toBe(true);
     expect(canSee(from, target, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(false);
+  });
+});
+
+describe('вижн-зоны заклинаний', () => {
+  const grid = { size: 50, offsetX: 0, offsetY: 0 };
+  const zone = (flags: ZoneInstance['flags'], size = 20): ZoneInstance => ({
+    id: 'z1',
+    name: 'Z',
+    sourceKey: 'k',
+    sourceId: 's',
+    origin: { x: 125, y: 75 },
+    area: { shape: 'sphere', size },
+    duration: { type: 'rounds', rounds: 10 },
+    flags,
+  });
+
+  it('blocksLight — магическая тьма, obscured heavy — мгла, light — без эффекта', () => {
+    expect(zoneVisionKindAt([zone({ blocksLight: true })], { x: 125, y: 75 }, grid)).toBe('magical');
+    expect(zoneVisionKindAt([zone({ obscured: 'heavy' })], { x: 125, y: 75 }, grid)).toBe('obscured');
+    expect(zoneVisionKindAt([zone({ obscured: 'light' })], { x: 125, y: 75 }, grid)).toBeNull();
+    expect(zoneVisionKindAt([zone({ difficultTerrain: true })], { x: 125, y: 75 }, grid)).toBeNull();
+  });
+
+  it('клетки вижн-зон и canSee учитывают зону', () => {
+    const cells = zoneVisionCells([zone({ blocksLight: true }, 15)], grid);
+    expect(cells.get('2,1')).toBe('magical');
+    const zones = [zone({ blocksLight: true }, 15)];
+    const darkvision: Sense[] = [{ type: 'darkvision', range: 60 }];
+    const devilsight: Sense[] = [{ type: 'devilsight', range: 60 }];
+    expect(canSee({ x: 25, y: 75 }, { x: 125, y: 75 }, darkvision, { ...SIGHT, zones })).toBe(false);
+    expect(canSee({ x: 25, y: 75 }, { x: 125, y: 75 }, devilsight, { ...SIGHT, zones })).toBe(true);
   });
 });
 

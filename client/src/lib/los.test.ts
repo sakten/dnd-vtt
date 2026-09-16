@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { visionRadiiCells, type LightArea, type Sense, type Token, type Wall } from 'shared';
+import {
+  visionRadiiCells,
+  type LightArea,
+  type Sense,
+  type Token,
+  type Wall,
+  type ZoneInstance,
+} from 'shared';
 import { visionViewers, visibleCells } from './los';
 
 const VISION_BASE = {
@@ -11,6 +18,7 @@ const VISION_BASE = {
   walls: [] as Wall[],
   darkness: false,
   areas: [] as LightArea[],
+  zones: [] as ZoneInstance[],
 };
 
 const viewer = (x: number, y: number, senses: Sense[] = []) => ({ x, y, senses });
@@ -184,6 +192,31 @@ describe('visibleCells', () => {
     });
     expect(devilsight?.has('0,1')).toBe(true);
     expect(devilsight?.has('3,1')).toBe(true);
+  });
+
+  it('вижн-зона заклинания: магическая тьма (Darkness)', () => {
+    const darkness: ZoneInstance = {
+      id: 'z1',
+      name: 'Darkness',
+      sourceKey: 'XPHB:Darkness',
+      sourceId: 's1',
+      origin: { x: 125, y: 75 },
+      area: { shape: 'sphere', size: 15 },
+      duration: { type: 'concentration' },
+      flags: { blocksLight: true },
+    };
+    const devilsight = visibleCells({
+      ...VISION_BASE,
+      zones: [darkness],
+      viewers: [viewer(25, 75, [{ type: 'devilsight', range: 60 }])],
+    });
+    expect(devilsight?.has('2,1')).toBe(true);
+    const darkvision = visibleCells({
+      ...VISION_BASE,
+      zones: [darkness],
+      viewers: [viewer(25, 75, [{ type: 'darkvision', range: 60 }])],
+    });
+    expect(darkvision?.has('2,1')).toBe(false);
   });
 
   it('обзор зрителей объединяется', () => {

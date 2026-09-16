@@ -210,6 +210,16 @@ describe('automationForSpell', () => {
     expect(cloud.zone?.flags?.obscured).toBe('heavy');
   });
 
+  it('Darkness и Fog Cloud: зоны с вижн-флагами', () => {
+    const darkness = automationForSpell(makeSpell({ key: 'XPHB:Darkness', name: 'Darkness', automation: 'manual' }));
+    expect(darkness.zone?.area).toEqual({ shape: 'sphere', size: 15 });
+    expect(darkness.zone?.flags?.blocksLight).toBe(true);
+
+    const fog = automationForSpell(makeSpell({ key: 'XPHB:Fog Cloud', name: 'Fog Cloud', automation: 'manual' }));
+    expect(fog.zone?.area).toEqual({ shape: 'sphere', size: 20 });
+    expect(fog.zone?.flags?.obscured).toBe('heavy');
+  });
+
   it('Mirror Image: каталог даёт образы с зарядами', () => {
     const def = automationForSpell(
       makeSpell({ key: 'XPHB:Mirror Image', name: 'Mirror Image', automation: 'manual' })

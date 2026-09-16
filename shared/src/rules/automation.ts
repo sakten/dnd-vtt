@@ -314,7 +314,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     },
   ], { ability: 'wis' }),
   // Hunger of Hadar: сфера 20; «полностью внутри» — слепота (аура), урон по
-  // триггерам (начало хода — холод, конец — спас DEX и кислота). Свет/тьма — TODO вижн.
+  // триггерам (начало хода — холод, конец — спас DEX и кислота). Магическая тьма —
+  // `flags.blocksLight` (учитывается вижном).
   'XPHB:Hunger of Hadar': {
     key: 'XPHB:Hunger of Hadar',
     name: 'Hunger of Hadar',
@@ -398,6 +399,32 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       triggers: {
         startOfTurn: { save: { ability: 'con' }, effects: [STINKING_POISONED] },
       },
+      flags: { obscured: 'heavy' },
+    },
+  },
+  // Darkness: магическая тьма (сфера 15); Fog Cloud: сильное заслонение (сфера 20).
+  // Вижн-эффект — через флаги зоны (`blocksLight` / `obscured: heavy`).
+  'XPHB:Darkness': {
+    key: 'XPHB:Darkness',
+    name: 'Darkness',
+    resolution: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { blocksLight: true },
+    },
+  },
+  'XPHB:Fog Cloud': {
+    key: 'XPHB:Fog Cloud',
+    name: 'Fog Cloud',
+    resolution: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
       flags: { obscured: 'heavy' },
     },
   },

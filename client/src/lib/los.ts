@@ -1,12 +1,15 @@
 import {
+  areaCellKey,
   areaKindAt,
   crossesWalls,
   strongestKind,
   visionRadiiCells,
+  zoneVisionCells,
   type LightArea,
   type LightAreaKind,
   type Token,
   type Wall,
+  type ZoneInstance,
 } from 'shared';
 
 export interface Viewer {
@@ -25,6 +28,8 @@ export interface VisionInput {
   walls: Wall[];
   darkness: boolean;
   areas: LightArea[];
+  /** Активные зоны заклинаний (вижн по флагам). */
+  zones: ZoneInstance[];
   viewers: Viewer[];
 }
 
@@ -42,15 +47,19 @@ export function visionViewers(tokens: Token[], merge: boolean, isOwn: (token: To
  * ограничивает дальность по восприятию (Чёбышёв по клеткам). Нет зрителей — null.
  */
 export function visibleCells(input: VisionInput): Set<string> | null {
-  const { width, height, cellSize, offsetX, offsetY, walls, darkness, areas, viewers } = input;
+  const { width, height, cellSize, offsetX, offsetY, walls, darkness, areas, zones, viewers } = input;
   if (viewers.length === 0) return null;
   const cols = Math.max(0, Math.ceil(width / cellSize));
   const rows = Math.max(0, Math.ceil(height / cellSize));
+  const zoneCells = zoneVisionCells(zones, { size: cellSize, offsetX, offsetY });
   const visible = new Set<string>();
   for (const viewer of viewers) {
     const vcx = Math.floor((viewer.x - offsetX) / cellSize);
     const vcy = Math.floor((viewer.y - offsetY) / cellSize);
-    const viewerKind = areaKindAt(areas, { x: viewer.x, y: viewer.y });
+    const viewerKind = strongestKind(
+      areaKindAt(areas, { x: viewer.x, y: viewer.y }),
+      zoneCells.get(areaCellKey(vcx, vcy)) ?? null
+    );
     const radiiByKind = new Map<LightAreaKind | null, (number | null)[]>();
     const radiiFor = (kind: LightAreaKind | null): (number | null)[] => {
       let radii = radiiByKind.get(kind);
@@ -69,7 +78,7 @@ export function visibleCells(input: VisionInput): Set<string> | null {
           y: offsetY + cy * cellSize + cellSize / 2,
         };
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
-        const kind = strongestKind(viewerKind, areaKindAt(areas, center));
+        const kind = strongestKind(viewerKind, strongestKind(areaKindAt(areas, center), zoneCells.get(key) ?? null));
         if (!kind && !darkness) {
           visible.add(key);
           continue;

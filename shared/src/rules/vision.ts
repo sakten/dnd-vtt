@@ -1,5 +1,7 @@
+import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
+import { areaCellKey, areaCells, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
 
 export interface SightContext {
@@ -12,6 +14,44 @@ export interface SightContext {
   offsetY: number;
   /** Области тьмы/магической тьмы/мглы. */
   areas?: LightArea[];
+  /** Активные зоны заклинаний (тьма/мгла по флагам). */
+  zones?: ZoneInstance[];
+}
+
+/** Вижн-вид зоны по флагам: `blocksLight` — магическая тьма, `obscured: heavy` — мгла. */
+export function zoneVisionKind(zone: ZoneInstance): LightAreaKind | null {
+  if (!zone.flags) return null;
+  if (zone.flags.blocksLight) return 'magical';
+  if (zone.flags.obscured === 'heavy') return 'obscured';
+  return null;
+}
+
+/** Клетки вижн-зон с их видами (для вуали: считается один раз на пересчёт). */
+export function zoneVisionCells(zones: ZoneInstance[], grid: AreaGrid): Map<string, LightAreaKind> {
+  const out = new Map<string, LightAreaKind>();
+  for (const zone of zones) {
+    const kind = zoneVisionKind(zone);
+    if (!kind) continue;
+    for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, grid)) {
+      const prev = out.get(key);
+      out.set(key, prev ? strongestKind(prev, kind) ?? kind : kind);
+    }
+  }
+  return out;
+}
+
+/** Вижн-вид зон в точке (для проверок по цели: атаки). */
+export function zoneVisionKindAt(zones: ZoneInstance[], point: Point, grid: AreaGrid): LightAreaKind | null {
+  const { cx, cy } = pointCell(point, grid);
+  const key = areaCellKey(cx, cy);
+  let kind: LightAreaKind | null = null;
+  for (const zone of zones) {
+    const zoneKind = zoneVisionKind(zone);
+    if (!zoneKind) continue;
+    const cells = areaCells(zone.area, zone.origin, zone.direction ?? null, grid);
+    if (cells.includes(key)) kind = strongestKind(kind, zoneKind);
+  }
+  return kind;
 }
 
 /** Вид области, накрывающей точку (первая по списку), иначе null. */
@@ -64,7 +104,14 @@ export function visionRadiiCells(
  */
 export function canSee(from: Point, target: Point, senses: Sense[] | undefined, ctx: SightContext): boolean {
   if (crossesWalls(from, target, ctx.walls, 'sight')) return false;
-  const kind = strongestKind(areaKindAt(ctx.areas ?? [], from), areaKindAt(ctx.areas ?? [], target));
+  const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
+  const kind = strongestKind(
+    strongestKind(areaKindAt(ctx.areas ?? [], from), areaKindAt(ctx.areas ?? [], target)),
+    strongestKind(
+      ctx.zones ? zoneVisionKindAt(ctx.zones, from, grid) : null,
+      ctx.zones ? zoneVisionKindAt(ctx.zones, target, grid) : null
+    )
+  );
   if (!kind && !ctx.darkness) return true;
   const size = ctx.cellSize || 50;
   const fromX = Math.floor((from.x - ctx.offsetX) / size);

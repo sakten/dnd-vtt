@@ -35,6 +35,7 @@ export default function ConditionsOverlay() {
       walls: map.walls,
       darkness: map.vision.darkness,
       areas: map.lightAreas,
+      zones: map.zones,
       viewers: visionViewers(map.tokens, map.vision.los, ownToken),
     });
   }, [map, isDm, ownToken]);

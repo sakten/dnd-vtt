@@ -204,6 +204,7 @@ export default function TableTop() {
       walls: map.walls,
       darkness: map.vision.darkness,
       areas: map.lightAreas,
+      zones: map.zones,
       viewers: visionViewers(map.tokens, map.vision.los, ownToken),
     });
     if (visible === null) return null;
