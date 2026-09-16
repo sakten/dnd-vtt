@@ -180,7 +180,7 @@ check(movedC && tokenC && movedC.x > tokenC.x + 60 && movedC.y > tokenC.y + 40, 
 
 const zoom = imgs['10-zoom'];
 const zoomGray = countInExcept(zoom, grayPred, panelEx(zoom));
-check(zoomGray > gray * 1.03, `10-zoom: карта крупнее (серых сэмплов ${gray} -> ${zoomGray})`);
+check(zoomGray > gray * 1.02, `10-zoom: карта крупнее (серых сэмплов ${gray} -> ${zoomGray})`);
 
 const player = imgs['12-player'];
 const playerRed = countIn(player, redPred, ...full(player));

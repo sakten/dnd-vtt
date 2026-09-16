@@ -6,7 +6,6 @@ import {
   canSee,
   movementBlocked,
   planWalk,
-  snapToGrid,
   statNumber,
   strongestKind,
   tokenSenses,
@@ -48,6 +47,7 @@ function TokenView({ token }: { token: Token }) {
   const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
   const lastRouteRef = useRef(0);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
   const displayPos = animPos ?? (moving && moving.points.length > 0 ? moving.points[0]! : null);
   const role = useGameStore((s) => s.role);
@@ -58,11 +58,6 @@ function TokenView({ token }: { token: Token }) {
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
   const dead = hpMax > 0 && token.hpCurrent <= 0;
-
-  const snap = (v: number, offset: number) => {
-    if (!grid.snap) return v;
-    return snapToGrid(v, offset, grid.size, token.cells);
-  };
 
   /** Путь токена: видимость, стены, союзники (×2), полная слепота — 1 клетка. */
   const computeRoute = (world: { x: number; y: number }): FoundPath | null => {
@@ -123,38 +118,42 @@ function TokenView({ token }: { token: Token }) {
     setSelected(token.id);
     setDragging(token.id);
     lockToken(token.id, true);
+    dragStartRef.current = { x: token.x, y: token.y };
     setDragGhost({ id: token.id, x: token.x, y: token.y });
     setDragPath(null);
   };
 
+  /** Курсор в мировых координатах (для маршрута при «пришпиленном» токене). */
+  const pointerWorld = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const stage = e.target.getStage();
+    const pointer = stage?.getPointerPosition();
+    if (!stage || !pointer) return null;
+    return { x: (pointer.x - stage.x()) / stage.scaleX(), y: (pointer.y - stage.y()) / stage.scaleY() };
+  };
+
   const onDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const nx = snap(e.target.x(), grid.offsetX);
-    const ny = snap(e.target.y(), grid.offsetY);
-    if (nx !== e.target.x()) e.target.x(nx);
-    if (ny !== e.target.y()) e.target.y(ny);
-    // Позиция в игре не меняется, пока токен держат: только превью маршрута.
+    // Токен остаётся на старте: двигаем цель, а не фигурку (иначе на отпускании прыжок назад).
+    const start = dragStartRef.current;
+    if (start) e.target.position({ x: start.x, y: start.y });
     const now = performance.now();
     if (now - lastRouteRef.current < 60) return;
+    const world = pointerWorld(e);
+    if (!world) return;
     lastRouteRef.current = now;
-    setDragPath(computeRoute({ x: e.target.x(), y: e.target.y() }));
+    setDragPath(computeRoute(world));
   };
 
   const onDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const st = useGameStore.getState();
-    const route = computeRoute({ x: e.target.x(), y: e.target.y() });
+    const world = pointerWorld(e);
+    const route = world ? computeRoute(world) : null;
     setDragging(null);
+    setDragGhost(null);
+    setDragPath(null);
     if (route) {
       startTokenWalk(token.id, route);
       return;
     }
-    const ghost = st.dragGhost;
-    if (ghost && ghost.id === token.id) {
-      e.target.position({ x: ghost.x, y: ghost.y });
-      moveToken(token.id, ghost.x, ghost.y);
-    }
     lockToken(token.id, false);
-    setDragGhost(null);
-    setDragPath(null);
   };
 
   const tokenRef = useRef(token);

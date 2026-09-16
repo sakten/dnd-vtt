@@ -177,6 +177,40 @@ await waitFor(S.page, () => !document.querySelector('.initiative-bar'));
 check((await S.page.$('.initiative-bar')) === null, 'после конца боя полоса исчезла у ведущего');
 check((await S.page2.$('.initiative-bar')) === null, 'после конца боя полоса исчезла у игрока');
 
+// Игрок (в режиме тестов) тянет токен: ход по клеткам, позиция меняется и фиксируется.
+await S.page.evaluate(() => window.__vtt.getState().setRoomSettings(true));
+await waitFor(S.page2, () => window.__vtt.getState().testMode === true, 5000);
+const pStart = await S.page2.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
+  return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y, x: t.x, y: t.y } : null;
+});
+await S.page2.mouse.move(pStart.sx, pStart.sy);
+await S.page2.mouse.down();
+await S.page2.mouse.move(pStart.sx + 300, pStart.sy + 300, { steps: 10 });
+await S.page2.mouse.up();
+await waitFor(
+  S.page2,
+  (old) => {
+    const s = window.__vtt.getState();
+    const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
+    return !!t && !s.movingTokens[t.id] && (t.x !== old.x || t.y !== old.y);
+  },
+  8000,
+  { x: pStart.x, y: pStart.y }
+);
+const pAfter = await S.page2.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
+  return { x: t?.x, y: t?.y, distance: t ? Math.hypot(t.x - 0, t.y - 0) : 0 };
+});
+check(
+  pAfter.x !== pStart.x || pAfter.y !== pStart.y,
+  `игрок перетащил токен по маршруту (${pStart.x},${pStart.y} -> ${pAfter.x},${pAfter.y})`
+);
+await S.page.evaluate(() => window.__vtt.getState().setRoomSettings(false));
+await waitFor(S.page2, () => window.__vtt.getState().testMode === false, 5000);
+
 S.ctx3 = await S.browser.createBrowserContext();
 S.page3 = await S.ctx3.newPage();
 await S.page3.setViewport({ width: 1200, height: 800 });
