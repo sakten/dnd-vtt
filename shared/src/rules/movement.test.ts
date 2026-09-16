@@ -177,9 +177,10 @@ describe('planWalk', () => {
 
   it('видимость ограничивает маршрут, в невидимую цель — отмена', () => {
     const visible = new Set(['0,1', '1,1', '2,1']);
-    const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, visible });
+    const visibleAt = (cx: number, cy: number) => visible.has(`${cx},${cy}`);
+    const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, visibleAt });
     expect(path?.cells.map((c) => `${c.cx},${c.cy}`)).toEqual(['0,1', '1,1', '2,1']);
-    expect(planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 225, y: 75 }, visible })).toBeNull();
+    expect(planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 225, y: 75 }, visibleAt })).toBeNull();
   });
 
   it('полная слепота: ровно один шаг в соседнюю клетку к курсору', () => {

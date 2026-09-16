@@ -1,8 +1,8 @@
 import type { ZoneInstance } from '../domain/automation';
 import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
-import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
+import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCellKey, areaCells, pointCell, type AreaGrid } from './areas';
+import { areaCellKey, areaCells, areaContainsPoint, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
 
 export interface SightContext {
@@ -17,6 +17,8 @@ export interface SightContext {
   areas?: LightArea[];
   /** Активные зоны заклинаний (тьма/мгла по флагам). */
   zones?: ZoneInstance[];
+  /** Предвычисленные клетки вижн-зон (Map из `zoneVisionCells`) — для массовых расчётов. */
+  zoneCells?: Map<string, LightAreaKind>;
 }
 
 /** Вижн-вид зоны по флагам: `blocksLight` — магическая тьма, `obscured: heavy` — мгла. */
@@ -25,6 +27,22 @@ export function zoneVisionKind(zone: ZoneInstance): LightAreaKind | null {
   if (zone.flags.blocksLight) return 'magical';
   if (zone.flags.obscured === 'heavy') return 'obscured';
   return null;
+}
+
+/** Контекст обзора из карты: сетка задаёт клетки вижна (у тумана те же размер и сдвиг). */
+export function sightContextOf(
+  map: Pick<MapInfo, 'walls' | 'vision' | 'lightAreas' | 'zones'>,
+  grid: AreaGrid
+): SightContext {
+  return {
+    walls: map.walls,
+    darkness: map.vision.darkness,
+    cellSize: grid.size || 50,
+    offsetX: grid.offsetX,
+    offsetY: grid.offsetY,
+    areas: map.lightAreas,
+    zones: map.zones,
+  };
 }
 
 /** Клетки вижн-зон с их видами (для вуали: считается один раз на пересчёт). */
@@ -43,16 +61,31 @@ export function zoneVisionCells(zones: ZoneInstance[], grid: AreaGrid): Map<stri
 
 /** Вижн-вид зон в точке (для проверок по цели: атаки). */
 export function zoneVisionKindAt(zones: ZoneInstance[], point: Point, grid: AreaGrid): LightAreaKind | null {
-  const { cx, cy } = pointCell(point, grid);
-  const key = areaCellKey(cx, cy);
   let kind: LightAreaKind | null = null;
   for (const zone of zones) {
     const zoneKind = zoneVisionKind(zone);
     if (!zoneKind || !zone.origin || !Number.isFinite(zone.origin.x) || !Number.isFinite(zone.origin.y)) continue;
-    const cells = areaCells(zone.area, zone.origin, zone.direction ?? null, grid);
-    if (cells.includes(key)) kind = strongestKind(kind, zoneKind);
+    if (areaContainsPoint(zone.area, zone.origin, zone.direction ?? null, point, grid)) kind = strongestKind(kind, zoneKind);
   }
   return kind;
+}
+
+/**
+ * Вид в точке: строжайший из области тьмы/мглы и вижн-зоны. Единая точка входа
+ * для `canSee` и вуали; при `zoneCells` зоны берутся из кэша, иначе считаются по точке.
+ */
+export function visionKindAt(
+  ctx: Pick<SightContext, 'areas' | 'zones' | 'zoneCells' | 'cellSize' | 'offsetX' | 'offsetY'>,
+  point: Point
+): LightAreaKind | null {
+  const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
+  const cell = pointCell(point, grid);
+  const fromZones = ctx.zoneCells
+    ? ctx.zoneCells.get(areaCellKey(cell.cx, cell.cy)) ?? null
+    : ctx.zones
+      ? zoneVisionKindAt(ctx.zones, point, grid)
+      : null;
+  return strongestKind(areaKindAt(ctx.areas ?? [], point), fromZones);
 }
 
 /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
@@ -122,20 +155,11 @@ export function visionRadiiCells(
  */
 export function canSee(from: Point, target: Point, senses: Sense[] | undefined, ctx: SightContext): boolean {
   if (crossesWalls(from, target, ctx.walls, 'sight')) return false;
-  const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
-  const kind = strongestKind(
-    strongestKind(areaKindAt(ctx.areas ?? [], from), areaKindAt(ctx.areas ?? [], target)),
-    strongestKind(
-      ctx.zones ? zoneVisionKindAt(ctx.zones, from, grid) : null,
-      ctx.zones ? zoneVisionKindAt(ctx.zones, target, grid) : null
-    )
-  );
+  const kind = strongestKind(visionKindAt(ctx, from), visionKindAt(ctx, target));
   if (!kind && !ctx.darkness) return true;
-  const size = ctx.cellSize || 50;
-  const fromX = Math.floor((from.x - ctx.offsetX) / size);
-  const fromY = Math.floor((from.y - ctx.offsetY) / size);
-  const targetX = Math.floor((target.x - ctx.offsetX) / size);
-  const targetY = Math.floor((target.y - ctx.offsetY) / size);
-  const distance = Math.max(Math.abs(targetX - fromX), Math.abs(targetY - fromY));
+  const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
+  const fromCell = pointCell(from, grid);
+  const targetCell = pointCell(target, grid);
+  const distance = Math.max(Math.abs(targetCell.cx - fromCell.cx), Math.abs(targetCell.cy - fromCell.cy));
   return visionRadiiCells(ctx.darkness, senses, kind).some((r) => r === null || distance <= r);
 }

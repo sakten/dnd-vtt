@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canSee,
+  cellCenter,
   visionRadiiCells,
   type LightArea,
   type Sense,
@@ -30,6 +32,24 @@ function wall(x1: number, y1: number, x2: number, y2: number, kind: Wall['kind']
 const area = (kind: LightArea['kind'], x: number, y: number, w: number, h: number): LightArea[] => [
   { id: `a-${kind}`, kind, x, y, w, h },
 ];
+
+describe('parity: visibleCells и canSee', () => {
+  it('клетки вуали совпадают с точечной проверкой canSee', () => {
+    const senses: Sense[] = [{ type: 'darkvision', range: 60 }];
+    const walls = [wall(100, 0, 100, 100), wall(0, 50, 50, 50, 'door')];
+    const areas = area('darkness', 100, 50, 100, 100);
+    const viewers = [viewer(75, 25, senses)];
+    const cells = visibleCells({ ...VISION_BASE, walls, darkness: true, areas, viewers })!;
+    const ctx = { walls, darkness: true, cellSize: 50, offsetX: 0, offsetY: 0, areas };
+    const grid = { size: 50, offsetX: 0, offsetY: 0 };
+    for (let cx = 0; cx < 5; cx++) {
+      for (let cy = 0; cy < 3; cy++) {
+        const expected = canSee({ x: 75, y: 25 }, cellCenter(cx, cy, grid), senses, ctx);
+        expect(cells.has(`${cx},${cy}`), `клетка ${cx},${cy}`).toBe(expected);
+      }
+    }
+  });
+});
 
 describe('visionRadiiCells', () => {
   it('вне темноты — без ограничения', () => {

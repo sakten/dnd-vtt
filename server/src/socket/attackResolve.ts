@@ -19,6 +19,7 @@ import {
   resolveAttack,
   rollDice,
   rollMode,
+  sightContextOf,
   tokenSenses,
   weaponRolls,
   withAdvantage,
@@ -153,15 +154,11 @@ export function prepareWeaponAttack(
         forcedDisadvantageCode = range.disadvantageCode;
       }
       hasTarget = true;
-      const sight = {
-        walls: map.walls,
-        darkness: map.vision.darkness,
-        cellSize: map.fog.size,
-        offsetX: map.fog.offsetX,
-        offsetY: map.fog.offsetY,
-        areas: map.lightAreas,
-        zones: map.zones,
-      };
+      const sight = sightContextOf(map, {
+        size,
+        offsetX: room.scene.grid.offsetX,
+        offsetY: room.scene.grid.offsetY,
+      });
       unseenTarget = !canSee(attacker, target, tokenSenses(attacker), sight);
       unseenAttacker = !canSee(target, attacker, tokenSenses(target), sight);
     }

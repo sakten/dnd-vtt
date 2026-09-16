@@ -1,10 +1,10 @@
-import { useCallback, useMemo } from 'react';
-import { canSee, type Token } from 'shared';
+import { useMemo } from 'react';
+import { canSee, sightContextOf, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
-import { canControlTokenWith, characterNameOf, useIsDm } from '../lib/control';
+import { useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
-import { visionViewers } from '../lib/los';
+import { useVisionViewers } from '../lib/useVision';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 
@@ -14,34 +14,13 @@ export default function ConditionsOverlay() {
   const isDm = useIsDm();
   const spellByKey = useSpellByKey();
   const map = useActiveMap();
+  const grid = useGameStore((s) => s.scene.grid);
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
-  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
-  const selfId = useGameStore((s) => s.selfId);
-  const role = useGameStore((s) => s.role);
-  const testMode = useGameStore((s) => s.testMode);
-  const ownToken = useCallback(
-    (t: Token) => canControlTokenWith({ role, testMode, selfId, currentCharacterId }, t, selfName),
-    [role, testMode, selfId, currentCharacterId, selfName]
-  );
-  const viewers = useMemo(() => {
-    if (!map || isDm) return null;
-    return visionViewers(map.tokens, map.vision.los, ownToken);
-  }, [map, isDm, ownToken]);
+  const viewers = useVisionViewers();
   const sight = useMemo(
     () =>
-      map
-        ? {
-            walls: map.walls,
-            darkness: map.vision.darkness,
-            cellSize: map.fog.size,
-            offsetX: map.fog.offsetX,
-            offsetY: map.fog.offsetY,
-            areas: map.lightAreas,
-            zones: map.zones,
-          }
-        : null,
-    [map]
+      map ? sightContextOf(map, { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY }) : null,
+    [map, grid]
   );
   const isTokenVisible = (t: Token) =>
     !viewers || (sight !== null && viewers.some((v) => canSee({ x: v.x, y: v.y }, t, v.senses, sight)));

@@ -147,8 +147,8 @@ export interface PathfindInput {
   blocked?: Set<string>;
   /** Клетки удвоенной стоимости (союзники, сложная местность). */
   difficult?: Set<string>;
-  /** Если задано — входить можно только в эти клетки (старт разрешён всегда). */
-  allow?: Set<string>;
+  /** Если задано — входить можно только туда, где функция истинна (старт разрешён всегда). */
+  allowAt?: (cx: number, cy: number) => boolean;
   /** Размер подошвы ходока в клетках: проходимость и сложная местность — по всем её клеткам. */
   moverCells?: number;
   /** Сколько диагоналей уже пройдено в этом ходу (чередование 5-10-5). */
@@ -234,9 +234,8 @@ export function findPath(input: PathfindInput): FoundPath | null {
       const cx = node.cx + dx;
       const cy = node.cy + dy;
       if (!inBounds(cx, cy)) continue;
-      const key = areaCellKey(cx, cy);
       if (footprintHits(cx, cy, moverCells, blocked)) continue;
-      if (input.allow && !input.allow.has(key) && !(cx === start.cx && cy === start.cy)) continue;
+      if (input.allowAt && !(cx === start.cx && cy === start.cy) && !input.allowAt(cx, cy)) continue;
       const diagonal = dx !== 0 && dy !== 0;
       const to = cellCenter(cx, cy, grid);
       if (crossesWalls(from, to, walls, 'move')) continue;
@@ -340,8 +339,8 @@ export interface PlanWalkInput {
   /** Размер ходока в клетках: чётные привязаны к пересечениям, нечётные — к центрам. */
   cells: number;
   zones: ZoneInstance[];
-  /** Клетки, видимые игроку: ходить можно только по ним (null — без ограничения). */
-  visible?: Set<string> | null;
+  /** Видна ли клетка игроку: ходить можно только по видимым (не задано — без ограничения). */
+  visibleAt?: ((cx: number, cy: number) => boolean) | null;
   /** Полная слепота (магическая тьма/мгла без зрения): не больше одной клетки за ход. */
   blind?: boolean;
   diagonalsBefore?: number;
@@ -418,7 +417,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     return { cells: [fromCell, best], points: [input.from, point], feet: cost.feet, diagonals: cost.diagonals };
   }
 
-  const visible = input.visible ?? null;
+  const visibleAt = input.visibleAt ?? null;
   const cursorCell = pointCell(input.to, grid);
   // Якорь постановки: чётные размеры — по пересечениям, нечётные — по центрам.
   const anchorPoint = {
@@ -427,7 +426,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   };
   const anchorCell = pointCell(anchorPoint, grid);
   // В невидимую клетку ходить нельзя: маршрут отменяется (кроме режима слепоты выше).
-  if (visible && !visible.has(areaCellKey(cursorCell.cx, cursorCell.cy))) return null;
+  if (visibleAt && !visibleAt(cursorCell.cx, cursorCell.cy)) return null;
   // Конечная клетка должна быть свободной: подошва целиком, цель на занятой клетке не выбирается.
   if (footprintHits(anchorCell.cx, anchorCell.cy, cells, occupied)) return null;
   const startCell = startAnchor;
@@ -440,7 +439,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     walls,
     blocked,
     difficult,
-    allow: visible ?? undefined,
+    allowAt: visibleAt ?? undefined,
     moverCells: cells,
     diagonalsBefore: input.diagonalsBefore ?? 0,
   });

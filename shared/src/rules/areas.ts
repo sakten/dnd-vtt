@@ -68,6 +68,73 @@ function feet(a: AreaPoint, b: AreaPoint, grid: AreaGrid, metric: DistanceMetric
   return (px / grid.size) * FEET_PER_CELL;
 }
 
+/** Единичное направление от центра к `direction` (null, если направление не задано). */
+function directionUnit(direction: AreaPoint | null, center: AreaPoint): AreaPoint | null {
+  if (!direction || (direction.x === center.x && direction.y === center.y)) return null;
+  const dx = direction.x - center.x;
+  const dy = direction.y - center.y;
+  const len = Math.hypot(dx, dy);
+  return { x: dx / len, y: dy / len };
+}
+
+/** Попадает ли точка в шаблон (та же геометрия, что у `areaCells`). Вершина шаблона — всегда внутри. */
+function pointInShape(
+  spec: AreaSpec,
+  center: AreaPoint,
+  dir: AreaPoint | null,
+  p: AreaPoint,
+  grid: AreaGrid,
+  metric: DistanceMetric
+): boolean {
+  const vx = p.x - center.x;
+  const vy = p.y - center.y;
+  const distanceFeet = feet(p, center, grid, 'euclidean');
+
+  switch (spec.shape) {
+    case 'sphere':
+    case 'cylinder': {
+      const d = metric === 'chebyshev' ? Math.max(Math.abs(vx), Math.abs(vy)) : Math.hypot(vx, vy);
+      return (d / grid.size) * FEET_PER_CELL <= spec.size + 1e-6;
+    }
+    case 'cube': {
+      const half = (spec.size / 2 / FEET_PER_CELL) * grid.size;
+      return Math.abs(vx) <= half + 1e-6 && Math.abs(vy) <= half + 1e-6;
+    }
+    case 'cone': {
+      if (!dir) return Math.hypot(vx, vy) < 1e-6;
+      const lengthPx = (spec.size / FEET_PER_CELL) * grid.size;
+      const proj = vx * dir.x + vy * dir.y;
+      if (proj < -1e-6 || distanceFeet > spec.size + 1e-6) return false;
+      const unit = distanceFeet > 0 ? { x: vx / Math.hypot(vx, vy), y: vy / Math.hypot(vx, vy) } : dir;
+      const cos = unit.x * dir.x + unit.y * dir.y;
+      return cos >= Math.cos((53 / 2) * (Math.PI / 180)) - 1e-6 && proj <= lengthPx + 1e-6;
+    }
+    case 'line': {
+      if (!dir) return Math.hypot(vx, vy) < 1e-6;
+      const lengthPx = (spec.size / FEET_PER_CELL) * grid.size;
+      const halfWidthPx = ((spec.width ?? 5) / 2 / FEET_PER_CELL) * grid.size;
+      const proj = vx * dir.x + vy * dir.y;
+      if (proj < -1e-6 || proj > lengthPx + 1e-6) return false;
+      const perp = Math.abs(vx * dir.y - vy * dir.x);
+      return perp <= halfWidthPx + 1e-6;
+    }
+  }
+}
+
+/** Точка внутри шаблона (для проверок по конкретной цели — вижн-зоны, атаки). */
+export function areaContainsPoint(
+  spec: AreaSpec,
+  origin: AreaPoint,
+  direction: AreaPoint | null,
+  point: AreaPoint,
+  grid: AreaGrid,
+  metric: DistanceMetric = 'euclidean'
+): boolean {
+  const originCell = pointCell(origin, grid);
+  const center = cellCenter(originCell.cx, originCell.cy, grid);
+  return pointInShape(spec, center, directionUnit(direction, center), point, grid, metric);
+}
+
 /**
  * Клетки, попавшие в шаблон. `origin` — точка привязки (для конуса/линии —
  * вершина), `direction` — направление для конуса/линии (мировая точка).
@@ -81,62 +148,13 @@ export function areaCells(
 ): string[] {
   const originCell = pointCell(origin, grid);
   const center = cellCenter(originCell.cx, originCell.cy, grid);
+  const dir = directionUnit(direction, center);
   const span = Math.ceil((spec.size + (spec.width ?? 0)) / FEET_PER_CELL) + 2;
   const keys: string[] = [];
 
-  const dir =
-    direction && (direction.x !== center.x || direction.y !== center.y)
-      ? (() => {
-          const dx = direction.x - center.x;
-          const dy = direction.y - center.y;
-          const len = Math.hypot(dx, dy);
-          return { x: dx / len, y: dy / len };
-        })()
-      : null;
-
   for (let cx = originCell.cx - span; cx <= originCell.cx + span; cx++) {
     for (let cy = originCell.cy - span; cy <= originCell.cy + span; cy++) {
-      const p = cellCenter(cx, cy, grid);
-      const vx = p.x - center.x;
-      const vy = p.y - center.y;
-      const distanceFeet = feet(p, center, grid, 'euclidean');
-      let inside = false;
-
-      switch (spec.shape) {
-        case 'sphere':
-        case 'cylinder': {
-          const d = metric === 'chebyshev' ? Math.max(Math.abs(vx), Math.abs(vy)) : Math.hypot(vx, vy);
-          inside = (d / grid.size) * FEET_PER_CELL <= spec.size + 1e-6;
-          break;
-        }
-        case 'cube': {
-          const half = (spec.size / 2 / FEET_PER_CELL) * grid.size;
-          inside = Math.abs(vx) <= half + 1e-6 && Math.abs(vy) <= half + 1e-6;
-          break;
-        }
-        case 'cone': {
-          if (!dir) break;
-          const lengthPx = (spec.size / FEET_PER_CELL) * grid.size;
-          const proj = vx * dir.x + vy * dir.y;
-          if (proj < -1e-6 || distanceFeet > spec.size + 1e-6) break;
-          const unit = distanceFeet > 0 ? { x: vx / Math.hypot(vx, vy), y: vy / Math.hypot(vx, vy) } : dir;
-          const cos = unit.x * dir.x + unit.y * dir.y;
-          inside = cos >= Math.cos((53 / 2) * (Math.PI / 180)) - 1e-6 && proj <= lengthPx + 1e-6;
-          break;
-        }
-        case 'line': {
-          if (!dir) break;
-          const lengthPx = (spec.size / FEET_PER_CELL) * grid.size;
-          const halfWidthPx = ((spec.width ?? 5) / 2 / FEET_PER_CELL) * grid.size;
-          const proj = vx * dir.x + vy * dir.y;
-          if (proj < -1e-6 || proj > lengthPx + 1e-6) break;
-          const perp = Math.abs(vx * dir.y - vy * dir.x);
-          inside = perp <= halfWidthPx + 1e-6;
-          break;
-        }
-      }
-
-      if (inside) keys.push(areaCellKey(cx, cy));
+      if (pointInShape(spec, center, dir, cellCenter(cx, cy, grid), grid, metric)) keys.push(areaCellKey(cx, cy));
     }
   }
 

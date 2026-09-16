@@ -1,14 +1,15 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Group, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
 import type { LightArea, MapInfo, Token, Wall } from 'shared';
-import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
+import { areaCells, gridDistanceFeet, reachableCells, sightContextOf, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
-import { visibleCells, visionViewers } from '../lib/los';
-import { canAddLibraryItem, canControlTokenWith, canControlWith, characterNameOf, useIsDm } from '../lib/control';
+import { visibleCells } from '../lib/los';
+import { useVisionViewers } from '../lib/useVision';
+import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
@@ -118,15 +119,7 @@ export default function TableTop() {
     const bottom = ((size.h - view.y) / view.scale - map.fog.offsetY) / cell + 2;
     return { cx0: quant(left), cy0: quant(top), cx1: quant(right), cy1: quant(bottom) };
   }, [activeMap, view, size]);
-  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
-  const selfId = useGameStore((s) => s.selfId);
-  const role = useGameStore((s) => s.role);
-  const testMode = useGameStore((s) => s.testMode);
-  const ownToken = useCallback(
-    (t: Token) => canControlTokenWith({ role, testMode, selfId, currentCharacterId }, t, selfName),
-    [role, testMode, selfId, currentCharacterId, selfName]
-  );
+  const viewers = useVisionViewers();
 
   useEffect(() => {
     if (!wallsMode.active) {
@@ -231,22 +224,17 @@ export default function TableTop() {
   const veilRects = useMemo(() => {
     const map = activeMap;
     if (!map || isDm) return null;
+    const cell = grid.size || 50;
     const visible = visibleCells({
+      ...sightContextOf(map, { size: cell, offsetX: grid.offsetX, offsetY: grid.offsetY }),
       width: map.width,
       height: map.height,
-      cellSize: map.fog.size,
-      offsetX: map.fog.offsetX,
-      offsetY: map.fog.offsetY,
-      walls: map.walls,
-      darkness: map.vision.darkness,
-      areas: map.lightAreas,
-      zones: map.zones,
       bounds: cellBounds,
-      viewers: visionViewers(map.tokens, map.vision.los, ownToken),
+      viewers: viewers ?? [],
     });
     if (visible === null) return null;
-    const cols = Math.ceil(map.width / map.fog.size);
-    const rows = Math.ceil(map.height / map.fog.size);
+    const cols = Math.ceil(map.width / cell);
+    const rows = Math.ceil(map.height / cell);
     const cx0 = Math.max(0, cellBounds?.cx0 ?? 0);
     const cy0 = Math.max(0, cellBounds?.cy0 ?? 0);
     const cx1 = Math.min(cols - 1, cellBounds?.cx1 ?? cols - 1);
@@ -257,14 +245,14 @@ export default function TableTop() {
         const key = cellKey(cx, cy);
         if (visible.has(key) || hiddenSet.has(key)) continue;
         rects.push({
-          x: map.fog.offsetX + cx * map.fog.size,
-          y: map.fog.offsetY + cy * map.fog.size,
-          size: map.fog.size,
+          x: grid.offsetX + cx * cell,
+          y: grid.offsetY + cy * cell,
+          size: cell,
         });
       }
     }
     return rects;
-  }, [activeMap, isDm, hiddenSet, ownToken, cellBounds]);
+  }, [activeMap, isDm, hiddenSet, viewers, cellBounds, grid]);
 
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;

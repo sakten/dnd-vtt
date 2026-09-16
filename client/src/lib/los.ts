@@ -1,16 +1,13 @@
 import {
-  areaCellKey,
-  areaKindAt,
   crossesWalls,
   strongestKind,
   tokenSenses,
+  visionKindAt,
   visionRadiiCells,
   zoneVisionCells,
-  type LightArea,
   type LightAreaKind,
+  type SightContext,
   type Token,
-  type Wall,
-  type ZoneInstance,
 } from 'shared';
 
 export interface Viewer {
@@ -19,18 +16,10 @@ export interface Viewer {
   senses: Token['senses'];
 }
 
-export interface VisionInput {
+/** Контекст обзора (стены/тьма/области/зоны) + границы расчёта и зрители. */
+export interface VisionInput extends SightContext {
   width: number;
   height: number;
-  /** Клетки тумана: размер и сдвиг (вижн считается по ним же). */
-  cellSize: number;
-  offsetX: number;
-  offsetY: number;
-  walls: Wall[];
-  darkness: boolean;
-  areas: LightArea[];
-  /** Активные зоны заклинаний (вижн по флагам). */
-  zones: ZoneInstance[];
   /** Границы расчёта в клетках (вьюпорт ∩ карта); без значения — вся карта. */
   bounds?: { cx0: number; cy0: number; cx1: number; cy1: number } | null;
   viewers: Viewer[];
@@ -50,7 +39,9 @@ export function visionViewers(tokens: Token[], merge: boolean, isOwn: (token: To
  * ограничивает дальность по восприятию (Чёбышёв по клеткам). Нет зрителей — null.
  */
 export function visibleCells(input: VisionInput): Set<string> | null {
-  const { width, height, cellSize, offsetX, offsetY, walls, darkness, areas, zones, bounds, viewers } = input;
+  const { width, height, cellSize, offsetX, offsetY, walls, darkness, bounds, viewers } = input;
+  const areas = input.areas ?? [];
+  const zones = input.zones ?? [];
   if (viewers.length === 0) return null;
   const cols = Math.max(0, Math.ceil(width / cellSize));
   const rows = Math.max(0, Math.ceil(height / cellSize));
@@ -59,14 +50,12 @@ export function visibleCells(input: VisionInput): Set<string> | null {
   const cx1 = Math.min(cols - 1, bounds?.cx1 ?? cols - 1);
   const cy1 = Math.min(rows - 1, bounds?.cy1 ?? rows - 1);
   const zoneCells = zoneVisionCells(zones, { size: cellSize, offsetX, offsetY });
+  const sight = { areas, zones, zoneCells, cellSize, offsetX, offsetY };
   const visible = new Set<string>();
   for (const viewer of viewers) {
     const vcx = Math.floor((viewer.x - offsetX) / cellSize);
     const vcy = Math.floor((viewer.y - offsetY) / cellSize);
-    const viewerKind = strongestKind(
-      areaKindAt(areas, { x: viewer.x, y: viewer.y }),
-      zoneCells.get(areaCellKey(vcx, vcy)) ?? null
-    );
+    const viewerKind = visionKindAt(sight, { x: viewer.x, y: viewer.y });
     const radiiByKind = new Map<LightAreaKind | null, (number | null)[]>();
     const radiiFor = (kind: LightAreaKind | null): (number | null)[] => {
       let radii = radiiByKind.get(kind);
@@ -85,7 +74,7 @@ export function visibleCells(input: VisionInput): Set<string> | null {
           y: offsetY + cy * cellSize + cellSize / 2,
         };
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
-        const kind = strongestKind(viewerKind, strongestKind(areaKindAt(areas, center), zoneCells.get(key) ?? null));
+        const kind = strongestKind(viewerKind, visionKindAt(sight, center));
         if (!kind && !darkness) {
           visible.add(key);
           continue;

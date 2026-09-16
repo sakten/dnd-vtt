@@ -2,24 +2,24 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import {
-  areaKindAt,
   canSee,
+  cellCenter,
   movementBlocked,
   planWalk,
+  sightContextOf,
   statNumber,
-  strongestKind,
   tokenSenses,
+  visionKindAt,
   visionRadiiCells,
-  zoneVisionKindAt,
   type FoundPath,
   type Token,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
-import { visibleCells, visionViewers } from '../lib/los';
+import { useVisionViewers } from '../lib/useVision';
 import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
-import { canControlTokenWith, characterNameOf, useCanControl, useIsDm } from '../lib/control';
+import { useCanControl, useIsDm } from '../lib/control';
 
 function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
@@ -50,10 +50,7 @@ function TokenView({ token }: { token: Token }) {
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
   const displayPos = animPos ?? (moving && moving.points.length > 0 ? moving.points[0]! : null);
-  const role = useGameStore((s) => s.role);
-  const testMode = useGameStore((s) => s.testMode);
-  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
-  const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
+  const visionViewersList = useVisionViewers();
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
@@ -69,32 +66,26 @@ function TokenView({ token }: { token: Token }) {
       map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
     const turn = entry?.tokenId === token.id ? map.combat.turns[entry.id] : undefined;
 
-    let visible: Set<string> | null = null;
+    let visibleAt: ((cx: number, cy: number) => boolean) | null = null;
     let blind = false;
-    if (!isDm) {
-      const viewers = visionViewers(map.tokens, map.vision.los, (t) =>
-        canControlTokenWith({ role, testMode, selfId, currentCharacterId }, t, selfName)
-      );
-      if (viewers.length > 0) {
-        visible = visibleCells({
-          width: map.width,
-          height: map.height,
-          cellSize: pathGrid.size,
-          offsetX: pathGrid.offsetX,
-          offsetY: pathGrid.offsetY,
-          walls: map.walls,
-          darkness: map.vision.darkness,
-          areas: map.lightAreas,
-          zones: map.zones,
-          viewers,
-        });
-        const kind = strongestKind(
-          areaKindAt(map.lightAreas, { x: token.x, y: token.y }),
-          zoneVisionKindAt(map.zones, { x: token.x, y: token.y }, pathGrid)
-        );
-        const radii = visionRadiiCells(map.vision.darkness, tokenSenses(token), kind);
-        blind = radii.length === 1 && radii[0] === 0;
-      }
+    if (!isDm && visionViewersList && visionViewersList.length > 0) {
+      const viewers = visionViewersList;
+      const sight = sightContextOf(map, pathGrid);
+      const cache = new Map<string, boolean>();
+      // Видимость клетки: любой из зрителей видит её центр (кэш на один пересчёт маршрута).
+      visibleAt = (cx, cy) => {
+        const key = `${cx},${cy}`;
+        let seen = cache.get(key);
+        if (seen === undefined) {
+          const center = cellCenter(cx, cy, pathGrid);
+          seen = viewers.some((v) => canSee({ x: v.x, y: v.y }, center, v.senses, sight));
+          cache.set(key, seen);
+        }
+        return seen;
+      };
+      const kind = visionKindAt(sight, { x: token.x, y: token.y });
+      const radii = visionRadiiCells(map.vision.darkness, tokenSenses(token), kind);
+      blind = radii.length === 1 && radii[0] === 0;
     }
 
     return planWalk({
@@ -108,7 +99,7 @@ function TokenView({ token }: { token: Token }) {
       moverId: token.id,
       cells: token.cells,
       zones: map.zones,
-      visible,
+      visibleAt,
       blind,
       diagonalsBefore: turn?.diagonalsUsed ?? 0,
     });
