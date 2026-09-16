@@ -1,5 +1,5 @@
 import type { ZoneInstance } from '../domain/automation';
-import { DEFAULT_GRID, DEFAULT_VISION, defaultFog } from '../domain/scene';
+import { DEFAULT_GRID, DEFAULT_VISION } from '../domain/scene';
 import type { FogState, GridSettings, LightArea, LightAreaKind, MapInfo, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
@@ -90,12 +90,13 @@ export function normalizeMapInfo(
 ): MapInfo {
   const source = isRecord(raw) ? raw : {};
   const fogSource = isRecord(source.fog) ? source.fog : null;
-  const fog: FogState = fogSource
-    ? {
-        ...(fogSource as unknown as FogState),
-        hidden: Array.isArray(fogSource.hidden) ? (fogSource.hidden as string[]) : [],
-      }
-    : defaultFog(grid);
+  // Клетки тумана всегда по текущей сетке (старые данные могли «отстать» после выравнивания).
+  const fog: FogState = {
+    size: grid.size,
+    offsetX: grid.offsetX,
+    offsetY: grid.offsetY,
+    hidden: fogSource && Array.isArray(fogSource.hidden) ? (fogSource.hidden as string[]) : [],
+  };
   return {
     ...(source as unknown as MapInfo),
     tokens: Array.isArray(source.tokens) ? source.tokens.map((t) => normalizeToken(t, opts)) : [],

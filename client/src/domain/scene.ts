@@ -84,6 +84,17 @@ export function setGrid(scene: Scene, grid: GridSettings): Scene {
   return { ...scene, grid };
 }
 
+/** Клетки тумана следуют за сеткой: при её смене пересчитываем размер и сдвиг. */
+export function resyncFogGrid(scene: Scene, grid: GridSettings): Scene {
+  return {
+    ...scene,
+    maps: scene.maps.map((m) => ({
+      ...m,
+      fog: { ...m.fog, size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY },
+    })),
+  };
+}
+
 export function resizeGrid(scene: Scene, grid: GridSettings): Scene {
   const size = grid.size;
   return {

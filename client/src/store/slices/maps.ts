@@ -1,4 +1,4 @@
-import { resizeGrid, setFog, setGrid, setLightAreas, setVision, setWalls, withMaps } from '../../domain/scene';
+import { resizeGrid, resyncFogGrid, setFog, setGrid, setLightAreas, setVision, setWalls, withMaps } from '../../domain/scene';
 import { emit, emitThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
@@ -55,7 +55,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
       if (!get().socket) return;
       set((s) => {
         const grid = { ...s.scene.grid, ...patch };
-        return { scene: resizeGrid(s.scene, grid) };
+        return { scene: resyncFogGrid(resizeGrid(s.scene, grid), grid) };
       });
       emitThrottled(get, 'grid', 150, 'grid:update', () => get().scene.grid);
     },

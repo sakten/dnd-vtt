@@ -79,9 +79,9 @@ function TokenView({ token }: { token: Token }) {
         visible = visibleCells({
           width: map.width,
           height: map.height,
-          cellSize: map.fog.size,
-          offsetX: map.fog.offsetX,
-          offsetY: map.fog.offsetY,
+          cellSize: pathGrid.size,
+          offsetX: pathGrid.offsetX,
+          offsetY: pathGrid.offsetY,
           walls: map.walls,
           darkness: map.vision.darkness,
           areas: map.lightAreas,

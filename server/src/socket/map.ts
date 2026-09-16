@@ -142,6 +142,7 @@ export function registerMapHandlers(ctx: ConnCtx) {
       };
       room.scene.grid = next;
       for (const map of room.scene.maps) {
+        map.fog = { ...map.fog, size: next.size, offsetX: next.offsetX, offsetY: next.offsetY };
         for (const token of map.tokens) {
           token.w = token.cells * next.size;
           token.h = token.cells * next.size;
