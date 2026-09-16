@@ -55,6 +55,9 @@ export const useGameStore = create<GameState>()((set, get) => ({
     wallsMode: { active: false, tool: 'wall' },
     lightMode: { active: false, kind: 'darkness' },
     wallCandidates: null,
+    movingTokens: {},
+    dragGhost: null,
+    dragPath: null,
     critHit: null,
     reactionOffers: [],
 }));

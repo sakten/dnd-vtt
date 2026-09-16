@@ -23,6 +23,9 @@ function setupState() {
     interaction: null,
     hoverTokenId: null,
     tokenMenuId: null,
+    movingTokens: {},
+    dragGhost: null,
+    dragPath: null,
   });
   return emitted;
 }
@@ -44,57 +47,77 @@ beforeEach(() => {
 });
 
 describe('tokens slice: передвижение', () => {
-  it('moveToken двигает токен и накапливает путь активного бойца', () => {
+  it('moveToken двигает токен локально, без рассылки и без учёта', () => {
     useGameStore.getState().moveToken('t1', 100, 0);
 
-    expect(token().x).toBe(100);
-    expect(turn().movementUsed).toBe(10);
-    expect(hasEvent(emitted, 'token:move')).toBe(true);
-  });
-
-  it('не накапливает путь, если бой не активен', () => {
-    deactivateCombat();
-    useGameStore.getState().moveToken('t1', 100, 0);
     expect(token().x).toBe(100);
     expect(turn().movementUsed).toBe(0);
+    expect(hasEvent(emitted, 'token:move')).toBe(false);
   });
 
-  it('finalizeTokenMove добирает финальный сегмент и шлёт setMovement', () => {
-    useGameStore.getState().moveToken('t1', 100, 0);
-    useGameStore.getState().finalizeTokenMove('t1', 150, 0);
+  it('moveTokenAlongPath: анимация, событие с путём и учёт движения', () => {
+    const path = {
+      cells: [
+        { cx: 0, cy: 0 },
+        { cx: 1, cy: 1 },
+        { cx: 2, cy: 1 },
+      ],
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 50 },
+        { x: 100, y: 50 },
+      ],
+      feet: 15,
+      diagonals: 1,
+    };
+    useGameStore.getState().moveTokenAlongPath('t1', path);
 
+    expect(token().x).toBe(100);
+    expect(token().y).toBe(50);
+    expect(useGameStore.getState().movingTokens.t1?.points.length).toBe(3);
     expect(turn().movementUsed).toBe(15);
+    expect(turn().diagonalsUsed).toBe(1);
+    expect(emitted).toContainEqual({
+      event: 'token:move',
+      payload: { mapId: 'm1', id: 't1', x: 100, y: 50, path: path.points },
+    });
     expect(emitted).toContainEqual({
       event: 'combat:setMovement',
-      payload: {
-        mapId: 'm1',
-        tokenId: 't1',
-        used: 15,
-        diagonals: 0,
-        path: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 150, y: 0 },
-        ],
-      },
+      payload: { mapId: 'm1', tokenId: 't1', used: 15, diagonals: 1, path: path.points },
     });
     expect(emitted).toContainEqual({ event: 'token:lock', payload: { mapId: 'm1', id: 't1', lock: false } });
   });
 
-  it('диагонали чередуют стоимость 5/10', () => {
-    useGameStore.getState().moveToken('t1', 50, 50);
-    expect(turn().movementUsed).toBe(5);
-    expect(turn().diagonalsUsed).toBe(1);
-
-    useGameStore.getState().moveToken('t1', 100, 100);
-    expect(turn().movementUsed).toBe(15);
-    expect(turn().diagonalsUsed).toBe(2);
+  it('вижн-зоны: moveTokenAlongPath не шлёт setMovement вне боя', () => {
+    deactivateCombat();
+    useGameStore.getState().moveTokenAlongPath('t1', {
+      cells: [{ cx: 0, cy: 0 }, { cx: 1, cy: 0 }],
+      points: [{ x: 0, y: 0 }, { x: 50, y: 0 }],
+      feet: 5,
+      diagonals: 0,
+    });
+    expect(token().x).toBe(50);
+    expect(hasEvent(emitted, 'combat:setMovement')).toBe(false);
   });
 
-  it('finalizeTokenMove без активной записи не шлёт setMovement', () => {
-    deactivateCombat();
-    useGameStore.getState().finalizeTokenMove('t1', 50, 0);
-    expect(hasEvent(emitted, 'combat:setMovement')).toBe(false);
+  it('moveTokenAlongPath с одной точкой синхронизирует позицию без анимации', () => {
+    useGameStore.getState().moveTokenAlongPath('t1', {
+      cells: [{ cx: 0, cy: 0 }],
+      points: [{ x: 0, y: 0 }],
+      feet: 0,
+      diagonals: 0,
+    });
+    expect(useGameStore.getState().movingTokens.t1).toBeUndefined();
+    expect(hasEvent(emitted, 'token:move')).toBe(true);
+  });
+
+  it('onTokenMove игнорирует эхо, пока токен уже анимируется', () => {
+    useGameStore.setState({ movingTokens: { t1: { points: [{ x: 0, y: 0 }, { x: 50, y: 0 }], duration: 150 } } });
+    useGameStore.getState().onTokenMove({ mapId: 'm1', id: 't1', path: [{ x: 0, y: 0 }, { x: 200, y: 0 }] });
+    expect(useGameStore.getState().movingTokens.t1?.points[1]).toEqual({ x: 50, y: 0 });
+
+    useGameStore.getState().onTokenMove({ mapId: 'm1', id: 't2', path: [{ x: 0, y: 0 }, { x: 200, y: 0 }] });
+    expect(useGameStore.getState().movingTokens.t2?.duration).toBe(150);
   });
 });
 

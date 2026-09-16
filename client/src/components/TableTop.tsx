@@ -74,6 +74,8 @@ export default function TableTop() {
   const updateWalls = useGameStore((s) => s.updateWalls);
   const lightMode = useGameStore((s) => s.lightMode);
   const updateAreas = useGameStore((s) => s.updateAreas);
+  const dragGhost = useGameStore((s) => s.dragGhost);
+  const dragPath = useGameStore((s) => s.dragPath);
   const wallCandidates = useGameStore((s) => s.wallCandidates);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
@@ -725,6 +727,48 @@ export default function TableTop() {
                 />
               </Fragment>
             ))}
+            {dragGhost &&
+              activeMap &&
+              (() => {
+                const ghost = activeMap.tokens.find((t) => t.id === dragGhost.id);
+                if (!ghost) return null;
+                return (
+                  <Rect
+                    x={dragGhost.x - ghost.w / 2}
+                    y={dragGhost.y - ghost.h / 2}
+                    width={ghost.w}
+                    height={ghost.h}
+                    stroke="#ffffff"
+                    strokeWidth={2 / view.scale}
+                    dash={[8 / view.scale, 6 / view.scale]}
+                    opacity={0.45}
+                    listening={false}
+                  />
+                );
+              })()}
+            {dragPath && dragPath.points.length > 1 && (
+              <>
+                <Line
+                  points={dragPath.points.flatMap((p) => [p.x, p.y])}
+                  stroke="#7c9cff"
+                  strokeWidth={4 / view.scale}
+                  dash={[10 / view.scale, 6 / view.scale]}
+                  opacity={0.9}
+                  listening={false}
+                />
+                <Text
+                  text={`${dragPath.feet} фт`}
+                  x={dragPath.points[dragPath.points.length - 1]!.x + 10 / view.scale}
+                  y={dragPath.points[dragPath.points.length - 1]!.y - 26 / view.scale}
+                  fontSize={16 / view.scale}
+                  fill="#cfe1ff"
+                  stroke="#000000"
+                  strokeWidth={3 / view.scale}
+                  fillAfterStrokeEnabled
+                  listening={false}
+                />
+              </>
+            )}
             {activeMap?.tokens
               .filter((t) => !(!isDm && isCellHidden(t.x, t.y)))
               .map((token) => (

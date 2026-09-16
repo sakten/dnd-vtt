@@ -46,7 +46,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
     });
 
-    ctx.on('token:move', ({ mapId, id, x, y }) => {
+    ctx.on('token:move', ({ mapId, id, x, y, path }) => {
       if (rejectIfReaction(ctx, true)) return;
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const scope = scopedToken(ctx, mapId, id);
@@ -59,6 +59,13 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       token.x = x;
       token.y = y;
       emitToken(room, 'token:update', mapId, token);
+      const movePath = Array.isArray(path)
+        ? path
+            .filter((p) => isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y))
+            .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+            .slice(0, 400)
+        : [];
+      if (movePath.length > 1) broadcastAll('token:move', { mapId, id, path: movePath });
       // Перетаскивание (в т.ч. в чужой ход): аура и enter/exit зон тоже срабатывают.
       handleMovementZones(ctx, room, mapId);
     });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { diagonalStepCost, movementCost, reachableCells } from './movement';
+import type { Wall } from '../domain/scene';
+import { diagonalStepCost, findPath, movementCost, nearestFreeCell, reachableCells } from './movement';
 
 describe('diagonalStepCost', () => {
   it('чередует 5 и 10 футов', () => {
@@ -71,5 +72,71 @@ describe('reachableCells', () => {
 
   it('меньше клетки — пусто', () => {
     expect(reachableCells(0, 0, 4)).toEqual([]);
+  });
+});
+
+const GRID = { size: 50, offsetX: 0, offsetY: 0 };
+const BOUNDS = { cols: 5, rows: 3 };
+const wall = (x1: number, y1: number, x2: number, y2: number): Wall => ({
+  id: 'w1',
+  kind: 'wall',
+  x1,
+  y1,
+  x2,
+  y2,
+});
+
+describe('findPath', () => {
+  it('прямой путь по открытой карте', () => {
+    const path = findPath({ from: { x: 25, y: 25 }, to: { x: 125, y: 25 }, grid: GRID, bounds: BOUNDS, walls: [] });
+    expect(path?.cells).toEqual([
+      { cx: 0, cy: 0 },
+      { cx: 1, cy: 0 },
+      { cx: 2, cy: 0 },
+    ]);
+    expect(path?.feet).toBe(10);
+    expect(path?.points[path.points.length - 1]).toEqual({ x: 125, y: 25 });
+  });
+
+  it('диагонали чередуют 5/10', () => {
+    const path = findPath({ from: { x: 25, y: 25 }, to: { x: 125, y: 125 }, grid: GRID, bounds: BOUNDS, walls: [] });
+    expect(path?.feet).toBe(15);
+    expect(path?.diagonals).toBe(2);
+  });
+
+  it('стена заставляет обойти', () => {
+    const path = findPath({
+      from: { x: 25, y: 25 },
+      to: { x: 125, y: 25 },
+      grid: GRID,
+      bounds: BOUNDS,
+      walls: [wall(100, 0, 100, 50)],
+    });
+    expect(path).not.toBeNull();
+    expect(path!.feet).toBe(15);
+    expect(path!.cells[path!.cells.length - 1]).toEqual({ cx: 2, cy: 0 });
+    expect(path!.cells).not.toContainEqual({ cx: 1, cy: 0 });
+    expect(path!.cells.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('сложная местность удваивает стоимость', () => {
+    const path = findPath({
+      from: { x: 25, y: 25 },
+      to: { x: 125, y: 25 },
+      grid: GRID,
+      bounds: { cols: 5, rows: 1 },
+      walls: [],
+      difficult: new Set(['1,0']),
+    });
+    expect(path?.cells.map((c) => `${c.cx},${c.cy}`)).toEqual(['0,0', '1,0', '2,0']);
+    expect(path?.feet).toBe(15);
+  });
+
+  it('непроходимая цель и подбор ближайшей свободной клетки', () => {
+    const blocked = new Set(['2,0']);
+    expect(
+      findPath({ from: { x: 25, y: 25 }, to: { x: 125, y: 25 }, grid: GRID, bounds: BOUNDS, walls: [], blocked })
+    ).toBeNull();
+    expect(nearestFreeCell({ cx: 2, cy: 0 }, blocked, BOUNDS)).toEqual({ cx: 1, cy: 0 });
   });
 });

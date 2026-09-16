@@ -1,4 +1,7 @@
 import { gridDistanceFeet, type GridBox } from './combat';
+import type { Wall } from '../domain/scene';
+import { areaCellKey, cellCenter, pointCell, type AreaGrid } from './areas';
+import { crossesWalls } from './walls';
 
 export const DEFAULT_FEET_PER_CELL = 5;
 
@@ -92,8 +95,7 @@ export function reachableCells(
   remainingFeet: number,
   diagonalsBefore = 0,
   feetPerCell = DEFAULT_FEET_PER_CELL
-): GridCell[] {
-  if (!Number.isFinite(remainingFeet) || feetPerCell <= 0) return [];
+): GridCell[] {  if (!Number.isFinite(remainingFeet) || feetPerCell <= 0) return [];
   const maxCells = Math.floor(remainingFeet / feetPerCell);
   if (maxCells < 1) return [];
 
@@ -129,4 +131,155 @@ export function reachableCells(
     }
   }
   return [...reach.values()];
+}
+
+export interface PathfindInput {
+  /** Стартовая точка (мировые координаты, обычно центр токена). */
+  from: GridPoint;
+  /** Целевая точка (мировые координаты). */
+  to: GridPoint;
+  grid: AreaGrid;
+  /** Границы карты в клетках; без значения — без ограничений. */
+  bounds?: { cols: number; rows: number } | null;
+  walls: Wall[];
+  /** Непроходимые клетки (враги/нейтралы): ключи `areaCellKey`. */
+  blocked?: Set<string>;
+  /** Клетки удвоенной стоимости (союзники, сложная местность). */
+  difficult?: Set<string>;
+  /** Сколько диагоналей уже пройдено в этом ходу (чередование 5-10-5). */
+  diagonalsBefore?: number;
+  feetPerCell?: number;
+}
+
+export interface FoundPath {
+  cells: GridCell[];
+  /** Мировые точки (центры клеток) от старта к финишу. */
+  points: GridPoint[];
+  feet: number;
+  diagonals: number;
+}
+
+interface PathNode {
+  cx: number;
+  cy: number;
+  /** Чётность пройденных диагоналей (0 — следующая стоит 5 фт). */
+  p: number;
+  /** Стоимость в клетках (5 футов), сложная местность — ×2. */
+  g: number;
+  f: number;
+  diag: number;
+  parent?: PathNode;
+}
+
+/**
+ * A* по клеткам: ортогональные шаги 5 фт, диагонали с чередованием 5-10-5,
+ * сложная местность ×2; стены и закрытые двери/окна блокируют (`move`),
+ * клетки из `blocked` непроходимы. Возвращает путь или null.
+ */
+export function findPath(input: PathfindInput): FoundPath | null {
+  const { grid, walls } = input;
+  const feetPerCell = input.feetPerCell ?? DEFAULT_FEET_PER_CELL;
+  const blocked = input.blocked ?? new Set<string>();
+  const difficult = input.difficult ?? new Set<string>();
+  const diagonalsBefore = Math.max(0, input.diagonalsBefore ?? 0);
+  const start = pointCell(input.from, grid);
+  const goal = pointCell(input.to, grid);
+  const goalKey = areaCellKey(goal.cx, goal.cy);
+  const inBounds = (cx: number, cy: number) =>
+    !input.bounds || (cx >= 0 && cy >= 0 && cx < input.bounds.cols && cy < input.bounds.rows);
+  if (blocked.has(goalKey) || !inBounds(goal.cx, goal.cy)) return null;
+
+  const keyOf = (cx: number, cy: number, p: number) => `${cx},${cy},${p}`;
+  const heuristic = (cx: number, cy: number) => Math.max(Math.abs(cx - goal.cx), Math.abs(cy - goal.cy));
+  const startP = ((diagonalsBefore % 2) + 2) % 2;
+  const startNode: PathNode = {
+    cx: start.cx,
+    cy: start.cy,
+    p: startP,
+    g: 0,
+    f: heuristic(start.cx, start.cy),
+    diag: 0,
+  };
+  const open: PathNode[] = [startNode];
+  const best = new Map<string, number>([[keyOf(start.cx, start.cy, startP), 0]]);
+
+  while (open.length > 0) {
+    let idx = 0;
+    for (let i = 1; i < open.length; i++) {
+      if (open[i]!.f < open[idx]!.f) idx = i;
+    }
+    const node = open.splice(idx, 1)[0]!;
+    if (node.cx === goal.cx && node.cy === goal.cy) {
+      const chain: PathNode[] = [];
+      let cursor: PathNode | undefined = node;
+      while (cursor) {
+        chain.push(cursor);
+        cursor = cursor.parent;
+      }
+      chain.reverse();
+      return {
+        cells: chain.map((n) => ({ cx: n.cx, cy: n.cy })),
+        points: chain.map((n) => cellCenter(n.cx, n.cy, grid)),
+        feet: node.g * feetPerCell,
+        diagonals: diagonalsBefore + node.diag,
+      };
+    }
+    const from = cellCenter(node.cx, node.cy, grid);
+    for (const [dx, dy] of NEIGHBORS) {
+      const cx = node.cx + dx;
+      const cy = node.cy + dy;
+      if (!inBounds(cx, cy)) continue;
+      const key = areaCellKey(cx, cy);
+      if (blocked.has(key)) continue;
+      const diagonal = dx !== 0 && dy !== 0;
+      const to = cellCenter(cx, cy, grid);
+      if (crossesWalls(from, to, walls, 'move')) continue;
+      const stepUnits = (diagonal ? (node.p === 0 ? 1 : 2) : 1) * (difficult.has(key) ? 2 : 1);
+      const g = node.g + stepUnits;
+      const p = diagonal ? node.p ^ 1 : node.p;
+      const stateKey = keyOf(cx, cy, p);
+      if (g >= (best.get(stateKey) ?? Infinity)) continue;
+      best.set(stateKey, g);
+      open.push({
+        cx,
+        cy,
+        p,
+        g,
+        f: g + heuristic(cx, cy),
+        diag: node.diag + (diagonal ? 1 : 0),
+        parent: node,
+      });
+    }
+  }
+  return null;
+}
+
+/** Ближайшая свободная клетка к заданной (шахматные кольца до 4 клеток). */
+export function nearestFreeCell(
+  target: GridCell,
+  blocked: Set<string>,
+  bounds?: { cols: number; rows: number } | null
+): GridCell | null {
+  const key = areaCellKey(target.cx, target.cy);
+  if (!blocked.has(key)) return target;
+  for (let r = 1; r <= 4; r++) {
+    let best: GridCell | null = null;
+    let bestDist = Infinity;
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const cx = target.cx + dx;
+        const cy = target.cy + dy;
+        if (bounds && (cx < 0 || cy < 0 || cx >= bounds.cols || cy >= bounds.rows)) continue;
+        if (blocked.has(areaCellKey(cx, cy))) continue;
+        const dist = Math.hypot(dx, dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = { cx, cy };
+        }
+      }
+    }
+    if (best) return best;
+  }
+  return null;
 }

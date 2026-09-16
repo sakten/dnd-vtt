@@ -1,54 +1,18 @@
 import {
   clampCells,
-  movementCost,
   type Token,
 } from 'shared';
 import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
-import { clearThrottled, emitInMap, emitThrottledInMap } from '../helpers';
+import { emitInMap } from '../helpers';
 import { activeMapOf, tokenById } from '../selectors';
 import { clearTokenUiFor } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'finalizeTokenMove' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
+export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'onTokenMove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'moveTokenAlongPath' | 'clearMoving' | 'setDragGhost' | 'setDragPath' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
   const viewMapId = () => get().viewMapId;
-
-  // Ломаная пути текущего перетаскивания — для атак по возможности.
-  const movePaths = new Map<string, { x: number; y: number }[]>();
 
   const patchTokenInMap = (mapId: string, id: string, patch: Partial<Token>) =>
     set((s) => ({ scene: patchToken(s.scene, mapId, id, patch) }));
-
-  // Учёт передвижения активного бойца при drag (сумма сегментов по сетке).
-  const accountMovement = (mapId: string, id: string, x: number, y: number) => {
-    const map = get().scene.maps.find((m) => m.id === mapId);
-    if (!map || !map.combat.active || map.combat.currentIndex < 0) return;
-    const token = map.tokens.find((t) => t.id === id);
-    const entry = map.combat.entries[map.combat.currentIndex];
-    const turn = entry ? map.combat.turns[entry.id] : undefined;
-    if (!token || entry?.tokenId !== id || !turn) return;
-    const { feet, diagonals } = movementCost(
-      { x: token.x, y: token.y },
-      { x, y },
-      get().scene.grid.size || 50,
-      turn.diagonalsUsed
-    );
-    if (feet <= 0) return;
-    set((s) => ({
-      scene: patchCombatTurn(s.scene, mapId, entry.id, {
-        movementUsed: turn.movementUsed + feet,
-        diagonalsUsed: diagonals,
-      }),
-    }));
-  };
-
-  const reportMovement = (mapId: string, id: string) => {
-    const map = get().scene.maps.find((m) => m.id === mapId);
-    if (!map || !map.combat.active || map.combat.currentIndex < 0) return undefined;
-    const entry = map.combat.entries[map.combat.currentIndex];
-    const turn = entry ? map.combat.turns[entry.id] : undefined;
-    if (entry?.tokenId !== id || !turn) return undefined;
-    return { used: turn.movementUsed, diagonals: turn.diagonalsUsed };
-  };
 
   return {
     onTokenAdd: ({ mapId, token }) => set((s) => ({ scene: upsertToken(s.scene, mapId, token) })),
@@ -57,8 +21,6 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       set((s) => (s.draggingTokenId === token.id ? s : { scene: replaceToken(s.scene, mapId, token) })),
 
     onTokenRemove: ({ mapId, id }) => {
-      clearThrottled(`move:${id}`);
-      movePaths.delete(id);
       set((s) => ({
         ...clearTokenUiFor(s, id),
         scene: removeTokenById(s.scene, mapId, id),
@@ -77,49 +39,72 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       const state = get();
       const mapId = state.viewMapId;
       if (!state.socket || !mapId) return;
-      const token = tokenById(activeMapOf(state), id);
-      if (token) {
-        const list = movePaths.get(id) ?? [{ x: token.x, y: token.y }];
-        const last = list[list.length - 1];
-        if (!last || last.x !== x || last.y !== y) list.push({ x, y });
-        movePaths.set(id, list.slice(0, 400));
-      }
-      accountMovement(mapId, id, x, y);
       patchTokenInMap(mapId, id, { x, y });
-      emitThrottledInMap(get, `move:${id}`, 66, 'token:move', () => ({ id, x, y }));
     },
 
-    finalizeTokenMove: (id, x, y) => {
+    moveTokenAlongPath: (id, path) => {
       const state = get();
       const mapId = state.viewMapId;
-      if (!state.socket || !mapId) return;
-      clearThrottled(`move:${id}`);
-      const token = tokenById(activeMapOf(state), id);
-      if (token) {
-        const list = movePaths.get(id) ?? [{ x: token.x, y: token.y }];
-        const last = list[list.length - 1];
-        if (!last || last.x !== x || last.y !== y) list.push({ x, y });
-        movePaths.set(id, list.slice(0, 400));
+      const map = activeMapOf(state);
+      if (!state.socket || !mapId || !map || path.points.length === 0) return;
+      const token = tokenById(map, id);
+      if (!token) return;
+      const final = path.points[path.points.length - 1]!;
+      const moving = { points: path.points, duration: Math.min(1500, (path.points.length - 1) * 150) };
+
+      const entry =
+        map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
+      const turn = entry ? map.combat.turns[entry.id] : undefined;
+      let used: number | undefined;
+      if (entry?.tokenId === id && turn) {
+        used = turn.movementUsed + path.feet;
+        set((s) => ({
+          scene: patchCombatTurn(s.scene, mapId, entry.id, { movementUsed: used!, diagonalsUsed: path.diagonals }),
+        }));
       }
-      accountMovement(mapId, id, x, y);
-      patchTokenInMap(mapId, id, { x, y });
-      emitInMap(get, 'token:move', { id, x, y });
+
+      set((s) => ({
+        scene: patchToken(s.scene, mapId, id, { x: final.x, y: final.y }),
+        ...(path.points.length > 1 ? { movingTokens: { ...s.movingTokens, [id]: moving } } : {}),
+        dragGhost: null,
+        dragPath: null,
+      }));
+      emitInMap(get, 'token:move', { id, x: final.x, y: final.y, path: path.points });
       emitInMap(get, 'token:lock', { id, lock: false });
-      const moved = reportMovement(mapId, id);
-      if (moved) {
-        const path = movePaths.get(id);
+      if (used !== undefined) {
         emitInMap(get, 'combat:setMovement', {
           tokenId: id,
-          used: moved.used,
-          diagonals: moved.diagonals,
-          path: path && path.length > 1 ? path : undefined,
+          used,
+          diagonals: path.diagonals,
+          path: path.points,
         });
       }
-      movePaths.delete(id);
+    },
+
+    clearMoving: (id) =>
+      set((s) => {
+        if (!s.movingTokens[id]) return s;
+        const movingTokens = { ...s.movingTokens };
+        delete movingTokens[id];
+        return { movingTokens };
+      }),
+
+    setDragGhost: (dragGhost) => set({ dragGhost }),
+
+    setDragPath: (dragPath) => set({ dragPath }),
+
+    onTokenMove: ({ id, path }) => {
+      if (get().movingTokens[id]) return;
+      if (!Array.isArray(path) || path.length < 2) return;
+      set((s) => ({
+        movingTokens: {
+          ...s.movingTokens,
+          [id]: { points: path, duration: Math.min(1500, (path.length - 1) * 150) },
+        },
+      }));
     },
 
     lockToken: (id, lock) => {
-      if (lock) movePaths.delete(id);
       emitInMap(get, 'token:lock', { id, lock });
     },
 

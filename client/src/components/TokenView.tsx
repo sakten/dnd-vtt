@@ -1,8 +1,21 @@
-import { memo, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
-import { movementBlocked, snapToGrid, statNumber, type Token } from 'shared';
+import {
+  areaCells,
+  cellCenter,
+  findPath,
+  movementBlocked,
+  nearestFreeCell,
+  pointCell,
+  snapToGrid,
+  statNumber,
+  tokenCells,
+  type FoundPath,
+  type Token,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { activeMapOf } from '../store/selectors';
 import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
 
@@ -16,7 +29,11 @@ function TokenView({ token }: { token: Token }) {
   const multiTarget = useGameStore((s) => s.interaction?.mode === 'multi');
   const aim = useGameStore((s) => s.interaction?.mode === 'aim');
   const moveToken = useGameStore((s) => s.moveToken);
-  const finalizeMove = useGameStore((s) => s.finalizeTokenMove);
+  const moveTokenAlongPath = useGameStore((s) => s.moveTokenAlongPath);
+  const clearMoving = useGameStore((s) => s.clearMoving);
+  const setDragGhost = useGameStore((s) => s.setDragGhost);
+  const setDragPath = useGameStore((s) => s.setDragPath);
+  const moving = useGameStore((s) => s.movingTokens[token.id]);
   const lockToken = useGameStore((s) => s.lockToken);
   const setDragging = useGameStore((s) => s.setDragging);
   const setHoverToken = useGameStore((s) => s.setHoverToken);
@@ -26,6 +43,8 @@ function TokenView({ token }: { token: Token }) {
   const isDm = useIsDm();
   const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
+  const lastRouteRef = useRef(0);
+  const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
@@ -36,21 +55,122 @@ function TokenView({ token }: { token: Token }) {
     return snapToGrid(v, offset, grid.size, token.cells);
   };
 
+  /** Путь от стартовой точки токена до перетащенной: A* со стенами, союзниками и сложной местностью. */
+  const computeRoute = (world: { x: number; y: number }): FoundPath | null => {
+    const st = useGameStore.getState();
+    const map = activeMapOf(st);
+    if (!map) return null;
+    const pathGrid = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    const cols = Math.max(1, Math.ceil(map.width / pathGrid.size));
+    const rows = Math.max(1, Math.ceil(map.height / pathGrid.size));
+    const blocked = new Set<string>();
+    const difficult = new Set<string>();
+    for (const other of map.tokens) {
+      if (other.id === token.id) continue;
+      const friendly = other.faction === 'ally';
+      for (const key of tokenCells(other, pathGrid)) {
+        if (friendly) difficult.add(key);
+        else blocked.add(key);
+      }
+    }
+    for (const zone of map.zones) {
+      if (!zone.flags?.difficultTerrain) continue;
+      for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, pathGrid)) difficult.add(key);
+    }
+    const target = nearestFreeCell(pointCell(world, pathGrid), blocked, { cols, rows });
+    if (!target) return null;
+    const entry =
+      map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
+    const turn = entry?.tokenId === token.id ? map.combat.turns[entry.id] : undefined;
+    const found = findPath({
+      from: { x: token.x, y: token.y },
+      to: cellCenter(target.cx, target.cy, pathGrid),
+      grid: pathGrid,
+      bounds: { cols, rows },
+      walls: map.walls,
+      blocked,
+      difficult,
+      diagonalsBefore: turn?.diagonalsUsed ?? 0,
+    });
+    if (!found) return null;
+    const anchor = (x: number, y: number) => ({
+      x: snapToGrid(x, pathGrid.offsetX, pathGrid.size, token.cells),
+      y: snapToGrid(y, pathGrid.offsetY, pathGrid.size, token.cells),
+    });
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i < found.points.length; i++) {
+      const point = found.points[i]!;
+      const snapped = i === found.points.length - 1 ? anchor(world.x, world.y) : anchor(point.x, point.y);
+      const last = points[points.length - 1];
+      if (!last || last.x !== snapped.x || last.y !== snapped.y) points.push(snapped);
+    }
+    return { ...found, points };
+  };
+
+  const onDragStart = () => {
+    setSelected(token.id);
+    setDragging(token.id);
+    lockToken(token.id, true);
+    setDragGhost({ id: token.id, x: token.x, y: token.y });
+    setDragPath(null);
+  };
+
   const onDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     const nx = snap(e.target.x(), grid.offsetX);
     const ny = snap(e.target.y(), grid.offsetY);
     if (nx !== e.target.x()) e.target.x(nx);
     if (ny !== e.target.y()) e.target.y(ny);
     moveToken(token.id, e.target.x(), e.target.y());
+    const now = performance.now();
+    if (now - lastRouteRef.current < 60) return;
+    lastRouteRef.current = now;
+    setDragPath(computeRoute({ x: e.target.x(), y: e.target.y() }));
   };
 
   const onDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const nx = snap(e.target.x(), grid.offsetX);
-    const ny = snap(e.target.y(), grid.offsetY);
-    e.target.position({ x: nx, y: ny });
-    finalizeMove(token.id, nx, ny);
+    const st = useGameStore.getState();
+    const route = computeRoute({ x: e.target.x(), y: e.target.y() });
     setDragging(null);
+    if (route) {
+      moveTokenAlongPath(token.id, route);
+      return;
+    }
+    const ghost = st.dragGhost;
+    if (ghost && ghost.id === token.id) {
+      e.target.position({ x: ghost.x, y: ghost.y });
+      moveToken(token.id, ghost.x, ghost.y);
+    }
+    lockToken(token.id, false);
+    setDragGhost(null);
+    setDragPath(null);
   };
+
+  useEffect(() => {
+    if (!moving || moving.points.length < 2) {
+      setAnimPos(null);
+      return;
+    }
+    let raf = 0;
+    const started = performance.now();
+    const tick = (now: number) => {
+      const t = moving.duration > 0 ? Math.min(1, (now - started) / moving.duration) : 1;
+      const segments = moving.points.length - 1;
+      const progress = t * segments;
+      const idx = Math.min(segments - 1, Math.floor(progress));
+      const local = progress - idx;
+      const a = moving.points[idx]!;
+      const b = moving.points[idx + 1]!;
+      setAnimPos({ x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local });
+      if (t >= 1) {
+        setAnimPos(null);
+        clearMoving(token.id);
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [moving, token.id, clearMoving]);
 
   const circleClip = (ctx: Konva.Context) => {
     ctx.arc(0, 0, token.w / 2, 0, Math.PI * 2, false);
@@ -84,14 +204,15 @@ function TokenView({ token }: { token: Token }) {
 
   return (
     <Group
-      x={token.x}
-      y={token.y}
+      x={animPos?.x ?? token.x}
+      y={animPos?.y ?? token.y}
       scaleX={token.scale}
       scaleY={token.scale}
       rotation={token.rotation}
       opacity={lockedByOther ? 0.5 : dead ? 0.55 : 1}
       draggable={
         !lockedByOther &&
+        !moving &&
         !fogActive &&
         !lightActive &&
         !targeting &&
@@ -102,11 +223,7 @@ function TokenView({ token }: { token: Token }) {
       }
       onClick={activate}
       onTap={activate}
-      onDragStart={() => {
-        setSelected(token.id);
-        setDragging(token.id);
-        lockToken(token.id, true);
-      }}
+      onDragStart={onDragStart}
       onMouseEnter={() => setHoverToken(token.id)}
       onMouseLeave={() => setHoverToken(null)}
       onDragMove={onDragMove}

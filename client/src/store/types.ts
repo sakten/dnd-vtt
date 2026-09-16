@@ -3,6 +3,7 @@ import type {
   CharacterSheet,
   ChatMessage,
   FogState,
+  FoundPath,
   GridSettings,
   LibraryItem,
   LightArea,
@@ -128,7 +129,17 @@ export interface GameState {
   addTokenAt: (libraryItemId: string, x: number, y: number) => void;
   removeToken: (id: string) => void;
   moveToken: (id: string, x: number, y: number) => void;
-  finalizeTokenMove: (id: string, x: number, y: number) => void;
+  /** Идти по найденному пути: локальная анимация + рассылка пути всем. */
+  moveTokenAlongPath: (id: string, path: FoundPath) => void;
+  clearMoving: (id: string) => void;
+  /** Анимируемые перемещения токенов (у всех клиентов). */
+  movingTokens: Record<string, { points: { x: number; y: number }[]; duration: number }>;
+  /** Прозрачная копия на старте перетаскивания (локально у тянущего). */
+  dragGhost: { id: string; x: number; y: number } | null;
+  setDragGhost: (ghost: { id: string; x: number; y: number } | null) => void;
+  /** Маршрут текущего перетаскивания (превью, локально у тянущего). */
+  dragPath: FoundPath | null;
+  setDragPath: (path: FoundPath | null) => void;
   lockToken: (id: string, lock: boolean) => void;
   setTokenFields: (id: string, patch: Partial<Token>) => void;
   setView: (view: ViewState) => void;
@@ -213,6 +224,7 @@ export interface GameState {
   onTokenAdd: (payload: Parameters<ServerToClientEvents['token:add']>[0]) => void;
   onTokenUpdate: (payload: Parameters<ServerToClientEvents['token:update']>[0]) => void;
   onTokenRemove: (payload: Parameters<ServerToClientEvents['token:remove']>[0]) => void;
+  onTokenMove: (payload: Parameters<ServerToClientEvents['token:move']>[0]) => void;
   onChatMessage: (message: ChatMessage) => void;
   onChatError: (message: string) => void;
   onSheetUpdate: (payload: Parameters<ServerToClientEvents['sheet:update']>[0]) => void;
