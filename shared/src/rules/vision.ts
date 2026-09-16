@@ -34,7 +34,8 @@ function sensesForKind(senses: Sense[] | undefined, kind: LightAreaKind): Sense[
 
 /**
  * Радиусы восприятия в клетках: вне тьмы (и без области) — без предела,
- * в темноте/области — по сенсам (футы ÷ 5), без подходящих сенсов 1 клетка вокруг.
+ * в темноте/области — по сенсам (футы ÷ 5). Без подходящих сенсов:
+ * в обычной тьме 1 клетка вокруг, в магической тьме и мгле — ничего не видно.
  */
 export function visionRadiiCells(
   darkness: boolean,
@@ -44,7 +45,8 @@ export function visionRadiiCells(
   if (!kind && !darkness) return [null];
   const allowed = kind ? sensesForKind(senses, kind) : senses ?? [];
   const radii = allowed.map((s) => Math.floor(Math.max(0, s.range) / 5)).filter((r) => r > 0);
-  return radii.length > 0 ? radii : [1];
+  if (radii.length > 0) return radii;
+  return kind === 'magical' || kind === 'obscured' ? [] : [1];
 }
 
 /**

@@ -67,6 +67,12 @@ describe('canSee: области', () => {
     expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('magical') })).toBe(true);
   });
 
+  it('магическая тьма и мгла: без подходящего зрения не видно даже своей клетки', () => {
+    const own = { x: 125, y: 75 };
+    expect(canSee(own, own, undefined, { ...SIGHT, areas: area('magical') })).toBe(false);
+    expect(canSee(own, own, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(false);
+  });
+
   it('мгла: только слепое зрение', () => {
     expect(canSee(from, target, devilsight, { ...SIGHT, areas: area('obscured') })).toBe(false);
     expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('obscured') })).toBe(true);
