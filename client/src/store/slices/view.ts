@@ -1,7 +1,7 @@
 import { activeMapOf } from '../selectors';
 import type { GameState, Slice } from '../types';
 
-export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setRoomSettingsOpen' | 'setFogMode' | 'setWallsMode' | 'fitView'>> = (set, get) => {
+export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setRoomSettingsOpen' | 'setFogMode' | 'setWallsMode' | 'setWallCandidates' | 'fitView'>> = (set, get) => {
   return {
     setView: (view) => set({ view }),
     setViewport: (viewport) => set({ viewport }),
@@ -13,6 +13,8 @@ export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 
     setFogMode: (patch) => set((s) => ({ fogMode: { ...s.fogMode, ...patch } })),
 
     setWallsMode: (patch) => set((s) => ({ wallsMode: { ...s.wallsMode, ...patch } })),
+
+    setWallCandidates: (wallCandidates) => set({ wallCandidates }),
 
     fitView: () => {
       const { viewport } = get();

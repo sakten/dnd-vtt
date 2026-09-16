@@ -65,6 +65,7 @@ export default function TableTop() {
   const updateFog = useGameStore((s) => s.updateFog);
   const wallsMode = useGameStore((s) => s.wallsMode);
   const updateWalls = useGameStore((s) => s.updateWalls);
+  const wallCandidates = useGameStore((s) => s.wallCandidates);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
   const aim = interaction?.mode === 'aim' ? interaction.aim : null;
@@ -485,6 +486,18 @@ export default function TableTop() {
                   />
                 );
               })}
+            {isDm &&
+              wallCandidates?.map((w) => (
+                <Line
+                  key={`cand-${w.id}`}
+                  points={[w.x1, w.y1, w.x2, w.y2]}
+                  stroke={w.kind === 'door' ? '#39d353' : '#ffd43b'}
+                  strokeWidth={4 / view.scale}
+                  dash={[10 / view.scale, 6 / view.scale]}
+                  opacity={0.85}
+                  listening={false}
+                />
+              ))}
             {wallStart && wallCursor && (
               <Line
                 points={[wallStart.x, wallStart.y, wallCursor.x, wallCursor.y]}

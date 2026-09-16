@@ -52,6 +52,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     tokenMenuId: null,
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },
     wallsMode: { active: false, tool: 'wall' },
+    wallCandidates: null,
     critHit: null,
     reactionOffers: [],
 }));

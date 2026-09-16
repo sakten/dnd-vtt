@@ -141,6 +141,9 @@ export interface GameState {
   updateFog: (mapId: string, fog: FogState) => void;
   setWallsMode: (patch: Partial<WallsMode>) => void;
   updateWalls: (mapId: string, walls: Wall[]) => void;
+  /** Кандидаты авто-поиска стен (превью до применения). */
+  wallCandidates: Wall[] | null;
+  setWallCandidates: (walls: Wall[] | null) => void;
   startCombat: () => void;
   endCombat: () => void;
   addCombatant: (tokenId: string) => void;

@@ -8,6 +8,7 @@ export const UI_RESET: Partial<GameState> = {
   draggingTokenId: null,
   interaction: null,
   hoverTokenId: null,
+  wallCandidates: null,
 };
 
 /** Сброс ссылок на удалённый токен (во всех режимах выбора/перетаскивания). */
