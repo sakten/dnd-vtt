@@ -116,6 +116,7 @@ export function normalizeSheet(
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),
+    darkvision: clampInt((raw as { darkvision?: unknown }).darkvision, 0, 1000, 0),
     damageDefenses: normalizeDamageDefenses((raw as { damageDefenses?: unknown }).damageDefenses),
   };
 }

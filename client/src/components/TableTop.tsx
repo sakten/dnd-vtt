@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Image as KonvaImage, Line, Text } from 'react-konva';
+import { Stage, Layer, Rect, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
 import type { MapInfo, Wall } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
@@ -7,6 +7,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
+import { partyViewers, visibleCells } from '../lib/los';
 import { canAddLibraryItem, canControlWith, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
 import GridLayer from './GridLayer';
@@ -173,6 +174,36 @@ export default function TableTop() {
       })
       .filter((r): r is { x: number; y: number; size: number } => r !== null);
   }, [activeMap]);
+
+  const veilRects = useMemo(() => {
+    const map = activeMap;
+    if (!map || !map.vision.los || isDm) return null;
+    const visible = visibleCells({
+      width: map.width,
+      height: map.height,
+      cellSize: map.fog.size,
+      offsetX: map.fog.offsetX,
+      offsetY: map.fog.offsetY,
+      walls: map.walls,
+      viewers: partyViewers(map.tokens, map.vision.darkness),
+    });
+    if (visible === null) return null;
+    const cols = Math.ceil(map.width / map.fog.size);
+    const rows = Math.ceil(map.height / map.fog.size);
+    const rects: { x: number; y: number; size: number }[] = [];
+    for (let cx = 0; cx < cols; cx++) {
+      for (let cy = 0; cy < rows; cy++) {
+        const key = cellKey(cx, cy);
+        if (visible.has(key) || hiddenSet.has(key)) continue;
+        rects.push({
+          x: map.fog.offsetX + cx * map.fog.size,
+          y: map.fog.offsetY + cy * map.fog.size,
+          size: map.fog.size,
+        });
+      }
+    }
+    return rects;
+  }, [activeMap, isDm, hiddenSet]);
 
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;
@@ -613,6 +644,17 @@ export default function TableTop() {
               ))}
           </Layer>
           <Layer listening={false}>
+            {veilRects && veilRects.length > 0 && (
+              <Shape
+                listening={false}
+                sceneFunc={(context) => {
+                  context.beginPath();
+                  for (const r of veilRects) context.rect(r.x, r.y, r.size, r.size);
+                  context.fillStyle = '#07090d';
+                  context.fill();
+                }}
+              />
+            )}
             {measure && (
               <>
                 <Line

@@ -21,6 +21,17 @@ S.player.emit('fog:update', { mapId: S.map1.id, fog: { ...fogState, hidden: [] }
 await sleep(600);
 check(playerFog.fog.hidden.length === 2, 'игрок не может менять туман');
 
+let playerVision = null;
+S.player.on('vision:update', (p) => {
+  playerVision = p;
+});
+S.dm.emit('vision:update', { mapId: S.map1.id, vision: { los: true, darkness: true } });
+await waitFor(() => playerVision && playerVision.vision.los === true);
+check(playerVision.vision.darkness === true, 'видимость карты обновляется у игроков');
+S.player.emit('vision:update', { mapId: S.map1.id, vision: { los: false, darkness: false } });
+await sleep(600);
+check(playerVision.vision.los === true, 'игрок не может менять видимость');
+
 S.player.emit('dice:roll', { expression: 'd20+3' });
 const rollMsg = await waitMsg(S.dm, (m) => m.kind === 'roll' && !m.label);
 check(rollMsg.roll.total >= 4 && rollMsg.roll.total <= 23, `dice d20+3 total=${rollMsg.roll.total}`);

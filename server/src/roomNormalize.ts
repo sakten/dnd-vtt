@@ -31,6 +31,7 @@ function normalizePersistedScene(raw: Scene): Scene {
           tokens: legacy.tokens ?? [],
           zones: [],
           walls: [],
+          vision: { los: false, darkness: false },
           fog: defaultFog(grid),
           combat: emptyCombatState(),
         },

@@ -40,6 +40,7 @@ export function makeToken(id: string, overrides: Partial<Token> = {}): Token {
     hpTemp: 0,
     faction: 'neutral',
     speed: DEFAULT_SPEED,
+    darkvision: 0,
     conditions: [],
     effects: [],
     damageDefenses: [],
@@ -56,6 +57,7 @@ export function makeMap(id: string, tokens: Token[] = [], grid: GridSettings = D
     height: 500,
     tokens,
     zones: [],    walls: [],
+    vision: { los: false, darkness: false },
     fog: defaultFog(grid),
     combat: emptyCombatState(),
   };

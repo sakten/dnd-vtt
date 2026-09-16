@@ -2,7 +2,7 @@ import type { ActionCost, ReactionOffer } from '../domain/actions';
 import type { ChatMessage, RollKind } from '../domain/chat';
 import type { CombatState } from '../domain/combat';
 import type { Player, RoomState } from '../domain/room';
-import type { FogState, GridSettings, MapInfo, Wall } from '../domain/scene';
+import type { FogState, GridSettings, MapInfo, VisionSettings, Wall } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
 
@@ -22,7 +22,8 @@ export interface ServerToClientEvents {
   'maps:update': (payload: { maps: MapInfo[]; activeMapId: string | null }) => void;
   'map:bring': (payload: { activeMapId: string }) => void;
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
-'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
+  'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
+  'vision:update': (payload: { mapId: string; vision: VisionSettings }) => void;
   'library:update': (library: LibraryItem[]) => void;
   'combat:update': (payload: { mapId: string; combat: CombatState }) => void;
   'grid:update': (grid: GridSettings) => void;
@@ -57,7 +58,8 @@ export interface ClientToServerEvents {
   'map:rename': (payload: { id: string; name: string }) => void;
   'map:bring': (id: string) => void;
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
-'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
+  'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
+  'vision:update': (payload: { mapId: string; vision: VisionSettings }) => void;
   'library:add': (payload: TokenFields) => void;
   'library:update': (payload: { id: string; patch: Partial<LibraryItem> }) => void;
   'library:remove': (id: string) => void;

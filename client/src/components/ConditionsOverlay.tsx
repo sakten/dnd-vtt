@@ -3,6 +3,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
+import { partyViewers, visibleCells } from '../lib/los';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 
@@ -13,6 +14,18 @@ export default function ConditionsOverlay() {
   const spellByKey = useSpellByKey();
   const map = useActiveMap();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
+  const veil = useMemo(() => {
+    if (!map || !map.vision.los || isDm) return null;
+    return visibleCells({
+      width: map.width,
+      height: map.height,
+      cellSize: map.fog.size,
+      offsetX: map.fog.offsetX,
+      offsetY: map.fog.offsetY,
+      walls: map.walls,
+      viewers: partyViewers(map.tokens, map.vision.darkness),
+    });
+  }, [map, isDm]);
 
   const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.some((e) => !e.hidden));
   if (!tokens.length) return null;
@@ -23,7 +36,7 @@ export default function ConditionsOverlay() {
         const size = map?.fog.size ?? 50;
         const cx = Math.floor((t.x - (map?.fog.offsetX ?? 0)) / size);
         const cy = Math.floor((t.y - (map?.fog.offsetY ?? 0)) / size);
-        if (!isDm && hidden.has(`${cx},${cy}`)) return null;
+        if (!isDm && (hidden.has(`${cx},${cy}`) || (veil !== null && !veil.has(`${cx},${cy}`)))) return null;
         const left = view.x + t.x * view.scale;
         const top = view.y + (t.y - t.h / 2) * view.scale - 26;
         return (

@@ -19,6 +19,14 @@ export interface FogState {
   hidden: string[];
 }
 
+/** Настройки видимости карты (DM): обзор от токенов игроков + режим «Темнота». */
+export interface VisionSettings {
+  los: boolean;
+  darkness: boolean;
+}
+
+export const DEFAULT_VISION: VisionSettings = { los: false, darkness: false };
+
 export type WallKind = 'wall' | 'door' | 'window';
 
 /** Сегмент стены по узлам сетки: блокирует обзор (и позже — движение). */
@@ -58,6 +66,8 @@ export interface MapInfo {
   zones: ZoneInstance[];
   /** Стены/двери/окна (LOS и проход; двери/окна — в следующих срезах). */
   walls: Wall[];
+  /** Видимость: обзор игроков от токенов игрока (стены блокируют). */
+  vision: VisionSettings;
   fog: FogState;
   combat: CombatState;
 }

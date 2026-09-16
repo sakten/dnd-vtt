@@ -49,6 +49,7 @@ export default function TokenMenu() {
   const [hpTemp, setHpTemp] = useState(0);
   const [hpAmount, setHpAmount] = useState(5);
   const [speed, setSpeed] = useState(DEFAULT_SPEED);
+  const [darkvision, setDarkvision] = useState(0);
   const [faction, setFaction] = useState<Faction>('neutral');
   const [visible, setVisible] = useState(true);
   const [conditions, setConditions] = useState<ConditionInstance[]>([]);
@@ -74,6 +75,7 @@ export default function TokenMenu() {
     setHpCurrent(token.hpCurrent ?? 0);
     setHpTemp(token.hpTemp ?? 0);
     setSpeed(token.speed ?? DEFAULT_SPEED);
+    setDarkvision(token.darkvision ?? 0);
     setFaction(token.faction ?? 'neutral');
     setVisible(token.visible !== false);
     setConditions(token.conditions ?? []);
@@ -120,7 +122,7 @@ export default function TokenMenu() {
       hpCurrent,
       hpTemp,
       conditions,
-      ...(isDm ? { speed, faction, visible, statblock } : {}),
+      ...(isDm ? { speed, darkvision, faction, visible, statblock } : {}),
     });
     close(null);
   };
@@ -208,6 +210,8 @@ export default function TokenMenu() {
                 onChange={patchDraft}
                 speed={speed}
                 onSpeedChange={isDm ? setSpeed : undefined}
+                darkvision={darkvision}
+                onDarkvisionChange={isDm ? setDarkvision : undefined}
               />
               {isDm && (
                 <>

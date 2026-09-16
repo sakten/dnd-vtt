@@ -10,6 +10,7 @@ import Modal from './Modal';
 export default function GridSettingsModal() {
   const grid = useGameStore((s) => s.scene.grid);
   const updateGrid = useGameStore((s) => s.updateGrid);
+  const updateVision = useGameStore((s) => s.updateVision);
   const close = useGameStore((s) => s.setGridModalOpen);
   const map = useGameStore(activeMapOf);
   const [draft, setDraft] = useState<GridSettings | null>(null);
@@ -87,6 +88,25 @@ export default function GridSettingsModal() {
         </button>
         {autoStatus && <span className="grid-auto-status">{autoStatus}</span>}
       </div>
+      <div className="sheet-section-title">Видимость</div>
+      <CheckboxRow
+        checked={map?.vision.los ?? false}
+        onChange={(los) => {
+          if (map) updateVision(map.id, { los, darkness: los ? map.vision.darkness : false });
+        }}
+      >
+        Туман видимости (обзор от токенов игроков)
+      </CheckboxRow>
+      {map?.vision.los && (
+        <CheckboxRow
+          checked={map.vision.darkness}
+          onChange={(darkness) => {
+            if (map) updateVision(map.id, { los: true, darkness });
+          }}
+        >
+          Темнота на карте (дальность — тёмное зрение)
+        </CheckboxRow>
+      )}
       <div className="modal-actions">
         <button
           className="primary"

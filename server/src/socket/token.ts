@@ -123,6 +123,9 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         if (typeof patch.speed === 'number' && Number.isFinite(patch.speed)) {
           token.speed = Math.max(0, Math.round(patch.speed));
         }
+        if (typeof patch.darkvision === 'number' && Number.isFinite(patch.darkvision)) {
+          token.darkvision = Math.max(0, Math.round(patch.darkvision));
+        }
         if ('statblock' in patch) {
           const statblock = normalizeStatblock(patch.statblock);
           if (statblock) token.statblock = statblock;

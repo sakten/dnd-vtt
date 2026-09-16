@@ -1760,6 +1760,7 @@ describe('зоны и концентрация', () => {
 function casterSheet(): CharacterSheet {
   return {
     name: 'Волшебник',
+    darkvision: 0,
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
     proficiencyBonus: '3',
     saves: {},

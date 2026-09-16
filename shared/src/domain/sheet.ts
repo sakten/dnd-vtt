@@ -52,6 +52,8 @@ export interface CharacterSheet {
   ac: string;
   /** Базовая скорость, футы. */
   speed: number;
+  /** Тёмное зрение, футы (0 — нет). Зеркалится в токены персонажа. */
+  darkvision: number;
   /** Сопротивления/иммунитеты/уязвимости к типам урона. */
   damageDefenses: DamageDefense[];
 }

@@ -103,6 +103,16 @@ export function registerMapHandlers(ctx: ConnCtx) {
       broadcast('walls:update', { mapId, walls: map.walls });
     });
 
+    ctx.on('vision:update', ({ mapId: rawMapId, vision }) => {
+      const room = dmRoom();
+      const mapId = asString(rawMapId);
+      if (!room || !mapId || !isRecord(vision)) return;
+      const map = room.scene.maps.find((m) => m.id === mapId);
+      if (!map) return;
+      map.vision = { los: vision.los === true, darkness: vision.darkness === true };
+      broadcast('vision:update', { mapId, vision: map.vision });
+    });
+
     ctx.on('grid:update', (grid) => {
       const room = dmRoom();
       if (!room || !isRecord(grid)) return;

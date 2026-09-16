@@ -14,6 +14,7 @@ import type {
   ServerToClientEvents,
   Token,
   TokenFields,
+  VisionSettings,
   Wall,
 } from 'shared';
 import type { AppSocket } from '../net/socket';
@@ -141,6 +142,7 @@ export interface GameState {
   updateFog: (mapId: string, fog: FogState) => void;
   setWallsMode: (patch: Partial<WallsMode>) => void;
   updateWalls: (mapId: string, walls: Wall[]) => void;
+  updateVision: (mapId: string, vision: VisionSettings) => void;
   /** Кандидаты авто-поиска стен (превью до применения). */
   wallCandidates: Wall[] | null;
   setWallCandidates: (walls: Wall[] | null) => void;
@@ -191,6 +193,7 @@ export interface GameState {
   onMapBring: (payload: Parameters<ServerToClientEvents['map:bring']>[0]) => void;
   onFogUpdate: (payload: Parameters<ServerToClientEvents['fog:update']>[0]) => void;
   onWallsUpdate: (payload: Parameters<ServerToClientEvents['walls:update']>[0]) => void;
+  onVisionUpdate: (payload: Parameters<ServerToClientEvents['vision:update']>[0]) => void;
   onGridUpdate: (grid: GridSettings) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;
   onCombatUpdate: (payload: Parameters<ServerToClientEvents['combat:update']>[0]) => void;

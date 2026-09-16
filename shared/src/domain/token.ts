@@ -47,6 +47,8 @@ export interface Token extends TokenFields {
   faction: Faction;
   /** Скорость в футах; у персонажей зеркалится из листа. */
   speed: number;
+  /** Тёмное зрение, футы; у персонажей зеркалится из листа. */
+  darkvision: number;
   conditions: ConditionInstance[];
   effects: EffectInstance[];
 }

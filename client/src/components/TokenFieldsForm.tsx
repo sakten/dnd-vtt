@@ -13,10 +13,12 @@ interface PassportProps {
   onChange: Change;
   speed?: number;
   onSpeedChange?: (value: number) => void;
+  darkvision?: number;
+  onDarkvisionChange?: (value: number) => void;
 }
 
 /** Паспорт токена/предмета: имя, инициатива, размер, круглость (скорость — токену). */
-export function TokenPassportFields({ value, onChange, speed, onSpeedChange }: PassportProps) {
+export function TokenPassportFields({ value, onChange, speed, onSpeedChange, darkvision, onDarkvisionChange }: PassportProps) {
   return (
     <>
       <Field label="Название">
@@ -45,6 +47,17 @@ export function TokenPassportFields({ value, onChange, speed, onSpeedChange }: P
               max={1000}
               value={speed ?? 0}
               onChange={(e) => onSpeedChange(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+            />
+          </Field>
+        )}
+        {onDarkvisionChange && (
+          <Field label="Тёмное зрение, фт">
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              value={darkvision ?? 0}
+              onChange={(e) => onDarkvisionChange(Math.max(0, Math.round(Number(e.target.value) || 0)))}
             />
           </Field>
         )}

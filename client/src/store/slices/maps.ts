@@ -1,9 +1,9 @@
-import { resizeGrid, setFog, setGrid, setWalls, withMaps } from '../../domain/scene';
+import { resizeGrid, setFog, setGrid, setVision, setWalls, withMaps } from '../../domain/scene';
 import { emit, emitThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'updateFog' | 'updateWalls'>> = (set, get) => {
+export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'updateFog' | 'updateWalls' | 'updateVision'>> = (set, get) => {
   return {
     onMapsUpdate: ({ maps, activeMapId }) => {
       set((s) => {
@@ -26,6 +26,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
 
     onFogUpdate: ({ mapId, fog }) => set((s) => ({ scene: setFog(s.scene, mapId, fog) })),
     onWallsUpdate: ({ mapId, walls }) => set((s) => ({ scene: setWalls(s.scene, mapId, walls) })),
+    onVisionUpdate: ({ mapId, vision }) => set((s) => ({ scene: setVision(s.scene, mapId, vision) })),
     onGridUpdate: (grid) => set((s) => ({ scene: setGrid(s.scene, grid) })),
 
     addMap: (name, url, width, height) => {
@@ -74,6 +75,12 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
         const latest = get().scene.maps.find((m) => m.id === mapId)?.walls;
         return latest ? { mapId, walls: latest } : undefined;
       });
+    },
+
+    updateVision: (mapId, vision) => {
+      if (!get().socket) return;
+      set((s) => ({ scene: setVision(s.scene, mapId, vision) }));
+      emit(get, 'vision:update', { mapId, vision });
     },
   };
 };

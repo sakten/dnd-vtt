@@ -6,6 +6,7 @@ import {
   type MapInfo,
   type Scene,
   type Token,
+  type VisionSettings,
   type Wall,
 } from 'shared';
 
@@ -68,6 +69,10 @@ export function setFog(scene: Scene, mapId: string, fog: FogState): Scene {
 
 export function setWalls(scene: Scene, mapId: string, walls: Wall[]): Scene {
   return updateMap(scene, mapId, (m) => ({ ...m, walls }));
+}
+
+export function setVision(scene: Scene, mapId: string, vision: VisionSettings): Scene {
+  return updateMap(scene, mapId, (m) => ({ ...m, vision }));
 }
 
 export function setGrid(scene: Scene, grid: GridSettings): Scene {

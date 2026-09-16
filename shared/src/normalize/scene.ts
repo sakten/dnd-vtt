@@ -1,6 +1,6 @@
 import type { ZoneInstance } from '../domain/automation';
-import { DEFAULT_GRID, defaultFog } from '../domain/scene';
-import type { FogState, GridSettings, MapInfo, Scene, Wall, WallKind } from '../domain/scene';
+import { DEFAULT_GRID, DEFAULT_VISION, defaultFog } from '../domain/scene';
+import type { FogState, GridSettings, MapInfo, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
 import { normalizeToken } from './token';
@@ -33,6 +33,12 @@ function normalizeZone(raw: unknown): ZoneInstance | null {
 }
 
 const WALL_KINDS: WallKind[] = ['wall', 'door', 'window'];
+
+/** Нормализация видимости: флаги приводим к boolean, дефолт — выключено. */
+export function normalizeVision(raw: unknown): VisionSettings {
+  if (!isRecord(raw)) return { ...DEFAULT_VISION };
+  return { los: raw.los === true, darkness: raw.darkness === true };
+}
 
 /** Нормализация стены: числовые координаты, известный вид, лимит сегментов. */
 export function normalizeWalls(raw: unknown): Wall[] {
@@ -77,6 +83,7 @@ export function normalizeMapInfo(
       ? source.zones.map(normalizeZone).filter((z): z is ZoneInstance => !!z)
       : [],
     walls: normalizeWalls(source.walls),
+    vision: normalizeVision(source.vision),
     fog,
     combat: normalizeCombatState(source.combat),
   };

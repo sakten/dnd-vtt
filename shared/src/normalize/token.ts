@@ -40,6 +40,10 @@ export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}):
       typeof source.speed === 'number' && Number.isFinite(source.speed)
         ? Math.max(0, Math.round(source.speed))
         : DEFAULT_SPEED,
+    darkvision:
+      typeof source.darkvision === 'number' && Number.isFinite(source.darkvision)
+        ? Math.max(0, Math.round(source.darkvision))
+        : 0,
     conditions: normalizeConditions(source.conditions),
     effects: normalizeEffects(source.effects),
   };

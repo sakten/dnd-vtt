@@ -38,6 +38,7 @@ export function addMap(
     id: randomUUID(),
     tokens: [],
     zones: [],    walls: [],
+    vision: { los: false, darkness: false },
     fog: defaultFog(room.scene.grid),
     combat: emptyCombatState(),
   };
@@ -111,6 +112,7 @@ export function addToken(
     hpTemp: 0,
     faction: fields.isPlayerToken ? 'ally' : 'neutral',
     speed: controllerSheet?.speed ?? DEFAULT_SPEED,
+    darkvision: controllerSheet?.darkvision ?? 0,
     conditions: [],
     effects: [],
   };
