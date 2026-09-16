@@ -333,10 +333,12 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   const rows = Math.max(1, Math.ceil(input.mapHeight / grid.size));
   const blocked = new Set<string>();
   const difficult = new Set<string>();
+  const occupied = new Set<string>();
   for (const other of input.tokens) {
     if (other.id === input.moverId) continue;
     const friendly = other.faction === 'ally';
     for (const key of tokenCells(other, grid)) {
+      occupied.add(key);
       if (friendly) difficult.add(key);
       else blocked.add(key);
     }
@@ -364,6 +366,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
         const cy = fromCell.cy + dy;
         if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
         if (blocked.has(areaCellKey(cx, cy))) continue;
+        if (occupied.has(areaCellKey(cx, cy))) continue;
         const center = cellCenter(cx, cy, grid);
         if (crossesWalls(input.from, center, walls, 'move')) continue;
         const distance = Math.hypot(center.x - input.to.x, center.y - input.to.y);
@@ -380,11 +383,11 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   }
 
   const visible = input.visible ?? null;
-  const targetCell = pointCell(input.to, grid);
+  const target = pointCell(input.to, grid);
   // В невидимую клетку ходить нельзя: маршрут отменяется (кроме режима слепоты выше).
-  if (visible && !visible.has(areaCellKey(targetCell.cx, targetCell.cy))) return null;
-  const target = nearestFreeCell(targetCell, blocked, bounds);
-  if (!target) return null;
+  if (visible && !visible.has(areaCellKey(target.cx, target.cy))) return null;
+  // Конечная клетка должна быть свободной: цель на занятой клетке не выбирается.
+  if (occupied.has(areaCellKey(target.cx, target.cy))) return null;
   const startCell = pointCell(input.from, grid);
   if (target.cx === startCell.cx && target.cy === startCell.cy) return null;
   const found = findPath({

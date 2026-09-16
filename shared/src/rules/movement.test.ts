@@ -187,5 +187,7 @@ describe('planWalk', () => {
     const ally = [{ id: 'a1', x: 75, y: 75, w: 50, h: 50, faction: 'ally' }];
     const path = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: ally });
     expect(path?.feet).toBe(15);
+    // Занятая (даже союзником) клетка не может быть конечной.
+    expect(planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 75, y: 75 }, tokens: ally })).toBeNull();
   });
 });

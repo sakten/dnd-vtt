@@ -777,7 +777,7 @@ export default function TableTop() {
               <>
                 <Line
                   points={dragPath.points.flatMap((p) => [p.x, p.y])}
-                  stroke="#7c9cff"
+                  stroke="#4ecb71"
                   strokeWidth={4 / view.scale}
                   dash={[10 / view.scale, 6 / view.scale]}
                   opacity={0.9}
@@ -800,14 +800,14 @@ export default function TableTop() {
                   return (
                     <>
                       <Line
-                        points={[target.x - r, target.y, target.x + r, target.y]}
-                        stroke="#7c9cff"
+                        points={[target.x - r, target.y - r, target.x + r, target.y + r]}
+                        stroke="#4ecb71"
                         strokeWidth={3 / view.scale}
                         listening={false}
                       />
                       <Line
-                        points={[target.x, target.y - r, target.x, target.y + r]}
-                        stroke="#7c9cff"
+                        points={[target.x - r, target.y + r, target.x + r, target.y - r]}
+                        stroke="#4ecb71"
                         strokeWidth={3 / view.scale}
                         listening={false}
                       />
