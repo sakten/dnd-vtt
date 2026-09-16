@@ -153,7 +153,7 @@ describe('tokens slice: передвижение', () => {
     expect(hasEvent(emitted, 'token:move')).toBe(true);
   });
 
-  it('onTokenWalk задаёт анимацию чужого похода и игнорирует эхо своего', () => {
+  it('onTokenWalk задаёт анимацию чужого похода и заменяет предыдущую', () => {
     useGameStore.getState().onTokenWalk({ mapId: 'm1', id: 't2', path: path.points });
     expect(useGameStore.getState().movingTokens.t2?.own).toBe(false);
 
@@ -161,7 +161,7 @@ describe('tokens slice: передвижение', () => {
       movingTokens: { t1: { points: path.points, duration: 150, own: true, diagonalsBefore: 0 } },
     });
     useGameStore.getState().onTokenWalk({ mapId: 'm1', id: 't1', path: [{ x: 0, y: 0 }, { x: 200, y: 0 }] });
-    expect(useGameStore.getState().movingTokens.t1?.points[1]).toEqual({ x: 50, y: 50 });
+    expect(useGameStore.getState().movingTokens.t1?.points[1]).toEqual({ x: 200, y: 0 });
   });
 });
 

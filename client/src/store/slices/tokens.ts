@@ -144,8 +144,8 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
     onTokenWalk: ({ id, path, moveId }) => {
       if (moveId && ownWalks.delete(moveId)) return;
-      if (get().movingTokens[id]) return;
       if (!Array.isArray(path) || path.length < 2) return;
+      // Новый поход того же токена заменяет текущий (иначе наблюдатели разъедутся).
       set((s) => ({
         movingTokens: {
           ...s.movingTokens,

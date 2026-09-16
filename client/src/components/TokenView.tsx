@@ -18,6 +18,7 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
 import { visibleCells, visionViewers } from '../lib/los';
+import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
 import { canControlTokenWith, characterNameOf, useCanControl, useIsDm } from '../lib/control';
 
@@ -47,7 +48,6 @@ function TokenView({ token }: { token: Token }) {
   const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
   const lastRouteRef = useRef(0);
-  const stepRef = useRef(-1);
   const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
   const displayPos = animPos ?? (moving && moving.points.length > 0 ? moving.points[0]! : null);
   const role = useGameStore((s) => s.role);
@@ -189,46 +189,33 @@ function TokenView({ token }: { token: Token }) {
     const baseline = moving.own ? seenFrom({ x: current.x, y: current.y }) : null;
 
     let raf = 0;
-    const started = performance.now();
+    const session = startWalkSession(moving.points, performance.now());
     const finish = (walked: { x: number; y: number }[]) => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(raf);
       setAnimPos(null);
       finishTokenWalk(current.id, walked);
     };
-    // Страховка: даже если кадры не идут (фоновая вкладка), поход завершается.
-    const timer = window.setTimeout(() => finish(moving.points), moving.duration + 400);
-    stepRef.current = -1;
+    // Страховка: если кадры не идут (фоновая вкладка) — поход всё равно завершается.
+    const timer = window.setTimeout(() => finish(moving.points), session.duration + 2000);
     const tick = (now: number) => {
-      const t = moving.duration > 0 ? Math.min(1, Math.max(0, (now - started) / moving.duration)) : 1;
-      const segments = moving.points.length - 1;
-      const progress = t * segments;
-      const idx = Math.max(0, Math.min(segments - 1, Math.floor(progress)));
-      const local = progress - idx;
-      const a = moving.points[idx];
-      const b = moving.points[idx + 1];
-      if (!a || !b) {
-        console.warn('walk:bad-point', { len: moving.points.length, idx, progress });
-        window.clearTimeout(timer);
-        finish(moving.points);
-        return;
-      }
-      if (idx !== stepRef.current) {
-        stepRef.current = idx;
+      const frame = walkFrame(session, now);
+      for (const i of frame.steps) {
+        const point = moving.points[i]!;
         // Шаг по клетке: локально — вижн, на сервер — вход/выход зон.
-        moveToken(current.id, a.x, a.y);
-        if (moving.own) stepTokenWalk(current.id, a.x, a.y);
+        moveToken(current.id, point.x, point.y);
+        if (moving.own) stepTokenWalk(current.id, point.x, point.y);
         if (baseline) {
-          const seen = seenFrom(a);
+          const seen = seenFrom(point);
           if ([...seen].some((id) => !baseline.has(id))) {
             // Увидел монстра — останавливаемся на этой клетке.
-            window.clearTimeout(timer);
-            finish(moving.points.slice(0, idx + 1));
+            finish(walkedPoints(session, i));
             return;
           }
         }
       }
-      setAnimPos({ x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local });
-      if (t >= 1) {
-        window.clearTimeout(timer);
+      setAnimPos(frame.position);
+      if (frame.settled) {
         finish(moving.points);
         return;
       }

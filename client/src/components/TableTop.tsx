@@ -106,6 +106,18 @@ export default function TableTop() {
   const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
   const activeMap = useActiveMap();
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
+  // Границы расчёта вижна: вьюпорт ∩ карта, с запасом 2 клетки и квантованием по 2 клетки.
+  const cellBounds = useMemo(() => {
+    const map = activeMap;
+    if (!map || size.w === 0) return null;
+    const cell = map.fog.size || 50;
+    const quant = (v: number) => Math.floor(v / 2) * 2;
+    const left = (-view.x / view.scale - map.fog.offsetX) / cell - 2;
+    const top = (-view.y / view.scale - map.fog.offsetY) / cell - 2;
+    const right = ((size.w - view.x) / view.scale - map.fog.offsetX) / cell + 2;
+    const bottom = ((size.h - view.y) / view.scale - map.fog.offsetY) / cell + 2;
+    return { cx0: quant(left), cy0: quant(top), cx1: quant(right), cy1: quant(bottom) };
+  }, [activeMap, view, size]);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const selfName = useGameStore((s) => (s.currentCharacterId ? characterNameOf(s, s.currentCharacterId) : ''));
   const selfId = useGameStore((s) => s.selfId);
@@ -229,14 +241,19 @@ export default function TableTop() {
       darkness: map.vision.darkness,
       areas: map.lightAreas,
       zones: map.zones,
+      bounds: cellBounds,
       viewers: visionViewers(map.tokens, map.vision.los, ownToken),
     });
     if (visible === null) return null;
     const cols = Math.ceil(map.width / map.fog.size);
     const rows = Math.ceil(map.height / map.fog.size);
+    const cx0 = Math.max(0, cellBounds?.cx0 ?? 0);
+    const cy0 = Math.max(0, cellBounds?.cy0 ?? 0);
+    const cx1 = Math.min(cols - 1, cellBounds?.cx1 ?? cols - 1);
+    const cy1 = Math.min(rows - 1, cellBounds?.cy1 ?? rows - 1);
     const rects: { x: number; y: number; size: number }[] = [];
-    for (let cx = 0; cx < cols; cx++) {
-      for (let cy = 0; cy < rows; cy++) {
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
         const key = cellKey(cx, cy);
         if (visible.has(key) || hiddenSet.has(key)) continue;
         rects.push({
@@ -247,7 +264,7 @@ export default function TableTop() {
       }
     }
     return rects;
-  }, [activeMap, isDm, hiddenSet, ownToken]);
+  }, [activeMap, isDm, hiddenSet, ownToken, cellBounds]);
 
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;
