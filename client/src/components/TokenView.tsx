@@ -16,6 +16,7 @@ import {
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
+import { enterableCell } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
 import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
@@ -72,13 +73,12 @@ function TokenView({ token }: { token: Token }) {
       const viewers = visionViewersList;
       const sight = sightContextOf(map, pathGrid);
       const cache = new Map<string, boolean>();
-      // Видимость клетки: любой из зрителей видит её центр (кэш на один пересчёт маршрута).
+      // Вход в клетку: видна зрителям или это тьма/мгла (входим вслепую); кэш на пересчёт маршрута.
       visibleAt = (cx, cy) => {
         const key = `${cx},${cy}`;
         let seen = cache.get(key);
         if (seen === undefined) {
-          const center = cellCenter(cx, cy, pathGrid);
-          seen = viewers.some((v) => canSee({ x: v.x, y: v.y }, center, v.senses, sight));
+          seen = enterableCell(sight, viewers, cellCenter(cx, cy, pathGrid));
           cache.set(key, seen);
         }
         return seen;

@@ -1,4 +1,5 @@
 import {
+  canSee,
   crossesWalls,
   strongestKind,
   tokenSenses,
@@ -31,6 +32,15 @@ export function visionViewers(tokens: Token[], merge: boolean, isOwn: (token: To
   const own = party.filter(isOwn);
   const use = merge || own.length === 0 ? party : own;
   return use.map((t) => ({ x: t.x, y: t.y, senses: tokenSenses(t) }));
+}
+
+/**
+ * Можно ли войти в клетку (по её центру): видна любому зрителю **или** лежит во
+ * тьме/мгле — туда заходят вслепую (ты внутри области видишь только свою клетку).
+ */
+export function enterableCell(sight: SightContext, viewers: Viewer[], center: { x: number; y: number }): boolean {
+  if (visionKindAt(sight, center) !== null) return true;
+  return viewers.some((v) => canSee({ x: v.x, y: v.y }, center, v.senses, sight));
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   type Wall,
   type ZoneInstance,
 } from 'shared';
-import { visionViewers, visibleCells } from './los';
+import { enterableCell, visionViewers, visibleCells } from './los';
 
 const VISION_BASE = {
   width: 250,
@@ -248,5 +248,42 @@ describe('visibleCells', () => {
     expect(cells?.has('0,0')).toBe(true);
     expect(cells?.has('4,2')).toBe(true);
     expect(cells?.has('2,1')).toBe(false);
+  });
+});
+
+describe('enterableCell', () => {
+  const grid = { size: 50, offsetX: 0, offsetY: 0 };
+  const senses: Sense[] = [{ type: 'darkvision', range: 60 }];
+  const viewers = [viewer(25, 75, senses)];
+  const inside = cellCenter(3, 1, grid);
+
+  it('во тьму/магическую тьму/мглу можно войти даже без зрения', () => {
+    const magical = { ...VISION_BASE, areas: area('magical', 100, 0, 150, 150) };
+    expect(canSee({ x: 25, y: 75 }, inside, senses, magical)).toBe(false);
+    expect(enterableCell(magical, viewers, inside)).toBe(true);
+    const obscured = { ...VISION_BASE, areas: area('obscured', 100, 0, 150, 150) };
+    expect(canSee({ x: 25, y: 75 }, inside, senses, obscured)).toBe(false);
+    expect(enterableCell(obscured, viewers, inside)).toBe(true);
+  });
+
+  it('вижн-зона заклинания тоже входима вслепую', () => {
+    const darkness: ZoneInstance = {
+      id: 'z1',
+      name: 'Darkness',
+      sourceKey: 'XPHB:Darkness',
+      sourceId: 's1',
+      origin: { x: 125, y: 75 },
+      area: { shape: 'sphere', size: 15 },
+      duration: { type: 'concentration' },
+      flags: { blocksLight: true },
+    };
+    const sight = { ...VISION_BASE, zones: [darkness] };
+    expect(canSee({ x: 25, y: 75 }, inside, senses, sight)).toBe(false);
+    expect(enterableCell(sight, viewers, inside)).toBe(true);
+  });
+
+  it('вне областей невидимая клетка (за стеной) недоступна', () => {
+    const walled = { ...VISION_BASE, walls: [wall(100, 0, 100, 150)] };
+    expect(enterableCell(walled, viewers, inside)).toBe(false);
   });
 });
