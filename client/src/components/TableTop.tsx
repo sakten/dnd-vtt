@@ -773,6 +773,11 @@ export default function TableTop() {
                 if (!ghost) return null;
                 return <TokenGhost token={ghost} x={dragGhost.x} y={dragGhost.y} />;
               })()}
+            {activeMap?.tokens
+              .filter((t) => !(!isDm && isCellHidden(t.x, t.y)))
+              .map((token) => (
+                <TokenView key={token.id} token={token} />
+              ))}
             {dragPath && dragPath.points.length > 1 && (
               <>
                 <Line
@@ -796,17 +801,20 @@ export default function TableTop() {
                 />
                 {(() => {
                   const target = dragPath.points[dragPath.points.length - 1]!;
-                  const r = (grid.size || 50) / 4;
+                  const dragged = activeMap?.tokens.find((t) => t.id === dragGhost?.id);
+                  const size = grid.size || 50;
+                  const hw = (dragged?.w ?? size) / 2;
+                  const hh = (dragged?.h ?? size) / 2;
                   return (
                     <>
                       <Line
-                        points={[target.x - r, target.y - r, target.x + r, target.y + r]}
+                        points={[target.x - hw, target.y - hh, target.x + hw, target.y + hh]}
                         stroke="#4ecb71"
                         strokeWidth={3 / view.scale}
                         listening={false}
                       />
                       <Line
-                        points={[target.x - r, target.y + r, target.x + r, target.y - r]}
+                        points={[target.x - hw, target.y + hh, target.x + hw, target.y - hh]}
                         stroke="#4ecb71"
                         strokeWidth={3 / view.scale}
                         listening={false}
@@ -816,11 +824,6 @@ export default function TableTop() {
                 })()}
               </>
             )}
-            {activeMap?.tokens
-              .filter((t) => !(!isDm && isCellHidden(t.x, t.y)))
-              .map((token) => (
-                <TokenView key={token.id} token={token} />
-              ))}
           </Layer>
           <Layer listening={false}>
             {veilRects && veilRects.length > 0 && (
