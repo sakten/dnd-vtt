@@ -80,6 +80,10 @@ export function setLightAreas(scene: Scene, mapId: string, lightAreas: LightArea
   return updateMap(scene, mapId, (m) => ({ ...m, lightAreas }));
 }
 
+export function setZones(scene: Scene, mapId: string, zones: MapInfo['zones']): Scene {
+  return updateMap(scene, mapId, (m) => ({ ...m, zones }));
+}
+
 export function setGrid(scene: Scene, grid: GridSettings): Scene {
   return { ...scene, grid };
 }

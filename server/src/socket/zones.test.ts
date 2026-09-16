@@ -156,4 +156,33 @@ describe('движок зон', () => {
     expect(room.scene.maps[0]!.zones).toHaveLength(0);
     expect(room.scene.maps[0]!.tokens[1]!.effects).toHaveLength(0);
   });
+
+  it('шаг без изменения зон не рассылает полный снапшот и zones:update', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: zoneDef, stats: null, origin: { x: 250, y: 100 } });
+    f.emitted.length = 0;
+
+    handleMovementZones(f.ctx, room, 'm1');
+
+    expect(f.emitted.filter((e) => e.event === 'zones:update')).toHaveLength(0);
+    expect(f.emitted.filter((e) => e.event === 'maps:update')).toHaveLength(0);
+  });
+
+  it('сдвиг ауры за источником рассылает zones:update с новой позицией', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const def: AutomationDef = { ...zoneDef, key: 'TEST:Anchor', zone: { ...zoneDef.zone!, anchor: 'source' } };
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def, stats: null, origin: { x: 100, y: 100 } });
+    f.emitted.length = 0;
+
+    caster.x = 500;
+    handleMovementZones(f.ctx, room, 'm1');
+
+    const events = f.emitted.filter((e) => e.event === 'zones:update');
+    expect(events).toHaveLength(1);
+    const payload = events[0]!.payload as { mapId: string; zones: { origin: { x: number } }[] };
+    expect(payload.mapId).toBe('m1');
+    expect(payload.zones[0]!.origin.x).toBe(500);
+  });
 });

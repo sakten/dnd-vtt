@@ -36,13 +36,14 @@ function turnKey(map: MapInfo): string | null {
   return entry ? `${combat.round}:${entry.id}` : null;
 }
 
-/** Точка привязки зоны: для ауры — позиция источника; false — источник исчез. */
-function syncZoneOrigin(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneInstance): boolean {
-  if (zone.anchor !== 'source') return true;
+/** Точка привязки зоны: 'dead' — источник исчез, 'moved' — сдвинулась за источником. */
+function syncZoneOrigin(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneInstance): 'dead' | 'moved' | 'kept' {
+  if (zone.anchor !== 'source') return 'kept';
   const source = ctx.manager.findToken(room, mapId, zone.sourceId);
-  if (!source) return false;
+  if (!source) return 'dead';
+  if (source.x === zone.origin.x && source.y === zone.origin.y) return 'kept';
   zone.origin = { x: source.x, y: source.y };
-  return true;
+  return 'moved';
 }
 
 /** Токены внутри зоны (с учётом `containment`). */
@@ -209,7 +210,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
   map.zones.push(zone);
   // Появившиеся внутри сразу получают ауру (HoH: «полностью внутри — ослеплён»).
   syncZone(ctx, room, input.mapId, zone, { aura: true, enterExit: false });
-  ctx.broadcastMaps(room);
+  ctx.broadcastZones(room, input.mapId);
   return zone;
 }
 
@@ -227,17 +228,23 @@ function concentrationAlive(room: Room, sourceId: string): boolean {
 export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token, phase: 'start' | 'end'): void {
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
+  let changed = false;
   for (const zone of [...map.zones]) {
     if (zone.concentration && !concentrationAlive(room, zone.sourceId)) {
       removeZone(ctx, room, mapId, zone);
+      changed = true;
       continue;
     }
-    if (!syncZoneOrigin(ctx, room, mapId, zone)) {
+    const origin = syncZoneOrigin(ctx, room, mapId, zone);
+    if (origin === 'dead') {
       removeZone(ctx, room, mapId, zone);
+      changed = true;
       continue;
     }
+    if (origin === 'moved') changed = true;
     if (zone.duration.type === 'rounds' && phase === 'start' && zone.sourceId === token.id) {
       zone.duration.rounds -= 1;
+      changed = true;
       if (zone.duration.rounds <= 0) {
         removeZone(ctx, room, mapId, zone);
         continue;
@@ -251,37 +258,43 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
       if (targets.some((t) => t.id === token.id)) applyZonePayload(ctx, room, mapId, zone, payload, [token]);
     }
   }
-  ctx.broadcastMaps(room);
+  // Полный снапшот сцены не нужен: изменения токенов уходят патчами, зоны — точечно.
+  if (changed) ctx.broadcastZones(room, mapId);
 }
 
 /** После перемещения: аура и триггеры enter/exit для зон. */
 export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): void {
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
+  let changed = false;
   for (const zone of [...map.zones]) {
     if (zone.concentration && !concentrationAlive(room, zone.sourceId)) {
       removeZone(ctx, room, mapId, zone);
+      changed = true;
       continue;
     }
-    if (!syncZoneOrigin(ctx, room, mapId, zone)) {
+    const origin = syncZoneOrigin(ctx, room, mapId, zone);
+    if (origin === 'dead') {
       removeZone(ctx, room, mapId, zone);
+      changed = true;
       continue;
     }
+    if (origin === 'moved') changed = true;
     syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
   }
-  ctx.broadcastMaps(room);
+  if (changed) ctx.broadcastZones(room, mapId);
 }
 
 /** Снимает все зоны существа-источника (концентрация, выход из боя, удаление). */
 export function removeZonesOfSource(ctx: ConnCtx, room: Room, sourceId: string): boolean {
-  let changed = false;
+  const changedMaps = new Set<string>();
   for (const map of room.scene.maps) {
     for (const zone of [...(map.zones ?? [])]) {
       if (zone.sourceId !== sourceId) continue;
       removeZone(ctx, room, map.id, zone);
-      changed = true;
+      changedMaps.add(map.id);
     }
   }
-  if (changed) ctx.broadcastMaps(room);
-  return changed;
+  for (const mapId of changedMaps) ctx.broadcastZones(room, mapId);
+  return changedMaps.size > 0;
 }

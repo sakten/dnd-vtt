@@ -53,6 +53,8 @@ export interface ConnCtx {
     ...args: Parameters<ServerToClientEvents[E]>
   ) => void;
   broadcastMaps: (room: Room) => void;
+  /** Точечная рассылка зон карты (ходьба/тик боя не шлют полный снапшот сцены). */
+  broadcastZones: (room: Room, mapId: string) => void;
   getRoom: () => Room | null;
   cancelPendingLeave: (code: string, id: string) => void;
   isDm: () => boolean;
@@ -147,6 +149,10 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
           activeMapId: room.scene.activeMapId,
         });
       }
+    },
+    broadcastZones: (room, mapId) => {
+      const map = manager.findMap(room, mapId);
+      io.to(room.code).emit('zones:update', { mapId, zones: map?.zones ?? [] });
     },
     getRoom: () => (ctx.roomCode ? manager.get(ctx.roomCode) ?? null : null),
     cancelPendingLeave: (code, id) => {

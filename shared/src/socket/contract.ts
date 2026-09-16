@@ -25,6 +25,8 @@ export interface ServerToClientEvents {
   'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
   'vision:update': (payload: { mapId: string; vision: VisionSettings }) => void;
   'areas:update': (payload: { mapId: string; lightAreas: LightArea[] }) => void;
+  /** Зоны/области заклинаний карты (без полного снапшота сцены). */
+  'zones:update': (payload: { mapId: string; zones: MapInfo['zones'] }) => void;
   'library:update': (library: LibraryItem[]) => void;
   'combat:update': (payload: { mapId: string; combat: CombatState }) => void;
   'grid:update': (grid: GridSettings) => void;

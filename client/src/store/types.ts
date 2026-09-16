@@ -231,6 +231,7 @@ export interface GameState {
   onWallsUpdate: (payload: Parameters<ServerToClientEvents['walls:update']>[0]) => void;
   onVisionUpdate: (payload: Parameters<ServerToClientEvents['vision:update']>[0]) => void;
   onAreasUpdate: (payload: Parameters<ServerToClientEvents['areas:update']>[0]) => void;
+  onZonesUpdate: (payload: Parameters<ServerToClientEvents['zones:update']>[0]) => void;
   onGridUpdate: (grid: GridSettings) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;
   onCombatUpdate: (payload: Parameters<ServerToClientEvents['combat:update']>[0]) => void;

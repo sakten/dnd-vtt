@@ -106,6 +106,7 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
   socket.on('walls:update', (payload) => get().onWallsUpdate(payload));
   socket.on('vision:update', (payload) => get().onVisionUpdate(payload));
   socket.on('areas:update', (payload) => get().onAreasUpdate(payload));
+  socket.on('zones:update', (payload) => get().onZonesUpdate(payload));
   socket.on('grid:update', (grid) => get().onGridUpdate(grid));
   socket.on('library:update', (library) => get().onLibraryUpdate(library));
   socket.on('combat:update', (payload) => get().onCombatUpdate(payload));
