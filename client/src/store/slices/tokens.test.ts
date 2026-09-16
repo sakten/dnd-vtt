@@ -47,6 +47,21 @@ beforeEach(() => {
 });
 
 describe('tokens slice: передвижение', () => {
+  const path = {
+    cells: [
+      { cx: 0, cy: 0 },
+      { cx: 1, cy: 1 },
+      { cx: 2, cy: 1 },
+    ],
+    points: [
+      { x: 0, y: 0 },
+      { x: 50, y: 50 },
+      { x: 100, y: 50 },
+    ],
+    feet: 15,
+    diagonals: 1,
+  };
+
   it('moveToken двигает токен локально, без рассылки и без учёта', () => {
     useGameStore.getState().moveToken('t1', 100, 0);
 
@@ -55,53 +70,65 @@ describe('tokens slice: передвижение', () => {
     expect(hasEvent(emitted, 'token:move')).toBe(false);
   });
 
-  it('moveTokenAlongPath: анимация, событие с путём и учёт движения', () => {
-    const path = {
-      cells: [
-        { cx: 0, cy: 0 },
-        { cx: 1, cy: 1 },
-        { cx: 2, cy: 1 },
-      ],
-      points: [
-        { x: 0, y: 0 },
-        { x: 50, y: 50 },
-        { x: 100, y: 50 },
-      ],
-      feet: 15,
-      diagonals: 1,
-    };
-    useGameStore.getState().moveTokenAlongPath('t1', path);
-
-    expect(token().x).toBe(100);
-    expect(token().y).toBe(50);
-    expect(useGameStore.getState().movingTokens.t1?.points.length).toBe(3);
-    expect(turn().movementUsed).toBe(15);
-    expect(turn().diagonalsUsed).toBe(1);
-    expect(emitted).toContainEqual({
-      event: 'token:move',
-      payload: { mapId: 'm1', id: 't1', x: 100, y: 50, path: path.points },
-    });
-    expect(emitted).toContainEqual({
-      event: 'combat:setMovement',
-      payload: { mapId: 'm1', tokenId: 't1', used: 15, diagonals: 1, path: path.points },
-    });
-    expect(emitted).toContainEqual({ event: 'token:lock', payload: { mapId: 'm1', id: 't1', lock: false } });
-  });
-
-  it('вижн-зоны: moveTokenAlongPath не шлёт setMovement вне боя', () => {
-    deactivateCombat();
-    useGameStore.getState().moveTokenAlongPath('t1', {
-      cells: [{ cx: 0, cy: 0 }, { cx: 1, cy: 0 }],
-      points: [{ x: 0, y: 0 }, { x: 50, y: 0 }],
-      feet: 5,
-      diagonals: 0,
-    });
-    expect(token().x).toBe(50);
+  it('startTokenWalk запускает поход (token:walk) без смены позиции', () => {
+    useGameStore.getState().startTokenWalk('t1', path);
+    expect(token().x).toBe(0);
+    expect(useGameStore.getState().movingTokens.t1?.own).toBe(true);
+    expect(emitted).toContainEqual({ event: 'token:walk', payload: { mapId: 'm1', id: 't1', path: path.points } });
     expect(hasEvent(emitted, 'combat:setMovement')).toBe(false);
   });
 
-  it('moveTokenAlongPath с одной точкой синхронизирует позицию без анимации', () => {
-    useGameStore.getState().moveTokenAlongPath('t1', {
+  it('finishTokenWalk фиксирует позицию, учёт движения и setMovement', () => {
+    useGameStore.getState().startTokenWalk('t1', path);
+    useGameStore.getState().finishTokenWalk('t1', path.points);
+
+    expect(token().x).toBe(100);
+    expect(token().y).toBe(50);
+    expect(useGameStore.getState().movingTokens.t1).toBeUndefined();
+    expect(turn().movementUsed).toBe(10);
+    expect(turn().diagonalsUsed).toBe(1);
+    expect(emitted).toContainEqual({ event: 'token:move', payload: { mapId: 'm1', id: 't1', x: 100, y: 50 } });
+    expect(emitted).toContainEqual({ event: 'token:lock', payload: { mapId: 'm1', id: 't1', lock: false } });
+    expect(emitted).toContainEqual({
+      event: 'combat:setMovement',
+      payload: { mapId: 'm1', tokenId: 't1', used: 10, diagonals: 1, path: path.points },
+    });
+  });
+
+  it('finishTokenWalk с обрезанным путём считает фактическую стоимость', () => {
+    useGameStore.getState().startTokenWalk('t1', path);
+    useGameStore.getState().finishTokenWalk('t1', [
+      { x: 0, y: 0 },
+      { x: 50, y: 50 },
+    ]);
+
+    expect(token().x).toBe(50);
+    expect(turn().movementUsed).toBe(5);
+    expect(emitted).toContainEqual({
+      event: 'combat:setMovement',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        used: 5,
+        diagonals: 1,
+        path: [
+          { x: 0, y: 0 },
+          { x: 50, y: 50 },
+        ],
+      },
+    });
+  });
+
+  it('finishTokenWalk вне боя не шлёт setMovement', () => {
+    deactivateCombat();
+    useGameStore.getState().startTokenWalk('t1', path);
+    useGameStore.getState().finishTokenWalk('t1', path.points);
+    expect(token().x).toBe(100);
+    expect(hasEvent(emitted, 'combat:setMovement')).toBe(false);
+  });
+
+  it('поход в ту же клетку завершается сразу (token:move без анимации)', () => {
+    useGameStore.getState().startTokenWalk('t1', {
       cells: [{ cx: 0, cy: 0 }],
       points: [{ x: 0, y: 0 }],
       feet: 0,
@@ -111,13 +138,15 @@ describe('tokens slice: передвижение', () => {
     expect(hasEvent(emitted, 'token:move')).toBe(true);
   });
 
-  it('onTokenMove игнорирует эхо, пока токен уже анимируется', () => {
-    useGameStore.setState({ movingTokens: { t1: { points: [{ x: 0, y: 0 }, { x: 50, y: 0 }], duration: 150 } } });
-    useGameStore.getState().onTokenMove({ mapId: 'm1', id: 't1', path: [{ x: 0, y: 0 }, { x: 200, y: 0 }] });
-    expect(useGameStore.getState().movingTokens.t1?.points[1]).toEqual({ x: 50, y: 0 });
+  it('onTokenWalk задаёт анимацию чужого похода и игнорирует эхо своего', () => {
+    useGameStore.getState().onTokenWalk({ mapId: 'm1', id: 't2', path: path.points });
+    expect(useGameStore.getState().movingTokens.t2?.own).toBe(false);
 
-    useGameStore.getState().onTokenMove({ mapId: 'm1', id: 't2', path: [{ x: 0, y: 0 }, { x: 200, y: 0 }] });
-    expect(useGameStore.getState().movingTokens.t2?.duration).toBe(150);
+    useGameStore.setState({
+      movingTokens: { t1: { points: path.points, duration: 150, own: true, diagonalsBefore: 0 } },
+    });
+    useGameStore.getState().onTokenWalk({ mapId: 'm1', id: 't1', path: [{ x: 0, y: 0 }, { x: 200, y: 0 }] });
+    expect(useGameStore.getState().movingTokens.t1?.points[1]).toEqual({ x: 50, y: 50 });
   });
 });
 

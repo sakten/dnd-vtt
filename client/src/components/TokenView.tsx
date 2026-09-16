@@ -3,6 +3,7 @@ import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import {
   areaCells,
+  canSee,
   cellCenter,
   findPath,
   movementBlocked,
@@ -11,6 +12,7 @@ import {
   snapToGrid,
   statNumber,
   tokenCells,
+  tokenSenses,
   type FoundPath,
   type Token,
 } from 'shared';
@@ -29,8 +31,9 @@ function TokenView({ token }: { token: Token }) {
   const multiTarget = useGameStore((s) => s.interaction?.mode === 'multi');
   const aim = useGameStore((s) => s.interaction?.mode === 'aim');
   const moveToken = useGameStore((s) => s.moveToken);
-  const moveTokenAlongPath = useGameStore((s) => s.moveTokenAlongPath);
-  const clearMoving = useGameStore((s) => s.clearMoving);
+  const startTokenWalk = useGameStore((s) => s.startTokenWalk);
+  const finishTokenWalk = useGameStore((s) => s.finishTokenWalk);
+  const stepTokenWalk = useGameStore((s) => s.stepTokenWalk);
   const setDragGhost = useGameStore((s) => s.setDragGhost);
   const setDragPath = useGameStore((s) => s.setDragPath);
   const moving = useGameStore((s) => s.movingTokens[token.id]);
@@ -44,7 +47,9 @@ function TokenView({ token }: { token: Token }) {
   const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
   const lastRouteRef = useRef(0);
+  const stepRef = useRef(-1);
   const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
+  const displayPos = animPos ?? (moving && moving.points.length > 0 ? moving.points[0]! : null);
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
@@ -82,6 +87,7 @@ function TokenView({ token }: { token: Token }) {
     const entry =
       map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
     const turn = entry?.tokenId === token.id ? map.combat.turns[entry.id] : undefined;
+    const diagonalsBefore = turn?.diagonalsUsed ?? 0;
     const found = findPath({
       from: { x: token.x, y: token.y },
       to: cellCenter(target.cx, target.cy, pathGrid),
@@ -90,7 +96,7 @@ function TokenView({ token }: { token: Token }) {
       walls: map.walls,
       blocked,
       difficult,
-      diagonalsBefore: turn?.diagonalsUsed ?? 0,
+      diagonalsBefore,
     });
     if (!found) return null;
     const anchor = (x: number, y: number) => ({
@@ -132,7 +138,7 @@ function TokenView({ token }: { token: Token }) {
     const route = computeRoute({ x: e.target.x(), y: e.target.y() });
     setDragging(null);
     if (route) {
-      moveTokenAlongPath(token.id, route);
+      startTokenWalk(token.id, route);
       return;
     }
     const ghost = st.dragGhost;
@@ -145,19 +151,46 @@ function TokenView({ token }: { token: Token }) {
     setDragPath(null);
   };
 
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+
   useEffect(() => {
     if (!moving || moving.points.length < 2) {
       setAnimPos(null);
       return;
     }
+    const current = tokenRef.current;
+    const st = useGameStore.getState();
+    const map = activeMapOf(st);
+    const sight = map
+      ? {
+          walls: map.walls,
+          darkness: map.vision.darkness,
+          cellSize: map.fog.size,
+          offsetX: map.fog.offsetX,
+          offsetY: map.fog.offsetY,
+          areas: map.lightAreas,
+          zones: map.zones,
+        }
+      : null;
+    const enemies =
+      moving.own && current.isPlayerToken && map
+        ? map.tokens.filter((t) => t.id !== current.id && t.visible !== false && !t.isPlayerToken)
+        : [];
+    const senses = tokenSenses(current);
+    const seenFrom = (point: { x: number; y: number }) =>
+      new Set(enemies.filter((e) => sight && canSee(point, e, senses, sight)).map((e) => e.id));
+    const baseline = moving.own ? seenFrom({ x: current.x, y: current.y }) : null;
+
     let raf = 0;
     const started = performance.now();
-    const finish = () => {
+    const finish = (walked: { x: number; y: number }[]) => {
       setAnimPos(null);
-      clearMoving(token.id);
+      finishTokenWalk(current.id, walked);
     };
-    // Страховка: даже если кадры не идут (фоновая вкладка), токен снова берётся.
-    const timer = window.setTimeout(finish, moving.duration + 400);
+    // Страховка: даже если кадры не идут (фоновая вкладка), поход завершается.
+    const timer = window.setTimeout(() => finish(moving.points), moving.duration + 400);
+    stepRef.current = -1;
     const tick = (now: number) => {
       const t = moving.duration > 0 ? Math.min(1, (now - started) / moving.duration) : 1;
       const segments = moving.points.length - 1;
@@ -166,10 +199,25 @@ function TokenView({ token }: { token: Token }) {
       const local = progress - idx;
       const a = moving.points[idx]!;
       const b = moving.points[idx + 1]!;
+      if (idx !== stepRef.current) {
+        stepRef.current = idx;
+        // Шаг по клетке: локально — вижн, на сервер — вход/выход зон.
+        moveToken(current.id, a.x, a.y);
+        if (moving.own) stepTokenWalk(current.id, a.x, a.y);
+        if (baseline) {
+          const seen = seenFrom(a);
+          if ([...seen].some((id) => !baseline.has(id))) {
+            // Увидел монстра — останавливаемся на этой клетке.
+            window.clearTimeout(timer);
+            finish(moving.points.slice(0, idx + 1));
+            return;
+          }
+        }
+      }
       setAnimPos({ x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local });
       if (t >= 1) {
         window.clearTimeout(timer);
-        finish();
+        finish(moving.points);
         return;
       }
       raf = requestAnimationFrame(tick);
@@ -179,7 +227,7 @@ function TokenView({ token }: { token: Token }) {
       cancelAnimationFrame(raf);
       window.clearTimeout(timer);
     };
-  }, [moving, token.id, clearMoving]);
+  }, [moving, token.id, finishTokenWalk, moveToken, stepTokenWalk]);
 
   const circleClip = (ctx: Konva.Context) => {
     ctx.arc(0, 0, token.w / 2, 0, Math.PI * 2, false);
@@ -213,8 +261,8 @@ function TokenView({ token }: { token: Token }) {
 
   return (
     <Group
-      x={animPos?.x ?? token.x}
-      y={animPos?.y ?? token.y}
+      x={displayPos?.x ?? token.x}
+      y={displayPos?.y ?? token.y}
       scaleX={token.scale}
       scaleY={token.scale}
       rotation={token.rotation}

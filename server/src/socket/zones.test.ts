@@ -28,7 +28,7 @@ function setup() {
     ],
     { p1: 'lib1' }
   );
-  const f = makeConnCtx(room, { dm: true });
+  const f = makeConnCtx(room, { dm: true, all: true });
   return { room, f };
 }
 
@@ -51,8 +51,24 @@ describe('движок зон', () => {
     expect(aura?.conditions).toEqual(['blinded']);
   });
 
-  it('выход из зоны снимает ауру', () => {
+  it('token:step обрабатывает вход в зону по ходу движения', () => {
     const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: zoneDef,
+      stats: { ability: 'wis', mod: 3, dc: 14, attack: 5 },
+      origin: { x: 550, y: 100 },
+    });
+    expect(zone).toBeTruthy();
+    expect(caster.effects.some((e) => e.zoneId === zone!.id)).toBe(false);
+
+    f.invoke('token:step', { mapId: 'm1', id: 't1', x: 550, y: 100 });
+    expect(caster.effects.some((e) => e.zoneId === zone!.id)).toBe(true);
+  });
+
+  it('выход из зоны снимает ауру', () => {    const { room, f } = setup();
     const caster = room.scene.maps[0]!.tokens[0]!;
     const zone = createZoneFromDef(f.ctx, {
       caster,

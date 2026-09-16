@@ -52,6 +52,15 @@ export interface LightMode {
   kind: LightAreaKind;
 }
 
+export interface MovingToken {
+  points: { x: number; y: number }[];
+  duration: number;
+  /** Свой поход: по завершении клиент фиксирует позицию на сервере. */
+  own: boolean;
+  /** Число диагоналей на начало похода (чередование 5-10-5). */
+  diagonalsBefore: number;
+}
+
 export interface CritHit {
   id: string;
   author: string;
@@ -129,11 +138,15 @@ export interface GameState {
   addTokenAt: (libraryItemId: string, x: number, y: number) => void;
   removeToken: (id: string) => void;
   moveToken: (id: string, x: number, y: number) => void;
-  /** Идти по найденному пути: локальная анимация + рассылка пути всем. */
-  moveTokenAlongPath: (id: string, path: FoundPath) => void;
+  /** Начать поход по пути: анимация у всех, позиция фиксируется по завершении. */
+  startTokenWalk: (id: string, path: FoundPath) => void;
+  /** Завершить поход: свой клиент фиксирует позицию/учёт на сервере. */
+  finishTokenWalk: (id: string, walked: { x: number; y: number }[]) => void;
+  /** Шаг похода: сервер обрабатывает вход/выход зон. */
+  stepTokenWalk: (id: string, x: number, y: number) => void;
   clearMoving: (id: string) => void;
   /** Анимируемые перемещения токенов (у всех клиентов). */
-  movingTokens: Record<string, { points: { x: number; y: number }[]; duration: number }>;
+  movingTokens: Record<string, MovingToken>;
   /** Прозрачная копия на старте перетаскивания (локально у тянущего). */
   dragGhost: { id: string; x: number; y: number } | null;
   setDragGhost: (ghost: { id: string; x: number; y: number } | null) => void;
@@ -224,7 +237,7 @@ export interface GameState {
   onTokenAdd: (payload: Parameters<ServerToClientEvents['token:add']>[0]) => void;
   onTokenUpdate: (payload: Parameters<ServerToClientEvents['token:update']>[0]) => void;
   onTokenRemove: (payload: Parameters<ServerToClientEvents['token:remove']>[0]) => void;
-  onTokenMove: (payload: Parameters<ServerToClientEvents['token:move']>[0]) => void;
+  onTokenWalk: (payload: Parameters<ServerToClientEvents['token:walk']>[0]) => void;
   onChatMessage: (message: ChatMessage) => void;
   onChatError: (message: string) => void;
   onSheetUpdate: (payload: Parameters<ServerToClientEvents['sheet:update']>[0]) => void;

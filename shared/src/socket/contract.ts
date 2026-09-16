@@ -31,8 +31,8 @@ export interface ServerToClientEvents {
   'token:add': (payload: { mapId: string; token: Token }) => void;
   'token:update': (payload: { mapId: string; token: Token }) => void;
   'token:remove': (payload: { mapId: string; id: string }) => void;
-  /** Путь перемещения токена (для анимации у всех клиентов). */
-  'token:move': (payload: { mapId: string; id: string; path: { x: number; y: number }[] }) => void;
+  /** Токен пошёл по пути: клиенты анимируют (позиция станет авторитетной по token:move). */
+  'token:walk': (payload: { mapId: string; id: string; path: { x: number; y: number }[] }) => void;
   'chat:message': (message: ChatMessage) => void;
   'chat:error': (message: string) => void;
   'players:update': (players: Player[]) => void;
@@ -93,7 +93,11 @@ export interface ClientToServerEvents {
   'grid:update': (grid: GridSettings) => void;
   'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;
-  'token:move': (payload: { mapId: string; id: string; x: number; y: number; path?: { x: number; y: number }[] }) => void;
+  'token:move': (payload: { mapId: string; id: string; x: number; y: number }) => void;
+  /** Начало похода токена по пути (анимация у всех; позицию фиксирует token:move). */
+  'token:walk': (payload: { mapId: string; id: string; path: { x: number; y: number }[] }) => void;
+  /** Шаг похода по клетке: сервер обрабатывает вход/выход зон (без рассылки позиции). */
+  'token:step': (payload: { mapId: string; id: string; x: number; y: number }) => void;
   'token:lock': (payload: { mapId: string; id: string; lock: boolean }) => void;
   'token:update': (payload: { mapId: string; id: string; patch: Partial<Token> }) => void;
   /** Быстрое изменение HP токена (только DM): delta>0 — лечение, <0 — урон. */

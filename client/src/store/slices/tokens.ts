@@ -1,14 +1,15 @@
 import {
   clampCells,
+  movementCost,
   type Token,
 } from 'shared';
 import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
 import { emitInMap } from '../helpers';
 import { activeMapOf, tokenById } from '../selectors';
 import { clearTokenUiFor } from '../uiReset';
-import type { GameState, Slice } from '../types';
+import type { GameState, MovingToken, Slice } from '../types';
 
-export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'onTokenMove' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'moveTokenAlongPath' | 'clearMoving' | 'setDragGhost' | 'setDragPath' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
+export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'onTokenWalk' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'startTokenWalk' | 'finishTokenWalk' | 'stepTokenWalk' | 'clearMoving' | 'setDragGhost' | 'setDragPath' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
   const viewMapId = () => get().viewMapId;
 
   const patchTokenInMap = (mapId: string, id: string, patch: Partial<Token>) =>
@@ -42,43 +43,89 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       patchTokenInMap(mapId, id, { x, y });
     },
 
-    moveTokenAlongPath: (id, path) => {
+    startTokenWalk: (id, path) => {
       const state = get();
       const mapId = state.viewMapId;
       const map = activeMapOf(state);
       if (!state.socket || !mapId || !map || path.points.length === 0) return;
       const token = tokenById(map, id);
       if (!token) return;
-      const final = path.points[path.points.length - 1]!;
-      const moving = { points: path.points, duration: Math.min(1500, (path.points.length - 1) * 150) };
-
+      if (path.points.length < 2) {
+        const only = path.points[0]!;
+        set((s) => ({
+          scene: patchToken(s.scene, mapId, id, { x: only.x, y: only.y }),
+          dragGhost: null,
+          dragPath: null,
+        }));
+        emitInMap(get, 'token:move', { id, x: only.x, y: only.y });
+        emitInMap(get, 'token:lock', { id, lock: false });
+        return;
+      }
       const entry =
         map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
-      const turn = entry ? map.combat.turns[entry.id] : undefined;
-      let used: number | undefined;
-      if (entry?.tokenId === id && turn) {
-        used = turn.movementUsed + path.feet;
-        set((s) => ({
-          scene: patchCombatTurn(s.scene, mapId, entry.id, { movementUsed: used!, diagonalsUsed: path.diagonals }),
-        }));
-      }
-
+      const turn = entry?.tokenId === id ? map.combat.turns[entry.id] : undefined;
+      const moving: MovingToken = {
+        points: path.points,
+        duration: Math.min(1500, Math.max(150, (path.points.length - 1) * 150)),
+        own: true,
+        diagonalsBefore: turn?.diagonalsUsed ?? 0,
+      };
       set((s) => ({
-        scene: patchToken(s.scene, mapId, id, { x: final.x, y: final.y }),
-        ...(path.points.length > 1 ? { movingTokens: { ...s.movingTokens, [id]: moving } } : {}),
+        movingTokens: { ...s.movingTokens, [id]: moving },
         dragGhost: null,
         dragPath: null,
       }));
-      emitInMap(get, 'token:move', { id, x: final.x, y: final.y, path: path.points });
+      emitInMap(get, 'token:walk', { id, path: path.points });
+    },
+
+    finishTokenWalk: (id, walked) => {
+      const state = get();
+      const moving = state.movingTokens[id];
+      if (!moving) return;
+      const mapId = state.viewMapId;
+      const map = activeMapOf(state);
+      const points = walked.length > 0 ? walked : moving.points;
+      const last = points[points.length - 1] ?? moving.points[moving.points.length - 1]!;
+      if (!mapId || !map || !moving.own) {
+        set((s) => {
+          const movingTokens = { ...s.movingTokens };
+          delete movingTokens[id];
+          return { movingTokens };
+        });
+        return;
+      }
+      const size = state.scene.grid.size || 50;
+      let feet = 0;
+      let diagonals = moving.diagonalsBefore;
+      for (let i = 1; i < points.length; i++) {
+        const step = movementCost(points[i - 1]!, points[i]!, size, diagonals);
+        feet += step.feet;
+        diagonals = step.diagonals;
+      }
+      const entry =
+        map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;
+      const turn = entry ? map.combat.turns[entry.id] : undefined;
+      const used = entry?.tokenId === id && turn ? turn.movementUsed + feet : undefined;
+      set((s) => {
+        const movingTokens = { ...s.movingTokens };
+        delete movingTokens[id];
+        let scene = patchToken(s.scene, mapId, id, { x: last.x, y: last.y });
+        if (entry?.tokenId === id && turn) {
+          scene = patchCombatTurn(scene, mapId, entry.id, { movementUsed: used!, diagonalsUsed: diagonals });
+        }
+        return { scene, movingTokens };
+      });
+      emitInMap(get, 'token:move', { id, x: last.x, y: last.y });
       emitInMap(get, 'token:lock', { id, lock: false });
       if (used !== undefined) {
-        emitInMap(get, 'combat:setMovement', {
-          tokenId: id,
-          used,
-          diagonals: path.diagonals,
-          path: path.points,
-        });
+        emitInMap(get, 'combat:setMovement', { tokenId: id, used, diagonals, path: points });
       }
+    },
+
+    stepTokenWalk: (id, x, y) => {
+      const state = get();
+      if (!state.socket || !state.viewMapId) return;
+      emitInMap(get, 'token:step', { id, x, y });
     },
 
     clearMoving: (id) =>
@@ -93,13 +140,18 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
     setDragPath: (dragPath) => set({ dragPath }),
 
-    onTokenMove: ({ id, path }) => {
+    onTokenWalk: ({ id, path }) => {
       if (get().movingTokens[id]) return;
       if (!Array.isArray(path) || path.length < 2) return;
       set((s) => ({
         movingTokens: {
           ...s.movingTokens,
-          [id]: { points: path, duration: Math.min(1500, (path.length - 1) * 150) },
+          [id]: {
+            points: path,
+            duration: Math.min(1500, Math.max(150, (path.length - 1) * 150)),
+            own: false,
+            diagonalsBefore: 0,
+          },
         },
       }));
     },

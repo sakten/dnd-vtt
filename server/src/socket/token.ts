@@ -46,7 +46,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
     });
 
-    ctx.on('token:move', ({ mapId, id, x, y, path }) => {
+    ctx.on('token:move', ({ mapId, id, x, y }) => {
       if (rejectIfReaction(ctx, true)) return;
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const scope = scopedToken(ctx, mapId, id);
@@ -59,14 +59,31 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       token.x = x;
       token.y = y;
       emitToken(room, 'token:update', mapId, token);
-      const movePath = Array.isArray(path)
-        ? path
-            .filter((p) => isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y))
-            .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
-            .slice(0, 400)
-        : [];
-      if (movePath.length > 1) broadcastAll('token:move', { mapId, id, path: movePath });
       // Перетаскивание (в т.ч. в чужой ход): аура и enter/exit зон тоже срабатывают.
+      handleMovementZones(ctx, room, mapId);
+    });
+
+    ctx.on('token:walk', ({ mapId, id, path }) => {
+      const scope = scopedToken(ctx, mapId, id);
+      if (!scope) return;
+      if (!Array.isArray(path) || path.length < 2) return;
+      const walkPath = path
+        .filter((p) => isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y))
+        .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+        .slice(0, 400);
+      if (walkPath.length < 2) return;
+      broadcastAll('token:walk', { mapId, id, path: walkPath });
+    });
+
+    ctx.on('token:step', ({ mapId, id, x, y }) => {
+      const scope = scopedToken(ctx, mapId, id);
+      if (!scope) return;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const { room, token } = scope;
+      if (token.x === x && token.y === y) return;
+      token.x = x;
+      token.y = y;
+      // Вход/выход зон по ходу движения; позицию фиксирует финальный token:move.
       handleMovementZones(ctx, room, mapId);
     });
 
