@@ -42,8 +42,9 @@ export default function MapsPanel() {
     try {
       const url = await uploadImage(file);
       const size = await readImageSize(url);
+      // Сетку выравниваем до добавления карты, чтобы состояние было детерминированным.
+      await autoAlign(url);
       addMap(file.name.replace(/\.[^.]+$/, ''), url, size.width, size.height);
-      void autoAlign(url);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Не удалось загрузить карту');
     }

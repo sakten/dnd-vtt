@@ -161,7 +161,8 @@ check(gray > 10000, `03-map: тело карты (${gray} сэмплов)`);
 check(lightLines > 1500, `03-map: светлая сетка поверх карты (${lightLines} сэмплов)`);
 
 const modal = imgs['04-grid-modal'];
-check(near(modal.pixel(720, 450), 35, 39, 47, 25), '04-modal: окно настроек по центру');
+const modalLeft = modal.pixel(565, 450);
+check(near(modalLeft, 35, 39, 47, 25), '04-modal: окно настроек по центру');
 
 const library = imgs['05-library'];
 const libRed = countIn(library, (p) => p[0] > 150 && p[1] < 100 && p[2] < 100, ...full(library));

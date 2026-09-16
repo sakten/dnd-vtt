@@ -22,6 +22,17 @@ const mapState = await S.page.evaluate(() => {
 });
 check(mapState.count === 1 && mapState.active === mapState.first, 'карта добавлена в список и активна');
 
+const autoGrid = await S.page.evaluate(() => window.__vtt.getState().scene.grid.size);
+check(autoGrid === 100, `сетка авто-выровнена по карте (${autoGrid}px)`);
+await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  s.updateGrid({ size: 50, offsetX: 0, offsetY: 0 });
+  // Туман создан при сетке 100 — возвращаем и его клетку к 50.
+  const id = s.scene.activeMapId;
+  if (id) s.updateFog(id, { size: 50, offsetX: 0, offsetY: 0, hidden: [] });
+});
+await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 50);
+
 S.gridBtn = await findButton(S.page, '.toolbar button', 'Сетка');
 await S.gridBtn.click();
 await S.page.waitForSelector('.modal');
