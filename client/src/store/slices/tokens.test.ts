@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_GRID, emptyCombatState, emptyTurnState } from 'shared';
 import { fakeSocket, makeMap, makeToken, type EmittedEvent } from '../../test/fixtures';
 import { useGameStore } from '../useGameStore';
+import { optimisticCount, clearOptimistic } from '../optimistic';
 
 function setupState() {
   const { socket, emitted } = fakeSocket();
@@ -44,6 +45,7 @@ const hasEvent = (emitted: EmittedEvent[], event: string) => emitted.some((e) =>
 let emitted: EmittedEvent[] = [];
 beforeEach(() => {
   emitted = setupState();
+  clearOptimistic();
 });
 
 describe('tokens slice: передвижение', () => {
@@ -210,5 +212,33 @@ describe('tokens slice: обновления', () => {
     expect(token().w).toBe(4 * DEFAULT_GRID.size);
     const update = emitted.find((e) => e.event === 'token:update');
     expect(update?.payload).toMatchObject({ mapId: 'm1', id: 't1', patch: { cells: 4 } });
+  });
+});
+
+describe('оптимистичные мутации', () => {
+  it('подтверждает патч токена эхо-обновлением и откатывает без него', () => {
+    vi.useFakeTimers();
+    try {
+      useGameStore.getState().setTokenFields('t1', { x: 777 });
+      expect(token().x).toBe(777);
+      expect(optimisticCount()).toBe(1);
+
+      // Эхо сервера подтверждает мутацию — отката нет.
+      useGameStore.getState().onTokenUpdate({ mapId: 'm1', token: makeToken('t1', { x: 777 }) });
+      expect(optimisticCount()).toBe(0);
+      vi.advanceTimersByTime(5000);
+      expect(token().x).toBe(777);
+      expect(useGameStore.getState().chatError).toBeNull();
+
+      // Без эха — откат к серверному значению и сообщение.
+      useGameStore.getState().setTokenFields('t1', { x: 555 });
+      expect(token().x).toBe(555);
+      vi.advanceTimersByTime(5000);
+      expect(token().x).toBe(777);
+      expect(useGameStore.getState().chatError).toContain('токена');
+    } finally {
+      clearOptimistic();
+      vi.useRealTimers();
+    }
   });
 });

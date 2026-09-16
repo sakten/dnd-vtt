@@ -23,7 +23,7 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
 
     onChatError: (message) => {
       set({ chatError: message });
-      window.setTimeout(() => {
+      setTimeout(() => {
         set((s) => (s.chatError === message ? { chatError: null } : s));
       }, 5000);
     },

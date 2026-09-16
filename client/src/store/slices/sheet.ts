@@ -1,10 +1,14 @@
 import { emit } from '../helpers';
+import { beginOptimistic, settleOptimistic } from '../optimistic';
 import type { GameState, Slice } from '../types';
 
 export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResourcesUpdate' | 'onCharacterUpdate' | 'setSheet' | 'updateResources' | 'rest' | 'setCurrentCharacter' | 'rollHitDie' | 'rollDeathSave'>> = (set, get) => {
   return {
     onSheetUpdate: ({ sheet }) => set({ sheet }),
-    onResourcesUpdate: (resources) => set({ resources }),
+    onResourcesUpdate: (resources) => {
+      settleOptimistic('resources:update');
+      set({ resources });
+    },
 
     onCharacterUpdate: ({ playerId, libraryItemId }) => {
       if (playerId === get().selfId) set({ currentCharacterId: libraryItemId });
@@ -15,7 +19,16 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
     },
 
     updateResources: (resources) => {
+      const prev = get().resources;
       set({ resources });
+      if (prev) {
+        beginOptimistic(
+          get,
+          'resources:update',
+          () => set({ resources: prev }),
+          'Сервер не подтвердил изменение ресурсов — изменения отменены'
+        );
+      }
       emit(get, 'resources:update', resources);
     },
 

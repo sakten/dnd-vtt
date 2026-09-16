@@ -2,6 +2,7 @@ import { attachSocketBridge, joinRoomWithTimeout } from '../../net/bridge';
 import { createSocket } from '../../net/socket';
 import { newId } from '../../lib/id';
 import { emit } from '../helpers';
+import { clearOptimistic } from '../optimistic';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
@@ -18,11 +19,15 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
 
     onConnectError: () => set({ connectError: true }),
 
-    onDisconnected: () => set({ connected: false, draggingTokenId: null, hoverTokenId: null }),
+    onDisconnected: () => {
+      clearOptimistic();
+      set({ connected: false, draggingTokenId: null, hoverTokenId: null });
+    },
     onJoinError: (joinError) => set({ joinError }),
 
     onRoomJoined: ({ room, selfId, sheet, resources }) => {
       const player = room.players.find((p) => p.id === selfId);
+      clearOptimistic();
       set({
         ...UI_RESET,
         roomCode: room.code,
@@ -50,7 +55,8 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
       emit(get, 'room:settings', { testMode });
     },
 
-    onRoomClosed: (joinError) =>
+    onRoomClosed: (joinError) => {
+      clearOptimistic();
       set({
         ...UI_RESET,
         roomCode: null,
@@ -59,7 +65,8 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'on
         resources: null,
         currentCharacterId: null,
         critHit: null,
-      }),
+      });
+    },
 
     onPlayersUpdate: (players) => set({ players }),
 

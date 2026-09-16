@@ -1,6 +1,7 @@
 import { clampCells, movementCost, type Token } from 'shared';
 import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
 import { emitInMap } from '../helpers';
+import { beginOptimistic, settleOptimisticPrefix } from '../optimistic';
 import { newId } from '../../lib/id';
 import { activeMapOf, tokenById } from '../selectors';
 import { clearTokenUiFor } from '../uiReset';
@@ -18,8 +19,10 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
   return {
     onTokenAdd: ({ mapId, token }) => set((s) => ({ scene: upsertToken(s.scene, mapId, token) })),
 
-    onTokenUpdate: ({ mapId, token }) =>
-      set((s) => (s.draggingTokenId === token.id ? s : { scene: replaceToken(s.scene, mapId, token) })),
+    onTokenUpdate: ({ mapId, token }) => {
+      settleOptimisticPrefix(`token:update:${token.id}`);
+      set((s) => (s.draggingTokenId === token.id ? s : { scene: replaceToken(s.scene, mapId, token) }));
+    },
 
     onTokenRemove: ({ mapId, id }) => {
       set((s) => ({
@@ -175,7 +178,21 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
         local.w = clamped * size;
         local.h = clamped * size;
       }
+      // Оптимистично применяем и откатываем, если сервер не подтвердил эхо-патчем.
+      const current = tokenById(activeMapOf(get()), id);
+      const prev: Partial<Token> = {};
+      if (current) {
+        for (const key of Object.keys(local) as (keyof Token)[]) prev[key] = current[key] as never;
+      }
       patchTokenInMap(mapId, id, local);
+      if (current) {
+        beginOptimistic(
+          get,
+          `token:update:${id}`,
+          () => patchTokenInMap(mapId, id, prev),
+          'Сервер не подтвердил изменение токена — изменения отменены'
+        );
+      }
       emitInMap(get, 'token:update', { id, patch: local });
     },
 

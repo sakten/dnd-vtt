@@ -3,13 +3,13 @@ import {
   ABILITIES,
   SKILLS,
   attackIsActive,
-  withAdvantage,
   type AbilityKey,
   type AttackEntry,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf, characterTokenOf } from '../store/selectors';
 import { canControlWith } from '../lib/control';
+import { advantagedExpression } from '../lib/rollMode';
 import { checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
 
 type MenuLevel = 'root' | 'source' | 'attack' | 'save' | 'check' | `ability:${AbilityKey}`;
@@ -22,7 +22,7 @@ interface AttackSource {
 }
 
 function applyAdvantage(expression: string, adv: boolean, dis: boolean): string {
-  return withAdvantage(expression, adv === dis ? null : adv ? 'a' : 'd');
+  return advantagedExpression(expression, adv, dis);
 }
 
 export default function RollMenu() {
