@@ -24,6 +24,15 @@ export function areaKindAt(areas: LightArea[], point: Point): LightAreaKind | nu
   return null;
 }
 
+const KIND_SEVERITY: Record<LightAreaKind, number> = { darkness: 1, magical: 2, obscured: 3 };
+
+/** Более строгий из двух видов области (мгла строже магической тьмы, та — обычной). */
+export function strongestKind(a: LightAreaKind | null, b: LightAreaKind | null): LightAreaKind | null {
+  if (!a) return b;
+  if (!b) return a;
+  return KIND_SEVERITY[a] >= KIND_SEVERITY[b] ? a : b;
+}
+
 /** Какие сенсы работают в области: магическая тьма — кроме тёмного зрения, мгла — только слепое. */
 function sensesForKind(senses: Sense[] | undefined, kind: LightAreaKind): Sense[] {
   const list = senses ?? [];
@@ -35,7 +44,7 @@ function sensesForKind(senses: Sense[] | undefined, kind: LightAreaKind): Sense[
 /**
  * Радиусы восприятия в клетках: вне тьмы (и без области) — без предела,
  * в темноте/области — по сенсам (футы ÷ 5). Без подходящих сенсов:
- * в обычной тьме 1 клетка вокруг, в магической тьме и мгле — ничего не видно.
+ * в обычной тьме 1 клетка вокруг, в магической тьме и мгле — только своя клетка.
  */
 export function visionRadiiCells(
   darkness: boolean,
@@ -46,16 +55,16 @@ export function visionRadiiCells(
   const allowed = kind ? sensesForKind(senses, kind) : senses ?? [];
   const radii = allowed.map((s) => Math.floor(Math.max(0, s.range) / 5)).filter((r) => r > 0);
   if (radii.length > 0) return radii;
-  return kind === 'magical' || kind === 'obscured' ? [] : [1];
+  return kind === 'magical' || kind === 'obscured' ? [0] : [1];
 }
 
 /**
  * Видит ли зритель точку: стены и закрытые двери блокируют всегда,
- * тьма (глобальная «Темнота» или область у цели) — ограничивает радиусом.
+ * тьма (глобальная «Темнота» или область у зрителя/цели) — ограничивает радиусом.
  */
 export function canSee(from: Point, target: Point, senses: Sense[] | undefined, ctx: SightContext): boolean {
   if (crossesWalls(from, target, ctx.walls, 'sight')) return false;
-  const kind = areaKindAt(ctx.areas ?? [], target);
+  const kind = strongestKind(areaKindAt(ctx.areas ?? [], from), areaKindAt(ctx.areas ?? [], target));
   if (!kind && !ctx.darkness) return true;
   const size = ctx.cellSize || 50;
   const fromX = Math.floor((from.x - ctx.offsetX) / size);

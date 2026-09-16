@@ -1,6 +1,7 @@
 import {
   areaKindAt,
   crossesWalls,
+  strongestKind,
   visionRadiiCells,
   type LightArea,
   type LightAreaKind,
@@ -49,6 +50,7 @@ export function visibleCells(input: VisionInput): Set<string> | null {
   for (const viewer of viewers) {
     const vcx = Math.floor((viewer.x - offsetX) / cellSize);
     const vcy = Math.floor((viewer.y - offsetY) / cellSize);
+    const viewerKind = areaKindAt(areas, { x: viewer.x, y: viewer.y });
     const radiiByKind = new Map<LightAreaKind | null, (number | null)[]>();
     const radiiFor = (kind: LightAreaKind | null): (number | null)[] => {
       let radii = radiiByKind.get(kind);
@@ -67,7 +69,7 @@ export function visibleCells(input: VisionInput): Set<string> | null {
           y: offsetY + cy * cellSize + cellSize / 2,
         };
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
-        const kind = areaKindAt(areas, center);
+        const kind = strongestKind(viewerKind, areaKindAt(areas, center));
         if (!kind && !darkness) {
           visible.add(key);
           continue;

@@ -67,10 +67,22 @@ describe('canSee: области', () => {
     expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('magical') })).toBe(true);
   });
 
-  it('магическая тьма и мгла: без подходящего зрения не видно даже своей клетки', () => {
+  it('магическая тьма и мгла: без подходящего зрения видна только своя клетка', () => {
     const own = { x: 125, y: 75 };
-    expect(canSee(own, own, undefined, { ...SIGHT, areas: area('magical') })).toBe(false);
-    expect(canSee(own, own, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(false);
+    const next = { x: 175, y: 75 };
+    expect(canSee(own, own, undefined, { ...SIGHT, areas: area('magical') })).toBe(true);
+    expect(canSee(own, next, undefined, { ...SIGHT, areas: area('magical') })).toBe(false);
+    expect(canSee(own, own, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(true);
+    expect(canSee(own, next, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(false);
+  });
+
+  it('зритель внутри магической тьмы не видит и наружу без дьявольского/слепого зрения', () => {
+    const own = { x: 125, y: 75 };
+    const outside = { x: 325, y: 75 };
+    const devilsight: Sense[] = [{ type: 'devilsight', range: 60 }];
+    expect(canSee(own, outside, darkvision, { ...SIGHT, areas: area('magical') })).toBe(false);
+    expect(canSee(own, outside, devilsight, { ...SIGHT, areas: area('magical') })).toBe(true);
+    expect(canSee(own, outside, undefined, { ...SIGHT, areas: area('obscured') })).toBe(false);
   });
 
   it('мгла: только слепое зрение', () => {

@@ -48,8 +48,8 @@ describe('visionRadiiCells', () => {
     expect(visionRadiiCells(false, senses, 'magical')).toEqual([12, 12]);
     expect(visionRadiiCells(false, senses, 'obscured')).toEqual([12]);
     expect(visionRadiiCells(false, senses, 'darkness')).toEqual([12, 12, 12]);
-    expect(visionRadiiCells(false, [], 'magical')).toEqual([]);
-    expect(visionRadiiCells(false, [{ type: 'darkvision', range: 60 }], 'obscured')).toEqual([]);
+    expect(visionRadiiCells(false, [], 'magical')).toEqual([0]);
+    expect(visionRadiiCells(false, [{ type: 'darkvision', range: 60 }], 'obscured')).toEqual([0]);
     expect(visionRadiiCells(true, [], null)).toEqual([1]);
   });
 });
@@ -161,19 +161,29 @@ describe('visibleCells', () => {
     expect(blinded?.has('2,1')).toBe(true);
   });
 
-  it('внутри магической тьмы/мглы без зрения не видно даже своей клетки', () => {
+  it('внутри магической тьмы/мглы без зрения видна только своя клетка', () => {
     const magical = visibleCells({
       ...VISION_BASE,
       areas: area('magical', 100, 0, 150, 150),
       viewers: [viewer(125, 75, [{ type: 'darkvision', range: 120 }])],
     });
-    expect(magical?.has('2,1')).toBe(false);
+    expect(magical?.has('2,1')).toBe(true);
+    expect(magical?.has('3,1')).toBe(false);
+    expect(magical?.has('0,1')).toBe(false);
     const obscured = visibleCells({
       ...VISION_BASE,
       areas: area('obscured', 100, 0, 150, 150),
       viewers: [viewer(125, 75)],
     });
-    expect(obscured?.has('2,1')).toBe(false);
+    expect(obscured?.has('2,1')).toBe(true);
+    expect(obscured?.has('3,1')).toBe(false);
+    const devilsight = visibleCells({
+      ...VISION_BASE,
+      areas: area('magical', 100, 0, 150, 150),
+      viewers: [viewer(125, 75, [{ type: 'devilsight', range: 60 }])],
+    });
+    expect(devilsight?.has('0,1')).toBe(true);
+    expect(devilsight?.has('3,1')).toBe(true);
   });
 
   it('обзор зрителей объединяется', () => {
