@@ -1,4 +1,4 @@
-import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BASE_ACTIONS, abilityMod, actionSlotAvailable, featureActionAutomation, isUnarmedAttack, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -13,6 +13,7 @@ import {
   type TurnContext,
 } from '../lib/actionRules';
 import { useActionContext } from '../lib/useActionContext';
+import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
 import ConditionChips from './ConditionChips';
@@ -79,6 +80,15 @@ export default function ActionPanel() {
   const [casting, setCasting] = useState<Spell | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const clampHeight = useCallback((v: number) => Math.max(140, Math.min(v, window.innerHeight - 80)), []);
+  const measureHeight = useCallback(() => panelRef.current?.offsetHeight ?? 320, []);
+  const {
+    size: panelHeight,
+    onPointerDown: onResizeDown,
+    onPointerMove: onResizeMove,
+  } = useDragSize('vtt-action-height', 'y', clampHeight, null, measureHeight);
 
   const toggleCollapsed = () => {
     setCollapsed((v) => {
@@ -315,10 +325,15 @@ export default function ActionPanel() {
 
   return (
     <div
-      className={`action-panel${!controlled ? ' ap-locked' : ''}${collapsed ? ' collapsed' : ''}`}
+      ref={panelRef}
+      className={`action-panel${!controlled ? ' ap-locked' : ''}${collapsed ? ' collapsed' : ''}${!collapsed && panelHeight != null ? ' resized' : ''}`}
+      style={!collapsed && panelHeight != null ? { height: panelHeight } : undefined}
       onMouseOver={showTip}
       onMouseLeave={() => setTip(null)}
     >
+      {!collapsed && (
+        <div className="ap-resizer" onPointerDown={onResizeDown} onPointerMove={onResizeMove} />
+      )}
       <div className="ap-head">
         <span className="ap-token">{token.name}</span>
         {token.conditions.length > 0 && <ConditionChips conditions={token.conditions} spellByKey={spellByKey} />}
