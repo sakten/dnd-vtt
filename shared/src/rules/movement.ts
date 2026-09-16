@@ -149,6 +149,8 @@ export interface PathfindInput {
   difficult?: Set<string>;
   /** Если задано — входить можно только в эти клетки (старт разрешён всегда). */
   allow?: Set<string>;
+  /** Размер подошвы ходока в клетках: проходимость и сложная местность — по всем её клеткам. */
+  moverCells?: number;
   /** Сколько диагоналей уже пройдено в этом ходу (чередование 5-10-5). */
   diagonalsBefore?: number;
   feetPerCell?: number;
@@ -185,12 +187,12 @@ export function findPath(input: PathfindInput): FoundPath | null {
   const blocked = input.blocked ?? new Set<string>();
   const difficult = input.difficult ?? new Set<string>();
   const diagonalsBefore = Math.max(0, input.diagonalsBefore ?? 0);
+  const moverCells = Math.max(1, Math.round(input.moverCells ?? 1));
   const start = pointCell(input.from, grid);
   const goal = pointCell(input.to, grid);
-  const goalKey = areaCellKey(goal.cx, goal.cy);
   const inBounds = (cx: number, cy: number) =>
     !input.bounds || (cx >= 0 && cy >= 0 && cx < input.bounds.cols && cy < input.bounds.rows);
-  if (blocked.has(goalKey) || !inBounds(goal.cx, goal.cy)) return null;
+  if (!inBounds(goal.cx, goal.cy) || footprintHits(goal.cx, goal.cy, moverCells, blocked)) return null;
 
   const keyOf = (cx: number, cy: number, p: number) => `${cx},${cy},${p}`;
   const heuristic = (cx: number, cy: number) => Math.max(Math.abs(cx - goal.cx), Math.abs(cy - goal.cy));
@@ -233,12 +235,12 @@ export function findPath(input: PathfindInput): FoundPath | null {
       const cy = node.cy + dy;
       if (!inBounds(cx, cy)) continue;
       const key = areaCellKey(cx, cy);
-      if (blocked.has(key)) continue;
+      if (footprintHits(cx, cy, moverCells, blocked)) continue;
       if (input.allow && !input.allow.has(key) && !(cx === start.cx && cy === start.cy)) continue;
       const diagonal = dx !== 0 && dy !== 0;
       const to = cellCenter(cx, cy, grid);
       if (crossesWalls(from, to, walls, 'move')) continue;
-      const stepUnits = (diagonal ? (node.p === 0 ? 1 : 2) : 1) * (difficult.has(key) ? 2 : 1);
+      const stepUnits = (diagonal ? (node.p === 0 ? 1 : 2) : 1) * (footprintHits(cx, cy, moverCells, difficult) ? 2 : 1);
       const g = node.g + stepUnits;
       const p = diagonal ? node.p ^ 1 : node.p;
       const stateKey = keyOf(cx, cy, p);
@@ -291,6 +293,29 @@ export function nearestFreeCell(
   return null;
 }
 
+/** Клетки подошвы токена для клетки-якоря (чётные размеры — от пересечения, нечётные — от центра). */
+export function footprintCells(cx: number, cy: number, cells: number): string[] {
+  const lo = Math.floor(cells / 2);
+  const hi = cells % 2 === 0 ? cells / 2 - 1 : lo;
+  const keys: string[] = [];
+  for (let x = cx - lo; x <= cx + hi; x++) {
+    for (let y = cy - lo; y <= cy + hi; y++) keys.push(areaCellKey(x, y));
+  }
+  return keys;
+}
+
+/** Пересекается ли подошва токена (якорь `cx,cy`, размер `cells`) с множеством клеток. */
+export function footprintHits(cx: number, cy: number, cells: number, set: Set<string>): boolean {
+  const lo = Math.floor(cells / 2);
+  const hi = cells % 2 === 0 ? cells / 2 - 1 : lo;
+  for (let x = cx - lo; x <= cx + hi; x++) {
+    for (let y = cy - lo; y <= cy + hi; y++) {
+      if (set.has(areaCellKey(x, y))) return true;
+    }
+  }
+  return false;
+}
+
 export interface PlanWalkMover {
   id: string;
   x: number;
@@ -323,12 +348,13 @@ export interface PlanWalkInput {
 }
 
 /**
- * План похода: A* со стенами/дверями; клетки врагов/нейтралов непроходимы,
- * союзников и сложная местность — ×2; цель при занятости сдвигается к ближайшей
- * свободной. Первая точка — ровно текущая позиция токена (без прыжка).
+ * План похода: A* со стенами/дверями; подошва ходока (1×1, 2×2, …) проверяется по
+ * всем своим клеткам: враги/нейтралы непроходимы, союзники и сложная местность — ×2;
+ * цель, чья подошва накрывает другого, — отмена. Первая точка — ровно текущая позиция.
  */
 export function planWalk(input: PlanWalkInput): FoundPath | null {
   const { grid, walls } = input;
+  const cells = Math.max(1, Math.round(input.cells || 1));
   const cols = Math.max(1, Math.ceil(input.mapWidth / grid.size));
   const rows = Math.max(1, Math.ceil(input.mapHeight / grid.size));
   const blocked = new Set<string>();
@@ -348,7 +374,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, grid)) difficult.add(key);
   }
   const bounds = { cols, rows };
-  const even = input.cells % 2 === 0;
+  const even = cells % 2 === 0;
   const node = (cell: GridCell) =>
     even
       ? { x: grid.offsetX + cell.cx * grid.size, y: grid.offsetY + cell.cy * grid.size }
@@ -365,8 +391,8 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
         const cx = fromCell.cx + dx;
         const cy = fromCell.cy + dy;
         if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
-        if (blocked.has(areaCellKey(cx, cy))) continue;
-        if (occupied.has(areaCellKey(cx, cy))) continue;
+        if (footprintHits(cx, cy, cells, blocked)) continue;
+        if (footprintHits(cx, cy, cells, occupied)) continue;
         const center = cellCenter(cx, cy, grid);
         if (crossesWalls(input.from, center, walls, 'move')) continue;
         const distance = Math.hypot(center.x - input.to.x, center.y - input.to.y);
@@ -383,35 +409,36 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   }
 
   const visible = input.visible ?? null;
-  const target = pointCell(input.to, grid);
+  const cursorCell = pointCell(input.to, grid);
+  // Якорь постановки: чётные размеры — по пересечениям, нечётные — по центрам.
+  const anchorPoint = {
+    x: snapToGrid(input.to.x, grid.offsetX, grid.size, cells),
+    y: snapToGrid(input.to.y, grid.offsetY, grid.size, cells),
+  };
+  const anchorCell = pointCell(anchorPoint, grid);
   // В невидимую клетку ходить нельзя: маршрут отменяется (кроме режима слепоты выше).
-  if (visible && !visible.has(areaCellKey(target.cx, target.cy))) return null;
-  // Конечная клетка должна быть свободной: цель на занятой клетке не выбирается.
-  if (occupied.has(areaCellKey(target.cx, target.cy))) return null;
+  if (visible && !visible.has(areaCellKey(cursorCell.cx, cursorCell.cy))) return null;
+  // Конечная клетка должна быть свободной: подошва целиком, цель на занятой клетке не выбирается.
+  if (footprintHits(anchorCell.cx, anchorCell.cy, cells, occupied)) return null;
   const startCell = pointCell(input.from, grid);
-  if (target.cx === startCell.cx && target.cy === startCell.cy) return null;
+  if (anchorCell.cx === startCell.cx && anchorCell.cy === startCell.cy) return null;
   const found = findPath({
     from: input.from,
-    to: cellCenter(target.cx, target.cy, grid),
+    to: anchorPoint,
     grid,
     bounds,
     walls,
     blocked,
     difficult,
     allow: visible ?? undefined,
+    moverCells: cells,
     diagonalsBefore: input.diagonalsBefore ?? 0,
   });
   if (!found) return null;
   const points: GridPoint[] = [];
   for (let i = 0; i < found.cells.length; i++) {
     const cell = found.cells[i]!;
-    const snapped =
-      i === found.cells.length - 1
-        ? {
-            x: snapToGrid(input.to.x, grid.offsetX, grid.size, input.cells),
-            y: snapToGrid(input.to.y, grid.offsetY, grid.size, input.cells),
-          }
-        : node(cell);
+    const snapped = i === found.cells.length - 1 ? anchorPoint : node(cell);
     const last = points[points.length - 1];
     if (!last || last.x !== snapped.x || last.y !== snapped.y) points.push(snapped);
   }

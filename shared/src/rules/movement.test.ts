@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Wall } from '../domain/scene';
-import { diagonalStepCost, findPath, movementCost, nearestFreeCell, planWalk, reachableCells } from './movement';
+import {
+  diagonalStepCost,
+  findPath,
+  footprintHits,
+  movementCost,
+  nearestFreeCell,
+  planWalk,
+  reachableCells,
+} from './movement';
 
 describe('diagonalStepCost', () => {
   it('чередует 5 и 10 футов', () => {
@@ -189,5 +197,28 @@ describe('planWalk', () => {
     expect(path?.feet).toBe(15);
     // Занятая (даже союзником) клетка не может быть конечной.
     expect(planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 75, y: 75 }, tokens: ally })).toBeNull();
+  });
+
+  it('2×2 не встаёт подошвой на другого (якорь и клетка-курсор свободны)', () => {
+    const target = { x: 150, y: 100 };
+    const ally = [{ id: 'a1', x: 175, y: 75, w: 50, h: 50, faction: 'ally' }];
+    // Цель: якорь (3,2), подошва 2..3 × 1..2 — союзник в (3,1) накрыт подошвой.
+    expect(planWalk({ ...base, cells: 2, from: { x: 100, y: 100 }, to: target, tokens: ally })).toBeNull();
+    expect(planWalk({ ...base, cells: 2, from: { x: 100, y: 100 }, to: target })).not.toBeNull();
+  });
+
+  it('2×2 не проходит подошвой через врага', () => {
+    const enemy = [{ id: 'e1', x: 175, y: 75, w: 50, h: 50, faction: 'enemy' }];
+    const path = planWalk({
+      ...base,
+      cells: 2,
+      mapWidth: 350,
+      from: { x: 100, y: 100 },
+      to: { x: 250, y: 100 },
+      tokens: enemy,
+    });
+    expect(path).not.toBeNull();
+    expect(path!.cells.some((c) => c.cx === 3 && c.cy === 2)).toBe(false);
+    expect(path!.cells.every((c) => !footprintHits(c.cx, c.cy, 2, new Set(['3,1'])))).toBe(true);
   });
 });
