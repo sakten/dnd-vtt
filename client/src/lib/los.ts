@@ -1,4 +1,4 @@
-import { crossesWalls, type Sense, type Token, type Wall } from 'shared';
+import { crossesWalls, visionRadiiCells, type Token, type Wall } from 'shared';
 
 export interface Viewer {
   x: number;
@@ -18,16 +18,6 @@ export interface VisionInput {
   viewers: Viewer[];
 }
 
-/**
- * Радиусы зрения в клетках: вне «Темноты» — без предела, в темноте — по типам восприятия
- * (тёмное/слепое/дьявольское зрение), без них — 1 клетка вокруг.
- */
-export function visionRadii(darkness: boolean, senses: Sense[]): (number | null)[] {
-  if (!darkness) return [null];
-  const radii = senses.map((s) => Math.floor(Math.max(0, s.range) / 5)).filter((r) => r > 0);
-  return radii.length > 0 ? radii : [1];
-}
-
 /** Зрители обзора: объединение всех токенов игроков либо только свои (флаг «Объединять обзор игроков»). */
 export function visionViewers(
   tokens: Token[],
@@ -38,7 +28,7 @@ export function visionViewers(
   const party = tokens.filter((t) => t.isPlayerToken);
   const own = party.filter(isOwn);
   const use = merge || own.length === 0 ? party : own;
-  return use.map((t) => ({ x: t.x, y: t.y, radii: visionRadii(darkness, t.senses ?? []) }));
+  return use.map((t) => ({ x: t.x, y: t.y, radii: visionRadiiCells(darkness, t.senses) }));
 }
 
 /**

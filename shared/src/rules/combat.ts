@@ -43,6 +43,10 @@ export interface AttackAdvantageInput {
   effectMode?: 'a' | 'd';
   /** Учитывать состояния цели (по умолчанию — да). */
   includeTarget?: boolean;
+  /** Атакующий не видит цель (RAW: помеха). */
+  unseenTarget?: boolean;
+  /** Цель не видит атакующего (RAW: преимущество; взаимно гасится с помехой). */
+  unseenAttacker?: boolean;
 }
 
 export interface AttackAdvantageResult {
@@ -63,6 +67,8 @@ export function countAttackAdvantage(input: AttackAdvantageInput): AttackAdvanta
     if (disadvantageAgainst(input.targetConditions, rangeType)) disadvantage += 1;
   }
   if (input.forcedDisadvantage) disadvantage += 1;
+  if (input.unseenTarget) disadvantage += 1;
+  if (input.unseenAttacker) advantage += 1;
   if (input.effectMode === 'a') advantage += 1;
   if (input.effectMode === 'd') disadvantage += 1;
   return { advantage, disadvantage, mode: rollMode(advantage, disadvantage) };

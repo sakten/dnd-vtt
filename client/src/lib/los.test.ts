@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Sense, Token, Wall } from 'shared';
-import { visionRadii, visionViewers, visibleCells } from './los';
+import { visionRadiiCells, type Sense, type Token, type Wall } from 'shared';
+import { visionViewers, visibleCells } from './los';
 
 const VISION_BASE = { width: 250, height: 150, cellSize: 50, offsetX: 0, offsetY: 0 };
 
@@ -8,20 +8,20 @@ function wall(x1: number, y1: number, x2: number, y2: number, kind: Wall['kind']
   return { id: `w-${x1}-${y1}-${x2}-${y2}`, kind, x1, y1, x2, y2, ...(open ? { open: true } : {}) };
 }
 
-describe('visionRadii', () => {
+describe('visionRadiiCells', () => {
   it('вне темноты — без ограничения', () => {
-    expect(visionRadii(false, [])).toEqual([null]);
-    expect(visionRadii(false, [{ type: 'darkvision', range: 60 }])).toEqual([null]);
+    expect(visionRadiiCells(false, [])).toEqual([null]);
+    expect(visionRadiiCells(false, [{ type: 'darkvision', range: 60 }])).toEqual([null]);
   });
 
   it('в темноте — по типам восприятия, без них 1 клетка', () => {
-    expect(visionRadii(true, [])).toEqual([1]);
-    expect(visionRadii(true, [{ type: 'darkvision', range: 60 }])).toEqual([12]);
+    expect(visionRadiiCells(true, [])).toEqual([1]);
+    expect(visionRadiiCells(true, [{ type: 'darkvision', range: 60 }])).toEqual([12]);
     const multi: Sense[] = [
       { type: 'darkvision', range: 60 },
       { type: 'blindsight', range: 10 },
     ];
-    expect(visionRadii(true, multi)).toEqual([12, 2]);
+    expect(visionRadiiCells(true, multi)).toEqual([12, 2]);
   });
 });
 

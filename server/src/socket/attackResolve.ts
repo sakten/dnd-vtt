@@ -4,6 +4,7 @@ import {
   attackRollParts,
   attackSubject,
   autoCrit,
+  canSee,
   characterLevel,
   countAttackAdvantage,
   critRangeFor,
@@ -121,6 +122,8 @@ export function prepareWeaponAttack(
   let hasTarget = false;
   let forcedDisadvantage = false;
   let forcedDisadvantageCode: RollLabelParams['disadvantage'];
+  let unseenTarget = false;
+  let unseenAttacker = false;
 
   // Досягаемость: бонус эффекта учитывается только в свой ход (Battering Roots).
   const reachBonus =
@@ -149,6 +152,15 @@ export function prepareWeaponAttack(
         forcedDisadvantageCode = range.disadvantageCode;
       }
       hasTarget = true;
+      const sight = {
+        walls: map.walls,
+        darkness: map.vision.darkness,
+        cellSize: map.fog.size,
+        offsetX: map.fog.offsetX,
+        offsetY: map.fog.offsetY,
+      };
+      unseenTarget = !canSee(attacker, target, attacker.senses, sight);
+      unseenAttacker = !canSee(target, attacker, target.senses, sight);
     }
   }
 
@@ -178,6 +190,8 @@ export function prepareWeaponAttack(
     forcedDisadvantage,
     effectMode: effectParts.mode,
     includeTarget: hasTarget,
+    unseenTarget,
+    unseenAttacker,
   });
 
   const penalty = exhaustionRollPenalty(attacker?.conditions);
