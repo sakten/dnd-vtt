@@ -6,7 +6,7 @@ export type AbilityKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
 export type SkillLevel = 0 | 1 | 2;
 
-export const MAX_CLASSES = 2;
+export const MAX_CLASSES = 3;
 /** Верхняя граница числа атак/оружия (список динамический, не фиксированный). */
 export const MAX_ATTACKS = 10;
 /** Верхняя граница числа выбранных заклинаний в листе. */

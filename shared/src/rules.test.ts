@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ABILITIES, type AbilityKey } from './domain/core';
-import { normalizeSheet } from './normalize';
+import { normalizeClasses, normalizeSheet } from './normalize';
 import {
   applyRest,
   attackRange,
@@ -55,6 +55,28 @@ describe('casterLevelOf', () => {
     expect(casterLevelOf([{ className: 'wizard', level: 3 }, { className: 'cleric', level: 2 }])).toBe(5);
     expect(casterLevelOf([{ className: 'paladin', level: 6 }, { className: 'sorcerer', level: 3 }])).toBe(6);
   });
+
+  it('три класса суммируются', () => {
+    expect(
+      casterLevelOf([
+        { className: 'paladin', level: 3 },
+        { className: 'sorcerer', level: 2 },
+        { className: 'fighter', level: 3, subclass: 'eldritchKnight' },
+      ])
+    ).toBe(5);
+  });
+});
+
+describe('normalizeClasses', () => {
+  it('хранит до 3 классов', () => {
+    const classes = normalizeClasses([
+      { className: 'cleric', level: 3 },
+      { className: 'wizard', level: 3 },
+      { className: 'fighter', level: 3, subclass: 'eldritchKnight' },
+      { className: 'rogue', level: 1 },
+    ]);
+    expect(classes.map((c) => c.className)).toEqual(['cleric', 'wizard', 'fighter']);
+  });
 });
 
 describe('spellSlotMaxes', () => {
@@ -80,6 +102,16 @@ describe('spellSlotMaxes', () => {
   it('пример из PHB24: рейнджер 4 / чародей 3 → 4/3/2 (полуровни вверх)', () => {
     expect(casterLevelOf([{ className: 'ranger', level: 4 }, { className: 'sorcerer', level: 3 }])).toBe(5);
     expect(spellSlotMaxes([{ className: 'ranger', level: 4 }, { className: 'sorcerer', level: 3 }])).toEqual([4, 3, 2]);
+  });
+
+  it('три класса: полный + полный + третичный', () => {
+    expect(
+      spellSlotMaxes([
+        { className: 'cleric', level: 3 },
+        { className: 'wizard', level: 3 },
+        { className: 'fighter', level: 3, subclass: 'eldritchKnight' },
+      ])
+    ).toEqual([4, 3, 3, 1]);
   });
 
   it('без кастеров — пусто', () => {

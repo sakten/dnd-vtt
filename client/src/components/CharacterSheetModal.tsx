@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ABILITIES,
   CLASS_LIST,
+  MAX_CLASSES,
   SKILLS,
   abilityMod,
   classSaves,
@@ -80,7 +81,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
 
   const addClassLevel = () =>
     setDraft((d) =>
-      d && d.classes.length < 2 ? { ...d, classes: [...d.classes, { className: '', level: 1 }] } : d
+      d && d.classes.length < MAX_CLASSES ? { ...d, classes: [...d.classes, { className: '', level: 1 }] } : d
     );
 
   const removeClassLevel = (index: number) =>
@@ -113,7 +114,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
-        <div className="sheet-section-title">Классы (до 2)</div>
+        <div className="sheet-section-title">Классы (до {MAX_CLASSES})</div>
         {draft.classes.map((cl, i) => (
           <div className="class-row" key={i}>
             <label className="field">
@@ -160,7 +161,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             </button>
           </div>
         ))}
-        {draft.classes.length < 2 && (
+        {draft.classes.length < MAX_CLASSES && (
           <button className="class-add" onClick={addClassLevel}>
             + Добавить класс
           </button>
