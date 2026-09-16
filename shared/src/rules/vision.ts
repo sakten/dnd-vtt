@@ -32,7 +32,7 @@ export function zoneVisionCells(zones: ZoneInstance[], grid: AreaGrid): Map<stri
   const out = new Map<string, LightAreaKind>();
   for (const zone of zones) {
     const kind = zoneVisionKind(zone);
-    if (!kind) continue;
+    if (!kind || !zone.origin || !Number.isFinite(zone.origin.x) || !Number.isFinite(zone.origin.y)) continue;
     for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, grid)) {
       const prev = out.get(key);
       out.set(key, prev ? strongestKind(prev, kind) ?? kind : kind);
@@ -48,7 +48,7 @@ export function zoneVisionKindAt(zones: ZoneInstance[], point: Point, grid: Area
   let kind: LightAreaKind | null = null;
   for (const zone of zones) {
     const zoneKind = zoneVisionKind(zone);
-    if (!zoneKind) continue;
+    if (!zoneKind || !zone.origin || !Number.isFinite(zone.origin.x) || !Number.isFinite(zone.origin.y)) continue;
     const cells = areaCells(zone.area, zone.origin, zone.direction ?? null, grid);
     if (cells.includes(key)) kind = strongestKind(kind, zoneKind);
   }

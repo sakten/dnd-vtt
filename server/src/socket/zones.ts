@@ -177,6 +177,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
   const room = ctx.getRoom();
   const zoneDef = input.def.zone;
   if (!room || !zoneDef) return null;
+  if (!input.origin || !Number.isFinite(input.origin.x) || !Number.isFinite(input.origin.y)) return null;
   const map = ctx.manager.findMap(room, input.mapId);
   if (!map) return null;
   map.zones = map.zones ?? [];

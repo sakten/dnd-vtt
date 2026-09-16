@@ -103,13 +103,23 @@ function TokenView({ token }: { token: Token }) {
       x: snapToGrid(x, pathGrid.offsetX, pathGrid.size, token.cells),
       y: snapToGrid(y, pathGrid.offsetY, pathGrid.size, token.cells),
     });
+    // Узел клетки: для чётных размеров — пересечение (левый верхний угол клетки),
+    // для нечётных — центр клетки.
+    const cellNode = (cx: number, cy: number) => {
+      if (token.cells % 2 === 0) {
+        return { x: pathGrid.offsetX + cx * pathGrid.size, y: pathGrid.offsetY + cy * pathGrid.size };
+      }
+      return cellCenter(cx, cy, pathGrid);
+    };
     const points: { x: number; y: number }[] = [];
-    for (let i = 0; i < found.points.length; i++) {
-      const point = found.points[i]!;
-      const snapped = i === found.points.length - 1 ? anchor(world.x, world.y) : anchor(point.x, point.y);
+    for (let i = 0; i < found.cells.length; i++) {
+      const cell = found.cells[i]!;
+      const snapped = i === found.cells.length - 1 ? anchor(world.x, world.y) : cellNode(cell.cx, cell.cy);
       const last = points[points.length - 1];
       if (!last || last.x !== snapped.x || last.y !== snapped.y) points.push(snapped);
     }
+    // Поход всегда начинается с текущей позиции токена (без прыжка в первый узел).
+    points[0] = { x: token.x, y: token.y };
     return { ...found, points };
   };
 
@@ -192,13 +202,19 @@ function TokenView({ token }: { token: Token }) {
     const timer = window.setTimeout(() => finish(moving.points), moving.duration + 400);
     stepRef.current = -1;
     const tick = (now: number) => {
-      const t = moving.duration > 0 ? Math.min(1, (now - started) / moving.duration) : 1;
+      const t = moving.duration > 0 ? Math.min(1, Math.max(0, (now - started) / moving.duration)) : 1;
       const segments = moving.points.length - 1;
       const progress = t * segments;
-      const idx = Math.min(segments - 1, Math.floor(progress));
+      const idx = Math.max(0, Math.min(segments - 1, Math.floor(progress)));
       const local = progress - idx;
-      const a = moving.points[idx]!;
-      const b = moving.points[idx + 1]!;
+      const a = moving.points[idx];
+      const b = moving.points[idx + 1];
+      if (!a || !b) {
+        console.warn('walk:bad-point', { len: moving.points.length, idx, progress });
+        window.clearTimeout(timer);
+        finish(moving.points);
+        return;
+      }
       if (idx !== stepRef.current) {
         stepRef.current = idx;
         // Шаг по клетке: локально — вижн, на сервер — вход/выход зон.

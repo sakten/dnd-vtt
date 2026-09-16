@@ -52,7 +52,9 @@ function drawZone(ctx: Konva.Context, cells: CellRect[], color: string): void {
 export default function ZoneLayer({ zones, grid }: { zones: ZoneInstance[]; grid: GridSettings }) {
   return (
     <>
-      {zones.map((zone) => {
+      {zones
+        .filter((zone) => zone.origin && Number.isFinite(zone.origin.x) && Number.isFinite(zone.origin.y))
+        .map((zone) => {
         const cells: CellRect[] = areaCells(zone.area, zone.origin, zone.direction ?? null, grid).map((key) => {
           const [cx, cy] = key.split(',').map(Number);
           return {

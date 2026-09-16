@@ -36,7 +36,7 @@ await S.page.waitForFunction(
   (old) => {
     const s = window.__vtt.getState();
     const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
-    return !!t && (t.x !== old.x || t.y !== old.y);
+    return !!t && !s.movingTokens[t.id] && (t.x !== old.x || t.y !== old.y);
   },
   {},
   { x: sized.x, y: sized.y }
@@ -164,8 +164,7 @@ check(roundAfter === false, 'круглость токена меняется в
 await S.page.screenshot({ path: path.join(S.OUT, '09b-round.png') });
 
 S.canvas = await S.page.$('canvas');
-const box = await S.canvas.boundingBox();
-const scaleBeforeZoom = await S.page.evaluate(() => window.__vtt.getState().view.scale);
+const box = await S.canvas.boundingBox();const scaleBeforeZoom = await S.page.evaluate(() => window.__vtt.getState().view.scale);
 await S.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 await S.page.mouse.wheel({ deltaY: -240 });
 await waitFor(S.page, (prev) => window.__vtt.getState().view.scale > prev, 5000, scaleBeforeZoom);
