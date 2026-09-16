@@ -29,6 +29,18 @@ export const DEFAULT_VISION: VisionSettings = { los: false, darkness: false };
 
 export type WallKind = 'wall' | 'door' | 'window';
 
+export type LightAreaKind = 'darkness' | 'magical' | 'obscured';
+
+/** Область тьмы/мглы: прямоугольник по узлам сетки; вид задаёт правила восприятия. */
+export interface LightArea {
+  id: string;
+  kind: LightAreaKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /** Сегмент стены по узлам сетки: блокирует обзор (и позже — движение). */
 export interface Wall {
   id: string;
@@ -68,6 +80,8 @@ export interface MapInfo {
   walls: Wall[];
   /** Видимость: обзор игроков от токенов игрока (стены блокируют). */
   vision: VisionSettings;
+  /** Области тьмы/магической тьмы/мглы. */
+  lightAreas: LightArea[];
   fog: FogState;
   combat: CombatState;
 }

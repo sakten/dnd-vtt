@@ -1,9 +1,9 @@
-import { resizeGrid, setFog, setGrid, setVision, setWalls, withMaps } from '../../domain/scene';
+import { resizeGrid, setFog, setGrid, setLightAreas, setVision, setWalls, withMaps } from '../../domain/scene';
 import { emit, emitThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'updateFog' | 'updateWalls' | 'updateVision'>> = (set, get) => {
+export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
   return {
     onMapsUpdate: ({ maps, activeMapId }) => {
       set((s) => {
@@ -27,6 +27,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     onFogUpdate: ({ mapId, fog }) => set((s) => ({ scene: setFog(s.scene, mapId, fog) })),
     onWallsUpdate: ({ mapId, walls }) => set((s) => ({ scene: setWalls(s.scene, mapId, walls) })),
     onVisionUpdate: ({ mapId, vision }) => set((s) => ({ scene: setVision(s.scene, mapId, vision) })),
+    onAreasUpdate: ({ mapId, lightAreas }) => set((s) => ({ scene: setLightAreas(s.scene, mapId, lightAreas) })),
     onGridUpdate: (grid) => set((s) => ({ scene: setGrid(s.scene, grid) })),
 
     addMap: (name, url, width, height) => {
@@ -81,6 +82,15 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
       if (!get().socket) return;
       set((s) => ({ scene: setVision(s.scene, mapId, vision) }));
       emit(get, 'vision:update', { mapId, vision });
+    },
+
+    updateAreas: (mapId, areas) => {
+      if (!get().socket) return;
+      set((s) => ({ scene: setLightAreas(s.scene, mapId, areas) }));
+      emitThrottled(get, `areas:${mapId}`, 150, 'areas:update', () => {
+        const latest = get().scene.maps.find((m) => m.id === mapId)?.lightAreas;
+        return latest ? { mapId, lightAreas: latest } : undefined;
+      });
     },
   };
 };

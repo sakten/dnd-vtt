@@ -1,5 +1,6 @@
 import {
   isRecord,
+  normalizeLightAreas,
   snapToGrid,
   type Wall,
 } from 'shared';
@@ -111,6 +112,16 @@ export function registerMapHandlers(ctx: ConnCtx) {
       if (!map) return;
       map.vision = { los: vision.los === true, darkness: vision.darkness === true };
       broadcast('vision:update', { mapId, vision: map.vision });
+    });
+
+    ctx.on('areas:update', ({ mapId: rawMapId, lightAreas }) => {
+      const room = dmRoom();
+      const mapId = asString(rawMapId);
+      if (!room || !mapId || !Array.isArray(lightAreas)) return;
+      const map = room.scene.maps.find((m) => m.id === mapId);
+      if (!map) return;
+      map.lightAreas = normalizeLightAreas(lightAreas);
+      broadcast('areas:update', { mapId, lightAreas: map.lightAreas });
     });
 
     ctx.on('grid:update', (grid) => {

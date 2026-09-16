@@ -1,5 +1,5 @@
 import type { Sense } from '../domain/sense';
-import type { Wall } from '../domain/scene';
+import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
 import { crossesWalls, type Point } from './walls';
 
 export interface SightContext {
@@ -10,30 +10,56 @@ export interface SightContext {
   cellSize: number;
   offsetX: number;
   offsetY: number;
+  /** Области тьмы/магической тьмы/мглы. */
+  areas?: LightArea[];
+}
+
+/** Вид области, накрывающей точку (первая по списку), иначе null. */
+export function areaKindAt(areas: LightArea[], point: Point): LightAreaKind | null {
+  for (const area of areas) {
+    if (point.x >= area.x && point.x <= area.x + area.w && point.y >= area.y && point.y <= area.y + area.h) {
+      return area.kind;
+    }
+  }
+  return null;
+}
+
+/** Какие сенсы работают в области: магическая тьма — кроме тёмного зрения, мгла — только слепое. */
+function sensesForKind(senses: Sense[] | undefined, kind: LightAreaKind): Sense[] {
+  const list = senses ?? [];
+  if (kind === 'magical') return list.filter((s) => s.type !== 'darkvision');
+  if (kind === 'obscured') return list.filter((s) => s.type === 'blindsight');
+  return list;
 }
 
 /**
- * Радиусы восприятия в клетках: вне «Темноты» — без предела,
- * в темноте — по сенсам (футы ÷ 5), без них 1 клетка вокруг.
+ * Радиусы восприятия в клетках: вне тьмы (и без области) — без предела,
+ * в темноте/области — по сенсам (футы ÷ 5), без подходящих сенсов 1 клетка вокруг.
  */
-export function visionRadiiCells(darkness: boolean, senses: Sense[] | undefined): (number | null)[] {
-  if (!darkness) return [null];
-  const radii = (senses ?? []).map((s) => Math.floor(Math.max(0, s.range) / 5)).filter((r) => r > 0);
+export function visionRadiiCells(
+  darkness: boolean,
+  senses: Sense[] | undefined,
+  kind: LightAreaKind | null = null
+): (number | null)[] {
+  if (!kind && !darkness) return [null];
+  const allowed = kind ? sensesForKind(senses, kind) : senses ?? [];
+  const radii = allowed.map((s) => Math.floor(Math.max(0, s.range) / 5)).filter((r) => r > 0);
   return radii.length > 0 ? radii : [1];
 }
 
 /**
  * Видит ли зритель точку: стены и закрытые двери блокируют всегда,
- * в «Темноте» нужен хотя бы один радиус (Чёбышёв по клеткам).
+ * тьма (глобальная «Темнота» или область у цели) — ограничивает радиусом.
  */
 export function canSee(from: Point, target: Point, senses: Sense[] | undefined, ctx: SightContext): boolean {
   if (crossesWalls(from, target, ctx.walls, 'sight')) return false;
-  if (!ctx.darkness) return true;
+  const kind = areaKindAt(ctx.areas ?? [], target);
+  if (!kind && !ctx.darkness) return true;
   const size = ctx.cellSize || 50;
   const fromX = Math.floor((from.x - ctx.offsetX) / size);
   const fromY = Math.floor((from.y - ctx.offsetY) / size);
   const targetX = Math.floor((target.x - ctx.offsetX) / size);
   const targetY = Math.floor((target.y - ctx.offsetY) / size);
   const distance = Math.max(Math.abs(targetX - fromX), Math.abs(targetY - fromY));
-  return visionRadiiCells(ctx.darkness, senses).some((r) => r === null || distance <= r);
+  return visionRadiiCells(ctx.darkness, senses, kind).some((r) => r === null || distance <= r);
 }

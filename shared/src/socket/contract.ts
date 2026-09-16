@@ -2,7 +2,7 @@ import type { ActionCost, ReactionOffer } from '../domain/actions';
 import type { ChatMessage, RollKind } from '../domain/chat';
 import type { CombatState } from '../domain/combat';
 import type { Player, RoomState } from '../domain/room';
-import type { FogState, GridSettings, MapInfo, VisionSettings, Wall } from '../domain/scene';
+import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
 
@@ -24,6 +24,7 @@ export interface ServerToClientEvents {
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
   'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
   'vision:update': (payload: { mapId: string; vision: VisionSettings }) => void;
+  'areas:update': (payload: { mapId: string; lightAreas: LightArea[] }) => void;
   'library:update': (library: LibraryItem[]) => void;
   'combat:update': (payload: { mapId: string; combat: CombatState }) => void;
   'grid:update': (grid: GridSettings) => void;
@@ -60,6 +61,7 @@ export interface ClientToServerEvents {
   'fog:update': (payload: { mapId: string; fog: FogState }) => void;
   'walls:update': (payload: { mapId: string; walls: Wall[] }) => void;
   'vision:update': (payload: { mapId: string; vision: VisionSettings }) => void;
+  'areas:update': (payload: { mapId: string; lightAreas: LightArea[] }) => void;
   'library:add': (payload: TokenFields) => void;
   'library:update': (payload: { id: string; patch: Partial<LibraryItem> }) => void;
   'library:remove': (id: string) => void;

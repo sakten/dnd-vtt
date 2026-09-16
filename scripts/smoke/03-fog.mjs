@@ -32,6 +32,20 @@ S.player.emit('vision:update', { mapId: S.map1.id, vision: { los: false, darknes
 await sleep(600);
 check(playerVision.vision.los === true, 'игрок не может менять видимость');
 
+let playerAreas = null;
+S.player.on('areas:update', (p) => {
+  playerAreas = p;
+});
+S.dm.emit('areas:update', {
+  mapId: S.map1.id,
+  lightAreas: [{ id: 'a1', kind: 'magical', x: 0, y: 0, w: 100, h: 100 }],
+});
+await waitFor(() => playerAreas && playerAreas.lightAreas.length === 1);
+check(playerAreas.lightAreas[0].kind === 'magical', 'области тьмы обновляются у игроков');
+S.player.emit('areas:update', { mapId: S.map1.id, lightAreas: [] });
+await sleep(600);
+check(playerAreas.lightAreas.length === 1, 'игрок не может менять области');
+
 S.player.emit('dice:roll', { expression: 'd20+3' });
 const rollMsg = await waitMsg(S.dm, (m) => m.kind === 'roll' && !m.label);
 check(rollMsg.roll.total >= 4 && rollMsg.roll.total <= 23, `dice d20+3 total=${rollMsg.roll.total}`);

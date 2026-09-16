@@ -3,6 +3,7 @@ import {
   type CombatState,
   type FogState,
   type GridSettings,
+  type LightArea,
   type MapInfo,
   type Scene,
   type Token,
@@ -73,6 +74,10 @@ export function setWalls(scene: Scene, mapId: string, walls: Wall[]): Scene {
 
 export function setVision(scene: Scene, mapId: string, vision: VisionSettings): Scene {
   return updateMap(scene, mapId, (m) => ({ ...m, vision }));
+}
+
+export function setLightAreas(scene: Scene, mapId: string, lightAreas: LightArea[]): Scene {
+  return updateMap(scene, mapId, (m) => ({ ...m, lightAreas }));
 }
 
 export function setGrid(scene: Scene, grid: GridSettings): Scene {

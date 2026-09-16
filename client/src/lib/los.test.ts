@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { visionRadiiCells, type Sense, type Token, type Wall } from 'shared';
+import { visionRadiiCells, type LightArea, type Sense, type Token, type Wall } from 'shared';
 import { visionViewers, visibleCells } from './los';
 
-const VISION_BASE = { width: 250, height: 150, cellSize: 50, offsetX: 0, offsetY: 0 };
+const VISION_BASE = {
+  width: 250,
+  height: 150,
+  cellSize: 50,
+  offsetX: 0,
+  offsetY: 0,
+  walls: [] as Wall[],
+  darkness: false,
+  areas: [] as LightArea[],
+};
+
+const viewer = (x: number, y: number, senses: Sense[] = []) => ({ x, y, senses });
 
 function wall(x1: number, y1: number, x2: number, y2: number, kind: Wall['kind'] = 'wall', open = false): Wall {
   return { id: `w-${x1}-${y1}-${x2}-${y2}`, kind, x1, y1, x2, y2, ...(open ? { open: true } : {}) };
 }
+
+const area = (kind: LightArea['kind'], x: number, y: number, w: number, h: number): LightArea[] => [
+  { id: `a-${kind}`, kind, x, y, w, h },
+];
 
 describe('visionRadiiCells', () => {
   it('вне темноты — без ограничения', () => {
@@ -23,40 +38,48 @@ describe('visionRadiiCells', () => {
     ];
     expect(visionRadiiCells(true, multi)).toEqual([12, 2]);
   });
+
+  it('магическая тьма не пропускает тёмное зрение, мгла — только слепое', () => {
+    const senses: Sense[] = [
+      { type: 'darkvision', range: 60 },
+      { type: 'devilsight', range: 60 },
+      { type: 'blindsight', range: 60 },
+    ];
+    expect(visionRadiiCells(false, senses, 'magical')).toEqual([12, 12]);
+    expect(visionRadiiCells(false, senses, 'obscured')).toEqual([12]);
+    expect(visionRadiiCells(false, senses, 'darkness')).toEqual([12, 12, 12]);
+  });
 });
 
 describe('visionViewers', () => {
-  const base = { x: 25, y: 25 };
   const ownOne = (t: Token) => t.name === 'Свой';
   const tokens = [
-    { ...base, name: 'Свой', isPlayerToken: true, senses: [{ type: 'darkvision', range: 60 }] },
-    { ...base, x: 225, name: 'Чужой', isPlayerToken: true, senses: [{ type: 'blindsight', range: 30 }] },
+    { x: 25, y: 25, name: 'Свой', isPlayerToken: true, senses: [{ type: 'darkvision', range: 60 }] },
+    { x: 225, y: 25, name: 'Чужой', isPlayerToken: true, senses: [{ type: 'blindsight', range: 30 }] },
   ] as Token[];
 
   it('объединение — все токены игроков, свои — только контролируемые', () => {
-    expect(visionViewers(tokens, false, true, ownOne)).toEqual([
-      { x: 25, y: 25, radii: [null] },
-      { x: 225, y: 25, radii: [null] },
+    expect(visionViewers(tokens, true, ownOne)).toEqual([
+      { x: 25, y: 25, senses: [{ type: 'darkvision', range: 60 }] },
+      { x: 225, y: 25, senses: [{ type: 'blindsight', range: 30 }] },
     ]);
-    expect(visionViewers(tokens, true, true, ownOne)).toEqual([
-      { x: 25, y: 25, radii: [12] },
-      { x: 225, y: 25, radii: [6] },
+    expect(visionViewers(tokens, false, ownOne)).toEqual([
+      { x: 25, y: 25, senses: [{ type: 'darkvision', range: 60 }] },
     ]);
-    expect(visionViewers(tokens, true, false, ownOne)).toEqual([{ x: 25, y: 25, radii: [12] }]);
   });
 
   it('без своих токенов — откат к объединению', () => {
-    expect(visionViewers(tokens, false, false, () => false)).toHaveLength(2);
+    expect(visionViewers(tokens, false, () => false)).toHaveLength(2);
   });
 });
 
 describe('visibleCells', () => {
   it('без зрителей — null (затемнения нет)', () => {
-    expect(visibleCells({ ...VISION_BASE, walls: [], viewers: [] })).toBeNull();
+    expect(visibleCells({ ...VISION_BASE, viewers: [] })).toBeNull();
   });
 
   it('открытая карта без ограничения видна целиком', () => {
-    const cells = visibleCells({ ...VISION_BASE, walls: [], viewers: [{ x: 25, y: 75, radii: [null] }] });
+    const cells = visibleCells({ ...VISION_BASE, viewers: [viewer(25, 75)] });
     expect(cells?.size).toBe(15);
   });
 
@@ -64,58 +87,82 @@ describe('visibleCells', () => {
     const cells = visibleCells({
       ...VISION_BASE,
       walls: [wall(100, 0, 100, 150)],
-      viewers: [{ x: 25, y: 75, radii: [null] }],
+      viewers: [viewer(25, 75)],
     });
     expect(cells?.has('0,1')).toBe(true);
     expect(cells?.has('1,1')).toBe(true);
     expect(cells?.has('2,1')).toBe(false);
-    expect(cells?.has('4,1')).toBe(false);
   });
 
   it('закрытая дверь блокирует обзор, открытая — нет; окно не блокирует', () => {
     const closed = visibleCells({
       ...VISION_BASE,
       walls: [wall(100, 0, 100, 150, 'door')],
-      viewers: [{ x: 25, y: 75, radii: [null] }],
+      viewers: [viewer(25, 75)],
     });
     expect(closed?.has('4,1')).toBe(false);
     const open = visibleCells({
       ...VISION_BASE,
       walls: [wall(100, 0, 100, 150, 'door', true)],
-      viewers: [{ x: 25, y: 75, radii: [null] }],
+      viewers: [viewer(25, 75)],
     });
     expect(open?.has('4,1')).toBe(true);
-    const window = visibleCells({
+    const asWindow = visibleCells({
       ...VISION_BASE,
       walls: [wall(100, 0, 100, 150, 'window')],
-      viewers: [{ x: 25, y: 75, radii: [null] }],
+      viewers: [viewer(25, 75)],
     });
-    expect(window?.has('4,1')).toBe(true);
+    expect(asWindow?.has('4,1')).toBe(true);
   });
 
-  it('радиус в темноте — клеточный: 1 клетка вокруг (3×3)', () => {
-    const cells = visibleCells({ ...VISION_BASE, walls: [], viewers: [{ x: 125, y: 75, radii: [1] }] });
+  it('в темноте без сенсов — 1 клетка вокруг (3×3)', () => {
+    const cells = visibleCells({ ...VISION_BASE, darkness: true, viewers: [viewer(125, 75)] });
     expect(cells?.size).toBe(9);
     expect(cells?.has('2,1')).toBe(true);
     expect(cells?.has('3,2')).toBe(true);
     expect(cells?.has('3,3')).toBe(false);
   });
 
-  it('несколько радиусов у зрителя объединяются (слепое + тёмное зрение)', () => {
-    const cells = visibleCells({ ...VISION_BASE, walls: [], viewers: [{ x: 125, y: 75, radii: [1, 2] }] });
-    expect(cells?.size).toBe(15);
-    expect(cells?.has('0,0')).toBe(true);
-    expect(cells?.has('4,2')).toBe(true);
+  it('тёмное зрение расширяет, но в магической тьме не работает', () => {
+    const senses: Sense[] = [{ type: 'darkvision', range: 60 }];
+    const bright = visibleCells({ ...VISION_BASE, darkness: true, viewers: [viewer(25, 75, senses)] });
+    expect(bright?.has('2,1')).toBe(true);
+    const magical = visibleCells({
+      ...VISION_BASE,
+      darkness: true,
+      areas: area('magical', 100, 0, 150, 150),
+      viewers: [viewer(25, 75, senses)],
+    });
+    expect(magical?.has('2,1')).toBe(false);
+    const blindsight = visibleCells({
+      ...VISION_BASE,
+      darkness: true,
+      areas: area('magical', 100, 0, 150, 150),
+      viewers: [viewer(25, 75, [{ type: 'blindsight', range: 60 }])],
+    });
+    expect(blindsight?.has('2,1')).toBe(true);
+  });
+
+  it('мгла: без слепого зрения клетки закрыты, со слепым — видны', () => {
+    const noSense = visibleCells({
+      ...VISION_BASE,
+      areas: area('obscured', 100, 0, 150, 150),
+      viewers: [viewer(25, 75, [{ type: 'darkvision', range: 120 }])],
+    });
+    expect(noSense?.has('2,1')).toBe(false);
+    const blinded = visibleCells({
+      ...VISION_BASE,
+      areas: area('obscured', 100, 0, 150, 150),
+      viewers: [viewer(25, 75, [{ type: 'blindsight', range: 60 }])],
+    });
+    expect(blinded?.has('2,1')).toBe(true);
   });
 
   it('обзор зрителей объединяется', () => {
     const cells = visibleCells({
       ...VISION_BASE,
-      walls: [],
-      viewers: [
-        { x: 25, y: 25, radii: [1] },
-        { x: 225, y: 125, radii: [1] },
-      ],
+      darkness: true,
+      viewers: [viewer(25, 25), viewer(225, 125)],
     });
     expect(cells?.has('0,0')).toBe(true);
     expect(cells?.has('4,2')).toBe(true);

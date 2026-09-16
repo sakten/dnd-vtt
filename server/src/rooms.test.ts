@@ -265,6 +265,7 @@ describe('RoomManager ход', () => {
             ],
             zones: [],            walls: [],
             vision: { los: false, darkness: false },
+            lightAreas: [],
             fog: defaultFog(DEFAULT_GRID),
             combat: emptyCombatState(),
           },

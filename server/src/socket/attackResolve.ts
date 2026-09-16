@@ -158,6 +158,7 @@ export function prepareWeaponAttack(
         cellSize: map.fog.size,
         offsetX: map.fog.offsetX,
         offsetY: map.fog.offsetY,
+        areas: map.lightAreas,
       };
       unseenTarget = !canSee(attacker, target, attacker.senses, sight);
       unseenAttacker = !canSee(target, attacker, target.senses, sight);

@@ -12,6 +12,8 @@ export default function Toolbar() {
   const setFogMode = useGameStore((s) => s.setFogMode);
   const wallsActive = useGameStore((s) => s.wallsMode.active);
   const setWallsMode = useGameStore((s) => s.setWallsMode);
+  const lightActive = useGameStore((s) => s.lightMode.active);
+  const setLightMode = useGameStore((s) => s.setLightMode);
   const setVisionModalOpen = useGameStore((s) => s.setVisionModalOpen);
   const combatActive = useGameStore((s) => activeMapOf(s)?.combat.active ?? false);
   const startCombat = useGameStore((s) => s.startCombat);
@@ -39,7 +41,10 @@ export default function Toolbar() {
           title="Туман войны"
           onClick={() => {
             setFogMode({ active: !fogActive });
-            if (!fogActive) setWallsMode({ active: false });
+            if (!fogActive) {
+              setWallsMode({ active: false });
+              setLightMode({ active: false });
+            }
           }}
         >
           Туман
@@ -51,10 +56,28 @@ export default function Toolbar() {
           title="Стены: клик по узлам сетки, правый клик — удалить сегмент"
           onClick={() => {
             setWallsMode({ active: !wallsActive });
-            if (!wallsActive) setFogMode({ active: false });
+            if (!wallsActive) {
+              setFogMode({ active: false });
+              setLightMode({ active: false });
+            }
           }}
         >
           Стены
+        </button>
+      )}
+      {isDm && (
+        <button
+          className={lightActive ? 'active' : ''}
+          title="Области тьмы, магической тьмы и мглы"
+          onClick={() => {
+            setLightMode({ active: !lightActive });
+            if (!lightActive) {
+              setFogMode({ active: false });
+              setWallsMode({ active: false });
+            }
+          }}
+        >
+          Тьма
         </button>
       )}
       {isDm && (

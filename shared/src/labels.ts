@@ -1,11 +1,18 @@
 import type { AbilityKey } from './domain/core';
 import type { DamageDefenseType } from './domain/damage';
+import type { LightAreaKind } from './domain/scene';
 import type { SenseType } from './domain/sense';
 
 export const SENSE_NAMES: Record<SenseType, string> = {
   darkvision: 'Тёмное зрение',
   blindsight: 'Слепое зрение',
   devilsight: 'Дьявольское зрение',
+};
+
+export const LIGHT_AREA_NAMES: Record<LightAreaKind, string> = {
+  darkness: 'Тьма',
+  magical: 'Магическая тьма',
+  obscured: 'Мгла',
 };
 
 /** Список типов урона; первые три — физические (в таком порядке в выпадающих списках). */

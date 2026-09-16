@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
-import type { MapInfo, Token, Wall } from 'shared';
+import type { LightArea, MapInfo, Token, Wall } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
@@ -35,6 +35,12 @@ const WALL_COLORS: Record<Wall['kind'], string> = {
   window: '#7cc7e8',
 };
 
+const LIGHT_AREA_COLORS: Record<LightArea['kind'], string> = {
+  darkness: '#3b4f8a',
+  magical: '#9d5cf6',
+  obscured: '#9aa0a6',
+};
+
 /** Расстояние от точки до отрезка стены (для удаления правым кликом). */
 function distToSegment(p: { x: number; y: number }, w: Wall): number {
   const dx = w.x2 - w.x1;
@@ -66,6 +72,8 @@ export default function TableTop() {
   const updateFog = useGameStore((s) => s.updateFog);
   const wallsMode = useGameStore((s) => s.wallsMode);
   const updateWalls = useGameStore((s) => s.updateWalls);
+  const lightMode = useGameStore((s) => s.lightMode);
+  const updateAreas = useGameStore((s) => s.updateAreas);
   const wallCandidates = useGameStore((s) => s.wallCandidates);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
@@ -194,7 +202,9 @@ export default function TableTop() {
       offsetX: map.fog.offsetX,
       offsetY: map.fog.offsetY,
       walls: map.walls,
-      viewers: visionViewers(map.tokens, map.vision.darkness, map.vision.los, ownToken),
+      darkness: map.vision.darkness,
+      areas: map.lightAreas,
+      viewers: visionViewers(map.tokens, map.vision.los, ownToken),
     });
     if (visible === null) return null;
     const cols = Math.ceil(map.width / map.fog.size);
@@ -275,6 +285,21 @@ export default function TableTop() {
     y: snapToGrid(p.y, grid.offsetY, grid.size, 0),
   });
 
+  const createLightArea = (a: WorldPoint, b: WorldPoint) => {
+    if (!activeMap) return;
+    const s1 = snapWall(a);
+    const s2 = snapWall(b);
+    const x = Math.min(s1.x, s2.x);
+    const y = Math.min(s1.y, s2.y);
+    const w = Math.max(s1.x, s2.x) - x;
+    const h = Math.max(s1.y, s2.y) - y;
+    if (w < grid.size || h < grid.size) return;
+    updateAreas(activeMap.id, [
+      ...activeMap.lightAreas,
+      { id: newId(), kind: lightMode.kind, x, y, w, h },
+    ]);
+  };
+
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     const stage = e.target.getStage();
@@ -301,6 +326,18 @@ export default function TableTop() {
       // Запоминаем точку нажатия левой кнопкой: короткий клик ставит узел, драг — панорамирует карту.
       const pointer = e.evt.button === 0 ? e.target.getStage()?.getPointerPosition() : null;
       wallPressRef.current = pointer ? { x: pointer.x, y: pointer.y } : null;
+      return;
+    }
+    if (lightMode.active) {
+      if (!isDm) return;
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (!stage || !pointer) return;
+      const w = toWorld(stage, pointer);
+      paintRef.current.pressed = true;
+      paintRef.current.start = w;
+      setRectPreview({ x0: w.x, y0: w.y, x1: w.x, y1: w.y });
       return;
     }
     if (!fogMode.active) {
@@ -331,6 +368,15 @@ export default function TableTop() {
       if (stage && pointer) setWallCursor(snapWall(toWorld(stage, pointer)));
       return;
     }
+    if (lightMode.active) {
+      if (!paintRef.current.pressed || !paintRef.current.start) return;
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (!stage || !pointer) return;
+      const w = toWorld(stage, pointer);
+      setRectPreview({ x0: paintRef.current.start.x, y0: paintRef.current.start.y, x1: w.x, y1: w.y });
+      return;
+    }
     if (aim) {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
@@ -350,6 +396,13 @@ export default function TableTop() {
   };
 
   const handleMouseUp = () => {
+    if (lightMode.active) {
+      if (rectPreview) createLightArea({ x: rectPreview.x0, y: rectPreview.y0 }, { x: rectPreview.x1, y: rectPreview.y1 });
+      paintRef.current.pressed = false;
+      paintRef.current.start = null;
+      setRectPreview(null);
+      return;
+    }
     if (!fogMode.active) return;
     if (fogMode.tool === 'rect' && paintRef.current.start && rectPreview) {
       applyCells(cellKeysBetween(paintRef.current.start, { x: rectPreview.x1, y: rectPreview.y1 }), fogMode.action);
@@ -478,7 +531,7 @@ export default function TableTop() {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable={!fogMode.active && !aim && !multiTarget && !targeting}
+          draggable={!fogMode.active && !lightMode.active && !aim && !multiTarget && !targeting}
           onWheel={handleWheel}
           onDragMove={(e) => {
             if (e.target !== e.currentTarget) return;
@@ -493,12 +546,21 @@ export default function TableTop() {
           onMouseUp={handleMouseUp}
           onClick={handleClick}
           onContextMenu={(e) => {
-            if (!wallsMode.active || !isDm || !activeMap) return;
-            e.evt.preventDefault();
+            if (!isDm || !activeMap) return;
             const stage = e.target.getStage();
             const pointer = stage?.getPointerPosition();
             if (!stage || !pointer) return;
             const p = toWorld(stage, pointer);
+            if (lightMode.active) {
+              e.evt.preventDefault();
+              const hit = activeMap.lightAreas.find(
+                (a) => p.x >= a.x && p.x <= a.x + a.w && p.y >= a.y && p.y <= a.y + a.h
+              );
+              if (hit) updateAreas(activeMap.id, activeMap.lightAreas.filter((a) => a.id !== hit.id));
+              return;
+            }
+            if (!wallsMode.active) return;
+            e.evt.preventDefault();
             const hit = activeMap.walls.find((w) => distToSegment(p, w) <= 10 / view.scale);
             if (hit) updateWalls(activeMap.id, activeMap.walls.filter((w) => w.id !== hit.id));
           }}
@@ -510,6 +572,22 @@ export default function TableTop() {
         >
           <Layer>{activeMap && <MapSprite map={activeMap} />}</Layer>
           <Layer listening={false}>
+            {isDm &&
+              activeMap?.lightAreas.map((a) => (
+                <Rect
+                  key={`area-${a.id}`}
+                  x={a.x}
+                  y={a.y}
+                  width={a.w}
+                  height={a.h}
+                  fill={LIGHT_AREA_COLORS[a.kind]}
+                  opacity={0.16}
+                  stroke={LIGHT_AREA_COLORS[a.kind]}
+                  strokeWidth={2 / view.scale}
+                  dash={[8 / view.scale, 5 / view.scale]}
+                  listening={false}
+                />
+              ))}
             {isDm &&
               activeMap?.walls.map((w) => {
                 const openDoor = w.kind === 'door' && w.open === true;

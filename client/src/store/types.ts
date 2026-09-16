@@ -5,6 +5,8 @@ import type {
   FogState,
   GridSettings,
   LibraryItem,
+  LightArea,
+  LightAreaKind,
   Player,
   PlayerResources,
   ReactionOffer,
@@ -42,6 +44,11 @@ export interface FogMode {
 export interface WallsMode {
   active: boolean;
   tool: 'wall' | 'door';
+}
+
+export interface LightMode {
+  active: boolean;
+  kind: LightAreaKind;
 }
 
 export interface CritHit {
@@ -86,6 +93,7 @@ export interface GameState {
   tokenMenuId: string | null;
   fogMode: FogMode;
   wallsMode: WallsMode;
+  lightMode: LightMode;
   critHit: CritHit | null;
   /** Активные окна реакций (R1). */
   reactionOffers: ReactionOffer[];
@@ -145,6 +153,8 @@ export interface GameState {
   setWallsMode: (patch: Partial<WallsMode>) => void;
   updateWalls: (mapId: string, walls: Wall[]) => void;
   updateVision: (mapId: string, vision: VisionSettings) => void;
+  setLightMode: (patch: Partial<LightMode>) => void;
+  updateAreas: (mapId: string, areas: LightArea[]) => void;
   /** Кандидаты авто-поиска стен (превью до применения). */
   wallCandidates: Wall[] | null;
   setWallCandidates: (walls: Wall[] | null) => void;
@@ -196,6 +206,7 @@ export interface GameState {
   onFogUpdate: (payload: Parameters<ServerToClientEvents['fog:update']>[0]) => void;
   onWallsUpdate: (payload: Parameters<ServerToClientEvents['walls:update']>[0]) => void;
   onVisionUpdate: (payload: Parameters<ServerToClientEvents['vision:update']>[0]) => void;
+  onAreasUpdate: (payload: Parameters<ServerToClientEvents['areas:update']>[0]) => void;
   onGridUpdate: (grid: GridSettings) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;
   onCombatUpdate: (payload: Parameters<ServerToClientEvents['combat:update']>[0]) => void;

@@ -58,6 +58,7 @@ export function makeMap(id: string, tokens: Token[] = [], grid: GridSettings = D
     tokens,
     zones: [],    walls: [],
     vision: { los: false, darkness: false },
+    lightAreas: [],
     fog: defaultFog(grid),
     combat: emptyCombatState(),
   };

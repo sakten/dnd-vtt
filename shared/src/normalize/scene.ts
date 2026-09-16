@@ -1,6 +1,6 @@
 import type { ZoneInstance } from '../domain/automation';
 import { DEFAULT_GRID, DEFAULT_VISION, defaultFog } from '../domain/scene';
-import type { FogState, GridSettings, MapInfo, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
+import type { FogState, GridSettings, LightArea, LightAreaKind, MapInfo, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
 import { normalizeToken } from './token';
@@ -38,6 +38,26 @@ const WALL_KINDS: WallKind[] = ['wall', 'door', 'window'];
 export function normalizeVision(raw: unknown): VisionSettings {
   if (!isRecord(raw)) return { ...DEFAULT_VISION };
   return { los: raw.los === true, darkness: raw.darkness === true };
+}
+
+const LIGHT_AREA_KINDS: LightAreaKind[] = ['darkness', 'magical', 'obscured'];
+
+/** Нормализация областей тьмы/мглы: известные виды, положительные размеры, лимит 200. */
+export function normalizeLightAreas(raw: unknown): LightArea[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LightArea[] = [];
+  for (const item of raw.slice(0, 200)) {
+    if (!isRecord(item)) continue;
+    const kind = LIGHT_AREA_KINDS.includes(item.kind as LightAreaKind) ? (item.kind as LightAreaKind) : null;
+    if (!kind) continue;
+    const x = Number(item.x);
+    const y = Number(item.y);
+    const w = Number(item.w);
+    const h = Number(item.h);
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) continue;
+    out.push({ id: String(item.id ?? ''), kind, x, y, w, h });
+  }
+  return out;
 }
 
 /** Нормализация стены: числовые координаты, известный вид, лимит сегментов. */
@@ -84,6 +104,7 @@ export function normalizeMapInfo(
       : [],
     walls: normalizeWalls(source.walls),
     vision: normalizeVision(source.vision),
+    lightAreas: normalizeLightAreas(source.lightAreas),
     fog,
     combat: normalizeCombatState(source.combat),
   };

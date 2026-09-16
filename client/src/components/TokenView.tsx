@@ -22,6 +22,7 @@ function TokenView({ token }: { token: Token }) {
   const setHoverToken = useGameStore((s) => s.setHoverToken);
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
+  const lightActive = useGameStore((s) => s.lightMode.active);
   const isDm = useIsDm();
   const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
@@ -92,6 +93,7 @@ function TokenView({ token }: { token: Token }) {
       draggable={
         !lockedByOther &&
         !fogActive &&
+        !lightActive &&
         !targeting &&
         !aim &&
         !multiTarget &&

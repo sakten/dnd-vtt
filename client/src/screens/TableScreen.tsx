@@ -13,6 +13,7 @@ import RoomSettingsModal from '../components/RoomSettingsModal';
 import TokenMenu from '../components/TokenMenu';
 import FogPanel from '../components/FogPanel';
 import WallsPanel from '../components/WallsPanel';
+import LightPanel from '../components/LightPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
@@ -33,6 +34,8 @@ export default function TableScreen() {
   const setFogMode = useGameStore((s) => s.setFogMode);
   const wallsActive = useGameStore((s) => s.wallsMode.active);
   const setWallsMode = useGameStore((s) => s.setWallsMode);
+  const lightActive = useGameStore((s) => s.lightMode.active);
+  const setLightMode = useGameStore((s) => s.setLightMode);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
 
   useEffect(() => {
@@ -53,11 +56,12 @@ export default function TableScreen() {
         setSelected(null);
         if (st.fogMode.active) setFogMode({ active: false });
         if (st.wallsMode.active) setWallsMode({ active: false });
+        if (st.lightMode.active) setLightMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, removeToken, setSelected, setFogMode, setWallsMode]);
+  }, [selected, removeToken, setSelected, setFogMode, setWallsMode, setLightMode]);
 
   return (
     <div className="table-screen">
@@ -65,6 +69,7 @@ export default function TableScreen() {
       <Toolbar />
       {fogActive && <FogPanel />}
       {wallsActive && <WallsPanel />}
+      {lightActive && <LightPanel />}
       <MapsPanel />
       <TokenPanel />
       <ChatPanel />

@@ -33,7 +33,9 @@ export default function ConditionsOverlay() {
       offsetX: map.fog.offsetX,
       offsetY: map.fog.offsetY,
       walls: map.walls,
-      viewers: visionViewers(map.tokens, map.vision.darkness, map.vision.los, ownToken),
+      darkness: map.vision.darkness,
+      areas: map.lightAreas,
+      viewers: visionViewers(map.tokens, map.vision.los, ownToken),
     });
   }, [map, isDm, ownToken]);
 

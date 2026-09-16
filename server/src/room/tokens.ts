@@ -39,6 +39,7 @@ export function addMap(
     tokens: [],
     zones: [],    walls: [],
     vision: { los: false, darkness: false },
+    lightAreas: [],
     fog: defaultFog(room.scene.grid),
     combat: emptyCombatState(),
   };

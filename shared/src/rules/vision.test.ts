@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Sense } from '../domain/sense';
-import type { Wall } from '../domain/scene';
+import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
 import { canSee } from './vision';
 import { countAttackAdvantage } from './combat';
 
@@ -45,6 +45,32 @@ describe('canSee', () => {
     expect(canSee({ x: 25, y: 75 }, { x: 225, y: 75 }, darkvision, { ...DARK_SIGHT, walls: [wall(100, 0, 100, 150)] })).toBe(
       false
     );
+  });
+});
+
+describe('canSee: области', () => {
+  const from = { x: 25, y: 75 };
+  const target = { x: 125, y: 75 };
+  const area = (kind: LightAreaKind): LightArea[] => [{ id: 'a1', kind, x: 100, y: 0, w: 50, h: 150 }];
+  const darkvision: Sense[] = [{ type: 'darkvision', range: 60 }];
+  const devilsight: Sense[] = [{ type: 'devilsight', range: 60 }];
+  const blindsight: Sense[] = [{ type: 'blindsight', range: 60 }];
+
+  it('тьма: любое восприятие работает', () => {
+    expect(canSee(from, target, darkvision, { ...SIGHT, areas: area('darkness') })).toBe(true);
+    expect(canSee(from, target, devilsight, { ...SIGHT, areas: area('darkness') })).toBe(true);
+  });
+
+  it('магическая тьма: тёмное зрение не работает, дьявольское и слепое — да', () => {
+    expect(canSee(from, target, darkvision, { ...SIGHT, areas: area('magical') })).toBe(false);
+    expect(canSee(from, target, devilsight, { ...SIGHT, areas: area('magical') })).toBe(true);
+    expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('magical') })).toBe(true);
+  });
+
+  it('мгла: только слепое зрение', () => {
+    expect(canSee(from, target, devilsight, { ...SIGHT, areas: area('obscured') })).toBe(false);
+    expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('obscured') })).toBe(true);
+    expect(canSee(from, target, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(false);
   });
 });
 
