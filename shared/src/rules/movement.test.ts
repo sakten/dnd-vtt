@@ -207,6 +207,14 @@ describe('planWalk', () => {
     expect(planWalk({ ...base, cells: 2, from: { x: 100, y: 100 }, to: target })).not.toBeNull();
   });
 
+  it('токен под подошвой (старое наложение) не мешает уехать, новый — блокирует', () => {
+    const from = { x: 100, y: 100 };
+    const under = [{ id: 'u1', x: 125, y: 125, w: 50, h: 50, faction: 'neutral' }];
+    expect(planWalk({ ...base, cells: 2, from, to: { x: 150, y: 100 }, tokens: under })).not.toBeNull();
+    const fresh = [{ id: 'f1', x: 175, y: 125, w: 50, h: 50, faction: 'neutral' }];
+    expect(planWalk({ ...base, cells: 2, from, to: { x: 150, y: 100 }, tokens: fresh })).toBeNull();
+  });
+
   it('2×2 не проходит подошвой через врага', () => {
     const enemy = [{ id: 'e1', x: 175, y: 75, w: 50, h: 50, faction: 'enemy' }];
     const path = planWalk({

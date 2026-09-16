@@ -63,6 +63,11 @@ describe('tokenCells / tokensInArea', () => {
     );
   });
 
+  it('округление координат не добавляет лишнюю клетку (сетка 139.9, сдвиг 2.3)', () => {
+    const oddGrid = { size: 139.9, offsetX: 2.3, offsetY: 2.3 };
+    expect(tokenCells({ x: 1051.5, y: 1191.5, w: 139.9, h: 139.9 }, oddGrid)).toEqual(['7,8']);
+  });
+
   it('попадание — по любой занятой клетке', () => {
     const tokens = [tokenAt(1, 0), tokenAt(9, 9)];
     const hit = tokensInArea(tokens, { shape: 'sphere', size: 10 }, origin, null, grid);

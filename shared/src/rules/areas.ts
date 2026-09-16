@@ -21,11 +21,12 @@ export interface AreaPoint {
 
 export type DistanceMetric = 'euclidean' | 'chebyshev';
 
-/** Клетка, в которой лежит точка. */
+/** Клетка, в которой лежит точка. EPS защищает от FP-погрешности на границах (139.9 × 9 = 1259.1). */
 export function pointCell(p: AreaPoint, grid: AreaGrid): { cx: number; cy: number } {
+  const eps = 1e-6;
   return {
-    cx: Math.floor((p.x - grid.offsetX) / grid.size),
-    cy: Math.floor((p.y - grid.offsetY) / grid.size),
+    cx: Math.floor((p.x - grid.offsetX) / grid.size + eps),
+    cy: Math.floor((p.y - grid.offsetY) / grid.size + eps),
   };
 }
 
@@ -41,14 +42,17 @@ export function areaCellKey(cx: number, cy: number): string {
   return `${cx},${cy}`;
 }
 
+/** Допуск по краям подошвы (px): координаты токенов хранятся с округлением до 0.1. */
+const CELL_EDGE_EPS = 0.25;
+
 /** Занимаемые токеном клетки (по ограничивающему прямоугольнику). */
 export function tokenCells(token: Pick<Token, 'x' | 'y' | 'w' | 'h'>, grid: AreaGrid): string[] {
   const x0 = token.x - token.w / 2;
   const y0 = token.y - token.h / 2;
-  const cx0 = Math.floor((x0 - grid.offsetX) / grid.size);
-  const cy0 = Math.floor((y0 - grid.offsetY) / grid.size);
-  const cx1 = Math.floor((x0 + token.w - 1e-3 - grid.offsetX) / grid.size);
-  const cy1 = Math.floor((y0 + token.h - 1e-3 - grid.offsetY) / grid.size);
+  const cx0 = Math.floor((x0 + CELL_EDGE_EPS - grid.offsetX) / grid.size);
+  const cy0 = Math.floor((y0 + CELL_EDGE_EPS - grid.offsetY) / grid.size);
+  const cx1 = Math.floor((x0 + token.w - CELL_EDGE_EPS - grid.offsetX) / grid.size);
+  const cy1 = Math.floor((y0 + token.h - CELL_EDGE_EPS - grid.offsetY) / grid.size);
   const cells: string[] = [];
   for (let cx = cx0; cx <= cx1; cx++) {
     for (let cy = cy0; cy <= cy1; cy++) cells.push(areaCellKey(cx, cy));

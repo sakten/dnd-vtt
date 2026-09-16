@@ -357,6 +357,15 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   const cells = Math.max(1, Math.round(input.cells || 1));
   const cols = Math.max(1, Math.ceil(input.mapWidth / grid.size));
   const rows = Math.max(1, Math.ceil(input.mapHeight / grid.size));
+  const startAnchor = pointCell(
+    {
+      x: snapToGrid(input.from.x, grid.offsetX, grid.size, cells),
+      y: snapToGrid(input.from.y, grid.offsetY, grid.size, cells),
+    },
+    grid
+  );
+  // Уже накрытые подошвой токены (старое наложение) не мешают ходоку: он не «встаёт» на них заново.
+  const own = new Set(footprintCells(startAnchor.cx, startAnchor.cy, cells));
   const blocked = new Set<string>();
   const difficult = new Set<string>();
   const occupied = new Set<string>();
@@ -364,6 +373,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     if (other.id === input.moverId) continue;
     const friendly = other.faction === 'ally';
     for (const key of tokenCells(other, grid)) {
+      if (own.has(key)) continue;
       occupied.add(key);
       if (friendly) difficult.add(key);
       else blocked.add(key);
@@ -420,7 +430,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   if (visible && !visible.has(areaCellKey(cursorCell.cx, cursorCell.cy))) return null;
   // Конечная клетка должна быть свободной: подошва целиком, цель на занятой клетке не выбирается.
   if (footprintHits(anchorCell.cx, anchorCell.cy, cells, occupied)) return null;
-  const startCell = pointCell(input.from, grid);
+  const startCell = startAnchor;
   if (anchorCell.cx === startCell.cx && anchorCell.cy === startCell.cy) return null;
   const found = findPath({
     from: input.from,
