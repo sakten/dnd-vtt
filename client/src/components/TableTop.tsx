@@ -794,6 +794,26 @@ export default function TableTop() {
                   fillAfterStrokeEnabled
                   listening={false}
                 />
+                {(() => {
+                  const target = dragPath.points[dragPath.points.length - 1]!;
+                  const r = (grid.size || 50) / 4;
+                  return (
+                    <>
+                      <Line
+                        points={[target.x - r, target.y, target.x + r, target.y]}
+                        stroke="#7c9cff"
+                        strokeWidth={3 / view.scale}
+                        listening={false}
+                      />
+                      <Line
+                        points={[target.x, target.y - r, target.x, target.y + r]}
+                        stroke="#7c9cff"
+                        strokeWidth={3 / view.scale}
+                        listening={false}
+                      />
+                    </>
+                  );
+                })()}
               </>
             )}
             {activeMap?.tokens
