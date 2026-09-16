@@ -208,33 +208,45 @@ export default function TableTop() {
     return () => ro.disconnect();
   }, [setViewport]);
 
+  const fog = activeMap?.fog;
   const fogRects = useMemo(() => {
-    if (!activeMap) return [];
-    const f = activeMap.fog;
-    return f.hidden
+    if (!fog) return [];
+    return fog.hidden
       .map((key) => {
         const [cx, cy] = key.split(',').map(Number);
         return cx === undefined || cy === undefined
           ? null
-          : { x: f.offsetX + cx * f.size, y: f.offsetY + cy * f.size, size: f.size };
+          : { x: fog.offsetX + cx * fog.size, y: fog.offsetY + cy * fog.size, size: fog.size };
       })
       .filter((r): r is { x: number; y: number; size: number } => r !== null);
-  }, [activeMap]);
+  }, [fog]);
+
+  // Вуаль зависит от стен/тьмы/областей/зон/размера карты и зрителей — не от любых
+  // патчей токенов (HP, состояния, имя), иначе пересчёт на каждое изменение.
+  const veilActive = !!activeMap;
+  const veilWalls = activeMap?.walls;
+  const veilVision = activeMap?.vision;
+  const veilAreas = activeMap?.lightAreas;
+  const veilZones = activeMap?.zones;
+  const veilWidth = activeMap?.width ?? 0;
+  const veilHeight = activeMap?.height ?? 0;
 
   const veilRects = useMemo(() => {
-    const map = activeMap;
-    if (!map || isDm) return null;
+    if (!veilActive || isDm) return null;
     const cell = grid.size || 50;
     const visible = visibleCells({
-      ...sightContextOf(map, { size: cell, offsetX: grid.offsetX, offsetY: grid.offsetY }),
-      width: map.width,
-      height: map.height,
+      ...sightContextOf(
+        { walls: veilWalls ?? [], vision: veilVision!, lightAreas: veilAreas ?? [], zones: veilZones ?? [] },
+        { size: cell, offsetX: grid.offsetX, offsetY: grid.offsetY }
+      ),
+      width: veilWidth,
+      height: veilHeight,
       bounds: cellBounds,
       viewers: viewers ?? [],
     });
     if (visible === null) return null;
-    const cols = Math.ceil(map.width / cell);
-    const rows = Math.ceil(map.height / cell);
+    const cols = Math.ceil(veilWidth / cell);
+    const rows = Math.ceil(veilHeight / cell);
     const cx0 = Math.max(0, cellBounds?.cx0 ?? 0);
     const cy0 = Math.max(0, cellBounds?.cy0 ?? 0);
     const cx1 = Math.min(cols - 1, cellBounds?.cx1 ?? cols - 1);
@@ -252,7 +264,20 @@ export default function TableTop() {
       }
     }
     return rects;
-  }, [activeMap, isDm, hiddenSet, viewers, cellBounds, grid]);
+  }, [
+    veilActive,
+    veilWalls,
+    veilVision,
+    veilAreas,
+    veilZones,
+    veilWidth,
+    veilHeight,
+    isDm,
+    hiddenSet,
+    viewers,
+    cellBounds,
+    grid,
+  ]);
 
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;
