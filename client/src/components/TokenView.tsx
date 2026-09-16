@@ -152,6 +152,12 @@ function TokenView({ token }: { token: Token }) {
     }
     let raf = 0;
     const started = performance.now();
+    const finish = () => {
+      setAnimPos(null);
+      clearMoving(token.id);
+    };
+    // Страховка: даже если кадры не идут (фоновая вкладка), токен снова берётся.
+    const timer = window.setTimeout(finish, moving.duration + 400);
     const tick = (now: number) => {
       const t = moving.duration > 0 ? Math.min(1, (now - started) / moving.duration) : 1;
       const segments = moving.points.length - 1;
@@ -162,14 +168,17 @@ function TokenView({ token }: { token: Token }) {
       const b = moving.points[idx + 1]!;
       setAnimPos({ x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local });
       if (t >= 1) {
-        setAnimPos(null);
-        clearMoving(token.id);
+        window.clearTimeout(timer);
+        finish();
         return;
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
   }, [moving, token.id, clearMoving]);
 
   const circleClip = (ctx: Konva.Context) => {

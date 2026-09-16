@@ -51,6 +51,38 @@ check(
   moved2 && Math.abs(moved2.x % 50) < 0.01 && Math.abs(moved2.y % 50) < 0.01,
   `после перетаскивания 2x2 остался на пересечении линий (${moved2?.x}, ${moved2?.y})`
 );
+await new Promise((r) => setTimeout(r, 2000));
+const before2 = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+  return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y, x: t.x, y: t.y } : null;
+});
+// Клик выше центра: токен может быть под верхним краем панели действий.
+await S.page.mouse.move(before2.sx, before2.sy - 30);
+await S.page.mouse.down();
+await S.page.mouse.move(before2.sx - 60, before2.sy - 90, { steps: 6 });
+await S.page.mouse.up();
+await new Promise((r) => setTimeout(r, 800));
+const after2 = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+  return { x: t?.x, y: t?.y, moving: Object.keys(s.movingTokens), lockedBy: t?.lockedBy };
+});
+check(
+  after2.x !== before2.x || after2.y !== before2.y,
+  `повторное перетаскивание того же токена работает (${after2.x}, ${after2.y})`
+);
+// Возвращаем токен на прежнее место — следующие скриншоты/проверки не зависят от него.
+const back2 = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+  return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y } : null;
+});
+await S.page.mouse.move(back2.sx, back2.sy - 30);
+await S.page.mouse.down();
+await S.page.mouse.move(before2.sx, before2.sy - 30, { steps: 6 });
+await S.page.mouse.up();
+await new Promise((r) => setTimeout(r, 800));
 
 await S.fileInputs[1].uploadFile(S.tokenSquarePath);
 await waitFor(S.page, () => {
