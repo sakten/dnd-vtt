@@ -47,6 +47,15 @@ const GREASE_PRONE: AutomationEffect = {
   conditions: ['prone'],
 };
 
+/** Sleet Storm: сбит с ног (встаёт, тратя половину движения — вручную). */
+const SLEET_PRONE: AutomationEffect = {
+  name: 'Sleet Storm',
+  duration: PERMANENT,
+  to: 'targets',
+  modifiers: [],
+  conditions: ['prone'],
+};
+
 /** Stinking Cloud: отравлен до конца текущего хода; нельзя действие/бонус. */
 const STINKING_POISONED: AutomationEffect = {
   name: 'Stinking Cloud',
@@ -426,6 +435,51 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       origin: 'point',
       duration: CONCENTRATION,
       flags: { obscured: 'heavy' },
+    },
+  },
+  // Darkvision: выдаёт тёмное зрение 150 фт на 8 часов (сенсы эффекта).
+  'XPHB:Darkvision': spellEffect('XPHB:Darkvision', 'Darkvision', [
+    {
+      name: 'Darkvision',
+      duration: { type: 'rounds', rounds: 4800 },
+      to: 'targets',
+      modifiers: [],
+      senses: [{ type: 'darkvision', range: 150 }],
+    },
+  ]),
+  // Cloudkill: сфера 20, сильное заслонение; спас CON и 5d8 яда на входе/в начале хода.
+  'XPHB:Cloudkill': {
+    key: 'XPHB:Cloudkill',
+    name: 'Cloudkill',
+    resolution: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      movable: true,
+      flags: { obscured: 'heavy' },
+      triggers: {
+        enter: { save: { ability: 'con', half: true }, damage: { dice: '5d8', types: ['poison'] } },
+        startOfTurn: { save: { ability: 'con', half: true }, damage: { dice: '5d8', types: ['poison'] } },
+      },
+    },
+  },
+  // Sleet Storm: цилиндр 20, сложная местность и сильное заслонение; спас DEX — ничком.
+  'XPHB:Sleet Storm': {
+    key: 'XPHB:Sleet Storm',
+    name: 'Sleet Storm',
+    resolution: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'cylinder', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { difficultTerrain: true, obscured: 'heavy' },
+      triggers: {
+        enter: { save: { ability: 'dex' }, effects: [SLEET_PRONE] },
+        startOfTurn: { save: { ability: 'dex' }, effects: [SLEET_PRONE] },
+      },
     },
   },
   // Slow: помеха-эффект с ограничениями экономики (реакции, действие/бонус, атаки, соматика).

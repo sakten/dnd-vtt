@@ -3,6 +3,7 @@ import {
   areaKindAt,
   crossesWalls,
   strongestKind,
+  tokenSenses,
   visionRadiiCells,
   zoneVisionCells,
   type LightArea,
@@ -38,7 +39,7 @@ export function visionViewers(tokens: Token[], merge: boolean, isOwn: (token: To
   const party = tokens.filter((t) => t.isPlayerToken);
   const own = party.filter(isOwn);
   const use = merge || own.length === 0 ? party : own;
-  return use.map((t) => ({ x: t.x, y: t.y, senses: t.senses ?? [] }));
+  return use.map((t) => ({ x: t.x, y: t.y, senses: tokenSenses(t) }));
 }
 
 /**

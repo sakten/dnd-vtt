@@ -220,6 +220,28 @@ describe('automationForSpell', () => {
     expect(fog.zone?.flags?.obscured).toBe('heavy');
   });
 
+  it('Darkvision: эффект с сенсом 150 фт', () => {
+    const def = automationForSpell(makeSpell({ key: 'XPHB:Darkvision', name: 'Darkvision', automation: 'manual' }));
+    expect(def.effects?.[0]?.senses).toEqual([{ type: 'darkvision', range: 150 }]);
+  });
+
+  it('Cloudkill и Sleet Storm: зоны мглы с триггерами', () => {
+    const cloudkill = automationForSpell(
+      makeSpell({ key: 'XPHB:Cloudkill', name: 'Cloudkill', automation: 'manual' })
+    );
+    expect(cloudkill.zone?.area).toEqual({ shape: 'sphere', size: 20 });
+    expect(cloudkill.zone?.flags?.obscured).toBe('heavy');
+    expect(cloudkill.zone?.triggers?.startOfTurn?.save).toMatchObject({ ability: 'con', half: true });
+    expect(cloudkill.zone?.triggers?.startOfTurn?.damage?.dice).toBe('5d8');
+
+    const sleet = automationForSpell(
+      makeSpell({ key: 'XPHB:Sleet Storm', name: 'Sleet Storm', automation: 'manual' })
+    );
+    expect(sleet.zone?.area).toEqual({ shape: 'cylinder', size: 20 });
+    expect(sleet.zone?.flags).toMatchObject({ difficultTerrain: true, obscured: 'heavy' });
+    expect(sleet.zone?.triggers?.enter?.effects?.[0]?.conditions).toEqual(['prone']);
+  });
+
   it('Mirror Image: каталог даёт образы с зарядами', () => {
     const def = automationForSpell(
       makeSpell({ key: 'XPHB:Mirror Image', name: 'Mirror Image', automation: 'manual' })

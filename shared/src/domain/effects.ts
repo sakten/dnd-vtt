@@ -1,4 +1,5 @@
 import type { AbilityKey } from './core';
+import type { Sense } from './sense';
 import type { AttackRangeType } from './token';
 
 export type ConditionKey =
@@ -163,4 +164,6 @@ export interface EffectInstance {
   bonusDieUses?: ('damage' | 'ac')[];
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
+  /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
+  senses?: Sense[];
 }

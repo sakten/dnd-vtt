@@ -19,6 +19,7 @@ import {
   resolveAttack,
   rollDice,
   rollMode,
+  tokenSenses,
   weaponRolls,
   withAdvantage,
   withRollParts,
@@ -161,8 +162,8 @@ export function prepareWeaponAttack(
         areas: map.lightAreas,
         zones: map.zones,
       };
-      unseenTarget = !canSee(attacker, target, attacker.senses, sight);
-      unseenAttacker = !canSee(target, attacker, target.senses, sight);
+      unseenTarget = !canSee(attacker, target, tokenSenses(attacker), sight);
+      unseenAttacker = !canSee(target, attacker, tokenSenses(target), sight);
     }
   }
 

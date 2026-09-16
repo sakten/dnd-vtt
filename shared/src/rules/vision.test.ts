@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee, zoneVisionCells, zoneVisionKindAt } from './vision';
+import { canSee, tokenSenses, zoneVisionCells, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -90,6 +90,22 @@ describe('canSee: области', () => {
     expect(canSee(from, target, devilsight, { ...SIGHT, areas: area('obscured') })).toBe(false);
     expect(canSee(from, target, blindsight, { ...SIGHT, areas: area('obscured') })).toBe(true);
     expect(canSee(from, target, darkvision, { ...SIGHT, areas: area('obscured') })).toBe(false);
+  });
+});
+
+describe('tokenSenses', () => {
+  it('объединяет сенсы токена и эффектов, берёт максимум по типу', () => {
+    const token = {
+      senses: [{ type: 'darkvision', range: 60 }],
+      effects: [
+        { senses: [{ type: 'darkvision', range: 150 }] },
+        { senses: [{ type: 'devilsight', range: 120 }] },
+      ],
+    } as unknown as Parameters<typeof tokenSenses>[0];
+    expect(tokenSenses(token)).toEqual([
+      { type: 'darkvision', range: 150 },
+      { type: 'devilsight', range: 120 },
+    ]);
   });
 });
 

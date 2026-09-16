@@ -49,6 +49,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     hidden: effectDef.hidden,
     bonusDie: effectDef.bonusDie,
     bonusDieUses: effectDef.bonusDieUses ? [...effectDef.bonusDieUses] : undefined,
+    senses: effectDef.senses ? [...effectDef.senses] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
   if (effectDef.tempHp) {

@@ -1,4 +1,5 @@
 import type { ActionCost, ActionTargeting, AreaSpec } from './actions';
+import type { Sense } from './sense';
 import type { AbilityKey } from './core';
 import type { ConditionKey, EffectDuration, EffectEscalation, Modifier, Restrictions } from './effects';
 
@@ -69,6 +70,8 @@ export interface AutomationEffect {
   restrictions?: Restrictions;
   /** Выпутывание действием: проверка характеристики против СЛ каста (Web). */
   escape?: { ability: AbilityKey; skill?: string };
+  /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
+  senses?: Sense[];
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */

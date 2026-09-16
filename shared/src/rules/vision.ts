@@ -1,6 +1,7 @@
 import type { ZoneInstance } from '../domain/automation';
-import type { Sense } from '../domain/sense';
+import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
+import type { Token } from '../domain/token';
 import { areaCellKey, areaCells, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
 
@@ -52,6 +53,23 @@ export function zoneVisionKindAt(zones: ZoneInstance[], point: Point, grid: Area
     if (cells.includes(key)) kind = strongestKind(kind, zoneKind);
   }
   return kind;
+}
+
+/** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
+export function tokenSenses(token: Pick<Token, 'senses' | 'effects'>): Sense[] {
+  const merged = new Map<SenseType, number>();
+  for (const sense of token.senses ?? []) merged.set(sense.type, Math.max(merged.get(sense.type) ?? 0, sense.range));
+  for (const effect of token.effects ?? []) {
+    for (const sense of effect.senses ?? []) {
+      merged.set(sense.type, Math.max(merged.get(sense.type) ?? 0, sense.range));
+    }
+  }
+  const out: Sense[] = [];
+  for (const type of SENSE_TYPES) {
+    const range = merged.get(type);
+    if (range !== undefined && range > 0) out.push({ type, range });
+  }
+  return out;
 }
 
 /** Вид области, накрывающей точку (первая по списку), иначе null. */

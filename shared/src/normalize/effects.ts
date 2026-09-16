@@ -10,6 +10,7 @@ import type {
   ModifierTarget,
 } from '../domain/effects';
 import { clampInt, isAbilityKey, newId } from './internal';
+import { normalizeSenses } from './sense';
 
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
@@ -134,6 +135,10 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (Array.isArray(e.conditions)) {
       const conditions = e.conditions.filter((c): c is ConditionKey => typeof c === 'string');
       if (conditions.length) effect.conditions = conditions.slice(0, MAX_CONDITIONS);
+    }
+    if (Array.isArray(e.senses)) {
+      const senses = normalizeSenses(e.senses);
+      if (senses.length) effect.senses = senses;
     }
     out.push(effect);
   }
