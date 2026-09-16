@@ -99,7 +99,7 @@ const summonItem = await addLibrary(S, 'Волк', {
 });
 const summonAdd = await spawnToken(S, { libraryItemId: summonItem, x: 600, y: 600 });
 check(summonAdd.token.owner === 'Герой-Тест', 'игрок ставит призыв со владельцем-персонажем');
-const summonHitP = waitMsg(S.player, (m) => m.kind === 'roll' && m.label === 'Атака: Волк — Коготь');
+const summonHitP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'attack' && m.labelParams?.subject === 'Волк — Коготь');
 S.player.emit('dice:attack', { tokenId: summonAdd.token.id, attackIndex: 0 });
 const summonHit = await summonHitP;
 check(summonHit.roll.dice[0].sides === 20, 'призыв атакует своим модификатором');

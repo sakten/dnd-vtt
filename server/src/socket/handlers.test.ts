@@ -3461,9 +3461,14 @@ describe('отдых и удаление токена', () => {
 
     expect(room.resources.p1!.hitDice[0]!.current).toBe(2);
     expect(room.resources.p1!.hp.current).toBe(10 + 6 + 3); // кость + Телосложение (+3)
-    const roll = room.chat.find((m) => m.kind === 'roll') as { roll?: { expression?: string; total?: number } } | undefined;
-    expect(roll?.roll?.expression).toBe('1d10+3');
-    expect(roll?.roll?.total).toBe(9);
+    const msg = room.chat.find((m) => m.kind === 'roll') as
+      | { roll?: { expression?: string; total?: number }; label?: string; rollKind?: string; labelParams?: { subject?: string } }
+      | undefined;
+    expect(msg?.roll?.expression).toBe('1d10+3');
+    expect(msg?.roll?.total).toBe(9);
+    expect(msg?.label).toBeUndefined();
+    expect(msg?.rollKind).toBe('plain');
+    expect(msg?.labelParams?.subject).toBe('Хит дайс d10 (лечение 9)');
   });
 
   it('долгий отдых снимает эффекты и восстанавливает HP', () => {

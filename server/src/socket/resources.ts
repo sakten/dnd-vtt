@@ -57,7 +57,8 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       pushRollMessage(ctx, room, {
         author,
         roll,
-        label: `Хит дайс d${entry.die} (лечение ${heal})`,
+        kind: 'plain',
+        params: { subject: `Хит дайс d${entry.die} (лечение ${heal})` },
       });
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);

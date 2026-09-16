@@ -76,8 +76,8 @@ await setSheet(S, {
   ],
   classes: [],
 });
-const attackHitP = waitMsg(S.dm, (m) => m.kind === 'roll' && m.label === 'Атака: Топор');
-const attackDmgP = waitMsg(S.dm, (m) => m.kind === 'roll' && m.label === 'Урон: Топор');
+const attackHitP = waitMsg(S.dm, (m) => m.kind === 'roll' && m.rollKind === 'attack' && m.labelParams?.subject === 'Топор');
+const attackDmgP = waitMsg(S.dm, (m) => m.kind === 'roll' && m.rollKind === 'damage' && m.labelParams?.subject === 'Топор');
 S.player.emit('dice:attack', { attackIndex: 0 });
 const attackHit = await attackHitP;
 const attackDmg = await attackDmgP;

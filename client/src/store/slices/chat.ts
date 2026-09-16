@@ -1,6 +1,7 @@
 import {
   isCriticalHit,
   parseDiceExpression,
+  rollMessageLabel,
 } from 'shared';
 import { emit } from '../helpers';
 import type { GameState, Slice } from '../types';
@@ -15,7 +16,7 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
           (message.rollKind === 'attack' || (!message.rollKind && !!message.label?.startsWith('Атака')));
         const critHit =
           message.kind === 'roll' && isAttack && isCriticalHit(message.roll)
-            ? { id: message.id, author: message.author, label: message.label, total: message.roll.total }
+            ? { id: message.id, author: message.author, label: rollMessageLabel(message), total: message.roll.total }
             : s.critHit;
         return { chat: [...s.chat, message], critHit };
       }),

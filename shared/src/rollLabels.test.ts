@@ -34,4 +34,16 @@ describe('rollMessageLabel', () => {
   it('возвращает legacy label без структуры', () => {
     expect(rollMessageLabel({ label: 'Атака: Меч' })).toBe('Атака: Меч');
   });
+
+  it('plain со структурной подписью (хит-дайс)', () => {
+    expect(rollMessageLabel({ rollKind: 'plain', labelParams: { subject: 'Хит дайс d8 (лечение 5)' } })).toBe(
+      'Хит дайс d8 (лечение 5)'
+    );
+  });
+
+  it('структура важнее сохранённого label', () => {
+    expect(rollMessageLabel({ rollKind: 'attack', labelParams: { subject: 'Меч' }, label: 'Атака: Старое' })).toBe(
+      'Атака: Меч'
+    );
+  });
 });

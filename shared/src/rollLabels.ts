@@ -50,13 +50,13 @@ export function rollLabelText(kind: RollKind, params: RollLabelParams = {}): str
 
 /**
  * Текст метки сообщения: из структуры, если она есть, иначе — сохранённый `label`
- * (совместимость со старыми сообщениями).
+ * (совместимость со старыми сообщениями и явными метками повтора броска).
  */
 export function rollMessageLabel(message: {
   rollKind?: RollKind;
   labelParams?: RollLabelParams;
   label?: string;
 }): string | undefined {
-  if (!message.rollKind || message.rollKind === 'plain') return message.label;
-  return rollLabelText(message.rollKind, message.labelParams);
+  if (!message.rollKind) return message.label;
+  return rollLabelText(message.rollKind, message.labelParams) || message.label;
 }

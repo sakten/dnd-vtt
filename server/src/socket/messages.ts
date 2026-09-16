@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { rollLabelText, type ChatMessage, type DiceRollResult, type RollKind, type RollLabelParams } from 'shared';
+import { type ChatMessage, type DiceRollResult, type RollKind, type RollLabelParams } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 
 export interface RollMessageInput {
   author: string;
   roll: DiceRollResult;
-  /** Вид броска; без него метка берётся из `label` (legacy-сообщения, хит-дайс). */
+  /** Вид броска (структурная метка). Без него и без `label` карточка идёт без подписи. */
   kind?: RollKind;
   params?: RollLabelParams;
-  /** Готовая метка вместо сгенерированной из kind/params. */
+  /** Явная метка (повтор броска из чата). */
   label?: string;
   crit?: boolean;
 }
@@ -26,9 +26,6 @@ export function pushRollMessage(ctx: ConnCtx, room: Room, input: RollMessageInpu
     ...(input.kind !== undefined && { rollKind: input.kind, labelParams: input.params }),
     ...(input.crit !== undefined && { crit: input.crit }),
   };
-  if (input.label === undefined && input.kind !== undefined) {
-    message.label = ctx.cleanLabel(rollLabelText(input.kind, input.params ?? {}));
-  }
   ctx.manager.addMessage(room, message);
   ctx.broadcastAll('chat:message', message);
   return message;
