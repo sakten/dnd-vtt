@@ -77,6 +77,11 @@ describe('spellSlotMaxes', () => {
     expect(spellSlotMaxes([{ className: 'wizard', level: 3 }, { className: 'ranger', level: 1 }])).toEqual([4, 3]);
   });
 
+  it('пример из PHB24: рейнджер 4 / чародей 3 → 4/3/2 (полуровни вверх)', () => {
+    expect(casterLevelOf([{ className: 'ranger', level: 4 }, { className: 'sorcerer', level: 3 }])).toBe(5);
+    expect(spellSlotMaxes([{ className: 'ranger', level: 4 }, { className: 'sorcerer', level: 3 }])).toEqual([4, 3, 2]);
+  });
+
   it('без кастеров — пусто', () => {
     expect(spellSlotMaxes([{ className: 'barbarian', level: 5 }])).toEqual([]);
     expect(spellSlotMaxes([{ className: 'warlock', level: 5 }])).toEqual([]);
