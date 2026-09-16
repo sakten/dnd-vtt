@@ -120,7 +120,7 @@ function TokenView({ token }: { token: Token }) {
     const ny = snap(e.target.y(), grid.offsetY);
     if (nx !== e.target.x()) e.target.x(nx);
     if (ny !== e.target.y()) e.target.y(ny);
-    moveToken(token.id, e.target.x(), e.target.y());
+    // Позиция в игре не меняется, пока токен держат: только превью маршрута.
     const now = performance.now();
     if (now - lastRouteRef.current < 60) return;
     lastRouteRef.current = now;
