@@ -14,24 +14,23 @@ export default function VisionSettingsModal() {
       <CheckboxRow
         checked={map?.vision.los ?? false}
         onChange={(los) => {
-          if (map) updateVision(map.id, { los, darkness: los ? map.vision.darkness : false });
+          if (map) updateVision(map.id, { los, darkness: map.vision.darkness });
         }}
       >
-        Туман видимости (обзор от токенов игроков)
+        Объединять обзор игроков
       </CheckboxRow>
-      {map?.vision.los && (
-        <CheckboxRow
-          checked={map.vision.darkness}
-          onChange={(darkness) => {
-            if (map) updateVision(map.id, { los: true, darkness });
-          }}
-        >
-          Темнота на карте (дальность — по восприятию токенов)
-        </CheckboxRow>
-      )}
+      <CheckboxRow
+        checked={map?.vision.darkness ?? false}
+        onChange={(darkness) => {
+          if (map) updateVision(map.id, { los: map.vision.los, darkness });
+        }}
+      >
+        Темнота
+      </CheckboxRow>
       <p className="field-hint">
         Клик по токену не требуется: игроки видят объединение обзора всех токенов с галкой «токен игрока».
-        Стены и закрытые двери блокируют обзор.
+        Стены и закрытые двери блокируют обзор. «Темнота» ограничивает дальность по восприятию токена
+        (без него — 1 клетка вокруг).
       </p>
       <div className="modal-actions">
         <button className="primary" onClick={() => close(false)}>
