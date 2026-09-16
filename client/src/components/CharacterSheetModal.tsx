@@ -16,6 +16,7 @@ import {
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
+import SensesForm from './SensesForm';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import FeatsForm from './FeatsForm';
@@ -204,19 +205,8 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
-        <label className="field">
-          <span>Тёмное зрение, фт</span>
-          <input
-            type="number"
-            min={0}
-            max={1000}
-            value={draft.darkvision}
-            placeholder="0"
-            onChange={(e) =>
-              setDraft({ ...draft, darkvision: Math.max(0, Math.round(Number(e.target.valueAsNumber) || 0)) })
-            }
-          />
-        </label>
+        <div className="sheet-section-title">Зрение</div>
+        <SensesForm value={draft.senses} onChange={(senses) => setDraft({ ...draft, senses })} />
 
         <div className="sheet-section-title">Характеристики</div>
         <div className="ability-grid">

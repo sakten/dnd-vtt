@@ -3,6 +3,7 @@ import type { LibraryItem, Token, TokenFields } from '../domain/token';
 import { normalizeTokenFields } from '../fields';
 import { normalizeConditions, normalizeEffects } from './effects';
 import { isRecord } from './guards';
+import { normalizeSenses } from './sense';
 
 export interface NormalizeEntityOptions {
   /** Лимит имени: 40 — токен, 60 — предмет библиотеки. */
@@ -40,10 +41,7 @@ export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}):
       typeof source.speed === 'number' && Number.isFinite(source.speed)
         ? Math.max(0, Math.round(source.speed))
         : DEFAULT_SPEED,
-    darkvision:
-      typeof source.darkvision === 'number' && Number.isFinite(source.darkvision)
-        ? Math.max(0, Math.round(source.darkvision))
-        : 0,
+    senses: normalizeSenses(source.senses, source.darkvision),
     conditions: normalizeConditions(source.conditions),
     effects: normalizeEffects(source.effects),
   };

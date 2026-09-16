@@ -112,7 +112,7 @@ export function addToken(
     hpTemp: 0,
     faction: fields.isPlayerToken ? 'ally' : 'neutral',
     speed: controllerSheet?.speed ?? DEFAULT_SPEED,
-    darkvision: controllerSheet?.darkvision ?? 0,
+    senses: controllerSheet?.senses ?? [],
     conditions: [],
     effects: [],
   };

@@ -2,6 +2,7 @@ import type { ActionDef } from './actions';
 import type { AbilityKey, Faction } from './core';
 import type { DamageDefense } from './damage';
 import type { ConditionInstance, EffectInstance } from './effects';
+import type { Sense } from './sense';
 
 export interface TokenFields {
   name: string;
@@ -47,8 +48,8 @@ export interface Token extends TokenFields {
   faction: Faction;
   /** Скорость в футах; у персонажей зеркалится из листа. */
   speed: number;
-  /** Тёмное зрение, футы; у персонажей зеркалится из листа. */
-  darkvision: number;
+  /** Восприятие (тёмное/слепое/дьявольское зрение); у персонажей зеркалится из листа. */
+  senses: Sense[];
   conditions: ConditionInstance[];
   effects: EffectInstance[];
 }

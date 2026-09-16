@@ -6,6 +6,7 @@ export * from './domain/actions';
 export * from './domain/automation';
 export * from './domain/token';
 export * from './domain/sheet';
+export * from './domain/sense';
 export * from './domain/combat';
 export * from './domain/scene';
 export * from './domain/chat';

@@ -46,7 +46,7 @@ const FULL_TOKEN: Token = {
   hpTemp: 5,
   faction: 'enemy',
   speed: 30,
-  darkvision: 0,
+  senses: [],
   conditions: [],
   effects: [],
 };

@@ -233,7 +233,7 @@ describe('RoomManager ход', () => {
     const sheet: CharacterSheet = {
       name: 'Герой',
       abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-      darkvision: 0,
+      senses: [],
       proficiencyBonus: '2',
       saves: {},
       skills: {},
@@ -346,7 +346,7 @@ describe('RoomManager HP', () => {
       resources: { p1: resources(12, 5) },
       sheets: {
         p1: {
-          darkvision: 0,
+          senses: [],
           name: 'Герой',
           abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
           proficiencyBonus: '2',
@@ -396,7 +396,7 @@ describe('RoomManager заклинания', () => {
     const sheet: CharacterSheet = {
       name: 'Герой',
       abilities: { ...DEFAULT_ABILITIES, con: 16, dex: 8 },
-      darkvision: 0,
+      senses: [],
       proficiencyBonus: '3',
       saves: { con: true },
       skills: {},

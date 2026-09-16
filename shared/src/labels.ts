@@ -1,5 +1,12 @@
 import type { AbilityKey } from './domain/core';
 import type { DamageDefenseType } from './domain/damage';
+import type { SenseType } from './domain/sense';
+
+export const SENSE_NAMES: Record<SenseType, string> = {
+  darkvision: 'Тёмное зрение',
+  blindsight: 'Слепое зрение',
+  devilsight: 'Дьявольское зрение',
+};
 
 /** Список типов урона; первые три — физические (в таком порядке в выпадающих списках). */
 export const DAMAGE_TYPES: { key: string; name: string }[] = [

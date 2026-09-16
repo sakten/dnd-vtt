@@ -1,4 +1,5 @@
 import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_SHEET_SPELLS, type AbilityKey } from '../domain/core';
+import { normalizeSenses } from './sense';
 import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
 import type { AttackEntry } from '../domain/token';
@@ -116,7 +117,7 @@ export function normalizeSheet(
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),
-    darkvision: clampInt((raw as { darkvision?: unknown }).darkvision, 0, 1000, 0),
+    senses: normalizeSenses((raw as { senses?: unknown }).senses, (raw as { darkvision?: unknown }).darkvision),
     damageDefenses: normalizeDamageDefenses((raw as { damageDefenses?: unknown }).damageDefenses),
   };
 }

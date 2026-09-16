@@ -80,6 +80,7 @@ export interface GameState {
   view: ViewState;
   viewport: { w: number; h: number };
   gridModalOpen: boolean;
+  visionModalOpen: boolean;
   /** Открыта модалка настроек комнаты (только реальный DM). */
   roomSettingsOpen: boolean;
   tokenMenuId: string | null;
@@ -134,6 +135,7 @@ export interface GameState {
   resolveTargeting: (targetId: string) => void;
   setDragging: (id: string | null) => void;
   setGridModalOpen: (open: boolean) => void;
+  setVisionModalOpen: (open: boolean) => void;
   setRoomSettingsOpen: (open: boolean) => void;
   /** Сменить режим тестов (сервер применяет только от реального DM). */
   setRoomSettings: (testMode: boolean) => void;

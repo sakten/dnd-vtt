@@ -22,7 +22,7 @@ export function defaultSheet(): CharacterSheet {
     hpMax: '',
     ac: '',
     speed: DEFAULT_SPEED,
-    darkvision: 0,
+    senses: [],
     damageDefenses: [],
   };
 }

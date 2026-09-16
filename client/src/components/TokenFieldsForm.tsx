@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { emptyAttacks, statNumber, statsPaired, type TokenFields } from 'shared';
+import { emptyAttacks, statNumber, statsPaired, type Sense, type TokenFields } from 'shared';
 import { useIsDm } from '../lib/control';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import { CheckboxRow, Field, SizeRow } from './Field';
+import SensesForm from './SensesForm';
 
 type Patch = Partial<TokenFields>;
 type Change = (patch: Patch) => void;
@@ -13,12 +14,12 @@ interface PassportProps {
   onChange: Change;
   speed?: number;
   onSpeedChange?: (value: number) => void;
-  darkvision?: number;
-  onDarkvisionChange?: (value: number) => void;
+  senses?: Sense[];
+  onSensesChange?: (value: Sense[]) => void;
 }
 
 /** Паспорт токена/предмета: имя, инициатива, размер, круглость (скорость — токену). */
-export function TokenPassportFields({ value, onChange, speed, onSpeedChange, darkvision, onDarkvisionChange }: PassportProps) {
+export function TokenPassportFields({ value, onChange, speed, onSpeedChange, senses, onSensesChange }: PassportProps) {
   return (
     <>
       <Field label="Название">
@@ -50,18 +51,8 @@ export function TokenPassportFields({ value, onChange, speed, onSpeedChange, dar
             />
           </Field>
         )}
-        {onDarkvisionChange && (
-          <Field label="Тёмное зрение, фт">
-            <input
-              type="number"
-              min={0}
-              max={1000}
-              value={darkvision ?? 0}
-              onChange={(e) => onDarkvisionChange(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-            />
-          </Field>
-        )}
       </div>
+      {onSensesChange && <SensesForm value={senses ?? []} onChange={onSensesChange} />}
       <SizeRow
         cells={value.cells}
         round={value.round}

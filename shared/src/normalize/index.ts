@@ -4,5 +4,6 @@ export * from './sheet';
 export * from './effects';
 export * from './actions';
 export * from './combat';
+export * from './sense';
 export * from './token';
 export * from './scene';

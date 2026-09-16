@@ -40,7 +40,7 @@ export function makeToken(id: string, overrides: Partial<Token> = {}): Token {
     hpTemp: 0,
     faction: 'neutral',
     speed: DEFAULT_SPEED,
-    darkvision: 0,
+    senses: [],
     conditions: [],
     effects: [],
     damageDefenses: [],

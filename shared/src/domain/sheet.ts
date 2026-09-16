@@ -1,6 +1,7 @@
 import type { AbilityKey, SkillLevel } from './core';
 import type { DamageDefense } from './damage';
 import type { FeatureChoice } from './feature';
+import type { Sense } from './sense';
 import type { AttackEntry } from './token';
 
 export interface ClassLevel {
@@ -52,8 +53,8 @@ export interface CharacterSheet {
   ac: string;
   /** Базовая скорость, футы. */
   speed: number;
-  /** Тёмное зрение, футы (0 — нет). Зеркалится в токены персонажа. */
-  darkvision: number;
+  /** Восприятие (тёмное/слепое/дьявольское зрение); зеркалится в токены персонажа. */
+  senses: Sense[];
   /** Сопротивления/иммунитеты/уязвимости к типам урона. */
   damageDefenses: DamageDefense[];
 }

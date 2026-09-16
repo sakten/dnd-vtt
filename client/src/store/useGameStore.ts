@@ -48,6 +48,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     view: { x: 0, y: 0, scale: 1 },
     viewport: { w: 0, h: 0 },
     gridModalOpen: false,
+    visionModalOpen: false,
     roomSettingsOpen: false,
     tokenMenuId: null,
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },

@@ -64,7 +64,7 @@ export function syncSheetToTokens(room: Room, playerId: string): { mapId: string
       if (sheet) {
         token.ac = sheet.ac;
         token.speed = sheet.speed;
-        token.darkvision = sheet.darkvision;
+        token.senses = sheet.senses;
       }
       changed.push({ mapId: map.id, token });
     }

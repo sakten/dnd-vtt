@@ -12,6 +12,7 @@ export default function Toolbar() {
   const setFogMode = useGameStore((s) => s.setFogMode);
   const wallsActive = useGameStore((s) => s.wallsMode.active);
   const setWallsMode = useGameStore((s) => s.setWallsMode);
+  const setVisionModalOpen = useGameStore((s) => s.setVisionModalOpen);
   const combatActive = useGameStore((s) => activeMapOf(s)?.combat.active ?? false);
   const startCombat = useGameStore((s) => s.startCombat);
   const endCombat = useGameStore((s) => s.endCombat);
@@ -54,6 +55,11 @@ export default function Toolbar() {
           }}
         >
           Стены
+        </button>
+      )}
+      {isDm && (
+        <button title="Обзор: туман видимости и темнота на карте" onClick={() => setVisionModalOpen(true)}>
+          Обзор
         </button>
       )}
       {role === 'dm' && (

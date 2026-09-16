@@ -3,6 +3,7 @@ import {
   movementBlocked,
   normalizeConditions,
   normalizeEffects,
+  normalizeSenses,
   normalizeStatblock,
   normalizeTokenFieldsPatch,
   statNumber,
@@ -123,8 +124,8 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         if (typeof patch.speed === 'number' && Number.isFinite(patch.speed)) {
           token.speed = Math.max(0, Math.round(patch.speed));
         }
-        if (typeof patch.darkvision === 'number' && Number.isFinite(patch.darkvision)) {
-          token.darkvision = Math.max(0, Math.round(patch.darkvision));
+        if (Array.isArray(patch.senses)) {
+          token.senses = normalizeSenses(patch.senses);
         }
         if ('statblock' in patch) {
           const statblock = normalizeStatblock(patch.statblock);

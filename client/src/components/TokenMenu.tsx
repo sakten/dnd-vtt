@@ -8,6 +8,7 @@ import {
   statNumber,
   type ConditionInstance,
   type Faction,
+  type Sense,
   type TokenFields,
   type TokenStatblock,
 } from 'shared';
@@ -49,7 +50,7 @@ export default function TokenMenu() {
   const [hpTemp, setHpTemp] = useState(0);
   const [hpAmount, setHpAmount] = useState(5);
   const [speed, setSpeed] = useState(DEFAULT_SPEED);
-  const [darkvision, setDarkvision] = useState(0);
+  const [senses, setSenses] = useState<Sense[]>([]);
   const [faction, setFaction] = useState<Faction>('neutral');
   const [visible, setVisible] = useState(true);
   const [conditions, setConditions] = useState<ConditionInstance[]>([]);
@@ -75,7 +76,7 @@ export default function TokenMenu() {
     setHpCurrent(token.hpCurrent ?? 0);
     setHpTemp(token.hpTemp ?? 0);
     setSpeed(token.speed ?? DEFAULT_SPEED);
-    setDarkvision(token.darkvision ?? 0);
+    setSenses(token.senses ?? []);
     setFaction(token.faction ?? 'neutral');
     setVisible(token.visible !== false);
     setConditions(token.conditions ?? []);
@@ -122,7 +123,7 @@ export default function TokenMenu() {
       hpCurrent,
       hpTemp,
       conditions,
-      ...(isDm ? { speed, darkvision, faction, visible, statblock } : {}),
+      ...(isDm ? { speed, senses, faction, visible, statblock } : {}),
     });
     close(null);
   };
@@ -210,8 +211,8 @@ export default function TokenMenu() {
                 onChange={patchDraft}
                 speed={speed}
                 onSpeedChange={isDm ? setSpeed : undefined}
-                darkvision={darkvision}
-                onDarkvisionChange={isDm ? setDarkvision : undefined}
+                senses={senses}
+                onSensesChange={isDm ? setSenses : undefined}
               />
               {isDm && (
                 <>
