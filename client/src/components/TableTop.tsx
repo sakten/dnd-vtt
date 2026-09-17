@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Group, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
-import type { LightArea, MapInfo, Token, Wall } from 'shared';
-import { areaCells, gridDistanceFeet, reachableCells, segmentRectDistance, sightContextOf, snapToGrid } from 'shared';
+import type { LightArea, MapInfo, Token, Wall, ZoneInstance } from 'shared';
+import { areaCells, gridDistanceFeet, reachableCells, segmentRectDistance, sightContextOf, snapToGrid, zoneVisionKind } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
@@ -233,20 +234,47 @@ export default function TableTop() {
   const veilWidth = activeMap?.width ?? 0;
   const veilHeight = activeMap?.height ?? 0;
 
-  const veilRects = useMemo(() => {
+  const visionView = useMemo(() => {
     if (!veilActive || isDm) return null;
     const cell = grid.size || 50;
-    const visible = visibleCells({
-      ...sightContextOf(
-        { walls: veilWalls ?? [], vision: veilVision!, lightAreas: veilAreas ?? [], zones: veilZones ?? [] },
-        { size: cell, offsetX: grid.offsetX, offsetY: grid.offsetY }
-      ),
-      width: veilWidth,
-      height: veilHeight,
-      bounds: cellBounds,
-      viewers: viewers ?? [],
-    });
-    if (visible === null) return null;
+    const gridSpec = { size: cell, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    const compute = (zones: typeof veilZones, bounds = cellBounds) =>
+      visibleCells({
+        ...sightContextOf(
+          { walls: veilWalls ?? [], vision: veilVision!, lightAreas: veilAreas ?? [], zones: zones ?? [] },
+          gridSpec
+        ),
+        width: veilWidth,
+        height: veilHeight,
+        bounds,
+        viewers: viewers ?? [],
+      });
+    const base = compute(veilZones);
+    if (base === null) return null;
+    // Для разметки самой вижн-зоны её собственная тьма/мгла не должна скрывать её клетки.
+    // Считаем по bbox зоны, а не по всему вьюпорту — цена пропорциональна площади зоны.
+    const zoneBounds = (zone: ZoneInstance) => {
+      let cx0 = Infinity;
+      let cy0 = Infinity;
+      let cx1 = -Infinity;
+      let cy1 = -Infinity;
+      for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, gridSpec)) {
+        const [cx, cy] = key.split(',').map(Number);
+        cx0 = Math.min(cx0, cx ?? 0);
+        cy0 = Math.min(cy0, cy ?? 0);
+        cx1 = Math.max(cx1, cx ?? 0);
+        cy1 = Math.max(cy1, cy ?? 0);
+      }
+      return Number.isFinite(cx0) ? { cx0, cy0, cx1, cy1 } : undefined;
+    };
+    const byZone = new Map<string, Set<string>>();
+    for (const zone of veilZones ?? []) {
+      if (zoneVisionKind(zone) === null) continue;
+      const bounds = zoneBounds(zone);
+      if (!bounds) continue;
+      const set = compute((veilZones ?? []).filter((z) => z.id !== zone.id), bounds);
+      if (set) byZone.set(zone.id, set);
+    }
     const cols = Math.ceil(veilWidth / cell);
     const rows = Math.ceil(veilHeight / cell);
     const cx0 = Math.max(0, cellBounds?.cx0 ?? 0);
@@ -257,7 +285,7 @@ export default function TableTop() {
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
         const key = cellKey(cx, cy);
-        if (visible.has(key) || hiddenSet.has(key)) continue;
+        if (base.has(key) || hiddenSet.has(key)) continue;
         rects.push({
           x: grid.offsetX + cx * cell,
           y: grid.offsetY + cy * cell,
@@ -265,7 +293,7 @@ export default function TableTop() {
         });
       }
     }
-    return rects;
+    return { rects, base, byZone };
   }, [
     veilActive,
     veilWalls,
@@ -761,7 +789,7 @@ export default function TableTop() {
           </Layer>
           <GridLayer grid={grid} view={view} viewport={size} />
           <Layer listening={false}>
-            <ZoneLayer zones={activeMap?.zones ?? []} grid={grid} />
+            <ZoneLayer zones={activeMap?.zones ?? []} grid={grid} mode={visionView ? 'fills' : 'full'} />
           </Layer>
           <Layer>
             {movementCells.map((c) => (
@@ -848,7 +876,7 @@ export default function TableTop() {
                   listening={false}
                 />
                 <Text
-                  text={`${dragPath.feet} фт`}
+                  text={t('ui.common.feet', { n: dragPath.feet })}
                   x={dragPath.points[dragPath.points.length - 1]!.x + 10 / view.scale}
                   y={dragPath.points[dragPath.points.length - 1]!.y - 26 / view.scale}
                   fontSize={16 / view.scale}
@@ -885,15 +913,24 @@ export default function TableTop() {
             )}
           </Layer>
           <Layer listening={false}>
-            {veilRects && veilRects.length > 0 && (
+            {visionView && visionView.rects.length > 0 && (
               <Shape
                 listening={false}
                 sceneFunc={(context) => {
                   context.beginPath();
-                  for (const r of veilRects) context.rect(r.x, r.y, r.size, r.size);
+                  for (const r of visionView.rects) context.rect(r.x, r.y, r.size, r.size);
                   context.fillStyle = '#07090d';
                   context.fill();
                 }}
+              />
+            )}
+            {visionView && (
+              <ZoneLayer
+                zones={activeMap?.zones ?? []}
+                grid={grid}
+                mode="markings"
+                visible={visionView.base}
+                visibleByZone={visionView.byZone}
               />
             )}
             {measure && (
@@ -905,7 +942,7 @@ export default function TableTop() {
                   dash={[10 / view.scale, 6 / view.scale]}
                 />
                 <Text
-                  text={`${measure.feet} фт`}
+                  text={t('ui.common.feet', { n: measure.feet })}
                   x={(measure.from.x + measure.to.x) / 2}
                   y={(measure.from.y + measure.to.y) / 2 - 16 / view.scale}
                   fontSize={14 / view.scale}
