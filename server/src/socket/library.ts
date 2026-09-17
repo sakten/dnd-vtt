@@ -22,6 +22,9 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       manager.updateLibraryItem(room, id, safePatch);
       const item = room.library.find((i) => i.id === id);
       if (item && (!item.isPlayerToken || item.owner.trim())) {
+        for (const c of manager.freezeCharacterTokensOfItem(room, id)) {
+          ctx.emitToken(room, 'token:update', c.mapId, c.token);
+        }
         for (const pid of manager.clearControllersForItem(room, id)) {
           broadcastAll('character:update', { playerId: pid, libraryItemId: null });
         }
@@ -35,6 +38,9 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       if (!room) return;
       if (rejectIfReaction(ctx)) return;
       manager.removeLibraryItem(room, id);
+      for (const c of manager.freezeCharacterTokensOfItem(room, id)) {
+        ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      }
       for (const pid of manager.clearControllersForItem(room, id)) {
         broadcastAll('character:update', { playerId: pid, libraryItemId: null });
       }
@@ -49,6 +55,9 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
         return;
       }
       if (libraryItemId === null) {
+        for (const c of manager.freezeCharacterTokens(room, ctx.playerId)) {
+          ctx.emitToken(room, 'token:update', c.mapId, c.token);
+        }
         const libId = room.controllers[ctx.playerId];
         delete room.controllers[ctx.playerId];
         if (libId) syncFeatureEffectsForItem(ctx, room, libId, undefined);
@@ -80,11 +89,14 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
         cb({ error: 'Этот персонаж уже выбран другим игроком' });
         return;
       }
+      for (const c of manager.freezeCharacterTokens(room, ctx.playerId)) {
+        ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      }
       room.controllers[ctx.playerId] = libraryItemId;
       broadcastAll('character:update', { playerId: ctx.playerId, libraryItemId });
       const sheet = room.sheets[ctx.playerId];
       if (sheet) {
-        for (const c of manager.syncSheetToTokens(room, ctx.playerId)) {
+        for (const c of manager.characterTokens(room, ctx.playerId)) {
           syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
           ctx.emitToken(room, 'token:update', c.mapId, c.token);
         }

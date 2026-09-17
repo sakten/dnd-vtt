@@ -93,6 +93,8 @@ export default function TokenMenu() {
 
   if (!token || !draft) return null;
 
+  const isCharacter = token.character === true;
+
   const patchDraft = (patch: Partial<TokenFields>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   const hpMax = statNumber(draft.hpMax);
@@ -211,9 +213,10 @@ export default function TokenMenu() {
                 value={draft}
                 onChange={patchDraft}
                 speed={speed}
-                onSpeedChange={isDm ? setSpeed : undefined}
+                onSpeedChange={isDm && !isCharacter ? setSpeed : undefined}
                 senses={senses}
-                onSensesChange={isDm ? setSenses : undefined}
+                onSensesChange={isDm && !isCharacter ? setSenses : undefined}
+                readOnly={isCharacter}
               />
               {isDm && (
                 <>
@@ -279,6 +282,7 @@ export default function TokenMenu() {
                 temp={hpTemp}
                 onTempChange={setHpTemp}
                 currentMin={-999}
+                readOnly={isCharacter}
                 quick={
                   isDm ? (
                     <div className="tm-quick-hp">
@@ -298,6 +302,12 @@ export default function TokenMenu() {
                   ) : undefined
                 }
               />
+
+              {isCharacter && (
+                <div className="field-warning">
+                  Статы — из листа персонажа; HP меняется уроном/лечением.
+                </div>
+              )}
 
               <ConditionsForm value={conditions} onChange={setConditions} />
 
@@ -359,10 +369,12 @@ export default function TokenMenu() {
                 </div>
               )}
 
-              <DamageDefensesForm
-                value={draft.damageDefenses}
-                onChange={(damageDefenses) => setDraft((d) => (d ? { ...d, damageDefenses } : d))}
-              />
+              {!isCharacter && (
+                <DamageDefensesForm
+                  value={draft.damageDefenses}
+                  onChange={(damageDefenses) => setDraft((d) => (d ? { ...d, damageDefenses } : d))}
+                />
+              )}
 
               <DescriptionField value={draft} onChange={patchDraft} />
             </>
@@ -373,8 +385,13 @@ export default function TokenMenu() {
               <AttacksForm
                 attacks={draft.attacks}
                 onChange={(attacks) => setDraft((d) => (d ? { ...d, attacks } : d))}
+                readOnly={isCharacter}
               />
-              {isDm && <StatblockForm value={statblock} onChange={setStatblock} />}
+              <StatblockForm
+                value={isCharacter ? token.statblock : statblock}
+                onChange={setStatblock}
+                readOnly={isCharacter}
+              />
             </>
           )}
 

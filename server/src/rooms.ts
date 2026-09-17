@@ -20,6 +20,7 @@ import { DEFAULT_GRID } from 'shared';
 import { createRoomRepository, removeRoomUploadDir, removeRoomUploads, type RoomRepository } from './store';
 import { toPersistedRoom, type Room } from './roomTypes';
 import { hydrateRoom } from './roomNormalize';
+import * as Actor from './room/actor';
 import * as Combat from './room/combat';
 import * as Effects from './room/effects';
 import * as Resources from './room/resources';
@@ -463,9 +464,19 @@ export class RoomManager {
     Combat.renameCombatantByToken(this, room, mapId, tokenId, name);
   }
 
-  /** Зеркалит HP/AC/скорость персонажа игрока в его токены на всех картах. */
-  syncSheetToTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
-    return Resources.syncSheetToTokens(room, playerId);
+  /** Токены персонажа игрока на всех картах (статы резолвит `actorStats`). */
+  characterTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
+    return Resources.characterTokens(room, playerId);
+  }
+
+  /** Замораживает статы персонажа в его токены при отвязке (токен становится обычным). */
+  freezeCharacterTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
+    return Actor.freezeCharacterTokens(room, playerId);
+  }
+
+  /** То же для всех игроков предмета (удаление предмета, снятие галки «токен игрока»). */
+  freezeCharacterTokensOfItem(room: Room, libraryItemId: string): { mapId: string; token: Token }[] {
+    return Actor.freezeCharacterTokensOfItem(room, libraryItemId);
   }
 
   /** Помечает все токены персонажа мёртвыми/живыми (по итогу death-сейвов). */

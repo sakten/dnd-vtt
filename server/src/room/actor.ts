@@ -1,6 +1,8 @@
 import {
+  attacksPerAction,
   DEFAULT_SPEED,
   abilityMod,
+  sheetProficiencyBonus,
   statNumber,
   type AbilityKey,
   type AttackEntry,
@@ -32,6 +34,10 @@ export interface ActorStats {
   hp: { max: number; current: number; temp: number };
   /** Бонус инициативы: персонажу — от Ловкости листа, иначе — поле токена. */
   initiativeBonus: string;
+  /** Явные бонусы спасбросков (владение): у персонажа — мод + владение. */
+  saves?: Partial<Record<AbilityKey, number>>;
+  /** Атак за действие (Extra Attack) у персонажа. */
+  attacksPerAction?: number;
 }
 
 export function actorStats(room: Room, token: Token): ActorStats {
@@ -59,6 +65,11 @@ export function actorStats(room: Room, token: Token): ActorStats {
     };
   }
   const dexMod = abilityMod(sheet.abilities.dex ?? 10);
+  const pb = sheetProficiencyBonus(sheet);
+  const saves: Partial<Record<AbilityKey, number>> = {};
+  for (const key of Object.keys(sheet.abilities) as AbilityKey[]) {
+    if (sheet.saves[key]) saves[key] = abilityMod(sheet.abilities[key] ?? 10) + pb;
+  }
   return {
     character: true,
     controllerId,
@@ -71,5 +82,42 @@ export function actorStats(room: Room, token: Token): ActorStats {
     damageDefenses: sheet.damageDefenses ?? [],
     hp: res && res.hp.max > 0 ? { max: res.hp.max, current: res.hp.current, temp: res.hp.temp } : tokenHp,
     initiativeBonus: dexMod >= 0 ? `+${dexMod}` : `${dexMod}`,
+    saves: Object.keys(saves).length ? saves : undefined,
+    attacksPerAction: attacksPerAction(sheet.classes),
   };
+}
+
+/**
+ * Заморозка при отвязке персонажа: статы из листа/ресурсов один раз копируются
+ * в токены, чтобы после снятия контролёра токен остался обычным, а не «пустым».
+ * Вызывать до удаления `controllers[playerId]`.
+ */
+export function freezeCharacterTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
+  const libId = room.controllers[playerId];
+  if (!libId) return [];
+  const out: { mapId: string; token: Token }[] = [];
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      if (token.libraryItemId !== libId) continue;
+      const stats = actorStats(room, token);
+      token.name = stats.name;
+      token.ac = stats.ac > 0 ? String(stats.ac) : '';
+      token.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
+      token.hpCurrent = stats.hp.current;
+      token.hpTemp = stats.hp.temp;
+      token.speed = stats.speed;
+      token.senses = stats.senses;
+      token.attacks = stats.attacks;
+      token.damageDefenses = stats.damageDefenses;
+      token.initiativeBonus = stats.initiativeBonus;
+      out.push({ mapId: map.id, token });
+    }
+  }
+  return out;
+}
+
+/** Заморозка всех токенов предмета (например, при удалении предмета из библиотеки). */
+export function freezeCharacterTokensOfItem(room: Room, libraryItemId: string): { mapId: string; token: Token }[] {
+  const players = Object.keys(room.controllers).filter((pid) => room.controllers[pid] === libraryItemId);
+  return players.flatMap((pid) => freezeCharacterTokens(room, pid));
 }

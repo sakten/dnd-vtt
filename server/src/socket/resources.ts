@@ -28,7 +28,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);
       const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
       room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax, sheet?.choices);
-      const changed = manager.syncSheetToTokens(room, playerId);
+      const changed = manager.characterTokens(room, playerId);
       ctx.emitResources(room, playerId);
       for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
       ctx.notifyPlayers(room);
@@ -52,7 +52,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const heal = Math.max(0, roll.total);
       entry.current -= 1;
       res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
-      const changed = manager.syncSheetToTokens(room, playerId);
+      const changed = manager.characterTokens(room, playerId);
       const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
       pushRollMessage(ctx, room, {
         author,
@@ -80,7 +80,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         }
       }
       room.resources[playerId] = applyRest(res, type);
-      for (const c of manager.syncSheetToTokens(room, playerId)) {
+      for (const c of manager.characterTokens(room, playerId)) {
         emitToken(room, 'token:update', c.mapId, c.token);
       }
       ctx.emitResources(room, playerId);

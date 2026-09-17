@@ -33,6 +33,8 @@ export interface LibraryItem extends TokenFields {
 export interface Token extends TokenFields {
   id: string;
   libraryItemId: string;
+  /** Токен персонажа (есть контролёр с листом): статы read-only, идут из листа/ресурсов. */
+  character?: boolean;
   x: number;
   y: number;
   w: number;

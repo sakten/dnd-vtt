@@ -346,3 +346,8 @@
   font-size: 12px;
   margin-top: -4px;
 }
+
+.field-ro-text {
+  color: var(--text-dim);
+  font-size: 13px;
+}

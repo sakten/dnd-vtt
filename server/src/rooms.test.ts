@@ -11,6 +11,7 @@ import {
   type PlayerResources,
 } from 'shared';
 import { RoomManager } from './rooms';
+import { actorStats } from './room/actor';
 import { makeResources, makeRoom, makeToken as token } from './test/fixtures';
 
 function entry(id: string, tokenId: string, initiative: number): InitiativeEntry {
@@ -299,7 +300,7 @@ describe('RoomManager HP', () => {
     expect(changed).toEqual([{ mapId: 'm1', token: goblin }]);
   });
 
-  it('персонажу урон идёт в ресурсы и зеркалится в токен', () => {
+  it('персонажу урон идёт в ресурсы; токен возвращается для рассылки без зеркала', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 10) } });
     room.scene.maps[0]!.tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 10 })];
@@ -307,8 +308,8 @@ describe('RoomManager HP', () => {
     const changed = manager.adjustTokenHp(room, 'm1', room.scene.maps[0]!.tokens[0]!, -4);
 
     expect(room.resources.p1!.hp.current).toBe(6);
-    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(6);
-    expect(changed[0]!.token.hpCurrent).toBe(6);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(10); // зеркала нет
+    expect(changed[0]!.token).toBe(room.scene.maps[0]!.tokens[0]!);
   });
 
   it('лечение не превышает максимум', () => {
@@ -321,7 +322,7 @@ describe('RoomManager HP', () => {
     expect(goblin.hpCurrent).toBe(20);
   });
 
-  it('лечение персонажа не превышает максимум ресурсов и зеркалится', () => {
+  it('лечение персонажа не превышает максимум ресурсов', () => {
     const manager = setup();
     const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 8) } });
     room.scene.maps[0]!.tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '10', hpCurrent: 8 })];
@@ -329,19 +330,19 @@ describe('RoomManager HP', () => {
     manager.adjustTokenHp(room, 'm1', room.scene.maps[0]!.tokens[0]!, 5);
 
     expect(room.resources.p1!.hp.current).toBe(10);
-    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(10);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(8); // зеркала нет
   });
 
-  it('syncSheetToTokens без контролёра — no-op', () => {
+  it('characterTokens без контролёра — пусто, токен не трогаем', () => {
     const manager = setup();
     const room = makeRoom();
     room.scene.maps[0]!.tokens = [token('t1', { hpCurrent: 3 })];
 
-    expect(manager.syncSheetToTokens(room, 'p1')).toEqual([]);
+    expect(manager.characterTokens(room, 'p1')).toEqual([]);
     expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(3);
   });
 
-  it('syncSheetToTokens обновляет HP/AC/скорость связанного токена', () => {
+  it('characterTokens возвращает токены персонажа, статы — через actorStats', () => {
     const manager = setup();
     const room = makeRoom({
       controllers: { p1: 'lib1' },
@@ -366,14 +367,16 @@ describe('RoomManager HP', () => {
     });
     room.scene.maps[0]!.tokens = [token('t1', { libraryItemId: 'lib1', hpMax: '1', hpCurrent: 1 })];
 
-    const changed = manager.syncSheetToTokens(room, 'p1');
-    const synced = room.scene.maps[0]!.tokens[0]!;
+    const changed = manager.characterTokens(room, 'p1');
+    const collected = room.scene.maps[0]!.tokens[0]!;
+    const stats = actorStats(room, collected);
 
-    expect(synced.hpMax).toBe('12');
-    expect(synced.hpCurrent).toBe(5);
-    expect(synced.ac).toBe('16');
-    expect(synced.speed).toBe(35);
     expect(changed).toHaveLength(1);
+    expect(changed[0]!.token).toBe(collected);
+    expect(stats.hp).toEqual({ max: 12, current: 5, temp: 0 });
+    expect(stats.ac).toBe(16);
+    expect(stats.speed).toBe(35);
+    expect(collected.hpCurrent).toBe(1); // в токене зеркала нет
   });
 });
 

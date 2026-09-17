@@ -16,10 +16,26 @@ interface PassportProps {
   onSpeedChange?: (value: number) => void;
   senses?: Sense[];
   onSensesChange?: (value: Sense[]) => void;
+  /** Токен персонажа: статы приходят из листа — поля только для чтения. */
+  readOnly?: boolean;
 }
 
+const SENSE_READONLY_TEXT: Record<Sense['type'], string> = {
+  darkvision: 'тёмное зрение',
+  blindsight: 'слепое зрение',
+  devilsight: 'дьявольское зрение',
+};
+
 /** Паспорт токена/предмета: имя, инициатива, размер, круглость (скорость — токену). */
-export function TokenPassportFields({ value, onChange, speed, onSpeedChange, senses, onSensesChange }: PassportProps) {
+export function TokenPassportFields({
+  value,
+  onChange,
+  speed,
+  onSpeedChange,
+  senses,
+  onSensesChange,
+  readOnly,
+}: PassportProps) {
   return (
     <>
       <Field label="Название">
@@ -27,6 +43,7 @@ export function TokenPassportFields({ value, onChange, speed, onSpeedChange, sen
           type="text"
           value={value.name}
           maxLength={40}
+          readOnly={readOnly}
           onChange={(e) => onChange({ name: e.target.value })}
         />
       </Field>
@@ -37,22 +54,34 @@ export function TokenPassportFields({ value, onChange, speed, onSpeedChange, sen
             value={value.initiativeBonus}
             maxLength={10}
             placeholder="+0"
+            readOnly={readOnly}
             onChange={(e) => onChange({ initiativeBonus: e.target.value })}
           />
         </Field>
-        {onSpeedChange && (
+        {speed !== undefined && (
           <Field label="Скорость, фт">
             <input
               type="number"
               min={0}
               max={1000}
-              value={speed ?? 0}
-              onChange={(e) => onSpeedChange(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+              value={speed}
+              readOnly={readOnly || !onSpeedChange}
+              onChange={(e) => onSpeedChange?.(Math.max(0, Math.round(Number(e.target.value) || 0)))}
             />
           </Field>
         )}
       </div>
-      {onSensesChange && <SensesForm value={senses ?? []} onChange={onSensesChange} />}
+      {readOnly ? (
+        (senses?.length ?? 0) > 0 && (
+          <Field label="Восприятие">
+            <span className="field-ro-text">
+              {senses!.map((s) => `${SENSE_READONLY_TEXT[s.type]} ${s.range} фт`).join(', ')}
+            </span>
+          </Field>
+        )
+      ) : (
+        onSensesChange && <SensesForm value={senses ?? []} onChange={onSensesChange} />
+      )}
       <SizeRow
         cells={value.cells}
         round={value.round}
@@ -115,6 +144,8 @@ interface HealthProps {
   onTempChange?: (value: number) => void;
   currentMin?: number;
   quick?: ReactNode;
+  /** Токен персонажа: AC/HP приходят из листа и ресурсов — поля только для чтения. */
+  readOnly?: boolean;
 }
 
 /** AC, хиты и (для токена на карте) текущие/временные ХП с быстрым уроном. */
@@ -127,6 +158,7 @@ export function TokenHealthFields({
   onTempChange,
   currentMin = 0,
   quick,
+  readOnly,
 }: HealthProps) {
   const clampCurrent = (raw: number) => Math.max(currentMin, Math.round(raw || 0));
   return (
@@ -138,6 +170,7 @@ export function TokenHealthFields({
             value={value.ac ?? ''}
             maxLength={10}
             placeholder="13"
+            readOnly={readOnly}
             onChange={(e) => onChange({ ac: e.target.value })}
           />
         </Field>
@@ -147,12 +180,13 @@ export function TokenHealthFields({
             value={value.hpMax ?? ''}
             maxLength={10}
             placeholder="20"
+            readOnly={readOnly}
             onChange={(e) => onChange({ hpMax: e.target.value })}
           />
         </Field>
       </div>
 
-      {!statsPaired(value.ac ?? '', value.hpMax ?? '') && (
+      {!readOnly && !statsPaired(value.ac ?? '', value.hpMax ?? '') && (
         <div className="field-warning">Укажите и AC, и Макс. ХП — или оставьте оба пустыми.</div>
       )}
 
@@ -163,6 +197,7 @@ export function TokenHealthFields({
               <input
                 type="number"
                 value={current}
+                readOnly={readOnly}
                 onChange={(e) => onCurrentChange(clampCurrent(e.target.valueAsNumber))}
               />
             </Field>
@@ -171,6 +206,7 @@ export function TokenHealthFields({
                 type="number"
                 min={0}
                 value={temp ?? 0}
+                readOnly={readOnly}
                 onChange={(e) => onTempChange(Math.max(0, Math.round(e.target.valueAsNumber || 0)))}
               />
             </Field>
@@ -181,6 +217,7 @@ export function TokenHealthFields({
               type="number"
               min={0}
               value={current}
+              readOnly={readOnly}
               onChange={(e) => onCurrentChange(Math.max(0, Math.round(e.target.valueAsNumber || 0)))}
             />
           </Field>

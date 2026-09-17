@@ -19,6 +19,8 @@ interface Props {
   namePlaceholder?: string;
   /** Контекст листа: включает выбор оружия из списка с автоподстановкой формул. */
   weaponContext?: WeaponContext;
+  /** Данные из листа персонажа: только просмотр. */
+  readOnly?: boolean;
 }
 
 /** Редактор атак/оружия (общий для токена и карточки персонажа). */
@@ -29,6 +31,7 @@ export default function AttacksForm({
   itemLabel = 'Атака',
   namePlaceholder = 'Например: Укус',
   weaponContext,
+  readOnly,
 }: Props) {
   const setAttack = (index: number, patch: Partial<AttackEntry>) =>
     onChange(attacks.map((a, i) => (i === index ? { ...a, ...patch } : a)));
@@ -60,7 +63,7 @@ export default function AttacksForm({
         <div className="weapon-block" data-testid="weapon-block" key={i}>
           <div className="weapon-head">
             <span>{itemLabel} {i + 1}</span>
-            {attacks.length > 1 && (
+            {!readOnly && attacks.length > 1 && (
               <button type="button" className="weapon-remove" data-testid="weapon-remove" onClick={() => removeAttack(i)}>
                 Удалить
               </button>
@@ -72,6 +75,7 @@ export default function AttacksForm({
               value={attack.name}
               maxLength={40}
               placeholder={namePlaceholder}
+              readOnly={readOnly}
               onChange={(e) => setAttack(i, { name: e.target.value })}
             />
           </Field>
@@ -82,6 +86,7 @@ export default function AttacksForm({
                 value={attack.hit}
                 placeholder="d20+str+pb"
                 title="Можно использовать модификаторы характеристик (str/dex/con/int/wis/cha) и бонус владения (pb/prof)"
+                readOnly={readOnly}
                 onChange={(e) => setAttack(i, { hit: e.target.value })}
               />
             </Field>
@@ -91,12 +96,14 @@ export default function AttacksForm({
                 value={attack.damage}
                 placeholder="1d8+str"
                 title="Можно использовать модификаторы характеристик (str/dex/con/int/wis/cha) и бонус владения (pb/prof)"
+                readOnly={readOnly}
                 onChange={(e) => setAttack(i, { damage: e.target.value })}
               />
             </Field>
             <Field label="Тип урона">
               <select
                 value={attack.damageType ?? ''}
+                disabled={readOnly}
                 onChange={(e) => setAttack(i, { damageType: e.target.value || undefined })}
               >
                 <option value="">—</option>
@@ -112,6 +119,7 @@ export default function AttacksForm({
             <Field label="Дистанция">
               <select
                 value={attack.rangeType}
+                disabled={readOnly}
                 onChange={(e) => setAttack(i, { rangeType: e.target.value as AttackEntry['rangeType'] })}
               >
                 <option value="melee">Ближняя</option>
@@ -125,6 +133,7 @@ export default function AttacksForm({
                   type="number"
                   min={0}
                   value={attack.rangeNormal}
+                  readOnly={readOnly}
                   onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
                 />
               </Field>
@@ -136,6 +145,7 @@ export default function AttacksForm({
                     type="number"
                     min={0}
                     value={attack.rangeNormal}
+                    readOnly={readOnly}
                     onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
                   />
                 </Field>
@@ -144,6 +154,7 @@ export default function AttacksForm({
                     type="number"
                     min={0}
                     value={attack.rangeLong}
+                    readOnly={readOnly}
                     onChange={(e) => setAttack(i, { rangeLong: Number(e.target.value) })}
                   />
                 </Field>
@@ -152,7 +163,7 @@ export default function AttacksForm({
           </div>
         </div>
       ))}
-      {weaponContext && (
+      {!readOnly && weaponContext && (
         <Field label="Добавить из списка">
           <select
             value=""
@@ -171,9 +182,11 @@ export default function AttacksForm({
           </select>
         </Field>
       )}
-      <button type="button" className="weapon-add" onClick={addAttack} disabled={attacks.length >= MAX_ATTACKS}>
-        + Добавить атаку
-      </button>
+      {!readOnly && (
+        <button type="button" className="weapon-add" onClick={addAttack} disabled={attacks.length >= MAX_ATTACKS}>
+          + Добавить атаку
+        </button>
+      )}
     </div>
   );
 }

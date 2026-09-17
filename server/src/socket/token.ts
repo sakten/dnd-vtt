@@ -11,11 +11,24 @@ import {
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
+import { actorStats } from '../room/actor';
 import { handleMovementZones, removeZonesOfSource } from './zones';
+
+/** Производные поля персонажа: в токене не хранятся, в патче игнорируются. */
+const CHARACTER_DERIVED_FIELDS = [
+  'name',
+  'ac',
+  'hpMax',
+  'speed',
+  'senses',
+  'attacks',
+  'damageDefenses',
+  'initiativeBonus',
+  'statblock',
+] as const;
 
 export function registerTokenHandlers(ctx: ConnCtx) {
   const { manager, isDm, broadcastAll, emitToken, syncCombat } = ctx;
-
     ctx.on('token:add', (payload) => {
       const scope = playerScope(ctx);
       if (!scope) return;
@@ -103,7 +116,14 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;
       const { room, token } = scope;
-      Object.assign(token, normalizeTokenFieldsPatch(patch, token));
+      // У токена персонажа статы живут в листе/ресурсах: производные поля патча игнорируем,
+      // HP-патч применяем к ресурсам (у монстра — как раньше, прямо в токен).
+      const stats = actorStats(room, token);
+      const fieldPatch = normalizeTokenFieldsPatch(patch, token);
+      if (stats.character) {
+        for (const key of CHARACTER_DERIVED_FIELDS) delete (fieldPatch as Record<string, unknown>)[key];
+      }
+      Object.assign(token, fieldPatch);
       if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {
         const map = ctx.manager.findMap(room, mapId);
         const size = map?.grid.size ?? 50;
@@ -113,14 +133,35 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (typeof patch.scale === 'number' && Number.isFinite(patch.scale)) token.scale = patch.scale;
       if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;
       if (typeof patch.visible === 'boolean') token.visible = patch.visible;
-      if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
-        token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
+      if (stats.character && stats.controllerId) {
+        const res = room.resources[stats.controllerId];
+        if (res) {
+          if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
+            const max = res.hp.max > 0 ? res.hp.max : Infinity;
+            res.hp.current = Math.max(0, Math.min(max, Math.round(patch.hpCurrent)));
+            if (res.hp.current > 0) {
+              res.hp.deathSuccesses = 0;
+              res.hp.deathFailures = 0;
+            }
+          }
+          if (typeof patch.hpTemp === 'number' && Number.isFinite(patch.hpTemp)) {
+            res.hp.temp = Math.max(0, Math.round(patch.hpTemp));
+          }
+          ctx.emitResources(room, stats.controllerId);
+          for (const c of manager.characterTokens(room, stats.controllerId)) {
+            emitToken(room, 'token:update', c.mapId, c.token);
+          }
+        }
+      } else {
+        if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
+          token.hpCurrent = Math.max(0, Math.round(patch.hpCurrent));
+        }
+        if (typeof patch.hpTemp === 'number' && Number.isFinite(patch.hpTemp)) {
+          token.hpTemp = Math.max(0, Math.round(patch.hpTemp));
+        }
+        const maxHp = statNumber(token.hpMax);
+        if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
       }
-      if (typeof patch.hpTemp === 'number' && Number.isFinite(patch.hpTemp)) {
-        token.hpTemp = Math.max(0, Math.round(patch.hpTemp));
-      }
-      const maxHp = statNumber(token.hpMax);
-      if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
       if (Array.isArray(patch.conditions)) token.conditions = normalizeConditions(patch.conditions);
       if (Array.isArray(patch.effects)) {
         const next = normalizeEffects(patch.effects);
@@ -149,16 +190,18 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         if (patch.faction === 'ally' || patch.faction === 'enemy' || patch.faction === 'neutral') {
           token.faction = patch.faction;
         }
-        if (typeof patch.speed === 'number' && Number.isFinite(patch.speed)) {
-          token.speed = Math.max(0, Math.round(patch.speed));
-        }
-        if (Array.isArray(patch.senses)) {
-          token.senses = normalizeSenses(patch.senses);
-        }
-        if ('statblock' in patch) {
-          const statblock = normalizeStatblock(patch.statblock);
-          if (statblock) token.statblock = statblock;
-          else delete token.statblock;
+        if (!stats.character) {
+          if (typeof patch.speed === 'number' && Number.isFinite(patch.speed)) {
+            token.speed = Math.max(0, Math.round(patch.speed));
+          }
+          if (Array.isArray(patch.senses)) {
+            token.senses = normalizeSenses(patch.senses);
+          }
+          if ('statblock' in patch) {
+            const statblock = normalizeStatblock(patch.statblock);
+            if (statblock) token.statblock = statblock;
+            else delete token.statblock;
+          }
         }
       }
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { CharacterSheet, CombatState, MapInfo, Scene, Token } from 'shared';
 import {
   DEFAULT_GRID,
+  DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
   isRecord,
@@ -82,6 +83,27 @@ export function hydrateRoom(p: PersistedRoom): Room {
   if (isRecord(p.sheets)) {
     for (const [id, sheet] of Object.entries(p.sheets)) {
       sheets[id] = normalizeSheet(sheet);
+    }
+  }
+  // Статы персонажей больше не хранятся в токенах (резолвит actorStats): чистим
+  // старые зеркала у токенов, чей предмет привязан к игроку с листом.
+  const characterLibIds = new Set(
+    Object.entries(controllers)
+      .filter(([pid]) => sheets[pid] !== undefined)
+      .map(([, libId]) => libId)
+  );
+  for (const map of scene.maps) {
+    for (const token of map.tokens) {
+      if (!characterLibIds.has(token.libraryItemId)) continue;
+      token.ac = '';
+      token.hpMax = '';
+      token.hpCurrent = 0;
+      token.hpTemp = 0;
+      token.speed = DEFAULT_SPEED;
+      token.senses = [];
+      token.attacks = [];
+      token.damageDefenses = [];
+      token.initiativeBonus = '';
     }
   }
   return {

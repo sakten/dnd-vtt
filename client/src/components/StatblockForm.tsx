@@ -15,6 +15,8 @@ import { Field } from './Field';
 interface Props {
   value: TokenStatblock | undefined;
   onChange: (value: TokenStatblock) => void;
+  /** Токен персонажа: данные из листа — только просмотр. */
+  readOnly?: boolean;
 }
 
 const COSTS: { key: ActionCost; name: string }[] = [
@@ -28,7 +30,7 @@ const COSTS: { key: ActionCost; name: string }[] = [
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
 /** Статблок монстра: характеристики, спасброски, мультиатака, заклинания, действия. */
-export default function StatblockForm({ value, onChange }: Props) {
+export default function StatblockForm({ value, onChange, readOnly }: Props) {
   const sb: TokenStatblock = value ?? { abilities: { ...DEFAULT_ABILITIES } };
   const actions = sb.actions ?? [];
   // Текст полей спасбросков: нужен, чтобы «-» по пути к «-1» не превращался в 0.
@@ -94,6 +96,7 @@ export default function StatblockForm({ value, onChange }: Props) {
               min={0}
               max={30}
               value={sb.abilities[a.key] ?? 10}
+              readOnly={readOnly}
               onChange={(e) => setAbility(a.key, Number(e.target.value))}
             />
           </Field>
@@ -108,6 +111,7 @@ export default function StatblockForm({ value, onChange }: Props) {
               type="text"
               placeholder="—"
               value={saveValue(a.key)}
+              readOnly={readOnly}
               onChange={(e) => setSave(a.key, e.target.value)}
             />
           </Field>
@@ -121,6 +125,7 @@ export default function StatblockForm({ value, onChange }: Props) {
             min={1}
             max={10}
             value={sb.multiattack ?? 1}
+            readOnly={readOnly}
             onChange={(e) => onChange({ ...sb, multiattack: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
           />
         </Field>
@@ -130,6 +135,7 @@ export default function StatblockForm({ value, onChange }: Props) {
             min={0}
             max={9}
             value={sb.legendary?.max ?? 0}
+            readOnly={readOnly}
             onChange={(e) => {
               const max = Math.min(9, Math.max(0, Number(e.target.value) || 0));
               const legendaryActions = sb.legendary?.actions ?? [];
@@ -144,7 +150,12 @@ export default function StatblockForm({ value, onChange }: Props) {
 
       <div className="sheet-section-title">Заклинания</div>
       <label className="checkbox-row">
-        <input type="checkbox" checked={caster} onChange={(e) => toggleCaster(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={caster}
+          disabled={readOnly}
+          onChange={(e) => toggleCaster(e.target.checked)}
+        />
         <span>Это кастер — ячейки и список на вкладке «Заклинания»</span>
       </label>
 
@@ -156,10 +167,12 @@ export default function StatblockForm({ value, onChange }: Props) {
             placeholder="Название"
             maxLength={40}
             value={action.name}
+            readOnly={readOnly}
             onChange={(e) => updateAction(i, { name: e.target.value })}
           />
           <select
             value={action.costs[0] ?? 'action'}
+            disabled={readOnly}
             onChange={(e) => updateAction(i, { costs: [e.target.value as ActionCost] })}
           >
             {COSTS.map((c) => (
@@ -168,14 +181,18 @@ export default function StatblockForm({ value, onChange }: Props) {
               </option>
             ))}
           </select>
-          <button type="button" className="weapon-remove" onClick={() => removeAction(i)}>
-            ✕
-          </button>
+          {!readOnly && (
+            <button type="button" className="weapon-remove" onClick={() => removeAction(i)}>
+              ✕
+            </button>
+          )}
         </div>
       ))}
-      <button type="button" className="weapon-add" onClick={addAction}>
-        + Добавить действие
-      </button>
+      {!readOnly && (
+        <button type="button" className="weapon-add" onClick={addAction}>
+          + Добавить действие
+        </button>
+      )}
     </div>
   );
 }

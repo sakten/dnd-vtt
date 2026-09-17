@@ -29,7 +29,7 @@ import { controllerIdOfToken } from './helpers';
 /** Зависимости домена эффектов: сохранение и зеркалирование HP персонажа в токены. */
 export interface EffectsDeps {
   saveSoon(room: Room): void;
-  syncSheetToTokens(room: Room, playerId: string): { mapId: string; token: Token }[];
+  characterTokens(room: Room, playerId: string): { mapId: string; token: Token }[];
 }
 
 /** Защиты токена: у персонажа — из листа, у монстра — из токена, плюс эффекты. */
@@ -156,7 +156,7 @@ export function changeMaxHp(m: EffectsDeps, room: Room, token: Token, effect: Ef
     res.hp.max = Math.max(1, res.hp.max + sign * bonus);
     if (sign > 0) res.hp.current += bonus;
     else res.hp.current = Math.min(res.hp.current, res.hp.max);
-    m.syncSheetToTokens(room, controllerId);
+    m.characterTokens(room, controllerId);
   } else {
     const base = statNumber(token.hpMax);
     if (base > 0) token.hpMax = String(Math.max(1, base + sign * bonus));
@@ -177,7 +177,7 @@ export function grantTempHp(m: EffectsDeps, room: Room, token: Token, amount: nu
   if (controllerId && res) {
     res.hp.temp = Math.max(res.hp.temp, value);
     m.saveSoon(room);
-    m.syncSheetToTokens(room, controllerId);
+    m.characterTokens(room, controllerId);
     return;
   }
   token.hpTemp = Math.max(token.hpTemp, value);
@@ -445,7 +445,7 @@ export function adjustTokenHp(
       res.hp.deathFailures = Math.min(3, res.hp.deathFailures + (opts.crit ? 2 : 1));
     }
     m.saveSoon(room);
-    const changed = m.syncSheetToTokens(room, controllerId);
+    const changed = m.characterTokens(room, controllerId);
     for (const c of changed) {
       applyDownState(c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, res.hp.deathFailures >= 3);
     }

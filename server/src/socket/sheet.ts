@@ -44,7 +44,7 @@ export function registerSheetHandlers(ctx: ConnCtx) {
         current: prevRes ? Math.min(synced.hp.current, hpMax) : hpMax,
       };
       room.resources[playerId] = synced;
-      const changed = manager.syncSheetToTokens(room, playerId);
+      const changed = manager.characterTokens(room, playerId);
       for (const c of changed) syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes, normalized.choices);
       socket.emit('sheet:update', { sheet: normalized });
       ctx.emitResources(room, playerId);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GRID, DEFAULT_SPEED, defaultFog, emptyCombatState } from 'shared';
-import type { Scene } from 'shared';
+import type { CharacterSheet, Scene } from 'shared';
 import type { PersistedRoom } from './roomTypes';
 import { toPersistedRoom } from './roomTypes';
 import { hydrateRoom } from './roomNormalize';
@@ -337,5 +337,70 @@ describe('hydrateRoom', () => {
     const twice = hydrateRoom(structuredClone(toPersistedRoom(once)));
 
     expect(twice).toEqual(once);
+  });
+});
+
+describe('hydrateRoom: зеркала статов персонажа', () => {
+  it('чистит статы у токена персонажа с листом, монстра не трогает', () => {
+    const fixture = base({
+      scene: sceneWithMap({
+        tokens: [
+          {
+            id: 't1',
+            libraryItemId: 'l1',
+            name: 'Токен',
+            ac: '16',
+            hpMax: '20',
+            hpCurrent: 12,
+            hpTemp: 2,
+            speed: 25,
+            senses: [{ type: 'darkvision', range: 60 }],
+            attacks: [{ name: 'Меч' }],
+            damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'fire' }],
+            initiativeBonus: '+9',
+          },
+          {
+            id: 't2',
+            libraryItemId: 'l2',
+            name: 'Гоблин',
+            ac: '15',
+            hpMax: '7',
+            hpCurrent: 7,
+          },
+        ],
+      }),
+      sheets: { p1: {} as unknown as CharacterSheet },
+      controllers: { p1: 'l1' },
+    });
+
+    const room = hydrateRoom(structuredClone(fixture));
+    const [charToken, monsterToken] = room.scene.maps[0]!.tokens;
+
+    expect(charToken).toMatchObject({
+      ac: '',
+      hpMax: '',
+      hpCurrent: 0,
+      hpTemp: 0,
+      speed: DEFAULT_SPEED,
+      senses: [],
+      attacks: [],
+      damageDefenses: [],
+      initiativeBonus: '',
+    });
+    expect(monsterToken).toMatchObject({ ac: '15', hpMax: '7', hpCurrent: 7 });
+  });
+
+  it('токен без листа у контролёра не чистится', () => {
+    const fixture = base({
+      scene: sceneWithMap({
+        tokens: [{ id: 't1', libraryItemId: 'l1', name: 'Токен', ac: '16', hpMax: '20', hpCurrent: 12 }],
+      }),
+      sheets: {},
+      controllers: { p1: 'l1' },
+    });
+
+    const room = hydrateRoom(structuredClone(fixture));
+
+    expect(room.scene.maps[0]!.tokens[0]).toMatchObject({ ac: '16', hpMax: '20', hpCurrent: 12 });
   });
 });

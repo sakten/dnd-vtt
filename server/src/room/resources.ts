@@ -45,29 +45,19 @@ export function spendTokenSpellSlot(m: ResourceDeps, room: Room, token: Token, l
   return true;
 }
 
-/** Зеркалит HP/AC/скорость персонажа игрока в его токены на всех картах. */
-export function syncSheetToTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
+/**
+ * Токены персонажа игрока на всех картах. Статы не копируются: их резолвит
+ * `actorStats` при отправке, так что зеркала в токене не нужны.
+ */
+export function characterTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
   const libId = room.controllers[playerId];
   if (!libId) return [];
-  const sheet = room.sheets[playerId];
-  const res = room.resources[playerId];
-  if (!sheet && !res) return [];
-  const changed: { mapId: string; token: Token }[] = [];
+  const out: { mapId: string; token: Token }[] = [];
   for (const map of room.scene.maps) {
     for (const token of map.tokens) {
       if (token.libraryItemId !== libId) continue;
-      if (res && res.hp.max > 0) {
-        token.hpMax = String(res.hp.max);
-        token.hpCurrent = res.hp.current;
-        token.hpTemp = res.hp.temp;
-      }
-      if (sheet) {
-        token.ac = sheet.ac;
-        token.speed = sheet.speed;
-        token.senses = sheet.senses;
-      }
-      changed.push({ mapId: map.id, token });
+      out.push({ mapId: map.id, token });
     }
   }
-  return changed;
+  return out;
 }

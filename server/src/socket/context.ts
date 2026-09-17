@@ -1,5 +1,6 @@
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
+  DEFAULT_ABILITIES,
   effectiveMaxHp,
   emptyCombatState,
   emptyResources,
@@ -31,6 +32,45 @@ export function isDmViewer(room: Room, viewerId: string | null): boolean {
   const viewer = room.players.find((p) => p.id === viewerId);
   if (!viewer) return false;
   return viewer.role === 'dm' || room.testMode === true;
+}
+
+interface ResolvedCacheEntry {
+  view: Token;
+}
+
+/** Кэш resolved-объектов по токену: identity сохраняем, поля обновляем при каждом вызове. */
+const resolvedCache = new WeakMap<Token, ResolvedCacheEntry>();
+
+/**
+ * Токен персонажа с подставленными статами из листа/ресурсов (см. `actorStats`).
+ * Для монстров возвращает сам токен; для персонажа — стабильный по identity объект,
+ * который при каждом вызове синхронизируется с текущими полями токена.
+ */
+function resolvedCharacterToken(room: Room, token: Token): Token {
+  const stats = actorStats(room, token);
+  if (!stats.character) return token;
+  const entry = resolvedCache.get(token);
+  const view = entry?.view ?? { ...token };
+  Object.assign(view, token);
+  view.character = true;
+  view.name = stats.name;
+  view.ac = stats.ac > 0 ? String(stats.ac) : '';
+  view.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
+  view.hpCurrent = stats.hp.current;
+  view.hpTemp = stats.hp.temp;
+  view.speed = stats.speed;
+  view.initiativeBonus = stats.initiativeBonus;
+  view.senses = stats.senses;
+  view.attacks = stats.attacks;
+  view.damageDefenses = stats.damageDefenses;
+  // Статблок персонажа заполняется из листа: характеристики, спасброски, мультиатака.
+  view.statblock = {
+    abilities: stats.abilities ?? { ...DEFAULT_ABILITIES },
+    ...(stats.saves ? { saves: stats.saves } : {}),
+    ...(stats.attacksPerAction && stats.attacksPerAction > 1 ? { multiattack: stats.attacksPerAction } : {}),
+  };
+  if (!entry) resolvedCache.set(token, { view });
+  return view;
 }
 
 export interface ConnCtx {
@@ -185,10 +225,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     // AC/HP/статблок токена видят: DM (или любой игрок в режиме тестов) — всегда;
     // игрок — только для токенов, которыми управляет. Остальным статы не отдаём.
     visibleToken: (room, token, viewerId, mapId) => {
-      // Имя персонажа — из листа (единый источник); копию делаем только при отличии,
-      // чтобы не ломать identity неизменённых токенов на клиенте.
-      const stats = actorStats(room, token);
-      const view = stats.character && stats.name !== token.name ? { ...token, name: stats.name } : token;
+      const view = resolvedCharacterToken(room, token);
       if (isDmViewer(room, viewerId)) return view;
       if (view.showStats) return view;
       const knownMapId = mapId ?? (viewerId ? manager.locateToken(room, view.id)?.mapId : undefined);
@@ -247,7 +284,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         }
         room.resources[selfId] = created;
       }
-      for (const c of manager.syncSheetToTokens(room, selfId)) {
+      for (const c of manager.characterTokens(room, selfId)) {
         if (sheet) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
         ctx.emitToken(room, 'token:update', c.mapId, c.token);
       }

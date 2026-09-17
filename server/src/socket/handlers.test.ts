@@ -8,6 +8,7 @@ import {
   type TokenStatblock,
 } from 'shared';
 import type { Room } from '../roomTypes';
+import { actorStats } from '../room/actor';
 import { makeCombatRoom as makeRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx as makeCtx } from '../test/ctx';
 import { registerCombatHandlers } from './combat';
@@ -1449,8 +1450,9 @@ describe('зоны и концентрация', () => {
     });
     rand.mockRestore();
 
-    expect(room.scene.maps[0]!.tokens[1]!.hpTemp).toBe(16);
-    expect(room.scene.maps[0]!.tokens[2]!.hpTemp).toBe(16);
+    expect(room.resources.p1!.hp.temp).toBe(16);
+    expect(actorStats(room, room.scene.maps[0]!.tokens[1]!).hp.temp).toBe(16);
+    expect(actorStats(room, room.scene.maps[0]!.tokens[2]!).hp.temp).toBe(16);
     expect(
       room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.restrictions?.ignoresOpportunityAttacks)
     ).toBe(true);
@@ -2302,7 +2304,7 @@ describe('реакции (R1)', () => {
     rand.mockRestore();
 
     expect(pendingOffers('TEST')).toHaveLength(0);
-    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
+    expect(room.resources.p1!.hp.current).toBeLessThan(30);
   });
 
   it('игрок со Щитом видит окно при выходе врага из досягаемости (не авто-OA)', () => {
@@ -3633,14 +3635,17 @@ describe('библиотека и статблок', () => {
     const item = room.library[0]!;
     room.controllers.p1 = item.id;
     room.resources.p1 = makeResources({ hp: { current: 12, max: 20, temp: 2, deathSuccesses: 0, deathFailures: 0 } });
+    room.sheets.p1 = { ...casterSheet(), name: 'Конан', ac: '', hpMax: '' };
 
     const player = makeCtx(room, { playerId: 'p1' });
     registerTokenHandlers(player.ctx);
     player.invoke('token:add', { mapId: 'm1', libraryItemId: item.id, x: 100, y: 100 });
 
     const token = room.scene.maps[0]!.tokens[0]!;
-    expect(token.hpMax).toBe('20');
-    expect(token.hpCurrent).toBe(12);
-    expect(token.hpTemp).toBe(2);
+    expect(token.hpMax).toBe(''); // у персонажа статы не хранятся в токене
+    expect(token.hpCurrent).toBe(0);
+    const stats = actorStats(room, token);
+    expect(stats.hp).toEqual({ max: 20, current: 12, temp: 2 });
+    expect(stats.name).toBe('Конан');
   });
 });

@@ -97,20 +97,22 @@ export function addToken(
   const map = findMap(room, mapId);
   if (!map) return null;
   const fields = normalizeTokenFields(item);
-  const controllerId = controllerIdOfItem(room, item.id);
-  const controllerSheet = controllerId ? room.sheets[controllerId] : undefined;
-  const controllerRes = controllerId ? room.resources[controllerId] : undefined;
-  // У персонажа HP берём из ресурсов; иначе выставляем полное HP из максимума.
-  const hp =
-    controllerRes && controllerRes.hp.max > 0
-      ? { max: controllerRes.hp.max, current: controllerRes.hp.current, temp: controllerRes.hp.temp }
-      : { max: statNumber(fields.hpMax), current: statNumber(fields.hpMax), temp: 0 };
+  const character = controllerIdOfItem(room, item.id) !== undefined;
+  // У персонажа статы живут в листе/ресурсах (резолвит actorStats) — в токене не храним.
+  // У монстра HP полное из максимума.
   const token: Token = {
     ...fields,
-    ...(hp.max > 0 ? { hpMax: String(hp.max) } : {}),
+    ac: character ? '' : fields.ac,
+    hpMax: character ? '' : fields.hpMax,
+    hpCurrent: character ? 0 : statNumber(fields.hpMax),
+    hpTemp: 0,
+    speed: DEFAULT_SPEED,
+    senses: [],
+    attacks: character ? [] : fields.attacks,
+    damageDefenses: character ? [] : fields.damageDefenses,
+    initiativeBonus: character ? '' : fields.initiativeBonus,
     id: randomUUID(),
     libraryItemId: item.id,
-    hpCurrent: hp.current,
     x,
     y,
     w: fields.cells * map.grid.size,
@@ -121,10 +123,7 @@ export function addToken(
     visible: true,
     ownerId,
     lockedBy: null,
-    hpTemp: hp.temp,
     faction: fields.isPlayerToken ? 'ally' : 'neutral',
-    speed: controllerSheet?.speed ?? DEFAULT_SPEED,
-    senses: controllerSheet?.senses ?? [],
     conditions: [],
     effects: [],
   };

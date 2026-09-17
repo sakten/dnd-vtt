@@ -80,4 +80,52 @@ describe('TokenMenu', () => {
     expect(emitted.find((e) => e.event === 'player:setCharacter')?.payload).toEqual({ libraryItemId: null });
     expect(useGameStore.getState().tokenMenuId).toBeNull();
   });
+
+  it('у токена персонажа статы read-only, статблок показывает данные листа', () => {
+    const { socket, emitted: list } = fakeSocket();
+    emitted = list;
+    const map = makeMap('m1', [
+      makeToken('t1', {
+        name: 'Конан',
+        libraryItemId: 'lib1',
+        isPlayerToken: true,
+        character: true,
+        ac: '16',
+        hpMax: '20',
+        hpCurrent: 12,
+        initiativeBonus: '+2',
+        speed: 25,
+        attacks: [{ name: 'Меч', hit: 'd20+5', damage: 'd8+3' } as never],
+        statblock: {
+          abilities: { str: 16, dex: 14, con: 12, int: 10, wis: 10, cha: 8 },
+          saves: { str: 5 },
+          multiattack: 2,
+        },
+      }),
+    ]);
+    useGameStore.setState({
+      socket,
+      selfId: 'dm',
+      role: 'dm',
+      testMode: false,
+      scene: { maps: [map], activeMapId: 'm1', grid: { ...DEFAULT_GRID } },
+      viewMapId: 'm1',
+      tokenMenuId: 't1',
+      currentCharacterId: null,
+      sheet: null,
+    });
+    render(<TokenMenu />);
+
+    expect(screen.getByLabelText('Название')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Бонус инициативы')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Класс брони (AC)')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Текущее ХП')).toHaveAttribute('readonly');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Статблок' }));
+    expect(screen.getByDisplayValue('16')).toHaveAttribute('readonly');
+    expect(screen.getByDisplayValue('5')).toHaveAttribute('readonly');
+    expect(screen.getByDisplayValue('2')).toHaveAttribute('readonly');
+    expect(screen.getByDisplayValue('d20+5')).toHaveAttribute('readonly');
+    expect(screen.queryByRole('button', { name: '+ Добавить атаку' })).toBeNull();
+  });
 });
