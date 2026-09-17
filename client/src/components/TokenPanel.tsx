@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { LibraryItem, TokenFields } from 'shared';
+import type { TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
@@ -32,7 +32,6 @@ export default function TokenPanel() {
   };
 
   const editing = items.find((i) => i.id === editingId) ?? null;
-  const currentItem = items.find((i) => i.id === currentCharacterId) ?? null;
 
   const [draft, setDraft] = useState<TokenFields | null>(null);
   const draftInvalid = !draft || !statsPaired(draft.ac ?? '', draft.hpMax ?? '');
@@ -106,49 +105,6 @@ export default function TokenPanel() {
 
   return (
     <div className={`token-panel ${collapsed ? 'collapsed' : ''}`}>
-      {!collapsed && (
-      <div
-        className={`character-slot ${currentItem ? 'filled' : ''}`}
-        data-testid="character-slot"
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'copy';
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          const raw = e.dataTransfer.getData('application/x-vtt-token');
-          if (!raw) return;
-          let item: LibraryItem;
-          try {
-            item = JSON.parse(raw) as LibraryItem;
-          } catch {
-            return;
-          }
-          if (!canSetAsCharacter(item)) {
-            window.alert('Только токены с галкой «Это токен игрока» и без владельца');
-            return;
-          }
-          setCurrentCharacter(item.id);
-        }}
-      >
-        <span className="character-slot-label" data-testid="character-slot-label">Текущий Персонаж</span>
-        {currentItem ? (
-          <div className="character-slot-item">
-            <img src={currentItem.imageUrl} alt={currentItem.name} />
-            <span className="character-slot-name">{currentItem.name}</span>
-            <button
-              className="character-slot-clear"
-              title="Сбросить персонажа"
-              onClick={() => setCurrentCharacter(null)}
-            >
-              ✕
-            </button>
-          </div>
-        ) : (
-          <div className="character-slot-empty">Перетащите сюда своего персонажа</div>
-        )}
-      </div>
-      )}
       <div className="token-panel-header">
         <span>Токены</span>
         <div className="token-panel-header-actions">
@@ -185,6 +141,19 @@ export default function TokenPanel() {
                 e.dataTransfer.effectAllowed = 'copy';
               }}
             />
+            {!isDm && canSetAsCharacter(item) && (
+              <button
+                className={`token-star${item.id === currentCharacterId ? ' active' : ''}`}
+                data-testid="token-star"
+                title={item.id === currentCharacterId ? 'Отвязать персонажа' : 'Сделать моим персонажем'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentCharacter(item.id === currentCharacterId ? null : item.id);
+                }}
+              >
+                {item.id === currentCharacterId ? '★' : '☆'}
+              </button>
+            )}
             <span className="token-size-badge">
               {item.cells}×{item.cells}
             </span>
@@ -216,6 +185,19 @@ export default function TokenPanel() {
               ×
             </button>
           </div>
+          {!isDm && setCurrentCharacter && !editing.owner && editing.isPlayerToken && (
+            <button
+              type="button"
+              className="tm-link-btn"
+              data-testid="token-set-character"
+              onClick={() => {
+                setCurrentCharacter(currentCharacterId === editing.id ? null : editing.id);
+                setEditingId(null);
+              }}
+            >
+              {currentCharacterId === editing.id ? 'Отвязать персонажа' : 'Это мой персонаж'}
+            </button>
+          )}
           <div className="tm-tabs">
             <button className={`tm-tab${tab === 'main' ? ' active' : ''}`} onClick={() => setTab('main')}>
               Основное

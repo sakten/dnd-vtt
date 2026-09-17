@@ -55,4 +55,29 @@ describe('TokenMenu', () => {
     expect(emitted.some((e) => e.event === 'token:update')).toBe(false);
     expect(useGameStore.getState().scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30);
   });
+
+  it('«Отвязать персонажа» снимает привязку игрока', () => {
+    const { socket, emitted: list } = fakeSocket();
+    emitted = list;
+    const map = makeMap('m1', [
+      makeToken('t1', { name: 'Гоблин', libraryItemId: 'lib1', isPlayerToken: true }),
+    ]);
+    useGameStore.setState({
+      socket,
+      selfId: 'p1',
+      role: 'player',
+      testMode: false,
+      scene: { maps: [map], activeMapId: 'm1', grid: { ...DEFAULT_GRID } },
+      viewMapId: 'm1',
+      tokenMenuId: 't1',
+      currentCharacterId: 'lib1',
+      sheet: null,
+    });
+    render(<TokenMenu />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отвязать персонажа' }));
+
+    expect(emitted.find((e) => e.event === 'player:setCharacter')?.payload).toEqual({ libraryItemId: null });
+    expect(useGameStore.getState().tokenMenuId).toBeNull();
+  });
 });

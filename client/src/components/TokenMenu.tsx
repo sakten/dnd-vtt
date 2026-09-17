@@ -241,18 +241,34 @@ export default function TokenMenu() {
                   <TokenPlayerFields value={draft} onChange={patchDraft} isDm />
                 </>
               )}
-              {!isDm && !token.owner && token.isPlayerToken && setCurrentCharacter && (
+              {!isDm && setCurrentCharacter && currentCharacterId !== null && currentCharacterId === token.libraryItemId && (
                 <button
                   type="button"
                   className="tm-link-btn"
                   onClick={() => {
-                    setCurrentCharacter(token.libraryItemId);
+                    setCurrentCharacter(null);
                     close(null);
                   }}
                 >
-                  Сделать моим персонажем
+                  Отвязать персонажа
                 </button>
               )}
+              {!isDm &&
+                !token.owner &&
+                token.isPlayerToken &&
+                setCurrentCharacter &&
+                currentCharacterId !== token.libraryItemId && (
+                  <button
+                    type="button"
+                    className="tm-link-btn"
+                    onClick={() => {
+                      setCurrentCharacter(token.libraryItemId);
+                      close(null);
+                    }}
+                  >
+                    Сделать моим персонажем
+                  </button>
+                )}
 
               <div className="sheet-section-title">Хирты</div>
               <TokenHealthFields

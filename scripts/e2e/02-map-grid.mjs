@@ -5,8 +5,8 @@ import path from 'node:path';
 
 S.fileInputs = await S.page.$$('input[type=file]');
 check(S.fileInputs.length === 2, 'два файловых инпута (карты и токены)');
-const slotLabel = await S.page.$eval('[data-testid="character-slot"] [data-testid="character-slot-label"]', (el) => el.textContent);
-check(slotLabel === 'Текущий Персонаж', 'поле «Текущий Персонаж» есть над панелью токенов');
+const slotGone = await S.page.evaluate(() => !document.querySelector('[data-testid="character-slot"]'));
+check(slotGone, 'слот «Текущий Персонаж» убран из панели токенов');
 await S.fileInputs[0].uploadFile(S.mapPath);
 await waitFor(S.page, () => window.__vtt.getState().scene.maps.length === 1, 8000);
 await waitFor(S.page, () => {

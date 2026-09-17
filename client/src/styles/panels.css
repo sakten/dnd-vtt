@@ -394,6 +394,24 @@ button.icon {
   position: relative;
 }
 
+.token-star {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.token-star.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .token-panel-item img {
   width: 56px;
   height: 56px;
