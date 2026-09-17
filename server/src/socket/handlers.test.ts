@@ -3606,5 +3606,41 @@ describe('библиотека и статблок', () => {
 
     f.invoke('token:add', { mapId: 'm1', libraryItemId: item.id, x: 100, y: 100 });
     expect(room.scene.maps[0]!.tokens[0]!.statblock?.multiattack).toBe(2);
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(7); // полное HP при выставлении
+  });
+
+  it('токен персонажа получает HP из ресурсов игрока', () => {
+    const room = makeRoom([], {});
+    const f = makeCtx(room, { dm: true });
+    registerLibraryHandlers(f.ctx);
+    registerTokenHandlers(f.ctx);
+    f.invoke('library:add', {
+      name: 'Конан',
+      description: '',
+      imageUrl: '',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: true,
+      owner: '',
+      attacks: [],
+      ac: '',
+      hpMax: '',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+    room.controllers.p1 = item.id;
+    room.resources.p1 = makeResources({ hp: { current: 12, max: 20, temp: 2, deathSuccesses: 0, deathFailures: 0 } });
+
+    const player = makeCtx(room, { playerId: 'p1' });
+    registerTokenHandlers(player.ctx);
+    player.invoke('token:add', { mapId: 'm1', libraryItemId: item.id, x: 100, y: 100 });
+
+    const token = room.scene.maps[0]!.tokens[0]!;
+    expect(token.hpMax).toBe('20');
+    expect(token.hpCurrent).toBe(12);
+    expect(token.hpTemp).toBe(2);
   });
 });

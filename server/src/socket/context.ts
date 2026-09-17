@@ -15,6 +15,7 @@ import {
 } from 'shared';
 import type { RoomManager } from '../rooms';
 import type { Room } from '../roomTypes';
+import { actorStats } from '../room/actor';
 import { rollConcentrationOnDamage } from './effects';
 import { syncFeatureEffects } from './features';
 import { pushTextMessage } from './messages';
@@ -184,11 +185,15 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     // AC/HP/статблок токена видят: DM (или любой игрок в режиме тестов) — всегда;
     // игрок — только для токенов, которыми управляет. Остальным статы не отдаём.
     visibleToken: (room, token, viewerId, mapId) => {
-      if (isDmViewer(room, viewerId)) return token;
-      if (token.showStats) return token;
-      const knownMapId = mapId ?? (viewerId ? manager.locateToken(room, token.id)?.mapId : undefined);
-      if (viewerId && knownMapId && manager.controlsToken(room, knownMapId, viewerId, token)) return token;
-      return redactToken(token);
+      // Имя персонажа — из листа (единый источник); копию делаем только при отличии,
+      // чтобы не ломать identity неизменённых токенов на клиенте.
+      const stats = actorStats(room, token);
+      const view = stats.character && stats.name !== token.name ? { ...token, name: stats.name } : token;
+      if (isDmViewer(room, viewerId)) return view;
+      if (view.showStats) return view;
+      const knownMapId = mapId ?? (viewerId ? manager.locateToken(room, view.id)?.mapId : undefined);
+      if (viewerId && knownMapId && manager.controlsToken(room, knownMapId, viewerId, view)) return view;
+      return redactToken(view);
     },
     visibleLibrary: (room, viewerId) => {
       if (isDmViewer(room, viewerId)) return room.library;

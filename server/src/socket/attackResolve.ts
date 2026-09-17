@@ -20,7 +20,6 @@ import {
   rollDice,
   rollMode,
   sightContextOf,
-  tokenSenses,
   weaponRolls,
   withAdvantage,
   withRollParts,
@@ -31,6 +30,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
+import { actorStats } from '../room/actor';
 import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { fail } from './errors';
@@ -159,8 +159,8 @@ export function prepareWeaponAttack(
         offsetX: map.grid.offsetX,
         offsetY: map.grid.offsetY,
       });
-      unseenTarget = !canSee(attacker, target, tokenSenses(attacker), sight);
-      unseenAttacker = !canSee(target, attacker, tokenSenses(target), sight);
+      unseenTarget = !canSee(attacker, target, actorStats(room, attacker).senses, sight);
+      unseenAttacker = !canSee(target, attacker, actorStats(room, target).senses, sight);
     }
   }
 

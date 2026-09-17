@@ -22,6 +22,7 @@ import {
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
+import { actorStats } from './actor';
 import { abilitiesForToken, turnStateFor } from './combat';
 import { controllerIdOfToken } from './helpers';
 
@@ -33,9 +34,7 @@ export interface EffectsDeps {
 
 /** Защиты токена: у персонажа — из листа, у монстра — из токена, плюс эффекты. */
 export function damageDefensesForToken(room: Room, token: Token): DamageDefense[] {
-  const controllerId = controllerIdOfToken(room, token);
-  const sheet = controllerId ? room.sheets[controllerId] : undefined;
-  const base = sheet ? sheet.damageDefenses ?? [] : token.damageDefenses ?? [];
+  const base = actorStats(room, token).damageDefenses;
   const extra = effectDefenses(token.effects);
   return extra.length ? [...base, ...extra] : base;
 }

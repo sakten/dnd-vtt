@@ -8,7 +8,6 @@ import {
   emptyCombatState,
   emptyTurnState,
   exhaustionSpeedPenalty,
-  initiativeBonus,
   modifiedValue,
   restrictionsFor,
   rollDice,
@@ -22,6 +21,7 @@ import {
   type TurnState,
 } from 'shared';
 import type { Room } from '../roomTypes';
+import { actorStats } from './actor';
 import { controllerIdOfToken, findTokenById } from './helpers';
 
 /** Зависимости боевого домена: сохранение комнаты. */
@@ -38,7 +38,7 @@ export function combatOf(room: Room, mapId: string): CombatState | null {
 }
 
 function initiativeBonusFor(room: Room, token: Token): string {
-  return initiativeBonus(token, room.players, room.sheets);
+  return actorStats(room, token).initiativeBonus;
 }
 
 function rollInit(bonus: string): DiceRollResult {
@@ -111,16 +111,13 @@ function turnResources(
 ): { speed: number; legendaryMax: number; extraActions: number; extraBonusActions: number } {
   const token = entry.tokenId ? findTokenById(room, entry.tokenId) : null;
   if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0, extraActions: 0, extraBonusActions: 0 };
-  const controllerId = controllerIdOfToken(room, token);
-  const sheetSpeed = controllerId ? room.sheets[controllerId]?.speed : undefined;
-  const base = sheetSpeed ?? token.speed ?? DEFAULT_SPEED;
-  const abilities = abilitiesForToken(room, token);
-  const afterExhaustion = Math.max(0, base + exhaustionSpeedPenalty(token.conditions));
+  const stats = actorStats(room, token);
+  const afterExhaustion = Math.max(0, stats.speed + exhaustionSpeedPenalty(token.conditions));
   return {
-    speed: Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, abilities)),
+    speed: Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, stats.abilities)),
     legendaryMax: token.statblock?.legendary?.max ?? 0,
-    extraActions: Math.max(0, modifiedValue(0, token.effects, 'extraActions', {}, abilities)),
-    extraBonusActions: Math.max(0, modifiedValue(0, token.effects, 'extraBonusActions', {}, abilities)),
+    extraActions: Math.max(0, modifiedValue(0, token.effects, 'extraActions', {}, stats.abilities)),
+    extraBonusActions: Math.max(0, modifiedValue(0, token.effects, 'extraBonusActions', {}, stats.abilities)),
   };
 }
 
@@ -222,38 +219,24 @@ export function attacksPerToken(room: Room, token: Token): number {
 
 /** Эффективная скорость токена: лист/статблок + бонусы и множители эффектов. */
 export function tokenSpeed(room: Room, token: Token): number {
-  const controllerId = controllerIdOfToken(room, token);
-  const sheet = controllerId ? room.sheets[controllerId] : undefined;
-  const base = sheet?.speed ?? token.speed ?? DEFAULT_SPEED;
-  return Math.max(0, modifiedValue(base, token.effects, 'speed', {}, abilitiesForToken(room, token)));
+  const stats = actorStats(room, token);
+  return Math.max(0, modifiedValue(stats.speed, token.effects, 'speed', {}, stats.abilities));
 }
 
 /** Характеристики токена: из листа персонажа либо из статблока монстра. */
 export function abilitiesForToken(room: Room, token: Token): Record<AbilityKey, number> | undefined {
-  const controllerId = controllerIdOfToken(room, token);
-  const sheet = controllerId ? room.sheets[controllerId] : undefined;
-  if (sheet) return sheet.abilities;
-  return token.statblock?.abilities;
+  return actorStats(room, token).abilities;
 }
 
 /** Эффективный AC токена с учётом эффектов (Shield, Mage Armor, Barkskin…). */
 export function acForToken(room: Room, token: Token): number {
-  const explicit = statNumber(token.ac);
-  return modifiedValue(
-    explicit > 0 ? explicit : DEFAULT_AC,
-    token.effects,
-    'ac',
-    {},
-    abilitiesForToken(room, token)
-  );
+  const stats = actorStats(room, token);
+  return modifiedValue(stats.ac > 0 ? stats.ac : DEFAULT_AC, token.effects, 'ac', {}, stats.abilities);
 }
 
 /** Модификатор характеристики токена: из листа персонажа или статблока монстра. */
 export function abilityModForToken(room: Room, token: Token, ability: AbilityKey): number {
-  const controllerId = controllerIdOfToken(room, token);
-  const sheet = controllerId ? room.sheets[controllerId] : undefined;
-  const score = sheet ? sheet.abilities[ability] : token.statblock?.abilities?.[ability];
-  return abilityMod(score ?? 10);
+  return abilityMod(actorStats(room, token).abilities?.[ability] ?? 10);
 }
 
 /** Формула проверки характеристики с владением/экспертизой (Выпутаться: STR/Athletics). */

@@ -8,6 +8,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
+import { actorStats } from '../room/actor';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
@@ -53,8 +54,9 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         if (!found) return;
         const scope = scopedToken(ctx, found.mapId, tokenId);
         if (!scope) return;
-        attacks = scope.character ? scope.character.sheet?.attacks : found.token.attacks;
-        prefix = found.token.name;
+        const stats = actorStats(room, found.token);
+        attacks = stats.attacks;
+        prefix = stats.name;
         attacker = found.token;
         attackerMapId = found.mapId;
       } else {
