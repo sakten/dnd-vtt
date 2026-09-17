@@ -1,5 +1,5 @@
 import type { ZoneInstance } from '../domain/automation';
-import { DEFAULT_GRID, DEFAULT_VISION } from '../domain/scene';
+import { DEFAULT_GRID, DEFAULT_VISION, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from '../domain/scene';
 import type { FogState, GridSettings, LightArea, LightAreaKind, MapInfo, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
@@ -60,11 +60,11 @@ export function normalizeGrid(raw: unknown, fallback: GridSettings = DEFAULT_GRI
   };
 }
 
-/** Нормализация областей тьмы/мглы: известные виды, положительные размеры, лимит 200. */
+/** Нормализация областей тьмы/мглы: известные виды, положительные размеры, лимит. */
 export function normalizeLightAreas(raw: unknown): LightArea[] {
   if (!Array.isArray(raw)) return [];
   const out: LightArea[] = [];
-  for (const item of raw.slice(0, 200)) {
+  for (const item of raw.slice(0, MAX_LIGHT_AREAS)) {
     if (!isRecord(item)) continue;
     const kind = LIGHT_AREA_KINDS.includes(item.kind as LightAreaKind) ? (item.kind as LightAreaKind) : null;
     if (!kind) continue;
@@ -82,7 +82,7 @@ export function normalizeLightAreas(raw: unknown): LightArea[] {
 export function normalizeWalls(raw: unknown): Wall[] {
   if (!Array.isArray(raw)) return [];
   const out: Wall[] = [];
-  for (const item of raw.slice(0, 2000)) {
+  for (const item of raw.slice(0, MAX_WALL_SEGMENTS)) {
     if (!isRecord(item)) continue;
     const { x1, y1, x2, y2 } = item;
     if (![x1, y1, x2, y2].every((v) => Number.isFinite(v))) continue;

@@ -63,6 +63,11 @@ export const DEFAULT_GRID: GridSettings = {
   snap: true,
 };
 
+/** Лимиты патчей карты: больше сервер не принимает (усекает). */
+export const MAX_FOG_CELLS = 50_000;
+export const MAX_WALL_SEGMENTS = 2000;
+export const MAX_LIGHT_AREAS = 200;
+
 export function defaultFog(grid: GridSettings): FogState {
   return { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY, hidden: [] };
 }

@@ -1,5 +1,7 @@
 import {
   isRecord,
+  MAX_FOG_CELLS,
+  MAX_WALL_SEGMENTS,
   normalizeGrid,
   normalizeLightAreas,
   snapToGrid,
@@ -68,7 +70,9 @@ export function registerMapHandlers(ctx: ConnCtx) {
         offsetX,
         offsetY,
         hidden: Array.isArray(fog.hidden)
-          ? fog.hidden.filter((k) => typeof k === 'string' && /^-?\d+,-?\d+$/.test(k)).slice(0, 50000)
+          ? fog.hidden
+              .filter((k) => typeof k === 'string' && /^-?\d+,-?\d+$/.test(k))
+              .slice(0, MAX_FOG_CELLS)
           : [],
       };
       broadcast('fog:update', { mapId, fog: map.fog });
@@ -94,7 +98,7 @@ export function registerMapHandlers(ctx: ConnCtx) {
           y2: Number(w.y2),
         }))
         .filter((w) => w.id && kinds.has(w.kind) && [w.x1, w.y1, w.x2, w.y2].every(Number.isFinite))
-        .slice(0, 2000)
+        .slice(0, MAX_WALL_SEGMENTS)
         .map((w) => ({
           id: w.id,
           kind: w.kind as Wall['kind'],
