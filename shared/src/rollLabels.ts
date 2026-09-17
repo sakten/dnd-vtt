@@ -36,8 +36,12 @@ export function rollLabelText(kind: RollKind, params: RollLabelParams = {}): str
       if (params.saveOutcome) out += params.saveOutcome === 'success' ? ' — Успех' : ' — Провал';
       return out;
     }
-    case 'check':
-      return `Проверка: ${params.subject ?? ''}`;
+    case 'check': {
+      let out = `Проверка: ${params.subject ?? ''}`;
+      if (typeof params.dc === 'number') out += ` · Сл ${params.dc}`;
+      if (params.checkOutcome) out += params.checkOutcome === 'success' ? ' — Успех' : ' — Провал';
+      return out;
+    }
     case 'death':
       return `Спасбросок от смерти: ${DEATH_OUTCOME_TEXT[params.outcome ?? 'fail']} (успехи ${
         params.successes ?? 0

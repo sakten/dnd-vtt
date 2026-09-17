@@ -3,6 +3,7 @@ import { sheetOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
+import { pushRollMessage } from './messages';
 
 /** Дистанция взаимодействия с дверью: 5 фт = сторона клетки. */
 const DOOR_REACH_CELLS = 1;
@@ -121,13 +122,18 @@ export function registerDoorHandlers(ctx: ConnCtx) {
       }
       const bonus = pickBonus(room, actor);
       const roll = rollDice(bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`);
-      if (roll.total < dc) {
-        ctx.systemMessage(room, `${actor.name}: Ловкость рук ${roll.total} против Сл ${dc} — не удалось`);
-        return;
-      }
+      const success = roll.total >= dc;
+      // Бросок идёт в чат карточкой (как проверки из roll menu), а не системной строкой.
+      pushRollMessage(ctx, room, {
+        author: actor.name,
+        roll,
+        kind: 'check',
+        params: { subject: 'Взлом двери', dc, checkOutcome: success ? 'success' : 'fail' },
+      });
+      if (!success) return;
       door.open = true;
       door.pickDc = 0; // взломана: следующим игрокам взламывать не нужно
-      finish(`${actor.name}: Ловкость рук ${roll.total} против Сл ${dc} — дверь взломана`);
+      ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
       return;
     }
 

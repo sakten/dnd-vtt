@@ -23,6 +23,10 @@ export interface RollLabelParams {
   failures?: number;
   /** Исход обычного спасброска. */
   saveOutcome?: 'success' | 'fail';
+  /** Проверка: сложность (для отображения). */
+  dc?: number;
+  /** Исход проверки. */
+  checkOutcome?: 'success' | 'fail';
   /** Тип урона (ключ) для отображения. */
   damageType?: string;
   /** Учёт защиты цели (сопротивление/иммунитет/уязвимость). */

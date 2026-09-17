@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { CharacterSheet, ChatMessage, Wall } from 'shared';
+import type { CharacterSheet, ChatMessage, RollMessage, Wall } from 'shared';
 import { makeConnCtx } from '../test/ctx';
 import { makeRoom, makeToken } from '../test/fixtures';
 import type { Room } from '../roomTypes';
@@ -53,6 +53,12 @@ const texts = (events: { event: string; payload: unknown }[]) =>
     });
 
 const wallsUpdates = (events: { event: string }[]) => events.filter((e) => e.event === 'walls:update');
+
+const rolls = (events: { event: string; payload: unknown }[]): RollMessage[] =>
+  events
+    .filter((e) => e.event === 'chat:message')
+    .map((e) => e.payload as ChatMessage)
+    .filter((m): m is RollMessage => m.kind === 'roll');
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -129,7 +135,7 @@ describe('door:toggle', () => {
     expect(player.selfEvents('chat:error')[0]!.payload).toContain('бою');
   });
 
-  it('взлом вне боя: успех снимает замок, провал — повторяем', () => {
+  it('взлом вне боя: проверка карточкой, успех снимает замок, провал — повторяем', () => {
     const { room, map } = makeDoorRoom();
     map.walls[0]!.pickDc = 15;
     const player = makeConnCtx(room, { playerId: 'p1' });
@@ -138,13 +144,19 @@ describe('door:toggle', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBeUndefined();
-    expect(texts(player.emitted).at(-1)).toContain('не удалось');
+    expect(wallsUpdates(player.emitted)).toHaveLength(0);
+    const failRoll = rolls(player.emitted).at(-1);
+    expect(failRoll?.rollKind).toBe('check');
+    expect(failRoll?.labelParams).toMatchObject({ subject: 'Взлом двери', dc: 15, checkOutcome: 'fail' });
 
     vi.spyOn(Math, 'random').mockReturnValue(0.999);
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBe(true);
     expect(map.walls[0]!.pickDc).toBe(0); // взломана — следующим не нужно
-    expect(texts(player.emitted).at(-1)).toContain('взломана');
+    expect(wallsUpdates(player.emitted)).toHaveLength(1);
+    const okRoll = rolls(player.emitted).at(-1);
+    expect(okRoll?.rollKind).toBe('check');
+    expect(okRoll?.labelParams).toMatchObject({ subject: 'Взлом двери', dc: 15, checkOutcome: 'success' });
   });
 
   it('canInteract-токен без листа взламывает Ловкостью (ЛОВ статблока)', () => {

@@ -17,6 +17,15 @@ describe('rollLabelText', () => {
     expect(rollLabelText('check', { subject: 'Атлетика' })).toBe('Проверка: Атлетика');
   });
 
+  it('проверка со сложностью и исходом', () => {
+    expect(rollLabelText('check', { subject: 'Взлом двери', dc: 15, checkOutcome: 'success' })).toBe(
+      'Проверка: Взлом двери · Сл 15 — Успех'
+    );
+    expect(rollLabelText('check', { subject: 'Взлом двери', dc: 15, checkOutcome: 'fail' })).toBe(
+      'Проверка: Взлом двери · Сл 15 — Провал'
+    );
+  });
+
   it('спасбросок от смерти', () => {
     expect(rollLabelText('death', { outcome: 'success', successes: 2, failures: 1 })).toBe(
       'Спасбросок от смерти: успех (успехи 2/3, провалы 1/3)'
