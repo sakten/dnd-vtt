@@ -28,6 +28,9 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
   if (!result.success) {
     for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
     removeZonesOfSource(ctx, room, token.id);
-    ctx.systemMessage(room, `${token.name}: концентрация прервана (${result.names.join(', ')})`);
+    ctx.systemMessage(room, {
+      code: 'concentration.broken',
+      params: { name: token.name, effects: result.names.join(', ') },
+    });
   }
 }

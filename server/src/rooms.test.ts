@@ -483,7 +483,7 @@ describe('RoomManager состояния', () => {
     room.scene.maps[0]!.tokens = [tk];
 
     const res = manager.tickConditions(room, tk, 'start');
-    expect(res.removed).toContain('Сбит с ног');
+    expect(res.removed.map((r) => r.name)).toContain('Сбит с ног');
     expect(res.saves).toHaveLength(1);
     expect(res.saves[0]!.success).toBe(true);
     expect(tk.conditions).toHaveLength(0);

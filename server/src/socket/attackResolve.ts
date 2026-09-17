@@ -393,7 +393,7 @@ export function applyWeaponAttackDamage(
     const ride = plan.attacker && plan.attackerMapId
       ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders)
       : { expr: '', notes: [] };
-    for (const note of ride.notes) ctx.systemMessage(room, note);
+    for (const note of ride.notes) ctx.systemMessage(room, { code: 'attack.riderNote', params: { note } });
     const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;
     const damageRoll = savageAttackerRoll(ctx, room, plan, fullDamageExpr, crit);
     const damage = applyDamage(ctx, {

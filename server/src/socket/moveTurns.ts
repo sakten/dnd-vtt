@@ -21,7 +21,7 @@ export function startMovementTurns(ctx: ConnCtx, room: Room, mapId: string, cast
   if (!queue.length) return;
   combat.moveReturn = active.id;
   combat.moveQueue = queue;
-  ctx.systemMessage(room, `${caster.name}: Мантия вдохновения — движение по очереди инициативы`);
+  ctx.systemMessage(room, { code: 'movement.mantle', params: { name: caster.name } });
   beginNextMovementTurn(ctx, room, mapId);
 }
 
@@ -53,6 +53,6 @@ function beginNextMovementTurn(ctx: ConnCtx, room: Room, mapId: string): boolean
   const next = combat.moveQueue.shift()!;
   ctx.manager.beginMovementTurn(room, mapId, next);
   const entry = combat.entries.find((e) => e.id === next);
-  ctx.systemMessage(room, `Ход движения: ${entry?.name ?? '?'} — подвиньтесь и завершите ход`);
+  ctx.systemMessage(room, { code: 'movement.turn', params: { name: entry?.name ?? '?' } });
   return true;
 }

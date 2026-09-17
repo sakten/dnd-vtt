@@ -89,7 +89,7 @@ export function applyReactionChoice(
       // Magic Initiate: приоритет бесплатного каста, как в `spell:cast`.
       ctx.manager.spendResource(room, cid, chargeKey, 1);
       ctx.emitResources(room, cid);
-      ctx.systemMessage(room, `${token.name}: ${spell.name} — каст без ячейки (фит)`);
+      ctx.systemMessage(room, { code: 'spells.featCast', params: { name: token.name, spell: spell.name } });
     } else if (cid) {
       if (!ctx.manager.spendSpellSlot(room, cid, spell.level)) return;
       ctx.emitResources(room, cid);
@@ -119,7 +119,10 @@ export function applyReactionChoice(
     };
     ctx.manager.applyEffect(room, token, effect);
     ctx.emitToken(room, 'token:update', choice.mapId, token);
-    ctx.systemMessage(room, `${token.name}: ${spell.name} — сопротивление (${damageType})`);
+    ctx.systemMessage(room, {
+      code: 'spells.resistance',
+      params: { name: token.name, spell: spell.name, type: damageType },
+    });
     ctx.syncCombat(room, choice.mapId);
     return;
   }
@@ -203,7 +206,10 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
         countered = applyCounterspell(ctx, currentRoom, choice, input);
       }
       if (countered) {
-        ctx.systemMessage(currentRoom, `${input.caster.name}: ${input.spell.name} — отменено Counterspell`);
+        ctx.systemMessage(currentRoom, {
+          code: 'spells.countered',
+          params: { name: input.caster.name, spell: input.spell.name },
+        });
         return;
       }
       resolveSpellCast(ctx, input);

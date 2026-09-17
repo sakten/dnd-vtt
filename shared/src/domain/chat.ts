@@ -1,11 +1,18 @@
 import type { DiceRollResult } from '../dice';
 import type { DamageDefenseType } from './damage';
 
+/** Структурная системная метка: код + параметры; текст рендерит клиент (i18n). */
+export interface SystemText {
+  code: string;
+  params?: Record<string, string | number>;
+}
+
 export interface TextMessage {
   id: string;
   kind: 'text';
   author: string;
   text: string;
+  system?: SystemText;
   ts: number;
 }
 

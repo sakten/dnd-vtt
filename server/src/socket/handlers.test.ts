@@ -124,7 +124,7 @@ describe('action:use', () => {
 
     expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(combatOf(room).turns.e1!.movementMax).toBe(60);
-    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('Рывок'))).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.extraMovement')).toBe(true);
   });
 
   it('Второе дыхание лечит 1d10 + уровень воина и тратит ресурс', () => {
@@ -973,7 +973,7 @@ describe('action:use', () => {
 
     expect(target.hpCurrent).toBe(30);
     expect(target.effects).toHaveLength(0);
-    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('образ принял удар'))).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'misdirect.hit')).toBe(true);
   });
 });
 
@@ -3198,7 +3198,7 @@ describe('реакции (R1)', () => {
     f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'spell:XPHB:Counterspell' });
 
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
-    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('Counterspell'))).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'spells.countered')).toBe(true);
     expect(combatOf(room).turns.e3!.reactionUsed).toBe(true);
     expect(room.resources.p2!.spellSlots[0]!.current).toBe(0);
   });

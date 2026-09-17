@@ -86,9 +86,13 @@ export function tickConditions(
   room: Room,
   token: Token,
   phase: 'start' | 'end'
-): { changed: boolean; saves: { name: string; roll: DiceRollResult; success: boolean }[]; removed: string[] } {
+): {
+  changed: boolean;
+  saves: { name: string; roll: DiceRollResult; success: boolean }[];
+  removed: { key: ConditionKey; name: string }[];
+} {
   const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
-  const removed: string[] = [];
+  const removed: { key: ConditionKey; name: string }[] = [];
   let changed = false;
   const kept = token.conditions.filter((cond) => {
     let remove = false;
@@ -101,7 +105,7 @@ export function tickConditions(
       cond.rounds -= 1;
       if (cond.rounds <= 0) {
         remove = true;
-        removed.push(cond.name);
+        removed.push({ key: cond.key, name: cond.name });
       }
     }
     if (remove) changed = true;

@@ -34,6 +34,11 @@ export function misdirectCheck(
   if (left <= 0) ctx.manager.removeEffect(room, target, effect.id);
   else effect.misdirect = { ...misdirect, charges: left };
   ctx.emitToken(room, 'token:update', mapId, target);
-  ctx.systemMessage(room, `${target.name}: образ принял удар${left > 0 ? ` (осталось ${left})` : ''}`);
+  ctx.systemMessage(
+    room,
+    left > 0
+      ? { code: 'misdirect.hitLeft', params: { name: target.name, left } }
+      : { code: 'misdirect.hit', params: { name: target.name } }
+  );
   return true;
 }

@@ -349,7 +349,11 @@ export class RoomManager {
     room: Room,
     token: Token,
     phase: 'start' | 'end'
-  ): { changed: boolean; saves: { name: string; roll: DiceRollResult; success: boolean }[]; removed: string[] } {
+  ): {
+    changed: boolean;
+    saves: { name: string; roll: DiceRollResult; success: boolean }[];
+    removed: { key: ConditionKey; name: string }[];
+  } {
     return Effects.tickConditions(this, room, token, phase);
   }
 

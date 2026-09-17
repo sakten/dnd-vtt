@@ -49,7 +49,8 @@ const texts = (events: { event: string; payload: unknown }[]) =>
     .filter((e) => e.event === 'chat:message')
     .map((e) => {
       const message = e.payload as ChatMessage;
-      return message.kind === 'text' ? message.text : '';
+      if (message.kind !== 'text') return '';
+      return message.system?.code ?? message.text;
     });
 
 const wallsUpdates = (events: { event: string }[]) => events.filter((e) => e.event === 'walls:update');
@@ -73,7 +74,7 @@ describe('door:toggle', () => {
     expect(map.walls[0]!.open).toBe(true);
     expect(map.walls[0]!.pickDc).toBe(15);
     expect(wallsUpdates(dm.emitted)).toHaveLength(1);
-    expect(texts(dm.emitted).at(-1)).toContain('открыл');
+    expect(texts(dm.emitted).at(-1)).toContain('doors.opened');
 
     dm.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBe(false);
@@ -88,7 +89,7 @@ describe('door:toggle', () => {
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBe(true);
     expect(wallsUpdates(player.emitted)).toHaveLength(1);
-    expect(texts(player.emitted).at(-1)).toContain('открыл');
+    expect(texts(player.emitted).at(-1)).toContain('doors.opened');
   });
 
   it('чужой токен и токен не в радиусе — ничего не делают', () => {
@@ -190,7 +191,7 @@ describe('door:toggle', () => {
 
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBe(false);
-    expect(texts(player.emitted).at(-1)).toContain('закрыл');
+    expect(texts(player.emitted).at(-1)).toContain('doors.closed');
   });
 });
 

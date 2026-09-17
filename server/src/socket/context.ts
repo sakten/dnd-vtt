@@ -12,6 +12,7 @@ import {
   type ClientToServerEvents,
   type LibraryItem,
   type ServerToClientEvents,
+  type SystemText,
   type Token,
 } from 'shared';
 import type { RoomManager } from '../rooms';
@@ -130,7 +131,7 @@ export interface ConnCtx {
   ) => void;
   syncCombat: (room: Room, mapId: string) => void;
   cleanLabel: (label?: string) => string | undefined;
-  systemMessage: (room: Room, text: string) => void;
+  systemMessage: (room: Room, text: string | SystemText) => void;
   emitJoined: (room: Room, selfId: string) => void;
   classIdentity: (classes?: ClassLevel[]) => string;
 }

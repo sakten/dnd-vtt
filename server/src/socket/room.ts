@@ -48,7 +48,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
         existing.isConnected = true;
       } else {
         room.players.push({ id: playerId, name: displayName, role: 'player', isConnected: true, socketId: socket.id });
-        systemMessage(room, `${displayName} вошёл в комнату`);
+        systemMessage(room, { code: 'room.joined', params: { name: displayName } });
       }
       ctx.roomCode = room.code;
       ctx.playerId = playerId;
@@ -72,10 +72,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       }
       broadcastLibrary(room);
       broadcastAll('room:settings', { testMode: enabled });
-      systemMessage(
-        room,
-        enabled ? 'Режим тестов включён: у всех участников права ведущего' : 'Режим тестов выключен'
-      );
+      systemMessage(room, { code: enabled ? 'room.testModeOn' : 'room.testModeOff' });
     });
 
     ctx.on('player:remove', ({ id }) => {
@@ -125,7 +122,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
           p.isConnected = false;
           manager.saveSoon(r);
           ctx.notifyPlayers(r);
-          systemMessage(r, `${p.name} вышел из комнаты`);
+          systemMessage(r, { code: 'room.left', params: { name: p.name } });
         }, LEAVE_GRACE_MS)
       );
     });

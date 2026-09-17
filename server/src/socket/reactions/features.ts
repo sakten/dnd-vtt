@@ -124,7 +124,10 @@ export function applyAttackRollChoices(
       if (imposed) continue; // помеха не складывается — остальным ресурс не тратим
       if (!spendFeatureCost(ctx, room, target, choice.mapId, def)) continue;
       imposed = true;
-      ctx.systemMessage(room, `${target.name}: ${def.name} — помеха на атаку`);
+      ctx.systemMessage(room, {
+        code: 'reactions.disadvantage',
+        params: { name: target.name, feature: def.name },
+      });
     }
   }
   if (imposed) ctx.syncCombat(room, mapId);
@@ -155,7 +158,18 @@ export function applyCounterAttack(
   const boosted: AttackEntry = dieExpr
     ? { ...attack, damage: attack.damage ? `${attack.damage} + ${dieExpr}` : dieExpr }
     : attack;
-  ctx.systemMessage(room, `${reactor.name}: ${def.name}${dieExpr ? ` (+${dieExpr})` : ''} по ${opponent.name}`);
+  ctx.systemMessage(
+    room,
+    dieExpr
+      ? {
+          code: 'reactions.counterAttackDie',
+          params: { name: reactor.name, feature: def.name, die: dieExpr, target: opponent.name },
+        }
+      : {
+          code: 'reactions.counterAttack',
+          params: { name: reactor.name, feature: def.name, target: opponent.name },
+        }
+  );
   resolveWeaponAttack(ctx, {
     attacker: reactor,
     attackerMapId: choice.mapId,
@@ -273,7 +287,10 @@ export function applyDeflectRedirect(
       params: { subject: 'Отражение атак' },
     });
   }
-  ctx.systemMessage(room, `${monk.name}: Отражение атак${success ? ` — ${attacker.name} увернулся` : ` → ${attacker.name}`}`);
+  ctx.systemMessage(room, {
+    code: success ? 'reactions.deflectDodged' : 'reactions.deflectRedirected',
+    params: { name: monk.name, attacker: attacker.name },
+  });
 }
 
 /** Офферы Направленного удара (+10 к промаху): сам атакующий (без реакции) и союзники в 30 фт. */
@@ -328,7 +345,10 @@ export function applyRollBonusChoices(ctx: ConnCtx, room: Room, plan: WeaponAtta
       }
     } else if (!spendFeatureCost(ctx, room, owner, choice.mapId, def)) continue;
     bonus += def.amount ?? 0;
-    ctx.systemMessage(room, `${owner.name}: ${def.name} (+${def.amount ?? 0} к броску)`);
+    ctx.systemMessage(room, {
+      code: 'reactions.rollBonus',
+      params: { name: owner.name, feature: def.name, amount: def.amount ?? 0 },
+    });
   }
   return bonus;
 }

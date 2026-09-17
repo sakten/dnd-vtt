@@ -61,7 +61,7 @@ function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
   if (!success) return;
   ctx.manager.removeEffect(room, token, effect.id);
   ctx.emitToken(room, 'token:update', mapId, token);
-  ctx.systemMessage(room, `${token.name}: выпутался из «${effect.name}»`);
+  ctx.systemMessage(room, { code: 'actions.escaped', params: { name: token.name, effect: effect.name } });
 }
 
 /** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */
@@ -200,6 +200,14 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       // Заглушки: Help/Ready/Grapple/Shove/UseObject и черты без механики.
       const summary = action.description ? firstSentence(action.description) : '';
-      systemMessage(room, summary ? `${token.name}: ${action.name} — ${summary}` : `${token.name}: ${action.name}`);
+      systemMessage(
+        room,
+        summary
+          ? {
+              code: 'actions.usedSummary',
+              params: { name: token.name, action: action.name, summary },
+            }
+          : { code: 'actions.used', params: { name: token.name, action: action.name } }
+      );
     });
 }

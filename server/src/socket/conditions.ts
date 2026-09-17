@@ -1,4 +1,3 @@
-import { conditionName } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushSaveMessage } from './effects';
@@ -19,8 +18,11 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
   for (const save of conditions.saves) {
     pushSaveMessage(ctx, room, `${save.name} · ${token.name}`, save.roll, save.success);
   }
-  for (const name of conditions.removed) {
-    ctx.systemMessage(room, `${token.name}: состояние «${name}» окончено`);
+  for (const removed of conditions.removed) {
+    ctx.systemMessage(room, {
+      code: 'conditions.ended',
+      params: { name: token.name, condition: removed.key, label: removed.name },
+    });
   }
 
   const effects = ctx.manager.tickEffects(room, token, phase);
@@ -28,10 +30,13 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
     pushSaveMessage(ctx, room, `${save.name} · ${token.name}`, save.roll, save.success);
   }
   for (const name of effects.removed) {
-    ctx.systemMessage(room, `${token.name}: эффект «${name}» окончен`);
+    ctx.systemMessage(room, { code: 'conditions.effectEnded', params: { name: token.name, effect: name } });
   }
   for (const esc of effects.escalated) {
-    ctx.systemMessage(room, `${token.name}: «${esc.name}» — ${conditionName(esc.condition)}`);
+    ctx.systemMessage(room, {
+      code: 'conditions.escalated',
+      params: { name: token.name, effect: esc.name, condition: esc.condition },
+    });
   }
 
   // Зоны: аура, вход/выход, startOfTurn/endOfTurn.

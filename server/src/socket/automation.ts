@@ -221,7 +221,10 @@ function openSaveInspiration(
         const bonus = spendBonusDie(ctx, currentRoom, choice.mapId, target, id.slice('bonusdie:'.length));
         if (bonus > 0 && !save.autoFail && save.roll.total + bonus >= dc) {
           save.success = true;
-          ctx.systemMessage(currentRoom, `${target.name}: Бардовское вдохновение — спасбросок успешен`);
+          ctx.systemMessage(currentRoom, {
+            code: 'automation.bardicSuccess',
+            params: { name: target.name },
+          });
         }
       }
       resume();
@@ -320,8 +323,11 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
     ctx.systemMessage(
       room,
       applied.length
-        ? `${caster.name}: ${def.name} → ${applied.join(', ')}`
-        : `${caster.name}: ${def.name} — без эффекта`
+        ? {
+            code: 'automation.effectsApplied',
+            params: { name: caster.name, feature: def.name, targets: applied.join(', ') },
+          }
+        : { code: 'automation.effectsNone', params: { name: caster.name, feature: def.name } }
     );
   };
 
@@ -344,30 +350,45 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     const amount = Math.max(1, Math.round(utility.amount ?? 1));
     if (turn) turn.extraActions += amount;
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${amount} действие)`);
+    ctx.systemMessage(room, {
+      code: 'automation.extraAction',
+      params: { name: input.caster.name, feature: input.def.name, amount },
+    });
   },
   extraMovement: ({ ctx, room, input }) => {
     const speed = ctx.manager.tokenSpeed(room, input.caster);
     ctx.manager.grantExtraMovement(room, input.mapId, input.caster, speed);
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${speed} фт передвижения)`);
+    ctx.systemMessage(room, {
+      code: 'automation.extraMovement',
+      params: { name: input.caster.name, feature: input.def.name, speed },
+    });
   },
   disengage: ({ ctx, room, input, turn }) => {
     if (turn) turn.disengaged = true;
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name}`);
+    ctx.systemMessage(room, {
+      code: 'automation.utility',
+      params: { name: input.caster.name, feature: input.def.name },
+    });
   },
   extraAttacks: ({ ctx, room, input, utility, turn }) => {
     const amount = Math.max(1, Math.round(utility.amount ?? 2));
     if (turn) turn.flurryAttacks += amount;
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${amount})`);
+    ctx.systemMessage(room, {
+      code: 'automation.extraAttacks',
+      params: { name: input.caster.name, feature: input.def.name, amount },
+    });
   },
   weaponAttack: ({ ctx, room, input, utility, turn }) => {
     const amount = Math.max(1, Math.round(utility.amount ?? 1));
     if (turn) turn.attacksRemaining += amount;
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (+${amount} атака оружием)`);
+    ctx.systemMessage(room, {
+      code: 'automation.weaponAttacks',
+      params: { name: input.caster.name, feature: input.def.name, amount },
+    });
   },
   healPool: ({ ctx, room, input, utility }) => {
     // Поддержание жизни: пул HP распределяется по раненым союзникам до половины максимума.
@@ -392,8 +413,11 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     ctx.systemMessage(
       room,
       healed.length
-        ? `${input.caster.name}: ${input.def.name} → ${healed.join(', ')}`
-        : `${input.caster.name}: ${input.def.name} — нет раненых`
+        ? {
+            code: 'automation.healPool',
+            params: { name: input.caster.name, feature: input.def.name, targets: healed.join(', ') },
+          }
+        : { code: 'automation.healPoolNone', params: { name: input.caster.name, feature: input.def.name } }
     );
   },
   tempHp: ({ ctx, room, input, utility }) => {
@@ -423,12 +447,14 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       ctx.emitToken(room, 'token:update', input.mapId, target);
     }
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(
-      room,
-      `${input.caster.name}: ${input.def.name} → ${input.targets
-        .map((t) => `${t.name} +${amount} врем. HP`)
-        .join(', ')}`
-    );
+    ctx.systemMessage(room, {
+      code: 'automation.tempHp',
+      params: {
+        name: input.caster.name,
+        feature: input.def.name,
+        targets: input.targets.map((t) => `${t.name} +${amount} врем. HP`).join(', '),
+      },
+    });
     if (utility.thenMove) startMovementTurns(ctx, room, input.mapId, input.caster, input.targets);
   },
   patientDefense: ({ ctx, room, input, turn }) => {
@@ -446,14 +472,20 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     });
     ctx.emitToken(room, 'token:update', input.mapId, input.caster);
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (Отход + Уклонение)`);
+    ctx.systemMessage(room, {
+      code: 'automation.patientDefense',
+      params: { name: input.caster.name, feature: input.def.name },
+    });
   },
   stepOfTheWind: ({ ctx, room, input, turn }) => {
     if (turn) turn.disengaged = true;
     const speed = ctx.manager.tokenSpeed(room, input.caster);
     ctx.manager.grantExtraMovement(room, input.mapId, input.caster, speed);
     ctx.syncCombat(room, input.mapId);
-    ctx.systemMessage(room, `${input.caster.name}: ${input.def.name} (Отход + Рывок)`);
+    ctx.systemMessage(room, {
+      code: 'automation.stepOfTheWind',
+      params: { name: input.caster.name, feature: input.def.name },
+    });
   },
   check: ({ ctx, room, input, utility }) => {
     const ability = utility.ability ?? 'dex';
@@ -705,10 +737,15 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   if (!expression) {
     if (def.zone) return; // зона уже создана; отдельного сообщения не нужно
     const level = input.manual?.level;
-    const levelText =
-      level === undefined ? '' : level === 0 ? ' (фокус)' : ` (${input.manual?.castLevel ?? level} круг)`;
     const detail = input.manual?.description?.[0] ? `\n${input.manual.description[0]}` : '';
-    ctx.systemMessage(room, `${caster.name}: ${def.name}${levelText}${detail}`);
+    const params = { name: caster.name, feature: def.name, detail };
+    if (level === undefined) ctx.systemMessage(room, { code: 'automation.manual', params });
+    else if (level === 0) ctx.systemMessage(room, { code: 'automation.manualCantrip', params });
+    else
+      ctx.systemMessage(room, {
+        code: 'automation.manualLevel',
+        params: { ...params, level: input.manual?.castLevel ?? level },
+      });
     return;
   }
 

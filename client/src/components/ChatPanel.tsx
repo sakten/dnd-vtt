@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
 import { rollMessageLabel } from '../i18n/rolls';
+import { systemText } from '../i18n/system';
 import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
@@ -100,7 +101,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
     return (
       <div className={`chat-msg${grouped ? ' grouped' : ''}`} data-testid="chat-msg">
         {!grouped && <span className="chat-author">{authorLabel(message.author)}:</span>}
-        <span className="chat-text"> {message.text}</span>
+        <span className="chat-text"> {systemText(message)}</span>
       </div>
     );
   }

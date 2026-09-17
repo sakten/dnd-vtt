@@ -179,7 +179,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
             if (changed.token !== token) emitToken(room, 'token:update', changed.mapId, changed.token);
           }
           removeZonesOfSource(ctx, room, token.id);
-          ctx.systemMessage(room, `${token.name}: концентрация прекращена`);
+          ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });
         }
       }
       if (isDm()) {

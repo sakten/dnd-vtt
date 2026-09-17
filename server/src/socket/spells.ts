@@ -150,7 +150,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     if (spell.level > 0 && freeCast && featChargeKey) {
       manager.spendResource(room, ctx.playerId!, featChargeKey, 1);
       ctx.emitResources(room, ctx.playerId!);
-      ctx.systemMessage(room, `${token.name}: ${spell.name} — каст без ячейки (фит)`);
+      ctx.systemMessage(room, { code: 'spells.featCast', params: { name: token.name, spell: spell.name } });
     } else if (spell.level > 0) {
       if (className) {
         if (!manager.spendSpellSlot(room, ctx.playerId, castLevel)) {
@@ -199,7 +199,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     removeZonesOfSource(ctx, room, token.id);
     if (!changed.length) return;
     for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
-    ctx.systemMessage(room, `${token.name}: концентрация прекращена`);
+    ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });
     syncCombat(room, mapId);
   });
 }

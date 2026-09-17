@@ -1,4 +1,4 @@
-import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, type Token, type Wall } from 'shared';
+import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, type SystemText, type Token, type Wall } from 'shared';
 import { sheetOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
@@ -88,8 +88,8 @@ export function registerDoorHandlers(ctx: ConnCtx) {
     const door = map.walls.find((w) => w.id === wallId && w.kind === 'door');
     if (!door) return;
 
-    const finish = (text: string) => {
-      ctx.systemMessage(room, text);
+    const finish = (message: SystemText) => {
+      ctx.systemMessage(room, message);
       // Автору тоже (у дверей нет локальной оптимистики — ждём подтверждения сервера).
       ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
     };
@@ -97,7 +97,7 @@ export function registerDoorHandlers(ctx: ConnCtx) {
     // DM/тест-режим: всегда, замок не ломается.
     if (ctx.isDm()) {
       door.open = !door.open;
-      finish(`${nameOf(room, ctx.playerId)} ${door.open ? 'открыл(а)' : 'закрыл(а)'} дверь`);
+      finish({ code: door.open ? 'doors.opened' : 'doors.closed', params: { name: nameOf(room, ctx.playerId) } });
       return;
     }
 
@@ -111,7 +111,7 @@ export function registerDoorHandlers(ctx: ConnCtx) {
     // Открытая дверь закрывается свободно (в том числе в бою).
     if (door.open) {
       door.open = false;
-      finish(`${actor.name} закрыл(а) дверь`);
+      finish({ code: 'doors.closed', params: { name: actor.name } });
       return;
     }
 
@@ -138,6 +138,6 @@ export function registerDoorHandlers(ctx: ConnCtx) {
     }
 
     door.open = true;
-    finish(`${actor.name} открыл(а) дверь`);
+    finish({ code: 'doors.opened', params: { name: actor.name } });
   });
 }

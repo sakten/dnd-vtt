@@ -43,7 +43,10 @@ export function executeOpportunityAttack(
   const attack = opportunityAttack(ctx, room, reactor);
   if (!attack) return;
   if (!ctx.manager.spendSlot(room, mapId, reactor, 'reaction')) return;
-  ctx.systemMessage(room, `${reactor.name}: атака по возможности по ${mover.name}`);
+  ctx.systemMessage(room, {
+    code: 'reactions.opportunity',
+    params: { name: reactor.name, target: mover.name },
+  });
   const result = resolveWeaponAttack(ctx, {
     attacker: reactor,
     attackerMapId: mapId,
@@ -54,7 +57,12 @@ export function executeOpportunityAttack(
     author: reactor.name,
     ignoreRange: true,
   });
-  if (result.error) ctx.systemMessage(room, `${reactor.name}: ${result.error.code}`);
+  if (result.error) {
+    ctx.systemMessage(room, {
+      code: 'reactions.opportunityError',
+      params: { name: reactor.name, error: result.error.code, ...(result.error.params ?? {}) },
+    });
+  }
   ctx.syncCombat(room, mapId);
 }
 

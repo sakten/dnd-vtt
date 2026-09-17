@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type ChatMessage, type DiceRollResult, type RollKind, type RollLabelParams } from 'shared';
+import { type ChatMessage, type DiceRollResult, type RollKind, type RollLabelParams, type SystemText } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 
@@ -31,9 +31,17 @@ export function pushRollMessage(ctx: ConnCtx, room: Room, input: RollMessageInpu
   return message;
 }
 
-/** Текстовое сообщение в чат (по умолчанию системное). */
-export function pushTextMessage(ctx: ConnCtx, room: Room, text: string, author = 'Система'): ChatMessage {
-  const message: ChatMessage = { id: randomUUID(), kind: 'text', author, text, ts: Date.now() };
+/** Текстовое сообщение в чат (по умолчанию системное); объект — структурная метка для i18n. */
+export function pushTextMessage(
+  ctx: ConnCtx,
+  room: Room,
+  text: string | SystemText,
+  author = 'Система'
+): ChatMessage {
+  const message: ChatMessage =
+    typeof text === 'string'
+      ? { id: randomUUID(), kind: 'text', author, text, ts: Date.now() }
+      : { id: randomUUID(), kind: 'text', author, text: '', system: text, ts: Date.now() };
   ctx.manager.addMessage(room, message);
   ctx.broadcastAll('chat:message', message);
   return message;

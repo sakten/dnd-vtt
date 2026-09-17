@@ -43,6 +43,6 @@ describe('интеграция: отключение', () => {
 
     f.advance(LEAVE_GRACE_MS);
     expect(room.players.find((p) => p.id === 'p1')!.isConnected).toBe(false);
-    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('вышел'))).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'room.left')).toBe(true);
   });
 });
