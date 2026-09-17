@@ -1886,7 +1886,7 @@ describe('spell:cast', () => {
 
     expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
-    expect(room.chat.some((m) => m.kind === 'text' && m.text.includes('провал'))).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.labelParams?.subject?.includes('провал'))).toBe(true);
   });
 
   it('без выбранного заклинания не кастует', () => {

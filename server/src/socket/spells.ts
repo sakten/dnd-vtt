@@ -16,6 +16,7 @@ import {
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { findSpell } from '../spells';
+import { pushRollMessage } from './messages';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
 import { spellClassFor, spellStatsFor } from './spellStats';
 import { validateSpellCast, type SpellCastInput } from './spellResolve';
@@ -176,7 +177,12 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     if (failureChance && spell.components.s) {
       const d100 = rollDice('d100');
       if (d100.total <= failureChance) {
-        ctx.systemMessage(room, `${token.name}: ${spell.name} — провал (${failureChance}%)`);
+        pushRollMessage(ctx, room, {
+          author: token.name,
+          roll: d100,
+          kind: 'plain',
+          params: { subject: `${spell.name} — провал (${failureChance}%)` },
+        });
         return;
       }
     }

@@ -29,6 +29,7 @@ import {
 } from './features';
 import { acBonusOf, applyReactionChoice, reactionSpellOptions } from './spellReactions';
 import { applyBonusDieChoices, applyCombatInspirationChoices, bonusDieOptions } from '../bonusDice';
+import { pushRollMessage } from '../messages';
 
 /** Выбранные в окне попадания черты → модификаторы урона (половина/AC/снижение). */
 function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: ReactionChoice[]): WeaponDamageMods {
@@ -47,7 +48,8 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
       continue;
     }
     if (def.kind === 'reduceDamage') {
-      let reduction = rollDice(def.dice ?? '2d6').total;
+      const roll = rollDice(def.dice ?? '2d6');
+      let reduction = roll.total;
       if (def.abilityBonus) {
         const abilities = (ctx.manager.abilitiesForToken(room, reactor) ?? {}) as Partial<Record<string, number>>;
         reduction += abilityMod(abilities[def.abilityBonus] ?? 10);
@@ -55,20 +57,35 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
       if (def.levelBonusClass) reduction += classLevelOf(room, reactor, def.levelBonusClass);
       mods.flatReduction = (mods.flatReduction ?? 0) + reduction;
       if (def.redirect) mods.redirect = { reactorId: reactor.id, mapId: choiceMapId };
-      ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${reduction} урона)`);
+      pushRollMessage(ctx, room, {
+        author: reactor.name,
+        roll,
+        kind: 'plain',
+        params: { subject: `${def.name} (−${reduction} урона)` },
+      });
       continue;
     }
     if (def.kind === 'acBonus') {
       const die = superiorityDie(classLevelOf(room, reactor, def.className) || 1);
       const roll = rollDice(`1d${die}`);
       mods.extraAc = (mods.extraAc ?? 0) + roll.total;
-      ctx.systemMessage(room, `${reactor.name}: ${def.name} (+${roll.total} к AC)`);
+      pushRollMessage(ctx, room, {
+        author: reactor.name,
+        roll,
+        kind: 'plain',
+        params: { subject: `${def.name} (+${roll.total} к AC)` },
+      });
       continue;
     }
     if (def.kind === 'acBonusAlly') {
       const roll = rollDice(def.dice ?? '1d8');
       mods.extraAc = (mods.extraAc ?? 0) + roll.total;
-      ctx.systemMessage(room, `${reactor.name}: ${def.name} (+${roll.total} к AC)`);
+      pushRollMessage(ctx, room, {
+        author: reactor.name,
+        roll,
+        kind: 'plain',
+        params: { subject: `${def.name} (+${roll.total} к AC)` },
+      });
       continue;
     }
     if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
@@ -77,10 +94,20 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
       const roll = rollDice(expr);
       if (def.kind === 'rollPenalty') {
         mods.extraAc = (mods.extraAc ?? 0) + roll.total;
-        ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${roll.total} к атаке)`);
+        pushRollMessage(ctx, room, {
+          author: reactor.name,
+          roll,
+          kind: 'plain',
+          params: { subject: `${def.name} (−${roll.total} к атаке)` },
+        });
       } else {
         mods.flatReduction = (mods.flatReduction ?? 0) + roll.total;
-        ctx.systemMessage(room, `${reactor.name}: ${def.name} (−${roll.total} урона)`);
+        pushRollMessage(ctx, room, {
+          author: reactor.name,
+          roll,
+          kind: 'plain',
+          params: { subject: `${def.name} (−${roll.total} урона)` },
+        });
       }
     }
   }

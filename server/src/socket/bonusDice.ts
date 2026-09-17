@@ -1,6 +1,7 @@
 import { rollDice, type ReactionOption, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { pushRollMessage } from './messages';
 import type { WeaponAttackPlan } from './attackResolve';
 import type { ReactionChoice } from './reactions/internal';
 
@@ -32,7 +33,12 @@ export function spendBonusDie(ctx: ConnCtx, room: Room, mapId: string, token: To
   const roll = rollDice(effect.bonusDie);
   ctx.manager.removeEffect(room, token, effect.id);
   ctx.emitToken(room, 'token:update', mapId, token);
-  ctx.systemMessage(room, `${token.name}: Бардовское вдохновение (+${roll.total})`);
+  pushRollMessage(ctx, room, {
+    author: token.name,
+    roll,
+    kind: 'plain',
+    params: { subject: effect.name || 'Бардовское вдохновение' },
+  });
   return roll.total;
 }
 
