@@ -1,6 +1,6 @@
 import type { ConnCtx } from './context';
 
-/** Коды серверных ошибок; текст рендерится здесь (задел под i18n, единая точка). */
+/** Коды серверных ошибок; текст рендерит клиент по коду (i18n). */
 export type ErrorCode =
   | 'reactionPending'
   | 'reactionSpent'
@@ -24,39 +24,16 @@ export type ErrorCode =
 export interface ErrorParams {
   /** Футы для `outOfRange`. */
   feet?: number;
-  /** Название способности для `noResource`. */
+  /** Ключ ресурса для `noResource`. */
+  key?: string;
   name?: string;
-}
-
-const ERROR_TEXT: Record<ErrorCode, string> = {
-  reactionPending: 'Ожидание реакции',
-  reactionSpent: 'Реакция уже потрачена',
-  incapacitated: 'Существо недееспособно',
-  spellsBlocked: 'Нельзя использовать заклинания под этим эффектом',
-  immobile: 'Существо не может двигаться (состояние)',
-  notYourTurn: 'Сейчас не ваш ход',
-  actionSpent: 'Действие уже потрачено',
-  noActions: 'Недостаточно действий',
-  noWeapon: 'Не выбрано оружие',
-  spellNotPrepared: 'Заклинание не выбрано в листе',
-  spellNotInStatblock: 'Заклинание не выбрано в статблоке',
-  noAreaPoint: 'Не выбрана точка области',
-  outOfRange: 'Вне дистанции',
-  noSlot: 'Нет ячейки нужного круга',
-  noResource: 'Недостаточно ресурса',
-  checkFailed: 'Не удалось выполнить проверку',
-  badRoll: 'Не удалось распознать бросок',
-  doorLockedInCombat: 'В бою запертую дверь не взломать',
-};
-
-/** Текст ошибки по коду и параметрам. */
-export function errorText(code: ErrorCode, params: ErrorParams = {}): string {
-  if (code === 'outOfRange') return `${ERROR_TEXT[code]}: ${Math.round(params.feet ?? 0)} фт`;
-  if (code === 'noResource') return `${ERROR_TEXT[code]}: ${params.name ?? ''}`.trim();
-  return ERROR_TEXT[code];
 }
 
 /** Отправляет ошибку игроку в чат (единая точка для хендлеров). */
 export function fail(ctx: ConnCtx, code: ErrorCode, params?: ErrorParams) {
-  ctx.socket.emit('chat:error', errorText(code, params));
+  const clean: Record<string, string | number> = {};
+  if (params?.feet !== undefined) clean.feet = params.feet;
+  if (params?.key !== undefined) clean.key = params.key;
+  if (params?.name !== undefined) clean.name = params.name;
+  ctx.socket.emit('chat:error', Object.keys(clean).length ? { code, params: clean } : { code });
 }

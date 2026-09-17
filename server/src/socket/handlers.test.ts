@@ -924,7 +924,7 @@ describe('action:use', () => {
 
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'parry', slot: 'reaction' });
     expect(
-      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Реакция уже потрачена'))
+      f.emitted.some((e) => e.event === 'chat:error' && (e.payload as { code?: string }).code === 'reactionSpent')
     ).toBe(true);
   });
 
@@ -2176,7 +2176,7 @@ describe('spell:cast монстра (статблок)', () => {
     expect(token.statblock?.spellcasting?.slots?.[0]?.current).toBe(1);
     expect(token.effects).toHaveLength(0);
     expect(
-      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('статблоке'))
+      f.emitted.some((e) => e.event === 'chat:error' && (e.payload as { code?: string }).code === 'spellNotInStatblock')
     ).toBe(true);
   });
 
@@ -2200,7 +2200,7 @@ describe('spell:cast монстра (статблок)', () => {
 
     expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
     expect(
-      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Нет ячейки'))
+      f.emitted.some((e) => e.event === 'chat:error' && (e.payload as { code?: string }).code === 'noSlot')
     ).toBe(true);
   });
 });
@@ -2245,7 +2245,7 @@ describe('реакции (R1)', () => {
     // Пока окно открыто, даже DM не может действовать (заморозка).
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'dash' });
     expect(
-      f.emitted.some((e) => e.event === 'chat:error' && String(e.payload).includes('Ожидание реакции'))
+      f.emitted.some((e) => e.event === 'chat:error' && (e.payload as { code?: string }).code === 'reactionPending')
     ).toBe(true);
 
     const f2 = makeCtx(room, { playerId: 'p1' });

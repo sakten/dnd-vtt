@@ -30,7 +30,7 @@ check(grabbed.conditions[0]?.key === 'grappled', 'состояние налож�
 const moveErrP = eventOnce(S.player, 'chat:error');
 S.player.emit('token:move', { mapId: S.map1.id, id: patient.id, x: 900, y: 900 });
 const moveErr = await moveErrP;
-check(/двигаться/.test(moveErr), 'состояние блокирует движение игрока');
+check(moveErr?.code === 'immobile', 'состояние блокирует движение игрока');
 
 S.dm.emit('token:update', { mapId: S.map1.id, id: patient.id, patch: { conditions: [] } });
 await withCondition(patient.id, (t) => t.conditions.length === 0);

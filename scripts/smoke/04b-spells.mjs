@@ -75,7 +75,7 @@ S.player.emit('spell:cast', {
   slotLevel: 1,
 });
 const err = await errP;
-check(/не выбрано/i.test(err), 'чужое заклинание не кастуется (не выбрано в листе)');
+check(err?.code === 'spellNotPrepared', 'чужое заклинание не кастуется (не выбрано в листе)');
 
 const casterRemoved = eventOnce(S.player, 'token:remove');
 S.dm.emit('token:remove', { mapId: S.map1.id, id: caster.id });

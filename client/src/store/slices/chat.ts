@@ -4,6 +4,7 @@ import {
   rollMessageLabel,
 } from 'shared';
 import { emit } from '../helpers';
+import { errorText } from '../../i18n/errors';
 import type { GameState, Slice } from '../types';
 
 export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatError' | 'sendChat' | 'rollDice' | 'rollAttack'>> = (set, get) => {
@@ -21,7 +22,8 @@ export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatErr
         return { chat: [...s.chat, message], critHit };
       }),
 
-    onChatError: (message) => {
+    onChatError: (payload) => {
+      const message = errorText(payload);
       set({ chatError: message });
       setTimeout(() => {
         set((s) => (s.chatError === message ? { chatError: null } : s));

@@ -11,6 +11,12 @@ export interface TextMessage {
 
 export type RollKind = 'attack' | 'damage' | 'heal' | 'save' | 'check' | 'death' | 'plain';
 
+/** Структурная ошибка сервера: код + параметры; текст рендерит клиент (i18n). */
+export interface ErrorPayload {
+  code: string;
+  params?: Record<string, string | number>;
+}
+
 export interface RollLabelParams {
   /** Название атаки/спасброска/проверки (для атак — с префиксом источника). */
   subject?: string;

@@ -155,7 +155,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // Прочие действия: списываем слот, дальше эффект.
       const resourceAmount = action.resourceKey ? Math.max(1, action.resourceAmount ?? 1) : 0;
       if (resourceAmount && !manager.hasResource(room, ctx.playerId, action.resourceKey!, resourceAmount)) {
-        fail(ctx, 'noResource', { name: action.name });
+        fail(ctx, 'noResource', action.resourceKey ? { key: action.resourceKey, name: action.name } : { name: action.name });
         return;
       }
 

@@ -132,7 +132,7 @@ describe('door:toggle', () => {
 
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBeUndefined();
-    expect(player.selfEvents('chat:error')[0]!.payload).toContain('бою');
+    expect(player.selfEvents('chat:error')[0]!.payload).toMatchObject({ code: 'doorLockedInCombat' });
   });
 
   it('взлом вне боя: проверка карточкой, успех снимает замок, провал — повторяем', () => {

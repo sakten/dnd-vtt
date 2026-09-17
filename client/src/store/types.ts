@@ -2,6 +2,7 @@ import type {
   ActionCost,
   CharacterSheet,
   ChatMessage,
+  ErrorPayload,
   FogState,
   FoundPath,
   GridSettings,
@@ -260,7 +261,7 @@ export interface GameState {
   onTokenRemove: (payload: Parameters<ServerToClientEvents['token:remove']>[0]) => void;
   onTokenWalk: (payload: Parameters<ServerToClientEvents['token:walk']>[0]) => void;
   onChatMessage: (message: ChatMessage) => void;
-  onChatError: (message: string) => void;
+  onChatError: (payload: ErrorPayload | string) => void;
   onSheetUpdate: (payload: Parameters<ServerToClientEvents['sheet:update']>[0]) => void;
   onResourcesUpdate: (resources: PlayerResources) => void;
   onCharacterUpdate: (payload: Parameters<ServerToClientEvents['character:update']>[0]) => void;

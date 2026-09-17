@@ -1,5 +1,5 @@
 import type { ActionCost, ReactionOffer } from '../domain/actions';
-import type { ChatMessage, RollKind } from '../domain/chat';
+import type { ChatMessage, ErrorPayload, RollKind } from '../domain/chat';
 import type { CombatState } from '../domain/combat';
 import type { Player, RoomState } from '../domain/room';
 import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall } from '../domain/scene';
@@ -36,7 +36,7 @@ export interface ServerToClientEvents {
   /** Токен пошёл по пути: клиенты анимируют (позиция станет авторитетной по token:move). */
   'token:walk': (payload: { mapId: string; id: string; path: { x: number; y: number }[]; moveId?: string }) => void;
   'chat:message': (message: ChatMessage) => void;
-  'chat:error': (message: string) => void;
+  'chat:error': (payload: ErrorPayload | string) => void;
   'players:update': (players: Player[]) => void;
   /** Окно реакции для контролёра токена (или DM для NPC). */
   'reaction:offer': (offer: ReactionOffer) => void;
