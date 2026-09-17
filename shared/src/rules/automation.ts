@@ -544,6 +544,7 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
       anchor: 'source',
       duration: CONCENTRATION,
       enterOncePerTurn: true,
+      excludeSource: true,
       aura: {
         effects: [
           {

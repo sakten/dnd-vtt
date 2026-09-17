@@ -380,7 +380,11 @@ export function effectSummary(effect: EffectInstance): string | undefined {
       }
       case 'multiply':
         parts.push(
-          `×${mod.value ?? 0}${mod.target === 'speed' ? ' к скорости' : mod.target === 'ac' ? ' к AC' : ''}`
+          mod.target === 'speed'
+            ? `скорость ×${mod.value ?? 0}`
+            : mod.target === 'ac'
+              ? `AC ×${mod.value ?? 0}`
+              : `×${mod.value ?? 0}`
         );
         break;
       case 'set':

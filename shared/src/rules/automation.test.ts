@@ -172,6 +172,7 @@ describe('automationForSpell', () => {
     expect(def.zone?.enterOncePerTurn).toBe(true);
     expect(def.zone?.triggers?.startOfTurn?.damage?.dice).toBe('3d8 + 1d8');
     expect(def.zone?.aura?.effects?.[0]?.modifiers[0]).toMatchObject({ target: 'speed', mode: 'multiply', value: 0.5 });
+    expect(def.zone?.excludeSource).toBe(true);
   });
 
   it('Hunger of Hadar: слепота «полностью внутри» и урон по триггерам', () => {

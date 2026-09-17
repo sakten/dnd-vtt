@@ -129,11 +129,22 @@ function tokensAround(
 }
 
 /** Снимает прежнюю концентрацию кастера: эффекты на всех токенах и его зоны. */
-function dropConcentration(ctx: ConnCtx, room: Room, casterId: string): void {
-  for (const changed of ctx.manager.clearConcentration(room, casterId)) {
-    ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
+  // Концентрация принадлежит персонажу, а не токену: у персонажа бывают токены на разных картах.
+  const sourceIds = new Set<string>([caster.id]);
+  if (caster.libraryItemId) {
+    for (const map of room.scene.maps) {
+      for (const token of map.tokens) {
+        if (token.libraryItemId === caster.libraryItemId) sourceIds.add(token.id);
+      }
+    }
   }
-  removeZonesOfSource(ctx, room, casterId);
+  for (const sourceId of sourceIds) {
+    for (const changed of ctx.manager.clearConcentration(room, sourceId)) {
+      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+    removeZonesOfSource(ctx, room, sourceId);
+  }
 }
 
 /** Якорь концентрации на кастере для зон без целевых эффектов (HoH, Spirit Guardians). */
@@ -669,7 +680,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   }
 
   // Новая концентрация: прошлые эффекты и зоны снимаются до создания новой зоны.
-  if (def.concentration) dropConcentration(ctx, room, caster.id);
+  if (def.concentration) dropConcentration(ctx, room, caster);
 
   // Зона создаётся независимо от мгновенного payload'а (спас/урон/эффекты — сразу).
   // Для ауры на источнике точка берётся с кастера, даже если клиент её не прислал.

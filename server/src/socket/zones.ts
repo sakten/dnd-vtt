@@ -57,10 +57,11 @@ function insideTokens(
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return [];
   const grid = gridOf(map);
-  if (containment === 'fullyWithin') {
-    return map.tokens.filter((t) => tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid));
-  }
-  return tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid);
+  const inside =
+    containment === 'fullyWithin'
+      ? map.tokens.filter((t) => tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid))
+      : tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid);
+  return zone.excludeSource ? inside.filter((t) => t.id !== zone.sourceId) : inside;
 }
 
 function singleType(payload: AutomationPayload): string | undefined {
@@ -201,6 +202,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     movable: zoneDef.movable,
     containment: zoneDef.containment,
     enterOncePerTurn: zoneDef.enterOncePerTurn,
+    excludeSource: zoneDef.excludeSource,
     dc: input.stats?.dc,
     aura: zoneDef.aura,
     triggers: zoneDef.triggers,

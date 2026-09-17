@@ -99,6 +99,8 @@ export interface ZoneDef {
   enterOncePerTurn?: boolean;
   movable?: boolean;
   aura?: AutomationPayload;
+  /** Аура и триггеры зоны не действуют на источник (Spirit Guardians). */
+  excludeSource?: boolean;
   triggers?: {
     enter?: AutomationPayload;
     exit?: AutomationPayload;
@@ -133,6 +135,8 @@ export interface ZoneInstance {
   containment?: 'anyCell' | 'fullyWithin';
   /** Вход срабатывает первый раз за ход (Spirit Guardians). */
   enterOncePerTurn?: boolean;
+  /** Аура и триггеры не действуют на источник зоны. */
+  excludeSource?: boolean;
   /** СЛ спасбросков payload'ов (посчитана при касте). */
   dc?: number;
   aura?: AutomationPayload;
