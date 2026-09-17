@@ -32,16 +32,21 @@ export function joinRoomWithTimeout(
   });
 }
 
-export function attachSocketBridge(socket: AppSocket, get: () => GameState): void {
+/**
+ * Вешает обработчики и heartbeat на сокет.
+ * Возвращает `dispose()` — снять слушатели и остановить таймер (ре-инит/выход/HMR).
+ */
+export function attachSocketBridge(socket: AppSocket, get: () => GameState): () => void {
   let lastPong = Date.now();
 
-  socket.onAny(() => {
+  const onAnyHandler = () => {
     lastPong = Date.now();
-  });
+  };
+  socket.onAny(onAnyHandler);
   socket.on('pong', () => {
     lastPong = Date.now();
   });
-  window.setInterval(() => {
+  const heartbeat = window.setInterval(() => {
     // Не трогаем соединение в фоновой вкладке и проверяем реже, чтобы не
     // провоцировать лишние переподключения (и сообщения «вышел»).
     if (!socket.connected || document.hidden) return;
@@ -125,4 +130,10 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): voi
   socket.on('sheet:update', (payload) => get().onSheetUpdate(payload));
   socket.on('resources:update', (resources) => get().onResourcesUpdate(resources));
   socket.on('character:update', (payload) => get().onCharacterUpdate(payload));
+
+  return () => {
+    window.clearInterval(heartbeat);
+    socket.offAny();
+    socket.removeAllListeners();
+  };
 }

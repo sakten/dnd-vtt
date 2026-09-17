@@ -24,6 +24,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createViewSlice(set, get),
   ...createReactionSlice(set, get),
     socket: null,
+    socketDispose: null,
     connected: false,
     connectError: false,
     selfId: null,

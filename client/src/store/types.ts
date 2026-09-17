@@ -72,6 +72,8 @@ export interface CritHit {
 
 export interface GameState {
   socket: AppSocket | null;
+  /** Снятие моста сокета (слушатели + heartbeat) для `disposeSocket`. */
+  socketDispose: (() => void) | null;
   connected: boolean;
   /** Последняя попытка подключения завершилась ошибкой (для экрана входа). */
   connectError: boolean;
@@ -111,6 +113,8 @@ export interface GameState {
   reactionOffers: ReactionOffer[];
 
   init: () => void;
+  /** Снять мост и отключить сокет (HMR/тесты/выход из комнаты в будущем). */
+  disposeSocket: () => void;
   joinRoom: (code: string, name: string) => void;
   sendChat: (text: string) => void;
   rollDice: (expression: string, label?: string, meta?: { rollKind?: RollKind; subject?: string }) => void;

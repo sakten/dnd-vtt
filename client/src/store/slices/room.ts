@@ -6,13 +6,20 @@ import { clearOptimistic } from '../optimistic';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createRoomSlice: Slice<Pick<GameState, 'init' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings'>> = (set, get) => {
+export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings'>> = (set, get) => {
   return {
     init: () => {
       if (get().socket) return;
       const socket = createSocket();
-      set({ socket });
-      attachSocketBridge(socket, get);
+      const socketDispose = attachSocketBridge(socket, get);
+      set({ socket, socketDispose });
+    },
+
+    disposeSocket: () => {
+      const { socket, socketDispose } = get();
+      socketDispose?.();
+      socket?.disconnect();
+      set({ socket: null, socketDispose: null, connected: false });
     },
 
     onConnected: () => set({ connected: true, connectError: false }),

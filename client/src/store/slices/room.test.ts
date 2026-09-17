@@ -1,10 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_GRID, type RoomState } from 'shared';
 import { fakeSocket } from '../../test/fixtures';
+import type { AppSocket } from '../../net/socket';
 import { useGameStore } from '../useGameStore';
 
 beforeEach(() => {
-  useGameStore.setState({ socket: fakeSocket().socket, connected: false, connectError: false });
+  useGameStore.setState({
+    socket: fakeSocket().socket,
+    socketDispose: null,
+    connected: false,
+    connectError: false,
+  });
 });
 
 describe('room slice: подключение и режим тестов', () => {
@@ -34,5 +40,24 @@ describe('room slice: подключение и режим тестов', () => 
     const state = useGameStore.getState();
     expect(state.role).toBe('player');
     expect(state.testMode).toBe(true);
+  });
+
+  it('disposeSocket снимает мост, отключает сокет и чистит состояние', () => {
+    const dispose = vi.fn();
+    const disconnect = vi.fn();
+    useGameStore.setState({
+      socket: { disconnect } as unknown as AppSocket,
+      socketDispose: dispose,
+      connected: true,
+    });
+
+    useGameStore.getState().disposeSocket();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(disconnect).toHaveBeenCalledTimes(1);
+    const state = useGameStore.getState();
+    expect(state.socket).toBeNull();
+    expect(state.socketDispose).toBeNull();
+    expect(state.connected).toBe(false);
   });
 });
