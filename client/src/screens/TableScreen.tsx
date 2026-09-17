@@ -20,6 +20,7 @@ import ActionPanel from '../components/ActionPanel';
 import AimPanel from '../components/AimPanel';
 import ReactionPrompt from '../components/ReactionPrompt';
 import CritOverlay from '../components/CritOverlay';
+import { wallsEscapeStep } from '../lib/wallDraw';
 
 export default function TableScreen() {
   const selected = useGameStore((s) => s.selectedTokenId);
@@ -51,6 +52,10 @@ export default function TableScreen() {
         const st = useGameStore.getState();
         if (st.interaction) {
           st.cancelInteraction();
+          return;
+        }
+        if (wallsEscapeStep(st.wallsMode) === 'finish-chain') {
+          st.setWallsMode({ start: null });
           return;
         }
         setSelected(null);

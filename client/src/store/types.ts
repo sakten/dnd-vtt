@@ -45,6 +45,8 @@ export interface FogMode {
 export interface WallsMode {
   active: boolean;
   tool: 'wall' | 'door';
+  /** Якорь текущей цепочки (последняя точка); null — цепочка завершена. */
+  start: { x: number; y: number } | null;
 }
 
 export interface LightMode {

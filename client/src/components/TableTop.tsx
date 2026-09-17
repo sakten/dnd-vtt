@@ -78,7 +78,6 @@ export default function TableTop() {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const paintRef = useRef<{ pressed: boolean; start: WorldPoint | null }>({ pressed: false, start: null });
   const [rectPreview, setRectPreview] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
-  const [wallStart, setWallStart] = useState<{ x: number; y: number } | null>(null);
   const [wallCursor, setWallCursor] = useState<{ x: number; y: number } | null>(null);
   const wallPressRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -94,6 +93,8 @@ export default function TableTop() {
   const fogMode = useGameStore((s) => s.fogMode);
   const updateFog = useGameStore((s) => s.updateFog);
   const wallsMode = useGameStore((s) => s.wallsMode);
+  const setWallsMode = useGameStore((s) => s.setWallsMode);
+  const wallStart = wallsMode.start;
   const updateWalls = useGameStore((s) => s.updateWalls);
   const lightMode = useGameStore((s) => s.lightMode);
   const updateAreas = useGameStore((s) => s.updateAreas);
@@ -123,7 +124,6 @@ export default function TableTop() {
 
   useEffect(() => {
     if (!wallsMode.active) {
-      setWallStart(null);
       setWallCursor(null);
     }
   }, [wallsMode.active]);
@@ -494,7 +494,7 @@ export default function TableTop() {
       }
       const p = snapWall(raw);
       if (!wallStart) {
-        setWallStart(p);
+        setWallsMode({ start: p });
         return;
       }
       if (p.x === wallStart.x && p.y === wallStart.y) return;
@@ -502,7 +502,7 @@ export default function TableTop() {
         ...activeMap.walls,
         { id: newId(), kind: wallsMode.tool, x1: wallStart.x, y1: wallStart.y, x2: p.x, y2: p.y },
       ]);
-      setWallStart(p);
+      setWallsMode({ start: p });
       return;
     }
     if (isDm && activeMap && e.evt.button === 0 && !fogMode.active) {
@@ -618,6 +618,8 @@ export default function TableTop() {
             e.evt.preventDefault();
             const hit = activeMap.walls.find((w) => distToSegment(p, w) <= 10 / view.scale);
             if (hit) updateWalls(activeMap.id, activeMap.walls.filter((w) => w.id !== hit.id));
+            // ПКМ по пустому месту — завершаем цепочку, нарисованное остаётся.
+            else setWallsMode({ start: null });
           }}
           onTouchStart={(e) => {
             if (!fogMode.active && e.target === e.target.getStage()) {

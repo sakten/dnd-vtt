@@ -53,7 +53,7 @@ export default function Toolbar() {
       {isDm && (
         <button
           className={wallsActive ? 'active' : ''}
-          title="Стены: клик по узлам сетки, правый клик — удалить сегмент"
+          title="Стены: клик по узлам — сегменты, ПКМ по пустому месту — завершить цепочку, ПКМ по сегменту — удалить"
           onClick={() => {
             setWallsMode({ active: !wallsActive });
             if (!wallsActive) {

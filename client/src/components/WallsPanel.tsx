@@ -121,7 +121,10 @@ export default function WallsPanel() {
         </div>
       )}
       {status && <span className="fog-label">{status}</span>}
-      <span className="fog-label">Клик по узлам — сегменты; клик по двери — открыть/закрыть; ПКМ — удалить.</span>
+      <span className="fog-label">
+        Клик по узлам — сегменты; клик по двери — открыть/закрыть; ПКМ по пустому месту — завершить цепочку; ПКМ
+        по сегменту — удалить; Esc — завершить/выйти.
+      </span>
       <button
         title="Убрать все стены на карте"
         onClick={() => {

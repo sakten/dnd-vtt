@@ -44,6 +44,7 @@ function TokenView({ token }: { token: Token }) {
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const lightActive = useGameStore((s) => s.lightMode.active);
+  const wallsActive = useGameStore((s) => s.wallsMode.active);
   const isDm = useIsDm();
   const canMove = useCanControl(token);
   const lastClickRef = useRef(0);
@@ -225,6 +226,8 @@ function TokenView({ token }: { token: Token }) {
   /** Клик: в режиме выбора цели — применить по токену, иначе выбрать/открыть меню. */
   const activate = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const st = useGameStore.getState();
+    // В режиме «Стены» клик по токену не мешает рисовать: событие уходит на сцену.
+    if (st.wallsMode.active) return;
     const it = st.interaction;
     if (it?.mode === 'target') {
       e.cancelBubble = true;
@@ -261,6 +264,7 @@ function TokenView({ token }: { token: Token }) {
         !moving &&
         !fogActive &&
         !lightActive &&
+        !wallsActive &&
         !targeting &&
         !aim &&
         !multiTarget &&

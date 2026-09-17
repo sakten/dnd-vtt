@@ -13,6 +13,7 @@ try {
   await import('./e2e/05-sheet-rolls.mjs');
   await import('./e2e/06-maps2.mjs');
   await import('./e2e/07-player-fog.mjs');
+  await import('./e2e/09-walls.mjs');
   await import('./e2e/08-admin-invite.mjs');
 } finally {
   clearTimeout(S.watchdog);

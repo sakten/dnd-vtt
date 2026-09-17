@@ -14,7 +14,13 @@ export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 
 
     setFogMode: (patch) => set((s) => ({ fogMode: { ...s.fogMode, ...patch } })),
 
-    setWallsMode: (patch) => set((s) => ({ wallsMode: { ...s.wallsMode, ...patch } })),
+    setWallsMode: (patch) =>
+      set((s) => {
+        const wallsMode = { ...s.wallsMode, ...patch };
+        // Выход из режима всегда завершает цепочку.
+        if (patch.active === false) wallsMode.start = null;
+        return { wallsMode };
+      }),
 
     setLightMode: (patch) => set((s) => ({ lightMode: { ...s.lightMode, ...patch } })),
 
