@@ -31,7 +31,18 @@ export type ErrorCode =
   | 'rollSyntax'
   | 'rollDiceCount'
   | 'rollDieSides'
-  | 'rollKeepRange';
+  | 'rollKeepRange'
+  | 'wrongAdminToken'
+  | 'passwordRequired'
+  | 'badRequest'
+  | 'roomNotFound'
+  | 'emptyName'
+  | 'noRoom'
+  | 'invalidCharacter'
+  | 'tokenNotFound'
+  | 'playerTokenOnly'
+  | 'tokenHasOwner'
+  | 'characterTaken';
 
 export interface ErrorParams {
   /** Футы для `outOfRange`. */

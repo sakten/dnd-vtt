@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { newId } from '../lib/id';
 import { t } from '../i18n';
+import { errorText } from '../i18n/errors';
 import Modal from '../components/Modal';
 
 interface RoomInfo {
@@ -33,7 +34,7 @@ export default function AdminScreen() {
   const refresh = () => {
     if (!socket) return;
     socket.emit('admin:list', { adminToken: adminToken.trim() }, (res) => {
-      if ('error' in res) setError(res.error);
+      if ('error' in res) setError(errorText(res.error));
       else {
         setRooms(res.rooms);
         setError(null);
@@ -53,7 +54,7 @@ export default function AdminScreen() {
       'admin:create',
       { adminToken: adminToken.trim(), name: name.trim(), clientId: getPlayerId(), roomName: newRoomName.trim() || undefined },
       (res) => {
-        if ('error' in res) setError(res.error);
+        if ('error' in res) setError(errorText(res.error));
       }
     );
   };
@@ -62,7 +63,7 @@ export default function AdminScreen() {
     if (!socket || !name.trim()) return;
     localStorage.setItem('vtt-name', name.trim());
     socket.emit('admin:join', { adminToken: adminToken.trim(), code, clientId: getPlayerId(), name: name.trim() }, (res) => {
-      if ('error' in res) setError(res.error);
+      if ('error' in res) setError(errorText(res.error));
     });
   };
 
@@ -91,7 +92,7 @@ export default function AdminScreen() {
     setRooms((rs) => rs.map((r) => (r.code === code ? { ...r, name: trimmed } : r)));
     socket.emit('admin:rename', { adminToken: adminToken.trim(), code, name: trimmed }, (res) => {
       if ('error' in res) {
-        setError(res.error);
+        setError(errorText(res.error));
         refresh();
       }
     });
@@ -100,7 +101,7 @@ export default function AdminScreen() {
   const confirmDelete = () => {
     if (!socket || !deleteTarget) return;
     socket.emit('admin:delete', { adminToken: adminToken.trim(), code: deleteTarget }, (res) => {
-      if ('error' in res) setError(res.error);
+      if ('error' in res) setError(errorText(res.error));
       else refresh();
       setDeleteTarget(null);
     });

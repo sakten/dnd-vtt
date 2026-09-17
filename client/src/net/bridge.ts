@@ -1,5 +1,6 @@
 import type { GameState } from '../store/types';
 import { t } from '../i18n';
+import { errorText } from '../i18n/errors';
 import { newId } from '../lib/id';
 import type { AppSocket } from './socket';
 
@@ -29,7 +30,7 @@ export function joinRoomWithTimeout(
     if (settled) return;
     settled = true;
     window.clearTimeout(timer);
-    if ('error' in res) onError(res.error);
+    if ('error' in res) onError(errorText(res.error));
   });
 }
 

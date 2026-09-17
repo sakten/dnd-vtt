@@ -8,12 +8,12 @@ export function registerRoomHandlers(ctx: ConnCtx) {
 
     ctx.on('room:create', ({ name, clientId, adminToken, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Нужен пароль ведущего' });
+        cb({ error: { code: 'passwordRequired' } });
         return;
       }
       const ownerId = asString(clientId);
       if (!ownerId) {
-        cb({ error: 'Некорректный запрос' });
+        cb({ error: { code: 'badRequest' } });
         return;
       }
       const playerName = asString(name, 30) ?? '';
@@ -31,12 +31,12 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       const roomCode = asString(code);
       const playerId = asString(clientId);
       if (!roomCode || !playerId) {
-        cb({ error: 'Комната не найдена' });
+        cb({ error: { code: 'roomNotFound' } });
         return;
       }
       const room = manager.get(roomCode.toUpperCase());
       if (!room) {
-        cb({ error: 'Комната не найдена' });
+        cb({ error: { code: 'roomNotFound' } });
         return;
       }
       const safeName = asTrimmedString(name, 30) ?? '';

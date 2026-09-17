@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { errorText } from '../../i18n/errors';
 import { emit } from '../helpers';
 import { beginOptimistic, settleOptimistic } from '../optimistic';
 import type { GameState, Slice } from '../types';
@@ -41,7 +42,7 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
       const socket = get().socket;
       if (!socket) return;
       socket.emit('player:setCharacter', { libraryItemId }, (res) => {
-        if ('error' in res) window.alert(res.error);
+        if ('error' in res) window.alert(errorText(res.error));
       });
     },
 

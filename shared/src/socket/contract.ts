@@ -50,11 +50,11 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   'room:create': (
     payload: { name: string; clientId: string; adminToken?: string; roomName?: string },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   'room:join': (
     payload: { code: string; name: string; clientId: string },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   /** Смена настроек комнаты (режим тестов); сервер проверяет реального DM. */
   'room:settings': (payload: { testMode: boolean }) => void;
@@ -154,7 +154,7 @@ export interface ClientToServerEvents {
   'resources:update': (resources: PlayerResources) => void;
   'player:setCharacter': (
     payload: { libraryItemId: string | null },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   'resources:hitDie': (payload: { die?: number }) => void;
   'resources:deathSave': (payload?: { expression?: string }) => void;
@@ -162,28 +162,28 @@ export interface ClientToServerEvents {
   'resources:rest': (payload: { type: 'short' | 'long' }) => void;
   'admin:list': (
     payload: { adminToken: string },
-    cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: string }) => void
+    cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: ErrorPayload }) => void
   ) => void;
   'admin:create': (
     payload: { adminToken: string; name: string; clientId: string; roomName?: string },
-    cb: (res: { code: string } | { error: string }) => void
+    cb: (res: { code: string } | { error: ErrorPayload }) => void
   ) => void;
   'admin:join': (
     payload: { adminToken: string; code: string; clientId: string; name: string },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   'admin:delete': (
     payload: { adminToken: string; code: string },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   'admin:rename': (
     payload: { adminToken: string; code: string; name: string },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   /** Записать отложенные сохранения комнат на диск (смоук/админ). */
   'admin:flush': (
     payload: { adminToken: string },
-    cb: (res: { ok: true } | { error: string }) => void
+    cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   'ping': () => void;
 }

@@ -16,7 +16,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
 
     ctx.on('admin:list', ({ adminToken }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Неверный пароль ведущего' });
+        cb({ error: { code: 'wrongAdminToken' } });
         return;
       }
       cb({ rooms: manager.listRooms() });
@@ -24,12 +24,12 @@ export function registerAdminHandlers(ctx: ConnCtx) {
 
     ctx.on('admin:create', ({ adminToken, name, clientId, roomName }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Неверный пароль ведущего' });
+        cb({ error: { code: 'wrongAdminToken' } });
         return;
       }
       const ownerId = asString(clientId);
       if (!ownerId) {
-        cb({ error: 'Некорректный запрос' });
+        cb({ error: { code: 'badRequest' } });
         return;
       }
       const playerName = asTrimmedString(name, 30) || 'Ведущий';
@@ -44,14 +44,14 @@ export function registerAdminHandlers(ctx: ConnCtx) {
 
     ctx.on('admin:join', ({ adminToken, code, clientId, name }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Неверный пароль ведущего' });
+        cb({ error: { code: 'wrongAdminToken' } });
         return;
       }
       const roomCode = asString(code);
       const ownerId = asString(clientId);
       const room = roomCode ? manager.get(roomCode.toUpperCase()) : undefined;
       if (!room || !ownerId) {
-        cb({ error: 'Комната не найдена' });
+        cb({ error: { code: 'roomNotFound' } });
         return;
       }
       const playerName = asTrimmedString(name, 30) || 'Ведущий';
@@ -75,18 +75,18 @@ export function registerAdminHandlers(ctx: ConnCtx) {
 
     ctx.on('admin:rename', ({ adminToken, code, name }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Неверный пароль ведущего' });
+        cb({ error: { code: 'wrongAdminToken' } });
         return;
       }
       const roomCode = asString(code);
       const room = roomCode ? manager.get(roomCode.toUpperCase()) : undefined;
       if (!room) {
-        cb({ error: 'Комната не найдена' });
+        cb({ error: { code: 'roomNotFound' } });
         return;
       }
       const playerName = asTrimmedString(name, 60);
       if (!playerName) {
-        cb({ error: 'Пустое название' });
+        cb({ error: { code: 'emptyName' } });
         return;
       }
       const renamed = manager.renameRoom(room, playerName);
@@ -96,7 +96,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
 
     ctx.on('admin:flush', async ({ adminToken }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Неверный пароль ведущего' });
+        cb({ error: { code: 'wrongAdminToken' } });
         return;
       }
       await manager.flushSaves();
@@ -105,14 +105,14 @@ export function registerAdminHandlers(ctx: ConnCtx) {
 
     ctx.on('admin:delete', ({ adminToken, code }, cb) => {
       if (!adminTokenOk(adminToken)) {
-        cb({ error: 'Неверный пароль ведущего' });
+        cb({ error: { code: 'wrongAdminToken' } });
         return;
       }
       const roomCode = asString(code);
       const target = roomCode ? roomCode.toUpperCase() : '';
       const room = target ? manager.get(target) : undefined;
       if (!room) {
-        cb({ error: 'Комната не найдена' });
+        cb({ error: { code: 'roomNotFound' } });
         return;
       }
       io.in(room.code).emit('room:deleted');

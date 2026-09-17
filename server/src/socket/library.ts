@@ -51,7 +51,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
     ctx.on('player:setCharacter', ({ libraryItemId }, cb) => {
       const room = getRoom();
       if (!room || !ctx.playerId) {
-        cb({ error: 'Нет комнаты' });
+        cb({ error: { code: 'noRoom' } });
         return;
       }
       if (libraryItemId === null) {
@@ -66,27 +66,27 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
         return;
       }
       if (typeof libraryItemId !== 'string') {
-        cb({ error: 'Некорректный персонаж' });
+        cb({ error: { code: 'invalidCharacter' } });
         return;
       }
       const item = room.library.find((i) => i.id === libraryItemId);
       if (!item) {
-        cb({ error: 'Токен не найден' });
+        cb({ error: { code: 'tokenNotFound' } });
         return;
       }
       if (!item.isPlayerToken) {
-        cb({ error: 'Только токены с галкой «Это токен игрока»' });
+        cb({ error: { code: 'playerTokenOnly' } });
         return;
       }
       if (item.owner.trim()) {
-        cb({ error: 'Нельзя выбрать токен с владельцем' });
+        cb({ error: { code: 'tokenHasOwner' } });
         return;
       }
       const takenByOther = Object.entries(room.controllers).some(
         ([pid, lid]) => lid === libraryItemId && pid !== ctx.playerId
       );
       if (takenByOther) {
-        cb({ error: 'Этот персонаж уже выбран другим игроком' });
+        cb({ error: { code: 'characterTaken' } });
         return;
       }
       for (const c of manager.freezeCharacterTokens(room, ctx.playerId)) {
