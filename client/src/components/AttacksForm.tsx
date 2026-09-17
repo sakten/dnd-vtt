@@ -11,6 +11,7 @@ import {
 } from 'shared';
 import { t } from '../i18n';
 import { damageLabel } from '../i18n/domain';
+import { weaponDisplayName } from '../i18n/names';
 import { Field } from './Field';
 
 interface Props {
@@ -45,7 +46,7 @@ export default function AttacksForm({
   };
   const addFromList = (weapon: WeaponDef) => {
     if (!weaponContext) return;
-    const entry = weaponAttackEntry(weapon, weaponContext);
+    const entry = { ...weaponAttackEntry(weapon, weaponContext), name: weaponDisplayName(weapon.key, weapon.name) };
     if (weapon.unarmed) {
       const index = attacks.findIndex(isUnarmedAttack);
       if (index >= 0) {
@@ -177,7 +178,7 @@ export default function AttacksForm({
             <option value="">{t('ui.attacks.pickWeapon')}</option>
             {WEAPONS.map((w) => (
               <option key={w.key} value={w.key}>
-                {w.name}
+                {weaponDisplayName(w.key, w.name)}
                 {w.mastery.length ? ` · ${w.mastery.join(', ')}` : ''}
               </option>
             ))}

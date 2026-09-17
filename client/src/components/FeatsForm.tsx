@@ -17,7 +17,7 @@ import {
 } from 'shared';
 import { loadSpells } from '../lib/spells';
 import { t, type MessageKey } from '../i18n';
-import { spellDisplayName } from '../i18n/names';
+import { spellDisplayName, featDisplayName } from '../i18n/names';
 import { abilityName } from '../i18n/domain';
 
 const CATEGORY_NAMES: Record<FeatCategory, MessageKey> = {
@@ -48,7 +48,9 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return FEATS.filter(
-      (f) => (category === 'all' || f.category === category) && (!q || f.name.toLowerCase().includes(q))
+      (f) =>
+        (category === 'all' || f.category === category) &&
+        (!q || f.name.toLowerCase().includes(q) || featDisplayName(f.key, f.name).toLowerCase().includes(q))
     );
   }, [category, query]);
 
@@ -84,7 +86,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
         return (
           <div className="feat-row" key={`${choice.key}:${choice.list ?? index}`}>
             <div className="feat-head">
-              <span className="feat-name">{feat.name}</span>
+              <span className="feat-name">{featDisplayName(feat.key, feat.name)}</span>
               {!featMechanicsImplemented(feat.key) && <span className="feat-todo">(TODO)</span>}
               <span className="feat-cat">{t(CATEGORY_NAMES[feat.category])}</span>
               <button className="feat-remove" title={t('ui.feats.removeTitle')} onClick={() => removeAt(index)}>
@@ -170,7 +172,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                 }}
               >
                 <span className="feat-option-name">
-                  {f.name}
+                  {featDisplayName(f.key, f.name)}
                   {!featMechanicsImplemented(f.key) && <span className="feat-todo"> (TODO)</span>}
                   {f.repeatable ? ` · ${t('ui.feats.repeatable')}` : ''}
                 </span>
