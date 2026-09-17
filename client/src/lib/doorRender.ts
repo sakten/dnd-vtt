@@ -35,3 +35,30 @@ export function doorLeafEnd(door: Wall, open: boolean): { x: number; y: number }
   const rad = ((open ? g.openAngleDeg : g.closedAngleDeg) * Math.PI) / 180;
   return { x: g.hinge.x + Math.cos(rad) * g.length, y: g.hinge.y + Math.sin(rad) * g.length };
 }
+
+export interface DoorLeaf {
+  hinge: { x: number; y: number };
+  length: number;
+  closedAngleDeg: number;
+  openAngleDeg: number;
+}
+
+/** Допуск «клетка или чуть больше» — из-за пиксельного округления при рисовании. */
+const SINGLE_TOLERANCE = 1.05;
+
+/**
+ * Створки двери: длиной в клетку (или меньше) — одна створка на петле (x1,y1);
+ * длиннее — двустворчатая: две половинки с обоих концов, открываются в одну сторону
+ * (угол открытия — нормаль вправо от направления x1→x2).
+ */
+export function doorLeaves(door: Wall, cellPx: number): DoorLeaf[] {
+  const g = doorGeometry(door);
+  if (!(cellPx > 0) || g.length <= cellPx * SINGLE_TOLERANCE) {
+    return [{ hinge: g.hinge, length: g.length, closedAngleDeg: g.closedAngleDeg, openAngleDeg: g.openAngleDeg }];
+  }
+  const half = g.length / 2;
+  return [
+    { hinge: g.hinge, length: half, closedAngleDeg: g.closedAngleDeg, openAngleDeg: g.openAngleDeg },
+    { hinge: g.tip, length: half, closedAngleDeg: g.closedAngleDeg + 180, openAngleDeg: g.openAngleDeg },
+  ];
+}

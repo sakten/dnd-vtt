@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Wall } from 'shared';
-import { doorGeometry, doorLeafEnd } from './doorRender';
+import { doorGeometry, doorLeafEnd, doorLeaves, type DoorLeaf } from './doorRender';
 
 const door = (x1: number, y1: number, x2: number, y2: number, open = false): Wall => ({
   id: 'd1',
@@ -55,5 +55,35 @@ describe('doorGeometry', () => {
     expect(g.length).toBe(0);
     expect(g.rightNormal).toEqual({ x: 0, y: 0 });
     expect(Number.isFinite(g.openAngleDeg)).toBe(true);
+  });
+});
+
+describe('doorLeaves', () => {
+  const openEnd = (leaf: DoorLeaf) => {
+    const rad = (leaf.openAngleDeg * Math.PI) / 180;
+    return { x: leaf.hinge.x + Math.cos(rad) * leaf.length, y: leaf.hinge.y + Math.sin(rad) * leaf.length };
+  };
+
+  it('дверь в клетку — одна створка (как раньше)', () => {
+    const leaves = doorLeaves(door(10, 20, 60, 20), 50);
+    expect(leaves).toHaveLength(1);
+    expect(leaves[0]!).toMatchObject({ hinge: { x: 10, y: 20 }, length: 50, closedAngleDeg: 0, openAngleDeg: 90 });
+  });
+
+  it('длиннее клетки — двустворчатая: половинки с обоих концов открываются в одну сторону', () => {
+    const leaves = doorLeaves(door(0, 0, 100, 0), 50);
+    expect(leaves).toHaveLength(2);
+    expect(leaves[0]!).toMatchObject({ hinge: { x: 0, y: 0 }, length: 50, closedAngleDeg: 0, openAngleDeg: 90 });
+    expect(leaves[1]!).toMatchObject({ hinge: { x: 100, y: 0 }, length: 50, closedAngleDeg: 180, openAngleDeg: 90 });
+    expect(openEnd(leaves[0]!).y).toBeCloseTo(50);
+    expect(openEnd(leaves[1]!).y).toBeCloseTo(50);
+    // Закрытые створки смыкаются в середине.
+    expect(leaves[0]!.hinge.x + leaves[0]!.length).toBeCloseTo(50);
+    expect(leaves[1]!.hinge.x - leaves[1]!.length).toBeCloseTo(50);
+  });
+
+  it('небольшой перевес клетки — всё ещё одна створка, заметный — двустворчатая', () => {
+    expect(doorLeaves(door(0, 0, 52, 0), 50)).toHaveLength(1);
+    expect(doorLeaves(door(0, 0, 54, 0), 50)).toHaveLength(2);
   });
 });

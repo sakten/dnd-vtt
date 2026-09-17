@@ -691,7 +691,7 @@ export default function TableTop() {
               // Игроки видят только двери (стены — инструмент DM); невидимые скроет вуаль.
               if (!isDm && w.kind !== 'door') return null;
               if (w.kind === 'door') {
-                return <DoorView key={w.id} door={w} scale={view.scale} hovered={doorHover?.id === w.id} />;
+                return <DoorView key={w.id} door={w} scale={view.scale} hovered={doorHover?.id === w.id} cellPx={grid.size || 50} />;
               }
               return (
                 <Line
