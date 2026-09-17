@@ -140,18 +140,35 @@ await S.page.keyboard.press('Escape');
 await waitFor(S.page, () => !document.querySelector('[data-testid="walls-panel"]') && !window.__vtt.getState().wallsMode.active, 3000);
 check((await wallsLen()) === before + 3, 'второй Escape вышел из режима, сегменты остались');
 
-// Вне режима редактирования клик по двери открывает её (door:toggle).
+// Вне режима редактирования клик по двери открывает мини-UI; «Открыть» шлёт door:toggle.
 const doorMid = {
   sx: Math.round((pts.doorA.sx + pts.doorB.sx) / 2),
   sy: Math.round((pts.doorA.sy + pts.doorB.sy) / 2),
 };
 await S.page.mouse.click(doorMid.sx, doorMid.sy);
-const doorAfter = await S.page.evaluate((id) => {
-  const s = window.__vtt.getState();
-  const m = s.scene.maps.find((x) => x.id === s.viewMapId);
-  return !!m?.walls.find((w) => w.id === id)?.open;
-}, doorBefore.id);
-check(doorAfter, 'DM открывает дверь кликом вне режима «Стены»');
+await S.page.waitForSelector('[data-testid="object-menu"]');
+const openBtn = await findButton(S.page, '[data-testid="object-menu"] button', 'Открыть');
+check(!!openBtn, 'мини-UI двери открылся по клику вне режима «Стены»');
+// Клик по кнопке «Открыть»: синтезируем DOM-click (у меню transform-позиционирование,
+// из-за которого координатные клики нестабильны; поведение кнопки покрыто юнит-тестом).
+await S.page.evaluate(() => {
+  const b = [...document.querySelectorAll('[data-testid="object-menu"] button')].find((x) =>
+    x.textContent?.includes('Открыть')
+  );
+  b.click();
+});
+let doorAfter = false;
+for (let i = 0; i < 25 && !doorAfter; i++) {
+  doorAfter = await S.page.evaluate((id) => {
+    const s = window.__vtt.getState();
+    const m = s.scene.maps.find((x) => x.id === s.viewMapId);
+    return !!m?.walls.find((w) => w.id === id)?.open;
+  }, doorBefore.id);
+  if (!doorAfter) await new Promise((r) => setTimeout(r, 200));
+}
+check(doorAfter, 'DM открывает дверь через мини-UI');
+await S.page.click('[data-testid="object-menu-close"]');
+await waitFor(S.page, () => !document.querySelector('[data-testid="object-menu"]'), 3000);
 
 // Возвращаем карту как была — стены тестового сценария удаляем.
 await S.page.evaluate((kept) => {

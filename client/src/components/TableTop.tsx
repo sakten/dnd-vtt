@@ -481,14 +481,6 @@ export default function TableTop() {
     setRectPreview(null);
   };
 
-  const toggleDoor = (id: string) => {
-    if (!activeMap) return;
-    updateWalls(
-      activeMap.id,
-      activeMap.walls.map((w) => (w.id === id ? { ...w, open: !w.open } : w))
-    );
-  };
-
   /** Дверь под курсором (в пределах 10px экранных). */
   const doorAt = (world: { x: number; y: number }): Wall | null =>
     activeMap?.walls.find((w) => w.kind === 'door' && distToSegment(world, w) <= 10 / view.scale) ?? null;
@@ -526,7 +518,11 @@ export default function TableTop() {
         (w) => w.kind === 'door' && distToSegment(raw, w) <= 10 / view.scale
       );
       if (door) {
-        toggleDoor(door.id);
+        // В режиме «Стены» клик по двери — тоггл (как раньше).
+        updateWalls(
+          activeMap.id,
+          activeMap.walls.map((w) => (w.id === door.id ? { ...w, open: !w.open } : w))
+        );
         return;
       }
       const p = snapWall(raw);
@@ -543,29 +539,22 @@ export default function TableTop() {
       return;
     }
     if (!isDm && activeMap && e.evt.button === 0 && !aim && !targeting && !wallsMode.active && !fogMode.active && !lightMode.active) {
+      const st = useGameStore.getState();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      const door = stage && pointer ? doorAt(toWorld(stage, pointer)) : null;
+      st.setDoorMenu(door && !door.dmOnly && playerDoorReach(door) ? door.id : null);
+      return;
+    }
+    if (isDm && activeMap && e.evt.button === 0 && !fogMode.active) {
+      // Мини-UI двери: DM открывает/закрывает и настраивает (в режиме «Стены» — как раньше).
+      const st = useGameStore.getState();
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       if (stage && pointer) {
         const door = doorAt(toWorld(stage, pointer));
-        if (door && !door.dmOnly && playerDoorReach(door)) {
-          useGameStore.getState().toggleDoor(door.id);
-          return;
-        }
-      }
-    }
-    if (isDm && activeMap && e.evt.button === 0 && !fogMode.active) {
-      // Дверь можно открыть/закрыть и вне режима «Стены».
-      const stage = e.target.getStage();
-      const pointer = stage?.getPointerPosition();
-      if (stage && pointer) {
-        const p = toWorld(stage, pointer);
-        const door = activeMap.walls.find(
-          (w) => w.kind === 'door' && distToSegment(p, w) <= 10 / view.scale
-        );
-        if (door) {
-          toggleDoor(door.id);
-          return;
-        }
+        st.setDoorMenu(door ? door.id : null);
+        if (door) return;
       }
     }
     if (aim) {

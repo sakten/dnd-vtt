@@ -1,11 +1,11 @@
 import { MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from 'shared';
 import { applyMapGrid, setFog, setLightAreas, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
 import { activeMapOf } from '../selectors';
-import { emit, emitInMap, emitThrottled } from '../helpers';
+import { emit, emitInMap, emitThrottled, flushThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
+export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateDoor' | 'setDoorMenu' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
   // Клиент режет payload теми же лимитами, что и сервер: локальная и серверная версии не расходятся.
   const limitError = (what: string, max: number) =>
     get().onChatError(`Достигнут лимит ${what} (${max}) — лишнее не сохранится`);
@@ -80,8 +80,18 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     },
 
     toggleDoor: (wallId) => {
+      // Сначала досылаем отложенный патч стен (там ещё закрытая дверь), иначе он
+      // может прийти после door:toggle и вернуть дверь в прежнее состояние.
+      const mapId = get().viewMapId;
+      if (mapId) flushThrottled(`walls:${mapId}`);
       emitInMap(get, 'door:toggle', { wallId });
     },
+
+    updateDoor: (mapId, wallId, patch) => {
+      emit(get, 'door:update', { mapId, wallId, patch });
+    },
+
+    setDoorMenu: (doorMenuId) => set({ doorMenuId }),
 
     updateFog: (mapId, fog) => {
       if (!get().socket) return;

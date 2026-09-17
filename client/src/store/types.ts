@@ -105,6 +105,8 @@ export interface GameState {
   /** Открыта модалка настроек комнаты (только реальный DM). */
   roomSettingsOpen: boolean;
   tokenMenuId: string | null;
+  /** Дверь, у которой открыт мини-UI (id стены). */
+  doorMenuId: string | null;
   fogMode: FogMode;
   wallsMode: WallsMode;
   lightMode: LightMode;
@@ -145,6 +147,8 @@ export interface GameState {
   updateGrid: (patch: Partial<GridSettings>, mapId?: string) => void;
   /** Открыть/закрыть дверь на активной карте (права проверит сервер). */
   toggleDoor: (wallId: string) => void;
+  /** Настройки двери (только DM): «только для ведущего» и Сл взлома. */
+  updateDoor: (mapId: string, wallId: string, patch: { dmOnly?: boolean; pickDc?: number }) => void;
   addTokenAt: (libraryItemId: string, x: number, y: number) => void;
   removeToken: (id: string) => void;
   moveToken: (id: string, x: number, y: number) => void;
@@ -182,6 +186,7 @@ export interface GameState {
   /** Сменить режим тестов (сервер применяет только от реального DM). */
   setRoomSettings: (testMode: boolean) => void;
   setTokenMenu: (id: string | null) => void;
+  setDoorMenu: (id: string | null) => void;
   setFogMode: (patch: Partial<FogMode>) => void;
   updateFog: (mapId: string, fog: FogState) => void;
   setWallsMode: (patch: Partial<WallsMode>) => void;

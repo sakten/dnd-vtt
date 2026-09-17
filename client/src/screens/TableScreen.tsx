@@ -11,6 +11,7 @@ import GridSettingsModal from '../components/GridSettingsModal';
 import VisionSettingsModal from '../components/VisionSettingsModal';
 import RoomSettingsModal from '../components/RoomSettingsModal';
 import TokenMenu from '../components/TokenMenu';
+import DoorMenu from '../components/DoorMenu';
 import FogPanel from '../components/FogPanel';
 import WallsPanel from '../components/WallsPanel';
 import LightPanel from '../components/LightPanel';
@@ -100,6 +101,7 @@ export default function TableScreen() {
       {visionModalOpen && <VisionSettingsModal />}
       {roomSettingsOpen && <RoomSettingsModal />}
       <TokenMenu />
+      <DoorMenu />
       <CritOverlay />
     </div>
   );

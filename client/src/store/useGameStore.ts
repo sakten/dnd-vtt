@@ -52,6 +52,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     visionModalOpen: false,
     roomSettingsOpen: false,
     tokenMenuId: null,
+    doorMenuId: null,
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },
     wallsMode: { active: false, tool: 'wall', start: null },
     lightMode: { active: false, kind: 'darkness' },

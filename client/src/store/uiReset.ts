@@ -5,6 +5,7 @@ import type { GameState } from './types';
 export const UI_RESET: Partial<GameState> = {
   selectedTokenId: null,
   tokenMenuId: null,
+  doorMenuId: null,
   draggingTokenId: null,
   interaction: null,
   hoverTokenId: null,

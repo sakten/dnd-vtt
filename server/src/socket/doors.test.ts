@@ -182,6 +182,36 @@ describe('door:toggle', () => {
   });
 });
 
+describe('door:update (настройки двери)', () => {
+  it('DM меняет dmOnly/Сл, клампит DC и удаляет настройки нулём; игрок — не может', () => {
+    const { room, map } = makeDoorRoom();
+    map.walls.push({ id: 'w1', kind: 'wall', x1: 0, y1: 0, x2: 50, y2: 0 });
+    const dm = makeConnCtx(room, { dm: true });
+    registerDoorHandlers(dm.ctx);
+
+    dm.invoke('door:update', { mapId: 'm1', wallId: 'd1', patch: { dmOnly: true, pickDc: 17 } });
+    expect(map.walls[0]!).toMatchObject({ dmOnly: true, pickDc: 17 });
+    expect(wallsUpdates(dm.emitted)).toHaveLength(1);
+
+    dm.invoke('door:update', { mapId: 'm1', wallId: 'd1', patch: { pickDc: 99 } });
+    expect(map.walls[0]!.pickDc).toBe(40);
+
+    dm.invoke('door:update', { mapId: 'm1', wallId: 'w1', patch: { dmOnly: true, pickDc: 20 } });
+    expect(map.walls[1]!.dmOnly).toBeUndefined();
+    expect(map.walls[1]!.pickDc).toBeUndefined();
+
+    dm.invoke('door:update', { mapId: 'm1', wallId: 'd1', patch: { dmOnly: false, pickDc: 0 } });
+    expect(map.walls[0]!.dmOnly).toBeUndefined();
+    expect(map.walls[0]!.pickDc).toBeUndefined();
+
+    const player = makeConnCtx(room, { playerId: 'p1' });
+    registerDoorHandlers(player.ctx);
+    player.invoke('door:update', { mapId: 'm1', wallId: 'd1', patch: { dmOnly: true, pickDc: 25 } });
+    expect(map.walls[0]!.dmOnly).toBeUndefined();
+    expect(map.walls[0]!.pickDc).toBeUndefined();
+  });
+});
+
 describe('дверная геометрия', () => {
   it('inDoorReach считает от края подошвы', () => {
     const door = DOOR;

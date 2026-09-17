@@ -60,6 +60,24 @@ function nameOf(room: Room, playerId: string | null): string {
 }
 
 export function registerDoorHandlers(ctx: ConnCtx) {
+  ctx.on('door:update', ({ mapId, wallId, patch }) => {
+    const room = ctx.dmRoom();
+    if (!room || typeof mapId !== 'string' || typeof wallId !== 'string' || !patch || typeof patch !== 'object') return;
+    const map = ctx.manager.findMap(room, mapId);
+    const door = map?.walls.find((w) => w.id === wallId && w.kind === 'door');
+    if (!map || !door) return;
+    if (typeof patch.dmOnly === 'boolean') {
+      if (patch.dmOnly) door.dmOnly = true;
+      else delete door.dmOnly;
+    }
+    if (typeof patch.pickDc === 'number' && Number.isFinite(patch.pickDc)) {
+      const dc = Math.min(40, Math.max(0, Math.round(patch.pickDc)));
+      if (dc > 0) door.pickDc = dc;
+      else delete door.pickDc;
+    }
+    ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
+  });
+
   ctx.on('door:toggle', ({ mapId, wallId }) => {
     const room = ctx.getRoom();
     if (!room || typeof mapId !== 'string' || typeof wallId !== 'string') return;
@@ -70,7 +88,8 @@ export function registerDoorHandlers(ctx: ConnCtx) {
 
     const finish = (text: string) => {
       ctx.systemMessage(room, text);
-      ctx.broadcast('walls:update', { mapId, walls: map.walls });
+      // Автору тоже (у дверей нет локальной оптимистики — ждём подтверждения сервера).
+      ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
     };
 
     // DM/тест-режим: всегда, замок не ломается.
