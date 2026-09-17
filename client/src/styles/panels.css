@@ -10,7 +10,7 @@
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 12;
+  z-index: var(--z-panel-raised);
 }
 
 .fog-group {
@@ -39,7 +39,7 @@
   border-radius: 12px;
   padding: 10px 13px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 12;
+  z-index: var(--z-panel-raised);
 }
 
 .initiative-track {
@@ -58,7 +58,7 @@
   height: 74px;
   border-radius: 12px;
   border: 2px solid var(--panel-border);
-  background: #1c2026;
+  background: var(--panel-2);
   cursor: pointer;
   overflow: hidden;
 }
@@ -71,7 +71,7 @@
 }
 
 .initiative-chip.hovered {
-  border-color: #ffd166;
+  border-color: var(--warn);
   box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.5);
 }
 
@@ -84,7 +84,7 @@
   bottom: 0;
   right: 0;
   background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  color: var(--text-bright);
   font-size: 18px;
   font-weight: 700;
   padding: 1px 7px;
@@ -101,8 +101,8 @@
   padding: 0;
   font-size: 16px;
   line-height: 1;
-  background: #ff6b6b;
-  color: #fff;
+  background: var(--danger);
+  color: var(--text-bright);
   border: none;
   display: none;
 }
@@ -114,7 +114,7 @@
 .initiative-scroll,
 .initiative-action {
   flex: 0 0 auto;
-  background: #1c2026;
+  background: var(--panel-2);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   color: var(--text);
@@ -125,7 +125,7 @@
 
 .initiative-scroll:hover,
 .initiative-action:hover {
-  background: #2b3039;
+  background: var(--panel-3);
 }
 
 .initiative-empty {
@@ -187,22 +187,22 @@
   height: 13px;
   border-radius: 50%;
   border: 1px solid var(--panel-border);
-  background: #2b3039;
+  background: var(--panel-3);
 }
 
 .res-dot.action {
-  background: #4ea1ff;
-  border-color: #4ea1ff;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
 }
 
 .res-dot.bonus {
-  background: #ffd166;
-  border-color: #ffd166;
+  background: var(--warn);
+  border-color: var(--warn);
 }
 
 .res-dot.reaction {
-  background: #4ecb71;
-  border-color: #4ecb71;
+  background: var(--ok);
+  border-color: var(--ok);
 }
 
 .res-dot.legendary {
@@ -211,11 +211,11 @@
   height: 17px;
   padding: 0 4px;
   border-radius: 9px;
-  background: #c084fc;
-  border-color: #c084fc;
+  background: var(--magic-light);
+  border-color: var(--magic-light);
   font-size: 10px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-bright);
 }
 
 .res-dot.used {
@@ -232,14 +232,14 @@
 }
 
 .res-move.over {
-  color: #ff6b6b;
+  color: var(--danger);
   font-weight: 700;
 }
 
 .initiative-end {
   margin-top: 2px;
   background: var(--accent);
-  color: #fff;
+  color: var(--text-bright);
   border: none;
   border-radius: 6px;
   padding: 4px 10px;
@@ -249,7 +249,7 @@
 }
 
 .initiative-end:disabled {
-  background: #2b3039;
+  background: var(--panel-3);
   color: var(--text-dim);
   cursor: not-allowed;
 }
@@ -281,7 +281,7 @@
   font-size: 11px;
   line-height: 1;
   background: var(--accent);
-  color: #fff;
+  color: var(--text-bright);
   border: none;
   display: none;
 }
@@ -299,7 +299,7 @@
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 10;
+  z-index: var(--z-panel);
   max-width: 676px;
   max-height: calc(100vh - 24px);
   display: flex;
@@ -363,7 +363,7 @@ button.icon {
   width: 56px;
   height: 56px;
   object-fit: contain;
-  background: #1c2026;
+  background: var(--panel-2);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   cursor: pointer;
@@ -385,7 +385,7 @@ button.icon {
   line-height: 1;
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--text-bright);
   display: none;
 }
 

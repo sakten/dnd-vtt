@@ -1,12 +1,50 @@
 :root {
+  /* Палитра: цвета берём только отсюда (hex в правилах не хардкодим). */
   --bg: #1a1d23;
   --panel: #23272f;
+  --panel-2: #1c2026; /* вложенные блоки: инпуты, строки, ячейки */
+  --panel-3: #2b3039; /* кнопки, ховеры, поднятые плашки */
   --panel-border: #333a45;
+  --panel-border-2: #3a4460; /* активные/ховер-рамки */
   --text: #e6e9ef;
+  --text-bright: #fff;
   --text-dim: #9aa3b2;
+  --ink: #0e1220; /* тёмный текст на светлых/акцентных плашках */
   --accent: #7c9cff;
+  --accent-2: #4ea1ff;
+  --info: #7cc7ff;
+  --warn: #ffd166;
+  --warn-2: #ffb04a;
+  --aim: #ff9f43;
   --danger: #ff6b6b;
+  --danger-2: #ff5a5a;
+  --danger-bright: #ff8a8a;
   --ok: #4ecb71;
+  --ok-deep: #2f9e64;
+  --ok-bright: #7fe0a0;
+  --magic: #c39bd3;
+  --magic-2: #7d4bc4;
+  --magic-light: #c084fc;
+  --indigo: #3b5bdb;
+  --gold: #b8860b;
+
+  /* Шкала слоёв: значения фиксированы — порядок меняем только с проверкой интерфейса. */
+  --z-behind: 1; /* внутренние бейджи (имя автора в чате) */
+  --z-inner: 2; /* ручки ресайза и внутренние оверлеи */
+  --z-drawer: 6; /* выдвижные панели (игроки) */
+  --z-panel: 10; /* основные панели: тулбар, чат, карты, токены, бейдж комнаты */
+  --z-panel-raised: 12; /* инструменты поверх панелей: действия, туман, свет, инициатива */
+  --z-tab: 13; /* ярлык ресурсов */
+  --z-resources: 14; /* панель ресурсов */
+  --z-floating: 20; /* поповеры панелей и фон модалок */
+  --z-menu-backdrop: 29;
+  --z-menu: 30; /* меню броска */
+  --z-overlay-backdrop: 39; /* фон поповеров заклинаний и реакций */
+  --z-overlay: 40; /* поповер заклинаний, окно реакции, пикер */
+  --z-aim: 45; /* панель прицеливания */
+  --z-crit: 50; /* крит-оверлей */
+  --z-tip: 60; /* тултипы */
+  --z-banner: 1000; /* баннер связи */
 }
 
 * {
@@ -27,7 +65,7 @@ body,
 }
 
 button {
-  background: #2b3039;
+  background: var(--panel-3);
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
@@ -48,7 +86,7 @@ button:disabled {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0e1220;
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -59,20 +97,20 @@ button.primary:hover:not(:disabled) {
 button.danger:hover:not(:disabled) {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--text-bright);
 }
 
 button.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0e1220;
+  color: var(--ink);
   font-weight: 700;
 }
 
 input[type='text'],
 input[type='number'],
 textarea {
-  background: #1c2026;
+  background: var(--panel-2);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   color: var(--text);
@@ -99,7 +137,7 @@ input[type='color'] {
   height: 34px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
-  background: #1c2026;
+  background: var(--panel-2);
   padding: 2px;
   cursor: pointer;
 }
@@ -120,9 +158,9 @@ input[type='checkbox'] {
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
+  z-index: var(--z-banner);
   background: var(--danger);
-  color: #fff;
+  color: var(--text-bright);
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: 600;
@@ -145,7 +183,7 @@ input[type='checkbox'] {
   max-width: 640px;
   max-height: 40vh;
   overflow: auto;
-  background: #1c2026;
+  background: var(--panel-2);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   padding: 12px;

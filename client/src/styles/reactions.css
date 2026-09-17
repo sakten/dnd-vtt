@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: rgba(5, 7, 10, 0.45);
-  z-index: 39;
+  z-index: var(--z-overlay-backdrop);
 }
 
 .reaction-prompt {
@@ -10,11 +10,11 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 40;
+  z-index: var(--z-overlay);
   min-width: 380px;
   max-width: 560px;
   background: var(--panel);
-  border: 1px solid #7d4bc4;
+  border: 1px solid var(--magic-2);
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.65);
@@ -34,7 +34,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #c39bd3;
+  color: var(--magic);
 }
 
 .rp-token {
@@ -48,7 +48,7 @@
 
 .rp-timer {
   margin-left: auto;
-  color: #ffd166;
+  color: var(--warn);
   font-weight: 700;
 }
 
@@ -57,14 +57,14 @@
   padding: 0;
   border: none;
   background: none;
-  color: #b8860b;
+  color: var(--gold);
   font-size: 12px;
   text-decoration: underline;
   cursor: pointer;
 }
 
 .rp-force-link:hover {
-  color: #ffd166;
+  color: var(--warn);
 }
 
 .rp-options {
@@ -79,8 +79,8 @@
   gap: 10px;
   padding: 8px 12px;
   border-radius: 10px;
-  border: 1px solid #7d4bc4;
-  background: #1c2026;
+  border: 1px solid var(--magic-2);
+  background: var(--panel-2);
   color: var(--text);
   cursor: pointer;
   text-align: left;
@@ -96,7 +96,7 @@
 }
 
 .rp-option.rp-ignore:hover {
-  background: #1c2026;
+  background: var(--panel-2);
   color: var(--text);
 }
 

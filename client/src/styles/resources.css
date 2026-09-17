@@ -11,7 +11,7 @@
   color: var(--text);
   padding: 12px 6px;
   cursor: pointer;
-  z-index: 13;
+  z-index: var(--z-tab);
 }
 
 .resources-tab.hidden {
@@ -32,7 +32,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  z-index: 14;
+  z-index: var(--z-resources);
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
 }
 
@@ -46,7 +46,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #1c2026;
+  background: var(--panel-2);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   padding: 8px;
@@ -115,17 +115,17 @@
   height: 14px;
   border-radius: 50%;
   border: 1px solid var(--panel-border);
-  background: #2b3039;
+  background: var(--panel-3);
   cursor: pointer;
   padding: 0;
 }
 
 .save-pip.success.filled {
-  background: #4ecb71;
+  background: var(--ok);
 }
 
 .save-pip.fail.filled {
-  background: #ff6b6b;
+  background: var(--danger);
 }
 
 .pips {
@@ -139,7 +139,7 @@
   height: 16px;
   border-radius: 50%;
   border: 1px solid var(--panel-border);
-  background: #2b3039;
+  background: var(--panel-3);
   cursor: pointer;
   padding: 0;
 }
@@ -324,11 +324,11 @@
 }
 
 .death-icon.success {
-  color: #4ecb71;
+  color: var(--ok);
 }
 
 .death-icon.fail {
-  color: #ff6b6b;
+  color: var(--danger);
 }
 
 .resource-row .pips {
@@ -358,7 +358,7 @@
 }
 
 .field-warning {
-  color: #ff8a8a;
+  color: var(--danger-bright);
   font-size: 12px;
   margin-top: -4px;
 }
@@ -387,7 +387,7 @@
   height: 40px;
   object-fit: contain;
   border-radius: 6px;
-  background: #1c2026;
+  background: var(--panel-2);
   border: 1px solid var(--panel-border);
 }
 
