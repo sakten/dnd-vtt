@@ -275,7 +275,11 @@ describe('subclassList', () => {
     const rogue = subclassList('rogue');
     expect(rogue.find((s) => s.key === 'soulknife')?.source).toBe('PHB');
     expect(rogue.find((s) => s.key === 'swashbuckler')?.source).toBe('XGE');
-    expect(subclassList('artificer').every((s) => s.source === 'TCE')).toBe(true);
+    const artificer = subclassList('artificer');
+    expect(artificer.find((s) => s.key === 'alchemist')?.source).toBe('EFA');
+    expect(artificer.find((s) => s.key === 'cartographer')?.source).toBe('EFA');
+    expect(artificer.find((s) => s.key === 'reanimator')?.source).toBe('RHW');
+    expect(artificer.some((s) => s.source === 'TCE')).toBe(false);
   });
 });
 

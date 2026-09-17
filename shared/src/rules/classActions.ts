@@ -31,7 +31,15 @@ const PASSIVE_KEYS = new Set<string>([
   'wizard:arcaneRecovery',
   'druid.land:naturalRecovery',
   'wizard.scribes:ritualMastery',
+  'artificer:tinkersMagic',
+  'artificer:magicItemTinker',
+  'artificer:spellStoringItem',
   'artificer.alchemist:chemicalMastery',
+  'artificer.alchemist:experimentalElixir',
+  'artificer.battleSmith:steelDefender',
+  'artificer.cartographer:superiorAtlas',
+  'artificer.reanimator:reanimatedCompanion',
+  'artificer.reanimator:refinedReanimation',
   'paladin.ancients:elderChampion',
   'paladin.glory:livingLegend',
   'barbarian.zealot:warriorOfTheGods',
@@ -184,11 +192,12 @@ const FEATURE_META: Record<string, FeatureMeta> = {
   'wizard.scribes:oneWithTheWord': {},
 
   // Изобретатель
+  'artificer:flashOfGenius': { costs: ['reaction'] },
   'artificer.alchemist:restorativeReagents': { costs: ['action'], targeting: { kind: 'creature', range: 30 } },
-  'artificer.armorer:arcaneArmor': { costs: ['action'] },
-  'artificer.armorer:perfectedArmor': {},
+  'artificer.armorer:perfectedArmor': { costs: ['action'] },
   'artificer.artillerist:eldritchCannon': { costs: ['action'] },
   'artificer.battleSmith:arcaneJolt': { targeting: { kind: 'creature' } },
+  'artificer.cartographer:mappingMagic': { costs: ['action'] },
 };
 
 interface NamedFeature extends ActionDef {

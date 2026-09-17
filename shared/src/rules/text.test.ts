@@ -44,7 +44,7 @@ describe('featureNameRu', () => {
   });
 
   it('число переводов совпадает с числом черт каталога', () => {
-    expect(featuresData.features).toHaveLength(829);
+    expect(featuresData.features).toHaveLength(featuresData.count);
     expect(Object.keys(textData.features)).toHaveLength(featuresData.features.length);
   });
 

@@ -21,8 +21,8 @@ import type { Spell } from './spells';
 const HASHES = {
   spells: 'f82b12f43ec96ea9',
   spellcasting: '142392258946ec63',
-  subclassSpells: '8c6c1ad0490e5a66',
-  features: 'e5156ad5b8d1553a',
+  subclassSpells: '0538db9846fc0bec',
+  features: 'c83a0c0860835076',
   weapons: '7910a91430bd729f',
   feats: '91e403f27800ec45',
 };
@@ -45,7 +45,8 @@ const GRANTS = subclassRaw as unknown as {
   subclasses: Record<string, { granted: { key: string; level: number }[]; pool: { key: string; level: number }[] }>;
 };
 
-const SOURCES = new Set(['XPHB', 'XGE', 'TCE']);
+/** Источники записей: заклинания — 5e24 + переизданные XGE/TCE, фичи — XPHB/EFA/RHW и подклассы XGE/TCE. */
+const SOURCES = new Set(['XPHB', 'XGE', 'TCE', 'EFA', 'RHW']);
 const SCHOOLS = new Set([
   'Abjuration',
   'Conjuration',

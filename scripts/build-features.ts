@@ -5,7 +5,7 @@ import { CLASSES, collectText, firstSentence } from 'shared';
 
 /**
  * Сборка `shared/src/data/features.json` из данных 5e.tools (R8.8).
- * Источники: XPHB (основной), XGE/TCE/PHB (подклассы); уровни 1–12.
+ * Источники: XPHB (основной), EFA/RHW (артифишер 2024), XGE/TCE/PHB (подклассы 2014); уровни 1–20.
  * Ключ — `класс[:подкласс]:camelName` (совпадает с ключами ресурсов CLASSES),
  * поэтому каталог и ресурсы сходятся без маппинга.
  * Запуск: `npm run features`.
@@ -36,8 +36,8 @@ const KEY_OVERRIDES: Record<string, string> = {
   'wizard.diviner:theThirdEye': 'wizard.diviner:thirdEye',
 };
 
-/** Приоритет источников правил при выборе записи класса (TCE раньше EFA — ключи артифайсера из TCE). */
-const CLASS_SOURCE_PREF = ['XPHB', 'TCE', 'EFA', 'PHB'];
+/** Приоритет источников правил при выборе записи класса (EFA раньше TCE — артифишер 2024). */
+const CLASS_SOURCE_PREF = ['XPHB', 'EFA', 'TCE', 'PHB'];
 
 /** Подклассы, у которых shortName 5e.tools не совпадает с нашим ключом. */
 const SUBCLASS_ALIASES: Record<string, { shortName: string; source: string }> = {
@@ -67,7 +67,8 @@ const PLACEHOLDER = new RegExp(
       '.+ Feature',
       '.+ Subclass',
     ].join('|') +
-    ')$'
+    ')$',
+  'i'
 );
 
 interface RawClassEntry {

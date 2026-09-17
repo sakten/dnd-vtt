@@ -13,7 +13,7 @@ export interface ResourceDef {
 
 export interface SubclassDef {
   name: string;
-  /** Источник правил: 'PHB' (2024), 'XGE', 'TCE'. */
+  /** Источник правил: 'PHB' (2024), 'EFA'/'RHW' (2024-сапплементы), 'XGE'/'TCE' (2014-сапплементы). */
   source: string;
   caster?: 'third';
   resources?: ResourceDef[];
@@ -107,6 +107,8 @@ const chaMax = abilityModMax('cha', 1);
 const intMax = abilityModMax('int', 1);
 const strMax = abilityModMax('str', 1);
 const conMax = abilityModMax('con', 1);
+/** Двойной модификатор Интеллекта (минимум 2) — «Хранящий заклинания предмет» артифишера 2024. */
+const twiceIntMax: ResourceDef['max'] = (_level, mods) => Math.max(2, 2 * mods.int);
 /** Пул использования = профишенси-бонус (по суммарному уровню персонажа). */
 const pbUses = pbMax(1);
 
@@ -749,33 +751,55 @@ export const CLASSES: Record<string, ClassDef> = {
     key: 'artificer',
     name: 'Изобретатель',
     caster: 'half',
-    resources: [],
+    resources: [
+      { key: 'tinkersMagic', name: 'Магия вещей', reset: always, max: intMax },
+      { key: 'flashOfGenius', name: 'Проблеск гениальности', reset: always, max: intMax },
+      { key: 'magicItemTinker', name: 'Магический мастеровой', reset: always, max: unlockAt(6) },
+      { key: 'spellStoringItem', name: 'Хранящий заклинания предмет', reset: always, max: twiceIntMax },
+    ],
     subclasses: {
       alchemist: {
         name: 'Алхимик',
-        source: 'TCE',
+        source: 'EFA',
         resources: [
+          { key: 'experimentalElixir', name: 'Экспериментальный эликсир', reset: always, max: constant(2) },
           { key: 'restorativeReagents', name: 'Восстанавливающие реагенты', reset: always, max: intMax },
-          { key: 'chemicalMastery', name: 'Химическое мастерство', reset: always, max: unlockAt(15) },
+          { key: 'chemicalMastery', name: 'Мастерство алхимика', reset: always, max: unlockAt(15) },
         ],
       },
       armorer: {
         name: 'Бронник',
-        source: 'TCE',
-        resources: [
-          { key: 'arcaneArmor', name: 'Магическая броня', reset: always, max: pbUses },
-          { key: 'perfectedArmor', name: 'Совершенная броня', reset: always, max: pbUses },
-        ],
+        source: 'EFA',
+        resources: [{ key: 'perfectedArmor', name: 'Идеальный доспех', reset: always, max: intMax }],
       },
       artillerist: {
         name: 'Артиллерист',
-        source: 'TCE',
+        source: 'EFA',
         resources: [{ key: 'eldritchCannon', name: 'Мистическая пушка', reset: always, max: unlockAt(3) }],
       },
       battleSmith: {
         name: 'Боевой кузнец',
-        source: 'TCE',
-        resources: [{ key: 'arcaneJolt', name: 'Магический толчок', reset: always, max: intMax }],
+        source: 'EFA',
+        resources: [
+          { key: 'steelDefender', name: 'Стальной защитник', reset: always, max: unlockAt(3) },
+          { key: 'arcaneJolt', name: 'Магическая встряска', reset: always, max: intMax },
+        ],
+      },
+      cartographer: {
+        name: 'Картограф',
+        source: 'EFA',
+        resources: [
+          { key: 'mappingMagic', name: 'Магия карты', reset: always, max: intMax },
+          { key: 'superiorAtlas', name: 'Превосходный атлас', reset: always, max: unlockAt(15) },
+        ],
+      },
+      reanimator: {
+        name: 'Реаниматор',
+        source: 'RHW',
+        resources: [
+          { key: 'reanimatedCompanion', name: 'Реанимированный спутник', reset: always, max: unlockAt(3) },
+          { key: 'refinedReanimation', name: 'Отточенная реанимация', reset: always, max: unlockAt(15) },
+        ],
       },
     },
   },
