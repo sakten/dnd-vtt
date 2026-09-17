@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { activeMapOf, tokenById } from '../store/selectors';
-import { canControlWith, isDmWith, useIsDm } from '../lib/control';
+import { activeMapOf } from '../store/selectors';
+import { useCanEndTurn, useIsDm } from '../lib/control';
 
 const EMPTY_COMBAT = emptyCombatState();
 
@@ -18,15 +18,7 @@ export default function InitiativeBar() {
   const addMapCombatants = useGameStore((s) => s.addMapCombatants);
   const endTurn = useGameStore((s) => s.endTurn);
   const setTurn = useGameStore((s) => s.setTurn);
-  const canEndTurn = useGameStore((s) => {
-    if (isDmWith(s)) return true;
-    const map = activeMapOf(s);
-    const c = map?.combat;
-    const entry = c && c.currentIndex >= 0 ? c.entries[c.currentIndex] : undefined;
-    if (!entry?.tokenId) return false;
-    const token = tokenById(map, entry.tokenId);
-    return token ? canControlWith(s, token) : false;
-  });
+  const canEndTurn = useCanEndTurn();
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);

@@ -22,6 +22,11 @@ export function useIsDm(): boolean {
   return useGameStore((s) => s.role === 'dm' || s.testMode);
 }
 
+/** Хук: только реальный DM (режим тестов прав не даёт — например, настройки комнаты). */
+export function useIsRealDm(): boolean {
+  return useGameStore((s) => s.role === 'dm');
+}
+
 type ControlState = Pick<State, 'role' | 'testMode' | 'selfId' | 'currentCharacterId'>;
 
 /**
@@ -34,6 +39,29 @@ export function canControlTokenWith(s: ControlState, token: Token, charName: str
   if (s.currentCharacterId && token.libraryItemId === s.currentCharacterId) return true;
   if (token.owner && charName && token.owner === charName) return true;
   return false;
+}
+
+/**
+ * Токен — персонаж игрока (привязка через контроллера). Только для него доступен
+ * лист игрока: серверный `Scope.character` тоже требует `controllers[playerId] === libraryItemId`.
+ */
+export function isCharacterTokenWith(
+  s: Pick<ControlState, 'selfId' | 'currentCharacterId'>,
+  token: Token
+): boolean {
+  return !!s.selfId && s.currentCharacterId !== null && token.libraryItemId === s.currentCharacterId;
+}
+
+/** Хук: может завершить текущий ход (DM/тест или контролёр активного токена). */
+export function useCanEndTurn(): boolean {
+  return useGameStore((s) => {
+    if (isDmWith(s)) return true;
+    const map = activeMapOf(s);
+    const combat = map?.combat;
+    const entry = combat && combat.currentIndex >= 0 ? combat.entries[combat.currentIndex] : undefined;
+    const token = entry?.tokenId ? tokenById(map, entry.tokenId) : null;
+    return token ? canControlWith(s, token) : false;
+  });
 }
 
 export function canControlWith(s: State, token: Token): boolean {

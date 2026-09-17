@@ -1,12 +1,12 @@
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
-import { useIsDm } from '../lib/control';
+import { useIsDm, useIsRealDm } from '../lib/control';
 
 export default function Toolbar() {
   const setGridModalOpen = useGameStore((s) => s.setGridModalOpen);
   const setRoomSettingsOpen = useGameStore((s) => s.setRoomSettingsOpen);
   const fitView = useGameStore((s) => s.fitView);
-  const role = useGameStore((s) => s.role);
+  const isRealDm = useIsRealDm();
   const isDm = useIsDm();
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
@@ -85,7 +85,7 @@ export default function Toolbar() {
           Обзор
         </button>
       )}
-      {role === 'dm' && (
+      {isRealDm && (
         <button title="Настройки комнаты" onClick={() => setRoomSettingsOpen(true)}>
           Комната
         </button>

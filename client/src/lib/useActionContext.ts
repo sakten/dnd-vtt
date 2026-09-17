@@ -16,7 +16,7 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { characterTokenOf, tokenById } from '../store/selectors';
-import { useIsDm } from './control';
+import { canControlTokenWith, characterNameOf, isCharacterTokenWith, useIsDm } from './control';
 import { useSpells } from './useSpells';
 
 /** Модель панели действий: активный/выбранный токен, экономика, оружие, черты, заклинания. */
@@ -39,6 +39,10 @@ export function useActionContext(): ActionContext | null {
   const map = useActiveMap();
   const selectedTokenId = useGameStore((s) => s.selectedTokenId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
+  const selfId = useGameStore((s) => s.selfId);
+  const role = useGameStore((s) => s.role);
+  const testMode = useGameStore((s) => s.testMode);
+  const charName = useGameStore((s) => characterNameOf(s, s.currentCharacterId));
   const isDm = useIsDm();
   const sheet = useGameStore((s) => s.sheet);
   const spells = useSpells();
@@ -76,8 +80,11 @@ export function useActionContext(): ActionContext | null {
     }
     const token = tokenById(map, tokenId);
     if (!token) return null;
-    const controlled = isDm || (currentCharacterId !== null && token.libraryItemId === currentCharacterId);
-    const isCharacter = currentCharacterId !== null && token.libraryItemId === currentCharacterId;
+    const control = { role, testMode, selfId, currentCharacterId };
+    // Контроль — как у серверного `controlsToken` (контроллер или владелец по имени);
+    // лист игрока доступен только при привязке через контроллера (`isCharacter`).
+    const controlled = canControlTokenWith(control, token, charName);
+    const isCharacter = isCharacterTokenWith(control, token);
     const ownEntry = combat.entries.find((e) => e.tokenId === token.id);
     const ownTurn = ownEntry ? combat.turns[ownEntry.id] : undefined;
     const isActive = !combat.active || combat.entries[combat.currentIndex]?.tokenId === token.id;
@@ -128,7 +135,7 @@ export function useActionContext(): ActionContext | null {
       attacksPer,
       panelSpells,
     };
-  }, [map, selectedTokenId, currentCharacterId, isDm, sheet, spells]);
+  }, [map, selectedTokenId, currentCharacterId, selfId, role, testMode, charName, isDm, sheet, spells]);
 
   return info;
 }
