@@ -3,11 +3,14 @@ import {
   DEFAULT_SPEED,
   SKILLS,
   abilityMod,
+  bonusPart,
   emptyAttack,
   type AbilityKey,
   type CharacterSheet,
   type SkillLevel,
 } from 'shared';
+
+export { bonusPart };
 
 export function defaultSheet(): CharacterSheet {
   return {
@@ -29,21 +32,6 @@ export function defaultSheet(): CharacterSheet {
 
 function fmtMod(mod: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`;
-}
-
-export function bonusPart(pb: string, level: SkillLevel | 0): string {
-  if (level === 0) return '';
-  const trimmed = pb.trim();
-  if (!trimmed) return '';
-  if (level === 1) return `+${trimmed}`;
-  const num = trimmed.match(/^(\d+)$/);
-  if (num) return `+${Number(num[1]) * 2}`;
-  const die = trimmed.match(/^(\d*)d(\d+)$/i);
-  if (die) {
-    const count = die[1] ? Number(die[1]) : 1;
-    return `+${count * 2}d${die[2]}`;
-  }
-  return `+${trimmed}`;
 }
 
 function modExpr(mod: number, pb: string, level: SkillLevel | 0): string {

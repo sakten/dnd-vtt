@@ -265,8 +265,8 @@ export class RoomManager {
     return Combat.abilityModForToken(room, token, ability);
   }
 
-  abilityCheckModForToken(room: Room, token: Token, ability: AbilityKey, skill?: string): number {
-    return Combat.abilityCheckModForToken(room, token, ability, skill);
+  abilityCheckExprForToken(room: Room, token: Token, ability: AbilityKey, skill?: string): string {
+    return Combat.abilityCheckExprForToken(room, token, ability, skill);
   }
 
   grantExtraMovement(room: Room, mapId: string, token: Token, feet: number) {

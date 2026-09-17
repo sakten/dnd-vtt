@@ -1,4 +1,4 @@
-import { abilityMod, rollDice, segmentRectDistance, SKILLS, type Token, type Wall } from 'shared';
+import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, type Token, type Wall } from 'shared';
 import { sheetOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
@@ -27,17 +27,18 @@ export function inDoorReach(
   return distance <= cellPx * DOOR_REACH_CELLS + 1e-6;
 }
 
-/** Модификатор взлома: персонаж — Ловкость рук с листа; canInteract-токен — ЛОВ статблока. */
-export function pickBonus(room: Room, token: Token): number {
+/** Формула взлома: персонаж — Ловкость рук с листа (владение может быть костью); canInteract — ЛОВ статблока. */
+export function pickExpression(room: Room, token: Token): string {
   const { sheet } = sheetOfToken(room, token);
   if (sheet) {
     const skill = SKILLS.find((s) => s.key === 'sleightOfHand');
     const mod = abilityMod(sheet.abilities[skill?.ability ?? 'dex'] ?? 10);
     const level = sheet.skills['sleightOfHand'] ?? 0;
-    const prof = Number(sheet.proficiencyBonus) || 2;
-    return mod + prof * level;
+    const suffix = mod >= 0 ? `+${mod}` : `${mod}`;
+    return `d20${suffix}${bonusPart(sheet.proficiencyBonus, level)}`;
   }
-  return abilityMod(Number(token.statblock?.abilities?.dex) || 10);
+  const dex = abilityMod(Number(token.statblock?.abilities?.dex) || 10);
+  return dex >= 0 ? `d20+${dex}` : `d20${dex}`;
 }
 
 /** Может ли игрок взаимодействовать этой дверью с какого-то из своих токенов. */
@@ -120,8 +121,7 @@ export function registerDoorHandlers(ctx: ConnCtx) {
         fail(ctx, 'doorLockedInCombat');
         return;
       }
-      const bonus = pickBonus(room, actor);
-      const roll = rollDice(bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`);
+      const roll = rollDice(pickExpression(room, actor));
       const success = roll.total >= dc;
       // Бросок идёт в чат карточкой (как проверки из roll menu), а не системной строкой.
       pushRollMessage(ctx, room, {

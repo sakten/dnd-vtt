@@ -3,7 +3,7 @@ import type { CharacterSheet, ChatMessage, RollMessage, Wall } from 'shared';
 import { makeConnCtx } from '../test/ctx';
 import { makeRoom, makeToken } from '../test/fixtures';
 import type { Room } from '../roomTypes';
-import { inDoorReach, pickBonus, registerDoorHandlers } from './doors';
+import { inDoorReach, pickExpression, registerDoorHandlers } from './doors';
 
 const DOOR: Wall = { id: 'd1', kind: 'door', x1: 100, y1: 0, x2: 100, y2: 50 };
 
@@ -233,13 +233,16 @@ describe('дверная геометрия', () => {
     expect(inDoorReach({ x: 50, y: 50, w: 100, h: 100 }, door, 50)).toBe(true);
   });
 
-  it('pickBonus: лист или статблок', () => {
+  it('pickExpression: лист (число/кость владения), экспертиза и статблок', () => {
     const { room, token } = makeDoorRoom({ sheets: { p1: sheet({ skills: { sleightOfHand: 1 }, proficiencyBonus: '3' }) } });
-    expect(pickBonus(room, token)).toBe(2 + 3); // ЛОВ 14 (+2) + владение 1×3
+    expect(pickExpression(room, token)).toBe('d20+2+3'); // ЛОВ 14 (+2) + владение 1×3
+
+    const dice = makeDoorRoom({ sheets: { p1: sheet({ skills: { sleightOfHand: 2 }, proficiencyBonus: 'd4' }) } });
+    expect(pickExpression(dice.room, dice.token)).toBe('d20+2+2d4'); // экспертиза костью владения
 
     token.libraryItemId = '';
     room.controllers = {};
     token.statblock = { abilities: { str: 10, dex: 20, con: 10, int: 10, wis: 10, cha: 10 } };
-    expect(pickBonus(room, token)).toBe(5);
+    expect(pickExpression(room, token)).toBe('d20+5');
   });
 });

@@ -2,6 +2,7 @@ import {
   abilityMod,
   actionSlotAvailable,
   attacksPerAction,
+  bonusPart,
   DEFAULT_AC,
   DEFAULT_SPEED,
   emptyCombatState,
@@ -11,7 +12,6 @@ import {
   modifiedValue,
   restrictionsFor,
   rollDice,
-  sheetProficiencyBonus,
   statNumber,
   type AbilityKey,
   type ActionCost,
@@ -256,22 +256,19 @@ export function abilityModForToken(room: Room, token: Token, ability: AbilityKey
   return abilityMod(score ?? 10);
 }
 
-/** Модификатор проверки характеристики с владением навыком (Выпутаться: STR/Athletics). */
-export function abilityCheckModForToken(
+/** Формула проверки характеристики с владением/экспертизой (Выпутаться: STR/Athletics). */
+export function abilityCheckExprForToken(
   room: Room,
   token: Token,
   ability: AbilityKey,
   skill?: string
-): number {
+): string {
   const mod = abilityModForToken(room, token, ability);
-  if (!skill) return mod;
   const controllerId = controllerIdOfToken(room, token);
   const sheet = controllerId ? room.sheets[controllerId] : undefined;
-  if (!sheet) return mod;
-  const level = sheet.skills[skill] ?? 0;
-  if (level <= 0) return mod;
-  const prof = sheetProficiencyBonus(sheet);
-  return mod + (level >= 2 ? prof * 2 : prof);
+  const level = skill && sheet ? sheet.skills[skill] ?? 0 : 0;
+  const suffix = mod >= 0 ? `+${mod}` : `${mod}`;
+  return `d20${suffix}${sheet && level > 0 ? bonusPart(sheet.proficiencyBonus, level) : ''}`;
 }
 
 /** Добавляет передвижение на текущий ход (Рывок). */

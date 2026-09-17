@@ -13,6 +13,7 @@ export * from './rules/features';
 export * from './rules/movement';
 export * from './rules/reactions';
 export * from './rules/resources';
+export * from './rules/sheet';
 export * from './rules/spellCast';
 export * from './rules/spellChoices';
 export * from './rules/spellLimits';

@@ -49,8 +49,7 @@ function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
   }
   ctx.syncCombat(room, mapId);
 
-  const mod = ctx.manager.abilityCheckModForToken(room, token, escape.ability, escape.skill);
-  const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
+  const expression = ctx.manager.abilityCheckExprForToken(room, token, escape.ability, escape.skill);
   const roll = rollDice(expression);
   const success = roll.total >= escape.dc;
   pushRollMessage(ctx, room, {
