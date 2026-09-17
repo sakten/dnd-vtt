@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ABILITIES, type AbilityKey, type Spell, type TokenStatblock } from 'shared';
 import { useSpells } from '../lib/useSpells';
 import { t } from '../i18n';
+import { spellDisplayName } from '../i18n/names';
 import { abilityName } from '../i18n/domain';
 import { spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
@@ -126,7 +127,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
       {chosen.map((s) => (
         <div className="spell-row" key={s.key}>
           <SpellIcon spell={s} className="spell-row-icon" />
-          <span className="spell-name">{s.name}</span>
+            <span className="spell-name">{spellDisplayName(s)}</span>
           <span className="spell-school">{spellLevelLabel(s.level)}</span>
           <button type="button" className="spell-remove" title={t('ui.common.remove')} onClick={() => toggleSpell(s.key)}>
             ✕

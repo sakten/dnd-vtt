@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { spellActionCost, spellAreaOrigin, spellAutomated, spellRangeFeet, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
+import { spellDisplayName } from '../i18n/names';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import { t } from '../i18n';
@@ -77,7 +78,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
         spellKey: spell.key,
         slotLevel: info.slotLevel,
         advantage: mode,
-        label: spell.name,
+        label: spellDisplayName(spell),
       });
     }
     onClose();
@@ -86,11 +87,11 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   return (
     <>
       <div className="spell-popover-backdrop" onMouseDown={onClose} />
-      <div className="spell-popover" role="dialog" aria-label={spell.name}>
+      <div className="spell-popover" role="dialog" aria-label={spellDisplayName(spell)}>
         <div className="sp-head">
           <SpellIcon spell={spell} className="sp-icon" />
           <div className="sp-head-text">
-            <div className="sp-name">{spell.name}</div>
+            <div className="sp-name">{spellDisplayName(spell)}</div>
             <div className="sp-meta">
               {info.isCantrip ? t('ui.spellPopover.cantrip') : t('ui.spellPopover.level', { n: spell.level })} ·{' '}
               {actionCostText(spellActionCost(spell))}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { Spell } from 'shared';
 import { t } from '../i18n';
+import { spellDisplayName } from '../i18n/names';
 import { SPELL_SCHOOL_RU, spellLevelLabel, spellMechanics } from '../lib/spellText';
 
 interface HoverState {
@@ -54,7 +55,7 @@ function SpellTooltip({ spell, x, y, note }: HoverState) {
 
   return createPortal(
     <div className="spell-tooltip" style={{ left, top, width }}>
-      <h4>{spell.name}</h4>
+        <h4>{spellDisplayName(spell)}</h4>
       <div className="tip-meta">
         {spellLevelLabel(spell.level)} · {SPELL_SCHOOL_RU[spell.school] ?? spell.school}
         {spell.concentration ? t('ui.spellTooltip.concentration') : ''}

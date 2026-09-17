@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type
 import { createPortal } from 'react-dom';
 import { BASE_ACTIONS, abilityMod, actionSlotAvailable, featureActionAutomation, isUnarmedAttack, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { spellDisplayName } from '../i18n/names';
 import {
   canSpendSlot,
   canUseFeature,
@@ -216,8 +217,8 @@ export default function ActionPanel() {
       <button
         key={`spell:${spell.key}`}
         className="ap-icon-btn ap-spell-btn"
-        data-tip={`${spell.name} · ${level}`}
-        aria-label={spell.name}
+          data-tip={`${spellDisplayName(spell)} · ${level}`}
+          aria-label={spellDisplayName(spell)}
         disabled={spellDisabled(spell)}
         onClick={() => setCasting(spell)}
       >

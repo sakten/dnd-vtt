@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { Spell } from 'shared';
 import { SPELL_SCHOOL_RU, spellLevelLabel, spellMechanicsShort } from '../lib/spellText';
 import { t } from '../i18n';
+import { spellDisplayName } from '../i18n/names';
 import Modal from './Modal';
 import SpellIcon from './SpellIcon';
 import { useSpellTooltip } from './SpellTooltip';
@@ -39,7 +40,7 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
     const q = query.trim().toLowerCase();
     return candidates
       .filter((s) => (level === 'all' ? true : s.level === level))
-      .filter((s) => (q ? s.name.toLowerCase().includes(q) : true))
+      .filter((s) => (q ? s.name.toLowerCase().includes(q) || spellDisplayName(s).toLowerCase().includes(q) : true))
       .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
   }, [candidates, level, query]);
 
@@ -83,7 +84,7 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
               }}
             >
               <SpellIcon spell={s} className="spell-pick-icon" />
-              <span className="spell-pick-name">{s.name}</span>
+              <span className="spell-pick-name">{spellDisplayName(s)}</span>
               <span className="spell-pick-meta">
                 {spellLevelLabel(s.level)} · {SPELL_SCHOOL_RU[s.school] ?? s.school}
                 {s.concentration ? ` · ${t('ui.spells.concentrationShort')}` : ''}

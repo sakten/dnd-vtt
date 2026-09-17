@@ -17,6 +17,7 @@ import {
 } from 'shared';
 import { loadSpells } from '../lib/spells';
 import { t, type MessageKey } from '../i18n';
+import { spellDisplayName } from '../i18n/names';
 import { abilityName } from '../i18n/domain';
 
 const CATEGORY_NAMES: Record<FeatCategory, MessageKey> = {
@@ -123,7 +124,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                       .filter((s) => s.key === discoveries[slot] || !discoveries.includes(s.key))
                       .map((s) => (
                         <option key={s.key} value={s.key}>
-                          {s.name}
+                          {spellDisplayName(s)}
                         </option>
                       ))}
                   </select>
@@ -247,7 +248,7 @@ function FeatSpellPicks({
                 <option value="">{t('ui.common.notChosen')}</option>
                 {cantrips.map((s) => (
                   <option key={s.key} value={s.key}>
-                    {s.name}
+                    {spellDisplayName(s)}
                   </option>
                 ))}
               </select>
@@ -259,7 +260,7 @@ function FeatSpellPicks({
               <option value="">{t('ui.common.notChosenN')}</option>
               {firsts.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.name}
+                  {spellDisplayName(s)}
                 </option>
               ))}
             </select>

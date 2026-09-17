@@ -23,6 +23,7 @@ import {
 } from 'shared';
 import { useSpells } from '../lib/useSpells';
 import { t } from '../i18n';
+import { spellDisplayName } from '../i18n/names';
 import { abilityName, classLabel } from '../i18n/domain';
 import { SPELL_SCHOOL_RU, spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
@@ -125,7 +126,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
                         {...tip.handlers(r.spell)}
                       >
                         <SpellIcon spell={r.spell} className="spell-row-icon" />
-                        <span className="spell-name">{r.spell.name}</span>
+                        <span className="spell-name">{spellDisplayName(r.spell)}</span>
                         {r.granted && (
                           <span className="spell-granted-tag" title={t('ui.spells.grantedTitle')}>
                             {t('ui.spells.granted')}
