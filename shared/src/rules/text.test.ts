@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import spellsData from '../data/spells.json';
 import textData from '../data/text.ru.json';
 import featsData from '../data/feats.json';
+import featuresData from '../data/features.json';
 import weaponsData from '../data/weapons.json';
-import { featNameRu, spellNameRu, weaponNameRu } from './text';
+import { featNameRu, featureNameRu, spellNameRu, weaponNameRu } from './text';
 
 const catalog = spellsData.spells;
 
@@ -30,6 +31,25 @@ describe('spellNameRu', () => {
 
   it('формат: с заглавной буквы, без точки на конце', () => {
     const bad = Object.entries(textData.spells)
+      .filter(([, name]) => !/^[А-ЯЁ]/.test(name) || name.endsWith('.'))
+      .map(([key]) => key);
+    expect(bad).toEqual([]);
+  });
+});
+
+describe('featureNameRu', () => {
+  it('у каждой черты каталога есть непустое русское название', () => {
+    const missing = featuresData.features.filter((f) => !featureNameRu(f.key)?.trim()).map((f) => f.key);
+    expect(missing).toEqual([]);
+  });
+
+  it('число переводов совпадает с числом черт каталога', () => {
+    expect(featuresData.features).toHaveLength(829);
+    expect(Object.keys(textData.features)).toHaveLength(featuresData.features.length);
+  });
+
+  it('формат: с заглавной буквы, без точки на конце', () => {
+    const bad = Object.entries(textData.features)
       .filter(([, name]) => !/^[А-ЯЁ]/.test(name) || name.endsWith('.'))
       .map(([key]) => key);
     expect(bad).toEqual([]);

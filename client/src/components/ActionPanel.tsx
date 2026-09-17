@@ -16,6 +16,7 @@ import {
 import { useActionContext } from '../lib/useActionContext';
 import { t } from '../i18n';
 import { baseActionLabel, resourceLabel } from '../i18n/domain';
+import { featureDisplayName } from '../i18n/names';
 import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
@@ -229,7 +230,7 @@ export default function ActionPanel() {
 
   const featureButton = (f: ActionDef) => {
     const left = resourceLeft(f);
-    const base = f.resourceKey ? resourceLabel(f.resourceKey, f.name) : f.name;
+    const base = f.resourceKey ? featureDisplayName(f.resourceKey, resourceLabel(f.resourceKey, f.name)) : f.name;
     const label = left !== null ? `${base} (${left})` : base;
     return (
       <button
