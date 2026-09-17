@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   DEFAULT_AC,
   DEFAULT_SPEED,
-  effectDurationText,
-  effectSummary,
   modifiedValue,
   statNumber,
   type ConditionInstance,
@@ -14,6 +12,7 @@ import {
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t, type MessageKey } from '../i18n';
+import { effectDurationText, effectSummaryText } from '../i18n/domain';
 import { useMapToken } from '../store/hooks';
 import { useCanControlId, useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
@@ -374,7 +373,7 @@ export default function TokenMenu() {
                   <div className="sheet-section-title">{t('ui.tokenMenu.featuresTitle', { n: hiddenEffects.length })}</div>
                   {hiddenEffects.map((e) => (
                     <div className="condition-row" key={e.id}>
-                      <span className="condition-label" title={`${e.name}${effectSummary(e) ? ` — ${effectSummary(e)}` : ''}`}>
+                      <span className="condition-label" title={`${e.name}${effectSummaryText(e) ? ` — ${effectSummaryText(e)}` : ''}`}>
                         {e.name}
                       </span>
                     </div>

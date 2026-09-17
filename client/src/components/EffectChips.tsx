@@ -1,5 +1,6 @@
-import { effectDurationText, effectSummary, type EffectInstance, type Spell } from 'shared';
+import { type EffectInstance, type Spell } from 'shared';
 import { t } from '../i18n';
+import { effectDurationText, effectSummaryText } from '../i18n/domain';
 import ChipRow from './ChipRow';
 import SpellIcon from './SpellIcon';
 
@@ -20,7 +21,7 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
     .map((e) => {
     const spell = e.sourceKey ? spellByKey?.get(e.sourceKey) : undefined;
     const ownConcentration = e.concentration === true && e.sourceId === tokenId;
-    const summary = effectSummary(e);
+    const summary = effectSummaryText(e);
     const parts: string[] = [];
     if (summary) parts.push(summary);
     if (ownConcentration) parts.push(t('ui.effects.concentration'));

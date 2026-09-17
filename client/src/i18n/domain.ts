@@ -1,8 +1,13 @@
 import {
   CONDITION_DESCRIPTIONS,
+  effectDurationParts,
+  effectSummaryParts,
   type AbilityKey,
   type ConditionKey,
   type DamageDefenseType,
+  type EffectDuration,
+  type EffectInstance,
+  type EffectTextPart,
   type LightAreaKind,
   type SenseType,
 } from 'shared';
@@ -69,4 +74,19 @@ export function baseActionLabel(id: string, fallback?: string): string {
 
 export function reactionLabel(id: string, fallback?: string): string {
   return label(`domain.reaction.${id}`, id, fallback);
+}
+
+function effectPartText(part: EffectTextPart): string {
+  if (part.params?.type === undefined) return t(part.key as MessageKey, part.params);
+  return t(part.key as MessageKey, { ...part.params, type: damageLabel(String(part.params.type)) });
+}
+
+export function effectSummaryText(effect: EffectInstance): string | undefined {
+  const parts = effectSummaryParts(effect);
+  if (!parts.length) return undefined;
+  return parts.map(effectPartText).join(', ');
+}
+
+export function effectDurationText(duration: EffectDuration): string {
+  return effectPartText(effectDurationParts(duration));
 }

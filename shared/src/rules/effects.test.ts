@@ -6,8 +6,8 @@ import {
   concentratingEffects,
   damageRollParts,
   effectDefenses,
-  effectDurationText,
-  effectSummary,
+  effectDurationParts,
+  effectSummaryParts,
   evalModifierValue,
   hasConcentration,
   isDiceValue,
@@ -175,22 +175,35 @@ describe('концентрация', () => {
     expect(hasConcentration([a], 'token-c')).toBe(false);
   });
 
-  it('текст длительности', () => {
-    expect(effectDurationText({ type: 'rounds', rounds: 3 })).toBe('3 раунд.');
-    expect(effectDurationText({ type: 'concentration' })).toBe('концентрация');
-    expect(effectDurationText({ type: 'endOfTurn', of: 'source' })).toContain('источника');
+  it('структурные части длительности', () => {
+    expect(effectDurationParts({ type: 'rounds', rounds: 3 })).toEqual({
+      key: 'domain.effect.duration.rounds',
+      params: { n: 3 },
+    });
+    expect(effectDurationParts({ type: 'untilSave', ability: 'wis', dc: 13, timing: 'start' }).key).toBe(
+      'domain.effect.duration.untilSaveStart'
+    );
+    expect(effectDurationParts({ type: 'untilSave', ability: 'wis', dc: 13, timing: 'end' }).key).toBe(
+      'domain.effect.duration.untilSaveEnd'
+    );
+    expect(effectDurationParts({ type: 'endOfTurn', of: 'target' }).key).toBe('domain.effect.duration.endOfTurnTarget');
+    expect(effectDurationParts({ type: 'endOfTurn', of: 'source' }).key).toBe(
+      'domain.effect.duration.endOfTurnSource'
+    );
+    expect(effectDurationParts({ type: 'concentration' })).toEqual({ key: 'domain.effect.duration.concentration' });
+    expect(effectDurationParts({ type: 'permanent' }).key).toBe('domain.effect.duration.permanent');
   });
 });
 
-describe('effectSummary (тултипы)', () => {
+describe('effectSummaryParts (тултипы)', () => {
   it('преимущество по цели и метка Hex', () => {
     const faerie = effect({ modifiers: [mod({ target: 'attack', mode: 'advantage' })] });
-    expect(effectSummary(faerie)).toBe('атаки по цели с преимуществом');
+    expect(effectSummaryParts(faerie)).toEqual([{ key: 'domain.effect.advAttackAgainst' }]);
 
     const hex = effect({
       modifiers: [mod({ target: 'damage', mode: 'add', value: '1d6', filter: { targetId: 't2' } })],
     });
-    expect(effectSummary(hex)).toBe('+1d6 к урону по метке');
+    expect(effectSummaryParts(hex)).toEqual([{ key: 'domain.effect.addDamageMark', params: { value: '+1d6' } }]);
   });
 
   it('Bless, состояния и сопротивления', () => {
@@ -200,20 +213,28 @@ describe('effectSummary (тултипы)', () => {
         mod({ target: 'save', mode: 'add', value: '1d4' }),
       ],
     });
-    expect(effectSummary(bless)).toBe('+1d4 к атакам, +1d4 к спасброскам');
+    expect(effectSummaryParts(bless)).toEqual([
+      { key: 'domain.effect.addAttack', params: { value: '+1d4' } },
+      { key: 'domain.effect.addSave', params: { value: '+1d4' } },
+    ]);
 
     const hold = effect({ conditions: ['paralyzed'], modifiers: [] });
-    expect(effectSummary(hold)).toBe('Парализован');
+    expect(effectSummaryParts(hold)).toEqual([{ key: 'domain.condition.paralyzed' }]);
 
     const stoneskin = effect({
       modifiers: [mod({ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } })],
     });
-    expect(effectSummary(stoneskin)).toBe('сопротивление: Режущий');
+    expect(effectSummaryParts(stoneskin)).toEqual([
+      { key: 'domain.effect.resistance', params: { type: 'slashing' } },
+    ]);
 
     const images = effect({ modifiers: [], misdirect: { charges: 3, die: 'd6', threshold: 3 } });
-    expect(effectSummary(images)).toBe('зеркальные образы (3)');
+    expect(effectSummaryParts(images)).toEqual([{ key: 'domain.effect.mirrorImages', params: { charges: 3 } }]);
 
-    expect(effectSummary(effect({ modifiers: [] }))).toBeUndefined();
+    const hidden = effect({ hidden: true, conditions: ['prone'] });
+    expect(effectSummaryParts(hidden)).toEqual([]);
+
+    expect(effectSummaryParts(effect({ modifiers: [] }))).toEqual([]);
   });
 });
 

@@ -9,8 +9,8 @@ import type {
   Restrictions,
 } from '../domain/effects';
 import type { AttackRangeType } from '../domain/token';
-import { damageTypeName } from '../labels';
-import { conditionName, isIncapacitated } from './conditions';
+import { DAMAGE_TYPES } from '../labels';
+import { isIncapacitated } from './conditions';
 
 /** Контекст применения модификатора (фильтры attackType/ability/skill/damageType). */
 export interface ModifierContext {
@@ -35,6 +35,8 @@ export interface RollParts {
 }
 
 const ABILITY_KEYS: AbilityKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
+const DAMAGE_TYPE_KEYS = new Set(DAMAGE_TYPES.map((type) => type.key));
 
 /** Строка-значение — кость ('1d4', '-2d6+1'), а не формула. */
 export function isDiceValue(value: number | string): boolean {
@@ -291,115 +293,143 @@ export function hasConcentration(effects: EffectInstance[] | undefined, sourceId
   return concentratingEffects(effects, sourceId).length > 0;
 }
 
-/** Короткое описание длительности для чипов и тултипов. */
-export function effectDurationText(duration: EffectDuration): string {
+/** Структурная часть текста для i18n: ключ каталога клиента и параметры подстановки. */
+export interface EffectTextPart {
+  key: string;
+  params?: Record<string, string | number>;
+}
+
+/** Части длительности эффекта для i18n (`domain.effect.duration.*`). */
+export function effectDurationParts(duration: EffectDuration): EffectTextPart {
   switch (duration.type) {
     case 'rounds':
-      return `${duration.rounds} раунд.`;
+      return { key: 'domain.effect.duration.rounds', params: { n: duration.rounds } };
     case 'untilSave':
-      return `до спасброска (${duration.timing === 'start' ? 'начало' : 'конец'} хода)`;
+      return {
+        key: duration.timing === 'start' ? 'domain.effect.duration.untilSaveStart' : 'domain.effect.duration.untilSaveEnd',
+      };
     case 'endOfTurn':
-      return duration.of === 'target' ? 'до конца хода цели' : 'до конца хода источника';
+      return {
+        key:
+          duration.of === 'target'
+            ? 'domain.effect.duration.endOfTurnTarget'
+            : 'domain.effect.duration.endOfTurnSource',
+      };
     case 'concentration':
-      return 'концентрация';
+      return { key: 'domain.effect.duration.concentration' };
     case 'permanent':
-      return 'до снятия';
+      return { key: 'domain.effect.duration.permanent' };
   }
 }
 
-function signedValue(value: number | string | undefined): string {
-  if (value === undefined) return '';
-  if (typeof value === 'number') return value >= 0 ? `+${value}` : `${value}`;
-  return value.startsWith('-') ? value : `+${value}`;
-}
-
-/** Человекочитаемая суть эффекта для тултипа: состояния и модификаторы. */
-export function effectSummary(effect: EffectInstance): string | undefined {
-  if (effect.hidden) return undefined;
-  const parts: string[] = [];
-  for (const key of effect.conditions ?? []) parts.push(conditionName(key));
-  if (effect.misdirect) parts.push(`зеркальные образы (${effect.misdirect.charges})`);
+/** Структурная суть эффекта для тултипа (i18n): состояния и модификаторы. */
+export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
+  if (effect.hidden) return [];
+  const parts: EffectTextPart[] = [];
+  for (const key of effect.conditions ?? []) parts.push({ key: `domain.condition.${key}` });
+  if (effect.misdirect) {
+    parts.push({ key: 'domain.effect.mirrorImages', params: { charges: effect.misdirect.charges } });
+  }
   for (const mod of effect.modifiers) {
-    const v = signedValue(mod.value);
     switch (mod.mode) {
       case 'advantage':
-        parts.push(
-          mod.target === 'attack'
-            ? 'атаки по цели с преимуществом'
-            : mod.target === 'save'
-              ? 'преимущество на спасброски'
-              : mod.target === 'check'
-                ? 'преимущество на проверки'
-                : 'преимущество'
-        );
+        parts.push({
+          key:
+            mod.target === 'attack'
+              ? 'domain.effect.advAttackAgainst'
+              : mod.target === 'save'
+                ? 'domain.effect.advSaves'
+                : mod.target === 'check'
+                  ? 'domain.effect.advChecks'
+                  : 'domain.effect.adv',
+        });
         break;
       case 'disadvantage':
-        parts.push(
-          mod.target === 'attack'
-            ? 'атаки по цели с помехой'
-            : mod.target === 'save'
-              ? 'помеха на спасброски'
-              : mod.target === 'check'
-                ? 'помеха на проверки'
-                : 'помеха'
-        );
+        parts.push({
+          key:
+            mod.target === 'attack'
+              ? 'domain.effect.disAttackAgainst'
+              : mod.target === 'save'
+                ? 'domain.effect.disSaves'
+                : mod.target === 'check'
+                  ? 'domain.effect.disChecks'
+                  : 'domain.effect.dis',
+        });
         break;
       case 'add': {
+        const raw = mod.value;
+        const value =
+          raw === undefined
+            ? ''
+            : typeof raw === 'number'
+              ? raw >= 0
+                ? `+${raw}`
+                : `${raw}`
+              : raw.startsWith('-')
+                ? raw
+                : `+${raw}`;
         const target =
           mod.target === 'attack'
-            ? 'к атакам'
+            ? 'addAttack'
             : mod.target === 'damage'
               ? mod.filter?.targetId
-                ? 'к урону по метке'
-                : 'к урону'
+                ? 'addDamageMark'
+                : 'addDamage'
               : mod.target === 'save'
-                ? 'к спасброскам'
+                ? 'addSave'
                 : mod.target === 'check'
-                  ? 'к проверкам'
+                  ? 'addCheck'
                   : mod.target === 'ac'
-                    ? 'к AC'
+                    ? 'addAc'
                     : mod.target === 'speed'
-                      ? 'фт скорости'
+                      ? 'addSpeed'
                       : mod.target === 'initiative'
-                        ? 'к инициативе'
+                        ? 'addInitiative'
                         : mod.target === 'maxHp'
-                          ? 'к максимуму HP'
+                          ? 'addMaxHp'
                           : mod.target === 'extraActions'
-                            ? 'доп. действие'
+                            ? 'addExtraAction'
                             : mod.target === 'extraBonusActions'
-                              ? 'доп. бонусное действие'
-                                : mod.target === 'spellAttack'
-                                  ? 'к атаке заклинанием'
-                                  : mod.target === 'spellDc'
-                                    ? 'к СЛ заклинаний'
-                                    : mod.target === 'reach'
-                                      ? 'фт досягаемости'
-                                      : '';
-        parts.push(target ? `${v} ${target}` : v);
+                              ? 'addExtraBonus'
+                              : mod.target === 'spellAttack'
+                                ? 'addSpellAttack'
+                                : mod.target === 'spellDc'
+                                  ? 'addSpellDc'
+                                  : mod.target === 'reach'
+                                    ? 'addReach'
+                                    : 'add';
+        parts.push({ key: `domain.effect.${target}`, params: { value } });
         break;
       }
       case 'multiply':
-        parts.push(
-          mod.target === 'speed'
-            ? `скорость ×${mod.value ?? 0}`
-            : mod.target === 'ac'
-              ? `AC ×${mod.value ?? 0}`
-              : `×${mod.value ?? 0}`
-        );
+        parts.push({
+          key:
+            mod.target === 'speed'
+              ? 'domain.effect.multiplySpeed'
+              : mod.target === 'ac'
+                ? 'domain.effect.multiplyAc'
+                : 'domain.effect.multiply',
+          params: { value: mod.value ?? 0 },
+        });
         break;
       case 'set':
-        parts.push(mod.target === 'ac' ? `AC не ниже ${mod.value ?? 0}` : `= ${mod.value ?? 0}`);
+        parts.push({
+          key: mod.target === 'ac' ? 'domain.effect.setAc' : 'domain.effect.set',
+          params: { value: mod.value ?? 0 },
+        });
         break;
       case 'resistance':
       case 'immunity':
       case 'vulnerability': {
-        const label =
-          mod.mode === 'resistance' ? 'сопротивление' : mod.mode === 'immunity' ? 'иммунитет' : 'уязвимость';
-        const type = damageTypeName(mod.filter?.damageType);
-        parts.push(type ? `${label}: ${type}` : label);
+        const type = mod.filter?.damageType;
+        parts.push(
+          type && DAMAGE_TYPE_KEYS.has(type)
+            ? { key: `domain.effect.${mod.mode}`, params: { type } }
+            : { key: `domain.effect.${mod.mode}Plain` }
+        );
         break;
       }
     }
   }
-  return parts.length ? parts.join(', ') : undefined;
+  return parts;
 }

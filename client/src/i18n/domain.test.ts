@@ -6,6 +6,8 @@ import {
   CONDITION_NAMES,
   reactionFeatures,
   type ClassLevel,
+  type EffectInstance,
+  type Modifier,
 } from 'shared';
 import { setLocale } from './index';
 import { ru } from './ru';
@@ -14,6 +16,8 @@ import {
   classLabel,
   conditionHint,
   conditionLabel,
+  effectDurationText,
+  effectSummaryText,
   reactionLabel,
   resourceLabel,
   subclassLabel,
@@ -80,6 +84,51 @@ describe('i18n domain', () => {
       expect(ruKey(`domain.reaction.${feature.id}`)).toBe(feature.name);
       expect(reactionLabel(feature.id, feature.name)).toBe(feature.name);
     }
+  });
+
+  it('эффекты: RU-сводка совпадает с прежними строками', () => {
+    setLocale('ru');
+    const effect = (modifiers: Modifier[]): EffectInstance => ({
+      id: 'e1',
+      name: 'Effect',
+      duration: { type: 'concentration' },
+      modifiers,
+    });
+
+    const bless = effect([
+      { id: 'm1', target: 'attack', mode: 'add', value: '1d4' },
+      { id: 'm2', target: 'save', mode: 'add', value: '1d4' },
+    ]);
+    expect(effectSummaryText(bless)).toBe('+1d4 к атакам, +1d4 к спасброскам');
+
+    const hex = effect([{ id: 'm1', target: 'damage', mode: 'add', value: '1d6', filter: { targetId: 't2' } }]);
+    expect(effectSummaryText(hex)).toBe('+1d6 к урону по метке');
+
+    const stoneskin = effect([
+      { id: 'm1', target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } },
+    ]);
+    expect(effectSummaryText(stoneskin)).toBe('сопротивление: Режущий');
+
+    const images = effect([]);
+    images.misdirect = { charges: 3, die: 'd6', threshold: 3 };
+    expect(effectSummaryText(images)).toBe('зеркальные образы (3)');
+
+    expect(effectSummaryText(effect([]))).toBeUndefined();
+  });
+
+  it('эффекты: RU-длительности', () => {
+    setLocale('ru');
+    expect(effectDurationText({ type: 'rounds', rounds: 3 })).toBe('3 раунд.');
+    expect(effectDurationText({ type: 'untilSave', ability: 'wis', dc: 13, timing: 'start' })).toBe(
+      'до спасброска (начало хода)'
+    );
+    expect(effectDurationText({ type: 'untilSave', ability: 'wis', dc: 13, timing: 'end' })).toBe(
+      'до спасброска (конец хода)'
+    );
+    expect(effectDurationText({ type: 'endOfTurn', of: 'target' })).toBe('до конца хода цели');
+    expect(effectDurationText({ type: 'endOfTurn', of: 'source' })).toBe('до конца хода источника');
+    expect(effectDurationText({ type: 'concentration' })).toBe('концентрация');
+    expect(effectDurationText({ type: 'permanent' })).toBe('до снятия');
   });
 
   it('fallback для неизвестных ключей', () => {

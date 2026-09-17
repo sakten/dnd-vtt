@@ -49,10 +49,6 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionKey, string> = {
   custom: 'Особое состояние.',
 };
 
-export function conditionDescription(key: ConditionKey): string {
-  return CONDITION_DESCRIPTIONS[key] ?? CONDITION_DESCRIPTIONS.custom;
-}
-
 const NAME_TO_KEY = new Map<string, ConditionKey>(
   (Object.keys(CONDITION_NAMES) as ConditionKey[]).map((k) => [CONDITION_NAMES[k].toLowerCase(), k])
 );
