@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Group, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
 import type { LightArea, MapInfo, Token, Wall } from 'shared';
-import { areaCells, gridDistanceFeet, reachableCells, sightContextOf, snapToGrid } from 'shared';
+import { areaCells, gridDistanceFeet, reachableCells, segmentRectDistance, sightContextOf, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
@@ -79,6 +79,7 @@ export default function TableTop() {
   const paintRef = useRef<{ pressed: boolean; start: WorldPoint | null }>({ pressed: false, start: null });
   const [rectPreview, setRectPreview] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [wallCursor, setWallCursor] = useState<{ x: number; y: number } | null>(null);
+  const [doorHover, setDoorHover] = useState<{ id: string; state: 'open' | 'blocked' } | null>(null);
   const wallPressRef = useRef<{ x: number; y: number } | null>(null);
 
   const view = useGameStore((s) => s.view);
@@ -438,6 +439,19 @@ export default function TableTop() {
       if (stage && pointer) aimToCursor(toWorld(stage, pointer));
       return;
     }
+    // Игрок: курсор-замочек над дверью (открытый — можно, закрытый — только DM).
+    if (!isDm) {
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (!stage || !pointer) return;
+      const door = doorAt(toWorld(stage, pointer));
+      if (!door) setDoorHover(null);
+      else {
+        const state: 'open' | 'blocked' = !door.dmOnly && playerDoorReach(door) ? 'open' : 'blocked';
+        setDoorHover({ id: door.id, state });
+      }
+      return;
+    }
     if (!fogMode.active || !paintRef.current.pressed) return;
     const stage = e.target.getStage();
     const pointer = stage?.getPointerPosition();
@@ -475,6 +489,29 @@ export default function TableTop() {
     );
   };
 
+  /** Дверь под курсором (в пределах 10px экранных). */
+  const doorAt = (world: { x: number; y: number }): Wall | null =>
+    activeMap?.walls.find((w) => w.kind === 'door' && distToSegment(world, w) <= 10 / view.scale) ?? null;
+
+  /** Есть ли у игрока подходящий токен в 5 фт от двери (как на сервере). */
+  const playerDoorReach = (door: Wall): boolean => {
+    const st = useGameStore.getState();
+    const map = activeMapOf(st);
+    if (!map) return false;
+    const cell = map.grid.size || 50;
+    return map.tokens.some(
+      (t) =>
+        (t.isPlayerToken || t.canInteract) &&
+        canControlWith(st, t) &&
+        segmentRectDistance(
+          { x: door.x1, y: door.y1 },
+          { x: door.x2, y: door.y2 },
+          { x: t.x - t.w / 2, y: t.y - t.h / 2, w: t.w, h: t.h }
+        ) <=
+          cell + 1e-6
+    );
+  };
+
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (wallsMode.active) {
       if (!isDm || e.evt.button !== 0) return;
@@ -504,6 +541,17 @@ export default function TableTop() {
       ]);
       setWallsMode({ start: p });
       return;
+    }
+    if (!isDm && activeMap && e.evt.button === 0 && !aim && !targeting && !wallsMode.active && !fogMode.active && !lightMode.active) {
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) {
+        const door = doorAt(toWorld(stage, pointer));
+        if (door && !door.dmOnly && playerDoorReach(door)) {
+          useGameStore.getState().toggleDoor(door.id);
+          return;
+        }
+      }
     }
     if (isDm && activeMap && e.evt.button === 0 && !fogMode.active) {
       // Дверь можно открыть/закрыть и вне режима «Стены».
@@ -573,7 +621,7 @@ export default function TableTop() {
   return (
     <div
       ref={containerRef}
-      className={`table-top${aim || targeting || multiTarget ? ' targeting' : ''}`}
+      className={`table-top${aim || targeting || multiTarget ? ' targeting' : ''}${doorHover ? ` door-${doorHover.state}` : ''}`}
       data-testid="table-top"
       onDragOver={(e) => {
         e.preventDefault();
@@ -601,6 +649,7 @@ export default function TableTop() {
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
+          onMouseLeave={() => setDoorHover(null)}
           onMouseUp={handleMouseUp}
           onClick={handleClick}
           onContextMenu={(e) => {
@@ -648,22 +697,24 @@ export default function TableTop() {
                   listening={false}
                 />
               ))}
-            {isDm &&
-              activeMap?.walls.map((w) => {
-                const openDoor = w.kind === 'door' && w.open === true;
-                return (
-                  <Line
-                    key={w.id}
-                    points={[w.x1, w.y1, w.x2, w.y2]}
-                    stroke={openDoor ? '#4ecb71' : WALL_COLORS[w.kind]}
-                    strokeWidth={5 / view.scale}
-                    lineCap="round"
-                    opacity={openDoor ? 0.55 : 0.9}
-                    dash={openDoor ? [10 / view.scale, 7 / view.scale] : undefined}
-                    listening={false}
-                  />
-                );
-              })}
+            {activeMap?.walls.map((w) => {
+              // Игроки видят только двери (стены — инструмент DM); невидимые скроет вуаль.
+              if (!isDm && w.kind !== 'door') return null;
+              const openDoor = w.kind === 'door' && w.open === true;
+              const hovered = doorHover?.id === w.id;
+              return (
+                <Line
+                  key={w.id}
+                  points={[w.x1, w.y1, w.x2, w.y2]}
+                  stroke={hovered ? '#7c9cff' : openDoor ? '#4ecb71' : WALL_COLORS[w.kind]}
+                  strokeWidth={(hovered ? 7 : 5) / view.scale}
+                  lineCap="round"
+                  opacity={openDoor ? 0.55 : 0.9}
+                  dash={openDoor ? [10 / view.scale, 7 / view.scale] : undefined}
+                  listening={false}
+                />
+              );
+            })}
             {isDm &&
               wallCandidates?.map((w) => (
                 <Line

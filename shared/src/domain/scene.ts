@@ -51,6 +51,10 @@ export interface Wall {
   kind: WallKind;
   /** Дверь: закрыта (по умолчанию) или открыта. Для остальных видов не используется. */
   open?: boolean;
+  /** Дверь: открывать/закрывать может только DM (игрок видит закрытый замочек). */
+  dmOnly?: boolean;
+  /** Дверь: Сл проверки Ловкости рук (0/нет — замок не заперт). */
+  pickDc?: number;
 }
 
 export const DEFAULT_GRID: GridSettings = {

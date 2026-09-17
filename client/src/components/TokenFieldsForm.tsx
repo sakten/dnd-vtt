@@ -97,6 +97,11 @@ export function TokenPlayerFields({ value, onChange, isDm }: PlayerProps) {
           Показывать статы игрокам
         </CheckboxRow>
       )}
+      {isDm && (
+        <CheckboxRow checked={value.canInteract ?? false} onChange={(canInteract) => onChange({ canInteract })}>
+          Может взаимодействовать с объектами
+        </CheckboxRow>
+      )}
     </>
   );
 }

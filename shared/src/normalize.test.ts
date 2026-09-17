@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyCombatState } from './domain/combat';
 import { DEFAULT_SPEED } from './domain/core';
 import { DEFAULT_GRID, defaultFog } from './domain/scene';
-import { isRecord, normalizeLibraryItem, normalizeMapInfo, normalizeScene, normalizeToken } from './normalize';
+import { isRecord, normalizeLibraryItem, normalizeMapInfo, normalizeScene, normalizeToken, normalizeWalls } from './normalize';
 
 describe('isRecord', () => {
   it('отсекает null, массивы и примитивы', () => {
@@ -10,6 +10,32 @@ describe('isRecord', () => {
     expect(isRecord(null)).toBe(false);
     expect(isRecord([])).toBe(false);
     expect(isRecord('x')).toBe(false);
+  });
+});
+
+describe('normalizeWalls: дверные настройки', () => {
+  it('у дверей сохраняет dmOnly/pickDc, у стен и окон — вырезает', () => {
+    const [door, wall, window] = normalizeWalls([
+      { id: 'd1', kind: 'door', x1: 0, y1: 0, x2: 50, y2: 0, dmOnly: true, pickDc: 17, open: true },
+      { id: 'w1', kind: 'wall', x1: 0, y1: 0, x2: 50, y2: 0, dmOnly: true, pickDc: 15 },
+      { id: 'o1', kind: 'window', x1: 0, y1: 0, x2: 50, y2: 0, pickDc: 15 },
+    ]);
+
+    expect(door).toMatchObject({ kind: 'door', open: true, dmOnly: true, pickDc: 17 });
+    expect(wall!.dmOnly).toBeUndefined();
+    expect(wall!.pickDc).toBeUndefined();
+    expect(window!.pickDc).toBeUndefined();
+  });
+
+  it('pickDc: нет/0/мусор не сохраняются, вырезаются границы', () => {
+    const walls = normalizeWalls([
+      { id: 'd1', kind: 'door', x1: 0, y1: 0, x2: 50, y2: 0, pickDc: 0 },
+      { id: 'd2', kind: 'door', x1: 0, y1: 0, x2: 50, y2: 0, pickDc: 99 },
+      { id: 'd3', kind: 'door', x1: 0, y1: 0, x2: 50, y2: 0, pickDc: Number.NaN },
+    ]);
+    expect(walls[0]!.pickDc).toBeUndefined();
+    expect(walls[1]!.pickDc).toBe(40);
+    expect(walls[2]!.pickDc).toBeUndefined();
   });
 });
 

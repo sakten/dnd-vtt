@@ -87,6 +87,8 @@ export function normalizeWalls(raw: unknown): Wall[] {
     const { x1, y1, x2, y2 } = item;
     if (![x1, y1, x2, y2].every((v) => Number.isFinite(v))) continue;
     const kind = WALL_KINDS.includes(item.kind as WallKind) ? (item.kind as WallKind) : 'wall';
+    const door = kind === 'door';
+    const pickDc = Number(item.pickDc);
     out.push({
       id: String(item.id ?? ''),
       kind,
@@ -94,7 +96,10 @@ export function normalizeWalls(raw: unknown): Wall[] {
       y1: Number(y1),
       x2: Number(x2),
       y2: Number(y2),
-      ...(kind === 'door' && item.open === true ? { open: true } : {}),
+      ...(door && item.open === true ? { open: true } : {}),
+      // Дверные настройки — только у дверей (у стен/окон вырезаем).
+      ...(door && item.dmOnly === true ? { dmOnly: true } : {}),
+      ...(door && Number.isFinite(pickDc) && pickDc > 0 ? { pickDc: Math.min(40, Math.round(pickDc)) } : {}),
     });
   }
   return out;

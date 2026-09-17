@@ -24,6 +24,7 @@ const FULL_FIELDS: TokenFields = {
   ac: '15',
   hpMax: '40',
   showStats: true,
+  canInteract: true,
   damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'fire' }],
   statblock: { abilities: { ...DEFAULT_ABILITIES }, multiattack: 2 },
 };
@@ -66,6 +67,7 @@ describe('реестр полей', () => {
       'ac',
       'hpMax',
       'showStats',
+      'canInteract',
       'damageDefenses',
       'statblock',
     ];

@@ -143,6 +143,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
       if (isDm()) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
+        if (typeof patch.canInteract === 'boolean') token.canInteract = patch.canInteract;
         if (typeof patch.owner === 'string') token.owner = patch.owner.slice(0, 40);
         if (typeof patch.showStats === 'boolean') token.showStats = patch.showStats;
         if (patch.faction === 'ally' || patch.faction === 'enemy' || patch.faction === 'neutral') {

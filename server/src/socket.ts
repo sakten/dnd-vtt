@@ -3,6 +3,7 @@ import { createCtx, type AppServer, type AppSocket, type ConnCtx } from './socke
 import { registerAdminHandlers } from './socket/admin';
 import { registerRoomHandlers } from './socket/room';
 import { registerMapHandlers } from './socket/map';
+import { registerDoorHandlers } from './socket/doors';
 import { registerLibraryHandlers } from './socket/library';
 import { registerCombatHandlers } from './socket/combat';
 import { registerTokenHandlers } from './socket/token';
@@ -22,6 +23,7 @@ export function registerHandlers(ctx: ConnCtx) {
   registerAdminHandlers(ctx);
   registerRoomHandlers(ctx);
   registerMapHandlers(ctx);
+  registerDoorHandlers(ctx);
   registerLibraryHandlers(ctx);
   registerCombatHandlers(ctx);
   registerTokenHandlers(ctx);

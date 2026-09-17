@@ -71,6 +71,7 @@ export default function TokenMenu() {
       ac: token.ac,
       hpMax: token.hpMax,
       showStats: token.showStats,
+      canInteract: token.canInteract ?? false,
       damageDefenses: token.damageDefenses ?? [],
     });
     setHpCurrent(token.hpCurrent ?? 0);

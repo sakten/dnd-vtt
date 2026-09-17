@@ -18,7 +18,8 @@ export type ErrorCode =
   | 'noSlot'
   | 'noResource'
   | 'checkFailed'
-  | 'badRoll';
+  | 'badRoll'
+  | 'doorLockedInCombat';
 
 export interface ErrorParams {
   /** Футы для `outOfRange`. */
@@ -45,6 +46,7 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   noResource: 'Недостаточно ресурса',
   checkFailed: 'Не удалось выполнить проверку',
   badRoll: 'Не удалось распознать бросок',
+  doorLockedInCombat: 'В бою запертую дверь не взломать',
 };
 
 /** Текст ошибки по коду и параметрам. */

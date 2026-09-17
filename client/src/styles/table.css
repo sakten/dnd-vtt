@@ -26,6 +26,15 @@
   cursor: crosshair;
 }
 
+/* Двери: курсор-замочек (открытый — можно открыть, закрытый — только DM). */
+.table-top.door-open {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M8 10V6a4 4 0 0 1 8 0h-2.2a1.8 1.8 0 0 0-3.6 0v4z' fill='%237fe0a0'/><rect x='5' y='10' width='14' height='11' rx='2' fill='%234ecb71'/></svg>") 12 12, pointer;
+}
+
+.table-top.door-blocked {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M8 10V6a4 4 0 0 1 8 0v4h-2.2V6a1.8 1.8 0 0 0-3.6 0v4z' fill='%23ff8a8a'/><rect x='5' y='10' width='14' height='11' rx='2' fill='%23ff6b6b'/></svg>") 12 12, not-allowed;
+}
+
 .toolbar {
   position: absolute;
   top: 12px;

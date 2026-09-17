@@ -26,6 +26,7 @@ export function makeToken(id: string, overrides: Partial<Token> = {}): Token {
     ac: '',
     hpMax: '',
     showStats: false,
+    canInteract: false,
     x: 0,
     y: 0,
     w: 50,

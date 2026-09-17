@@ -92,6 +92,8 @@ export function registerMapHandlers(ctx: ConnCtx) {
           id: asString(w.id) ?? '',
           kind: asString(w.kind) ?? 'wall',
           open: w.open === true,
+          dmOnly: w.dmOnly === true,
+          pickDc: Number(w.pickDc),
           x1: Number(w.x1),
           y1: Number(w.y1),
           x2: Number(w.x2),
@@ -107,6 +109,11 @@ export function registerMapHandlers(ctx: ConnCtx) {
           x2: w.x2,
           y2: w.y2,
           ...(w.kind === 'door' && w.open ? { open: true } : {}),
+          // Дверные настройки — только у дверей.
+          ...(w.kind === 'door' && w.dmOnly ? { dmOnly: true } : {}),
+          ...(w.kind === 'door' && Number.isFinite(w.pickDc) && w.pickDc > 0
+            ? { pickDc: Math.min(40, Math.round(w.pickDc)) }
+            : {}),
         }));
       broadcast('walls:update', { mapId, walls: map.walls });
     });

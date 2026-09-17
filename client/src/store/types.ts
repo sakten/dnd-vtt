@@ -143,6 +143,8 @@ export interface GameState {
   removeLibraryItem: (id: string) => void;
   /** Патч сетки карты (по умолчанию — активной); без карт — дефолт комнаты. */
   updateGrid: (patch: Partial<GridSettings>, mapId?: string) => void;
+  /** Открыть/закрыть дверь на активной карте (права проверит сервер). */
+  toggleDoor: (wallId: string) => void;
   addTokenAt: (libraryItemId: string, x: number, y: number) => void;
   removeToken: (id: string) => void;
   moveToken: (id: string, x: number, y: number) => void;

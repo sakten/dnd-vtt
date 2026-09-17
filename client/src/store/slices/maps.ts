@@ -1,11 +1,11 @@
 import { MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from 'shared';
 import { applyMapGrid, setFog, setLightAreas, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
 import { activeMapOf } from '../selectors';
-import { emit, emitThrottled } from '../helpers';
+import { emit, emitInMap, emitThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
+export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
   // Клиент режет payload теми же лимитами, что и сервер: локальная и серверная версии не расходятся.
   const limitError = (what: string, max: number) =>
     get().onChatError(`Достигнут лимит ${what} (${max}) — лишнее не сохранится`);
@@ -77,6 +77,10 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
         const map = get().scene.maps.find((m) => m.id === target);
         return map ? { mapId: target, grid: map.grid } : undefined;
       });
+    },
+
+    toggleDoor: (wallId) => {
+      emitInMap(get, 'door:toggle', { wallId });
     },
 
     updateFog: (mapId, fog) => {

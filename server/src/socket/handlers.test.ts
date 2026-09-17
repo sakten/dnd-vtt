@@ -3597,6 +3597,7 @@ describe('библиотека и статблок', () => {
       ac: '12',
       hpMax: '7',
       showStats: false,
+      canInteract: false,
       damageDefenses: [],
       statblock: { abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 }, multiattack: 2 },
     });

@@ -93,6 +93,8 @@ export interface ClientToServerEvents {
     path?: { x: number; y: number }[];
   }) => void;
   'grid:update': (payload: { mapId: string; grid: GridSettings }) => void;
+  /** Открыть/закрыть дверь (DM — всегда; игрок — контролируемый токен в 5 фт). */
+  'door:toggle': (payload: { mapId: string; wallId: string }) => void;
   'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;
   'token:move': (payload: { mapId: string; id: string; x: number; y: number }) => void;

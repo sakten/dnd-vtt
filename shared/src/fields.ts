@@ -106,6 +106,12 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     full: (raw) => raw.showStats === true,
     patch: (raw, _prev, includeDm) => (includeDm && typeof raw.showStats === 'boolean' ? raw.showStats : undefined),
   },
+  canInteract: {
+    full: (raw) => raw.canInteract === true,
+    // Взаимодействие с объектами — настройка DM (как showStats).
+    patch: (raw, _prev, includeDm) =>
+      includeDm && typeof raw.canInteract === 'boolean' ? raw.canInteract : undefined,
+  },
   damageDefenses: {
     full: (raw) => normalizeDamageDefenses(raw.damageDefenses),
     patch: (raw) => (Array.isArray(raw.damageDefenses) ? normalizeDamageDefenses(raw.damageDefenses) : undefined),

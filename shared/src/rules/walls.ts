@@ -57,3 +57,49 @@ export function crossesWalls(a: Point, b: Point, walls: Wall[], mode: WallCheckM
     (w) => blocks(w, mode) && segmentsIntersect(a, b, { x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 })
   );
 }
+
+/** Прямоугольник в мировых координатах (подошва токена и т.п.). */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function pointSegDistance(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Минимальное расстояние между отрезками (0 — пересекаются/касаются). */
+export function segmentsDistance(a1: Point, a2: Point, b1: Point, b2: Point): number {
+  if (segmentsIntersect(a1, a2, b1, b2)) return 0;
+  return Math.min(
+    pointSegDistance(a1, b1, b2),
+    pointSegDistance(a2, b1, b2),
+    pointSegDistance(b1, a1, a2),
+    pointSegDistance(b2, a1, a2)
+  );
+}
+
+/** Расстояние от отрезка до прямоугольника (0 — отрезок внутри/пересекает). */
+export function segmentRectDistance(a: Point, b: Point, rect: Rect): number {
+  const { x, y, w, h } = rect;
+  const inside = (p: Point) => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
+  if (inside(a) || inside(b)) return 0;
+  const corners: Point[] = [
+    { x, y },
+    { x: x + w, y },
+    { x: x + w, y: y + h },
+    { x, y: y + h },
+  ];
+  let min = Infinity;
+  for (let i = 0; i < 4; i++) {
+    min = Math.min(min, segmentsDistance(a, b, corners[i]!, corners[(i + 1) % 4]!));
+  }
+  return min;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Wall } from '../domain/scene';
-import { crossesWalls, segmentsIntersect } from './walls';
+import { crossesWalls, segmentRectDistance, segmentsDistance, segmentsIntersect } from './walls';
 
 const P = (x: number, y: number) => ({ x, y });
 const wall = (x1: number, y1: number, x2: number, y2: number): Wall => ({ id: 'w', kind: 'wall', x1, y1, x2, y2 });
@@ -74,5 +74,25 @@ describe('crossesWalls', () => {
     const window = { ...wallAlongEdge, kind: 'window' as const };
     expect(crossesWalls(P(-25, 0), P(25, 0), [window], 'sight')).toBe(false);
     expect(crossesWalls(P(-25, 0), P(25, 0), [window], 'move')).toBe(true);
+  });
+});
+
+describe('segmentRectDistance / segmentsDistance', () => {
+  it('пересекающиеся отрезки — 0', () => {
+    expect(segmentsDistance(P(0, 0), P(10, 0), P(5, -5), P(5, 5))).toBe(0);
+  });
+
+  it('параллельные отрезки — расстояние между ними', () => {
+    expect(segmentsDistance(P(0, 0), P(10, 0), P(0, 4), P(10, 4))).toBe(4);
+  });
+
+  it('расстояние от двери до подошвы токена', () => {
+    const door = { x1: 100, y1: 0, x2: 100, y2: 50 };
+    // Токен 50×50 в (50,25): правый край на x=75 → 25px до двери
+    expect(segmentRectDistance(P(door.x1, door.y1), P(door.x2, door.y2), { x: 25, y: 0, w: 50, h: 50 })).toBe(25);
+    // 2×2 токен вплотную: прямоугольник касается двери
+    expect(segmentRectDistance(P(door.x1, door.y1), P(door.x2, door.y2), { x: 0, y: 0, w: 100, h: 100 })).toBe(0);
+    // Далеко
+    expect(segmentRectDistance(P(door.x1, door.y1), P(door.x2, door.y2), { x: 175, y: 0, w: 50, h: 50 })).toBe(75);
   });
 });

@@ -49,8 +49,7 @@ describe('maps slice: независимые сетки карт', () => {
   });
 });
 
-describe('maps slice: лимиты патчей (как на сервере)', () => {
-  it('updateFog обрезает клетки тумана и сообщает', () => {
+describe('maps slice: лимиты патчей (как на сервере)', () => {  it('updateFog обрезает клетки тумана и сообщает', () => {
     const hidden = Array.from({ length: MAX_FOG_CELLS + 3 }, (_, i) => `${i},0`);
     const fog = { ...useGameStore.getState().scene.maps[0]!.fog, hidden };
     useGameStore.getState().updateFog('m1', fog);
@@ -94,5 +93,10 @@ describe('maps slice: лимиты патчей (как на сервере)', (
     const s = useGameStore.getState();
     expect(s.scene.maps[0]!.lightAreas.length).toBe(MAX_LIGHT_AREAS);
     expect(s.chatError).toContain('лимит');
+  });
+
+  it('toggleDoor шлёт door:toggle с mapId активной карты', () => {
+    useGameStore.getState().toggleDoor('d1');
+    expect(emitted).toEqual([{ event: 'door:toggle', payload: { mapId: 'm1', wallId: 'd1' } }]);
   });
 });

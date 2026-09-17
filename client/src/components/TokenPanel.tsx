@@ -52,6 +52,7 @@ export default function TokenPanel() {
         ac: editing.ac,
         hpMax: editing.hpMax,
         showStats: editing.showStats,
+        canInteract: editing.canInteract,
         damageDefenses: editing.damageDefenses ?? [],
         statblock: editing.statblock,
       });
@@ -95,6 +96,7 @@ export default function TokenPanel() {
         ac: '',
         hpMax: '',
         showStats: false,
+        canInteract: false,
         damageDefenses: [],
       });
     } catch (err) {
