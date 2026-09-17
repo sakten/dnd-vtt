@@ -125,7 +125,7 @@ export default function RollMenu() {
   return (
     <div className="roll-menu-wrap">
       <div className="roll-adv">
-        <label className="adv-check" title="Бросок с преимуществом (d20a)">
+        <label className="adv-check" data-testid="adv-check" title="Бросок с преимуществом (d20a)">
           <input
             type="checkbox"
             checked={adv}
@@ -136,7 +136,7 @@ export default function RollMenu() {
           />
           Adv
         </label>
-        <label className="adv-check" title="Бросок с помехой (d20d)">
+        <label className="adv-check" data-testid="adv-check" title="Бросок с помехой (d20d)">
           <input
             type="checkbox"
             checked={dis}
@@ -150,6 +150,7 @@ export default function RollMenu() {
       </div>
       <button
         className="roll-button"
+        data-testid="roll-button"
         title="Броски персонажа и его призывов"
         onClick={() => setOpen((v) => !v)}
       >
@@ -158,16 +159,16 @@ export default function RollMenu() {
       {open && (
         <>
           <div className="roll-menu-backdrop" onMouseDown={close} />
-          <div className="roll-menu">
+          <div className="roll-menu" data-testid="roll-menu">
             {level === 'root' && (
               <>
-                <button className="roll-menu-item" onClick={chooseAttack}>
+                <button className="roll-menu-item" data-testid="roll-menu-item" onClick={chooseAttack}>
                   Attack
                 </button>
-                <button className="roll-menu-item" onClick={() => setLevel('save')}>
+                <button className="roll-menu-item" data-testid="roll-menu-item" onClick={() => setLevel('save')}>
                   Save
                 </button>
-                <button className="roll-menu-item" onClick={() => setLevel('check')}>
+                <button className="roll-menu-item" data-testid="roll-menu-item" onClick={() => setLevel('check')}>
                   Check
                 </button>
               </>
@@ -180,7 +181,7 @@ export default function RollMenu() {
                 {sources
                   .filter((s) => activeWithIndex(s.attacks).length > 0)
                   .map((source) => (
-                    <button className="roll-menu-item" key={source.key} onClick={() => pickSource(source)}>
+                    <button className="roll-menu-item" data-testid="roll-menu-item" key={source.key} onClick={() => pickSource(source)}>
                       {source.label}
                     </button>
                   ))}
@@ -193,7 +194,7 @@ export default function RollMenu() {
                 </button>
                 {activeWithIndex(currentSource.attacks).map(({ attack, index }) => (
                   <button
-                    className="roll-menu-item"
+                    className="roll-menu-item" data-testid="roll-menu-item"
                     key={index}
                     onClick={() => doWeapon(currentSource, index)}
                   >
@@ -208,7 +209,7 @@ export default function RollMenu() {
                   ← назад
                 </button>
                 <button
-                  className="roll-menu-item"
+                  className="roll-menu-item" data-testid="roll-menu-item"
                   onClick={() => {
                     rollDeathSave(applyAdvantage('d20', adv, dis));
                     resetAdv();
@@ -219,7 +220,7 @@ export default function RollMenu() {
                 </button>
                 {ABILITIES.map((a) => (
                   <button
-                    className="roll-menu-item"
+                    className="roll-menu-item" data-testid="roll-menu-item"
                     key={a.key}
                     onClick={() => doRoll(saveExpression(sheet, a.key), 'save', a.name)}
                   >
@@ -234,7 +235,7 @@ export default function RollMenu() {
                   ← назад
                 </button>
                 {ABILITIES.map((a) => (
-                  <button className="roll-menu-item" key={a.key} onClick={() => setLevel(`ability:${a.key}`)}>
+                  <button className="roll-menu-item" data-testid="roll-menu-item" key={a.key} onClick={() => setLevel(`ability:${a.key}`)}>
                     {a.name}
                   </button>
                 ))}
@@ -247,7 +248,7 @@ export default function RollMenu() {
                 </button>
                 {SKILLS.filter((s) => s.ability === (level.slice(8) as AbilityKey)).map((s) => (
                   <button
-                    className="roll-menu-item"
+                    className="roll-menu-item" data-testid="roll-menu-item"
                     key={s.key}
                     onClick={() => doRoll(checkExpression(sheet, s.key), 'check', s.name)}
                   >

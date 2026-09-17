@@ -4,15 +4,15 @@ import { findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 await S.page.screenshot({ path: path.join(S.OUT, '08-token-menu.png') });
-const fieldName = await S.page.$('.modal input[type=text]');
+const fieldName = await S.page.$('[data-testid="modal"] input[type=text]');
 await fieldName.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('Гоблин', { delay: 40 });
-const menuDone = await findButton(S.page, '.modal button', 'Готово');
+const menuDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await menuDone.click();
-await waitFor(S.page, () => !document.querySelector('.modal'));
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
 const afterEdit = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
@@ -86,27 +86,27 @@ await new Promise((r) => setTimeout(r, 800));
 
 await S.fileInputs[1].uploadFile(S.tokenSquarePath);
 await waitFor(S.page, () => {
-  const imgs = document.querySelectorAll('.token-panel-item img');
+  const imgs = document.querySelectorAll('[data-testid="token-panel-item"] img');
   return imgs.length >= 2 && [...imgs].every((img) => img.complete && img.naturalWidth > 0);
 }, 8000);
-const thumbs = await S.page.$$('.token-panel-item img');
+const thumbs = await S.page.$$('[data-testid="token-panel-item"] img');
 await thumbs[1].click();
 await thumbs[1].click();
-await S.page.waitForSelector('.modal');
+await S.page.waitForSelector('[data-testid="modal"]');
 const hasPlayerTokenCheck = await S.page.evaluate(() =>
-  Array.from(document.querySelectorAll('.modal label')).some((l) =>
+  Array.from(document.querySelectorAll('[data-testid="modal"] label')).some((l) =>
     l.textContent?.includes('Это токен игрока')
   )
 );
 check(hasPlayerTokenCheck, 'в свойствах предмета есть галка «Это токен игрока»');
-const roundCheck = await S.page.$('.modal input[type=checkbox]');
+const roundCheck = await S.page.$('[data-testid="modal"] input[type=checkbox]');
 await roundCheck.click();
-const libRoundDone = await findButton(S.page, '.modal button', 'Готово');
+const libRoundDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await libRoundDone.click();
-await waitFor(S.page, () => !document.querySelector('.modal'));
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
 await S.page.evaluate(() => {
-  const src = document.querySelectorAll('.token-panel-item img')[1];
-  const target = document.querySelector('.table-top');
+  const src = document.querySelectorAll('[data-testid="token-panel-item"] img')[1];
+  const target = document.querySelector('[data-testid="table-top"]');
   const dt = new DataTransfer();
   src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
   target.dispatchEvent(
@@ -150,12 +150,12 @@ const roundPos = await S.page.evaluate(() => {
 });
 await S.page.mouse.click(roundPos.sx, roundPos.sy);
 await S.page.mouse.click(roundPos.sx, roundPos.sy);
-await S.page.waitForSelector('.modal');
-const roundToggle = await S.page.$('.modal input[type=checkbox]');
+await S.page.waitForSelector('[data-testid="modal"]');
+const roundToggle = await S.page.$('[data-testid="modal"] input[type=checkbox]');
 await roundToggle.click();
-const roundMenuDone = await findButton(S.page, '.modal button', 'Готово');
+const roundMenuDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await roundMenuDone.click();
-await waitFor(S.page, () => !document.querySelector('.modal'));
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
 const roundAfter = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   return s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1]?.round;

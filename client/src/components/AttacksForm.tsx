@@ -57,11 +57,11 @@ export default function AttacksForm({
         {title} ({attacks.length}/{MAX_ATTACKS})
       </div>
       {attacks.map((attack, i) => (
-        <div className="weapon-block" key={i}>
+        <div className="weapon-block" data-testid="weapon-block" key={i}>
           <div className="weapon-head">
             <span>{itemLabel} {i + 1}</span>
             {attacks.length > 1 && (
-              <button type="button" className="weapon-remove" onClick={() => removeAttack(i)}>
+              <button type="button" className="weapon-remove" data-testid="weapon-remove" onClick={() => removeAttack(i)}>
                 Удалить
               </button>
             )}

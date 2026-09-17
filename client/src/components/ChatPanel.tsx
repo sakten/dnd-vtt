@@ -92,7 +92,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
   const rollDice = useGameStore((s) => s.rollDice);
   if (message.kind === 'text') {
     return (
-      <div className={`chat-msg${grouped ? ' grouped' : ''}`}>
+      <div className={`chat-msg${grouped ? ' grouped' : ''}`} data-testid="chat-msg">
         {!grouped && <span className="chat-author">{message.author}:</span>}
         <span className="chat-text"> {message.text}</span>
       </div>
@@ -108,6 +108,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
   return (
     <div
       className={`chat-msg roll roll-card ${labelType}${grouped ? ' grouped' : ''}`}
+      data-testid="chat-msg-roll"
       title={label ? `${label} · клик — повторить бросок` : 'Клик — повторить бросок'}
       onClick={() => rollDice(message.roll.expression, label)}
     >
@@ -116,7 +117,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
           <span className="roll-label">{label}</span>
         </div>
       )}
-      <div className={`roll-total-big ${crit ?? ''}`}>{message.roll.total}</div>
+      <div className={`roll-total-big ${crit ?? ''}`} data-testid="roll-total-big">{message.roll.total}</div>
       <div className="roll-divider" />
       <div className="roll-right-col">
         <div className="roll-formula">{formulaFromRoll(message.roll)}</div>
@@ -233,10 +234,10 @@ export default function ChatPanel() {
       <div className="chat-header">
         <strong title={`${roomName ?? ''} (${roomCode ?? ''})`}>Комната: {roomName || shortCode}</strong>
         <div className="chat-header-actions">
-          <button className="sheet-button" title="Карточка персонажа" onClick={() => setSheetOpen(true)}>
-            Персонаж
+          <button className="sheet-button" data-testid="sheet-button" title="Карточка персонажа" onClick={() => setSheetOpen(true)}>
+            Карточка
           </button>
-          <button className="sheet-button" title="Список игроков" onClick={() => setPlayersOpen(true)}>
+          <button className="sheet-button" data-testid="sheet-button" title="Список игроков" onClick={() => setPlayersOpen(true)}>
             Игроки ({players.length})
           </button>
         </div>
@@ -252,7 +253,7 @@ export default function ChatPanel() {
         ))}
         {chatError && <div className="chat-error">{chatError}</div>}
       </div>
-      <div className="chat-input">
+      <div className="chat-input" data-testid="chat-input">
         <RollMenu />
         <input
           type="text"

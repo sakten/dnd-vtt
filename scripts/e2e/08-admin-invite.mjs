@@ -2,23 +2,23 @@ import { S } from './state.mjs';
 import { check } from '../lib/check.mjs';
 import { errors, attachErrorLog, findButton, waitFor } from '../lib/e2e-helpers.mjs';
 
-const n3 = await S.page3.$$('.admin-card input[type=text]');
+const n3 = await S.page3.$$('[data-testid="admin-card"] input[type=text]');
 await n3[0].type('Третий');
-const createBtn3 = await findButton(S.page3, '.join-actions button', 'Создать новую игру');
+const createBtn3 = await findButton(S.page3, '[data-testid="join-actions"] button', 'Создать новую игру');
 await createBtn3.click();
-await S.page3.waitForSelector('.table-screen');
+await S.page3.waitForSelector('[data-testid="table-screen"]');
 const codeY = await S.page3.evaluate(() => window.__vtt.getState().roomCode);
 const page3Role = await S.page3.evaluate(() => window.__vtt.getState().role);
 check(page3Role === 'dm', 'создание из страницы ведущего даёт роль DM');
 await S.ctx3.close();
 
 await S.page2.goto(`${S.BASE}?room=${codeY}`, { waitUntil: 'networkidle0' });
-await S.page2.waitForSelector('.room-badge strong');
+await S.page2.waitForSelector('[data-testid="room-badge"] strong');
 const badge2 = await S.page2.evaluate(() => window.__vtt.getState().roomCode);
 check(badge2 === codeY, `инвайт-ссылка приоритетнее сохранённой комнаты (перешёл в ${badge2})`);
 
 await S.page2.goto(S.BASE, { waitUntil: 'networkidle0' });
-await S.page2.waitForSelector('.join-card');
+await S.page2.waitForSelector('[data-testid="join-card"]');
 
 const deadImageUrl = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
@@ -75,7 +75,7 @@ await page5.evaluateOnNewDocument(
   { id: dmPlayerId, name: dmName }
 );
 await page5.goto(`${S.BASE}?room=${S.code}`, { waitUntil: 'networkidle0' });
-await page5.waitForSelector('.table-screen');
+await page5.waitForSelector('[data-testid="table-screen"]');
 await waitFor(page5, () => window.__vtt && window.__vtt.getState().role === 'dm' && document.querySelectorAll('canvas').length > 0, 8000);
 const inviteState = await page5.evaluate(() => ({
   role: window.__vtt.getState().role,
@@ -90,28 +90,28 @@ const ctx4 = await S.browser.createBrowserContext();
 const page4 = await ctx4.newPage();
 await page4.setViewport({ width: 1200, height: 800 });
 await page4.goto(`${S.BASE}?admin=1`, { waitUntil: 'networkidle0' });
-await page4.waitForSelector('.admin-room');
-const roomsBefore = await page4.$$eval('.admin-room', (els) => els.length);
+await page4.waitForSelector('[data-testid="admin-room"]');
+const roomsBefore = await page4.$$eval('[data-testid="admin-room"]', (els) => els.length);
 let targetRow = null;
-for (const row of await page4.$$('.admin-room')) {
-  const t = await row.$eval('.admin-room-code', (el) => el.textContent);
+for (const row of await page4.$$('[data-testid="admin-room"]')) {
+  const t = await row.$eval('[data-testid="admin-room-code"]', (el) => el.textContent);
   if (t === codeY) {
     targetRow = row;
     break;
   }
 }
 check(!!targetRow, 'нашлась строка собственной тестовой комнаты для проверки удаления');
-const nameEl = await targetRow.$('.admin-room-name');
+const nameEl = await targetRow.$('[data-testid="admin-room-name"]');
 await nameEl.evaluate((el) => el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })));
-await page4.waitForSelector('.admin-room-name-input');
+await page4.waitForSelector('[data-testid="admin-room-name-input"]');
 await page4.evaluate(() => {
-  const el = document.querySelector('.admin-room-name-input');
+  const el = document.querySelector('[data-testid="admin-room-name-input"]');
   el.focus();
   el.value = '';
 });
 await page4.keyboard.type('Переименовано', { delay: 30 });
 await page4.keyboard.press('Enter');
-await waitFor(page4, () => !document.querySelector('.admin-room-name-input'));
+await waitFor(page4, () => !document.querySelector('[data-testid="admin-room-name-input"]'));
 const renamedList = await page4.evaluate(
   () =>
     new Promise((resolve) =>
@@ -123,11 +123,11 @@ check(
   'двойной клик по имени переименовывает комнату'
 );
 await targetRow.$eval('button.danger', (el) => el.click());
-await page4.waitForSelector('.modal');
-const confirmDeleteBtn = await findButton(page4, '.modal button', 'Удалить');
+await page4.waitForSelector('[data-testid="modal"]');
+const confirmDeleteBtn = await findButton(page4, '[data-testid="modal"] button', 'Удалить');
 await confirmDeleteBtn.click();
-await page4.waitForFunction((n) => document.querySelectorAll('.admin-room').length === n - 1, {}, roomsBefore);
-const roomsAfter = await page4.$$eval('.admin-room', (els) => els.length);
+await page4.waitForFunction((n) => document.querySelectorAll('[data-testid="admin-room"]').length === n - 1, {}, roomsBefore);
+const roomsAfter = await page4.$$eval('[data-testid="admin-room"]', (els) => els.length);
 check(roomsAfter === roomsBefore - 1, `удаление комнаты с подтверждением работает (${roomsBefore} -> ${roomsAfter})`);
 
 await page4.evaluate(
@@ -137,10 +137,10 @@ await page4.evaluate(
     ),
   S.code
 );
-const refreshBtn = await findButton(page4, '.join-actions button', 'Обновить');
+const refreshBtn = await findButton(page4, '[data-testid="join-actions"] button', 'Обновить');
 await refreshBtn.click();
-await page4.waitForFunction((n) => document.querySelectorAll('.admin-room').length === n - 2, {}, roomsBefore);
-const roomsFinal = await page4.$$eval('.admin-room', (els) => els.length);
+await page4.waitForFunction((n) => document.querySelectorAll('[data-testid="admin-room"]').length === n - 2, {}, roomsBefore);
+const roomsFinal = await page4.$$eval('[data-testid="admin-room"]', (els) => els.length);
 check(roomsFinal === roomsBefore - 2, `тестовые комнаты удалены после теста (${roomsBefore} -> ${roomsFinal})`);
 await ctx4.close();
 

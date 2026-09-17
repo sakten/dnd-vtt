@@ -12,7 +12,7 @@ export default function LightPanel() {
   const map = useGameStore(activeMapOf);
 
   return (
-    <div className="fog-panel">
+    <div className="fog-panel" data-testid="light-panel">
       <div className="fog-group">
         <span className="fog-label">Вид:</span>
         {KINDS.map((k) => (

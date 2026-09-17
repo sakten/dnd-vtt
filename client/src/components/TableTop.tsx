@@ -574,6 +574,7 @@ export default function TableTop() {
     <div
       ref={containerRef}
       className={`table-top${aim || targeting || multiTarget ? ' targeting' : ''}`}
+      data-testid="table-top"
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';

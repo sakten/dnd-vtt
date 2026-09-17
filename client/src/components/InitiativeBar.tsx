@@ -52,7 +52,7 @@ export default function InitiativeBar() {
   };
 
   return (
-    <div className="initiative-bar">
+    <div className="initiative-bar" data-testid="initiative-bar">
       <div className="initiative-turn">
         <span className="initiative-round">Раунд {combat.round || 1}</span>
         {activeEntry && <span className="initiative-active-name">{activeEntry.name}</span>}
@@ -104,6 +104,7 @@ export default function InitiativeBar() {
             className={`initiative-chip${index === activeIndex ? ' active' : ''}${
               hoverTokenId && hoverTokenId === entry.tokenId ? ' hovered' : ''
             }${dragOverId === entry.id ? ' drop' : ''}`}
+            data-testid="initiative-chip"
             title={`${entry.name} — инициатива ${entry.initiative}${entry.bonus ? ` (${entry.bonus})` : ''}`}
             draggable={isDm}
             onMouseEnter={() => entry.tokenId && setHoverToken(entry.tokenId)}

@@ -79,7 +79,7 @@ export default function WallsPanel() {
   };
 
   return (
-    <div className="fog-panel">
+    <div className="fog-panel" data-testid="walls-panel">
       <div className="fog-group">
         <button className={mode.tool === 'wall' ? 'active' : ''} onClick={() => setWallsMode({ tool: 'wall' })}>
           Стена

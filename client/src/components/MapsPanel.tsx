@@ -88,6 +88,7 @@ export default function MapsPanel() {
           <div
             key={m.id}
             className={`map-item ${m.id === activeMapId ? 'active' : ''}`}
+            data-testid="map-item"
             title="Переключиться на эту карту (только у вас)"
             onClick={() => switchMap(m.id)}
           >
@@ -127,6 +128,7 @@ export default function MapsPanel() {
             {isDm && (
               <button
                 className="map-bring"
+                data-testid="map-bring"
                 title="Перенести всех игроков на эту карту"
                 onClick={(e) => {
                   e.stopPropagation();

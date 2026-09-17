@@ -40,7 +40,7 @@ export default function PlayersDrawer({
       <div className="players-list">
         {players.map((p) => (
           <div className={`player-row${p.isConnected ? '' : ' offline'}`} key={p.id}>
-            <span className={`player-chip${p.isConnected ? ' online' : ' offline'}`}>
+            <span className={`player-chip${p.isConnected ? ' online' : ' offline'}`} data-testid="player-chip">
               {p.name}
               {p.role === 'dm' ? ' (DM)' : ''}
             </span>

@@ -18,7 +18,7 @@ export default function AimPanel() {
 
   if (interaction.mode === 'target') {
     return (
-      <div className="aim-panel">
+      <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">{interaction.target.label}</span>
         <span className="aim-hint">Кликните цель · Esc или клик по пустому месту — отмена</span>
         <button className="aim-cancel" onClick={cancel}>
@@ -31,7 +31,7 @@ export default function AimPanel() {
   if (interaction.mode === 'aim') {
     const aim = interaction.aim;
     return (
-      <div className="aim-panel">
+      <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">
           {SHAPE_RU[aim.spec.shape] ?? 'Область'} {aim.spec.size} фт
         </span>

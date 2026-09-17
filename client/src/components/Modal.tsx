@@ -6,13 +6,15 @@ interface Props {
   title?: ReactNode;
   className?: string;
   backdropClassName?: string;
+  /** data-testid корня модалки (для e2e); по умолчанию `modal`. */
+  testId?: string;
   children: ReactNode;
 }
 
 const stack: symbol[] = [];
 
 /** Общая модалка: портал в body, закрытие по фону и Escape (только верхняя в стеке). */
-export default function Modal({ onClose, title, className, backdropClassName, children }: Props) {
+export default function Modal({ onClose, title, className, backdropClassName, testId = 'modal', children }: Props) {
   const idRef = useRef<symbol>(Symbol('modal'));
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -38,6 +40,7 @@ export default function Modal({ onClose, title, className, backdropClassName, ch
     >
       <div
         className={`modal${className ? ` ${className}` : ''}`}
+        data-testid={testId}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >

@@ -69,7 +69,7 @@ export default function TableScreen() {
   }, [selected, removeToken, setSelected, setFogMode, setWallsMode, setLightMode]);
 
   return (
-    <div className="table-screen">
+    <div className="table-screen" data-testid="table-screen">
       <TableTop />
       <Toolbar />
       {fogActive && <FogPanel />}
@@ -85,6 +85,7 @@ export default function TableScreen() {
       <ReactionPrompt />
       <div
         className="room-badge"
+        data-testid="room-badge"
         title={`${roomCode} — нажмите, чтобы скопировать ссылку для игроков`}
         onClick={() => {
           const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;

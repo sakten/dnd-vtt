@@ -107,6 +107,7 @@ export default function TokenPanel() {
       {!collapsed && (
       <div
         className={`character-slot ${currentItem ? 'filled' : ''}`}
+        data-testid="character-slot"
         onDragOver={(e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'copy';
@@ -128,7 +129,7 @@ export default function TokenPanel() {
           setCurrentCharacter(item.id);
         }}
       >
-        <span className="character-slot-label">Текущий Персонаж</span>
+        <span className="character-slot-label" data-testid="character-slot-label">Текущий Персонаж</span>
         {currentItem ? (
           <div className="character-slot-item">
             <img src={currentItem.imageUrl} alt={currentItem.name} />
@@ -168,6 +169,7 @@ export default function TokenPanel() {
         {items.map((item) => (
           <div
             className={`token-panel-item ${selectedId === item.id || editingId === item.id ? 'active' : ''}`}
+            data-testid="token-panel-item"
             key={item.id}
             title={`${item.name} (${item.cells}×${item.cells}) — перетащите на карту, двойной клик — свойства`}
           >

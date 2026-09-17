@@ -26,7 +26,7 @@ await S.page.evaluate(
   S.maps2.second
 );
 await waitFor(S.page, () => window.__vtt.getState().scene.maps[1]?.grid.size === 50);
-const mapItems = await S.page.$$('.map-item');
+const mapItems = await S.page.$$('[data-testid="map-item"]');
 await mapItems[1].click();
 await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.second);
 const dmViewsMap2 = await S.page.evaluate(() => {
@@ -57,14 +57,14 @@ await mapItems[0].click();
 await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.first);
 
 await S.gridBtn.click();
-await S.page.waitForSelector('.modal');
-const sizeInput = await S.page.$('.modal .field input[type=number]');
+await S.page.waitForSelector('[data-testid="modal"]');
+const sizeInput = await S.page.$('[data-testid="modal"] .field input[type=number]');
 await sizeInput.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('100', { delay: 30 });
-await (await findButton(S.page, '.modal button', 'Готово')).click();
+await (await findButton(S.page, '[data-testid="modal"] button', 'Готово')).click();
 await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 100);
 const grid100 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
@@ -76,14 +76,14 @@ check(
   `токены подстроились под новую сетку (размер ${grid100.size}, токен ${grid100.w}px на ${grid100.x},${grid100.y})`
 );
 await S.gridBtn.click();
-await S.page.waitForSelector('.modal');
-const sizeInput2 = await S.page.$('.modal .field input[type=number]');
+await S.page.waitForSelector('[data-testid="modal"]');
+const sizeInput2 = await S.page.$('[data-testid="modal"] .field input[type=number]');
 await sizeInput2.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('50', { delay: 30 });
-await (await findButton(S.page, '.modal button', 'Готово')).click();
+await (await findButton(S.page, '[data-testid="modal"] button', 'Готово')).click();
 await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 50);
 const grid50 = await S.page.evaluate(() => {
   const s = window.__vtt.getState();

@@ -89,7 +89,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     setDraft((d) => (d ? { ...d, classes: d.classes.filter((_, i) => i !== index) } : d));
 
   return (
-    <Modal onClose={onClose} title="Карточка персонажа" className="sheet-modal">
+    <Modal onClose={onClose} title="Карточка персонажа" className="sheet-modal" testId="sheet-modal">
         <div className="sheet-tabs">
           <button type="button" className={tab === 'main' ? 'active' : ''} onClick={() => setTab('main')}>
             Основное
@@ -213,7 +213,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           {ABILITIES.map((a) => {
             const mod = abilityMod(draft.abilities[a.key]);
             return (
-              <div className="ability-cell" key={a.key}>
+              <div className="ability-cell" data-testid="ability-cell" key={a.key}>
                 <span className="ability-name">{a.name}</span>
                 <input
                   type="number"
@@ -243,7 +243,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         </label>
 
         <div className="sheet-section-title">Спасброски (по основному классу — можно менять)</div>
-        <div className="save-grid">
+        <div className="save-grid" data-testid="save-grid">
           {ABILITIES.map((a) => {
             const mod = abilityMod(draft.abilities[a.key]);
             return (
@@ -273,6 +273,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             return (
               <div
                 className={`skill-row level-${level}`}
+                data-testid="skill-row"
                 key={s.key}
                 title="Клик — изменить уровень владения"
                 onClick={() => cycleSkill(s.key)}

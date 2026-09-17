@@ -5,15 +5,15 @@ import path from 'node:path';
 
 // Режим «Стены»: ПКМ по пустому месту завершает цепочку и позволяет начать новую
 // без выхода из режима; Escape — сначала завершает цепочку, потом выходит.
-if (await S.page.$('.modal')) {
+if (await S.page.$('[data-testid="modal"]')) {
   await S.page.keyboard.press('Escape');
-  await waitFor(S.page, () => !document.querySelector('.modal'), 3000);
+  await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'), 3000);
 }
-const wallsBtn = await findButton(S.page, '.toolbar button', 'Стены');
+const wallsBtn = await findButton(S.page, '[data-testid="toolbar"] button', 'Стены');
 check(!!wallsBtn, 'у ведущего есть кнопка «Стены»');
 await wallsBtn.click();
 await waitFor(S.page, () => window.__vtt.getState().wallsMode.active, 3000);
-await S.page.waitForSelector('.fog-panel');
+await S.page.waitForSelector('[data-testid="walls-panel"]');
 
 const pts = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
@@ -94,7 +94,7 @@ await waitFor(S.page, () => window.__vtt.getState().wallsMode.start === null, 30
 const activeAfterEsc1 = await S.page.evaluate(() => window.__vtt.getState().wallsMode.active);
 check(activeAfterEsc1, 'первый Escape завершил цепочку, режим остался');
 await S.page.keyboard.press('Escape');
-await waitFor(S.page, () => !document.querySelector('.fog-panel') && !window.__vtt.getState().wallsMode.active, 3000);
+await waitFor(S.page, () => !document.querySelector('[data-testid="walls-panel"]') && !window.__vtt.getState().wallsMode.active, 3000);
 check((await wallsLen()) === before + 2, 'второй Escape вышел из режима, сегменты остались');
 
 // Возвращаем карту как была — стены тестового сценария удаляем.

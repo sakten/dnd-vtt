@@ -23,7 +23,7 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
 
   return (
     <div className="join-screen">
-      <div className="join-card">
+      <div className="join-card" data-testid="join-card">
         <h1>D&amp;D VTT</h1>
         <p className="join-subtitle">Виртуальный стол для игры с друзьями</p>
         <label className="field">
@@ -46,7 +46,7 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
             maxLength={6}
           />
         </label>
-        <div className="join-actions">
+        <div className="join-actions" data-testid="join-actions">
           <button className="primary" onClick={handleJoin} disabled={!connected}>
             Войти в комнату
           </button>

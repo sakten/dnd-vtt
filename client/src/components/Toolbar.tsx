@@ -21,7 +21,7 @@ export default function Toolbar() {
   const hasMap = useGameStore((s) => activeMapOf(s) !== null);
 
   return (
-    <div className="toolbar">
+    <div className="toolbar" data-testid="toolbar">
       <button onClick={() => setGridModalOpen(true)}>Сетка</button>
       <button onClick={fitView} disabled={!hasMap}>
         По размеру

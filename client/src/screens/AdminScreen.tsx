@@ -107,7 +107,7 @@ export default function AdminScreen() {
 
   return (
     <div className="join-screen">
-      <div className="join-card admin-card">
+      <div className="join-card admin-card" data-testid="admin-card">
         <h1>Комнаты ведущего</h1>
         <label className="field">
           <span>Ваше имя (ведущий)</span>
@@ -134,7 +134,7 @@ export default function AdminScreen() {
             }}
           />
         </label>
-        <div className="join-actions">
+        <div className="join-actions" data-testid="join-actions">
           <button className="primary" onClick={create} disabled={!connected}>
             Создать новую игру
           </button>
@@ -146,13 +146,14 @@ export default function AdminScreen() {
         <div className="admin-rooms">
           {rooms.length === 0 && <div className="hint">Комнат пока нет</div>}
           {rooms.map((r) => (
-            <div className="admin-room" key={r.code}>
-              <span className="admin-room-code" title={r.code}>
+            <div className="admin-room" key={r.code} data-testid="admin-room">
+              <span className="admin-room-code" title={r.code} data-testid="admin-room-code">
                 {r.code}
               </span>
               {editingCode === r.code ? (
                 <input
                   className="admin-room-name-input"
+                  data-testid="admin-room-name-input"
                   ref={editInputRef}
                   defaultValue={r.name}
                   maxLength={60}
@@ -173,6 +174,7 @@ export default function AdminScreen() {
               ) : (
                 <span
                   className="admin-room-name"
+                  data-testid="admin-room-name"
                   title="Двойной клик — переименовать"
                   onDoubleClick={() => startRename(r)}
                 >

@@ -3,14 +3,14 @@ import { check } from '../lib/check.mjs';
 import { waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
-const chatInput = await S.page.$('.chat-input input[type=text]');
+const chatInput = await S.page.$('[data-testid="chat-input"] input[type=text]');
 await chatInput.type('d20+3');
 await chatInput.press('Enter');
-await waitFor(S.page, () => document.querySelectorAll('.chat-msg.roll').length >= 1);
+await waitFor(S.page, () => document.querySelectorAll('[data-testid="chat-msg-roll"]').length >= 1);
 await chatInput.type('Всем привет!');
 await chatInput.press('Enter');
-await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg')].some((el) => el.textContent?.includes('Всем привет!')));
-const dmRolls = await S.page.$$eval('.chat-msg.roll .roll-total-big', (els) => els.map((el) => el.textContent));
+await waitFor(S.page, () => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((el) => el.textContent?.includes('Всем привет!')));
+const dmRolls = await S.page.$$eval('[data-testid="chat-msg-roll"] [data-testid="roll-total-big"]', (els) => els.map((el) => el.textContent));
 const dmTotal = Number(dmRolls[0]);
 check(
   dmRolls.length === 1 && Number.isInteger(dmTotal) && dmTotal >= 4 && dmTotal <= 23,
@@ -19,16 +19,16 @@ check(
 
 await chatInput.focus();
 await chatInput.press('ArrowUp');
-await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === 'Всем привет!');
+await waitFor(S.page, () => document.querySelector('[data-testid="chat-input"] input[type=text]').value === 'Всем привет!');
 const hist1 = await chatInput.evaluate((el) => el.value);
 await chatInput.press('ArrowUp');
-await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === 'd20+3');
+await waitFor(S.page, () => document.querySelector('[data-testid="chat-input"] input[type=text]').value === 'd20+3');
 const hist2 = await chatInput.evaluate((el) => el.value);
 await chatInput.press('ArrowDown');
-await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === 'Всем привет!');
+await waitFor(S.page, () => document.querySelector('[data-testid="chat-input"] input[type=text]').value === 'Всем привет!');
 const hist3 = await chatInput.evaluate((el) => el.value);
 await chatInput.press('ArrowDown');
-await waitFor(S.page, () => document.querySelector('.chat-input input[type=text]').value === '');
+await waitFor(S.page, () => document.querySelector('[data-testid="chat-input"] input[type=text]').value === '');
 const hist4 = await chatInput.evaluate((el) => el.value);
 check(
   hist1 === 'Всем привет!' && hist2 === 'd20+3' && hist3 === 'Всем привет!' && hist4 === '',
@@ -38,17 +38,17 @@ await chatInput.type('');
 
 await chatInput.type('d4+d20+2');
 await chatInput.press('Enter');
-await waitFor(S.page, () => [...document.querySelectorAll('.chat-msg.roll')].some((el) => el.textContent?.includes('d20 + d4 + 2')));
-const mixedLabels = await S.page.$$eval('.chat-msg.roll', (els) => els.map((el) => el.textContent));
+await waitFor(S.page, () => [...document.querySelectorAll('[data-testid="chat-msg-roll"]')].some((el) => el.textContent?.includes('d20 + d4 + 2')));
+const mixedLabels = await S.page.$$eval('[data-testid="chat-msg-roll"]', (els) => els.map((el) => el.textContent));
 check(
   mixedLabels.some((t) => t.includes('d20 + d4 + 2')),
   'кубы в формуле сортируются по убыванию сторон'
 );
 
-await S.page.click('.sheet-button');
-await S.page.waitForSelector('.sheet-modal');
+await S.page.click('[data-testid="sheet-button"]');
+await S.page.waitForSelector('[data-testid="sheet-modal"]');
 await S.page.screenshot({ path: path.join(S.OUT, '10b-sheet.png') });
-  S.sheetInputs = await S.page.$$('.sheet-modal input[type=text]');
+  S.sheetInputs = await S.page.$$('[data-testid="sheet-modal"] input[type=text]');
   await S.sheetInputs[0].click();
   await S.page.keyboard.down('Control');
   await S.page.keyboard.press('KeyA');

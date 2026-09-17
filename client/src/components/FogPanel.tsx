@@ -5,8 +5,8 @@ export default function FogPanel() {
   const setFogMode = useGameStore((s) => s.setFogMode);
 
   return (
-    <div className="fog-panel">
-      <div className="fog-group">
+    <div className="fog-panel" data-testid="fog-panel">
+      <div className="fog-group" data-testid="fog-group">
         <button
           className={fogMode.tool === 'brush' ? 'active' : ''}
           onClick={() => setFogMode({ tool: 'brush' })}
@@ -20,7 +20,7 @@ export default function FogPanel() {
           Прямоугольник
         </button>
       </div>
-      <div className="fog-group">
+      <div className="fog-group" data-testid="fog-group">
         <button
           className={fogMode.action === 'hide' ? 'active' : ''}
           onClick={() => setFogMode({ action: 'hide' })}
@@ -35,7 +35,7 @@ export default function FogPanel() {
         </button>
       </div>
       {fogMode.tool === 'brush' && (
-        <div className="fog-group">
+        <div className="fog-group" data-testid="fog-group">
           <span className="fog-label">Кисть:</span>
           {[1, 2, 3].map((n) => (
             <button

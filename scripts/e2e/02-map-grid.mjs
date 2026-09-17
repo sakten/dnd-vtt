@@ -5,7 +5,7 @@ import path from 'node:path';
 
 S.fileInputs = await S.page.$$('input[type=file]');
 check(S.fileInputs.length === 2, 'два файловых инпута (карты и токены)');
-const slotLabel = await S.page.$eval('.character-slot .character-slot-label', (el) => el.textContent);
+const slotLabel = await S.page.$eval('[data-testid="character-slot"] [data-testid="character-slot-label"]', (el) => el.textContent);
 check(slotLabel === 'Текущий Персонаж', 'поле «Текущий Персонаж» есть над панелью токенов');
 await S.fileInputs[0].uploadFile(S.mapPath);
 await waitFor(S.page, () => window.__vtt.getState().scene.maps.length === 1, 8000);
@@ -37,41 +37,41 @@ await S.page.evaluate(() => {
 });
 await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 50);
 
-S.gridBtn = await findButton(S.page, '.toolbar button', 'Сетка');
+S.gridBtn = await findButton(S.page, '[data-testid="toolbar"] button', 'Сетка');
 await S.gridBtn.click();
-await S.page.waitForSelector('.modal');
+await S.page.waitForSelector('[data-testid="modal"]');
 await S.page.keyboard.press('Escape');
-await waitFor(S.page, () => !document.querySelector('.modal'));
-check((await S.page.$('.modal')) === null, 'Escape закрывает настройки сетки');
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
+check((await S.page.$('[data-testid="modal"]')) === null, 'Escape закрывает настройки сетки');
 const gridStill = await S.page.evaluate(() => window.__vtt.getState().scene.grid.size);
 check(gridStill === 50, 'Escape не применяет изменения');
 await S.gridBtn.click();
-await S.page.waitForSelector('.modal');
+await S.page.waitForSelector('[data-testid="modal"]');
 await S.page.screenshot({ path: path.join(S.OUT, '04-grid-modal.png') });
-const doneBtn = await findButton(S.page, '.modal button', 'Готово');
+const doneBtn = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await doneBtn.click();
-await waitFor(S.page, () => !document.querySelector('.modal'));
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
 
 await S.fileInputs[1].uploadFile(S.tokenPath);
-await S.page.waitForSelector('.token-panel-item img');
+await S.page.waitForSelector('[data-testid="token-panel-item"] img');
 await waitFor(S.page, () => {
-  const img = document.querySelector('.token-panel-item img');
+  const img = document.querySelector('[data-testid="token-panel-item"] img');
   return !!(img && img.complete && img.naturalWidth > 0);
 });
 await S.page.screenshot({ path: path.join(S.OUT, '05-library.png') });
 
-await S.page.click('.token-panel-item img');
+await S.page.click('[data-testid="token-panel-item"] img');
 await sleep(200);
-const modalAfterSingleClick = await S.page.$('.modal');
+const modalAfterSingleClick = await S.page.$('[data-testid="modal"]');
 check(modalAfterSingleClick === null, 'одиночный клик по токену библиотеки не открывает меню');
 const tokenCountAfterClick = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   return s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens.length ?? -1;
 });
 check(tokenCountAfterClick === 0, 'клик по токену в библиотеке НЕ добавляет его на поле');
-await S.page.click('.token-panel-item img');
-await S.page.waitForSelector('.modal');
-const modalBox = await S.page.$eval('.modal', (el) => {
+await S.page.click('[data-testid="token-panel-item"] img');
+await S.page.waitForSelector('[data-testid="modal"]');
+const modalBox = await S.page.$eval('[data-testid="modal"]', (el) => {
   const r = el.getBoundingClientRect();
   return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: window.innerWidth, h: window.innerHeight };
 });
@@ -81,7 +81,7 @@ check(
 );
 await S.page.screenshot({ path: path.join(S.OUT, '06-library-editor.png') });
 
-const escName = await S.page.$('.modal input[type=text]');
+const escName = await S.page.$('[data-testid="modal"] input[type=text]');
 await escName.click();
 await S.page.keyboard.type('Чужой', { delay: 40 });
 const escNameBox = await escName.boundingBox();
@@ -90,35 +90,35 @@ await S.page.mouse.down();
 await S.page.mouse.move(1000, 820, { steps: 6 });
 await S.page.mouse.up();
 await sleep(200);
-check((await S.page.$('.modal')) !== null, 'выделение текста с выходом мыши за окно не закрывает его');
+check((await S.page.$('[data-testid="modal"]')) !== null, 'выделение текста с выходом мыши за окно не закрывает его');
 await S.page.keyboard.press('Escape');
-await waitFor(S.page, () => !document.querySelector('.modal'));
-check((await S.page.$('.modal')) === null, 'Escape закрывает редактор библиотеки');
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
+check((await S.page.$('[data-testid="modal"]')) === null, 'Escape закрывает редактор библиотеки');
 const libAfterEsc = await S.page.evaluate(() => window.__vtt.getState().library[0]?.name);
 check(libAfterEsc === 'test-token', `Escape не применяет изменения в библиотеке (имя: ${libAfterEsc})`);
 
-await S.page.click('.token-panel-item img');
-await S.page.click('.token-panel-item img');
-await S.page.waitForSelector('.modal');
-const itemName = await S.page.$('.modal input[type=text]');
+await S.page.click('[data-testid="token-panel-item"] img');
+await S.page.click('[data-testid="token-panel-item"] img');
+await S.page.waitForSelector('[data-testid="modal"]');
+const itemName = await S.page.$('[data-testid="modal"] input[type=text]');
 await itemName.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('Дракон', { delay: 40 });
-const itemDesc = await S.page.$('.modal textarea');
+const itemDesc = await S.page.$('[data-testid="modal"] textarea');
 await itemDesc.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('Огромный красный дракон', { delay: 40 });
-const sizeBtn = await findButton(S.page, '.modal button', '2×2');
+const sizeBtn = await findButton(S.page, '[data-testid="modal"] button', '2×2');
 await sizeBtn.click();
-const libRound = await S.page.$('.modal input[type=checkbox]');
+const libRound = await S.page.$('[data-testid="modal"] input[type=checkbox]');
 await libRound.click();
-const libDone = await findButton(S.page, '.modal button', 'Готово');
+const libDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await libDone.click();
-await waitFor(S.page, () => !document.querySelector('.modal'));
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
 const libItem = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   return s.library[0] ?? null;
@@ -129,8 +129,8 @@ check(
 );
 
 await S.page.evaluate(() => {
-  const src = document.querySelector('.token-panel-item img');
-  const target = document.querySelector('.table-top');
+  const src = document.querySelector('[data-testid="token-panel-item"] img');
+  const target = document.querySelector('[data-testid="table-top"]');
   const dt = new DataTransfer();
   src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
   target.dispatchEvent(
@@ -187,16 +187,16 @@ const selectCheck = await S.page.evaluate(() => {
 });
 check(selectCheck.selected === selectCheck.id, 'клик по токену выделяет его');
 await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
-await S.page.waitForSelector('.modal');
-const fieldNameEsc = await S.page.$('.modal input[type=text]');
+await S.page.waitForSelector('[data-testid="modal"]');
+const fieldNameEsc = await S.page.$('[data-testid="modal"] input[type=text]');
 await fieldNameEsc.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
 await S.page.keyboard.up('Control');
 await S.page.keyboard.type('Хобгоблин', { delay: 40 });
 await S.page.keyboard.press('Escape');
-await waitFor(S.page, () => !document.querySelector('.modal'));
-check((await S.page.$('.modal')) === null, 'Escape закрывает меню токена');
+await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
+check((await S.page.$('[data-testid="modal"]')) === null, 'Escape закрывает меню токена');
 const fieldAfterEsc = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   return s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0]?.name;
@@ -205,4 +205,4 @@ check(fieldAfterEsc === 'Дракон', `Escape не применяет прав
 
 await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
 await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
-await S.page.waitForSelector('.modal');
+await S.page.waitForSelector('[data-testid="modal"]');

@@ -5,7 +5,7 @@ import path from 'node:path';
 
 
 await S.page.goto(S.BASE, { waitUntil: 'networkidle0' });
-await S.page.waitForSelector('.join-card');
+await S.page.waitForSelector('[data-testid="join-card"]');
 await S.page.screenshot({ path: path.join(S.OUT, '01-join.png') });
 
 const title = await S.page.title();
@@ -15,14 +15,14 @@ const iconHref = await S.page.evaluate(
 );
 check(iconHref.includes('ffb454'), 'локальная версия использует отдельную иконку');
 
-const nameInputs = await S.page.$$('.join-card input');
+const nameInputs = await S.page.$$('[data-testid="join-card"] input');
 await nameInputs[0].type('Мастер');
 
 await S.page.goto(`${S.BASE}?admin=1`, { waitUntil: 'networkidle0' });
-await S.page.waitForSelector('.admin-card');
-const createBtn = await findButton(S.page, '.join-actions button', 'Создать новую игру');
+await S.page.waitForSelector('[data-testid="admin-card"]');
+const createBtn = await findButton(S.page, '[data-testid="join-actions"] button', 'Создать новую игру');
 await createBtn.click();
-await S.page.waitForSelector('.table-screen');
+await S.page.waitForSelector('[data-testid="table-screen"]');
 await S.page.waitForSelector('canvas');
 await waitFor(S.page, () => !!(window.__vtt && window.__vtt.getState().roomCode));
 await S.page.screenshot({ path: path.join(S.OUT, '02-empty-table.png') });
