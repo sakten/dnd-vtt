@@ -167,6 +167,7 @@ for (let i = 0; i < 25 && !doorAfter; i++) {
   if (!doorAfter) await new Promise((r) => setTimeout(r, 200));
 }
 check(doorAfter, 'DM открывает дверь через мини-UI');
+await S.page.screenshot({ path: path.join(S.OUT, '14b-door-open.png') });
 await S.page.click('[data-testid="object-menu-close"]');
 await waitFor(S.page, () => !document.querySelector('[data-testid="object-menu"]'), 3000);
 

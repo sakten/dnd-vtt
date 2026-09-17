@@ -14,6 +14,7 @@ import { newId } from '../lib/id';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
 import ConditionsOverlay from './ConditionsOverlay';
+import DoorView from './DoorView';
 import TokenView from './TokenView';
 
 function MapSprite({ map }: { map: MapInfo }) {
@@ -689,17 +690,17 @@ export default function TableTop() {
             {activeMap?.walls.map((w) => {
               // Игроки видят только двери (стены — инструмент DM); невидимые скроет вуаль.
               if (!isDm && w.kind !== 'door') return null;
-              const openDoor = w.kind === 'door' && w.open === true;
-              const hovered = doorHover?.id === w.id;
+              if (w.kind === 'door') {
+                return <DoorView key={w.id} door={w} scale={view.scale} hovered={doorHover?.id === w.id} />;
+              }
               return (
                 <Line
                   key={w.id}
                   points={[w.x1, w.y1, w.x2, w.y2]}
-                  stroke={hovered ? '#7c9cff' : openDoor ? '#4ecb71' : WALL_COLORS[w.kind]}
-                  strokeWidth={(hovered ? 7 : 5) / view.scale}
+                  stroke={WALL_COLORS[w.kind]}
+                  strokeWidth={5 / view.scale}
                   lineCap="round"
-                  opacity={openDoor ? 0.55 : 0.9}
-                  dash={openDoor ? [10 / view.scale, 7 / view.scale] : undefined}
+                  opacity={0.9}
                   listening={false}
                 />
               );
