@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { activeGridOf, activeMapOf } from '../store/selectors';
 import { detectWallsInAnalysis, loadWallAnalysis, type WallAnalysis } from '../lib/wallDetectImage';
 
@@ -33,12 +34,12 @@ export default function WallsPanel() {
     const mapUrl = map?.url;
     if (!mapId || !mapUrl) return;
     setBusy(true);
-    setStatus('Анализируем изображение…');
+    setStatus(t('ui.walls.analyzing'));
     try {
       if (!analysisRef.current) analysisRef.current = await loadWallAnalysis(mapUrl);
       const analysis = analysisRef.current;
       if (!analysis) {
-        setStatus('Не удалось загрузить изображение карты');
+        setStatus(t('ui.walls.loadError'));
         return;
       }
       const walls = detectWallsInAnalysis(analysis, {
@@ -52,9 +53,9 @@ export default function WallsPanel() {
       setWallCandidates(walls);
       const solid = walls.filter((w) => w.kind === 'wall').length;
       const doorCount = walls.filter((w) => w.kind === 'door').length;
-      setStatus(`Найдено: стен ${solid}, дверей ${doorCount}`);
+      setStatus(t('ui.walls.found', { walls: solid, doors: doorCount }));
     } catch {
-      setStatus('Не удалось проанализировать изображение');
+      setStatus(t('ui.walls.analyzeError'));
     } finally {
       setBusy(false);
     }
@@ -75,17 +76,17 @@ export default function WallsPanel() {
     const add = candidates.filter((w) => !exists.has(key(w)));
     if (add.length) updateWalls(map.id, [...map.walls, ...add].slice(0, 2000));
     setWallCandidates(null);
-    setStatus(`Добавлено сегментов: ${add.length}`);
+    setStatus(t('ui.walls.added', { n: add.length }));
   };
 
   return (
     <div className="fog-panel" data-testid="walls-panel">
       <div className="fog-group">
         <button className={mode.tool === 'wall' ? 'active' : ''} onClick={() => setWallsMode({ tool: 'wall' })}>
-          Стена
+          {t('ui.walls.wall')}
         </button>
         <button className={mode.tool === 'door' ? 'active' : ''} onClick={() => setWallsMode({ tool: 'door' })}>
-          Дверь
+          {t('ui.walls.door')}
         </button>
       </div>
       <div className="fog-group">
@@ -96,14 +97,14 @@ export default function WallsPanel() {
             void runDetect();
           }}
         >
-          Найти стены
+          {t('ui.walls.detect')}
         </button>
-        {candidates && <button onClick={apply}>Применить</button>}
-        {candidates && <button onClick={() => setWallCandidates(null)}>Отмена</button>}
+        {candidates && <button onClick={apply}>{t('ui.common.apply')}</button>}
+        {candidates && <button onClick={() => setWallCandidates(null)}>{t('ui.common.cancel')}</button>}
       </div>
       {auto && (
         <div className="fog-group">
-          <span className="fog-label">Контраст: {contrast}</span>
+          <span className="fog-label">{t('ui.walls.contrast', { n: contrast })}</span>
           <input
             type="range"
             min={25}
@@ -113,27 +114,26 @@ export default function WallsPanel() {
             onChange={(e) => setContrast(Number(e.target.value))}
           />
           <label className="fog-label">
-            <input type="checkbox" checked={furniture} onChange={(e) => setFurniture(e.target.checked)} /> Фильтр мебели
+            <input type="checkbox" checked={furniture} onChange={(e) => setFurniture(e.target.checked)} />{' '}
+            {t('ui.walls.furniture')}
           </label>
-          <label className="fog-label" title="Выключено — проёмы в стенах остаются проходами, сегменты-двери не создаются">
-            <input type="checkbox" checked={doors} onChange={(e) => setDoors(e.target.checked)} /> Двери
+          <label className="fog-label" title={t('ui.walls.doorsTitle')}>
+            <input type="checkbox" checked={doors} onChange={(e) => setDoors(e.target.checked)} />{' '}
+            {t('ui.walls.doors')}
           </label>
         </div>
       )}
       {status && <span className="fog-label">{status}</span>}
-      <span className="fog-label">
-        Клик по узлам — сегменты; клик по двери — открыть/закрыть; ПКМ по пустому месту — завершить цепочку; ПКМ
-        по сегменту — удалить; Esc — завершить/выйти.
-      </span>
+      <span className="fog-label">{t('ui.walls.hint')}</span>
       <button
-        title="Убрать все стены на карте"
+        title={t('ui.walls.clearTitle')}
         onClick={() => {
           if (map) updateWalls(map.id, []);
         }}
       >
-        Очистить
+        {t('ui.common.clear')}
       </button>
-      <button onClick={() => setWallsMode({ active: false })}>Готово</button>
+      <button onClick={() => setWallsMode({ active: false })}>{t('ui.common.done')}</button>
     </div>
   );
 }

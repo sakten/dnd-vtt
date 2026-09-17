@@ -1,4 +1,5 @@
 import type { GameState } from '../store/types';
+import { t } from '../i18n';
 import { newId } from '../lib/id';
 import type { AppSocket } from './socket';
 
@@ -22,7 +23,7 @@ export function joinRoomWithTimeout(
   const timer = window.setTimeout(() => {
     if (settled) return;
     settled = true;
-    onError('Сервер не ответил. Попробуйте ещё раз.');
+    onError(t('ui.bridge.timeout'));
   }, JOIN_TIMEOUT_MS);
   socket.emit('room:join', payload, (res) => {
     if (settled) return;
@@ -96,11 +97,11 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): () 
   socket.on('room:renamed', (payload) => get().onRoomRenamed(payload));
   socket.on('room:settings', (payload) => get().onRoomSettings(payload));
   socket.on('room:deleted', () => {
-    get().onRoomClosed('Комната удалена ведущим');
+    get().onRoomClosed(t('ui.bridge.roomDeleted'));
     clearRoomParam();
   });
   socket.on('player:kicked', () => {
-    get().onRoomClosed('Ведущий удалил вас из комнаты');
+    get().onRoomClosed(t('ui.bridge.removed'));
     clearRoomParam();
   });
 

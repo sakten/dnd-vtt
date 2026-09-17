@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { newId } from '../lib/id';
+import { t } from '../i18n';
 import Modal from '../components/Modal';
 
 interface RoomInfo {
@@ -108,23 +109,23 @@ export default function AdminScreen() {
   return (
     <div className="join-screen">
       <div className="join-card admin-card" data-testid="admin-card">
-        <h1>Комнаты ведущего</h1>
+        <h1>{t('ui.admin.title')}</h1>
         <label className="field">
-          <span>Ваше имя (ведущий)</span>
+          <span>{t('ui.admin.name')}</span>
           <input type="text" value={name} maxLength={30} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="field">
-          <span>Название новой комнаты (необязательно)</span>
+          <span>{t('ui.admin.roomName')}</span>
           <input
             type="text"
             value={newRoomName}
             maxLength={60}
-            placeholder="Например: Кампания по Страду"
+            placeholder={t('ui.admin.roomNamePlaceholder')}
             onChange={(e) => setNewRoomName(e.target.value)}
           />
         </label>
         <label className="field">
-          <span>Пароль ведущего (если настроен на сервере)</span>
+          <span>{t('ui.admin.token')}</span>
           <input
             type="password"
             value={adminToken}
@@ -136,15 +137,15 @@ export default function AdminScreen() {
         </label>
         <div className="join-actions" data-testid="join-actions">
           <button className="primary" onClick={create} disabled={!connected}>
-            Создать новую игру
+            {t('ui.admin.create')}
           </button>
           <button onClick={refresh} disabled={!connected}>
-            Обновить список
+            {t('ui.admin.refresh')}
           </button>
         </div>
         {error && <div className="join-error">{error}</div>}
         <div className="admin-rooms">
-          {rooms.length === 0 && <div className="hint">Комнат пока нет</div>}
+          {rooms.length === 0 && <div className="hint">{t('ui.admin.empty')}</div>}
           {rooms.map((r) => (
             <div className="admin-room" key={r.code} data-testid="admin-room">
               <span className="admin-room-code" title={r.code} data-testid="admin-room-code">
@@ -175,35 +176,36 @@ export default function AdminScreen() {
                 <span
                   className="admin-room-name"
                   data-testid="admin-room-name"
-                  title="Двойной клик — переименовать"
+                  title={t('ui.admin.renameTitle')}
                   onDoubleClick={() => startRename(r)}
                 >
                   {r.name}
                 </span>
               )}
               <span className="admin-room-info">
-                {r.players} игрок(ов) · {r.maps} карт
+                {t('ui.admin.playersMaps', { players: r.players, maps: r.maps })}
               </span>
-              <button onClick={() => join(r.code)}>Войти</button>
-              <button className="danger" title="Удалить комнату" onClick={() => remove(r.code)}>
+              <button onClick={() => join(r.code)}>{t('ui.admin.join')}</button>
+              <button className="danger" title={t('ui.admin.deleteRoom')} onClick={() => remove(r.code)}>
                 ✕
               </button>
             </div>
           ))}
         </div>
         <a className="join-admin-link" href="./">
-          ← На экран входа
+          {t('ui.admin.back')}
         </a>
         {deleteTarget && (
-          <Modal onClose={() => setDeleteTarget(null)} title="Удалить комнату?">
+          <Modal onClose={() => setDeleteTarget(null)} title={t('ui.admin.confirmTitle')}>
             <p className="confirm-text">
-              Комната <strong>{rooms.find((r) => r.code === deleteTarget)?.name || deleteTarget}</strong> (
-              {deleteTarget}) будет удалена безвозвратно, а игроки внутри — отключены.
+              {t('ui.admin.confirmPre')}{' '}
+              <strong>{rooms.find((r) => r.code === deleteTarget)?.name || deleteTarget}</strong> ({deleteTarget}){' '}
+              {t('ui.admin.confirmPost')}
             </p>
             <div className="modal-actions spread">
-              <button onClick={() => setDeleteTarget(null)}>Отмена</button>
+              <button onClick={() => setDeleteTarget(null)}>{t('ui.admin.cancel')}</button>
               <button className="danger" onClick={confirmDelete}>
-                Удалить
+                {t('ui.admin.delete')}
               </button>
             </div>
           </Modal>

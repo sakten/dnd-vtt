@@ -22,6 +22,7 @@ import {
   type Token,
   type TurnState,
 } from 'shared';
+import { t, type MessageKey } from '../i18n';
 
 /** Секция панели для заклинания; 'other' — свободные/особые. */
 export function spellSlotOf(spell: Spell): 'action' | 'bonus' | 'reaction' | 'other' {
@@ -47,16 +48,21 @@ export function sortPanelSpells(spells: Spell[]): Spell[] {
   );
 }
 
-export const ACTION_COST_TEXT: Record<ActionCost, string> = {
-  action: 'Действие',
-  bonus: 'Бонусное действие',
-  reaction: 'Реакция',
-  movement: 'Передвижение',
-  legendary: 'Легендарное',
-  lair: 'Логово',
-  free: 'Свободное',
-  special: 'Особое',
+const ACTION_COST_KEYS: Record<ActionCost, MessageKey> = {
+  action: 'ui.actionCost.action',
+  bonus: 'ui.actionCost.bonus',
+  reaction: 'ui.actionCost.reaction',
+  movement: 'ui.actionCost.movement',
+  legendary: 'ui.actionCost.legendary',
+  lair: 'ui.actionCost.lair',
+  free: 'ui.actionCost.free',
+  special: 'ui.actionCost.special',
 };
+
+/** Текст стоимости действия (для попапа заклинания). */
+export function actionCostText(cost: ActionCost): string {
+  return t(ACTION_COST_KEYS[cost]);
+}
 
 /** Кастер заклинания: персонаж (ячейки в ресурсах) или монстр (ячейки статблока). */
 export interface CasterInfo {
@@ -192,7 +198,7 @@ export function spellCastInfo(
   const expression = spellDamageExpression(spell, level, charLevel);
   const damageText =
     expression && spell.damage
-      ? `${isHealingSpell(spell) ? 'Лечение' : 'Урон'}: ${expression}${
+      ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${expression}${
           spell.damage.types.length ? ` (${spell.damage.types.join(', ')})` : ''
         }`
       : null;

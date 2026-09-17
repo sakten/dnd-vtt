@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 
 export default function JoinScreen({ connected }: { connected: boolean }) {
   const [name, setName] = useState(() => localStorage.getItem('vtt-name') ?? '');
@@ -25,40 +26,40 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
     <div className="join-screen">
       <div className="join-card" data-testid="join-card">
         <h1>D&amp;D VTT</h1>
-        <p className="join-subtitle">Виртуальный стол для игры с друзьями</p>
+        <p className="join-subtitle">{t('ui.join.subtitle')}</p>
         <label className="field">
-          <span>Ваше имя</span>
+          <span>{t('ui.join.name')}</span>
           <input
             value={name}
             onChange={(e) => saveName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-            placeholder="Например: Виктор"
+            placeholder={t('ui.join.namePlaceholder')}
             maxLength={30}
           />
         </label>
         <label className="field">
-          <span>Код комнаты</span>
+          <span>{t('ui.join.code')}</span>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-            placeholder="Например: XK42"
+            placeholder={t('ui.join.codePlaceholder')}
             maxLength={6}
           />
         </label>
         <div className="join-actions" data-testid="join-actions">
           <button className="primary" onClick={handleJoin} disabled={!connected}>
-            Войти в комнату
+            {t('ui.join.enter')}
           </button>
         </div>
         {joinError && <div className="join-error">{joinError}</div>}
         {!connected && (
           <div className={connectError ? 'join-error' : 'join-status'}>
-            {connectError ? 'Нет соединения с сервером…' : 'Подключение к серверу…'}
+            {connectError ? t('ui.join.noConnection') : t('ui.join.connecting')}
           </div>
         )}
         <a className="join-admin-link" href="?admin=1">
-          Управление комнатами (для ведущего)
+          {t('ui.join.adminLink')}
         </a>
       </div>
     </div>

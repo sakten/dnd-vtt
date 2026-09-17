@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 
 interface Props {
@@ -29,8 +30,8 @@ export default function ObjectMenu({ title, world, onClose, actions, children }:
         <span>{title}</span>
         <button
           className="icon"
-          title="Закрыть"
-          aria-label="Закрыть"
+          title={t('ui.common.close')}
+          aria-label={t('ui.common.close')}
           data-testid="object-menu-close"
           onClick={onClose}
         >

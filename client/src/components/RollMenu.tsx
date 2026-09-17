@@ -11,6 +11,8 @@ import { activeMapOf, characterTokenOf } from '../store/selectors';
 import { canControlWith } from '../lib/control';
 import { advantagedExpression } from '../lib/rollMode';
 import { checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
+import { t } from '../i18n';
+import { abilityName, skillName } from '../i18n/domain';
 
 type MenuLevel = 'root' | 'source' | 'attack' | 'save' | 'check' | `ability:${AbilityKey}`;
 
@@ -31,6 +33,7 @@ export default function RollMenu() {
   const viewMapId = useGameStore((s) => s.viewMapId);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const role = useGameStore((s) => s.role);
+  const lang = useGameStore((s) => s.lang);
   const library = useGameStore((s) => s.library);
   const rollDice = useGameStore((s) => s.rollDice);
   const startTargeting = useGameStore((s) => s.startTargeting);
@@ -49,18 +52,18 @@ export default function RollMenu() {
     const map = activeMapOf(state);
     if (sheet.attacks.filter(attackIsActive).length > 0) {
       const charToken = characterTokenOf(map, currentCharacterId);
-      out.push({ key: 'sheet', label: 'Мой персонаж', tokenId: charToken?.id, attacks: sheet.attacks });
+      out.push({ key: 'sheet', label: t('ui.roll.myCharacter'), tokenId: charToken?.id, attacks: sheet.attacks });
     }
     for (const token of map?.tokens ?? []) {
       if (token.libraryItemId === currentCharacterId) continue;
       if (!canControlWith(state, token)) continue;
       const attacks = token.attacks ?? [];
       if (attacks.filter(attackIsActive).length === 0) continue;
-      out.push({ key: token.id, label: token.name || 'Токен', tokenId: token.id, attacks });
+      out.push({ key: token.id, label: token.name || t('ui.roll.token'), tokenId: token.id, attacks });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- состояние берём через getState()
-  }, [sheet, scene, viewMapId, currentCharacterId, role, library]);
+  }, [sheet, scene, viewMapId, currentCharacterId, role, library, lang]);
 
   const activeWithIndex = (attacks: AttackEntry[]) =>
     attacks.map((attack, index) => ({ attack, index })).filter((x) => attackIsActive(x.attack));
@@ -85,13 +88,13 @@ export default function RollMenu() {
   const doWeapon = (source: AttackSource, index: number) => {
     const mode = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
     const entry = source.attacks[index];
-    const label = entry?.name.trim() || `Оружие ${index + 1}`;
+    const label = entry?.name.trim() || t('ui.roll.weapon', { n: index + 1 });
     startTargeting({
       kind: 'rollAttack',
       tokenId: source.tokenId,
       attackIndex: index,
       advantage: mode,
-      label: `Атака: ${label}`,
+      label: t('ui.roll.attackLabel', { name: label }),
     });
     resetAdv();
     close();
@@ -125,7 +128,7 @@ export default function RollMenu() {
   return (
     <div className="roll-menu-wrap">
       <div className="roll-adv">
-        <label className="adv-check" data-testid="adv-check" title="Бросок с преимуществом (d20a)">
+        <label className="adv-check" data-testid="adv-check" title={t('ui.roll.advTitle')}>
           <input
             type="checkbox"
             checked={adv}
@@ -136,7 +139,7 @@ export default function RollMenu() {
           />
           Adv
         </label>
-        <label className="adv-check" data-testid="adv-check" title="Бросок с помехой (d20d)">
+        <label className="adv-check" data-testid="adv-check" title={t('ui.roll.disTitle')}>
           <input
             type="checkbox"
             checked={dis}
@@ -151,7 +154,7 @@ export default function RollMenu() {
       <button
         className="roll-button"
         data-testid="roll-button"
-        title="Броски персонажа и его призывов"
+        title={t('ui.roll.title')}
         onClick={() => setOpen((v) => !v)}
       >
         ROLL
@@ -176,7 +179,7 @@ export default function RollMenu() {
             {level === 'source' && (
               <>
                 <button className="roll-menu-item back" onClick={back('root')}>
-                  ← назад
+                  {t('ui.roll.back')}
                 </button>
                 {sources
                   .filter((s) => activeWithIndex(s.attacks).length > 0)
@@ -190,7 +193,7 @@ export default function RollMenu() {
             {level === 'attack' && currentSource && (
               <>
                 <button className="roll-menu-item back" onClick={back(sources.length > 1 ? 'source' : 'root')}>
-                  ← назад
+                  {t('ui.roll.back')}
                 </button>
                 {activeWithIndex(currentSource.attacks).map(({ attack, index }) => (
                   <button
@@ -198,7 +201,7 @@ export default function RollMenu() {
                     key={index}
                     onClick={() => doWeapon(currentSource, index)}
                   >
-                    {attack.name.trim() || `Оружие ${index + 1}`}
+                    {attack.name.trim() || t('ui.roll.weapon', { n: index + 1 })}
                   </button>
                 ))}
               </>
@@ -206,7 +209,7 @@ export default function RollMenu() {
             {level === 'save' && (
               <>
                 <button className="roll-menu-item back" onClick={back('root')}>
-                  ← назад
+                  {t('ui.roll.back')}
                 </button>
                 <button
                   className="roll-menu-item" data-testid="roll-menu-item"
@@ -222,9 +225,9 @@ export default function RollMenu() {
                   <button
                     className="roll-menu-item" data-testid="roll-menu-item"
                     key={a.key}
-                    onClick={() => doRoll(saveExpression(sheet, a.key), 'save', a.name)}
+                    onClick={() => doRoll(saveExpression(sheet, a.key), 'save', abilityName(a.key))}
                   >
-                    {a.name}
+                    {abilityName(a.key)}
                   </button>
                 ))}
               </>
@@ -232,11 +235,11 @@ export default function RollMenu() {
             {level === 'check' && (
               <>
                 <button className="roll-menu-item back" onClick={back('root')}>
-                  ← назад
+                  {t('ui.roll.back')}
                 </button>
                 {ABILITIES.map((a) => (
                   <button className="roll-menu-item" data-testid="roll-menu-item" key={a.key} onClick={() => setLevel(`ability:${a.key}`)}>
-                    {a.name}
+                    {abilityName(a.key)}
                   </button>
                 ))}
               </>
@@ -244,15 +247,15 @@ export default function RollMenu() {
             {level.startsWith('ability:') && (
               <>
                 <button className="roll-menu-item back" onClick={back('check')}>
-                  ← назад
+                  {t('ui.roll.back')}
                 </button>
                 {SKILLS.filter((s) => s.ability === (level.slice(8) as AbilityKey)).map((s) => (
                   <button
                     className="roll-menu-item" data-testid="roll-menu-item"
                     key={s.key}
-                    onClick={() => doRoll(checkExpression(sheet, s.key), 'check', s.name)}
+                    onClick={() => doRoll(checkExpression(sheet, s.key), 'check', skillName(s.key))}
                   >
-                    {s.name}
+                    {skillName(s.key)}
                   </button>
                 ))}
               </>

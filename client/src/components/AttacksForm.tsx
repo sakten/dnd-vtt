@@ -9,6 +9,8 @@ import {
   type WeaponContext,
   type WeaponDef,
 } from 'shared';
+import { t } from '../i18n';
+import { damageLabel } from '../i18n/domain';
 import { Field } from './Field';
 
 interface Props {
@@ -27,9 +29,9 @@ interface Props {
 export default function AttacksForm({
   attacks,
   onChange,
-  title = 'Атаки',
-  itemLabel = 'Атака',
-  namePlaceholder = 'Например: Укус',
+  title = t('ui.attacks.title'),
+  itemLabel = t('ui.attacks.item'),
+  namePlaceholder = t('ui.attacks.namePlaceholder'),
   weaponContext,
   readOnly,
 }: Props) {
@@ -65,11 +67,11 @@ export default function AttacksForm({
             <span>{itemLabel} {i + 1}</span>
             {!readOnly && attacks.length > 1 && (
               <button type="button" className="weapon-remove" data-testid="weapon-remove" onClick={() => removeAttack(i)}>
-                Удалить
+                {t('ui.common.delete')}
               </button>
             )}
           </div>
-          <Field label="Название">
+          <Field label={t('ui.common.name')}>
             <input
               type="text"
               value={attack.name}
@@ -80,55 +82,55 @@ export default function AttacksForm({
             />
           </Field>
           <div className="field-row">
-            <Field label="Формула попадания">
+            <Field label={t('ui.attacks.hit')}>
               <input
                 type="text"
                 value={attack.hit}
                 placeholder="d20+str+pb"
-                title="Можно использовать модификаторы характеристик (str/dex/con/int/wis/cha) и бонус владения (pb/prof)"
+                title={t('ui.attacks.formulaTitle')}
                 readOnly={readOnly}
                 onChange={(e) => setAttack(i, { hit: e.target.value })}
               />
             </Field>
-            <Field label="Формула урона">
+            <Field label={t('ui.attacks.damage')}>
               <input
                 type="text"
                 value={attack.damage}
                 placeholder="1d8+str"
-                title="Можно использовать модификаторы характеристик (str/dex/con/int/wis/cha) и бонус владения (pb/prof)"
+                title={t('ui.attacks.formulaTitle')}
                 readOnly={readOnly}
                 onChange={(e) => setAttack(i, { damage: e.target.value })}
               />
             </Field>
-            <Field label="Тип урона">
+            <Field label={t('ui.attacks.damageType')}>
               <select
                 value={attack.damageType ?? ''}
                 disabled={readOnly}
                 onChange={(e) => setAttack(i, { damageType: e.target.value || undefined })}
               >
                 <option value="">—</option>
-                {DAMAGE_TYPES.map((t) => (
-                  <option key={t.key} value={t.key}>
-                    {t.name}
+                {DAMAGE_TYPES.map((dt) => (
+                  <option key={dt.key} value={dt.key}>
+                    {damageLabel(dt.key)}
                   </option>
                 ))}
               </select>
             </Field>
           </div>
           <div className="field-row">
-            <Field label="Дистанция">
+            <Field label={t('ui.attacks.range')}>
               <select
                 value={attack.rangeType}
                 disabled={readOnly}
                 onChange={(e) => setAttack(i, { rangeType: e.target.value as AttackEntry['rangeType'] })}
               >
-                <option value="melee">Ближняя</option>
-                <option value="ranged">Дальняя</option>
-                <option value="none">Без дальности</option>
+                <option value="melee">{t('ui.attacks.melee')}</option>
+                <option value="ranged">{t('ui.attacks.ranged')}</option>
+                <option value="none">{t('ui.attacks.noRange')}</option>
               </select>
             </Field>
             {attack.rangeType === 'melee' && (
-              <Field label="Досягаемость, фт">
+              <Field label={t('ui.attacks.reach')}>
                 <input
                   type="number"
                   min={0}
@@ -140,7 +142,7 @@ export default function AttacksForm({
             )}
             {attack.rangeType === 'ranged' && (
               <>
-                <Field label="Обычная, фт">
+                <Field label={t('ui.attacks.rangeNormal')}>
                   <input
                     type="number"
                     min={0}
@@ -149,7 +151,7 @@ export default function AttacksForm({
                     onChange={(e) => setAttack(i, { rangeNormal: Number(e.target.value) })}
                   />
                 </Field>
-                <Field label="Дальняя, фт">
+                <Field label={t('ui.attacks.rangeLong')}>
                   <input
                     type="number"
                     min={0}
@@ -164,7 +166,7 @@ export default function AttacksForm({
         </div>
       ))}
       {!readOnly && weaponContext && (
-        <Field label="Добавить из списка">
+        <Field label={t('ui.attacks.addFromList')}>
           <select
             value=""
             onChange={(e) => {
@@ -172,7 +174,7 @@ export default function AttacksForm({
               if (weapon) addFromList(weapon);
             }}
           >
-            <option value="">— выбрать оружие —</option>
+            <option value="">{t('ui.attacks.pickWeapon')}</option>
             {WEAPONS.map((w) => (
               <option key={w.key} value={w.key}>
                 {w.name}
@@ -184,7 +186,7 @@ export default function AttacksForm({
       )}
       {!readOnly && (
         <button type="button" className="weapon-add" onClick={addAttack} disabled={attacks.length >= MAX_ATTACKS}>
-          + Добавить атаку
+          {t('ui.attacks.add')}
         </button>
       )}
     </div>

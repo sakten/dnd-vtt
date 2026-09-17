@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { emptyAttacks, statNumber, statsPaired, type Sense, type TokenFields } from 'shared';
+import { t } from '../i18n';
+import { senseLabel } from '../i18n/domain';
 import { useIsDm } from '../lib/control';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
@@ -20,12 +22,6 @@ interface PassportProps {
   readOnly?: boolean;
 }
 
-const SENSE_READONLY_TEXT: Record<Sense['type'], string> = {
-  darkvision: 'тёмное зрение',
-  blindsight: 'слепое зрение',
-  devilsight: 'дьявольское зрение',
-};
-
 /** Паспорт токена/предмета: имя, инициатива, размер, круглость (скорость — токену). */
 export function TokenPassportFields({
   value,
@@ -38,7 +34,7 @@ export function TokenPassportFields({
 }: PassportProps) {
   return (
     <>
-      <Field label="Название">
+      <Field label={t('ui.common.name')}>
         <input
           type="text"
           value={value.name}
@@ -48,7 +44,7 @@ export function TokenPassportFields({
         />
       </Field>
       <div className="field-row">
-        <Field label="Бонус инициативы">
+        <Field label={t('ui.tokenFields.initiative')}>
           <input
             type="text"
             value={value.initiativeBonus}
@@ -59,7 +55,7 @@ export function TokenPassportFields({
           />
         </Field>
         {speed !== undefined && (
-          <Field label="Скорость, фт">
+          <Field label={t('ui.common.speedFeet')}>
             <input
               type="number"
               min={0}
@@ -73,9 +69,11 @@ export function TokenPassportFields({
       </div>
       {readOnly ? (
         (senses?.length ?? 0) > 0 && (
-          <Field label="Восприятие">
+          <Field label={t('ui.tokenFields.senses')}>
             <span className="field-ro-text">
-              {senses!.map((s) => `${SENSE_READONLY_TEXT[s.type]} ${s.range} фт`).join(', ')}
+              {senses!
+                .map((s) => t('ui.tokenFields.senseRange', { sense: senseLabel(s.type).toLowerCase(), range: s.range }))
+                .join(', ')}
             </span>
           </Field>
         )
@@ -108,27 +106,27 @@ export function TokenPlayerFields({ value, onChange, isDm }: PlayerProps) {
           onChange({ isPlayerToken, ...(isPlayerToken ? {} : { owner: '' }) })
         }
       >
-        Это токен игрока
+        {t('ui.tokenFields.isPlayerToken')}
       </CheckboxRow>
       {value.isPlayerToken && (
-        <Field label="Владелец (имя персонажа; пусто — сам персонаж)">
+        <Field label={t('ui.tokenFields.owner')}>
           <input
             type="text"
             value={value.owner}
             maxLength={40}
-            placeholder="Например: Гэндальф"
+            placeholder={t('ui.tokenFields.ownerPlaceholder')}
             onChange={(e) => onChange({ owner: e.target.value })}
           />
         </Field>
       )}
       {isDm && (
         <CheckboxRow checked={value.showStats ?? false} onChange={(showStats) => onChange({ showStats })}>
-          Показывать статы игрокам
+          {t('ui.tokenFields.showStats')}
         </CheckboxRow>
       )}
       {isDm && (
         <CheckboxRow checked={value.canInteract ?? false} onChange={(canInteract) => onChange({ canInteract })}>
-          Может взаимодействовать с объектами
+          {t('ui.tokenFields.canInteract')}
         </CheckboxRow>
       )}
     </>
@@ -164,7 +162,7 @@ export function TokenHealthFields({
   return (
     <>
       <div className="field-row">
-        <Field label="Класс брони (AC)">
+        <Field label={t('ui.common.ac')}>
           <input
             type="text"
             value={value.ac ?? ''}
@@ -174,7 +172,7 @@ export function TokenHealthFields({
             onChange={(e) => onChange({ ac: e.target.value })}
           />
         </Field>
-        <Field label="Макс. ХП">
+        <Field label={t('ui.tokenFields.hpMax')}>
           <input
             type="text"
             value={value.hpMax ?? ''}
@@ -187,13 +185,13 @@ export function TokenHealthFields({
       </div>
 
       {!readOnly && !statsPaired(value.ac ?? '', value.hpMax ?? '') && (
-        <div className="field-warning">Укажите и AC, и Макс. ХП — или оставьте оба пустыми.</div>
+        <div className="field-warning">{t('ui.tokenFields.statsPairedWarning')}</div>
       )}
 
       {onCurrentChange &&
         (onTempChange ? (
           <div className="field-row">
-            <Field label="Текущее ХП">
+            <Field label={t('ui.tokenFields.hpCurrent')}>
               <input
                 type="number"
                 value={current}
@@ -201,7 +199,7 @@ export function TokenHealthFields({
                 onChange={(e) => onCurrentChange(clampCurrent(e.target.valueAsNumber))}
               />
             </Field>
-            <Field label="Временные ХП">
+            <Field label={t('ui.tokenFields.hpTemp')}>
               <input
                 type="number"
                 min={0}
@@ -212,7 +210,13 @@ export function TokenHealthFields({
             </Field>
           </div>
         ) : (
-          <Field label={`Текущее ХП${statNumber(value.hpMax) > 0 ? ` из ${statNumber(value.hpMax)}` : ''}`}>
+          <Field
+            label={
+              statNumber(value.hpMax) > 0
+                ? t('ui.tokenFields.hpCurrentOf', { max: statNumber(value.hpMax) })
+                : t('ui.tokenFields.hpCurrent')
+            }
+          >
             <input
               type="number"
               min={0}
@@ -231,7 +235,7 @@ export function TokenHealthFields({
 /** Описание токена/предмета. */
 export function DescriptionField({ value, onChange }: { value: TokenFields; onChange: Change }) {
   return (
-    <Field label="Описание">
+    <Field label={t('ui.common.description')}>
       <textarea
         value={value.description}
         rows={3}

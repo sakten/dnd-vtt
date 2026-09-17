@@ -20,6 +20,7 @@ import type {
   VisionSettings,
   Wall,
 } from 'shared';
+import type { Lang } from '../i18n';
 import type { AppSocket } from '../net/socket';
 import type {
   Interaction,
@@ -81,6 +82,8 @@ export interface GameState {
   roomCode: string | null;
   roomName: string | null;
   role: Role;
+  /** Язык интерфейса (i18n). */
+  lang: Lang;
   /** Режим тестов комнаты: у всех игроков права ведущего. */
   testMode: boolean;
   players: Player[];
@@ -171,6 +174,8 @@ export interface GameState {
   setTokenFields: (id: string, patch: Partial<Token>) => void;
   setView: (view: ViewState) => void;
   setViewport: (v: { w: number; h: number }) => void;
+  /** Сменить язык интерфейса (RU/EN); выбор сохраняется в localStorage. */
+  setLang: (lang: Lang) => void;
   setSelected: (id: string | null) => void;
   /** Войти в режим выбора цели для способности/заклинания/атаки. */
   startTargeting: (targeting: TargetingState) => void;

@@ -14,6 +14,7 @@ import {
   type TurnState,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { useActiveMap } from '../store/hooks';
 import { characterTokenOf, tokenById } from '../store/selectors';
 import { canControlTokenWith, characterNameOf, isCharacterTokenWith, useIsDm } from './control';
@@ -96,7 +97,7 @@ export function useActionContext(): ActionContext | null {
       .filter((e) => e.escape)
       .map((e) => ({
         id: `escape:${e.id}`,
-        name: 'Выпутаться',
+        name: t('ui.action.escape'),
         source: 'basic' as const,
         costs: ['action' as const],
         description: e.name,

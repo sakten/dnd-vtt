@@ -15,6 +15,8 @@ import {
   type SkillLevel,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
+import { abilityName, classLabel, skillName, subclassLabel } from '../i18n/domain';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
 import SensesForm from './SensesForm';
 import AttacksForm from './AttacksForm';
@@ -89,48 +91,48 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     setDraft((d) => (d ? { ...d, classes: d.classes.filter((_, i) => i !== index) } : d));
 
   return (
-    <Modal onClose={onClose} title="Карточка персонажа" className="sheet-modal" testId="sheet-modal">
+    <Modal onClose={onClose} title={t('ui.sheet.title')} className="sheet-modal" testId="sheet-modal">
         <div className="sheet-tabs">
           <button type="button" className={tab === 'main' ? 'active' : ''} onClick={() => setTab('main')}>
-            Основное
+            {t('ui.common.main')}
           </button>
           <button type="button" className={tab === 'spells' ? 'active' : ''} onClick={() => setTab('spells')}>
-            Заклинания
+            {t('ui.common.spells')}
           </button>
           <button type="button" className={tab === 'talents' ? 'active' : ''} onClick={() => setTab('talents')}>
-            Таланты
+            {t('ui.sheet.talents')}
           </button>
         </div>
         <div className="sheet-body">
         {tab === 'main' && (
         <>
         <label className="field">
-          <span>Имя персонажа</span>
+          <span>{t('ui.sheet.name')}</span>
           <input
             type="text"
             value={draft.name}
             maxLength={40}
-            placeholder="Необязательно"
+            placeholder={t('ui.sheet.namePlaceholder')}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </label>
 
-        <div className="sheet-section-title">Классы (до {MAX_CLASSES})</div>
+        <div className="sheet-section-title">{t('ui.sheet.classes', { max: MAX_CLASSES })}</div>
         {draft.classes.map((cl, i) => (
           <div className="class-row" key={i}>
             <label className="field">
-              <span>Класс</span>
+              <span>{t('ui.sheet.class')}</span>
               <select value={cl.className} onChange={(e) => setClassLevel(i, { className: e.target.value })}>
-                <option value="">— не выбран —</option>
+                <option value="">{t('ui.common.notChosen')}</option>
                 {CLASS_LIST.map((c) => (
                   <option key={c.key} value={c.key}>
-                    {c.name}
+                    {classLabel(c.key, c.name)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="field class-level">
-              <span>Ур.</span>
+              <span>{t('ui.common.levelShort')}</span>
               <input
                 type="number"
                 min={1}
@@ -143,33 +145,33 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             </label>
             {cl.className && cl.level >= 3 && subclassList(cl.className).length > 0 && (
               <label className="field subclass-field">
-                <span>Подкласс</span>
+                <span>{t('ui.sheet.subclass')}</span>
                 <select
                   value={cl.subclass ?? ''}
                   onChange={(e) => setClassLevel(i, { subclass: e.target.value || undefined })}
                 >
-                  <option value="">— не выбран —</option>
+                  <option value="">{t('ui.common.notChosen')}</option>
                   {subclassList(cl.className).map((s) => (
                     <option key={s.key} value={s.key}>
-                      {s.name} ({s.source})
+                      {subclassLabel(cl.className, s.key, s.name)} ({s.source})
                     </option>
                   ))}
                 </select>
               </label>
             )}
-            <button className="class-remove" title="Убрать класс" onClick={() => removeClassLevel(i)}>
+            <button className="class-remove" title={t('ui.sheet.removeClass')} onClick={() => removeClassLevel(i)}>
               ✕
             </button>
           </div>
         ))}
         {draft.classes.length < MAX_CLASSES && (
           <button className="class-add" onClick={addClassLevel}>
-            + Добавить класс
+            {t('ui.sheet.addClass')}
           </button>
         )}
 
         <label className="field">
-          <span>Макс. хиты (пусто — авто: класс + Телосложение)</span>
+          <span>{t('ui.sheet.hpMaxHint')}</span>
           <input
             type="text"
             value={draft.hpMax}
@@ -180,7 +182,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         </label>
 
         <label className="field">
-          <span>Класс брони (AC)</span>
+          <span>{t('ui.common.ac')}</span>
           <input
             type="number"
             min={0}
@@ -192,7 +194,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         </label>
 
         <label className="field">
-          <span>Скорость, фт</span>
+          <span>{t('ui.common.speedFeet')}</span>
           <input
             type="number"
             min={0}
@@ -205,21 +207,21 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
-        <div className="sheet-section-title">Зрение</div>
+        <div className="sheet-section-title">{t('ui.common.senses')}</div>
         <SensesForm value={draft.senses} onChange={(senses) => setDraft({ ...draft, senses })} />
 
-        <div className="sheet-section-title">Характеристики</div>
+        <div className="sheet-section-title">{t('ui.common.abilities')}</div>
         <div className="ability-grid">
           {ABILITIES.map((a) => {
             const mod = abilityMod(draft.abilities[a.key]);
             return (
               <div className="ability-cell" data-testid="ability-cell" key={a.key}>
-                <span className="ability-name">{a.name}</span>
+                <span className="ability-name">{abilityName(a.key)}</span>
                 <input
                   type="number"
                   min={0}
                   max={30}
-                  aria-label={a.name}
+                  aria-label={abilityName(a.key)}
                   value={draft.abilities[a.key]}
                   onChange={(e) => setAbility(a.key, e.target.valueAsNumber)}
                 />
@@ -233,7 +235,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         </div>
 
         <label className="field">
-          <span>Профишенси бонус (число или куб)</span>
+          <span>{t('ui.sheet.proficiency')}</span>
           <input
             type="text"
             value={draft.proficiencyBonus}
@@ -242,7 +244,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           />
         </label>
 
-        <div className="sheet-section-title">Спасброски (по основному классу — можно менять)</div>
+        <div className="sheet-section-title">{t('ui.sheet.saves')}</div>
         <div className="save-grid" data-testid="save-grid">
           {ABILITIES.map((a) => {
             const mod = abilityMod(draft.abilities[a.key]);
@@ -255,7 +257,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
                     setDraft({ ...draft, saves: { ...draft.saves, [a.key]: e.target.checked } })
                   }
                 />
-                {a.name}{' '}
+                {abilityName(a.key)}{' '}
                 <span className="mod-badge pos">
                   {mod >= 0 ? '+' : ''}
                   {mod}
@@ -266,7 +268,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           })}
         </div>
 
-        <div className="sheet-section-title">Навыки (клик: нет → профишенси → экспертиза)</div>
+        <div className="sheet-section-title">{t('ui.sheet.skills')}</div>
         <div className="skills-list">
           {SKILLS.map((s) => {
             const level = draft.skills[s.key] ?? 0;
@@ -275,11 +277,11 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
                 className={`skill-row level-${level}`}
                 data-testid="skill-row"
                 key={s.key}
-                title="Клик — изменить уровень владения"
+                title={t('ui.sheet.skillTitle')}
                 onClick={() => cycleSkill(s.key)}
               >
-                <span className="skill-name">{s.name}</span>
-                <span className="skill-ability">{ABILITIES.find((a) => a.key === s.ability)?.name}</span>
+                <span className="skill-name">{skillName(s.key)}</span>
+                <span className="skill-ability">{abilityName(s.ability)}</span>
                 <span className="skill-bonus">{skillPreview(draft, s.key)}</span>
               </div>
             );
@@ -288,9 +290,9 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
 
         <AttacksForm
           attacks={draft.attacks}
-          title="Оружие"
-          itemLabel="Оружие"
-          namePlaceholder="Например: Меч"
+          title={t('ui.sheet.weapons')}
+          itemLabel={t('ui.sheet.weapon')}
+          namePlaceholder={t('ui.sheet.weaponPlaceholder')}
           weaponContext={{ abilities: draft.abilities, classes: draft.classes, choices: draft.choices }}
           onChange={(attacks) => setDraft((d) => (d ? { ...d, attacks } : d))}
         />
@@ -322,7 +324,7 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
               onClose();
             }}
           >
-            Сохранить
+            {t('ui.common.save')}
           </button>
         </div>
     </Modal>

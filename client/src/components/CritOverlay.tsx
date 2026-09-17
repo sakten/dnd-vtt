@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from 'react';
+import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 
 const ThreeD20 = lazy(() => import('./ThreeD20'));
@@ -33,7 +34,7 @@ export default function CritOverlay() {
         />
       ))}
       <div className="crit-caption">
-        <div className="crit-title">КРИТ!</div>
+        <div className="crit-title">{t('ui.crit.title')}</div>
         <div className="crit-sub">
           {critHit.author}
           {critHit.label ? ` — ${critHit.label}` : ''}

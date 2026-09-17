@@ -13,6 +13,8 @@ import {
   type TurnContext,
 } from '../lib/actionRules';
 import { useActionContext } from '../lib/useActionContext';
+import { t } from '../i18n';
+import { baseActionLabel, resourceLabel } from '../i18n/domain';
 import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
@@ -147,7 +149,7 @@ export default function ActionPanel() {
         actionId,
         slot,
         attackIndex,
-        label: label ?? def.name,
+        label: label ?? baseActionLabel(actionId, def.name),
       });
       return;
     }
@@ -209,7 +211,7 @@ export default function ActionPanel() {
   };
 
   const spellButton = (spell: Spell) => {
-    const level = spell.level === 0 ? 'фокус' : `${spell.level} круг`;
+    const level = spell.level === 0 ? t('ui.action.cantrip') : t('ui.action.level', { n: spell.level });
     return (
       <button
         key={`spell:${spell.key}`}
@@ -226,7 +228,8 @@ export default function ActionPanel() {
 
   const featureButton = (f: ActionDef) => {
     const left = resourceLeft(f);
-    const label = left !== null ? `${f.name} (${left})` : f.name;
+    const base = f.resourceKey ? resourceLabel(f.resourceKey, f.name) : f.name;
+    const label = left !== null ? `${base} (${left})` : base;
     return (
       <button
         key={f.id}
@@ -243,7 +246,7 @@ export default function ActionPanel() {
           if (f.targeting?.kind === 'creature' && maxTargets > 1) {
             startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
           } else if (f.targeting?.kind === 'creature') {
-            startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, label: f.name });
+            startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, label: base });
           } else {
             runAction(token.id, f.id, { slot });
           }
@@ -263,8 +266,8 @@ export default function ActionPanel() {
           <button
             key={`${slot}:attack:none`}
             className="ap-icon-btn"
-            data-tip="Атака (нет оружия)"
-            aria-label="Атака (нет оружия)"
+            data-tip={t('ui.action.attackNoWeapon')}
+            aria-label={t('ui.action.attackNoWeapon')}
             disabled
           >
             <WeaponIcon name="" className="ap-icon" />
@@ -272,15 +275,15 @@ export default function ActionPanel() {
         );
       } else {
         for (const { entry, index } of weapons) {
-          const label = entry.name.trim() || `Оружие ${index + 1}`;
+          const label = entry.name.trim() || t('ui.action.weaponN', { n: index + 1 });
           buttons.push(
             <button
               key={`${slot}:attack:${index}`}
               className="ap-icon-btn"
-              data-tip={`Атака: ${label}`}
-              aria-label={`Атака: ${label}`}
+              data-tip={t('ui.action.attackLabel', { name: label })}
+              aria-label={t('ui.action.attackLabel', { name: label })}
               disabled={!canSpendSlot(turnCtx, slot, 'attack', isUnarmedAttack(entry))}
-              onClick={() => fire('attack', slot, index, `Атака: ${label}`)}
+              onClick={() => fire('attack', slot, index, t('ui.action.attackLabel', { name: label }))}
             >
               <WeaponIcon name={entry.name} className="ap-icon" />
               <span className="ap-attack-badge">
@@ -294,7 +297,8 @@ export default function ActionPanel() {
     for (const a of BASE_ACTIONS.filter((x) => x.costs.includes(slot) && x.id !== 'attack')) {
       // Безоружный удар, захват и толчок — тоже атаки: меч-бейдж и метка «Атака: …».
       const isAttack = ATTACK_BADGED.has(a.id);
-      const label = isAttack ? `Атака: ${a.name}` : a.name;
+      const name = baseActionLabel(a.id, a.name);
+      const label = isAttack ? t('ui.action.attackLabel', { name }) : name;
       buttons.push(
         <button
           key={`${slot}:${a.id}`}
@@ -319,7 +323,7 @@ export default function ActionPanel() {
       buttons.push(...featureList.map(featureButton));
       buttons.push(...spellList.map(spellButton));
     }
-    if (buttons.length === 0) return <span className="ap-empty">Нет</span>;
+    if (buttons.length === 0) return <span className="ap-empty">{t('ui.action.none')}</span>;
     return buttons;
   };
 
@@ -340,31 +344,32 @@ export default function ActionPanel() {
         {token.effects.some((e) => !e.hidden) && (
           <EffectChips effects={token.effects} spellByKey={spellByKey} tokenId={token.id} />
         )}
-        {incap && <span className="ap-incap">Недееспособен</span>}
+        {incap && <span className="ap-incap">{t('ui.action.incapacitated')}</span>}
         {combatActive && turn ? (
           <span className="ap-counters">
-            <span className="ap-counter" title="Реакция">
-              Реакция <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
+            <span className="ap-counter" title={t('ui.action.reaction')}>
+              {t('ui.action.reaction')} <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
             </span>
-            <span className="ap-counter attack-left" title="Атаки в действии «Атака»">
+            <span className="ap-counter attack-left" title={t('ui.action.attacksTitle')}>
               {Array.from({ length: attacksTotal }, (_, i) => (
                 <ActionIcon key={i} id="sword" className={`ap-sword${i < attacksLeft ? '' : ' spent'}`} />
               ))}
             </span>
-            <span className={`ap-counter move${moveLeft < 0 ? ' over' : ''}`} title="Осталось передвижения">
-              {moveLeft} фт
+            <span className={`ap-counter move${moveLeft < 0 ? ' over' : ''}`} title={t('ui.common.movementLeftTitle')}>
+              {t('ui.common.feet', { n: moveLeft })}
             </span>
           </span>
         ) : combatActive && reactionTurn ? (
           <span className="ap-count dim">
-            Не ваш ход · Реакция <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
+            {t('ui.action.notYourTurn')}{' '}
+            <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
           </span>
         ) : (
-          <span className="ap-count dim">{controlled ? 'Вне боя' : 'Не ваш токен'}</span>
+          <span className="ap-count dim">{controlled ? t('ui.action.outOfCombat') : t('ui.action.notYourToken')}</span>
         )}
         <button
           className="icon ap-collapse"
-          title={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
+          title={collapsed ? t('ui.action.expandPanel') : t('ui.action.collapsePanel')}
           onClick={toggleCollapsed}
         >
           {collapsed ? '▲' : '▼'}
@@ -375,14 +380,14 @@ export default function ActionPanel() {
       <div className="ap-body">
         <section className="ap-panel actions">
           <div className="ap-panel-head">
-            <span className="ap-panel-title">Действия</span>
+            <span className="ap-panel-title">{t('ui.action.actions')}</span>
             {combatActive && turn && <Dots total={actionTotal} remaining={actionRemaining} tone="action" />}
           </div>
           <div className="ap-icons">{renderButtons('action')}</div>
         </section>
         <section className="ap-panel bonus">
           <div className="ap-panel-head">
-            <span className="ap-panel-title">Бонусные действия</span>
+            <span className="ap-panel-title">{t('ui.action.bonusActions')}</span>
             {combatActive && turn && <Dots total={bonusTotal} remaining={bonusRemaining} tone="bonus" />}
           </div>
           <div className="ap-icons">{renderButtons('bonus')}</div>
@@ -390,7 +395,7 @@ export default function ActionPanel() {
         {hasReaction && (
           <section className="ap-panel reaction">
             <div className="ap-panel-head">
-              <span className="ap-panel-title">Реакция</span>
+              <span className="ap-panel-title">{t('ui.action.reaction')}</span>
               {combatActive && reactionTurn && (
                 <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
               )}
@@ -402,7 +407,7 @@ export default function ActionPanel() {
       {(featuresOther.length > 0 || spellsOther.length > 0) && (
         <section className="ap-panel other">
           <div className="ap-panel-head">
-            <span className="ap-panel-title">Свободные и прочие</span>
+            <span className="ap-panel-title">{t('ui.action.other')}</span>
           </div>
           <div className="ap-icons">
             {featuresOther.map(featureButton)}

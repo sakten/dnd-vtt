@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { activeMapOf } from '../store/selectors';
 import { CheckboxRow } from './Field';
 import Modal from './Modal';
@@ -10,14 +11,14 @@ export default function VisionSettingsModal() {
   const map = useGameStore(activeMapOf);
 
   return (
-    <Modal onClose={() => close(false)} title="Обзор">
+    <Modal onClose={() => close(false)} title={t('ui.vision.title')}>
       <CheckboxRow
         checked={map?.vision.los ?? false}
         onChange={(los) => {
           if (map) updateVision(map.id, { los, darkness: map.vision.darkness });
         }}
       >
-        Объединять обзор игроков
+        {t('ui.vision.share')}
       </CheckboxRow>
       <CheckboxRow
         checked={map?.vision.darkness ?? false}
@@ -25,16 +26,12 @@ export default function VisionSettingsModal() {
           if (map) updateVision(map.id, { los: map.vision.los, darkness });
         }}
       >
-        Темнота
+        {t('ui.vision.darkness')}
       </CheckboxRow>
-      <p className="field-hint">
-        Обзор игроков всегда ограничен стенами и закрытыми дверями; «Темнота» добавляет ограничение
-        дальности по восприятию токена (без него — 1 клетка вокруг). «Объединять обзор игроков»:
-        игрок видит области всех токенов с галкой «токен игрока», иначе — только своих.
-      </p>
+      <p className="field-hint">{t('ui.vision.hint')}</p>
       <div className="modal-actions">
         <button className="primary" onClick={() => close(false)}>
-          Готово
+          {t('ui.common.done')}
         </button>
       </div>
     </Modal>

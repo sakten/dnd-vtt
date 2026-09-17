@@ -1,4 +1,5 @@
 import { MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from 'shared';
+import { t } from '../../i18n';
 import { applyMapGrid, setFog, setLightAreas, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
 import { activeMapOf } from '../selectors';
 import { emit, emitInMap, emitThrottled, flushThrottled } from '../helpers';
@@ -8,7 +9,7 @@ import type { GameState, Slice } from '../types';
 export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateDoor' | 'setDoorMenu' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
   // Клиент режет payload теми же лимитами, что и сервер: локальная и серверная версии не расходятся.
   const limitError = (what: string, max: number) =>
-    get().onChatError(`Достигнут лимит ${what} (${max}) — лишнее не сохранится`);
+    get().onChatError(t('ui.store.limit', { what, max }));
   return {
     onMapsUpdate: ({ maps, activeMapId }) => {
       set((s) => {
@@ -96,7 +97,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     updateFog: (mapId, fog) => {
       if (!get().socket) return;
       const hidden = fog.hidden.slice(0, MAX_FOG_CELLS);
-      if (hidden.length !== fog.hidden.length) limitError('клеток тумана', MAX_FOG_CELLS);
+      if (hidden.length !== fog.hidden.length) limitError(t('ui.store.fogCells'), MAX_FOG_CELLS);
       const next = hidden.length === fog.hidden.length ? fog : { ...fog, hidden };
       set((s) => ({ scene: setFog(s.scene, mapId, next) }));
       emitThrottled(get, `fog:${mapId}`, 120, 'fog:update', () => {
@@ -108,7 +109,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     updateWalls: (mapId, walls) => {
       if (!get().socket) return;
       const next = walls.slice(0, MAX_WALL_SEGMENTS);
-      if (next.length !== walls.length) limitError('стен', MAX_WALL_SEGMENTS);
+      if (next.length !== walls.length) limitError(t('ui.store.walls'), MAX_WALL_SEGMENTS);
       set((s) => ({ scene: setWalls(s.scene, mapId, next) }));
       emitThrottled(get, `walls:${mapId}`, 150, 'walls:update', () => {
         const latest = get().scene.maps.find((m) => m.id === mapId)?.walls;
@@ -125,7 +126,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     updateAreas: (mapId, areas) => {
       if (!get().socket) return;
       const next = areas.slice(0, MAX_LIGHT_AREAS);
-      if (next.length !== areas.length) limitError('областей', MAX_LIGHT_AREAS);
+      if (next.length !== areas.length) limitError(t('ui.store.areas'), MAX_LIGHT_AREAS);
       set((s) => ({ scene: setLightAreas(s.scene, mapId, next) }));
       emitThrottled(get, `areas:${mapId}`, 150, 'areas:update', () => {
         const latest = get().scene.maps.find((m) => m.id === mapId)?.lightAreas;

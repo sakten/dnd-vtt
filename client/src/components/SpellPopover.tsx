@@ -3,7 +3,8 @@ import { spellActionCost, spellAreaOrigin, spellAutomated, spellRangeFeet, type 
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { tokenById } from '../store/selectors';
-import { ACTION_COST_TEXT, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
+import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
+import { t } from '../i18n';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -91,17 +92,18 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           <div className="sp-head-text">
             <div className="sp-name">{spell.name}</div>
             <div className="sp-meta">
-              {info.isCantrip ? 'Фокус' : `${spell.level} круг`} · {ACTION_COST_TEXT[spellActionCost(spell)]}
+              {info.isCantrip ? t('ui.spellPopover.cantrip') : t('ui.spellPopover.level', { n: spell.level })} ·{' '}
+              {actionCostText(spellActionCost(spell))}
             </div>
           </div>
-          <button className="sp-close" aria-label="Закрыть" onClick={onClose}>
+          <button className="sp-close" aria-label={t('ui.common.close')} onClick={onClose}>
             ×
           </button>
         </div>
 
         {info.levels.length > 1 && (
           <div className="sp-row">
-            <span className="sp-label">Круг ячейки</span>
+            <span className="sp-label">{t('ui.spellPopover.slotLevel')}</span>
             <div className="sp-levels">
               {info.levels.map((l) => (
                 <button
@@ -116,42 +118,49 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </div>
         )}
 
-        {!info.canCast && <div className="sp-warn">Нет ячейки доступного круга</div>}
+        {!info.canCast && <div className="sp-warn">{t('ui.spellPopover.noSlot')}</div>}
 
         {info.area ? (
           <div className="sp-row">
-            <span className="sp-label">Область</span>
+            <span className="sp-label">{t('ui.spellPopover.area')}</span>
             <span className="sp-target">
-              {spell.areaSpec?.shape === 'cone'
-                ? 'конус'
-                : spell.areaSpec?.shape === 'line'
-                  ? 'линия'
-                  : spell.areaSpec?.shape === 'cube'
-                    ? 'куб'
-                    : 'сфера'}{' '}
-              {spell.areaSpec?.size} фт · выбор на карте
+              {t('ui.spellPopover.areaInfo', {
+                shape:
+                  spell.areaSpec?.shape === 'cone'
+                    ? t('ui.spellPopover.shape.cone')
+                    : spell.areaSpec?.shape === 'line'
+                      ? t('ui.spellPopover.shape.line')
+                      : spell.areaSpec?.shape === 'cube'
+                        ? t('ui.spellPopover.shape.cube')
+                        : t('ui.spellPopover.shape.sphere'),
+                size: spell.areaSpec?.size ?? 0,
+              })}
             </span>
           </div>
         ) : info.multi ? (
           <div className="sp-row">
-            <span className="sp-label">{info.multiKind === 'targets' ? 'Цели' : 'Снаряды'}</span>
+            <span className="sp-label">
+              {info.multiKind === 'targets' ? t('ui.common.targets') : t('ui.common.projectiles')}
+            </span>
             <span className="sp-target">
               {info.multiKind === 'targets'
-                ? `до ${info.effectTargetCount} · выбор на карте`
-                : `${info.projectiles} шт. · цель для каждого на карте`}
+                ? t('ui.spellPopover.targetsInfo', { n: info.effectTargetCount })
+                : t('ui.spellPopover.projectilesInfo', { n: info.projectiles })}
             </span>
           </div>
         ) : (
           <div className="sp-row">
-            <span className="sp-label">Цель</span>
-            <span className="sp-target">{info.self ? 'На себя' : 'клик по цели на карте'}</span>
+            <span className="sp-label">{t('ui.spellPopover.target')}</span>
+            <span className="sp-target">
+              {info.self ? t('ui.spellPopover.self') : t('ui.spellPopover.clickTarget')}
+            </span>
           </div>
         )}
 
         {info.damageText && <div className="sp-damage">{info.damageText}</div>}
 
         {!spellAutomated(spell) && (
-          <div className="sp-note">Эффект не автоматизирован: в чат уйдёт название и описание, механику ведёт мастер</div>
+          <div className="sp-note">{t('ui.spellPopover.manualNote')}</div>
         )}
 
         {info.attacky && spell.spellAttack && (
@@ -185,10 +194,16 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
 
         <div className="sp-actions">
           <button className="sp-cancel" onClick={onClose}>
-            Отмена
+            {t('ui.common.cancel')}
           </button>
           <button className="sp-cast" disabled={!info.canCast} onClick={submit}>
-            {info.area ? 'Выбрать область' : info.multi ? 'Выбрать цели' : info.self ? 'Применить' : 'Выбрать цель'}
+            {info.area
+              ? t('ui.spellPopover.chooseArea')
+              : info.multi
+                ? t('ui.spellPopover.chooseTargets')
+                : info.self
+                  ? t('ui.common.apply')
+                  : t('ui.spellPopover.chooseTarget')}
           </button>
         </div>
       </div>

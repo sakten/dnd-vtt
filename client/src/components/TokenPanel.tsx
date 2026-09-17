@@ -3,6 +3,7 @@ import type { TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
+import { t } from '../i18n';
 import { canAddLibraryItem, canSetAsCharacter, useIsDm } from '../lib/control';
 import Modal from './Modal';
 import StatblockForm from './StatblockForm';
@@ -99,21 +100,21 @@ export default function TokenPanel() {
         damageDefenses: [],
       });
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Не удалось загрузить токен');
+      window.alert(err instanceof Error ? err.message : t('ui.tokenPanel.uploadError'));
     }
   };
 
   return (
     <div className={`token-panel ${collapsed ? 'collapsed' : ''}`}>
       <div className="token-panel-header">
-        <span>Токены</span>
+        <span>{t('ui.tokenPanel.title')}</span>
         <div className="token-panel-header-actions">
-          <button className="icon" title="Загрузить токен" onClick={() => fileRef.current?.click()}>
+          <button className="icon" title={t('ui.tokenPanel.upload')} onClick={() => fileRef.current?.click()}>
             +
           </button>
           <button
             className="icon token-panel-toggle"
-            title={collapsed ? 'Развернуть' : 'Свернуть'}
+            title={collapsed ? t('ui.tokenPanel.expand') : t('ui.tokenPanel.collapse')}
             onClick={toggleCollapsed}
           >
             {collapsed ? '▲' : '▼'}
@@ -123,13 +124,13 @@ export default function TokenPanel() {
       </div>
       {!collapsed && (
       <div className="token-panel-list">
-        {items.length === 0 && <div className="hint">Загрузите картинки токенов</div>}
+        {items.length === 0 && <div className="hint">{t('ui.tokenPanel.empty')}</div>}
         {items.map((item) => (
           <div
             className={`token-panel-item ${selectedId === item.id || editingId === item.id ? 'active' : ''}`}
             data-testid="token-panel-item"
             key={item.id}
-            title={`${item.name} (${item.cells}×${item.cells}) — перетащите на карту, двойной клик — свойства`}
+            title={t('ui.tokenPanel.itemTitle', { name: item.name, cells: item.cells })}
           >
             <img
               src={item.imageUrl}
@@ -145,7 +146,7 @@ export default function TokenPanel() {
               <button
                 className={`token-star${item.id === currentCharacterId ? ' active' : ''}`}
                 data-testid="token-star"
-                title={item.id === currentCharacterId ? 'Отвязать персонажа' : 'Сделать моим персонажем'}
+                title={item.id === currentCharacterId ? t('ui.token.unlinkCharacter') : t('ui.token.makeMyCharacter')}
                 onClick={(e) => {
                   e.stopPropagation();
                   setCurrentCharacter(item.id === currentCharacterId ? null : item.id);
@@ -169,7 +170,7 @@ export default function TokenPanel() {
               {draft.imageUrl ? <img src={draft.imageUrl} alt={draft.name} draggable={false} /> : <span>?</span>}
             </div>
             <div className="tm-head-info">
-              <div className="tm-name">{draft.name || 'Без имени'}</div>
+              <div className="tm-name">{draft.name || t('ui.token.noName')}</div>
               <div className="tm-stats">
                 <span>
                   {draft.cells}×{draft.cells}
@@ -177,11 +178,13 @@ export default function TokenPanel() {
               </div>
               <div className="tm-sub">
                 {draft.isPlayerToken && (
-                  <span className="tm-owner">Токен игрока{draft.owner ? `: ${draft.owner}` : ''}</span>
+                  <span className="tm-owner">
+                    {draft.owner ? t('ui.token.playerTokenOwner', { owner: draft.owner }) : t('ui.token.playerToken')}
+                  </span>
                 )}
               </div>
             </div>
-            <button className="tm-close" aria-label="Закрыть" onClick={() => setEditingId(null)}>
+            <button className="tm-close" aria-label={t('ui.common.close')} onClick={() => setEditingId(null)}>
               ×
             </button>
           </div>
@@ -195,24 +198,24 @@ export default function TokenPanel() {
                 setEditingId(null);
               }}
             >
-              {currentCharacterId === editing.id ? 'Отвязать персонажа' : 'Это мой персонаж'}
+              {currentCharacterId === editing.id ? t('ui.token.unlinkCharacter') : t('ui.token.thisIsMyCharacter')}
             </button>
           )}
           <div className="tm-tabs">
             <button className={`tm-tab${tab === 'main' ? ' active' : ''}`} onClick={() => setTab('main')}>
-              Основное
+              {t('ui.common.main')}
             </button>
             {isDm && (
               <button
                 className={`tm-tab${tab === 'statblock' ? ' active' : ''}`}
                 onClick={() => setTab('statblock')}
               >
-                Статблок
+                {t('ui.token.tabStatblock')}
               </button>
             )}
             {isDm && draft.statblock?.spellcasting && (
               <button className={`tm-tab${tab === 'spells' ? ' active' : ''}`} onClick={() => setTab('spells')}>
-                Заклинания
+                {t('ui.common.spells')}
               </button>
             )}
           </div>
@@ -241,7 +244,7 @@ export default function TokenPanel() {
                 setEditingId(null);
               }}
             >
-              Убрать из библиотеки
+              {t('ui.tokenPanel.removeFromLibrary')}
             </button>
             <button
               className="primary"
@@ -251,7 +254,7 @@ export default function TokenPanel() {
                 setEditingId(null);
               }}
             >
-              Готово
+              {t('ui.common.done')}
             </button>
           </div>
         </Modal>

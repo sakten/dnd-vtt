@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 
 export async function uploadImage(file: File): Promise<string> {
@@ -11,7 +12,7 @@ export async function uploadImage(file: File): Promise<string> {
   });
   if (!res.ok) {
     const data = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(data?.error ?? 'Не удалось загрузить изображение');
+    throw new Error(data?.error ?? t('ui.api.loadImageError'));
   }
   const data = (await res.json()) as { url: string };
   return data.url;
@@ -21,7 +22,7 @@ export function readImageSize(url: string): Promise<{ width: number; height: num
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => reject(new Error('Не удалось прочитать изображение'));
+    img.onerror = () => reject(new Error(t('ui.api.readImageError')));
     img.src = url;
   });
 }

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { t } from './i18n';
 import { useGameStore } from './store/useGameStore';
 import JoinScreen from './screens/JoinScreen';
 import AdminScreen from './screens/AdminScreen';
@@ -9,6 +10,8 @@ export default function App() {
   const connected = useGameStore((s) => s.connected);
   const roomCode = useGameStore((s) => s.roomCode);
   const init = useGameStore((s) => s.init);
+  // Подписка на язык: перерисовывает дерево при переключении RU/EN (компоненты не memo).
+  useGameStore((s) => s.lang);
 
   useEffect(() => {
     init();
@@ -19,7 +22,7 @@ export default function App() {
     return (
       <>
         <TableScreen />
-        {!connected && <div className="conn-banner">Нет связи с сервером — переподключение…</div>}
+        {!connected && <div className="conn-banner">{t('ui.app.reconnect')}</div>}
       </>
     );
   }

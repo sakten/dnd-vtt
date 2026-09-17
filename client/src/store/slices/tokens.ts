@@ -1,4 +1,5 @@
 import { clampCells, movementCost, type Token } from 'shared';
+import { t } from '../../i18n';
 import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken } from '../../domain/scene';
 import { emitInMap } from '../helpers';
 import { beginOptimistic, settleOptimisticPrefix } from '../optimistic';
@@ -190,7 +191,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
           get,
           `token:update:${id}`,
           () => patchTokenInMap(mapId, id, prev),
-          'Сервер не подтвердил изменение токена — изменения отменены'
+          t('ui.store.tokenRevert')
         );
       }
       emitInMap(get, 'token:update', { id, patch: local });

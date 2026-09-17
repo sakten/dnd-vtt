@@ -35,3 +35,27 @@ const upStatus = await S.page.evaluate(async () => {
 check(upStatus === 403, 'загрузка файлов без участия в комнате запрещена (403)');
 const codeLength = await S.page.evaluate(() => window.__vtt.getState().roomCode?.length ?? 0);
 check(codeLength >= 10, `длинный токен комнаты (${codeLength} символов)`);
+
+const langBefore = await S.page.evaluate(() => document.documentElement.lang);
+const labelBefore = await S.page.$eval('[data-testid="lang-toggle"]', (el) => el.textContent);
+await S.page.click('[data-testid="lang-toggle"]');
+const langAfter = await S.page.evaluate(() => ({
+  html: document.documentElement.lang,
+  stored: localStorage.getItem('vtt-lang'),
+  state: window.__vtt.getState().lang,
+}));
+const labelAfter = await S.page.$eval('[data-testid="lang-toggle"]', (el) => el.textContent);
+check(langBefore === 'ru', `стартовый язык RU (${langBefore})`);
+check(
+  langAfter.html === 'en' && langAfter.stored === 'en' && langAfter.state === 'en',
+  'переключатель включает EN и сохраняет выбор'
+);
+check(labelBefore === 'EN' && labelAfter === 'RU', `метка кнопки EN → RU (${labelBefore} → ${labelAfter})`);
+const toolbarEn = await S.page.$eval('[data-testid="toolbar"]', (el) => el.textContent ?? '');
+check(toolbarEn.includes('Grid') && toolbarEn.includes('Combat'), `интерфейс переключился без перезагрузки (${toolbarEn})`);
+await S.page.click('[data-testid="lang-toggle"]');
+const langBack = await S.page.evaluate(() => document.documentElement.lang);
+const labelBack = await S.page.$eval('[data-testid="lang-toggle"]', (el) => el.textContent);
+check(langBack === 'ru' && labelBack === 'EN', 'переключатель возвращает RU');
+const toolbarRu = await S.page.$eval('[data-testid="toolbar"]', (el) => el.textContent ?? '');
+check(toolbarRu.includes('Сетка'), 'RU возвращается без перезагрузки');

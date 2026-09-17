@@ -1,4 +1,6 @@
-import { DEFAULT_SENSE_RANGES, MAX_SENSES, SENSE_NAMES, SENSE_TYPES, type Sense, type SenseType } from 'shared';
+import { DEFAULT_SENSE_RANGES, MAX_SENSES, SENSE_TYPES, type Sense, type SenseType } from 'shared';
+import { t } from '../i18n';
+import { senseLabel } from '../i18n/domain';
 import { Field } from './Field';
 
 interface Props {
@@ -22,16 +24,16 @@ export default function SensesForm({ value, onChange }: Props) {
     <>
       {list.map((sense, index) => (
         <div className="field-row" key={sense.type}>
-          <Field label="Зрение">
+          <Field label={t('ui.common.senses')}>
             <select value={sense.type} onChange={(e) => update(index, { type: e.target.value as SenseType })}>
-              {SENSE_TYPES.map((t) => (
-                <option key={t} value={t} disabled={t !== sense.type && used.has(t)}>
-                  {SENSE_NAMES[t]}
+              {SENSE_TYPES.map((st) => (
+                <option key={st} value={st} disabled={st !== sense.type && used.has(st)}>
+                  {senseLabel(st)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Дистанция, фт">
+          <Field label={t('ui.senses.range')}>
             <input
               type="number"
               min={5}
@@ -42,13 +44,13 @@ export default function SensesForm({ value, onChange }: Props) {
             />
           </Field>
           <button type="button" onClick={() => onChange(list.filter((_, i) => i !== index))}>
-            Убрать
+            {t('ui.common.remove')}
           </button>
         </div>
       ))}
       {list.length < MAX_SENSES && (
         <button type="button" onClick={add} disabled={used.size >= SENSE_TYPES.length}>
-          Добавить зрение
+          {t('ui.senses.add')}
         </button>
       )}
     </>

@@ -1,4 +1,6 @@
-import { DAMAGE_TYPES, DEFENSE_TYPE_NAMES, MAX_DEFENSES, type DamageDefense, type DamageDefenseType } from 'shared';
+import { DAMAGE_TYPES, MAX_DEFENSES, type DamageDefense, type DamageDefenseType } from 'shared';
+import { t } from '../i18n';
+import { damageLabel, defenseLabel } from '../i18n/domain';
 import { newId } from '../lib/id';
 
 interface Props {
@@ -18,33 +20,35 @@ export default function DamageDefensesForm({ value, onChange }: Props) {
 
   return (
     <div className="defenses">
-      <div className="sheet-section-title">Защиты от урона ({value.length}/{MAX_DEFENSES})</div>
+      <div className="sheet-section-title">
+        {t('ui.defenses.title', { n: value.length, max: MAX_DEFENSES })}
+      </div>
       {value.map((d, i) => (
         <div className="defense-row" key={d.id}>
           <select
             value={d.type}
             onChange={(e) => update(i, { type: e.target.value as DamageDefenseType })}
           >
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {DEFENSE_TYPE_NAMES[t]}
+            {TYPES.map((type) => (
+              <option key={type} value={type}>
+                {defenseLabel(type)}
               </option>
             ))}
           </select>
           <select value={d.damageType} onChange={(e) => update(i, { damageType: e.target.value })}>
-            {DAMAGE_TYPES.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.name}
+            {DAMAGE_TYPES.map((dt) => (
+              <option key={dt.key} value={dt.key}>
+                {damageLabel(dt.key)}
               </option>
             ))}
           </select>
           <button type="button" className="defense-remove" onClick={() => remove(i)}>
-            Удалить
+            {t('ui.common.delete')}
           </button>
         </div>
       ))}
       <button type="button" className="defense-add" onClick={add} disabled={value.length >= MAX_DEFENSES}>
-        + Добавить защиту
+        {t('ui.defenses.add')}
       </button>
     </div>
   );

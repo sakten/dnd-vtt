@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_AC, type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
+import { resourceLabel } from '../i18n/domain';
 import { characterTokenOf } from '../store/selectors';
 import { newId } from '../lib/id';
 
@@ -38,7 +40,7 @@ function EditableNumber({
     return (
       <span
         className={className}
-        title={title ?? 'Двойной клик — изменить'}
+        title={title ?? t('ui.resources.editHint')}
         onDoubleClick={() => {
           setDraft(String(value));
           setEditing(true);
@@ -129,7 +131,7 @@ export default function ResourcesPanel() {
   if (!resources) return null;
   const r = resources;
   const ac = sheet?.ac?.trim() || String(DEFAULT_AC);
-  const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : 'Ресурсы';
+  const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : t('ui.resources.title');
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 
   const setHp = (patch: Partial<PlayerResources['hp']>) =>
@@ -162,13 +164,13 @@ export default function ResourcesPanel() {
   return (
     <>
       <button className={`resources-tab${open ? ' hidden' : ''}`} onClick={() => setOpen(true)}>
-        Ресурсы
+        {t('ui.resources.title')}
       </button>
       {open && (
         <div className="resources-panel">
           <div className="resources-head">
             <strong>{panelTitle}</strong>
-            <button className="icon" title="Свернуть" onClick={() => setOpen(false)}>
+            <button className="icon" title={t('ui.resources.collapse')} onClick={() => setOpen(false)}>
               ◀
             </button>
           </div>
@@ -178,17 +180,18 @@ export default function ResourcesPanel() {
               <EditableNumber
                 className="hp-current"
                 value={r.hp.current}
-                title="Текущие хиты — двойной клик"
+                title={t('ui.resources.hpCurrentTitle')}
                 onCommit={(n) => setHp({ current: n })}
               />
               <span className="hp-sep">/</span>
-              <span className="hp-max-static" title="Максимум задаётся в карточке персонажа">
+              <span className="hp-max-static" title={t('ui.resources.hpMaxTitle')}>
                 {r.hp.max}
               </span>
               <span className="hp-temp-wrap">
-                +<EditableNumber className="hp-temp" value={r.hp.temp} title="Временные хиты — двойной клик" onCommit={(n) => setHp({ temp: n })} /> вр.
+                +<EditableNumber className="hp-temp" value={r.hp.temp} title={t('ui.resources.hpTempTitle')} onCommit={(n) => setHp({ temp: n })} />{' '}
+                {t('ui.resources.tempShort')}
               </span>
-              <div className="ac-shield" title="Класс брони (заполняется в карточке персонажа)">
+              <div className="ac-shield" title={t('ui.resources.acTitle')}>
                 <svg className="ac-shield-svg" viewBox="0 0 24 28" aria-hidden="true">
                   <path d="M12 1.2 22 4.7v8.4c0 6.8-4.2 11.1-10 13.7C6.2 24.2 2 19.9 2 13.1V4.7Z" />
                 </svg>
@@ -202,7 +205,7 @@ export default function ResourcesPanel() {
                   <button
                     key={`s${i}`}
                     className={`save-pip success${i < r.hp.deathSuccesses ? ' filled' : ''}`}
-                    title="Удачный спасбросок от смерти"
+                    title={t('ui.resources.deathSuccess')}
                     onClick={() => setHp({ deathSuccesses: i + 1 === r.hp.deathSuccesses ? i : i + 1 })}
                   />
                 ))}
@@ -212,7 +215,7 @@ export default function ResourcesPanel() {
                   <button
                     key={`f${i}`}
                     className={`save-pip fail${i < r.hp.deathFailures ? ' filled' : ''}`}
-                    title="Неудачный спасбросок от смерти"
+                    title={t('ui.resources.deathFail')}
                     onClick={() => setHp({ deathFailures: i + 1 === r.hp.deathFailures ? i : i + 1 })}
                   />
                 ))}
@@ -223,15 +226,15 @@ export default function ResourcesPanel() {
 
           {concentration && (
             <div className="resources-section">
-              <div className="resources-subtitle">Концентрация</div>
+              <div className="resources-subtitle">{t('ui.resources.concentration')}</div>
               <div className="resource-row res-concentration">
                 <span className="res-concentration-names">{concentration.names.join(', ')}</span>
                 <button
                   className="hit-die-btn"
-                  title="Прекратить концентрацию (снять эффекты)"
+                  title={t('ui.resources.endConcentrationTitle')}
                   onClick={() => endConcentration(concentration.tokenId)}
                 >
-                  Прекратить
+                  {t('ui.common.stop')}
                 </button>
               </div>
             </div>
@@ -239,20 +242,20 @@ export default function ResourcesPanel() {
 
           {r.hitDice.length > 0 && (
             <div className="resources-section">
-              <div className="resources-subtitle">Кости хитов</div>
+              <div className="resources-subtitle">{t('ui.resources.hitDice')}</div>
               {r.hitDice.map((h) => (
                 <div className="resource-row" key={h.die}>
-                  <span className="resource-name">Кость d{h.die}</span>
+                  <span className="resource-name">{t('ui.resources.hitDie', { die: h.die })}</span>
                   <span className="resource-current">{h.current}</span>
                   <span className="dim">/</span>
                   <span className="resource-max-static">{h.max}</span>
                   <button
                     className="hit-die-btn"
                     disabled={h.current <= 0}
-                    title={`Потратить кость d${h.die} + мод. Телосложения и восстановить хиты`}
+                    title={t('ui.resources.hitDieTitle', { die: h.die })}
                     onClick={() => rollHitDie(h.die)}
                   >
-                    Кинуть
+                    {t('ui.resources.rollHitDie')}
                   </button>
                 </div>
               ))}
@@ -261,10 +264,10 @@ export default function ResourcesPanel() {
 
           {r.spellSlots.length > 0 && (
             <div className="resources-section">
-              <div className="resources-subtitle">Ячейки заклинаний</div>
+              <div className="resources-subtitle">{t('ui.resources.spellSlots')}</div>
               {r.spellSlots.map((s) => (
                 <div className="resource-row" key={s.level}>
-                  <span className="resource-name">{s.level} ур.</span>
+                  <span className="resource-name">{t('ui.resources.slotLevel', { n: s.level })}</span>
                   <Pips
                     current={s.current}
                     max={s.max}
@@ -282,9 +285,9 @@ export default function ResourcesPanel() {
 
           {r.pact.max > 0 && (
             <div className="resources-section">
-              <div className="resources-subtitle">Ячейки колдуна ({r.pact.level} ур.)</div>
+              <div className="resources-subtitle">{t('ui.resources.pactSlots', { level: r.pact.level })}</div>
               <div className="resource-row">
-                <span className="resource-name">Pact</span>
+                <span className="resource-name">{t('ui.resources.pactLabel')}</span>
                 <Pips
                   current={r.pact.current}
                   max={r.pact.max}
@@ -295,26 +298,27 @@ export default function ResourcesPanel() {
           )}
 
           <div className="resources-section">
-            <div className="resources-subtitle">Прочие ресурсы</div>
+            <div className="resources-subtitle">{t('ui.resources.other')}</div>
             {r.resources
               .filter((item) => !item.auto || item.max > 0)
               .map((item) => {
+              const label = resourceLabel(item.key, item.name);
               const maxControl = item.auto ? (
-                <span className="resource-max-static" title="Задаётся правилами класса">
+                <span className="resource-max-static" title={t('ui.resources.autoMaxTitle')}>
                   {item.max}
                 </span>
               ) : (
                 <EditableNumber
                   className="resource-max"
                   value={item.max}
-                  title="Максимум — двойной клик"
+                  title={t('ui.resources.maxTitle')}
                   onCommit={(max) => updateResource(item.id, { max, current: Math.min(item.current, max) })}
                 />
               );
               return (
                 <div className="resource-row" key={item.id}>
-                  <span className="resource-name" title={item.name}>
-                    {item.name}
+                  <span className="resource-name" title={label}>
+                    {label}
                   </span>
                   <Pips
                     current={item.current}
@@ -323,7 +327,7 @@ export default function ResourcesPanel() {
                   />
                   {maxControl}
                   {!item.auto && (
-                    <button className="icon danger" title="Удалить" onClick={() => removeResource(item.id)}>
+                    <button className="icon danger" title={t('ui.common.delete')} onClick={() => removeResource(item.id)}>
                       ✕
                     </button>
                   )}
@@ -333,7 +337,7 @@ export default function ResourcesPanel() {
             <div className="add-resource">
               <input
                 type="text"
-                placeholder="Свой ресурс"
+                placeholder={t('ui.resources.customPlaceholder')}
                 maxLength={40}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -342,30 +346,30 @@ export default function ResourcesPanel() {
                 type="number"
                 min={0}
                 value={newMax}
-                title="Максимум"
+                title={t('ui.resources.max')}
                 onChange={(e) => setNewMax(e.target.value)}
               />
               <select value={newReset} onChange={(e) => setNewReset(e.target.value as ResourceItem['reset'])}>
-                <option value="short">кор.</option>
-                <option value="long">дол.</option>
+                <option value="short">{t('ui.resources.restShort')}</option>
+                <option value="long">{t('ui.resources.restLong')}</option>
                 <option value="never">—</option>
               </select>
-              <button className="icon" title="Добавить" onClick={addResource}>
+              <button className="icon" title={t('ui.common.add')} onClick={addResource}>
                 +
               </button>
             </div>
           </div>
 
           <div className="resources-rest">
-            <button onClick={() => rest('short')}>Короткий отдых</button>
-            <button onClick={() => rest('long')}>Долгий отдых</button>
+            <button onClick={() => rest('short')}>{t('ui.resources.restShortBtn')}</button>
+            <button onClick={() => rest('long')}>{t('ui.resources.restLongBtn')}</button>
           </div>
 
           <div className="resources-section">
-            <div className="resources-subtitle">Заметки</div>
+            <div className="resources-subtitle">{t('ui.resources.notes')}</div>
             <textarea
               className="resources-notes"
-              placeholder="Заметки игрока…"
+              placeholder={t('ui.resources.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={() => {

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { CLASSES, type Player } from 'shared';
+import { type Player } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
+import { classLabel } from '../i18n/domain';
 import { useIsDm } from '../lib/control';
 import Modal from './Modal';
 
@@ -11,7 +13,7 @@ function hpText(p: Player): string {
 
 function classText(key?: string | null): string {
   if (!key) return '—';
-  return CLASSES[key]?.name ?? key;
+  return classLabel(key);
 }
 
 export default function PlayersDrawer({
@@ -32,8 +34,8 @@ export default function PlayersDrawer({
   return (
     <div className={`players-drawer${open ? ' open' : ''}`} aria-hidden={!open}>
       <div className="players-head">
-        <strong>Игроки</strong>
-        <button className="icon" title="Закрыть" onClick={onClose}>
+        <strong>{t('ui.players.title')}</strong>
+        <button className="icon" title={t('ui.common.close')} onClick={onClose}>
           ✕
         </button>
       </div>
@@ -44,16 +46,16 @@ export default function PlayersDrawer({
               {p.name}
               {p.role === 'dm' ? ' (DM)' : ''}
             </span>
-            <span className="player-hp" title="Текущее / максимальное HP">
+            <span className="player-hp" title={t('ui.players.hpTitle')}>
               {hpText(p)}
             </span>
-            <span className="player-class" title="Класс">
+            <span className="player-class" title={t('ui.players.classTitle')}>
               {classText(p.classKey)}
             </span>
             {isDm && p.id !== selfId && (
               <button
                 className="icon danger"
-                title="Удалить игрока из комнаты"
+                title={t('ui.players.removeTitle')}
                 onClick={() => setConfirmId(p.id)}
               >
                 ✕
@@ -63,12 +65,12 @@ export default function PlayersDrawer({
         ))}
       </div>
       {target && (
-        <Modal onClose={() => setConfirmId(null)} title="Удалить игрока?">
+        <Modal onClose={() => setConfirmId(null)} title={t('ui.players.confirmTitle')}>
           <p className="confirm-text">
-            Игрок <strong>{target.name}</strong> будет удалён из комнаты и отключён.
+            {t('ui.players.confirmPre')} <strong>{target.name}</strong> {t('ui.players.confirmPost')}
           </p>
           <div className="modal-actions spread">
-            <button onClick={() => setConfirmId(null)}>Отмена</button>
+            <button onClick={() => setConfirmId(null)}>{t('ui.common.cancel')}</button>
             <button
               className="danger"
               onClick={() => {
@@ -76,7 +78,7 @@ export default function PlayersDrawer({
                 setConfirmId(null);
               }}
             >
-              Удалить
+              {t('ui.common.delete')}
             </button>
           </div>
         </Modal>

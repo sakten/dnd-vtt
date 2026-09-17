@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  ABILITIES,
-  CLASSES,
   abilityMod,
   casterClasses,
   casterLevelOf,
@@ -24,16 +22,14 @@ import {
   type Spell,
 } from 'shared';
 import { useSpells } from '../lib/useSpells';
+import { t } from '../i18n';
+import { abilityName, classLabel } from '../i18n/domain';
 import { SPELL_SCHOOL_RU, spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
 import SpellPicker from './SpellPicker';
 import { useSpellTooltip } from './SpellTooltip';
 
 const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
-
-function abilityName(key: string): string {
-  return ABILITIES.find((a) => a.key === key)?.name ?? key;
-}
 
 interface PanelProps {
   sheet: CharacterSheet;
@@ -56,8 +52,8 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
   );
   const prof = sheetProficiencyBonus(sheet);
 
-  if (!spells) return <div className="spells-note">Загрузка заклинаний…</div>;
-  if (casters.length === 0) return <div className="spells-note">Нет заклинательных классов.</div>;
+  if (!spells) return <div className="spells-note">{t('ui.common.loadingSpells')}</div>;
+  if (casters.length === 0) return <div className="spells-note">{t('ui.spells.noCasters')}</div>;
 
   const casterLevel = casterLevelOf(sheet.classes);
   const slotMax = spellSlotMaxes(sheet.classes).length;
@@ -66,11 +62,11 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
   return (
     <div className="spells-panel">
       <div className="spells-slots">
-        {casterLevel > 0 && <span>Слоты: кастер {casterLevel} ур. (до {slotMax} круга)</span>}
+        {casterLevel > 0 && (
+          <span>{t('ui.spells.slots', { level: casterLevel, max: slotMax })}</span>
+        )}
         {pact.count > 0 && (
-          <span>
-            Пакт: {pact.count} × {pact.level} круг
-          </span>
+          <span>{t('ui.spells.pact', { count: pact.count, level: pact.level })}</span>
         )}
       </div>
 
@@ -99,10 +95,16 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
         return (
           <section className="spell-class" key={`${className}:${entry.subclass ?? ''}`}>
             <div className="spell-class-head">
-              <span className="spell-class-name">{CLASSES[className]?.name ?? className}</span>
+              <span className="spell-class-name">{classLabel(className)}</span>
               <span className="spell-class-meta">
-                {ability ? abilityName(ability) : '—'} · подготовка {leveled}/{preparedMax} · до {maxLvl} круга ·
-                DC {dc}, атака {signed(atk)}
+                {t('ui.spells.classMeta', {
+                  ability: ability ? abilityName(ability) : '—',
+                  prepared: leveled,
+                  max: preparedMax,
+                  maxLevel: maxLvl,
+                  dc,
+                  attack: signed(atk),
+                })}
               </span>
             </div>
 
@@ -124,17 +126,23 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
                       >
                         <SpellIcon spell={r.spell} className="spell-row-icon" />
                         <span className="spell-name">{r.spell.name}</span>
-                        {r.granted && <span className="spell-granted-tag" title="Выдано классом/подклассом">выдано</span>}
+                        {r.granted && (
+                          <span className="spell-granted-tag" title={t('ui.spells.grantedTitle')}>
+                            {t('ui.spells.granted')}
+                          </span>
+                        )}
                         <span className="spell-tags">
-                          {r.spell.concentration && <span title="Концентрация">К</span>}
-                          {r.spell.ritual && <span title="Ритуал">Р</span>}
+                          {r.spell.concentration && (
+                            <span title={t('ui.spells.concentration')}>{t('ui.spells.concentrationShort')}</span>
+                          )}
+                          {r.spell.ritual && <span title={t('ui.spells.ritual')}>{t('ui.spells.ritualShort')}</span>}
                         </span>
                         <span className="spell-school">{SPELL_SCHOOL_RU[r.spell.school] ?? r.spell.school}</span>
                         {!r.granted && (
                           <button
                             type="button"
                             className="spell-remove"
-                            title="Убрать"
+                            title={t('ui.common.remove')}
                             onClick={() => onChange((sheet.spells ?? []).filter((x) => !(x.className === className && x.key === r.spell.key)))}
                           >
                             ✕
@@ -146,7 +154,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
               ))}
 
             <button type="button" className="spell-add" disabled={maxLvl === 0 && cantripMax === 0} onClick={() => setPickerFor(entry)}>
-              + Добавить заклинание
+              {t('ui.spells.add')}
             </button>
           </section>
         );
@@ -218,8 +226,13 @@ function SheetSpellPicker({ entry, sheet, spells, onChange, onClose }: PickerPro
 
   return (
     <SpellPicker
-      title={`${CLASSES[className]?.name ?? className}: заклинания`}
-      countLabel={`фокусы ${cantripCount}/${cantripMax} · подготовка ${leveledCount}/${preparedMax}`}
+      title={t('ui.spells.pickerTitle', { name: classLabel(className) })}
+      countLabel={t('ui.spells.pickerCount', {
+        cantrips: cantripCount,
+        cantripMax,
+        leveled: leveledCount,
+        preparedMax,
+      })}
       candidates={candidates}
       levels={levels}
       stateOf={(s) => {
@@ -232,7 +245,7 @@ function SheetSpellPicker({ entry, sheet, spells, onChange, onClose }: PickerPro
           added,
           locked,
           disabled: full,
-          note: locked ? 'Выдано классом/подклассом' : full ? 'Достигнут лимит' : undefined,
+          note: locked ? t('ui.spells.grantedTitle') : full ? t('ui.spells.limitReached') : undefined,
         };
       }}
       onToggle={toggle}

@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { t, type MessageKey } from '../i18n';
+import { reactionLabel } from '../i18n/domain';
 import { useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
 import SpellIcon from './SpellIcon';
 
-const TRIGGER_RU: Record<string, string> = {
-  saveFail: 'провален спасбросок',
-  attackHit: 'попадание по нему',
-  damage: 'получен урон',
-  leaveReach: 'выход из зоны досягаемости',
-  spellCast: 'накладывают заклинание',
+const TRIGGER_RU: Partial<Record<string, MessageKey>> = {
+  saveFail: 'ui.reaction.trigger.saveFail',
+  attackHit: 'ui.reaction.trigger.attackHit',
+  damage: 'ui.reaction.trigger.damage',
+  leaveReach: 'ui.reaction.trigger.leaveReach',
+  spellCast: 'ui.reaction.trigger.spellCast',
 };
 
 /** Окно реакции (R1): первый оффер из очереди, клик = реакция, без подтверждения. */
@@ -35,19 +37,19 @@ export default function ReactionPrompt() {
   return (
     <>
       <div className="reaction-backdrop" />
-      <div className="reaction-prompt" role="dialog" aria-label="Окно реакции">
+      <div className="reaction-prompt" role="dialog" aria-label={t('ui.reaction.dialogLabel')}>
         <div className="rp-head">
-          <span className="rp-title">Реакция</span>
+          <span className="rp-title">{t('ui.reaction.title')}</span>
           <span className="rp-token">{offer.tokenName}</span>
           {offer.sourceName && (
             <span className="rp-source">
-              {offer.sourceName}: {TRIGGER_RU[offer.trigger] ?? 'триггер'}
+              {offer.sourceName}: {t(TRIGGER_RU[offer.trigger] ?? 'ui.reaction.triggerFallback')}
             </span>
           )}
-          <span className="rp-timer">{left} с</span>
+          <span className="rp-timer">{t('ui.reaction.timer', { seconds: left })}</span>
           {isDm && (
             <button className="rp-force-link" onClick={() => forceSkip(offer.id)}>
-              Пропустить все
+              {t('ui.reaction.skipAll')}
             </button>
           )}
         </div>
@@ -61,12 +63,12 @@ export default function ReactionPrompt() {
                 ) : (
                   <ActionIcon id="sword" className="rp-icon" />
                 )}
-                <span className="rp-name">{option.name}</span>
+                <span className="rp-name">{reactionLabel(option.id, option.name)}</span>
               </button>
             );
           })}
           <button className="rp-option rp-ignore" onClick={() => respond(offer.id, null)}>
-            <span className="rp-name">Игнорировать</span>
+            <span className="rp-name">{t('ui.reaction.ignore')}</span>
           </button>
         </div>
       </div>

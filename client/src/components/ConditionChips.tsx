@@ -1,4 +1,6 @@
-import { conditionDescription, type ConditionInstance, type Spell } from 'shared';
+import { type ConditionInstance, type Spell } from 'shared';
+import { t } from '../i18n';
+import { conditionHint, conditionLabel } from '../i18n/domain';
 import ChipRow from './ChipRow';
 import ConditionIcon from './ConditionIcon';
 import SpellIcon from './SpellIcon';
@@ -16,11 +18,14 @@ export default function ConditionChips({ conditions, spellByKey, className, max 
   const items = conditions.map((c, i) => {
     const spell = c.sourceKey ? spellByKey?.get(c.sourceKey) : undefined;
     const num = c.key === 'exhaustion' ? c.level : c.rounds ?? undefined;
-    const rounds = num ? ` · ${num}${c.key === 'exhaustion' ? ' ур.' : ' раунд.'}` : '';
-    const tip = spell ? `${c.name}${rounds}` : `${c.name}${rounds} — ${conditionDescription(c.key)}`;
+    const rounds = num
+      ? ` · ${num}${t(c.key === 'exhaustion' ? 'ui.conditions.unitLevel' : 'ui.conditions.unitRounds')}`
+      : '';
+    const label = conditionLabel(c.key, c.name);
+    const tip = spell ? `${label}${rounds}` : `${label}${rounds} — ${conditionHint(c.key)}`;
     return {
       key: `${c.key}-${i}`,
-      title: c.name,
+      title: label,
       node: (
         <span className={`cond-chip cond-${c.key}`} title={tip}>
           {spell ? (

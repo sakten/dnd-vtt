@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 
 export default function FogPanel() {
   const fogMode = useGameStore((s) => s.fogMode);
@@ -11,13 +12,13 @@ export default function FogPanel() {
           className={fogMode.tool === 'brush' ? 'active' : ''}
           onClick={() => setFogMode({ tool: 'brush' })}
         >
-          Кисть
+          {t('ui.fog.brush')}
         </button>
         <button
           className={fogMode.tool === 'rect' ? 'active' : ''}
           onClick={() => setFogMode({ tool: 'rect' })}
         >
-          Прямоугольник
+          {t('ui.fog.rect')}
         </button>
       </div>
       <div className="fog-group" data-testid="fog-group">
@@ -25,18 +26,18 @@ export default function FogPanel() {
           className={fogMode.action === 'hide' ? 'active' : ''}
           onClick={() => setFogMode({ action: 'hide' })}
         >
-          Скрыть
+          {t('ui.fog.hide')}
         </button>
         <button
           className={fogMode.action === 'reveal' ? 'active' : ''}
           onClick={() => setFogMode({ action: 'reveal' })}
         >
-          Открыть
+          {t('ui.fog.reveal')}
         </button>
       </div>
       {fogMode.tool === 'brush' && (
         <div className="fog-group" data-testid="fog-group">
-          <span className="fog-label">Кисть:</span>
+          <span className="fog-label">{t('ui.fog.brushLabel')}</span>
           {[1, 2, 3].map((n) => (
             <button
               key={n}
@@ -48,7 +49,7 @@ export default function FogPanel() {
           ))}
         </div>
       )}
-      <button onClick={() => setFogMode({ active: false })}>Готово</button>
+      <button onClick={() => setFogMode({ active: false })}>{t('ui.common.done')}</button>
     </div>
   );
 }

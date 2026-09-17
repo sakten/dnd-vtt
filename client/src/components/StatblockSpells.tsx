@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ABILITIES, type AbilityKey, type Spell, type TokenStatblock } from 'shared';
 import { useSpells } from '../lib/useSpells';
+import { t } from '../i18n';
+import { abilityName } from '../i18n/domain';
 import { spellLevelLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
 import SpellPicker from './SpellPicker';
@@ -54,17 +56,17 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
     <div className="statblock-spells">
       <div className="field-row">
         <label className="field">
-          <span>Характеристика</span>
+          <span>{t('ui.statblockSpells.ability')}</span>
           <select value={sc.ability} onChange={(e) => patch({ ability: e.target.value as AbilityKey })}>
             {ABILITIES.map((a) => (
               <option key={a.key} value={a.key}>
-                {a.name}
+                {abilityName(a.key)}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>Сложность (DC)</span>
+          <span>{t('ui.statblockSpells.dc')}</span>
           <input
             type="number"
             min={0}
@@ -74,7 +76,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
           />
         </label>
         <label className="field">
-          <span>Атака</span>
+          <span>{t('ui.statblockSpells.attack')}</span>
           <input
             type="number"
             min={0}
@@ -85,12 +87,12 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
         </label>
       </div>
 
-      <div className="sheet-section-title">Ячейки</div>
+      <div className="sheet-section-title">{t('ui.statblockSpells.slots')}</div>
       <div className="slots-grid">
         <div className="slot-cell slot-head">
-          <span className="slot-level">Ур.</span>
-          <span className="slot-cap">Макс</span>
-          <span className="slot-cap">Остаток</span>
+          <span className="slot-level">{t('ui.common.levelShort')}</span>
+          <span className="slot-cap">{t('ui.statblockSpells.max')}</span>
+          <span className="slot-cap">{t('ui.statblockSpells.current')}</span>
         </div>
         {SLOT_LEVELS.map((level) => {
           const slot = slotAt(level);
@@ -102,7 +104,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
                 min={0}
                 max={99}
                 value={slot?.max ?? 0}
-                title={`Максимум ячеек ${level} круга`}
+                title={t('ui.statblockSpells.slotMaxTitle', { n: level })}
                 onChange={(e) => setSlotMax(level, Number(e.target.value))}
               />
               <input
@@ -111,7 +113,7 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
                 max={slot?.max ?? 0}
                 value={slot?.current ?? 0}
                 disabled={!slot}
-                title="Остаток"
+                title={t('ui.statblockSpells.currentTitle')}
                 onChange={(e) => setSlotCurrent(level, Number(e.target.value))}
               />
             </div>
@@ -119,26 +121,26 @@ export default function StatblockSpells({ statblock, onChange }: Props) {
         })}
       </div>
 
-      <div className="sheet-section-title">Список заклинаний</div>
-      {chosen.length === 0 && <div className="spells-note">Список пуст — кастовать нечего.</div>}
+      <div className="sheet-section-title">{t('ui.statblockSpells.spellList')}</div>
+      {chosen.length === 0 && <div className="spells-note">{t('ui.statblockSpells.empty')}</div>}
       {chosen.map((s) => (
         <div className="spell-row" key={s.key}>
           <SpellIcon spell={s} className="spell-row-icon" />
           <span className="spell-name">{s.name}</span>
           <span className="spell-school">{spellLevelLabel(s.level)}</span>
-          <button type="button" className="spell-remove" title="Убрать" onClick={() => toggleSpell(s.key)}>
+          <button type="button" className="spell-remove" title={t('ui.common.remove')} onClick={() => toggleSpell(s.key)}>
             ✕
           </button>
         </div>
       ))}
       <button type="button" className="spell-add" onClick={() => setPickerOpen(true)}>
-        + Добавить заклинание
+        {t('ui.spells.add')}
       </button>
 
       {pickerOpen && (
         <SpellPicker
-          title="Заклинания статблока"
-          countLabel={`выбрано ${(sc.spells ?? []).length}`}
+          title={t('ui.statblockSpells.pickerTitle')}
+          countLabel={t('ui.statblockSpells.pickerCount', { n: (sc.spells ?? []).length })}
           candidates={spells ?? []}
           levels={['all', ...SLOT_LEVELS]}
           stateOf={(s) => ({ added: (sc.spells ?? []).includes(s.key) })}

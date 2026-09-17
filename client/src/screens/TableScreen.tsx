@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf, tokenById } from '../store/selectors';
 import { canControlWith } from '../lib/control';
@@ -87,15 +88,15 @@ export default function TableScreen() {
       <div
         className="room-badge"
         data-testid="room-badge"
-        title={`${roomCode} — нажмите, чтобы скопировать ссылку для игроков`}
+        title={t('ui.table.copyLinkTitle', { code: roomCode ?? '' })}
         onClick={() => {
           const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
           navigator.clipboard?.writeText(url).catch(() => void 0);
         }}
       >
-        Комната: <strong>{roomName || shortCode}</strong>{' '}
+        {t('ui.chat.room')} <strong>{roomName || shortCode}</strong>{' '}
         {roomName && <span className="room-badge-code">{shortCode}</span>}{' '}
-        <span className="room-badge-hint">— скопировать ссылку</span>
+        <span className="room-badge-hint">{t('ui.table.copyLinkHint')}</span>
       </div>
       {gridModalOpen && <GridSettingsModal />}
       {visionModalOpen && <VisionSettingsModal />}

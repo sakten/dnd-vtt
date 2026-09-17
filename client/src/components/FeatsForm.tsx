@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ABILITIES,
   FEATS,
   MAGICAL_DISCOVERIES_KEY,
   MAGICAL_DISCOVERIES_LISTS,
@@ -17,11 +16,13 @@ import {
   type Spell,
 } from 'shared';
 import { loadSpells } from '../lib/spells';
+import { t, type MessageKey } from '../i18n';
+import { abilityName } from '../i18n/domain';
 
-const CATEGORY_NAMES: Record<FeatCategory, string> = {
-  origin: 'Происхождение',
-  general: 'Общий',
-  fightingStyle: 'Боевой стиль',
+const CATEGORY_NAMES: Record<FeatCategory, MessageKey> = {
+  origin: 'ui.feats.category.origin',
+  general: 'ui.feats.category.general',
+  fightingStyle: 'ui.feats.category.fightingStyle',
 };
 
 interface Props {
@@ -76,7 +77,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
 
   return (
     <div className="feats-form">
-      <div className="sheet-section-title">Выбранные фиты</div>
+      <div className="sheet-section-title">{t('ui.feats.selected')}</div>
       {feats.map(({ choice, index }) => {
         const feat = featByKey(choice.key)!;
         return (
@@ -84,12 +85,12 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
             <div className="feat-head">
               <span className="feat-name">{feat.name}</span>
               {!featMechanicsImplemented(feat.key) && <span className="feat-todo">(TODO)</span>}
-              <span className="feat-cat">{CATEGORY_NAMES[feat.category]}</span>
-              <button className="feat-remove" title="Убрать фит" onClick={() => removeAt(index)}>
+              <span className="feat-cat">{t(CATEGORY_NAMES[feat.category])}</span>
+              <button className="feat-remove" title={t('ui.feats.removeTitle')} onClick={() => removeAt(index)}>
                 ✕
               </button>
             </div>
-            {feat.prereq && <div className="feat-hint">Требуется: {feat.prereq}</div>}
+            {feat.prereq && <div className="feat-hint">{t('ui.feats.prereq', { prereq: feat.prereq })}</div>}
             {feat.spellLists && (
               <FeatSpellPicks feat={feat} choice={choice} spells={spells} onPatch={(p) => patchAt(index, p)} />
             )}
@@ -99,19 +100,16 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
       {discovers && (
         <div className="feat-row">
           <div className="feat-head">
-            <span className="feat-name">Магические находки</span>
-            <span className="feat-cat">Коллегия Знания</span>
+            <span className="feat-name">{t('ui.feats.discoveries')}</span>
+            <span className="feat-cat">{t('ui.feats.loreCollege')}</span>
           </div>
-          <div className="feat-hint">
-            Два заклинания из списков жреца, друида или волшебника: заговор или круг, доступный барду.
-            Всегда подготовлены, кастуются слотами.
-          </div>
-          {!spells && <div className="feat-hint">Загрузка заклинаний…</div>}
+          <div className="feat-hint">{t('ui.feats.discoveriesHint')}</div>
+          {!spells && <div className="feat-hint">{t('ui.common.loadingSpells')}</div>}
           {spells && (
             <div className="feat-spells">
               {[0, 1].map((slot) => (
                 <label className="field" key={slot}>
-                  <span>Заклинание {slot + 1}</span>
+                  <span>{t('ui.feats.spellN', { n: slot + 1 })}</span>
                   <select
                     value={discoveries[slot] ?? ''}
                     onChange={(e) => {
@@ -120,7 +118,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                       patchDiscoveries({ spells: next.filter(Boolean) });
                     }}
                   >
-                    <option value="">— не выбрано —</option>
+                    <option value="">{t('ui.common.notChosenN')}</option>
                     {discoveryPool
                       .filter((s) => s.key === discoveries[slot] || !discoveries.includes(s.key))
                       .map((s) => (
@@ -137,7 +135,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
       )}
       {!picking && (
         <button className="feat-add" onClick={() => setPicking(true)}>
-          + Добавить фит
+          {t('ui.feats.add')}
         </button>
       )}
       {picking && (
@@ -145,18 +143,18 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
           <div className="feat-picker-head">
             <input
               className="feat-search"
-              placeholder="Поиск фита…"
+              placeholder={t('ui.feats.search')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
             <button className="feat-picker-close" onClick={() => setPicking(false)}>
-              Закрыть
+              {t('ui.common.close')}
             </button>
           </div>
           <div className="feat-cats">
             {(['all', 'origin', 'general', 'fightingStyle'] as const).map((c) => (
               <button key={c} className={category === c ? 'active' : ''} onClick={() => setCategory(c)}>
-                {c === 'all' ? 'Все' : CATEGORY_NAMES[c]}
+                {c === 'all' ? t('ui.feats.all') : t(CATEGORY_NAMES[c])}
               </button>
             ))}
           </div>
@@ -173,13 +171,13 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                 <span className="feat-option-name">
                   {f.name}
                   {!featMechanicsImplemented(f.key) && <span className="feat-todo"> (TODO)</span>}
-                  {f.repeatable ? ' · повторяемый' : ''}
+                  {f.repeatable ? ` · ${t('ui.feats.repeatable')}` : ''}
                 </span>
                 <span className="feat-option-desc">{f.description}</span>
                 {f.prereq && <span className="feat-option-req">{f.prereq}</span>}
               </button>
             ))}
-            {!list.length && <div className="feat-hint">Ничего не найдено</div>}
+            {!list.length && <div className="feat-hint">{t('ui.common.notFound')}</div>}
           </div>
         </div>
       )}
@@ -215,7 +213,7 @@ function FeatSpellPicks({
   return (
     <div className="feat-spells">
       <label className="field">
-        <span>Список</span>
+        <span>{t('ui.feats.list')}</span>
         <select value={list} onChange={(e) => onPatch({ list: e.target.value, spells: [], spell: undefined })}>
           {lists.map((l) => (
             <option key={l.className} value={l.className}>
@@ -226,27 +224,27 @@ function FeatSpellPicks({
       </label>
       {feat.abilityChoose && (
         <label className="field">
-          <span>Способность</span>
+          <span>{t('ui.feats.ability')}</span>
           <select
             value={choice.ability ?? feat.abilityChoose[0]}
             onChange={(e) => onPatch({ ability: e.target.value as AbilityKey })}
           >
             {feat.abilityChoose.map((a) => (
               <option key={a} value={a}>
-                {ABILITIES.find((x) => x.key === a)?.name ?? a}
+                {abilityName(a)}
               </option>
             ))}
           </select>
         </label>
       )}
-      {!spells && <div className="feat-hint">Загрузка заклинаний…</div>}
+      {!spells && <div className="feat-hint">{t('ui.common.loadingSpells')}</div>}
       {spells && (
         <>
           {[0, 1].map((slot) => (
             <label className="field" key={slot}>
-              <span>Заговор {slot + 1}</span>
+              <span>{t('ui.feats.cantripN', { n: slot + 1 })}</span>
               <select value={chosen[slot] ?? ''} onChange={(e) => setCantrip(slot, e.target.value)}>
-                <option value="">— не выбран —</option>
+                <option value="">{t('ui.common.notChosen')}</option>
                 {cantrips.map((s) => (
                   <option key={s.key} value={s.key}>
                     {s.name}
@@ -256,9 +254,9 @@ function FeatSpellPicks({
             </label>
           ))}
           <label className="field">
-            <span>Заклинание 1 круга</span>
+            <span>{t('ui.feats.level1Spell')}</span>
             <select value={choice.spell ?? ''} onChange={(e) => onPatch({ spell: e.target.value || undefined })}>
-              <option value="">— не выбрано —</option>
+              <option value="">{t('ui.common.notChosenN')}</option>
               {firsts.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.name}

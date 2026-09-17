@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { rollMessageLabel, type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
+import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
 import { useDragSize } from '../lib/useDragSize';
@@ -69,6 +70,10 @@ function rollLabelType(kind?: RollKind, label?: string): 'attack' | 'save' | 'ch
   return 'plain';
 }
 
+function authorLabel(author: string): string {
+  return author === 'Система' ? t('ui.chat.system') : author;
+}
+
 function formulaFromRoll(roll: DiceRollResult): string {
   const groups = [...roll.dice].sort((a, b) => b.sides - a.sides);
   let out = '';
@@ -93,7 +98,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
   if (message.kind === 'text') {
     return (
       <div className={`chat-msg${grouped ? ' grouped' : ''}`} data-testid="chat-msg">
-        {!grouped && <span className="chat-author">{message.author}:</span>}
+        {!grouped && <span className="chat-author">{authorLabel(message.author)}:</span>}
         <span className="chat-text"> {message.text}</span>
       </div>
     );
@@ -109,7 +114,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
     <div
       className={`chat-msg roll roll-card ${labelType}${grouped ? ' grouped' : ''}`}
       data-testid="chat-msg-roll"
-      title={label ? `${label} · клик — повторить бросок` : 'Клик — повторить бросок'}
+      title={label ? t('ui.chat.replayLabel', { label }) : t('ui.chat.replay')}
       onClick={() => rollDice(message.roll.expression, label)}
     >
       {label && (
@@ -142,6 +147,8 @@ export default function ChatPanel() {
   const chat = useGameStore((s) => s.chat);
   const chatError = useGameStore((s) => s.chatError);
   const players = useGameStore((s) => s.players);
+  const lang = useGameStore((s) => s.lang);
+  const setLang = useGameStore((s) => s.setLang);
   const roomCode = useGameStore((s) => s.roomCode);
   const roomName = useGameStore((s) => s.roomName);
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
@@ -232,20 +239,30 @@ export default function ChatPanel() {
     <div className="chat-panel" ref={panelRef} style={panelStyle}>
       <div className="chat-resizer" onPointerDown={onResizeDown} onPointerMove={onResizeMove} />
       <div className="chat-header">
-        <strong title={`${roomName ?? ''} (${roomCode ?? ''})`}>Комната: {roomName || shortCode}</strong>
+        <strong title={`${roomName ?? ''} (${roomCode ?? ''})`}>
+          {t('ui.chat.room')} {roomName || shortCode}
+        </strong>
         <div className="chat-header-actions">
-          <button className="sheet-button" data-testid="sheet-button" title="Карточка персонажа" onClick={() => setSheetOpen(true)}>
-            Карточка
+          <button
+            className="sheet-button"
+            data-testid="lang-toggle"
+            title={t('ui.language')}
+            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+          >
+            {lang === 'ru' ? 'EN' : 'RU'}
           </button>
-          <button className="sheet-button" data-testid="sheet-button" title="Список игроков" onClick={() => setPlayersOpen(true)}>
-            Игроки ({players.length})
+          <button className="sheet-button" data-testid="sheet-button" title={t('ui.chat.sheetTitle')} onClick={() => setSheetOpen(true)}>
+            {t('ui.chat.sheet')}
+          </button>
+          <button className="sheet-button" data-testid="sheet-button" title={t('ui.chat.playersTitle')} onClick={() => setPlayersOpen(true)}>
+            {t('ui.chat.players', { count: players.length })}
           </button>
         </div>
       </div>
       <div className="chat-messages" ref={listRef}>
         {groups.map((g) => (
           <div className="chat-group" key={g.key}>
-            {g.author && <div className="chat-group-author">{g.author}</div>}
+            {g.author && <div className="chat-group-author">{authorLabel(g.author)}</div>}
             {g.items.map((m) => (
               <MessageView key={m.id} message={m} grouped={!!g.author} />
             ))}
@@ -260,7 +277,7 @@ export default function ChatPanel() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Сообщение или бросок: d20 + 3"
+          placeholder={t('ui.chat.placeholder')}
         />
         <button onClick={send}>→</button>
       </div>

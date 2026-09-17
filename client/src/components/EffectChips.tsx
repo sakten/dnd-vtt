@@ -1,4 +1,5 @@
 import { effectDurationText, effectSummary, type EffectInstance, type Spell } from 'shared';
+import { t } from '../i18n';
 import ChipRow from './ChipRow';
 import SpellIcon from './SpellIcon';
 
@@ -22,9 +23,9 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
     const summary = effectSummary(e);
     const parts: string[] = [];
     if (summary) parts.push(summary);
-    if (ownConcentration) parts.push('концентрация');
+    if (ownConcentration) parts.push(t('ui.effects.concentration'));
     if (!parts.length) {
-      parts.push(e.duration.type === 'concentration' ? 'метка' : effectDurationText(e.duration));
+      parts.push(e.duration.type === 'concentration' ? t('ui.effects.mark') : effectDurationText(e.duration));
     } else if (e.duration.type === 'rounds' || e.duration.type === 'untilSave') {
       parts.push(effectDurationText(e.duration));
     }

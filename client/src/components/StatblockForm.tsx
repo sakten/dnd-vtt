@@ -8,6 +8,8 @@ import {
   type TokenStatblock,
 } from 'shared';
 import { useState } from 'react';
+import { t, type MessageKey } from '../i18n';
+import { abilityName } from '../i18n/domain';
 import { newId } from '../lib/id';
 import { parseSaveBonus } from '../lib/saves';
 import { Field } from './Field';
@@ -19,12 +21,12 @@ interface Props {
   readOnly?: boolean;
 }
 
-const COSTS: { key: ActionCost; name: string }[] = [
-  { key: 'action', name: 'Действие' },
-  { key: 'bonus', name: 'Бонусное' },
-  { key: 'reaction', name: 'Реакция' },
-  { key: 'legendary', name: 'Легендарное' },
-  { key: 'free', name: 'Свободное' },
+const COSTS: { key: ActionCost; name: MessageKey }[] = [
+  { key: 'action', name: 'ui.statblock.cost.action' },
+  { key: 'bonus', name: 'ui.statblock.cost.bonus' },
+  { key: 'reaction', name: 'ui.statblock.cost.reaction' },
+  { key: 'legendary', name: 'ui.statblock.cost.legendary' },
+  { key: 'free', name: 'ui.statblock.cost.free' },
 ];
 
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -80,14 +82,14 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
 
   return (
     <div className="statblock-form">
-      <div className="sheet-section-title">Характеристики</div>
+      <div className="sheet-section-title">{t('ui.common.abilities')}</div>
       <div className="ability-grid">
         {ABILITIES.map((a) => (
           <Field
             key={a.key}
             label={
               <>
-                {a.name} <em className="ability-mod">{fmt(abilityMod(sb.abilities[a.key] ?? 10))}</em>
+                {abilityName(a.key)} <em className="ability-mod">{fmt(abilityMod(sb.abilities[a.key] ?? 10))}</em>
               </>
             }
           >
@@ -103,10 +105,10 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
         ))}
       </div>
 
-      <div className="sheet-section-title">Спасброски (явный бонус; пусто — из характеристик)</div>
+      <div className="sheet-section-title">{t('ui.statblock.saves')}</div>
       <div className="saves-grid">
         {ABILITIES.map((a) => (
-          <Field key={a.key} label={a.name}>
+          <Field key={a.key} label={abilityName(a.key)}>
             <input
               type="text"
               placeholder="—"
@@ -119,7 +121,7 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
       </div>
 
       <div className="field-row">
-        <Field label="Мультиатака (атак за действие)">
+        <Field label={t('ui.statblock.multiattack')}>
           <input
             type="number"
             min={1}
@@ -129,7 +131,7 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
             onChange={(e) => onChange({ ...sb, multiattack: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })}
           />
         </Field>
-        <Field label="Пул легендарных действий">
+        <Field label={t('ui.statblock.legendaryPool')}>
           <input
             type="number"
             min={0}
@@ -148,7 +150,7 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
         </Field>
       </div>
 
-      <div className="sheet-section-title">Заклинания</div>
+      <div className="sheet-section-title">{t('ui.common.spells')}</div>
       <label className="checkbox-row">
         <input
           type="checkbox"
@@ -156,15 +158,15 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
           disabled={readOnly}
           onChange={(e) => toggleCaster(e.target.checked)}
         />
-        <span>Это кастер — ячейки и список на вкладке «Заклинания»</span>
+        <span>{t('ui.statblock.caster')}</span>
       </label>
 
-      <div className="sheet-section-title">Действия (название + стоимость)</div>
+      <div className="sheet-section-title">{t('ui.statblock.actions')}</div>
       {actions.map((action, i) => (
         <div className="statblock-action" key={action.id}>
           <input
             type="text"
-            placeholder="Название"
+            placeholder={t('ui.common.name')}
             maxLength={40}
             value={action.name}
             readOnly={readOnly}
@@ -177,7 +179,7 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
           >
             {COSTS.map((c) => (
               <option key={c.key} value={c.key}>
-                {c.name}
+                {t(c.name)}
               </option>
             ))}
           </select>
@@ -190,7 +192,7 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
       ))}
       {!readOnly && (
         <button type="button" className="weapon-add" onClick={addAction}>
-          + Добавить действие
+          {t('ui.statblock.addAction')}
         </button>
       )}
     </div>

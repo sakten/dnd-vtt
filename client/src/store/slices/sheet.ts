@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { emit } from '../helpers';
 import { beginOptimistic, settleOptimistic } from '../optimistic';
 import type { GameState, Slice } from '../types';
@@ -26,7 +27,7 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
           get,
           'resources:update',
           () => set({ resources: prev }),
-          'Сервер не подтвердил изменение ресурсов — изменения отменены'
+          t('ui.store.resourcesRevert')
         );
       }
       emit(get, 'resources:update', resources);

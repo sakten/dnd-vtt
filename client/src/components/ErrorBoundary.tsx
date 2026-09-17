@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { t } from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -23,10 +24,10 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       return (
         <div className="error-screen">
-          <h2>Что-то пошло не так</h2>
+          <h2>{t('ui.error.title')}</h2>
           <pre>{this.state.error.message}</pre>
           <button className="primary" onClick={() => window.location.reload()}>
-            Перезагрузить
+            {t('ui.error.reload')}
           </button>
         </div>
       );

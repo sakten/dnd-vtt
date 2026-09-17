@@ -1,11 +1,12 @@
 import { useGameStore } from '../store/useGameStore';
+import { t, type MessageKey } from '../i18n';
 
-const SHAPE_RU: Record<string, string> = {
-  sphere: 'Сфера',
-  cone: 'Конус',
-  line: 'Линия',
-  cube: 'Куб',
-  cylinder: 'Цилиндр',
+const SHAPE_RU: Record<string, MessageKey> = {
+  sphere: 'ui.aim.shape.sphere',
+  cone: 'ui.aim.shape.cone',
+  line: 'ui.aim.shape.line',
+  cube: 'ui.aim.shape.cube',
+  cylinder: 'ui.aim.shape.cylinder',
 };
 
 /** Подсказка активного режима взаимодействия: клик по карте/цели применяет, Esc — отмена. */
@@ -20,9 +21,9 @@ export default function AimPanel() {
     return (
       <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">{interaction.target.label}</span>
-        <span className="aim-hint">Кликните цель · Esc или клик по пустому месту — отмена</span>
+        <span className="aim-hint">{t('ui.aim.targetHint')}</span>
         <button className="aim-cancel" onClick={cancel}>
-          Отмена
+          {t('ui.common.cancel')}
         </button>
       </div>
     );
@@ -33,11 +34,11 @@ export default function AimPanel() {
     return (
       <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">
-          {SHAPE_RU[aim.spec.shape] ?? 'Область'} {aim.spec.size} фт
+          {t('ui.aim.areaLabel', { shape: t(SHAPE_RU[aim.spec.shape] ?? 'ui.aim.area'), size: aim.spec.size })}
         </span>
-        <span className="aim-hint">Клик по карте — применить · Esc — отмена</span>
+        <span className="aim-hint">{t('ui.aim.aimHint')}</span>
         <button className="aim-cancel" onClick={cancel}>
-          Отмена
+          {t('ui.common.cancel')}
         </button>
       </div>
     );
@@ -48,16 +49,20 @@ export default function AimPanel() {
   return (
     <div className="aim-panel">
       <span className="aim-title">
-        {multi.distinct ? 'Цели' : 'Снаряды'} {multi.targets.length}/{multi.count}
+        {t('ui.aim.multiTitle', {
+          kind: multi.distinct ? t('ui.common.targets') : t('ui.common.projectiles'),
+          n: multi.targets.length,
+          count: multi.count,
+        })}
       </span>
       <span className="aim-hint">
-        {left > 0 ? `Кликните цель (ещё ${left})` : 'Все цели выбраны'} · Esc — отмена
+        {left > 0 ? t('ui.aim.multiRemaining', { n: left }) : t('ui.aim.allChosen')}
       </span>
       <button className="aim-apply" disabled={!multi.targets.length} onClick={finish}>
-        Применить
+        {t('ui.common.apply')}
       </button>
       <button className="aim-cancel" onClick={cancel}>
-        Отмена
+        {t('ui.common.cancel')}
       </button>
     </div>
   );

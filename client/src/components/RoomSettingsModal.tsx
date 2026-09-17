@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { CheckboxRow } from './Field';
 import Modal from './Modal';
 
@@ -15,14 +16,11 @@ export default function RoomSettingsModal() {
   }, [testMode]);
 
   return (
-    <Modal onClose={() => close(false)} title="Настройки комнаты">
+    <Modal onClose={() => close(false)} title={t('ui.roomSettings.title')}>
       <CheckboxRow checked={draft} onChange={setDraft}>
-        Режим тестов
+        {t('ui.roomSettings.testMode')}
       </CheckboxRow>
-      <p className="hint">
-        Все участники получают права ведущего внутри комнаты: карты, сетка, туман, бой, чужие токены и их
-        статы. Управление комнатами в админке остаётся у ведущего.
-      </p>
+      <p className="hint">{t('ui.roomSettings.hint')}</p>
       <div className="modal-actions">
         <button
           className="primary"
@@ -31,7 +29,7 @@ export default function RoomSettingsModal() {
             close(false);
           }}
         >
-          Готово
+          {t('ui.common.done')}
         </button>
       </div>
     </Modal>

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { activeMapOf } from '../store/selectors';
 import { useCanEndTurn, useIsDm } from '../lib/control';
 
@@ -46,50 +47,59 @@ export default function InitiativeBar() {
   return (
     <div className="initiative-bar" data-testid="initiative-bar">
       <div className="initiative-turn">
-        <span className="initiative-round">Раунд {combat.round || 1}</span>
+        <span className="initiative-round">{t('ui.initiative.round', { n: combat.round || 1 })}</span>
         {activeEntry && <span className="initiative-active-name">{activeEntry.name}</span>}
-        {turn?.movementOnly && <span className="initiative-move-only">только движение</span>}
+        {turn?.movementOnly && <span className="initiative-move-only">{t('ui.initiative.movementOnly')}</span>}
         {turn && (
           <span className="initiative-resources">
             <span
               className={`res-dot action${turn.actionUsed ? ' used' : ''}`}
-              title={turn.actionUsed ? 'Действие израсходовано' : 'Действие доступно'}
+              title={turn.actionUsed ? t('ui.initiative.actionUsed') : t('ui.initiative.actionAvailable')}
             />
             <span
               className={`res-dot bonus${turn.bonusActionUsed ? ' used' : ''}`}
-              title={turn.bonusActionUsed ? 'Бонусное действие израсходовано' : 'Бонусное действие доступно'}
+              title={
+                turn.bonusActionUsed ? t('ui.initiative.bonusUsed') : t('ui.initiative.bonusAvailable')
+              }
             />
             <span
               className={`res-dot reaction${turn.reactionUsed ? ' used' : ''}`}
-              title={turn.reactionUsed ? 'Реакция израсходована' : 'Реакция доступна'}
+              title={turn.reactionUsed ? t('ui.initiative.reactionUsed') : t('ui.initiative.reactionAvailable')}
             />
             {turn.legendaryMax > 0 && (
               <span
                 className={`res-dot legendary${turn.legendaryRemaining === 0 ? ' used' : ''}`}
-                title={`Легендарные действия: ${turn.legendaryRemaining}/${turn.legendaryMax}`}
+                title={t('ui.initiative.legendary', {
+                  n: turn.legendaryRemaining,
+                  max: turn.legendaryMax,
+                })}
               >
                 {turn.legendaryRemaining}
               </span>
             )}
-            <span className={`res-move${movementLeft < 0 ? ' over' : ''}`} title="Осталось передвижения">
-              {movementLeft < 0 ? `перерасход ${-movementLeft} фт` : `${movementLeft} фт`}
+            <span className={`res-move${movementLeft < 0 ? ' over' : ''}`} title={t('ui.common.movementLeftTitle')}>
+              {movementLeft < 0
+                ? t('ui.initiative.overMovement', { n: -movementLeft })
+                : t('ui.common.feet', { n: movementLeft })}
             </span>
           </span>
         )}
         <button
           className="initiative-end"
           disabled={!canEndTurn}
-          title={canEndTurn ? 'Завершить ход' : 'Завершить может активный игрок или DM'}
+          title={canEndTurn ? t('ui.initiative.endTurn') : t('ui.initiative.endTurnTitle')}
           onClick={endTurn}
         >
-          Завершить ход
+          {t('ui.initiative.endTurn')}
         </button>
       </div>
-      <button className="initiative-scroll" title="Влево" onClick={() => scrollBy(-1)}>
+      <button className="initiative-scroll" title={t('ui.initiative.left')} onClick={() => scrollBy(-1)}>
         ◀
       </button>
       <div className="initiative-track" ref={scrollRef}>
-        {combat.entries.length === 0 && <span className="initiative-empty">Бой начат — участников нет</span>}
+        {combat.entries.length === 0 && (
+          <span className="initiative-empty">{t('ui.initiative.noCombatants')}</span>
+        )}
         {combat.entries.map((entry, index) => (
           <div
             key={entry.id}
@@ -97,7 +107,11 @@ export default function InitiativeBar() {
               hoverTokenId && hoverTokenId === entry.tokenId ? ' hovered' : ''
             }${dragOverId === entry.id ? ' drop' : ''}`}
             data-testid="initiative-chip"
-            title={`${entry.name} — инициатива ${entry.initiative}${entry.bonus ? ` (${entry.bonus})` : ''}`}
+            title={t('ui.initiative.chipTitle', {
+              name: entry.name,
+              initiative: entry.initiative,
+              bonus: entry.bonus ? ` (${entry.bonus})` : '',
+            })}
             draggable={isDm}
             onMouseEnter={() => entry.tokenId && setHoverToken(entry.tokenId)}
             onMouseLeave={() => setHoverToken(null)}
@@ -125,7 +139,7 @@ export default function InitiativeBar() {
             {isDm && index !== activeIndex && (
               <button
                 className="initiative-set"
-                title="Сделать активным"
+                title={t('ui.initiative.setActive')}
                 onClick={(e) => {
                   e.stopPropagation();
                   setTurn(entry.id);
@@ -137,7 +151,7 @@ export default function InitiativeBar() {
             {isDm && (
               <button
                 className="initiative-remove"
-                title="Убрать из очереди"
+                title={t('ui.initiative.remove')}
                 onClick={(e) => {
                   e.stopPropagation();
                   removeCombatant(entry.id);
@@ -150,11 +164,11 @@ export default function InitiativeBar() {
         ))}
       </div>
       {isDm && (
-        <button className="initiative-action" title="Добавить токены текущей карты" onClick={addMapCombatants}>
+        <button className="initiative-action" title={t('ui.initiative.addTokens')} onClick={addMapCombatants}>
           +
         </button>
       )}
-      <button className="initiative-scroll" title="Вправо" onClick={() => scrollBy(1)}>
+      <button className="initiative-scroll" title={t('ui.initiative.right')} onClick={() => scrollBy(1)}>
         ▶
       </button>
     </div>

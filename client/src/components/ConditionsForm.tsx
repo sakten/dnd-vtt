@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import {
   CONDITION_KEYS,
-  conditionDescription,
   conditionName,
   type ConditionInstance,
   type ConditionKey,
 } from 'shared';
 import ConditionIcon from './ConditionIcon';
+import { t } from '../i18n';
+import { conditionHint, conditionLabel } from '../i18n/domain';
 
 interface Props {
   value: ConditionInstance[];
@@ -37,25 +38,25 @@ export default function ConditionsForm({ value, onChange }: Props) {
   };
 
   const options = CONDITION_KEYS.filter((k) => k !== 'custom').filter((k) =>
-    conditionName(k).toLowerCase().includes(query.trim().toLowerCase())
+    conditionLabel(k, conditionName(k)).toLowerCase().includes(query.trim().toLowerCase())
   );
 
   return (
     <div className="conditions-form">
-      <div className="sheet-section-title">Состояния ({value.length})</div>
+      <div className="sheet-section-title">{t('ui.conditions.title', { n: value.length })}</div>
 
       {value.map((c, i) => (
         <div className="condition-row" key={`${c.key}-${i}`}>
-          <span className={`condition-name cond-${c.key}`} title={conditionDescription(c.key)}>
+          <span className={`condition-name cond-${c.key}`} title={conditionHint(c.key)}>
             <ConditionIcon condition={c.key} className="condition-glyph" />
-            <span className="condition-label">{c.name}</span>
+            <span className="condition-label">{conditionLabel(c.key, c.name)}</span>
           </span>
           {c.key === 'exhaustion' ? (
             <select
               className="condition-level"
               value={c.level ?? 1}
               onChange={(e) => update(i, { level: Number(e.target.value) })}
-              title="Уровень истощения"
+              title={t('ui.conditions.exhaustionLevel')}
             >
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <option key={n} value={n}>
@@ -69,7 +70,7 @@ export default function ConditionsForm({ value, onChange }: Props) {
               min={0}
               className="condition-rounds"
               placeholder="∞"
-              title="Осталось раундов (пусто — до снятия)"
+              title={t('ui.conditions.roundsTitle')}
               value={c.rounds ?? ''}
               onChange={(e) => {
                 const v = e.target.value;
@@ -77,7 +78,7 @@ export default function ConditionsForm({ value, onChange }: Props) {
               }}
             />
           )}
-          <button type="button" className="condition-remove" onClick={() => remove(i)} title="Снять">
+          <button type="button" className="condition-remove" onClick={() => remove(i)} title={t('ui.conditions.removeTitle')}>
             ✕
           </button>
         </div>
@@ -85,14 +86,14 @@ export default function ConditionsForm({ value, onChange }: Props) {
 
       {!pickerOpen ? (
         <button type="button" className="condition-add-btn" onClick={() => setPickerOpen(true)}>
-          + Добавить состояние
+          {t('ui.conditions.add')}
         </button>
       ) : (
         <div className="condition-picker">
           <div className="condition-picker-head">
             <input
               type="text"
-              placeholder="Поиск состояния…"
+              placeholder={t('ui.conditions.search')}
               value={query}
               autoFocus
               onChange={(e) => setQuery(e.target.value)}
@@ -107,25 +108,25 @@ export default function ConditionsForm({ value, onChange }: Props) {
                 type="button"
                 key={k}
                 className={`condition-picker-item cond-${k}`}
-                title={conditionDescription(k)}
+                title={conditionHint(k)}
                 onClick={() => add(k)}
               >
                 <ConditionIcon condition={k} className="condition-glyph" />
-                <span>{conditionName(k)}</span>
+                <span>{conditionLabel(k, conditionName(k))}</span>
               </button>
             ))}
-            {options.length === 0 && <span className="condition-picker-empty">Ничего не найдено</span>}
+            {options.length === 0 && <span className="condition-picker-empty">{t('ui.common.notFound')}</span>}
           </div>
           <div className="condition-picker-custom">
             <input
               type="text"
-              placeholder="Своё состояние"
+              placeholder={t('ui.conditions.customPlaceholder')}
               maxLength={40}
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
             />
             <button type="button" disabled={!customName.trim()} onClick={() => add('custom', customName)}>
-              Добавить
+              {t('ui.common.add')}
             </button>
           </div>
         </div>

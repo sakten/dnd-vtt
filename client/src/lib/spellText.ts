@@ -1,4 +1,5 @@
-import { ABILITIES, conditionName, type Spell } from 'shared';
+import { conditionName, type Spell } from 'shared';
+import { abilityName } from '../i18n/domain';
 
 /** Текстовая сводка механики заклинания (RU) для тултипа и списка. */
 
@@ -103,7 +104,7 @@ function componentsText(spell: Spell): string {
 }
 
 function saveText(spell: Spell): string {
-  return (spell.save ?? []).map((a) => ABILITIES.find((x) => x.key === a)?.name ?? a).join(', ');
+  return (spell.save ?? []).map((a) => abilityName(a)).join(', ');
 }
 
 function damageText(spell: Spell, raw: string): string | undefined {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
 import ObjectMenu from './ObjectMenu';
@@ -34,12 +35,12 @@ export default function DoorMenu() {
 
   return (
     <ObjectMenu
-      title={door.open ? 'Дверь: открыта' : 'Дверь: закрыта'}
+      title={door.open ? t('ui.door.titleOpen') : t('ui.door.titleClosed')}
       world={{ x: (door.x1 + door.x2) / 2, y: (door.y1 + door.y2) / 2 }}
       onClose={() => setDoorMenu(null)}
     >
       <button className="primary" onClick={() => toggleDoor(door.id)}>
-        {door.open ? 'Закрыть' : 'Открыть'}
+        {door.open ? t('ui.door.close') : t('ui.door.open')}
       </button>
       {isDm ? (
         <>
@@ -49,15 +50,15 @@ export default function DoorMenu() {
               checked={door.dmOnly === true}
               onChange={(e) => updateDoor(mapId, door.id, { dmOnly: e.target.checked })}
             />
-            Только для ведущего
+            {t('ui.door.dmOnly')}
           </label>
           <label className="fog-label">
-            Сл взлома:
+            {t('ui.door.pickDc')}
             <input
               type="number"
               min={0}
               max={40}
-              aria-label="Сл взлома"
+              aria-label={t('ui.door.pickDcLabel')}
               value={dcDraft}
               onChange={(e) => setDcDraft(e.target.value)}
               onBlur={applyDc}
@@ -72,12 +73,12 @@ export default function DoorMenu() {
               updateWalls(map.id, map.walls.filter((w) => w.id !== door.id));
               setDoorMenu(null);
             }}
-          >
-            Удалить дверь
+            >
+            {t('ui.door.remove')}
           </button>
         </>
       ) : (
-        dc > 0 && <span className="fog-label">Взлом: Сл {dc}</span>
+        dc > 0 && <span className="fog-label">{t('ui.door.pickDcInfo', { dc })}</span>
       )}
     </ObjectMenu>
   );

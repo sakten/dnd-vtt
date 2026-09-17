@@ -13,6 +13,7 @@ import {
   type TokenStatblock,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t, type MessageKey } from '../i18n';
 import { useMapToken } from '../store/hooks';
 import { useCanControlId, useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
@@ -27,7 +28,11 @@ import StatblockForm from './StatblockForm';
 import StatblockSpells from './StatblockSpells';
 import { DescriptionField, TokenHealthFields, TokenPassportFields, TokenPlayerFields } from './TokenFieldsForm';
 
-const FACTION_RU: Record<Faction, string> = { ally: 'Союзник', enemy: 'Враг', neutral: 'Нейтрал' };
+const FACTION_KEYS: Record<Faction, MessageKey> = {
+  ally: 'ui.token.faction.ally',
+  enemy: 'ui.token.faction.enemy',
+  neutral: 'ui.token.faction.neutral',
+};
 
 export default function TokenMenu() {
   const menuId = useGameStore((s) => s.tokenMenuId);
@@ -145,13 +150,19 @@ export default function TokenMenu() {
             {draft.imageUrl ? <img src={draft.imageUrl} alt={draft.name} draggable={false} /> : <span>{'?'}</span>}
           </div>
           <div className="tm-head-info">
-            <div className="tm-name">{draft.name || 'Без имени'}</div>
+            <div className="tm-name">{draft.name || t('ui.token.noName')}</div>
             <div className="tm-stats">
               <span
                 title={
                   acBonus
-                    ? `Базовый ${acBase}${acExplicit > 0 ? '' : ' (по умолчанию)'}, с эффектами ${acEffective}`
-                    : `Класс брони${acExplicit > 0 ? '' : ' (по умолчанию 13)'}`
+                    ? t('ui.tokenMenu.acBaseWithEffects', {
+                        base: acBase,
+                        default: acExplicit > 0 ? '' : t('ui.tokenMenu.defaultSuffix'),
+                        effective: acEffective,
+                      })
+                    : t('ui.tokenMenu.ac', {
+                        default: acExplicit > 0 ? '' : t('ui.tokenMenu.acDefault13'),
+                      })
                 }
               >
                 AC {acEffective}
@@ -168,7 +179,7 @@ export default function TokenMenu() {
                 {hpCurrent}/{hpMax || '—'}
                 {hpTemp > 0 && <em className="tm-temp">+{hpTemp}</em>}
               </span>
-              <span>{speed} фт</span>
+              <span>{t('ui.common.feet', { n: speed })}</span>
             </div>
             <div className="tm-conds">
               <ConditionChips conditions={conditions} spellByKey={spellByKey} max={null} />
@@ -177,30 +188,32 @@ export default function TokenMenu() {
             </div>
             <div className="tm-sub">
               {draft.isPlayerToken && (
-                <span className={`tm-faction ${faction}`}>{FACTION_RU[faction]}</span>
+                <span className={`tm-faction ${faction}`}>{t(FACTION_KEYS[faction])}</span>
               )}
               {draft.isPlayerToken && (
-                <span className="tm-owner">Токен игрока{draft.owner ? `: ${draft.owner}` : ''}</span>
+                <span className="tm-owner">
+                  {draft.owner ? t('ui.token.playerTokenOwner', { owner: draft.owner }) : t('ui.token.playerToken')}
+                </span>
               )}
             </div>
           </div>
-          <button className="tm-close" aria-label="Закрыть" onClick={() => close(null)}>
+          <button className="tm-close" aria-label={t('ui.common.close')} onClick={() => close(null)}>
             ×
           </button>
         </div>
 
         <div className="tm-tabs">
           <button className={`tm-tab${tab === 'main' ? ' active' : ''}`} onClick={() => setTab('main')}>
-            Основное
+            {t('ui.common.main')}
           </button>
           {(isDm || canEdit) && (
             <button className={`tm-tab${tab === 'statblock' ? ' active' : ''}`} onClick={() => setTab('statblock')}>
-              Статблок
+              {t('ui.token.tabStatblock')}
             </button>
           )}
           {isDm && statblock?.spellcasting && (
             <button className={`tm-tab${tab === 'spells' ? ' active' : ''}`} onClick={() => setTab('spells')}>
-              Заклинания
+              {t('ui.common.spells')}
             </button>
           )}
         </div>
@@ -208,7 +221,7 @@ export default function TokenMenu() {
         <div className="tm-body">
           {tab === 'main' && (
             <>
-              <div className="sheet-section-title">Паспорт</div>
+              <div className="sheet-section-title">{t('ui.tokenMenu.passport')}</div>
               <TokenPassportFields
                 value={draft}
                 onChange={patchDraft}
@@ -221,23 +234,23 @@ export default function TokenMenu() {
               {isDm && (
                 <>
                   <div className="tm-seg-row">
-                    <span className="tm-seg-label">Фракция</span>
+                    <span className="tm-seg-label">{t('ui.tokenMenu.faction')}</span>
                     <div className="tm-seg">
                       {(['ally', 'enemy', 'neutral'] as Faction[]).map((f) => (
                         <button key={f} className={faction === f ? 'active' : ''} onClick={() => setFaction(f)}>
-                          {FACTION_RU[f]}
+                          {t(FACTION_KEYS[f])}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="tm-seg-row">
-                    <span className="tm-seg-label">Видимость</span>
+                    <span className="tm-seg-label">{t('ui.tokenMenu.visibility')}</span>
                     <div className="tm-seg">
                       <button className={visible ? 'active' : ''} onClick={() => setVisible(true)}>
-                        Показывать
+                        {t('ui.tokenMenu.show')}
                       </button>
                       <button className={!visible ? 'active' : ''} onClick={() => setVisible(false)}>
-                        Скрыть
+                        {t('ui.tokenMenu.hide')}
                       </button>
                     </div>
                   </div>
@@ -253,7 +266,7 @@ export default function TokenMenu() {
                     close(null);
                   }}
                 >
-                  Отвязать персонажа
+                  {t('ui.token.unlinkCharacter')}
                 </button>
               )}
               {!isDm &&
@@ -269,11 +282,11 @@ export default function TokenMenu() {
                       close(null);
                     }}
                   >
-                    Сделать моим персонажем
+                    {t('ui.token.makeMyCharacter')}
                   </button>
                 )}
 
-              <div className="sheet-section-title">Хирты</div>
+              <div className="sheet-section-title">{t('ui.tokenMenu.hp')}</div>
               <TokenHealthFields
                 value={draft}
                 onChange={patchDraft}
@@ -293,10 +306,10 @@ export default function TokenMenu() {
                         onChange={(e) => setHpAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
                       />
                       <button className="tm-dmg" onClick={() => quickHp(-1)}>
-                        − Урон
+                        {t('ui.tokenMenu.damage')}
                       </button>
                       <button className="tm-heal" onClick={() => quickHp(1)}>
-                        + Лечение
+                        {t('ui.tokenMenu.heal')}
                       </button>
                     </div>
                   ) : undefined
@@ -305,7 +318,7 @@ export default function TokenMenu() {
 
               {isCharacter && (
                 <div className="field-warning">
-                  Статы — из листа персонажа; HP меняется уроном/лечением.
+                  {t('ui.tokenMenu.characterStatsNote')}
                 </div>
               )}
 
@@ -313,7 +326,7 @@ export default function TokenMenu() {
 
               {visibleEffects.length > 0 && (
                 <div className="conditions-form">
-                  <div className="sheet-section-title">Эффекты ({visibleEffects.length})</div>
+                  <div className="sheet-section-title">{t('ui.tokenMenu.effectsTitle', { n: visibleEffects.length })}</div>
                   {visibleEffects.map((e) => {
                     const zoneAura = !!e.zoneId;
                     const ownConcentration = e.concentration === true && e.sourceId === token.id;
@@ -327,25 +340,25 @@ export default function TokenMenu() {
                           (zoneAura ? (
                             <span
                               className="condition-aura"
-                              title="Аура зоны: снимается выходом из зоны или прекращением концентрации"
+                              title={t('ui.tokenMenu.zoneAuraTitle')}
                             >
-                              аура зоны
+                              {t('ui.tokenMenu.zoneAura')}
                             </span>
                           ) : ownConcentration ? (
                             <button
                               type="button"
                               className="condition-remove"
                               onClick={() => endConcentration(token.id)}
-                              title="Прекратить концентрацию (снимет зоны и эффекты)"
+                              title={t('ui.tokenMenu.endConcentrationTitle')}
                             >
-                              Прекратить
+                              {t('ui.common.stop')}
                             </button>
                           ) : (
                             <button
                               type="button"
                               className="condition-remove"
                               onClick={() => removeEffect(e.id)}
-                              title="Снять эффект"
+                              title={t('ui.tokenMenu.removeEffectTitle')}
                             >
                               ✕
                             </button>
@@ -358,7 +371,7 @@ export default function TokenMenu() {
 
               {hiddenEffects.length > 0 && (
                 <div className="conditions-form">
-                  <div className="sheet-section-title">Черты класса ({hiddenEffects.length})</div>
+                  <div className="sheet-section-title">{t('ui.tokenMenu.featuresTitle', { n: hiddenEffects.length })}</div>
                   {hiddenEffects.map((e) => (
                     <div className="condition-row" key={e.id}>
                       <span className="condition-label" title={`${e.name}${effectSummary(e) ? ` — ${effectSummary(e)}` : ''}`}>
@@ -409,7 +422,7 @@ export default function TokenMenu() {
                 close(null);
               }}
             >
-              Удалить
+              {t('ui.common.delete')}
             </button>
           )}
           <button
@@ -417,7 +430,7 @@ export default function TokenMenu() {
             disabled={!canEdit}
             onClick={save}
           >
-            Готово
+            {t('ui.common.done')}
           </button>
         </div>
     </Modal>

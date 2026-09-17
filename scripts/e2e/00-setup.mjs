@@ -67,9 +67,16 @@ fs.writeFileSync(S.tokenSquarePath, makePng(200, 200, () => [220, 66, 66, 255]))
 S.browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
-  args: ['--no-sandbox', '--disable-gpu', '--hide-scrollbars'],
+  args: ['--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--lang=ru-RU'],
 });
 
 S.page = await (await S.browser.createBrowserContext()).newPage();
+await S.page.evaluateOnNewDocument(() => {
+  try {
+    localStorage.setItem('vtt-lang', 'ru');
+  } catch {
+    void 0;
+  }
+});
 await S.page.setViewport({ width: 1440, height: 900 });
 await attachErrorLog(S.page, 'DM');

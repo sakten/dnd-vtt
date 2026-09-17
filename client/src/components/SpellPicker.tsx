@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { Spell } from 'shared';
 import { SPELL_SCHOOL_RU, spellLevelLabel, spellMechanicsShort } from '../lib/spellText';
+import { t } from '../i18n';
 import Modal from './Modal';
 import SpellIcon from './SpellIcon';
 import { useSpellTooltip } from './SpellTooltip';
@@ -55,18 +56,18 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
       }
     >
       <div className="spell-picker-filters">
-        <input type="text" placeholder="Поиск по названию" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="text" placeholder={t('ui.spellPicker.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
         <select value={String(level)} onChange={(e) => setLevel(e.target.value === 'all' ? 'all' : Number(e.target.value))}>
           {levels.map((l) => (
             <option key={String(l)} value={String(l)}>
-              {l === 'all' ? 'Все круги' : spellLevelLabel(l)}
+              {l === 'all' ? t('ui.spellPicker.allLevels') : spellLevelLabel(l)}
             </option>
           ))}
         </select>
       </div>
 
       <div className="spell-picker-list">
-        {shown.length === 0 && <div className="spells-note">Ничего не найдено.</div>}
+        {shown.length === 0 && <div className="spells-note">{t('ui.common.notFoundDot')}</div>}
         {shown.map((s) => {
           const state = stateOf(s);
           const blocked = state.locked || state.disabled;
@@ -85,8 +86,8 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
               <span className="spell-pick-name">{s.name}</span>
               <span className="spell-pick-meta">
                 {spellLevelLabel(s.level)} · {SPELL_SCHOOL_RU[s.school] ?? s.school}
-                {s.concentration ? ' · К' : ''}
-                {s.ritual ? ' · Р' : ''}
+                {s.concentration ? ` · ${t('ui.spells.concentrationShort')}` : ''}
+                {s.ritual ? ` · ${t('ui.spells.ritualShort')}` : ''}
               </span>
               <span className="spell-pick-desc">{spellMechanicsShort(s)}</span>
             </button>
@@ -96,7 +97,7 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
 
       <div className="modal-actions">
         <button className="primary" onClick={onClose}>
-          Готово
+          {t('ui.common.done')}
         </button>
       </div>
       {tip.node}

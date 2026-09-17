@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { t } from '../i18n';
 
 interface FieldProps {
   label?: ReactNode;
@@ -43,7 +44,7 @@ interface SizeRowProps {
 export function SizeRow({ cells, round, onCells, onRound }: SizeRowProps) {
   return (
     <div className="size-row">
-      <span>Размер:</span>
+      <span>{t('ui.field.size')}</span>
       {[1, 2, 3, 4].map((n) => (
         <button type="button" key={n} className={cells === n ? 'active' : ''} onClick={() => onCells(n)}>
           {n}×{n}
@@ -51,7 +52,7 @@ export function SizeRow({ cells, round, onCells, onRound }: SizeRowProps) {
       ))}
       {round !== undefined && onRound && (
         <CheckboxRow className="inline" checked={round} onChange={onRound}>
-          Круглый
+          {t('ui.field.round')}
         </CheckboxRow>
       )}
     </div>

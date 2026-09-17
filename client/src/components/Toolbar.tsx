@@ -1,6 +1,7 @@
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
 import { useIsDm, useIsRealDm } from '../lib/control';
+import { t } from '../i18n';
 
 export default function Toolbar() {
   const setGridModalOpen = useGameStore((s) => s.setGridModalOpen);
@@ -22,23 +23,23 @@ export default function Toolbar() {
 
   return (
     <div className="toolbar" data-testid="toolbar">
-      <button onClick={() => setGridModalOpen(true)}>Сетка</button>
+      <button onClick={() => setGridModalOpen(true)}>{t('ui.toolbar.grid')}</button>
       <button onClick={fitView} disabled={!hasMap}>
-        По размеру
+        {t('ui.toolbar.fit')}
       </button>
       {isDm && (
         <button
           className={combatActive ? 'active' : ''}
-          title="Начать или закончить бой"
+          title={t('ui.toolbar.combatTitle')}
           onClick={() => (combatActive ? endCombat() : startCombat())}
         >
-          {combatActive ? 'Конец боя' : 'Бой'}
+          {combatActive ? t('ui.toolbar.combatEnd') : t('ui.toolbar.combat')}
         </button>
       )}
       {isDm && (
         <button
           className={fogActive ? 'active' : ''}
-          title="Туман войны"
+          title={t('ui.toolbar.fogTitle')}
           onClick={() => {
             setFogMode({ active: !fogActive });
             if (!fogActive) {
@@ -47,13 +48,13 @@ export default function Toolbar() {
             }
           }}
         >
-          Туман
+          {t('ui.toolbar.fog')}
         </button>
       )}
       {isDm && (
         <button
           className={wallsActive ? 'active' : ''}
-          title="Стены: клик по узлам — сегменты, ПКМ по пустому месту — завершить цепочку, ПКМ по сегменту — удалить"
+          title={t('ui.toolbar.wallsTitle')}
           onClick={() => {
             setWallsMode({ active: !wallsActive });
             if (!wallsActive) {
@@ -62,13 +63,13 @@ export default function Toolbar() {
             }
           }}
         >
-          Стены
+          {t('ui.toolbar.walls')}
         </button>
       )}
       {isDm && (
         <button
           className={lightActive ? 'active' : ''}
-          title="Области тьмы, магической тьмы и мглы"
+          title={t('ui.toolbar.lightTitle')}
           onClick={() => {
             setLightMode({ active: !lightActive });
             if (!lightActive) {
@@ -77,17 +78,17 @@ export default function Toolbar() {
             }
           }}
         >
-          Тьма
+          {t('ui.toolbar.light')}
         </button>
       )}
       {isDm && (
-        <button title="Обзор: туман видимости и темнота на карте" onClick={() => setVisionModalOpen(true)}>
-          Обзор
+        <button title={t('ui.toolbar.visionTitle')} onClick={() => setVisionModalOpen(true)}>
+          {t('ui.toolbar.vision')}
         </button>
       )}
       {isRealDm && (
-        <button title="Настройки комнаты" onClick={() => setRoomSettingsOpen(true)}>
-          Комната
+        <button title={t('ui.toolbar.roomTitle')} onClick={() => setRoomSettingsOpen(true)}>
+          {t('ui.toolbar.room')}
         </button>
       )}
     </div>

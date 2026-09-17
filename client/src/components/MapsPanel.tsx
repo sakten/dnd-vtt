@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { GridSettings } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { t } from '../i18n';
 import { useIsDm } from '../lib/control';
 import { readImageSize, uploadImage } from '../lib/api';
 import { detectGridFromUrl } from '../lib/gridDetectImage';
@@ -54,7 +55,7 @@ export default function MapsPanel() {
       const grid = await autoAlign(url);
       addMap(file.name.replace(/\.[^.]+$/, ''), url, size.width, size.height, grid ?? undefined);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Не удалось загрузить карту');
+      window.alert(err instanceof Error ? err.message : t('ui.maps.uploadError'));
     }
   };
 
@@ -74,22 +75,22 @@ export default function MapsPanel() {
   return (
     <div className="maps-panel">
       <div className="maps-panel-header">
-        <span>Карты</span>
+        <span>{t('ui.maps.title')}</span>
         {isDm && (
-          <button className="icon maps-add" title="Добавить карту" onClick={() => fileRef.current?.click()}>
+          <button className="icon maps-add" title={t('ui.maps.add')} onClick={() => fileRef.current?.click()}>
             +
           </button>
         )}
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={handleFile} />
       </div>
       <div className="maps-panel-list">
-        {maps.length === 0 && <div className="hint">Добавьте карту</div>}
+        {maps.length === 0 && <div className="hint">{t('ui.maps.empty')}</div>}
         {maps.map((m) => (
           <div
             key={m.id}
             className={`map-item ${m.id === activeMapId ? 'active' : ''}`}
             data-testid="map-item"
-            title="Переключиться на эту карту (только у вас)"
+            title={t('ui.maps.switchTitle')}
             onClick={() => switchMap(m.id)}
           >
             <img src={m.url} alt={m.name} draggable={false} />
@@ -116,7 +117,7 @@ export default function MapsPanel() {
             ) : (
               <span
                 className="map-name"
-                title={isDm ? 'Двойной клик — переименовать' : undefined}
+                title={isDm ? t('ui.maps.renameTitle') : undefined}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   if (isDm) startRename(m.id);
@@ -129,19 +130,19 @@ export default function MapsPanel() {
               <button
                 className="map-bring"
                 data-testid="map-bring"
-                title="Перенести всех игроков на эту карту"
+                title={t('ui.maps.bringTitle')}
                 onClick={(e) => {
                   e.stopPropagation();
                   bringMap(m.id);
                 }}
               >
-                Все
+                {t('ui.maps.bringAll')}
               </button>
             )}
             {isDm && (
               <button
                 className="map-remove"
-                title="Удалить карту"
+                title={t('ui.maps.removeTitle')}
                 onClick={(e) => {
                   e.stopPropagation();
                   removeMap(m.id);

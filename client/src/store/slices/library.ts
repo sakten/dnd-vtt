@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { emit, emitThrottled } from '../helpers';
 import { beginOptimistic, settleOptimisticPrefix } from '../optimistic';
 import type { GameState, Slice } from '../types';
@@ -24,7 +25,7 @@ export const createLibrarySlice: Slice<Pick<GameState, 'onLibraryUpdate' | 'addL
           get,
           `library:update:${id}`,
           () => set((s) => ({ library: s.library.map((i) => (i.id === id ? prev : i)) })),
-          'Сервер не подтвердил изменение предмета библиотеки — изменения отменены'
+          t('ui.store.libraryRevert')
         );
       }
       emitThrottled(get, `lib:${id}`, 200, 'library:update', () => {

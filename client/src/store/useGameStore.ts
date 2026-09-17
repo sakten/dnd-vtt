@@ -11,6 +11,7 @@ import { createChatSlice } from './slices/chat';
 import { createSheetSlice } from './slices/sheet';
 import { createViewSlice } from './slices/view';
 import { createReactionSlice } from './slices/reactions';
+import { createSettingsSlice } from './slices/settings';
 
 export const useGameStore = create<GameState>()((set, get) => ({
   ...createRoomSlice(set, get),
@@ -23,6 +24,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createSheetSlice(set, get),
   ...createViewSlice(set, get),
   ...createReactionSlice(set, get),
+  ...createSettingsSlice(set, get),
     socket: null,
     socketDispose: null,
     connected: false,
