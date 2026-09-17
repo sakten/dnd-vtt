@@ -34,6 +34,7 @@ function normalizePersistedScene(raw: Scene): Scene {
           vision: { los: false, darkness: false },
           lightAreas: [],
           fog: defaultFog(grid),
+          grid,
           combat: emptyCombatState(),
         },
       ]

@@ -10,7 +10,7 @@ import {
 } from 'shared';
 import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
-import { gridSizeOf, sheetOfToken } from '../../rooms';
+import { gridSizeOfMap, sheetOfToken } from '../../rooms';
 import { resolveWeaponAttack } from '../attackResolve';
 import { isReactionPending, openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, hasPayableSpecial, reactionSlotFree } from './internal';
@@ -73,7 +73,7 @@ export function triggerOpportunityAttacks(
   if (ctx.manager.turnForToken(room, mapId, mover)?.disengaged) return;
   // Эффекты движения без провокации (Мантия вдохновения).
   if (restrictionsFor(mover.conditions, mover.effects).ignoresOpportunityAttacks) return;
-  const size = gridSizeOf(room);
+  const size = gridSizeOfMap(map);
 
   const offers: ReactionOfferInput[] = [];
   for (const reactor of map.tokens) {

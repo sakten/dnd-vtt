@@ -22,8 +22,12 @@ const mapState = await S.page.evaluate(() => {
 });
 check(mapState.count === 1 && mapState.active === mapState.first, 'карта добавлена в список и активна');
 
-const autoGrid = await S.page.evaluate(() => window.__vtt.getState().scene.grid.size);
-check(autoGrid === 100, `сетка авто-выровнена по карте (${autoGrid}px)`);
+const autoGrid = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const m = s.scene.maps.find((x) => x.id === s.viewMapId);
+  return m?.grid.size;
+});
+check(autoGrid === 100, `сетка карты авто-выровнена по изображению (${autoGrid}px)`);
 await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   s.updateGrid({ size: 50, offsetX: 0, offsetY: 0 });

@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_GRID, emptyCombatState, emptyTurnState } from 'shared';
 import { makeMap, makeScene, makeToken } from '../test/fixtures';
 import {
+  applyMapGrid,
   patchCombatTurn,
   patchToken,
   removeTokenById,
   replaceToken,
-  resizeGrid,
   setCombat,
   setFog,
-  setGrid,
   updateMap,
   upsertToken,
   withMaps,
@@ -96,30 +95,32 @@ describe('combat / fog / grid', () => {
     expect(noop.maps[0]!.combat.turns).toEqual(s.maps[0]!.combat.turns);
   });
 
-  it('setFog и setGrid', () => {
+  it('setFog меняет туман карты', () => {
     const s = scene();
     const fog = { ...s.maps[0]!.fog, hidden: ['1,2'] };
     expect(setFog(s, 'm1', fog).maps[0]!.fog.hidden).toEqual(['1,2']);
-
-    const grid = { ...DEFAULT_GRID, size: 70 };
-    const withGrid = setGrid(s, grid);
-    expect(withGrid.grid.size).toBe(70);
-    expect(s.grid.size).toBe(DEFAULT_GRID.size);
   });
 });
 
-describe('resizeGrid', () => {
-  it('пересчитывает размеры токенов и снапит позиции', () => {
+describe('applyMapGrid', () => {
+  it('пересчитывает токены и туман только целевой карты', () => {
     const s = scene();
     s.maps[0]!.tokens = [makeToken('t1', { cells: 2, w: 100, h: 100, x: 130, y: 90 })];
-    const grid = { ...DEFAULT_GRID, size: 50, offsetX: 0, offsetY: 0, snap: true };
-    const next = resizeGrid(s, grid);
+    const grid = { ...DEFAULT_GRID, size: 100, snap: true };
+    const next = applyMapGrid(s, 'm1', grid);
 
     const t1 = next.maps[0]!.tokens[0]!;
-    expect(t1.w).toBe(100);
-    expect(t1.h).toBe(100);
-    expect(t1.x % 50).toBe(0);
-    expect(t1.y % 50).toBe(0);
-    expect(s.maps[0]!.tokens[0]!.w).toBe(100);
+    expect(t1.w).toBe(200);
+    expect(t1.h).toBe(200);
+    expect(t1.x % 100).toBe(0);
+    expect(t1.y % 100).toBe(0);
+    expect(next.maps[0]!.grid.size).toBe(100);
+    expect(next.maps[0]!.fog.size).toBe(100);
+
+    // Соседняя карта не тронута: своя сетка, свои токены и туман.
+    expect(next.maps[1]!.grid).toEqual(DEFAULT_GRID);
+    expect(next.maps[1]!.tokens[0]!.w).toBe(50);
+    expect(next.maps[1]!.fog.size).toBe(DEFAULT_GRID.size);
+    expect(s.maps[0]!.grid.size).toBe(DEFAULT_GRID.size);
   });
 });

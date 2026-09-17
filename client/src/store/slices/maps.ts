@@ -1,4 +1,5 @@
-import { resizeGrid, resyncFogGrid, setFog, setGrid, setLightAreas, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
+import { applyMapGrid, setFog, setLightAreas, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
+import { activeMapOf } from '../selectors';
 import { emit, emitThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
@@ -29,10 +30,11 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     onVisionUpdate: ({ mapId, vision }) => set((s) => ({ scene: setVision(s.scene, mapId, vision) })),
     onAreasUpdate: ({ mapId, lightAreas }) => set((s) => ({ scene: setLightAreas(s.scene, mapId, lightAreas) })),
     onZonesUpdate: ({ mapId, zones }) => set((s) => ({ scene: setZones(s.scene, mapId, zones) })),
-    onGridUpdate: (grid) => set((s) => ({ scene: setGrid(s.scene, grid) })),
+    onGridUpdate: ({ mapId, grid }) =>
+      set((s) => ({ scene: applyMapGrid({ ...s.scene, grid }, mapId, grid) })),
 
-    addMap: (name, url, width, height) => {
-      emit(get, 'map:add', { name, url, width, height });
+    addMap: (name, url, width, height, grid) => {
+      emit(get, 'map:add', { name, url, width, height, ...(grid ? { grid } : {}) });
     },
 
     removeMap: (id) => {
@@ -52,13 +54,25 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
       emit(get, 'map:bring', id);
     },
 
-    updateGrid: (patch) => {
+    updateGrid: (patch, mapId) => {
       if (!get().socket) return;
+      const target = mapId ?? activeMapOf(get())?.id ?? null;
+      if (!target) {
+        // Карты нет — правим только дефолт комнаты (новые карты начнут с него).
+        set((s) => ({ scene: { ...s.scene, grid: { ...s.scene.grid, ...patch } } }));
+        return;
+      }
       set((s) => {
-        const grid = { ...s.scene.grid, ...patch };
-        return { scene: resyncFogGrid(resizeGrid(s.scene, grid), grid) };
+        const map = s.scene.maps.find((m) => m.id === target);
+        if (!map) return {};
+        const grid = { ...map.grid, ...patch };
+        // Дефолт комнаты — последняя настроенная сетка.
+        return { scene: applyMapGrid({ ...s.scene, grid }, target, grid) };
       });
-      emitThrottled(get, 'grid', 150, 'grid:update', () => get().scene.grid);
+      emitThrottled(get, `grid:${target}`, 150, 'grid:update', () => {
+        const map = get().scene.maps.find((m) => m.id === target);
+        return map ? { mapId: target, grid: map.grid } : undefined;
+      });
     },
 
     updateFog: (mapId, fog) => {

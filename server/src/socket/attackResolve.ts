@@ -140,7 +140,7 @@ export function prepareWeaponAttack(
   if (attacker && attackerMapId && target && targetMapId === attackerMapId && target.id !== attacker.id) {
     const map = manager.findMap(room, attackerMapId);
     if (map) {
-      const size = room.scene.grid.size || 50;
+      const size = map.grid.size || 50;
       distanceFeet = gridDistanceFeet(attacker, target, size);
       if (!input.ignoreRange) {
         const adjacentEnemy = map.tokens.some(
@@ -156,8 +156,8 @@ export function prepareWeaponAttack(
       hasTarget = true;
       const sight = sightContextOf(map, {
         size,
-        offsetX: room.scene.grid.offsetX,
-        offsetY: room.scene.grid.offsetY,
+        offsetX: map.grid.offsetX,
+        offsetY: map.grid.offsetY,
       });
       unseenTarget = !canSee(attacker, target, tokenSenses(attacker), sight);
       unseenAttacker = !canSee(target, attacker, tokenSenses(target), sight);

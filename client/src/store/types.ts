@@ -128,7 +128,8 @@ export interface GameState {
   rollHitDie: (die: number) => void;
   rollDeathSave: (expression: string) => void;
   removePlayer: (id: string) => void;
-  addMap: (name: string, url: string, width: number, height: number) => void;
+  /** Добавить карту; grid — сразу задать её сетку (авто-выравнивание). */
+  addMap: (name: string, url: string, width: number, height: number, grid?: GridSettings) => void;
   removeMap: (id: string) => void;
   renameMap: (id: string, name: string) => void;
   switchMap: (id: string) => void;
@@ -136,7 +137,8 @@ export interface GameState {
   addLibraryItem: (fields: TokenFields) => void;
   updateLibraryItem: (id: string, patch: Partial<LibraryItem>) => void;
   removeLibraryItem: (id: string) => void;
-  updateGrid: (patch: Partial<GridSettings>) => void;
+  /** Патч сетки карты (по умолчанию — активной); без карт — дефолт комнаты. */
+  updateGrid: (patch: Partial<GridSettings>, mapId?: string) => void;
   addTokenAt: (libraryItemId: string, x: number, y: number) => void;
   removeToken: (id: string) => void;
   moveToken: (id: string, x: number, y: number) => void;
@@ -234,7 +236,7 @@ export interface GameState {
   onVisionUpdate: (payload: Parameters<ServerToClientEvents['vision:update']>[0]) => void;
   onAreasUpdate: (payload: Parameters<ServerToClientEvents['areas:update']>[0]) => void;
   onZonesUpdate: (payload: Parameters<ServerToClientEvents['zones:update']>[0]) => void;
-  onGridUpdate: (grid: GridSettings) => void;
+  onGridUpdate: (payload: { mapId: string; grid: GridSettings }) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;
   onCombatUpdate: (payload: Parameters<ServerToClientEvents['combat:update']>[0]) => void;
   onTokenAdd: (payload: Parameters<ServerToClientEvents['token:add']>[0]) => void;

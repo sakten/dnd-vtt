@@ -15,7 +15,7 @@ import {
   type Token,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { activeMapOf } from '../store/selectors';
+import { activeGridOf, activeMapOf } from '../store/selectors';
 import { enterableCell } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
 import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
@@ -25,7 +25,7 @@ import { useCanControl, useIsDm } from '../lib/control';
 function TokenView({ token }: { token: Token }) {
   const image = useImage(token.imageUrl);
   const selfId = useGameStore((s) => s.selfId);
-  const grid = useGameStore((s) => s.scene.grid);
+  const grid = useGameStore(activeGridOf);
   const selected = useGameStore((s) => s.selectedTokenId === token.id);
   const setSelected = useGameStore((s) => s.setSelected);
   const targeting = useGameStore((s) => s.interaction?.mode === 'target');

@@ -9,6 +9,7 @@ import {
   type ChatMessage,
   type LibraryItem,
   type MapInfo,
+  type GridSettings,
   type Token,
   type TokenFields,
 } from 'shared';
@@ -31,8 +32,10 @@ export function findToken(room: Room, mapId: string, id: string): Token | null {
 export function addMap(
   m: TokenDeps,
   room: Room,
-  input: { name: string; url: string; width: number; height: number }
+  input: { name: string; url: string; width: number; height: number; grid?: GridSettings }
 ): MapInfo {
+  // Сетка новой карты: переданная (авто-выравнивание) или текущий дефолт комнаты.
+  const grid = input.grid ? { ...input.grid } : { ...room.scene.grid };
   const map: MapInfo = {
     ...input,
     id: randomUUID(),
@@ -40,7 +43,8 @@ export function addMap(
     zones: [],    walls: [],
     vision: { los: false, darkness: false },
     lightAreas: [],
-    fog: defaultFog(room.scene.grid),
+    fog: defaultFog(grid),
+    grid,
     combat: emptyCombatState(),
   };
   room.scene.maps.push(map);
@@ -102,8 +106,8 @@ export function addToken(
     hpCurrent: statNumber(fields.hpMax),
     x,
     y,
-    w: fields.cells * room.scene.grid.size,
-    h: fields.cells * room.scene.grid.size,
+    w: fields.cells * map.grid.size,
+    h: fields.cells * map.grid.size,
     scale: 1,
     rotation: 0,
     z: ++room.nextZ,

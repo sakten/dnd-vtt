@@ -103,6 +103,6 @@ check(!combatState.active, 'бой первой карты не затронут
 S.dm.emit('combat:end', { mapId: map2.id });
 await sleep(400);
 
-S.player.emit('grid:update', { ...S.joined.room.scene.grid, size: 100 });
+S.player.emit('grid:update', { mapId: map2.id, grid: { ...S.joined.room.scene.grid, size: 100 } });
 await sleep(800);
 check(S.gridUpdates === 0, 'игрок не может менять сетку');

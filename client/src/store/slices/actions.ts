@@ -10,7 +10,7 @@ import {
   type InteractionCommand,
 } from '../../domain/interaction';
 import { emitInMap } from '../helpers';
-import { activeMapOf, tokenById } from '../selectors';
+import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
 
 export const createActionSlice: Slice<
@@ -73,7 +73,7 @@ export const createActionSlice: Slice<
       const it = state.interaction;
       if (it?.mode !== 'aim') return;
       const token = tokenById(activeMapOf(state), it.aim.tokenId);
-      _set({ interaction: aimToCursor(it, cursor, token, state.scene.grid.size || 50) });
+      _set({ interaction: aimToCursor(it, cursor, token, activeGridOf(state).size || 50) });
     },
 
     cancelAim: () => _set({ interaction: null }),

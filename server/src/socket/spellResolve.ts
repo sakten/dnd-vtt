@@ -54,7 +54,8 @@ export function validateSpellCast(room: Room, input: SpellCastInput): string | u
   if (input.area) return undefined;
   const rangeFeet = spellRangeFeet(spell);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
-  const gridSize = room.scene.grid.size || 50;
+  const map = room.scene.maps.find((m) => m.id === input.mapId);
+  const gridSize = map?.grid.size || 50;
   for (const target of targets) {
     if (target.id === caster.id) continue;
     const feet = gridDistanceFeet(caster, target, gridSize);

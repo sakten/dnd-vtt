@@ -79,9 +79,9 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     if (spellHasArea(spell) && spell.areaSpec) {
       const map = manager.findMap(room, mapId);
       const grid = {
-        size: room.scene.grid.size || 50,
-        offsetX: room.scene.grid.offsetX,
-        offsetY: room.scene.grid.offsetY,
+        size: map?.grid.size || room.scene.grid.size || 50,
+        offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
+        offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
       };
       const originKind = spellAreaOrigin(spell);
       const originPt = originKind === 'self' ? { x: token.x, y: token.y } : isPoint(origin) ? origin : null;

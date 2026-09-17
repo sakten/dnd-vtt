@@ -105,8 +105,10 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const { room, token } = scope;
       Object.assign(token, normalizeTokenFieldsPatch(patch, token));
       if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {
-        token.w = token.cells * room.scene.grid.size;
-        token.h = token.cells * room.scene.grid.size;
+        const map = ctx.manager.findMap(room, mapId);
+        const size = map?.grid.size ?? 50;
+        token.w = token.cells * size;
+        token.h = token.cells * size;
       }
       if (typeof patch.scale === 'number' && Number.isFinite(patch.scale)) token.scale = patch.scale;
       if (typeof patch.rotation === 'number' && Number.isFinite(patch.rotation)) token.rotation = patch.rotation;

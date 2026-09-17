@@ -5,7 +5,7 @@ import type { LightArea, MapInfo, Token, Wall } from 'shared';
 import { areaCells, gridDistanceFeet, reachableCells, sightContextOf, snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
-import { activeMapOf, tokenById } from '../store/selectors';
+import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
 import { useImage } from '../lib/useImage';
 import { visibleCells } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
@@ -84,7 +84,7 @@ export default function TableTop() {
   const view = useGameStore((s) => s.view);
   const setView = useGameStore((s) => s.setView);
   const setViewport = useGameStore((s) => s.setViewport);
-  const grid = useGameStore((s) => s.scene.grid);
+  const grid = useGameStore(activeGridOf);
   const setSelected = useGameStore((s) => s.setSelected);
   const isDm = useIsDm();
   const interaction = useGameStore((s) => s.interaction);
@@ -557,13 +557,15 @@ export default function TableTop() {
     if (!rect) return;
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
-    const { view: v, scene: s } = useGameStore.getState();
+    const st = useGameStore.getState();
+    const grid = activeGridOf(st);
+    const { view: v } = st;
     let wx = (sx - v.x) / v.scale;
     let wy = (sy - v.y) / v.scale;
-    if (s.grid.snap) {
+    if (grid.snap) {
       const cells = item.cells ?? 1;
-      wx = snapToGrid(wx, s.grid.offsetX, s.grid.size, cells);
-      wy = snapToGrid(wy, s.grid.offsetY, s.grid.size, cells);
+      wx = snapToGrid(wx, grid.offsetX, grid.size, cells);
+      wy = snapToGrid(wy, grid.offsetY, grid.size, cells);
     }
     useGameStore.getState().addTokenAt(item.id, wx, wy);
   };

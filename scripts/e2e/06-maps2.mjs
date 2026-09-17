@@ -15,10 +15,17 @@ S.maps2 = await S.page.evaluate(() => {
 });
 check(S.maps2.count === 2 && S.maps2.active === S.maps2.second, 'вторая карта добавлена и активна по умолчанию');
 check(S.maps2.tokensOnSecond === 0, 'на новой карте нет токенов');
-const map2Grid = await S.page.evaluate(() => window.__vtt.getState().scene.grid.size);
-check(map2Grid === 80, `вторая карта авто-выровняла сетку (${map2Grid}px)`);
-await S.page.evaluate(() => window.__vtt.getState().updateGrid({ size: 50, offsetX: 0, offsetY: 0 }));
-await waitFor(S.page, () => window.__vtt.getState().scene.grid.size === 50);
+const grids = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  return { first: s.scene.maps[0]?.grid.size, second: s.scene.maps[1]?.grid.size };
+});
+check(grids.second === 80, `вторая карта авто-выровняла свою сетку (${grids.second}px)`);
+check(grids.first === 50, `сетка первой карты не изменилась (${grids.first}px)`);
+await S.page.evaluate(
+  (mapId) => window.__vtt.getState().updateGrid({ size: 50, offsetX: 0, offsetY: 0 }, mapId),
+  S.maps2.second
+);
+await waitFor(S.page, () => window.__vtt.getState().scene.maps[1]?.grid.size === 50);
 const mapItems = await S.page.$$('.map-item');
 await mapItems[1].click();
 await waitFor(S.page, (id) => window.__vtt.getState().viewMapId === id, 5000, S.maps2.second);

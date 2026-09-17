@@ -42,6 +42,24 @@ export function normalizeVision(raw: unknown): VisionSettings {
 
 const LIGHT_AREA_KINDS: LightAreaKind[] = ['darkness', 'magical', 'obscured'];
 
+/** Нормализация сетки: числовые поля с проверкой границ, остальное — из fallback. */
+export function normalizeGrid(raw: unknown, fallback: GridSettings = DEFAULT_GRID): GridSettings {
+  if (!isRecord(raw)) return { ...fallback };
+  const size = Number(raw.size);
+  const offsetX = Number(raw.offsetX);
+  const offsetY = Number(raw.offsetY);
+  const opacity = Number(raw.opacity);
+  return {
+    size: Number.isFinite(size) && size >= 5 && size <= 1000 ? size : fallback.size,
+    offsetX: Number.isFinite(offsetX) ? offsetX : fallback.offsetX,
+    offsetY: Number.isFinite(offsetY) ? offsetY : fallback.offsetY,
+    opacity: Number.isFinite(opacity) ? Math.min(1, Math.max(0, opacity)) : fallback.opacity,
+    color: typeof raw.color === 'string' ? raw.color : fallback.color,
+    visible: typeof raw.visible === 'boolean' ? raw.visible : fallback.visible,
+    snap: typeof raw.snap === 'boolean' ? raw.snap : fallback.snap,
+  };
+}
+
 /** Нормализация областей тьмы/мглы: известные виды, положительные размеры, лимит 200. */
 export function normalizeLightAreas(raw: unknown): LightArea[] {
   if (!Array.isArray(raw)) return [];
@@ -82,15 +100,17 @@ export function normalizeWalls(raw: unknown): Wall[] {
   return out;
 }
 
-/** Полная нормализация карты: токены, туман и бой; остальные поля сохраняются. */
+/** Полная нормализация карты: своя сетка, туман по ней, токены и бой. */
 export function normalizeMapInfo(
   raw: unknown,
-  grid: GridSettings,
+  fallbackGrid: GridSettings,
   opts: NormalizeEntityOptions = {}
 ): MapInfo {
   const source = isRecord(raw) ? raw : {};
+  // Сетка карты: своя (старые комнаты — из общей сетки сцены).
+  const grid = normalizeGrid(source.grid, fallbackGrid);
   const fogSource = isRecord(source.fog) ? source.fog : null;
-  // Клетки тумана всегда по текущей сетке (старые данные могли «отстать» после выравнивания).
+  // Клетки тумана всегда по сетке этой карты (старые данные могли «отстать»).
   const fog: FogState = {
     size: grid.size,
     offsetX: grid.offsetX,
@@ -107,19 +127,18 @@ export function normalizeMapInfo(
     vision: normalizeVision(source.vision),
     lightAreas: normalizeLightAreas(source.lightAreas),
     fog,
+    grid,
     combat: normalizeCombatState(source.combat),
   };
 }
 
-/** Полная нормализация сцены: все карты через `normalizeMapInfo`, грид и активная карта. */
+/** Полная нормализация сцены: все карты через `normalizeMapInfo`, дефолтная сетка и активная карта. */
 export function normalizeScene(raw: unknown, opts: NormalizeEntityOptions = {}): Scene {
   const source = isRecord(raw) ? raw : {};
-  const grid = isRecord(source.grid) ? (source.grid as unknown as GridSettings) : DEFAULT_GRID;
+  const grid = normalizeGrid(source.grid, DEFAULT_GRID);
   return {
     ...(source as unknown as Scene),
-    maps: Array.isArray(source.maps)
-      ? source.maps.map((m) => normalizeMapInfo(m, grid, opts))
-      : [],
+    maps: Array.isArray(source.maps) ? source.maps.map((m) => normalizeMapInfo(m, grid, opts)) : [],
     activeMapId: typeof source.activeMapId === 'string' ? source.activeMapId : null,
     grid,
   };

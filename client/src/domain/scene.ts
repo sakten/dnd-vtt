@@ -84,36 +84,22 @@ export function setZones(scene: Scene, mapId: string, zones: MapInfo['zones']): 
   return updateMap(scene, mapId, (m) => ({ ...m, zones }));
 }
 
-export function setGrid(scene: Scene, grid: GridSettings): Scene {
-  return { ...scene, grid };
-}
-
-/** Клетки тумана следуют за сеткой: при её смене пересчитываем размер и сдвиг. */
-export function resyncFogGrid(scene: Scene, grid: GridSettings): Scene {
-  return {
-    ...scene,
-    maps: scene.maps.map((m) => ({
-      ...m,
-      fog: { ...m.fog, size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY },
-    })),
-  };
-}
-
-export function resizeGrid(scene: Scene, grid: GridSettings): Scene {
-  const size = grid.size;
-  return {
-    ...scene,
+/**
+ * Сетка одной карты: применяем настройки, пересчитываем размеры/позиции её токенов
+ * и клетки её тумана. Другие карты не трогаем (независимые сетки).
+ */
+export function applyMapGrid(scene: Scene, mapId: string, grid: GridSettings): Scene {
+  return updateMap(scene, mapId, (m) => ({
+    ...m,
     grid,
-    maps: scene.maps.map((m) => ({
-      ...m,
-      tokens: m.tokens.map((t) => {
-        const resized = { ...t, w: t.cells * size, h: t.cells * size };
-        if (grid.snap) {
-          resized.x = snapToGrid(t.x, grid.offsetX, size, t.cells);
-          resized.y = snapToGrid(t.y, grid.offsetY, size, t.cells);
-        }
-        return resized;
-      }),
-    })),
-  };
+    fog: { ...m.fog, size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY },
+    tokens: m.tokens.map((t) => {
+      const resized = { ...t, w: t.cells * grid.size, h: t.cells * grid.size };
+      if (grid.snap) {
+        resized.x = snapToGrid(t.x, grid.offsetX, grid.size, t.cells);
+        resized.y = snapToGrid(t.y, grid.offsetY, grid.size, t.cells);
+      }
+      return resized;
+    }),
+  }));
 }

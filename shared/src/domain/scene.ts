@@ -83,6 +83,8 @@ export interface MapInfo {
   /** Области тьмы/магической тьмы/мглы. */
   lightAreas: LightArea[];
   fog: FogState;
+  /** Сетка карты: у каждой карты своя (размер/сдвиг/цвет/снэп). */
+  grid: GridSettings;
   combat: CombatState;
 }
 
@@ -96,5 +98,6 @@ export function snapToGrid(v: number, offset: number, size: number, cells: numbe
 export interface Scene {
   maps: MapInfo[];
   activeMapId: string | null;
+  /** Дефолтная сетка комнаты: с неё начинают новые карты и пустая комната. */
   grid: GridSettings;
 }

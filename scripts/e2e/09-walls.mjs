@@ -17,8 +17,8 @@ await S.page.waitForSelector('.fog-panel');
 
 const pts = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
-  const g = s.scene.grid;
   const map = s.scene.maps.find((m) => m.id === s.viewMapId);
+  const g = map?.grid ?? s.scene.grid;
   const { x, y, scale } = s.view;
   const vw = s.viewport.w;
   const vh = s.viewport.h;

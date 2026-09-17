@@ -1,10 +1,15 @@
-import type { MapInfo, Token } from 'shared';
+import type { GridSettings, MapInfo, Token } from 'shared';
 import { useGameStore } from './useGameStore';
-import { activeMapOf, characterTokenOf, tokenById } from './selectors';
+import { activeGridOf, activeMapOf, characterTokenOf, tokenById } from './selectors';
 
 /** Хук: активная карта. */
 export function useActiveMap(): MapInfo | null {
   return useGameStore(activeMapOf);
+}
+
+/** Хук: сетка активной карты (или дефолт комнаты без карты). */
+export function useActiveGrid(): GridSettings {
+  return useGameStore(activeGridOf);
 }
 
 /** Хук: токен по id на активной карте. */

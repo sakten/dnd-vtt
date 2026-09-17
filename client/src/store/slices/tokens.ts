@@ -3,7 +3,7 @@ import { patchCombatTurn, patchToken, removeTokenById, replaceToken, upsertToken
 import { emitInMap } from '../helpers';
 import { beginOptimistic, settleOptimisticPrefix } from '../optimistic';
 import { newId } from '../../lib/id';
-import { activeMapOf, tokenById } from '../selectors';
+import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import { clearTokenUiFor } from '../uiReset';
 import type { GameState, MovingToken, Slice } from '../types';
 
@@ -99,7 +99,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
         });
         return;
       }
-      const size = state.scene.grid.size || 50;
+      const size = activeGridOf(state).size || 50;
       let feet = 0;
       let diagonals = moving.diagonalsBefore;
       for (let i = 1; i < points.length; i++) {
@@ -173,7 +173,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       const local: Partial<Token> = { ...patch };
       if (typeof patch.cells === 'number') {
         const clamped = clampCells(patch.cells);
-        const size = get().scene.grid.size;
+        const size = activeGridOf(get()).size;
         local.cells = clamped;
         local.w = clamped * size;
         local.h = clamped * size;

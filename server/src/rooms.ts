@@ -36,7 +36,8 @@ import {
 export {
   controllerIdOfItem,
   controllerIdOfToken,
-  gridSizeOf,
+  gridSizeOfMap,
+  gridSizeOfToken,
   hasResourceFor,
   roomUploadUrls,
   sheetOfToken,

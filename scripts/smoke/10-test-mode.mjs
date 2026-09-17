@@ -14,9 +14,12 @@ check(enabled.testMode === true, 'режим тестов включён и ра
 
 // Игрок получил права ведущего: DM-only событие grid:update срабатывает.
 const gridP = eventOnce(S.dm, 'grid:update');
-S.player.emit('grid:update', { ...S.joined.room.scene.grid });
+S.player.emit('grid:update', { mapId: S.map1.id, grid: { ...S.joined.room.scene.grid } });
 const grid = await gridP;
-check(!!grid && grid.size === S.joined.room.scene.grid.size, 'в режиме тестов игрок меняет сетку (права DM)');
+check(
+  !!grid && grid.grid.size === S.joined.room.scene.grid.size && grid.mapId === S.map1.id,
+  'в режиме тестов игрок меняет сетку (права DM)'
+);
 
 // Сам переключатель режима игроку недоступен.
 const received = [];
@@ -38,7 +41,7 @@ const onGrid = () => {
   dmGot = true;
 };
 S.dm.on('grid:update', onGrid);
-S.player.emit('grid:update', { ...S.joined.room.scene.grid, size: 100 });
+S.player.emit('grid:update', { mapId: S.map1.id, grid: { ...S.joined.room.scene.grid, size: 100 } });
 await sleep(300);
 S.dm.off('grid:update', onGrid);
 check(!dmGot, 'без режима тестов игрок снова не может менять сетку');

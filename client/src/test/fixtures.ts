@@ -60,6 +60,7 @@ export function makeMap(id: string, tokens: Token[] = [], grid: GridSettings = D
     vision: { los: false, darkness: false },
     lightAreas: [],
     fog: defaultFog(grid),
+    grid,
     combat: emptyCombatState(),
   };
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { activeMapOf } from '../store/selectors';
+import { activeGridOf, activeMapOf } from '../store/selectors';
 import { detectWallsInAnalysis, loadWallAnalysis, type WallAnalysis } from '../lib/wallDetectImage';
 
 export default function WallsPanel() {
@@ -9,7 +9,7 @@ export default function WallsPanel() {
   const updateWalls = useGameStore((s) => s.updateWalls);
   const candidates = useGameStore((s) => s.wallCandidates);
   const setWallCandidates = useGameStore((s) => s.setWallCandidates);
-  const grid = useGameStore((s) => s.scene.grid);
+  const grid = useGameStore(activeGridOf);
   const map = useGameStore(activeMapOf);
 
   const [contrast, setContrast] = useState(55);

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { canSee, sightContextOf, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { useActiveMap } from '../store/hooks';
+import { useActiveGrid, useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
 import { useVisionViewers } from '../lib/useVision';
@@ -14,7 +14,7 @@ export default function ConditionsOverlay() {
   const isDm = useIsDm();
   const spellByKey = useSpellByKey();
   const map = useActiveMap();
-  const grid = useGameStore((s) => s.scene.grid);
+  const grid = useActiveGrid();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
   const viewers = useVisionViewers();
   const sight = useMemo(

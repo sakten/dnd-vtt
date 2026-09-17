@@ -29,7 +29,7 @@ export interface ServerToClientEvents {
   'zones:update': (payload: { mapId: string; zones: MapInfo['zones'] }) => void;
   'library:update': (library: LibraryItem[]) => void;
   'combat:update': (payload: { mapId: string; combat: CombatState }) => void;
-  'grid:update': (grid: GridSettings) => void;
+  'grid:update': (payload: { mapId: string; grid: GridSettings }) => void;
   'token:add': (payload: { mapId: string; token: Token }) => void;
   'token:update': (payload: { mapId: string; token: Token }) => void;
   'token:remove': (payload: { mapId: string; id: string }) => void;
@@ -58,7 +58,7 @@ export interface ClientToServerEvents {
   ) => void;
   /** Смена настроек комнаты (режим тестов); сервер проверяет реального DM. */
   'room:settings': (payload: { testMode: boolean }) => void;
-  'map:add': (payload: { name: string; url: string; width: number; height: number }) => void;
+  'map:add': (payload: { name: string; url: string; width: number; height: number; grid?: GridSettings }) => void;
   'map:remove': (id: string) => void;
   'map:rename': (payload: { id: string; name: string }) => void;
   'map:bring': (id: string) => void;
@@ -92,7 +92,7 @@ export interface ClientToServerEvents {
     /** Ломаная пути (мировые координаты) для проверки атак по возможности. */
     path?: { x: number; y: number }[];
   }) => void;
-  'grid:update': (grid: GridSettings) => void;
+  'grid:update': (payload: { mapId: string; grid: GridSettings }) => void;
   'player:remove': (payload: { id: string }) => void;
   'token:add': (payload: { mapId: string; libraryItemId: string; x: number; y: number }) => void;
   'token:move': (payload: { mapId: string; id: string; x: number; y: number }) => void;

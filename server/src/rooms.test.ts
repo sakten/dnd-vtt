@@ -267,6 +267,7 @@ describe('RoomManager ход', () => {
             vision: { los: false, darkness: false },
             lightAreas: [],
             fog: defaultFog(DEFAULT_GRID),
+            grid: { ...DEFAULT_GRID },
             combat: emptyCombatState(),
           },
         ],

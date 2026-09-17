@@ -22,10 +22,10 @@ import { applyEffectTo, removeZoneEffects } from './effectsApply';
  * Клиенту зоны приезжают в `maps:update` (поле `zones` карты).
  */
 
-const gridOf = (room: Room) => ({
-  size: room.scene.grid.size || 50,
-  offsetX: room.scene.grid.offsetX,
-  offsetY: room.scene.grid.offsetY,
+const gridOf = (map: MapInfo) => ({
+  size: map.grid.size || 50,
+  offsetX: map.grid.offsetX,
+  offsetY: map.grid.offsetY,
 });
 
 /** Ключ текущего хода карты (для `enterOncePerTurn`); вне боя — null. */
@@ -56,7 +56,7 @@ function insideTokens(
 ): Token[] {
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return [];
-  const grid = gridOf(room);
+  const grid = gridOf(map);
   if (containment === 'fullyWithin') {
     return map.tokens.filter((t) => tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid));
   }

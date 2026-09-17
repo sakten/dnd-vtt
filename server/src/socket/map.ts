@@ -1,5 +1,6 @@
 import {
   isRecord,
+  normalizeGrid,
   normalizeLightAreas,
   snapToGrid,
   type Wall,
@@ -18,7 +19,9 @@ export function registerMapHandlers(ctx: ConnCtx) {
       const width = Number(payload?.width);
       const height = Number(payload?.height);
       if (!url || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
-      manager.addMap(room, { name: name || 'Карта', url, width, height });
+      // Сетку можно передать сразу (авто-выравнивание новой карты).
+      const grid = payload?.grid !== undefined ? normalizeGrid(payload.grid, room.scene.grid) : undefined;
+      manager.addMap(room, { name: name || 'Карта', url, width, height, ...(grid ? { grid } : {}) });
       broadcastMaps(room);
     });
 
@@ -124,38 +127,27 @@ export function registerMapHandlers(ctx: ConnCtx) {
       broadcast('areas:update', { mapId, lightAreas: map.lightAreas });
     });
 
-    ctx.on('grid:update', (grid) => {
+    ctx.on('grid:update', ({ mapId: rawMapId, grid }) => {
       const room = dmRoom();
-      if (!room || !isRecord(grid)) return;
-      const size = Number(grid.size);
-      const offsetX = Number(grid.offsetX);
-      const offsetY = Number(grid.offsetY);
-      if (!Number.isFinite(size) || size < 5 || size > 1000) return;
-      if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return;
-      const opacity = Number(grid.opacity);
-      const next = {
-        ...grid,
-        size,
-        offsetX,
-        offsetY,
-        opacity: Number.isFinite(opacity) ? Math.min(1, Math.max(0, opacity)) : 0.35,
-      };
+      const mapId = asString(rawMapId);
+      if (!room || !mapId || !isRecord(grid)) return;
+      const map = room.scene.maps.find((m) => m.id === mapId);
+      if (!map) return;
+      const next = normalizeGrid(grid, map.grid);
+      map.grid = next;
+      // Дефолт комнаты — последняя настроенная сетка (с неё начинают новые карты).
       room.scene.grid = next;
-      for (const map of room.scene.maps) {
-        map.fog = { ...map.fog, size: next.size, offsetX: next.offsetX, offsetY: next.offsetY };
-        for (const token of map.tokens) {
-          token.w = token.cells * next.size;
-          token.h = token.cells * next.size;
-          if (next.snap) {
-            token.x = snapToGrid(token.x, next.offsetX, next.size, token.cells);
-            token.y = snapToGrid(token.y, next.offsetY, next.size, token.cells);
-          }
+      map.fog = { ...map.fog, size: next.size, offsetX: next.offsetX, offsetY: next.offsetY };
+      for (const token of map.tokens) {
+        token.w = token.cells * next.size;
+        token.h = token.cells * next.size;
+        if (next.snap) {
+          token.x = snapToGrid(token.x, next.offsetX, next.size, token.cells);
+          token.y = snapToGrid(token.y, next.offsetY, next.size, token.cells);
         }
       }
-      broadcast('grid:update', next);
-      for (const map of room.scene.maps) {
-        for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
-      }
+      broadcast('grid:update', { mapId, grid: next });
+      for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
     });
 
 }

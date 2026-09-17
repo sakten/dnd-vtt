@@ -1,4 +1,4 @@
-import { gridDistanceFeet, type CharacterSheet, type Token } from 'shared';
+import { gridDistanceFeet, type CharacterSheet, type MapInfo, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 
 /** Все upload-ссылки, на которые ссылается состояние комнаты (карты, токены, библиотека). */
@@ -20,14 +20,20 @@ export function sheetOfToken(room: Room, token: Token): { controllerId?: string;
   return { controllerId, sheet: controllerId ? room.sheets[controllerId] : undefined };
 }
 
-/** Размер клетки в футах (дефолт 50). */
-export function gridSizeOf(room: Room): number {
-  return room.scene.grid.size || 50;
+/** Размер клетки карты в футах (дефолт 50). */
+export function gridSizeOfMap(map: MapInfo): number {
+  return map.grid.size || 50;
 }
 
-/** Токены в пределах N футов друг от друга по сетке. */
+/** Размер клетки карты, на которой лежит токен (дефолт 50). */
+export function gridSizeOfToken(room: Room, token: Token): number {
+  const map = room.scene.maps.find((m) => m.tokens.some((t) => t.id === token.id));
+  return map ? gridSizeOfMap(map) : 50;
+}
+
+/** Токены в пределах N футов друг от друга по сетке их карты. */
 export function withinFeet(room: Room, a: Token, b: Token, feet: number): boolean {
-  return gridDistanceFeet(a, b, gridSizeOf(room)) <= feet;
+  return gridDistanceFeet(a, b, gridSizeOfToken(room, a)) <= feet;
 }
 
 /** id игрока-контролёра предмета библиотеки. */

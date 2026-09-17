@@ -31,7 +31,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
-import { gridSizeOf, sheetOfToken } from '../rooms';
+import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { applyEffectTo } from './effectsApply';
@@ -121,7 +121,7 @@ function tokensAround(
   if (!map) return includeSelf ? [caster] : [];
   return map.tokens.filter((token) => {
     if (token.id === caster.id) return includeSelf;
-    if (gridDistanceFeet(token, caster, gridSizeOf(room)) > feet) return false;
+    if (gridDistanceFeet(token, caster, gridSizeOfMap(map)) > feet) return false;
     return side === 'hostile'
       ? hostileTokens(caster, token)
       : token.faction === caster.faction && token.faction !== 'neutral';
@@ -532,7 +532,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   if (!def.attack) return;
   const { rangeType } = def.attack;
   const castMap = ctx.manager.findMap(room, mapId);
-  const gridSize = gridSizeOf(room);
+  const gridSize = castMap ? gridSizeOfMap(castMap) : 50;
   for (let i = 0; i < count; i++) {
     // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];

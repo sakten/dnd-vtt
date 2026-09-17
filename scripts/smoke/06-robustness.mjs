@@ -13,7 +13,7 @@ socket.emit('token:lock', null);
 socket.emit('token:remove', null);
 socket.emit('map:add', null);
 socket.emit('fog:update', { mapId: null, fog: null });
-socket.emit('grid:update', { size: NaN, offsetX: 'x' });
+socket.emit('grid:update', { mapId: 'nope', grid: { size: NaN, offsetX: 'x' } });
 socket.emit('combat:add', null);
 socket.emit('dice:attack', null);
 socket.emit('dice:roll', null);

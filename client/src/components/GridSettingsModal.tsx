@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { GridSettings } from 'shared';
 import { useGameStore } from '../store/useGameStore';
-import { activeMapOf } from '../store/selectors';
+import { activeGridOf, activeMapOf } from '../store/selectors';
 import { GRID_AUTO_CONFIDENCE } from '../lib/gridDetect';
 import { detectGridFromUrl } from '../lib/gridDetectImage';
 import { CheckboxRow, Field } from './Field';
 import Modal from './Modal';
 
 export default function GridSettingsModal() {
-  const grid = useGameStore((s) => s.scene.grid);
+  const grid = useGameStore(activeGridOf);
   const updateGrid = useGameStore((s) => s.updateGrid);
   const close = useGameStore((s) => s.setGridModalOpen);
   const map = useGameStore(activeMapOf);
