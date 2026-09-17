@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { rollMessageLabel, type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
+import { type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
+import { rollMessageLabel } from '../i18n/rolls';
 import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';

@@ -1,10 +1,10 @@
 import {
   isCriticalHit,
   parseDiceExpression,
-  rollMessageLabel,
 } from 'shared';
 import { emit } from '../helpers';
 import { errorText } from '../../i18n/errors';
+import { rollMessageLabel } from '../../i18n/rolls';
 import type { GameState, Slice } from '../types';
 
 export const createChatSlice: Slice<Pick<GameState, 'onChatMessage' | 'onChatError' | 'sendChat' | 'rollDice' | 'rollAttack'>> = (set, get) => {
