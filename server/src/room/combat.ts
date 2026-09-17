@@ -11,7 +11,6 @@ import {
   modifiedValue,
   restrictionsFor,
   rollDice,
-  statNumber,
   type AbilityKey,
   type ActionCost,
   type CombatState,
