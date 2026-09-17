@@ -25,6 +25,7 @@ import {
   withRollParts,
   type AttackEntry,
   type DiceRollResult,
+  type ErrorPayload,
   type RollLabelParams,
   type Token,
 } from 'shared';
@@ -54,7 +55,7 @@ export interface AttackResolveInput {
 
 export interface AttackResolveResult {
   /** Причина, почему атаку нельзя совершить (вне дистанции и т.п.). */
-  error?: string;
+  error?: ErrorPayload;
   hitSuccess?: boolean;
   crit?: boolean;
   hitRoll?: DiceRollResult;
@@ -108,7 +109,7 @@ export interface WeaponAttackPrep {
 export function prepareWeaponAttack(
   ctx: ConnCtx,
   input: AttackResolveInput
-): { error?: string; prep?: WeaponAttackPrep } {
+): { error?: ErrorPayload; prep?: WeaponAttackPrep } {
   const { manager } = ctx;
   const room = ctx.getRoom();
   if (!room) return {};
@@ -148,7 +149,9 @@ export function prepareWeaponAttack(
         );
         const range = attackRange(attack, distanceFeet, adjacentEnemy, reachBonus);
         if (range.outOfRange) {
-          return { error: `${range.reason ?? 'Вне зоны'}: ${Math.round(distanceFeet)} фт` };
+          return {
+            error: range.error ?? { code: 'attackOutOfRange', params: { feet: Math.round(distanceFeet) } },
+          };
         }
         forcedDisadvantage = range.disadvantage;
         forcedDisadvantageCode = range.disadvantageCode;

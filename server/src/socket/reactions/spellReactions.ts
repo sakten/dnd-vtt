@@ -9,6 +9,7 @@ import {
   rollDice,
   spellEffectDefs,
   type EffectInstance,
+  type ErrorPayload,
   type ReactionOption,
   type ReactionTriggerKind,
   type Token,
@@ -183,7 +184,7 @@ function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, inp
 }
 
 /** Каст с окном Counterspell (до резолва); экономика и проверки — на вызывающем. */
-export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInput): { error?: string } {
+export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInput): { error?: ErrorPayload } {
   const room = ctx.getRoom();
   if (!room) return resolveSpellCast(ctx, input);
   const offers = counterspellOffers(ctx, room, input);

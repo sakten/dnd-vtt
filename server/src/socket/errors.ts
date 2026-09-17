@@ -19,7 +19,19 @@ export type ErrorCode =
   | 'noResource'
   | 'checkFailed'
   | 'badRoll'
-  | 'doorLockedInCombat';
+  | 'doorLockedInCombat'
+  | 'attackOutOfReach'
+  | 'attackTooFar'
+  | 'attackOutOfRange'
+  | 'spellNoTarget'
+  | 'spellNoAttack'
+  | 'spellNoDc'
+  | 'rollEmpty'
+  | 'rollNoDice'
+  | 'rollSyntax'
+  | 'rollDiceCount'
+  | 'rollDieSides'
+  | 'rollKeepRange';
 
 export interface ErrorParams {
   /** Футы для `outOfRange`. */

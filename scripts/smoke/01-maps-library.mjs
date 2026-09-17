@@ -148,7 +148,7 @@ check(!foreignAdded, 'игрок не ставит чужого NPC из биб�
 const rangeErrP = eventOnce(S.player, 'chat:error');
 S.player.emit('dice:attack', { tokenId: summonAdd.token.id, targetId: statueAdd.token.id, attackIndex: 0 });
 const rangeErr = await rangeErrP;
-check(/Вне досягаемости/.test(rangeErr), 'ближняя атака вне досягаемости запрещена');
+check(rangeErr?.code === 'attackOutOfReach', 'ближняя атака вне досягаемости запрещена');
 const statueRemoved = eventOnce(S.player, 'token:remove');
 S.dm.emit('token:remove', { mapId: S.map1.id, id: statueAdd.token.id });
 await statueRemoved;

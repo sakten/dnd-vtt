@@ -3,6 +3,7 @@ import {
   gridDistanceFeet,
   spellIsSelf,
   spellRangeFeet,
+  type ErrorPayload,
   type Spell,
   type SpellStats,
   type Token,
@@ -30,7 +31,7 @@ export interface SpellCastInput {
 }
 
 /** Проверка возможности накладывания (до списания ячейки/слота). */
-export function validateSpellCast(room: Room, input: SpellCastInput): string | undefined {
+export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPayload | undefined {
   const { caster, spell } = input;
   const def = automationForSpell(spell, {
     castLevel: input.castLevel,
@@ -40,15 +41,15 @@ export function validateSpellCast(room: Room, input: SpellCastInput): string | u
   const hasRoll = !!(def.damage || def.heal);
 
   if (def.effects?.some((d) => d.markTarget) && !targets[0]) {
-    return 'Не выбрана цель';
+    return { code: 'spellNoTarget' };
   }
 
   if (def.attack && hasRoll) {
-    if (!input.stats) return 'Нет заклинательной атаки';
-    if (!targets[0]) return 'Не выбрана цель';
+    if (!input.stats) return { code: 'spellNoAttack' };
+    if (!targets[0]) return { code: 'spellNoTarget' };
   } else if (def.save && hasRoll) {
-    if (!input.stats) return 'Нет сложности заклинаний';
-    if (!targets.length && !input.area) return 'Не выбрана цель';
+    if (!input.stats) return { code: 'spellNoDc' };
+    if (!targets.length && !input.area) return { code: 'spellNoTarget' };
   }
 
   if (input.area) return undefined;
@@ -59,7 +60,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): string | u
   for (const target of targets) {
     if (target.id === caster.id) continue;
     const feet = gridDistanceFeet(caster, target, gridSize);
-    if (feet > rangeFeet) return `Вне дистанции: ${Math.round(feet)} фт`;
+    if (feet > rangeFeet) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
   }
   return undefined;
 }
@@ -68,7 +69,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): string | u
  * Резолв заклинания через generic-executor. Валидацию и экономику ведёт
  * вызывающий (`spells.ts` — до списания ячейки/слота; реакции — при выборе).
  */
-export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?: string } {
+export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?: ErrorPayload } {
   const room = ctx.getRoom();
   if (!room) return {};
   const def = automationForSpell(input.spell, {

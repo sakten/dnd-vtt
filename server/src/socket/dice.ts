@@ -33,7 +33,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
             : { author: player?.name ?? '?', roll, label: cleanLabel(label) }
         );
       } catch (e) {
-        if (e instanceof DiceParseError) socket.emit('chat:error', e.message);
+        if (e instanceof DiceParseError) socket.emit('chat:error', { code: e.code, params: e.params });
         else fail(ctx, 'badRoll');
       }
     });

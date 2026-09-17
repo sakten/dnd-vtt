@@ -525,7 +525,7 @@ describe('attackRange', () => {
     expect(attackRange({ rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }, 5, false).outOfRange).toBe(false);
     const far = attackRange({ rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }, 10, false);
     expect(far.outOfRange).toBe(true);
-    expect(far.reason).toBe('Вне досягаемости');
+    expect(far.error?.code).toBe('attackOutOfReach');
   });
 
   it('ranged — обычная/дальняя дистанция', () => {
@@ -534,7 +534,7 @@ describe('attackRange', () => {
     expect(attackRange(bow, 160, false).disadvantage).toBe(true);
     const far = attackRange(bow, 400, false);
     expect(far.outOfRange).toBe(true);
-    expect(far.reason).toBe('Слишком далеко');
+    expect(far.error?.code).toBe('attackTooFar');
   });
 
   it('ranged — враг в соседней клетке даёт помеху', () => {

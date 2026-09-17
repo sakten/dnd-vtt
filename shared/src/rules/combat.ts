@@ -1,3 +1,4 @@
+import type { ErrorPayload } from '../domain/chat';
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { ConditionInstance } from '../domain/effects';
 import type { CharacterSheet, ClassLevel } from '../domain/sheet';
@@ -122,7 +123,8 @@ export interface AttackRangeResult {
   disadvantageCode?: 'adjacent' | 'long';
   disadvantageReason?: string;
   distanceFeet: number;
-  reason?: string;
+  /** Структурная причина, почему атаковать нельзя. */
+  error?: ErrorPayload;
 }
 
 export interface GridBox {
@@ -198,14 +200,24 @@ export function attackRange(
   if (type === 'melee') {
     const reach = (attack.rangeNormal > 0 ? attack.rangeNormal : 5) + Math.max(0, reachBonus);
     if (distanceFeet > reach) {
-      return { outOfRange: true, disadvantage: false, distanceFeet, reason: 'Вне досягаемости' };
+      return {
+        outOfRange: true,
+        disadvantage: false,
+        distanceFeet,
+        error: { code: 'attackOutOfReach', params: { feet: Math.round(distanceFeet) } },
+      };
     }
     return { outOfRange: false, disadvantage: false, distanceFeet };
   }
   const normal = attack.rangeNormal > 0 ? attack.rangeNormal : 0;
   const long = attack.rangeLong > 0 ? attack.rangeLong : 0;
   if (long > 0 && distanceFeet > long) {
-    return { outOfRange: true, disadvantage: false, distanceFeet, reason: 'Слишком далеко' };
+    return {
+      outOfRange: true,
+      disadvantage: false,
+      distanceFeet,
+      error: { code: 'attackTooFar', params: { feet: Math.round(distanceFeet) } },
+    };
   }
   if (adjacentEnemy) {
     return {

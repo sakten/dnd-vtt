@@ -606,7 +606,7 @@ describe('action:use', () => {
 
     expect(withReach.error).toBeUndefined();
     expect(withReach.hitSuccess).toBe(true);
-    expect(without.error).toContain('досягаемости');
+    expect(without.error?.code).toBe('attackOutOfReach');
   });
 
   it('Шквал ударов: бонусное действие, фокус и +2 доп. атаки', () => {

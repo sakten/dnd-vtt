@@ -24,10 +24,24 @@ export interface DiceRollResult {
   breakdown: string;
 }
 
+export type DiceErrorCode =
+  | 'rollEmpty'
+  | 'rollNoDice'
+  | 'rollSyntax'
+  | 'rollDiceCount'
+  | 'rollDieSides'
+  | 'rollKeepRange';
+
+/** Ошибка разбора выражения; текст рендерит клиент по `code` (i18n). */
 export class DiceParseError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly code: DiceErrorCode;
+  readonly params?: Record<string, string | number>;
+
+  constructor(code: DiceErrorCode, params?: Record<string, string | number>) {
+    super(code);
     this.name = 'DiceParseError';
+    this.code = code;
+    this.params = params;
   }
 }
 
@@ -36,7 +50,7 @@ const MAX_SIDES = 1000;
 
 export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier: number } {
   const s = expr.replace(/\s+/g, '').toLowerCase();
-  if (s.length === 0) throw new DiceParseError('Пустое выражение');
+  if (s.length === 0) throw new DiceParseError('rollEmpty');
 
   const dice: ParsedDie[] = [];
   let modifier = 0;
@@ -50,9 +64,9 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
     advantage: 'a' | 'd' | null,
     sign: DieSign
   ) => {
-    if (count < 1 || count > MAX_DICE) throw new DiceParseError(`Количество кубиков должно быть от 1 до ${MAX_DICE}`);
-    if (sides < 2 || sides > MAX_SIDES) throw new DiceParseError(`Граней должно быть от 2 до ${MAX_SIDES}`);
-    if (keep !== null && (keep < 1 || keep > count)) throw new DiceParseError('k должно быть от 1 до количества кубиков');
+    if (count < 1 || count > MAX_DICE) throw new DiceParseError('rollDiceCount', { max: MAX_DICE });
+    if (sides < 2 || sides > MAX_SIDES) throw new DiceParseError('rollDieSides', { max: MAX_SIDES });
+    if (keep !== null && (keep < 1 || keep > count)) throw new DiceParseError('rollKeepRange', { max: count });
     dice.push({ count, sides, keep, advantage, sign });
   };
 
@@ -96,10 +110,10 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
       pos += m[0].length;
       continue;
     }
-    throw new DiceParseError(`Не понял символ «${rest[0]}» в выражении «${expr}»`);
+    throw new DiceParseError('rollSyntax', { char: rest[0] ?? '', expr });
   }
 
-  if (dice.length === 0 && !sawNumber) throw new DiceParseError('В выражении нет кубиков (например: d20, 2d6+3)');
+  if (dice.length === 0 && !sawNumber) throw new DiceParseError('rollNoDice');
   return { dice, modifier };
 }
 

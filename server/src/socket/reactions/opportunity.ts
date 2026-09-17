@@ -54,7 +54,7 @@ export function executeOpportunityAttack(
     author: reactor.name,
     ignoreRange: true,
   });
-  if (result.error) ctx.systemMessage(room, `${reactor.name}: ${result.error}`);
+  if (result.error) ctx.systemMessage(room, `${reactor.name}: ${result.error.code}`);
   ctx.syncCombat(room, mapId);
 }
 
