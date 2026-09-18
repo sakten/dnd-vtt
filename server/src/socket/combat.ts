@@ -103,7 +103,10 @@ export function registerCombatHandlers(ctx: ConnCtx) {
         return;
       }
       tickActiveTurn(ctx, room, mapId, 'end');
-      manager.endTurn(room, mapId);
+      const skippedLegendary = manager.endTurn(room, mapId);
+      if (skippedLegendary.length) {
+        ctx.systemMessage(room, { code: 'combat.legendaryExhausted', params: { name: skippedLegendary[0]! } });
+      }
       tickActiveTurn(ctx, room, mapId, 'start');
       syncCombat(room, mapId);
     });

@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { spellActionCost, spellAreaOrigin, spellAutomated, spellRangeFeet, type Spell } from 'shared';
+import {
+  spellActionCost,
+  spellAreaOrigin,
+  spellAutomated,
+  spellRangeFeet,
+  type ActionCost,
+  type Spell,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { spellDisplayName } from '../i18n/names';
@@ -12,15 +19,18 @@ interface Props {
   spell: Spell;
   tokenId: string;
   onClose: () => void;
+  /** Легендарная способность-заклинание: применение через `action:use`, без ячейки. */
+  abilityAction?: { id: string; slot: ActionCost };
 }
 
 /** Поповер накладывания заклинания: круг (апкаст), цель, преимущество. */
-export default function SpellPopover({ spell, tokenId, onClose }: Props) {
+export default function SpellPopover({ spell, tokenId, onClose, abilityAction }: Props) {
   const resources = useGameStore((s) => s.resources);
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const map = useActiveMap();
   const castSpell = useGameStore((s) => s.castSpell);
+  const runAction = useGameStore((s) => s.runAction);
   const startAim = useGameStore((s) => s.startAim);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
   const startTargeting = useGameStore((s) => s.startTargeting);
@@ -44,12 +54,14 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
   const mode: 'a' | 'd' | undefined = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
 
   const submit = () => {
-    if (!info.canCast) return;
+    if (!abilityAction && !info.canCast) return;
+    const common = abilityAction
+      ? { actionId: abilityAction.id, slot: abilityAction.slot }
+      : { spellKey: spell.key, slotLevel: info.slotLevel };
     if (info.area && spell.areaSpec) {
       startAim({
         tokenId,
-        spellKey: spell.key,
-        slotLevel: info.slotLevel,
+        ...common,
         advantage: mode,
         spec: spell.areaSpec,
         originKind: spellAreaOrigin(spell),
@@ -58,18 +70,21 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
     } else if (info.multi) {
       startMultiTarget({
         tokenId,
-        spellKey: spell.key,
-        slotLevel: info.slotLevel,
+        ...common,
         advantage: mode,
         count: info.multiCount,
         distinct: info.multiKind === 'targets',
       });
     } else if (info.self) {
-      castSpell({
+      if (abilityAction) runAction(tokenId, abilityAction.id, { slot: abilityAction.slot });
+      else castSpell({ tokenId, spellKey: spell.key, slotLevel: info.slotLevel, advantage: mode });
+    } else if (abilityAction) {
+      startTargeting({
+        kind: 'action',
         tokenId,
-        spellKey: spell.key,
-        slotLevel: info.slotLevel,
-        advantage: mode,
+        actionId: abilityAction.id,
+        slot: abilityAction.slot,
+        label: spellDisplayName(spell),
       });
     } else {
       startTargeting({
@@ -94,7 +109,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
             <div className="sp-name">{spellDisplayName(spell)}</div>
             <div className="sp-meta">
               {info.isCantrip ? t('ui.spellPopover.cantrip') : t('ui.spellPopover.level', { n: spell.level })} ·{' '}
-              {actionCostText(spellActionCost(spell))}
+              {actionCostText(abilityAction ? abilityAction.slot : spellActionCost(spell))}
             </div>
           </div>
           <button className="sp-close" aria-label={t('ui.common.close')} onClick={onClose}>
@@ -102,7 +117,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </button>
         </div>
 
-        {info.levels.length > 1 && (
+        {!abilityAction && info.levels.length > 1 && (
           <div className="sp-row">
             <span className="sp-label">{t('ui.spellPopover.slotLevel')}</span>
             <div className="sp-levels">
@@ -119,7 +134,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           </div>
         )}
 
-        {!info.canCast && <div className="sp-warn">{t('ui.spellPopover.noSlot')}</div>}
+        {!abilityAction && !info.canCast && <div className="sp-warn">{t('ui.spellPopover.noSlot')}</div>}
 
         {info.area ? (
           <div className="sp-row">
@@ -197,7 +212,7 @@ export default function SpellPopover({ spell, tokenId, onClose }: Props) {
           <button className="sp-cancel" onClick={onClose}>
             {t('ui.common.cancel')}
           </button>
-          <button className="sp-cast" disabled={!info.canCast} onClick={submit}>
+          <button className="sp-cast" disabled={!abilityAction && !info.canCast} onClick={submit}>
             {info.area
               ? t('ui.spellPopover.chooseArea')
               : info.multi

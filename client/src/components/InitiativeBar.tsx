@@ -28,7 +28,7 @@ export default function InitiativeBar() {
   const activeIndex =
     combat.currentIndex >= 0 && combat.currentIndex < combat.entries.length ? combat.currentIndex : -1;
   const activeEntry = activeIndex >= 0 ? combat.entries[activeIndex] : null;
-  const turn = activeEntry ? combat.turns[activeEntry.id] : undefined;
+  const turn = activeEntry ? combat.turns[activeEntry.legendaryOwnerId ?? activeEntry.id] : undefined;
   const movementLeft = turn ? turn.movementMax - turn.movementUsed : 0;
 
   const scrollBy = (dir: number) => {
@@ -104,14 +104,20 @@ export default function InitiativeBar() {
           <div
             key={entry.id}
             className={`initiative-chip${index === activeIndex ? ' active' : ''}${
-              hoverTokenId && hoverTokenId === entry.tokenId ? ' hovered' : ''
-            }${dragOverId === entry.id ? ' drop' : ''}`}
+              entry.legendaryOwnerId ? ' legendary' : ''
+            }${hoverTokenId && hoverTokenId === entry.tokenId ? ' hovered' : ''}${
+              dragOverId === entry.id ? ' drop' : ''
+            }`}
             data-testid="initiative-chip"
-            title={t('ui.initiative.chipTitle', {
-              name: entry.name,
-              initiative: entry.initiative,
-              bonus: entry.bonus ? ` (${entry.bonus})` : '',
-            })}
+            title={
+              entry.legendaryOwnerId
+                ? `${entry.name} — ${t('ui.initiative.legendaryChip')}`
+                : t('ui.initiative.chipTitle', {
+                    name: entry.name,
+                    initiative: entry.initiative,
+                    bonus: entry.bonus ? ` (${entry.bonus})` : '',
+                  })
+            }
             draggable={isDm}
             onMouseEnter={() => entry.tokenId && setHoverToken(entry.tokenId)}
             onMouseLeave={() => setHoverToken(null)}

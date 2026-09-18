@@ -72,6 +72,10 @@ export interface TokenStatblock {
     /** Выбранные заклинания статблока (ключи); список ограничивает каст. */
     spells?: string[];
   };
+  /** Бонус к попаданию атак монстра по умолчанию; пусто — +3. */
+  attackBonus?: string;
+  /** СЛ спасбросков монстра по умолчанию; пусто — 10. */
+  saveDc?: number;
   /** Число атак за действие (мультиатака), по умолчанию 1. */
   multiattack?: number;
   legendary?: { max: number; actions: ActionDef[] };

@@ -237,6 +237,49 @@ describe('normalizeActions', () => {
     expect(list[1]!.costs).toEqual(['action']);
     expect(list[2]!.costs).toEqual(['action']);
   });
+
+  it('способности монстра: стоимость, перезарядка, механика, заклинание', () => {
+    const list = normalizeActions([
+      {
+        name: 'Рёв',
+        costs: [],
+        legendaryCost: 2,
+        recharge: 3,
+        source: 'monster',
+        targeting: { kind: 'area', range: 60, area: { shape: 'sphere', size: 20 } },
+        ability: {
+          save: { ability: 'wis' },
+          dc: 15,
+          damage: { dice: '2d6', types: ['psychic', 'nope'] },
+          effects: [{ condition: 'stunned', duration: { type: 'rounds', rounds: 2 } }],
+        },
+      },
+      {
+        name: 'Хвост',
+        costs: ['action'],
+        legendaryCost: 1,
+        ability: { attack: { rangeType: 'melee', bonus: '+7', damage: '1d8+4', types: ['bludgeoning'] } },
+      },
+      { name: 'Искра', costs: [], legendaryCost: 1, spellKey: 'XPHB:Fireball' },
+      { name: 'Кривой', costs: [], legendaryCost: 1, ability: { damage: { dice: 'abc' } } },
+      { name: 'Пустое', costs: [] },
+    ]);
+    expect(list[0]!.costs).toEqual([]);
+    expect(list[0]!.legendaryCost).toBe(2);
+    expect(list[0]!.recharge).toBe(3);
+    expect(list[0]!.ability?.save).toEqual({ ability: 'wis' });
+    expect(list[0]!.ability?.damage).toEqual({ dice: '2d6', types: ['psychic'] });
+    expect(list[0]!.ability?.effects?.[0]!.condition).toBe('stunned');
+    expect(list[1]!.ability?.attack).toEqual({
+      rangeType: 'melee',
+      bonus: '+7',
+      damage: '1d8+4',
+      types: ['bludgeoning'],
+    });
+    expect(list[2]!.spellKey).toBe('XPHB:Fireball');
+    expect(list[3]!.ability).toBeUndefined();
+    expect(list[4]!.costs).toEqual(['action']);
+  });
 });
 
 describe('normalizeStatblock', () => {
@@ -247,6 +290,15 @@ describe('normalizeStatblock', () => {
     expect(statblock?.abilities.int).toBe(10);
     expect(statblock?.saves?.str).toBe(5);
     expect(normalizeStatblock(undefined)).toBeUndefined();
+  });
+
+  it('бонус атаки и СЛ по умолчанию', () => {
+    const statblock = normalizeStatblock({ abilities: {}, attackBonus: '+7', saveDc: 15 });
+    expect(statblock?.attackBonus).toBe('+7');
+    expect(statblock?.saveDc).toBe(15);
+    const empty = normalizeStatblock({ abilities: {}, attackBonus: 'abc', saveDc: 0 });
+    expect(empty?.attackBonus).toBeUndefined();
+    expect(empty?.saveDc).toBeUndefined();
   });
 
   it('ячейки и список заклинаний кастера-монстра', () => {

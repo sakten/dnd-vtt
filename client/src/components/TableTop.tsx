@@ -1,12 +1,23 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Group, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
-import type { LightArea, MapInfo, Token, Wall, ZoneInstance } from 'shared';
-import { areaCells, gridDistanceFeet, reachableCells, segmentRectDistance, sightContextOf, snapToGrid, zoneVisionKind } from 'shared';
+import type { AttackRangeType, CharacterSheet, LightArea, MapInfo, Token, Wall, ZoneInstance } from 'shared';
+import {
+  BASE_ACTIONS,
+  areaCells,
+  countAttackAdvantage,
+  gridDistanceFeet,
+  reachableCells,
+  segmentRectDistance,
+  sightContextOf,
+  snapToGrid,
+  zoneVisionKind,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
+import type { TargetingState } from '../domain/interaction';
 import { useImage } from '../lib/useImage';
 import { visibleCells } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
@@ -54,6 +65,29 @@ function TokenGhost({ token, x, y }: { token: Token; x: number; y: number }) {
 const cellIndex = (v: number, offset: number, size: number) => Math.floor((v - offset) / size);
 const cellKey = (cx: number, cy: number) => `${cx},${cy}`;
 
+/** Тип дистанции выбранной атаки: оружие/безоружный удар/способность-атака; null — не атака. */
+function attackRangeTypeOf(
+  targeting: TargetingState,
+  attacker: Token,
+  sheet: CharacterSheet | null | undefined,
+  currentCharacterId: string | null
+): AttackRangeType | null {
+  const index = 'attackIndex' in targeting ? targeting.attackIndex : undefined;
+  if (index !== undefined) {
+    const attacks =
+      currentCharacterId !== null && attacker.libraryItemId === currentCharacterId && sheet
+        ? sheet.attacks
+        : attacker.attacks;
+    return attacks[index]?.rangeType ?? null;
+  }
+  if (targeting.kind !== 'action') return null;
+  const action =
+    attacker.statblock?.actions?.find((a) => a.id === targeting.actionId) ??
+    BASE_ACTIONS.find((a) => a.id === targeting.actionId);
+  if (action?.ability?.attack) return action.ability.attack.rangeType;
+  return action?.id === 'unarmedStrike' ? 'melee' : null;
+}
+
 const WALL_COLORS: Record<Wall['kind'], string> = {
   wall: '#e6e8ee',
   door: '#e0a458',
@@ -81,6 +115,7 @@ export default function TableTop() {
   const paintRef = useRef<{ pressed: boolean; start: WorldPoint | null }>({ pressed: false, start: null });
   const [rectPreview, setRectPreview] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [wallCursor, setWallCursor] = useState<{ x: number; y: number } | null>(null);
+  const [attackCursor, setAttackCursor] = useState<WorldPoint | null>(null);
   const [doorHover, setDoorHover] = useState<{ id: string; state: 'open' | 'blocked' } | null>(null);
   const wallPressRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -110,6 +145,8 @@ export default function TableTop() {
   const targeting = interaction?.mode === 'target' ? interaction.target : null;
   const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
   const activeMap = useActiveMap();
+  const sheet = useGameStore((s) => s.sheet);
+  const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
   // Границы расчёта вижна: вьюпорт ∩ карта, с запасом 2 клетки и квантованием по 2 клетки.
   const cellBounds = useMemo(() => {
@@ -130,6 +167,10 @@ export default function TableTop() {
       setWallCursor(null);
     }
   }, [wallsMode.active]);
+
+  useEffect(() => {
+    if (!targeting) setAttackCursor(null);
+  }, [targeting]);
 
   // id активной записи инициативы, которой управляет текущий пользователь (для подсветки хода).
   const activeControlId = useGameStore((s) => {
@@ -195,8 +236,16 @@ export default function TableTop() {
     const to = tokenById(activeMap, hoverTokenId);
     if (!from || !to || from.id === to.id) return null;
     const feet = gridDistanceFeet(from, to, grid.size || 50);
-    return { from, to, feet };
-  }, [activeMap, targeting, hoverTokenId, grid.size]);
+    const rangeType = attackRangeTypeOf(targeting, from, sheet, currentCharacterId);
+    const attackMode = rangeType
+      ? countAttackAdvantage({
+          attackerConditions: from.conditions,
+          targetConditions: to.conditions,
+          rangeType,
+        }).mode ?? null
+      : undefined;
+    return { from, to, feet, attackMode };
+  }, [activeMap, targeting, hoverTokenId, grid.size, sheet, currentCharacterId]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -466,6 +515,12 @@ export default function TableTop() {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       if (stage && pointer) aimToCursor(toWorld(stage, pointer));
+      return;
+    }
+    if (targeting) {
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) setAttackCursor(toWorld(stage, pointer));
       return;
     }
     // Игрок: курсор-замочек над дверью (открытый — можно, закрытый — только DM).
@@ -951,6 +1006,19 @@ export default function TableTop() {
                   strokeWidth={3 / view.scale}
                   fillAfterStrokeEnabled
                 />
+                {measure.attackMode !== undefined && attackCursor && (
+                  <Text
+                    text="⚔"
+                    x={attackCursor.x}
+                    y={attackCursor.y}
+                    fontSize={22 / view.scale}
+                    fill={measure.attackMode === 'a' ? '#4ecb71' : measure.attackMode === 'd' ? '#ff6b6b' : '#c9ced6'}
+                    stroke="#000000"
+                    strokeWidth={3 / view.scale}
+                    fillAfterStrokeEnabled
+                    listening={false}
+                  />
+                )}
               </>
             )}
           </Layer>

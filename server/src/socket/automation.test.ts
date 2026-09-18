@@ -1,9 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import { automationForSpell } from 'shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  automationForSpell,
+  monsterAbilityAutomation,
+  monsterStats,
+  type ActionDef,
+  type ChatMessage,
+} from 'shared';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
+
+const isAttackRoll = (m: ChatMessage): m is Extract<ChatMessage, { kind: 'roll' }> =>
+  m.kind === 'roll' && m.rollKind === 'attack';
 
 function setup() {
   const room = makeCombatRoom(
@@ -87,5 +96,243 @@ describe('концентрация заклинаний с зонами', () => 
 
     expect(map.zones?.map((z) => z.sourceKey)).toEqual(['XPHB:Hunger of Hadar']);
     expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Spirit Guardians')).toBe(false);
+  });
+});
+
+describe('AoE-урон в чат', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('один бросок урона на весь каст, без дублей по целям', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const t2 = map.tokens[1]!;
+    const t3 = makeToken('t3', { x: 200, y: 100, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(t3);
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Fireball')!, { castLevel: 3, characterLevel: 5 }),
+      targets: [t2, t3],
+      stats,
+      author: 'DM',
+      origin: { x: 175, y: 100 },
+    });
+
+    const damageMsgs = room.chat.filter((m) => m.kind === 'roll' && m.rollKind === 'damage');
+    expect(damageMsgs).toHaveLength(1);
+  });
+});
+
+describe('способности монстров', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const venom: ActionDef = {
+    id: 'venom',
+    name: 'Ядовитый укус',
+    source: 'monster',
+    costs: ['action'],
+    ability: {
+      attack: { rangeType: 'melee', bonus: '+5', damage: '1d6+3', types: ['piercing'] },
+      save: { ability: 'con' },
+      effects: [{ condition: 'poisoned', duration: { type: 'rounds', rounds: 2 } }],
+    },
+  };
+
+  it('атака способности: урон при попадании, состояние — по провалу сейва', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(venom)!,
+      targets: [target],
+      stats: monsterStats(undefined, venom.ability),
+      author: 'DM',
+    });
+    expect(target.hpCurrent).toBe(23);
+    expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(true);
+  });
+
+  it('атака способности по оглушённой цели идёт с преимуществом', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.conditions = [{ key: 'stunned', name: 'Ошеломлён' }];
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(venom)!,
+      targets: [target],
+      stats: monsterStats(undefined, venom.ability),
+      author: 'DM',
+    });
+    const attackMsg = room.chat.find(isAttackRoll);
+    expect(attackMsg?.roll.dice[0]?.advantage).toBe('a');
+    expect(attackMsg?.roll.dice[0]?.dropped).toHaveLength(1);
+  });
+
+  it('полный цикл: рёв оглушает цель, следующая атака идёт с преимуществом', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.isPlayerToken = true;
+    target.libraryItemId = 'lib2';
+    const roar: ActionDef = {
+      id: 'roar',
+      name: 'Оглушающий рёв',
+      source: 'monster',
+      costs: [],
+      legendaryCost: 1,
+      ability: {
+        save: { ability: 'wis' },
+        dc: 15,
+        effects: [{ condition: 'stunned', duration: { type: 'endOfTurn', of: 'target' } }],
+      },
+    };
+    const fail = vi.spyOn(Math, 'random').mockReturnValue(0);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(roar)!,
+      targets: [target],
+      stats: monsterStats(undefined, roar.ability),
+      author: 'DM',
+    });
+    fail.mockRestore();
+    expect(target.conditions.some((c) => c.key === 'stunned')).toBe(true);
+
+    const hit = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(venom)!,
+      targets: [target],
+      stats: monsterStats(undefined, venom.ability),
+      author: 'DM',
+    });
+    hit.mockRestore();
+
+    const attacks = room.chat.filter(isAttackRoll);
+    expect(attacks[attacks.length - 1]?.roll.dice[0]?.advantage).toBe('a');
+  });
+
+  it('атака способности: успешный сейв — урон без состояния', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.99);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(venom)!,
+      targets: [target],
+      stats: monsterStats(undefined, venom.ability),
+      author: 'DM',
+    });
+    expect(target.hpCurrent).toBe(23);
+    expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(false);
+  });
+
+  it('сейв-способность без урона: состояние только при провале', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    const roar: ActionDef = {
+      id: 'roar',
+      name: 'Оглушающий рёв',
+      source: 'monster',
+      costs: [],
+      legendaryCost: 1,
+      ability: {
+        save: { ability: 'wis' },
+        dc: 15,
+        effects: [{ condition: 'stunned', duration: { type: 'endOfTurn', of: 'target' } }],
+      },
+    };
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(roar)!,
+      targets: [target],
+      stats: monsterStats(undefined, roar.ability),
+      author: 'DM',
+    });
+    expect(target.conditions.some((c) => c.key === 'stunned')).toBe(true);
+  });
+
+  it('сейв-способность с уроном: при успехе половина без состояния', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    const burst: ActionDef = {
+      id: 'burst',
+      name: 'Вспышка',
+      source: 'monster',
+      costs: ['action'],
+      ability: {
+        save: { ability: 'dex' },
+        dc: 12,
+        damage: { dice: '2d6', types: ['fire'] },
+        effects: [{ condition: 'prone', duration: { type: 'endOfTurn', of: 'target' } }],
+      },
+    };
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(burst)!,
+      targets: [target],
+      stats: monsterStats(undefined, burst.ability),
+      author: 'DM',
+    });
+    expect(target.hpCurrent).toBe(29);
+    expect(target.conditions.some((c) => c.key === 'prone')).toBe(false);
+  });
+
+  it('способность без атаки и сейва: урон и состояние сразу', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    const slam: ActionDef = {
+      id: 'slam',
+      name: 'Удар',
+      source: 'monster',
+      costs: ['action'],
+      ability: {
+        damage: { dice: '1d4', types: ['force'] },
+        effects: [{ condition: 'prone', duration: { type: 'endOfTurn', of: 'target' } }],
+      },
+    };
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: monsterAbilityAutomation(slam)!,
+      targets: [target],
+      stats: monsterStats(undefined, slam.ability),
+      author: 'DM',
+    });
+    expect(target.hpCurrent).toBe(27);
+    expect(target.conditions.some((c) => c.key === 'prone')).toBe(true);
   });
 });

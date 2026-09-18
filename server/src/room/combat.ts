@@ -8,6 +8,7 @@ import {
   emptyCombatState,
   emptyTurnState,
   exhaustionSpeedPenalty,
+  minLegendaryCost,
   modifiedValue,
   restrictionsFor,
   rollDice,
@@ -73,6 +74,79 @@ function reRollEntry(room: Room, entry: InitiativeEntry) {
   entry.roll = roll;
 }
 
+function slotEntry(owner: InitiativeEntry): InitiativeEntry {
+  return {
+    id: crypto.randomUUID(),
+    tokenId: owner.tokenId,
+    name: owner.name,
+    imageUrl: owner.imageUrl,
+    initiative: owner.initiative,
+    bonus: owner.bonus,
+    legendaryOwnerId: owner.id,
+  };
+}
+
+/** Доп. записи в инициативе: по одной после чужого хода, не больше легендарных. */
+function distributeLegendarySlots(room: Room, combat: CombatState): void {
+  const mains = combat.entries.filter((e) => !e.legendaryOwnerId);
+  const pending = new Map<string, number>();
+  for (const entry of mains) {
+    const token = entry.tokenId ? findTokenById(room, entry.tokenId) : null;
+    const max = token?.statblock?.legendary?.max ?? 0;
+    const others = mains.filter((o) => o.tokenId !== entry.tokenId).length;
+    const slots = Math.min(max, others);
+    if (slots > 0) pending.set(entry.id, slots);
+  }
+  if (!pending.size) {
+    combat.entries = mains;
+    return;
+  }
+  const after = new Map<string, InitiativeEntry[]>();
+  for (const entry of mains) {
+    for (const [ownerId, left] of pending) {
+      if (left <= 0) continue;
+      const owner = mains.find((e) => e.id === ownerId);
+      if (!owner || entry.tokenId === owner.tokenId) continue;
+      const list = after.get(entry.id) ?? [];
+      list.push(slotEntry(owner));
+      after.set(entry.id, list);
+      pending.set(ownerId, left - 1);
+    }
+  }
+  const out: InitiativeEntry[] = [];
+  for (const entry of mains) {
+    out.push(entry);
+    out.push(...(after.get(entry.id) ?? []));
+  }
+  combat.entries = out;
+}
+
+function redistributeLegendarySlots(room: Room, combat: CombatState): void {
+  combat.entries = combat.entries.filter((e) => !e.legendaryOwnerId);
+  distributeLegendarySlots(room, combat);
+}
+
+/** Пересобирает легендарные слоты после правки статблока в бою. */
+export function redistributeSlots(room: Room, mapId: string): void {
+  const combat = combatOf(room, mapId);
+  if (!combat?.active) return;
+  const activeId = combat.entries[combat.currentIndex]?.id;
+  redistributeLegendarySlots(room, combat);
+  restoreActive(combat, activeId);
+}
+
+/** Доступен ли легендарный слот: у владельца хватает пула на самую дешёвую способность. */
+function legendarySlotUsable(room: Room, combat: CombatState, entry: InitiativeEntry): boolean {
+  const ownerId = entry.legendaryOwnerId;
+  if (!ownerId) return true;
+  const owner = combat.turns[ownerId];
+  if (!owner) return false;
+  const token = entry.tokenId ? findTokenById(room, entry.tokenId) : null;
+  if (!token) return false;
+  const min = minLegendaryCost(token.statblock?.actions);
+  return owner.legendaryRemaining > 0 && owner.legendaryRemaining >= min;
+}
+
 export function startCombat(m: CombatDeps, room: Room, mapId: string) {
   const map = room.scene.maps.find((mm) => mm.id === mapId);
   if (!map) return;
@@ -85,7 +159,8 @@ export function startCombat(m: CombatDeps, room: Room, mapId: string) {
     round: entries.length ? 1 : 0,
     currentIndex: entries.length ? 0 : -1,
   };
-  if (entries.length) beginTurn(room, mapId, entries[0]!.id);
+  distributeLegendarySlots(room, map.combat);
+  if (map.combat.entries.length) beginTurn(room, mapId, map.combat.entries[0]!.id);
   m.saveSoon(room);
 }
 
@@ -125,9 +200,14 @@ export function beginTurn(room: Room, mapId: string, entryId: string) {
   const combat = combatOf(room, mapId);
   if (!combat) return;
   const entry = combat.entries.find((e) => e.id === entryId);
-  if (!entry) return;
+  if (!entry || entry.legendaryOwnerId) return;
   const { speed, legendaryMax, extraActions, extraBonusActions } = turnResources(room, entry);
   const prev = combat.turns[entry.id];
+  const abilityCooldowns: Record<string, number> = {};
+  for (const [key, value] of Object.entries(prev?.abilityCooldowns ?? {})) {
+    const next = value - 1;
+    if (next > 0) abilityCooldowns[key] = next;
+  }
   combat.turns[entry.id] = {
     ...emptyTurnState(speed),
     extraActions,
@@ -135,30 +215,40 @@ export function beginTurn(room: Room, mapId: string, entryId: string) {
     legendaryRemaining: legendaryMax,
     legendaryMax,
     concentrationId: prev?.concentrationId ?? null,
+    ...(Object.keys(abilityCooldowns).length ? { abilityCooldowns } : {}),
   };
 }
 
-/** Завершает текущий ход, переходя к следующему по инициативе. */
-export function endTurn(m: CombatDeps, room: Room, mapId: string) {
-  advanceTurn(m, room, mapId, 1);
+/** Завершает текущий ход, переходя к следующему по инициативе; возвращает имена пропущенных слотов. */
+export function endTurn(m: CombatDeps, room: Room, mapId: string): string[] {
+  return advanceTurn(m, room, mapId, 1);
 }
 
-export function advanceTurn(m: CombatDeps, room: Room, mapId: string, delta: number) {
+export function advanceTurn(m: CombatDeps, room: Room, mapId: string, delta: number): string[] {
   const combat = combatOf(room, mapId);
-  if (!combat || !combat.active || combat.entries.length === 0) return;
+  if (!combat || !combat.active || combat.entries.length === 0) return [];
   const n = combat.entries.length;
   let idx = combat.currentIndex < 0 ? (delta > 0 ? 0 : n - 1) : combat.currentIndex + delta;
-  if (idx >= n) {
-    idx -= n;
-    combat.round = Math.max(1, combat.round) + 1;
-  } else if (idx < 0) {
-    idx += n;
-    combat.round = Math.max(1, combat.round - 1);
+  let guard = 0;
+  const skipped: string[] = [];
+  while (guard++ < n * 2) {
+    if (idx >= n) {
+      idx -= n;
+      combat.round = Math.max(1, combat.round) + 1;
+    } else if (idx < 0) {
+      idx += n;
+      combat.round = Math.max(1, combat.round - 1);
+    }
+    const entry = combat.entries[idx]!;
+    if (legendarySlotUsable(room, combat, entry)) break;
+    if (entry.legendaryOwnerId) skipped.push(entry.name);
+    idx += delta;
   }
   combat.round = Math.max(1, combat.round);
   combat.currentIndex = idx;
   beginTurn(room, mapId, combat.entries[idx]!.id);
   m.saveSoon(room);
+  return skipped;
 }
 
 /** DM задаёт активную запись по id или индексу. */
@@ -366,6 +456,43 @@ export function spendSlot(m: CombatDeps, room: Room, mapId: string, token: Token
   return true;
 }
 
+/** Состояние хода владельца записи (для легендарного слота — состояние основной записи). */
+function activeOwnerTurn(room: Room, mapId: string, token: Token): TurnState | null {
+  const combat = combatOf(room, mapId);
+  if (!combat?.active) return null;
+  const entry = combat.entries.find((e) => e.tokenId === token.id);
+  if (!entry) return null;
+  const turnId = entry.legendaryOwnerId ?? entry.id;
+  return combat.turns[turnId] ?? null;
+}
+
+/** Списывает легендарные действия с пула владельца (слоты ссылаются на основную запись). */
+export function spendLegendary(m: CombatDeps, room: Room, mapId: string, token: Token, amount: number): boolean {
+  if (amount <= 0) return true;
+  const turn = activeOwnerTurn(room, mapId, token);
+  if (!turn) return true;
+  if (turn.legendaryRemaining < amount) return false;
+  turn.legendaryRemaining -= amount;
+  m.saveSoon(room);
+  return true;
+}
+
+/** Ставит перезарядку способности (ходов) с текущего хода монстра. */
+export function startAbilityCooldown(
+  m: CombatDeps,
+  room: Room,
+  mapId: string,
+  token: Token,
+  actionId: string,
+  turns: number
+): void {
+  if (turns <= 0) return;
+  const turn = activeOwnerTurn(room, mapId, token);
+  if (!turn) return;
+  turn.abilityCooldowns = { ...(turn.abilityCooldowns ?? {}), [actionId]: Math.min(20, Math.round(turns)) };
+  m.saveSoon(room);
+}
+
 /** Фиксирует потраченное передвижение бойца (предупреждение, не блокировка). */
 export function setMovement(m: CombatDeps, room: Room, mapId: string, tokenId: string, used: number, diagonals?: number) {
   const combat = combatOf(room, mapId);
@@ -416,6 +543,7 @@ export function addTokenToCombat(m: CombatDeps, room: Room, mapId: string, token
   const at = combat.entries.findIndex((e) => e.initiative < entry.initiative);
   if (at < 0) combat.entries.push(entry);
   else combat.entries.splice(at, 0, entry);
+  redistributeLegendarySlots(room, combat);
   restoreActive(combat, activeId);
   ensureActiveTurn(room, mapId);
   m.saveSoon(room);
@@ -439,6 +567,7 @@ export function addMapTokensToCombat(m: CombatDeps, room: Room, mapId: string) {
   if (additions.length === 0) return;
   const activeId = combat.entries[combat.currentIndex]?.id;
   combat.entries = [...combat.entries, ...additions].sort((a, b) => b.initiative - a.initiative);
+  redistributeLegendarySlots(room, combat);
   restoreActive(combat, activeId);
   ensureActiveTurn(room, mapId);
   m.saveSoon(room);
@@ -452,6 +581,7 @@ export function removeTokenFromCombat(m: CombatDeps, room: Room, mapId: string, 
   if (removed.length === 0) return;
   combat.entries = combat.entries.filter((e) => e.tokenId !== tokenId);
   for (const e of removed) delete combat.turns[e.id];
+  redistributeLegendarySlots(room, combat);
   const activeRemoved = !!activeId && removed.some((e) => e.id === activeId);
   restoreActive(combat, activeRemoved ? undefined : activeId);
   if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
@@ -461,12 +591,19 @@ export function removeTokenFromCombat(m: CombatDeps, room: Room, mapId: string, 
 export function removeCombatant(m: CombatDeps, room: Room, mapId: string, id: string) {
   const combat = combatOf(room, mapId);
   if (!combat) return;
+  const target = combat.entries.find((e) => e.id === id);
+  if (!target) return;
   const activeId = combat.entries[combat.currentIndex]?.id;
-  const before = combat.entries.length;
-  combat.entries = combat.entries.filter((e) => e.id !== id);
-  if (combat.entries.length === before) return;
-  delete combat.turns[id];
-  const activeRemoved = activeId === id;
+  const removedIds = new Set([id]);
+  if (!target.legendaryOwnerId) {
+    for (const e of combat.entries) {
+      if (e.legendaryOwnerId === id) removedIds.add(e.id);
+    }
+  }
+  combat.entries = combat.entries.filter((e) => !removedIds.has(e.id));
+  for (const rid of removedIds) delete combat.turns[rid];
+  if (!target.legendaryOwnerId) redistributeLegendarySlots(room, combat);
+  const activeRemoved = !combat.entries.some((e) => e.id === activeId);
   restoreActive(combat, activeRemoved ? undefined : activeId);
   if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
   m.saveSoon(room);
@@ -507,13 +644,22 @@ export function moveCombatant(m: CombatDeps, room: Room, mapId: string, id: stri
 export function rollCombat(m: CombatDeps, room: Room, mapId: string, id?: string) {
   const combat = combatOf(room, mapId);
   if (!combat) return;
+  const activeId = combat.entries[combat.currentIndex]?.id;
   if (id) {
     const entry = combat.entries.find((e) => e.id === id);
-    if (entry) reRollEntry(room, entry);
+    const owner = entry?.legendaryOwnerId ? combat.entries.find((e) => e.id === entry.legendaryOwnerId) : entry;
+    if (!owner) return;
+    reRollEntry(room, owner);
+    for (const slot of combat.entries.filter((e) => e.legendaryOwnerId === owner.id)) {
+      slot.initiative = owner.initiative;
+      slot.bonus = owner.bonus;
+      slot.roll = owner.roll;
+    }
   } else {
-    const activeId = combat.entries[combat.currentIndex]?.id;
+    combat.entries = combat.entries.filter((e) => !e.legendaryOwnerId);
     for (const entry of combat.entries) reRollEntry(room, entry);
     combat.entries.sort((a, b) => b.initiative - a.initiative);
+    distributeLegendarySlots(room, combat);
     restoreActive(combat, activeId);
   }
   m.saveSoon(room);

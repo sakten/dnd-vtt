@@ -2,16 +2,9 @@ import {
   actionSlotAvailable,
   characterLevel,
   featSpellGrants,
-  isRecord,
   restrictionsFor,
   rollDice,
   spellActionCost,
-  spellAreaOrigin,
-  spellHasArea,
-  spellIsSelf,
-  spellRangeFeet,
-  tokensInArea,
-  type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -19,12 +12,10 @@ import { findSpell } from '../spells';
 import { pushRollMessage } from './messages';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
 import { spellClassFor, spellStatsFor } from './spellStats';
-import { validateSpellCast, type SpellCastInput } from './spellResolve';
+import { collectSpellCast } from './spellTargeting';
+import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { removeZonesOfSource } from './zones';
-
-const isPoint = (p: unknown): p is { x: number; y: number } =>
-  isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y);
 
 export function registerSpellHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, emitToken } = ctx;
@@ -74,60 +65,20 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       castLevel = Number.isFinite(requested) ? Math.max(spell.level, Math.min(9, requested)) : spell.level;
     }
 
-    const targets: Token[] = [];
-    let area = false;
-    let areaOrigin: { x: number; y: number } | null = null;
-    if (spellHasArea(spell) && spell.areaSpec) {
-      const map = manager.findMap(room, mapId);
-      const grid = {
-        size: map?.grid.size || room.scene.grid.size || 50,
-        offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
-        offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
-      };
-      const originKind = spellAreaOrigin(spell);
-      const originPt = originKind === 'self' ? { x: token.x, y: token.y } : isPoint(origin) ? origin : null;
-      if (!originPt) {
-        fail(ctx, 'noAreaPoint');
-        return;
-      }
-      if (originKind === 'point') {
-        const range = spellRangeFeet(spell);
-        const feet = (Math.hypot(originPt.x - token.x, originPt.y - token.y) / grid.size) * 5;
-        if (range !== null && feet > range) {
-          fail(ctx, 'outOfRange', { feet });
-          return;
-        }
-      }
-      const affected = map ? tokensInArea(map.tokens, spell.areaSpec, originPt, isPoint(direction) ? direction : null, grid) : [];
-      for (const t of affected) {
-        if (t.id !== token.id) targets.push(t);
-      }
-      area = true;
-      areaOrigin = originPt;
-    } else {
-      for (const id of Array.isArray(targetIds) ? targetIds : []) {
-        if (typeof id !== 'string') continue;
-        const found = manager.findToken(room, mapId, id);
-        if (found) targets.push(found);
-      }
-      if (spellIsSelf(spell) && !targets.some((t) => t.id === token.id)) targets.push(token);
-    }
-
-    const input: SpellCastInput = {
-      caster: token,
+    const input = collectSpellCast(ctx, {
       mapId,
+      caster: token,
       spell,
       castLevel,
       characterLevel: sheet ? characterLevel(sheet.classes) : 1,
       stats,
-      targets,
+      targetIds,
       advantage,
-      area,
-      // Для area-каста точка — серверная (эманация — от кастера), не доверяем payload.
-      origin: areaOrigin ?? (isPoint(origin) ? origin : null),
-      direction: isPoint(direction) ? direction : null,
+      origin,
+      direction,
       author: room.players.find((p) => p.id === ctx.playerId)?.name ?? '?',
-    };
+    });
+    if (!input) return;
 
     const invalid = validateSpellCast(room, input);
     if (invalid) {

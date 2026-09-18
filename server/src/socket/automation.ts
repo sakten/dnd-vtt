@@ -528,7 +528,7 @@ interface AutomationRun {
   proficiency: number;
   healing: boolean;
   healMods: { bonus: number; selfHeal: boolean };
-  expression: string;
+  expression: string | null;
   subject: string;
   damageType: string | undefined;
   adv: 'a' | 'd' | undefined;
@@ -552,17 +552,15 @@ function applyResult(
   run: AutomationRun,
   target: Token,
   roll: DiceRollResult,
-  opts: { subject?: string; halve?: boolean; kind?: 'damage' | 'heal'; crit?: boolean } = {}
+  opts: { subject?: string; halve?: boolean; kind?: 'damage' | 'heal'; crit?: boolean; silent?: boolean } = {}
 ): void {
   applyDamage(run.ctx, {
     target,
     mapId: run.mapId,
     amount: healValue(run, roll.total),
     damageType: run.damageType,
-    roll,
-    author: run.author,
+    ...(opts.silent ? {} : { roll, author: run.author, params: { subject: opts.subject ?? run.subject, damageType: run.damageType } }),
     kind: opts.kind ?? (run.healing ? 'heal' : 'damage'),
-    params: { subject: opts.subject ?? run.subject, damageType: run.damageType },
     ...(opts.halve !== undefined && { halve: opts.halve }),
     ...(opts.crit !== undefined && { crit: opts.crit }),
   });
@@ -605,25 +603,45 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
     if (!hitSuccess) continue;
     // Mirror Image: попадание может принять образ вместо цели.
     if (misdirectCheck(ctx, room, mapId, target, caster)) continue;
-    const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
-    const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
-    applyResult(run, target, damageRoll, { subject: label, crit });
-    // Эффекты на попадании (Shocking Grasp: запрет OA до начала следующего хода).
-    for (const effectDef of def.effects ?? []) {
-      const recipients = effectDef.to === 'targets' ? [target] : [caster];
-      for (const recipient of recipients) {
-        applyEffectTo(ctx, room, {
-          sourceKey: def.key,
-          sourceId: caster.id,
-          mapId,
-          effectDef,
-          target: recipient,
-          markedId: effectDef.markTarget ? target.id : undefined,
-          untilSaveDc: stats.dc,
-          escapeDc: stats.dc,
-        });
-      }
+    if (expression) {
+      const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
+      const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
+      applyResult(run, target, damageRoll, { subject: label, crit });
     }
+    if (def.save && def.effects?.length) {
+      const save = rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability);
+      if (save.success) continue;
+    }
+    applyTargetEffects(run, target, stats);
+  }
+}
+
+/** Эффекты способности/заклинания цели: при попадании или провале спасброска. */
+function applyTargetEffects(run: AutomationRun, target: Token, stats: SpellStats | null): void {
+  const { ctx, room, def, caster, mapId } = run;
+  for (const effectDef of def.effects ?? []) {
+    const recipients = effectDef.to === 'targets' ? [target] : [caster];
+    for (const recipient of recipients) {
+      applyEffectTo(ctx, room, {
+        sourceKey: def.key,
+        sourceId: caster.id,
+        mapId,
+        effectDef,
+        target: recipient,
+        markedId: effectDef.markTarget ? target.id : undefined,
+        untilSaveDc: stats?.dc,
+        escapeDc: stats?.dc,
+      });
+    }
+  }
+}
+
+/** Способность без атаки и сейва: урон и эффекты срабатывают сразу. */
+function runAutoAbility(run: AutomationRun, stats: SpellStats | null): void {
+  const { targets, expression } = run;
+  for (const target of targets) {
+    if (expression) applyResult(run, target, rollDice(expression));
+    applyTargetEffects(run, target, stats);
   }
 }
 
@@ -648,19 +666,22 @@ function runHealOrDamage(run: AutomationRun, stats: SpellStats): void {
   }
 }
 
-/** Спасбросок по площади: один бросок урона, половина при успехе. */
+/** Спасбросок по площади: один бросок урона, половина при успехе; эффекты — при провале. */
 function runSave(run: AutomationRun, stats: SpellStats): void {
   const { ctx, room, def, caster, targets, abilities, expression } = run;
   if (!def.save) return;
   // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз).
-  const damageParts = damageRollParts(caster.effects, { damageType: run.damageType }, abilities);
-  const damageRoll = rollDice(withRollParts(expression, damageParts));
-  pushRollMessage(ctx, room, {
-    author: run.author,
-    roll: damageRoll,
-    kind: run.healing ? 'heal' : 'damage',
-    params: { subject: run.subject, damageType: run.damageType },
-  });
+  let damageRoll: DiceRollResult | null = null;
+  if (expression) {
+    const damageParts = damageRollParts(caster.effects, { damageType: run.damageType }, abilities);
+    damageRoll = rollDice(withRollParts(expression, damageParts));
+    pushRollMessage(ctx, room, {
+      author: run.author,
+      roll: damageRoll,
+      kind: run.healing ? 'heal' : 'damage',
+      params: { subject: run.subject, damageType: run.damageType },
+    });
+  }
   const saves: TargetSave[] = [];
   const half = def.save.half;
   for (const target of targets) {
@@ -669,8 +690,10 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
   }
   const applyAll = () => {
     for (const save of saves) {
+      if (!save.success) applyTargetEffects(run, save.target, stats);
+      if (!damageRoll) continue;
       if (save.success && !half) continue;
-      applyResult(run, save.target, damageRoll, { halve: save.success });
+      applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
     }
   };
   if (openSaveInspiration(ctx, room, run.mapId, stats.dc, def.name, saves, applyAll)) return;
@@ -680,7 +703,7 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
 /** Массовая цель без области (Mass Healing Word): каждая выбранная цель — один раз. */
 function runMultiTarget(run: AutomationRun): void {
   const { def, targets, expression } = run;
-  if (!def.targets) return;
+  if (!def.targets || !expression) return;
   for (const target of targets.slice(0, Math.max(1, def.targets))) {
     applyResult(run, target, rollDice(expression));
   }
@@ -689,6 +712,7 @@ function runMultiTarget(run: AutomationRun): void {
 /** Одиночная цель (или повтор той же): по броску урона/лечения на цель. */
 function runSingleTargets(run: AutomationRun): void {
   const { targets, subject, expression, count } = run;
+  if (!expression) return;
   for (let i = 0; i < count; i++) {
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
     if (!target) continue;
@@ -734,20 +758,6 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   const abilities = ctx.manager.abilitiesForToken(room, caster);
   const proficiency = proficiencyFor(ctx, room, caster);
   const expression = resolveDiceExpression(def.damage ?? def.heal, abilities, proficiency);
-  if (!expression) {
-    if (def.zone) return; // зона уже создана; отдельного сообщения не нужно
-    const level = input.manual?.level;
-    const detail = input.manual?.description?.[0] ? `\n${input.manual.description[0]}` : '';
-    const params = { name: caster.name, feature: def.name, detail };
-    if (level === undefined) ctx.systemMessage(room, { code: 'automation.manual', params });
-    else if (level === 0) ctx.systemMessage(room, { code: 'automation.manualCantrip', params });
-    else
-      ctx.systemMessage(room, {
-        code: 'automation.manualLevel',
-        params: { ...params, level: input.manual?.castLevel ?? level },
-      });
-    return;
-  }
 
   const run: AutomationRun = {
     ctx,
@@ -772,6 +782,23 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   if (def.attack && stats) return runWeaponAttacks(run, stats);
   if (def.save && stats && def.heal && def.damage) return runHealOrDamage(run, stats);
   if (def.save && stats) return runSave(run, stats);
+  if (!def.save && !def.attack && def.effects?.length) return runAutoAbility(run, stats);
+
+  if (!expression) {
+    if (def.zone) return; // зона уже создана; отдельного сообщения не нужно
+    const level = input.manual?.level;
+    const detail = input.manual?.description?.[0] ? `\n${input.manual.description[0]}` : '';
+    const params = { name: caster.name, feature: def.name, detail };
+    if (level === undefined) ctx.systemMessage(room, { code: 'automation.manual', params });
+    else if (level === 0) ctx.systemMessage(room, { code: 'automation.manualCantrip', params });
+    else
+      ctx.systemMessage(room, {
+        code: 'automation.manualLevel',
+        params: { ...params, level: input.manual?.castLevel ?? level },
+      });
+    return;
+  }
+
   if (def.targets) return runMultiTarget(run);
   runSingleTargets(run);
 }

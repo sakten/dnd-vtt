@@ -5,10 +5,12 @@ import {
   DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
+  type ActionDef,
   type CharacterSheet,
   type EffectInstance,
   type InitiativeEntry,
   type PlayerResources,
+  type TokenStatblock,
 } from 'shared';
 import { RoomManager } from './rooms';
 import { actorStats } from './room/actor';
@@ -286,6 +288,114 @@ describe('RoomManager ход', () => {
     expect(combat.turns.e1!.movementMax).toBe(40);
     expect(combat.turns.e1!.legendaryMax).toBe(3);
     expect(combat.turns.e1!.legendaryRemaining).toBe(3);
+  });
+
+  const roar: ActionDef = {
+    id: 'roar',
+    name: 'Рёв',
+    source: 'monster',
+    costs: [],
+    legendaryCost: 1,
+  };
+
+  const bossStatblock = (max: number): TokenStatblock => ({
+    abilities: { ...DEFAULT_ABILITIES },
+    legendary: { max, actions: [] },
+    actions: [roar],
+  });
+
+  it('startCombat: слоты босса идут после чужих ходов, не больше легендарных', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens = [token('t1'), token('t2'), token('b1', { statblock: bossStatblock(3) })];
+
+    manager.startCombat(room, 'm1');
+    const combat = room.scene.maps[0]!.combat;
+    const slots = combat.entries.filter((e) => e.legendaryOwnerId);
+    expect(combat.entries).toHaveLength(5);
+    expect(slots).toHaveLength(2);
+
+    const before = slots.map((slot) => combat.entries[combat.entries.indexOf(slot) - 1]!.tokenId);
+    expect(new Set(before)).toEqual(new Set(['t1', 't2']));
+    const bossEntry = combat.entries.find((e) => e.tokenId === 'b1' && !e.legendaryOwnerId)!;
+    manager.beginTurn(room, 'm1', bossEntry.id);
+    expect(combat.turns[bossEntry.id]!.legendaryRemaining).toBe(3);
+    expect(combat.turns[slots[0]!.id]).toBeUndefined();
+  });
+
+  it('endTurn пропускает слот с исчерпанным пулом', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens = [token('b1', { statblock: bossStatblock(1) })];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [
+      entry('e1', 't1', 20),
+      entry('e2', 'b1', 15),
+      { ...entry('s1', 'b1', 15), legendaryOwnerId: 'e2' },
+      entry('e3', 't2', 10),
+    ];
+    combat.currentIndex = 1;
+    manager.beginTurn(room, 'm1', 'e2');
+    combat.turns.e2!.legendaryRemaining = 0;
+
+    manager.endTurn(room, 'm1');
+
+    expect(combat.entries[combat.currentIndex]!.id).toBe('e3');
+    expect(combat.currentIndex).toBe(3);
+  });
+
+  it('redistributeSlots добавляет слоты после правки пула в бою', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const boss = token('b1', { statblock: bossStatblock(0) });
+    room.scene.maps[0]!.tokens = [token('t1'), boss];
+    manager.startCombat(room, 'm1');
+    const combat = room.scene.maps[0]!.combat;
+    expect(combat.entries.some((e) => e.legendaryOwnerId)).toBe(false);
+
+    boss.statblock = { ...boss.statblock!, legendary: { max: 2, actions: [] } };
+    manager.redistributeSlots(room, 'm1');
+
+    expect(combat.entries.filter((e) => e.legendaryOwnerId)).toHaveLength(1);
+  });
+
+  it('spendLegendary списывает пул и не даёт уйти в минус', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const boss = token('b1', { statblock: bossStatblock(3) });
+    room.scene.maps[0]!.tokens = [boss];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 'b1', 20)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+
+    expect(manager.spendLegendary(room, 'm1', boss, 2)).toBe(true);
+    expect(combat.turns.e1!.legendaryRemaining).toBe(1);
+    expect(manager.spendLegendary(room, 'm1', boss, 2)).toBe(false);
+    expect(combat.turns.e1!.legendaryRemaining).toBe(1);
+  });
+
+  it('перезарядка способности уменьшается в начале хода', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const boss = token('b1', { statblock: bossStatblock(1) });
+    room.scene.maps[0]!.tokens = [boss];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 'b1', 20)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+
+    manager.startAbilityCooldown(room, 'm1', boss, 'roar', 2);
+    expect(combat.turns.e1!.abilityCooldowns).toEqual({ roar: 2 });
+
+    manager.beginTurn(room, 'm1', 'e1');
+    expect(combat.turns.e1!.abilityCooldowns).toEqual({ roar: 1 });
+
+    manager.beginTurn(room, 'm1', 'e1');
+    expect(combat.turns.e1!.abilityCooldowns).toBeUndefined();
   });
 });
 

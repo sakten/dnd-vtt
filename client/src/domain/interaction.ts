@@ -6,10 +6,12 @@ export interface Point {
   y: number;
 }
 
-/** Режим прицеливания заклинания с областью (Ф7). */
+/** Режим прицеливания заклинания или способности с областью (Ф7). */
 export interface AimState {
   tokenId: string;
-  spellKey: string;
+  spellKey?: string;
+  actionId?: string;
+  slot?: ActionCost;
   slotLevel?: number;
   advantage?: 'a' | 'd';
   spec: AreaSpec;
@@ -87,7 +89,14 @@ export type InteractionCommand =
       type: 'runAction';
       tokenId: string;
       actionId: string;
-      extra: { targetIds: string[]; attackIndex?: number; slot: ActionCost };
+      extra: {
+        targetIds: string[];
+        attackIndex?: number;
+        slot: ActionCost;
+        origin?: Point;
+        direction?: Point;
+        advantage?: 'a' | 'd';
+      };
     }
   | { type: 'castSpell'; payload: SpellCastPayload }
   | {
@@ -141,17 +150,34 @@ export function aimToCursor(
   return { mode: 'aim', aim: { ...aim, origin, direction: origin } };
 }
 
-/** Клик по карте в режиме области: каст с origin/direction. */
+/** Клик по карте в режиме области: каст или применение способности с origin/direction. */
 export function confirmArea(interaction: Interaction | null): InteractionResult {
   if (interaction?.mode !== 'aim') return { next: interaction };
   const aim = interaction.aim;
+  if (aim.actionId) {
+    return {
+      next: null,
+      command: {
+        type: 'runAction',
+        tokenId: aim.tokenId,
+        actionId: aim.actionId,
+        extra: {
+          targetIds: [],
+          slot: aim.slot ?? 'action',
+          advantage: aim.advantage,
+          origin: aim.origin ?? undefined,
+          direction: aim.direction ?? undefined,
+        },
+      },
+    };
+  }
   return {
     next: null,
     command: {
       type: 'castSpell',
       payload: {
         tokenId: aim.tokenId,
-        spellKey: aim.spellKey,
+        spellKey: aim.spellKey ?? '',
         slotLevel: aim.slotLevel,
         advantage: aim.advantage,
         origin: aim.origin ?? undefined,

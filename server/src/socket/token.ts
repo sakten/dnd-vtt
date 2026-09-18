@@ -7,6 +7,7 @@ import {
   normalizeStatblock,
   normalizeTokenFieldsPatch,
   statNumber,
+  type TokenStatblock,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -26,6 +27,16 @@ const CHARACTER_DERIVED_FIELDS = [
   'initiativeBonus',
   'statblock',
 ] as const;
+
+/** Сигнатура легендарных возможностей статблока (пул и легендарные способности). */
+function legendarySignature(statblock: TokenStatblock | undefined): string {
+  if (!statblock) return '';
+  const abilities = (statblock.actions ?? [])
+    .filter((a) => (a.legendaryCost ?? 0) > 0)
+    .map((a) => `${a.id}:${a.legendaryCost}:${a.costs.length}`)
+    .join(',');
+  return `${statblock.legendary?.max ?? 0}|${abilities}`;
+}
 
 export function registerTokenHandlers(ctx: ConnCtx) {
   const { manager, isDm, broadcastAll, emitToken, syncCombat } = ctx;
@@ -119,6 +130,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       // У токена персонажа статы живут в листе/ресурсах: производные поля патча игнорируем,
       // HP-патч применяем к ресурсам (у монстра — как раньше, прямо в токен).
       const stats = actorStats(room, token);
+      const legendaryBefore = legendarySignature(token.statblock);
       const fieldPatch = normalizeTokenFieldsPatch(patch, token);
       if (stats.character) {
         for (const key of CHARACTER_DERIVED_FIELDS) delete (fieldPatch as Record<string, unknown>)[key];
@@ -206,6 +218,9 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
       if (typeof patch.name === 'string' && manager.combatOf(room, mapId)?.active) {
         manager.renameCombatantByToken(room, mapId, id, token.name);
+      }
+      if (legendarySignature(token.statblock) !== legendaryBefore && manager.combatOf(room, mapId)?.active) {
+        manager.redistributeSlots(room, mapId);
       }
       emitToken(room, 'token:update', mapId, token);
       if (manager.combatOf(room, mapId)?.active) syncCombat(room, mapId);

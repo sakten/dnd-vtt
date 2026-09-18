@@ -1,0 +1,44 @@
+{
+  "abilities": [
+    {
+      "id": "lib:venomous-bite",
+      "name": "Ядовитый укус",
+      "source": "monster",
+      "costs": ["action"],
+      "description": "Укус, отравляющий цель при провале спасброска.",
+      "targeting": { "kind": "creature", "range": 5 },
+      "ability": {
+        "attack": { "rangeType": "melee", "damage": "1d6+3", "types": ["piercing"] },
+        "save": { "ability": "con" },
+        "effects": [{ "condition": "poisoned", "duration": { "type": "rounds", "rounds": 10 } }]
+      }
+    },
+    {
+      "id": "lib:tail-swipe",
+      "name": "Хвостовой удар",
+      "source": "monster",
+      "costs": ["action"],
+      "description": "Широкий удар хвостом сбивает существ рядом с ног.",
+      "targeting": { "kind": "area", "range": 0, "area": { "shape": "sphere", "size": 10 } },
+      "ability": {
+        "save": { "ability": "dex" },
+        "damage": { "dice": "2d8", "types": ["bludgeoning"] },
+        "effects": [{ "condition": "prone", "duration": { "type": "endOfTurn", "of": "target" } }]
+      }
+    },
+    {
+      "id": "lib:stunning-roar",
+      "name": "Оглушающий рёв",
+      "source": "monster",
+      "costs": [],
+      "legendaryCost": 1,
+      "recharge": 3,
+      "description": "Легендарный рёв: оглушает всех в области до конца их следующего хода.",
+      "targeting": { "kind": "area", "range": 60, "area": { "shape": "sphere", "size": 30 } },
+      "ability": {
+        "save": { "ability": "wis" },
+        "effects": [{ "condition": "stunned", "duration": { "type": "endOfTurn", "of": "target" } }]
+      }
+    }
+  ]
+}

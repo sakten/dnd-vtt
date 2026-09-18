@@ -1,3 +1,6 @@
+import type { AbilityKey } from './core';
+import type { ConditionKey, EffectDuration } from './effects';
+
 export type ActionCost =
   | 'action'
   | 'bonus'
@@ -25,6 +28,34 @@ export interface ActionTargeting {
   area?: AreaSpec;
 }
 
+export interface MonsterAbilityAttack {
+  rangeType: 'melee' | 'ranged';
+  /** Бонус к попаданию; пусто — из статблока, затем +3. */
+  bonus?: string;
+  /** Урон; пусто — без урона. */
+  damage?: string;
+  /** Типы урона. */
+  types?: string[];
+}
+
+export interface MonsterAbilityEffect {
+  condition: ConditionKey;
+  duration: EffectDuration;
+}
+
+/** Механика способности монстра: исполняется через AutomationDef. */
+export interface MonsterAbilityDef {
+  targeting?: ActionTargeting;
+  attack?: MonsterAbilityAttack;
+  /** Спасбросок цели; пусто — без сейва. */
+  save?: { ability: AbilityKey };
+  /** СЛ сейва; пусто — из статблока, затем 10. */
+  dc?: number;
+  /** Урон: без сейва — сразу, с сейвом — при провале; при атаке — при попадании. */
+  damage?: { dice: string; types?: string[] };
+  effects?: MonsterAbilityEffect[];
+}
+
 /** Единый каталог действий (базовые/классовые/заклинания/монстровые). */
 export interface ActionDef {
   id: string;
@@ -39,6 +70,16 @@ export interface ActionDef {
   resourceAmount?: number;
   targeting?: ActionTargeting;
   description?: string;
+  /** Стоимость в легендарных действиях (1–3); пусто — не легендарная. */
+  legendaryCost?: number;
+  /** Перезарядка в ходах монстра; пусто/0 — без. */
+  recharge?: number;
+  /** Заклинание-способность (ключ каталога): только с легендарной стоимостью, без ячейки. */
+  spellKey?: string;
+  /** Механика способности монстра. */
+  ability?: MonsterAbilityDef;
+  /** Ключ записи библиотеки, из которой добавлена способность. */
+  libraryId?: string;
 }
 
 /** Триггер, на который можно потратить реакцию. */

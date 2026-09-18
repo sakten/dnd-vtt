@@ -226,12 +226,12 @@ export class RoomManager {
     Combat.beginTurn(room, mapId, entryId);
   }
 
-  endTurn(room: Room, mapId: string) {
-    Combat.endTurn(this, room, mapId);
+  endTurn(room: Room, mapId: string): string[] {
+    return Combat.endTurn(this, room, mapId);
   }
 
-  advanceTurn(room: Room, mapId: string, delta: number) {
-    Combat.advanceTurn(this, room, mapId, delta);
+  advanceTurn(room: Room, mapId: string, delta: number): string[] {
+    return Combat.advanceTurn(this, room, mapId, delta);
   }
 
   setTurn(room: Room, mapId: string, target: { id?: string; index?: number }) {
@@ -296,6 +296,18 @@ export class RoomManager {
 
   spendSlot(room: Room, mapId: string, token: Token, slot: ActionCost): boolean {
     return Combat.spendSlot(this, room, mapId, token, slot);
+  }
+
+  spendLegendary(room: Room, mapId: string, token: Token, amount: number): boolean {
+    return Combat.spendLegendary(this, room, mapId, token, amount);
+  }
+
+  redistributeSlots(room: Room, mapId: string): void {
+    Combat.redistributeSlots(room, mapId);
+  }
+
+  startAbilityCooldown(room: Room, mapId: string, token: Token, actionId: string, turns: number): void {
+    Combat.startAbilityCooldown(this, room, mapId, token, actionId, turns);
   }
 
   /** Есть ли у игрока ресурс в нужном количестве. */

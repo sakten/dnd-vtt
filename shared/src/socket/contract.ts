@@ -130,6 +130,10 @@ export interface ClientToServerEvents {
     attackIndex?: number;
     advantage?: 'a' | 'd';
     slot?: ActionCost;
+    /** Точка привязки области (мировые координаты) для способностей-областей. */
+    origin?: { x: number; y: number };
+    /** Направление конуса/линии (мировая точка). */
+    direction?: { x: number; y: number };
   }) => void;
   'spell:cast': (payload: {
     mapId: string;

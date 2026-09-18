@@ -179,6 +179,11 @@
   flex: 1 1 0;
 }
 
+.ap-panel.legendary {
+  border-color: #ff9f43;
+  flex: 0 0 auto;
+}
+
 .ap-panel-head {
   display: flex;
   align-items: center;
@@ -207,6 +212,10 @@
 
 .ap-panel.reaction .ap-panel-title {
   color: var(--magic);
+}
+
+.ap-panel.legendary .ap-panel-title {
+  color: #ff9f43;
 }
 
 .ap-icons {
@@ -270,6 +279,20 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
+}
+
+.ap-legendary-badge {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  font-size: 12px;
+  line-height: 1;
+  color: #ffd76a;
+  pointer-events: none;
+}
+
+.ap-count.legendary {
+  color: #ffd76a;
 }
 
 .ap-badge-icon {

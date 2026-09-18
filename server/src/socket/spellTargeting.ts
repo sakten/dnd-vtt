@@ -1,0 +1,92 @@
+import {
+  isRecord,
+  spellAreaOrigin,
+  spellHasArea,
+  spellIsSelf,
+  spellRangeFeet,
+  tokensInArea,
+  type Spell,
+  type SpellStats,
+  type Token,
+} from 'shared';
+import type { ConnCtx } from './context';
+import { fail } from './errors';
+import type { SpellCastInput } from './spellResolve';
+
+const isPoint = (p: unknown): p is { x: number; y: number } =>
+  isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y);
+
+export interface SpellCastParams {
+  mapId: string;
+  caster: Token;
+  spell: Spell;
+  castLevel: number;
+  characterLevel: number;
+  stats: SpellStats | null;
+  targetIds?: unknown;
+  advantage?: 'a' | 'd';
+  origin?: unknown;
+  direction?: unknown;
+  author: string;
+}
+
+/** Сбор входных данных каста: цели по области/списку, точка и направление. */
+export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCastInput | undefined {
+  const room = ctx.getRoom();
+  if (!room) return undefined;
+  const { caster, mapId, spell } = params;
+  const targets: Token[] = [];
+  let area = false;
+  let areaOrigin: { x: number; y: number } | null = null;
+  if (spellHasArea(spell) && spell.areaSpec) {
+    const map = ctx.manager.findMap(room, mapId);
+    const grid = {
+      size: map?.grid.size || room.scene.grid.size || 50,
+      offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
+      offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
+    };
+    const originKind = spellAreaOrigin(spell);
+    const originPt = originKind === 'self' ? { x: caster.x, y: caster.y } : isPoint(params.origin) ? params.origin : null;
+    if (!originPt) {
+      fail(ctx, 'noAreaPoint');
+      return undefined;
+    }
+    if (originKind === 'point') {
+      const range = spellRangeFeet(spell);
+      const feet = (Math.hypot(originPt.x - caster.x, originPt.y - caster.y) / grid.size) * 5;
+      if (range !== null && feet > range) {
+        fail(ctx, 'outOfRange', { feet });
+        return undefined;
+      }
+    }
+    const affected = map
+      ? tokensInArea(map.tokens, spell.areaSpec, originPt, isPoint(params.direction) ? params.direction : null, grid)
+      : [];
+    for (const t of affected) {
+      if (t.id !== caster.id) targets.push(t);
+    }
+    area = true;
+    areaOrigin = originPt;
+  } else {
+    for (const id of Array.isArray(params.targetIds) ? params.targetIds : []) {
+      if (typeof id !== 'string') continue;
+      const found = ctx.manager.findToken(room, mapId, id);
+      if (found) targets.push(found);
+    }
+    if (spellIsSelf(spell) && !targets.some((t) => t.id === caster.id)) targets.push(caster);
+  }
+  return {
+    caster,
+    mapId,
+    spell,
+    castLevel: params.castLevel,
+    characterLevel: params.characterLevel,
+    stats: params.stats,
+    targets,
+    advantage: params.advantage,
+    area,
+    origin: areaOrigin ?? (isPoint(params.origin) ? params.origin : null),
+    direction: isPoint(params.direction) ? params.direction : null,
+    author: params.author,
+  };
+}

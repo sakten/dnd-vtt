@@ -32,8 +32,12 @@ export interface ActionContext {
   incapacitated: boolean;
   weapons: { entry: AttackEntry; index: number }[];
   features: ActionDef[];
+  abilities: ActionDef[];
   attacksPer: number;
   panelSpells: Spell[];
+  legendarySlot: boolean;
+  legendaryRemaining: number;
+  legendaryMax: number;
 }
 
 export function useActionContext(): ActionContext | null {
@@ -56,7 +60,7 @@ export function useActionContext(): ActionContext | null {
     if (combat.active && combat.currentIndex >= 0) {
       const entry = combat.entries[combat.currentIndex];
       tokenId = entry?.tokenId ?? null;
-      turn = entry ? combat.turns[entry.id] : undefined;
+      turn = entry ? combat.turns[entry.legendaryOwnerId ?? entry.id] : undefined;
     } else {
       tokenId = selectedTokenId ?? characterTokenOf(map, currentCharacterId)?.id ?? null;
     }
@@ -89,6 +93,9 @@ export function useActionContext(): ActionContext | null {
     const ownEntry = combat.entries.find((e) => e.tokenId === token.id);
     const ownTurn = ownEntry ? combat.turns[ownEntry.id] : undefined;
     const isActive = !combat.active || combat.entries[combat.currentIndex]?.tokenId === token.id;
+    const activeEntry =
+      combat.active && combat.currentIndex >= 0 ? combat.entries[combat.currentIndex] : undefined;
+    const legendarySlot = !!activeEntry?.legendaryOwnerId && activeEntry.tokenId === token.id;
     const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
       .map((entry, index) => ({ entry, index }))
       .filter((x) => attackIsActive(x.entry));
@@ -133,8 +140,12 @@ export function useActionContext(): ActionContext | null {
       incapacitated: !isDm && isIncapacitated(token.conditions),
       weapons,
       features,
+      abilities: token.statblock?.actions ?? [],
       attacksPer,
       panelSpells,
+      legendarySlot,
+      legendaryRemaining: turn?.legendaryRemaining ?? 0,
+      legendaryMax: turn?.legendaryMax ?? 0,
     };
   }, [map, selectedTokenId, currentCharacterId, selfId, role, testMode, charName, isDm, sheet, spells]);
 

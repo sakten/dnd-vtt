@@ -7,7 +7,11 @@ import {
   findBaseAction,
   findUnarmedAttack,
   firstSentence,
+  gridDistanceFeet,
+  legendaryOnly,
+  monsterStats,
   rollDice,
+  tokensInArea,
   unarmedStrikeEntry as computedUnarmedStrike,
   type ActionCost,
   type ActionDef,
@@ -19,9 +23,13 @@ import {
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
 import { fail } from './errors';
-import { rejectIfIncapacitated, rejectIfReaction, scopedToken, type Scope } from './guards';
+import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { pushRollMessage } from './messages';
-import { resolveWeaponAttackWithReactions } from './reactions';
+import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
+import { findSpell } from '../spells';
+import { spellStatsFor } from './spellStats';
+import { collectSpellCast } from './spellTargeting';
+import { validateSpellCast } from './spellResolve';
 
 /** Слот, которым будет оплачено действие: запрошенный, если доступен, иначе первый доступный. */
 function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: ActionCost): ActionCost {
@@ -83,7 +91,7 @@ function unarmedStrikeEntry(
 export function registerActionHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
-    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot }) => {
+    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, origin, direction }) => {
       if (!ctx.playerId || typeof actionId !== 'string') return;
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, tokenId);
@@ -111,6 +119,56 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
+      const activeEntry =
+        combat?.active && combat.currentIndex >= 0 ? combat.entries[combat.currentIndex] : undefined;
+      const legendarySlot = !!activeEntry?.legendaryOwnerId;
+      const legendaryCost = action.legendaryCost ?? 0;
+      const ownedLegendary = legendaryOnly(action);
+      if (legendarySlot && !ownedLegendary) {
+        fail(ctx, 'legendarySlotOnly');
+        return;
+      }
+      if (!legendarySlot && ownedLegendary) {
+        fail(ctx, 'legendaryOnly');
+        return;
+      }
+      const ownerTurn = manager.turnStateFor(room, mapId, token);
+      if (action.recharge && (ownerTurn?.abilityCooldowns?.[action.id] ?? 0) > 0) {
+        fail(ctx, 'recharging', { name: action.name });
+        return;
+      }
+
+      // Проверки способности до списания действия: точка области и дистанция до целей.
+      const abilityArea = action.ability?.targeting?.kind === 'area' ? action.ability.targeting.area : undefined;
+      const abilityOrigin = origin && Number.isFinite(origin.x) && Number.isFinite(origin.y) ? origin : null;
+      if (action.ability) {
+        const range = action.ability.targeting?.range ?? (action.ability.attack?.rangeType === 'melee' ? 5 : 30);
+        const map = manager.findMap(room, mapId);
+        const size = map?.grid.size || room.scene.grid.size || 50;
+        if (abilityArea) {
+          if (!abilityOrigin) {
+            fail(ctx, 'noAreaPoint');
+            return;
+          }
+          const feet = (Math.hypot(abilityOrigin.x - token.x, abilityOrigin.y - token.y) / size) * 5;
+          if (range > 0 && feet > range) {
+            fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+            return;
+          }
+        } else if (action.ability.attack) {
+          for (const id of Array.isArray(targetIds) ? targetIds : []) {
+            if (typeof id !== 'string') continue;
+            const found = manager.findToken(room, mapId, id);
+            if (!found) continue;
+            const feet = gridDistanceFeet(token, found, size);
+            if (range > 0 && feet > range) {
+              fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+              return;
+            }
+          }
+        }
+      }
+
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
 
       if (action.id === 'attack' || action.id === 'unarmedStrike') {
@@ -121,20 +179,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
           fail(ctx, 'noWeapon');
           return;
         }
-        if (action.id === 'unarmedStrike' || entry.kind === 'unarmed') {
-          if (!manager.canAttack(room, mapId, token, { unarmed: true })) {
-            fail(ctx, 'actionSpent');
-            return;
-          }
-          manager.consumeAttack(room, mapId, token, { unarmed: true });
-        } else {
-          if (!manager.canAttack(room, mapId, token)) {
-            fail(ctx, 'actionSpent');
-            return;
-          }
-          manager.consumeAttack(room, mapId, token);
+        const unarmed = action.id === 'unarmedStrike' || entry.kind === 'unarmed';
+        if (!manager.canAttack(room, mapId, token, { unarmed })) {
+          fail(ctx, 'actionSpent');
+          return;
         }
-        syncCombat(room, mapId);
 
         const targetId = targetIds?.[0];
         const target: Token | null = typeof targetId === 'string' ? manager.findToken(room, mapId, targetId) ?? null : null;
@@ -148,6 +197,61 @@ export function registerActionHandlers(ctx: ConnCtx) {
           advantage,
           author,
         });
+        if (result.error) {
+          socket.emit('chat:error', result.error);
+          return;
+        }
+        // Атака списывается только после успешного резолва (вне досягаемости — не тратит).
+        manager.consumeAttack(room, mapId, token, { unarmed });
+        syncCombat(room, mapId);
+        return;
+      }
+
+      if (action.spellKey) {
+        if (rejectIfSpellsBlocked(ctx, token)) return;
+        const spell = findSpell(action.spellKey);
+        if (!spell) return;
+        const stats = spellStatsFor(room, token) ?? monsterStats(token.statblock, undefined);
+        const input = collectSpellCast(ctx, {
+          mapId,
+          caster: token,
+          spell,
+          castLevel: spell.level,
+          characterLevel: 1,
+          stats,
+          targetIds,
+          advantage,
+          origin,
+          direction,
+          author,
+        });
+        if (!input) return;
+        const invalid = validateSpellCast(room, input);
+        if (invalid) {
+          socket.emit('chat:error', invalid);
+          return;
+        }
+        if (legendarySlot) {
+          if (!manager.spendLegendary(room, mapId, token, legendaryCost)) {
+            fail(ctx, 'noLegendary');
+            return;
+          }
+        } else {
+          const turn = isActive ? manager.turnForToken(room, mapId, token) : null;
+          const offTurnReaction = !!combat?.active && !isActive && action.costs.includes('reaction');
+          const chosen: ActionCost = offTurnReaction ? 'reaction' : chooseSlot(turn, action.costs, slot);
+          if (!manager.spendSlot(room, mapId, token, chosen)) {
+            fail(ctx, offTurnReaction ? 'reactionSpent' : 'noActions');
+            return;
+          }
+          if (legendaryCost && !manager.spendLegendary(room, mapId, token, legendaryCost)) {
+            fail(ctx, 'noLegendary');
+            return;
+          }
+        }
+        if (action.recharge) manager.startAbilityCooldown(room, mapId, token, action.id, action.recharge);
+        syncCombat(room, mapId);
+        const result = resolveSpellCastWithReactions(ctx, input);
         if (result.error) socket.emit('chat:error', result.error);
         return;
       }
@@ -161,12 +265,24 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       const turn = isActive ? manager.turnForToken(room, mapId, token) : null;
       const offTurnReaction = !!combat?.active && !isActive && action.costs.includes('reaction');
-      const chosen: ActionCost = offTurnReaction ? 'reaction' : chooseSlot(turn, action.costs, slot);
-      if (!manager.spendSlot(room, mapId, token, chosen)) {
-        fail(ctx, offTurnReaction ? 'reactionSpent' : 'noActions');
-        return;
+      if (legendarySlot) {
+        if (!manager.spendLegendary(room, mapId, token, legendaryCost)) {
+          fail(ctx, 'noLegendary');
+          return;
+        }
+      } else {
+        const chosen: ActionCost = offTurnReaction ? 'reaction' : chooseSlot(turn, action.costs, slot);
+        if (!manager.spendSlot(room, mapId, token, chosen)) {
+          fail(ctx, offTurnReaction ? 'reactionSpent' : 'noActions');
+          return;
+        }
+        if (legendaryCost && !manager.spendLegendary(room, mapId, token, legendaryCost)) {
+          fail(ctx, 'noLegendary');
+          return;
+        }
       }
       syncCombat(room, mapId);
+      if (action.recharge) manager.startAbilityCooldown(room, mapId, token, action.id, action.recharge);
 
       if (resourceAmount) {
         manager.spendResource(room, ctx.playerId, action.resourceKey!, resourceAmount);
@@ -177,15 +293,32 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const def = automationForAction(action, { classes: sheet?.classes }) ?? featureActionAutomation(action.id, sheet?.classes);
       if (def) {
         const targets: Token[] = [];
-        for (const id of Array.isArray(targetIds) ? targetIds : []) {
-          if (typeof id !== 'string') continue;
-          const found = manager.findToken(room, mapId, id);
-          if (found) targets.push(found);
+        if (abilityArea) {
+          const map = manager.findMap(room, mapId);
+          const grid = {
+            size: map?.grid.size || room.scene.grid.size || 50,
+            offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
+            offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
+          };
+          const affected = map && abilityOrigin ? tokensInArea(map.tokens, abilityArea, abilityOrigin, direction ?? null, grid) : [];
+          for (const found of affected) {
+            if (found.id !== token.id) targets.push(found);
+          }
+        } else {
+          for (const id of Array.isArray(targetIds) ? targetIds : []) {
+            if (typeof id !== 'string') continue;
+            const found = manager.findToken(room, mapId, id);
+            if (found) targets.push(found);
+          }
         }
         if (!targets.length && def.targeting?.kind === 'self') targets.push(token);
         // Классовые черты со спасбросками (Изгнание нежити, Сияние рассвета): СЛ из листа.
         const classKey = actionId.startsWith('class:') ? actionId.slice('class:'.length).split(/[:.]/)[0] : undefined;
-        const stats = sheet && classKey ? casterStats(sheet, classKey) : null;
+        const stats = action.ability
+          ? monsterStats(token.statblock, action.ability)
+          : sheet && classKey
+            ? casterStats(sheet, classKey)
+            : null;
         executeAutomation(ctx, {
           caster: token,
           mapId,

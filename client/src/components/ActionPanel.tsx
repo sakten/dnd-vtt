@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BASE_ACTIONS, abilityMod, actionSlotAvailable, featureActionAutomation, isUnarmedAttack, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { BASE_ACTIONS, abilityMod, actionSlotAvailable, featureActionAutomation, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -79,9 +79,10 @@ export default function ActionPanel() {
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
+  const startAim = useGameStore((s) => s.startAim);
   const spellByKey = useSpellByKey();
   const info = useActionContext();
-  const [casting, setCasting] = useState<Spell | null>(null);
+  const [casting, setCasting] = useState<{ spell: Spell; ability?: ActionDef } | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
   const panelRef = useRef<HTMLDivElement>(null);
@@ -135,8 +136,12 @@ export default function ActionPanel() {
     incapacitated: incap,
     weapons,
     features,
+    abilities,
     attacksPer,
     panelSpells,
+    legendarySlot,
+    legendaryRemaining,
+    legendaryMax,
   } = info;
 
   const turnCtx: TurnContext = { combatActive, isActive, turn, ownTurn, incapacitated: incap, controlled };
@@ -183,6 +188,7 @@ export default function ActionPanel() {
   const featuresOther = features.filter(
     (f) => !f.costs.includes('action') && !f.costs.includes('bonus') && !f.costs.includes('reaction')
   );
+  const legendaryAbilities = abilities.filter(legendaryOnly);
   const hasReaction =
     BASE_ACTIONS.some((a) => a.costs.includes('reaction')) ||
     featuresReaction.length > 0 ||
@@ -221,7 +227,7 @@ export default function ActionPanel() {
           data-tip={`${spellDisplayName(spell)} · ${level}`}
           aria-label={spellDisplayName(spell)}
         disabled={spellDisabled(spell)}
-        onClick={() => setCasting(spell)}
+        onClick={() => setCasting({ spell })}
       >
         <SpellIcon spell={spell} className="ap-icon" />
       </button>
@@ -258,6 +264,83 @@ export default function ActionPanel() {
       </button>
     );
   };
+
+  const abilitySlot = (a: ActionDef): ActionCost => {
+    const state = isActive ? turn : ownTurn;
+    if (state) {
+      const available = a.costs.find((c) => actionSlotAvailable(state, c));
+      if (available) return available;
+    }
+    return a.costs[0] ?? 'action';
+  };
+
+  const cooldownLeft = (a: ActionDef): number => turn?.abilityCooldowns?.[a.id] ?? 0;
+
+  const abilityDisabled = (a: ActionDef): boolean => {
+    if (incap || !controlled) return true;
+    if (cooldownLeft(a) > 0) return true;
+    const cost = a.legendaryCost ?? 0;
+    if (!combatActive) return cost > 0;
+    const only = legendaryOnly(a);
+    if (legendarySlot) return !only || cost > legendaryRemaining;
+    if (only) return true;
+    if (cost > legendaryRemaining) return true;
+    return !canSpendSlot(turnCtx, abilitySlot(a), a.id);
+  };
+
+  const abilityLabel = (a: ActionDef): string => {
+    const parts = [a.name];
+    if (a.legendaryCost) parts.push(t('ui.action.legendaryCost', { n: a.legendaryCost }));
+    if (legendaryOnly(a) && !legendarySlot && combatActive) parts.push(t('ui.action.legendaryHint'));
+    const cd = cooldownLeft(a);
+    if (cd > 0) parts.push(t('ui.action.recharging', { n: cd }));
+    return parts.join(' · ');
+  };
+
+  const activateAbility = (a: ActionDef) => {
+    const slot = abilitySlot(a);
+    if (a.spellKey) {
+      const spell = spellByKey.get(a.spellKey);
+      if (spell) setCasting({ spell, ability: a });
+      return;
+    }
+    const targeting = a.ability?.targeting;
+    if (targeting?.kind === 'area' && targeting.area) {
+      startAim({
+        tokenId: token.id,
+        actionId: a.id,
+        slot,
+        spec: targeting.area,
+        originKind: 'point',
+        rangeFeet: targeting.range ?? 30,
+      });
+      return;
+    }
+    if (targeting?.kind === 'creature') {
+      const count = targeting.targets ?? 1;
+      if (a.ability?.attack && count > 1) {
+        startMultiTarget({ tokenId: token.id, actionId: a.id, slot, count, distinct: true });
+        return;
+      }
+      startTargeting({ kind: 'action', tokenId: token.id, actionId: a.id, slot, label: a.name });
+      return;
+    }
+    runAction(token.id, a.id, { slot });
+  };
+
+  const abilityButton = (a: ActionDef) => (
+    <button
+      key={`ability:${a.id}`}
+      className="ap-icon-btn"
+      data-tip={abilityLabel(a)}
+      aria-label={a.name}
+      disabled={abilityDisabled(a)}
+      onClick={() => activateAbility(a)}
+    >
+      <FeatureIcon id={a.id} fallback={featureIconId(a)} className="ap-icon" />
+      {!!a.legendaryCost && <span className="ap-legendary-badge" data-tip={t('ui.action.legendaryCost', { n: a.legendaryCost })}>✦</span>}
+    </button>
+  );
 
   const renderButtons = (slot: ActionCost) => {
     const buttons: ReactNode[] = [];
@@ -325,6 +408,7 @@ export default function ActionPanel() {
       buttons.push(...featureList.map(featureButton));
       buttons.push(...spellList.map(spellButton));
     }
+    buttons.push(...abilities.filter((a) => !legendaryOnly(a) && a.costs.includes(slot)).map(abilityButton));
     if (buttons.length === 0) return <span className="ap-empty">{t('ui.action.none')}</span>;
     return buttons;
   };
@@ -347,7 +431,11 @@ export default function ActionPanel() {
           <EffectChips effects={token.effects} spellByKey={spellByKey} tokenId={token.id} />
         )}
         {incap && <span className="ap-incap">{t('ui.action.incapacitated')}</span>}
-        {combatActive && turn ? (
+        {combatActive && legendarySlot ? (
+          <span className="ap-count legendary">
+            {t('ui.action.legendaryLeft', { n: legendaryRemaining, max: legendaryMax })}
+          </span>
+        ) : combatActive && turn ? (
           <span className="ap-counters">
             <span className="ap-counter" title={t('ui.action.reaction')}>
               {t('ui.action.reaction')} <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
@@ -380,6 +468,18 @@ export default function ActionPanel() {
       {!collapsed && (
         <>
       <div className="ap-body">
+        {legendarySlot ? (
+          <section className="ap-panel legendary">
+            <div className="ap-panel-head">
+              <span className="ap-panel-title">{t('ui.action.legendaryActions')}</span>
+              <span className="ap-count">
+                {legendaryRemaining}/{legendaryMax}
+              </span>
+            </div>
+            <div className="ap-icons">{legendaryAbilities.map(abilityButton)}</div>
+          </section>
+        ) : (
+          <>
         <section className="ap-panel actions">
           <div className="ap-panel-head">
             <span className="ap-panel-title">{t('ui.action.actions')}</span>
@@ -405,8 +505,23 @@ export default function ActionPanel() {
             <div className="ap-icons">{renderButtons('reaction')}</div>
           </section>
         )}
+        {legendaryAbilities.length > 0 && (
+          <section className="ap-panel legendary">
+            <div className="ap-panel-head">
+              <span className="ap-panel-title">{t('ui.action.legendaryActions')}</span>
+              {combatActive && turn && turn.legendaryMax > 0 && (
+                <span className="ap-count legendary">
+                  {turn.legendaryRemaining}/{turn.legendaryMax}
+                </span>
+              )}
+            </div>
+            <div className="ap-icons">{legendaryAbilities.map(abilityButton)}</div>
+          </section>
+        )}
+          </>
+        )}
       </div>
-      {(featuresOther.length > 0 || spellsOther.length > 0) && (
+      {!legendarySlot && (featuresOther.length > 0 || spellsOther.length > 0) && (
         <section className="ap-panel other">
           <div className="ap-panel-head">
             <span className="ap-panel-title">{t('ui.action.other')}</span>
@@ -419,7 +534,14 @@ export default function ActionPanel() {
       )}
         </>
       )}
-      {casting && <SpellPopover spell={casting} tokenId={token.id} onClose={() => setCasting(null)} />}
+      {casting && (
+        <SpellPopover
+          spell={casting.spell}
+          tokenId={token.id}
+          abilityAction={casting.ability ? { id: casting.ability.id, slot: abilitySlot(casting.ability) } : undefined}
+          onClose={() => setCasting(null)}
+        />
+      )}
       {tip && <IconTip tip={tip} />}
     </div>
   );

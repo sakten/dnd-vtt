@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf, tokenById } from '../store/selectors';
 import { canControlWith } from '../lib/control';
@@ -31,15 +30,12 @@ export default function TableScreen() {
   const gridModalOpen = useGameStore((s) => s.gridModalOpen);
   const visionModalOpen = useGameStore((s) => s.visionModalOpen);
   const roomSettingsOpen = useGameStore((s) => s.roomSettingsOpen);
-  const roomCode = useGameStore((s) => s.roomCode);
-  const roomName = useGameStore((s) => s.roomName);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
   const wallsActive = useGameStore((s) => s.wallsMode.active);
   const setWallsMode = useGameStore((s) => s.setWallsMode);
   const lightActive = useGameStore((s) => s.lightMode.active);
   const setLightMode = useGameStore((s) => s.setLightMode);
-  const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -85,19 +81,6 @@ export default function TableScreen() {
       <AimPanel />
       <ResourcesPanel />
       <ReactionPrompt />
-      <div
-        className="room-badge"
-        data-testid="room-badge"
-        title={t('ui.table.copyLinkTitle', { code: roomCode ?? '' })}
-        onClick={() => {
-          const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
-          navigator.clipboard?.writeText(url).catch(() => void 0);
-        }}
-      >
-        {t('ui.chat.room')} <strong>{roomName || shortCode}</strong>{' '}
-        {roomName && <span className="room-badge-code">{shortCode}</span>}{' '}
-        <span className="room-badge-hint">{t('ui.table.copyLinkHint')}</span>
-      </div>
       {gridModalOpen && <GridSettingsModal />}
       {visionModalOpen && <VisionSettingsModal />}
       {roomSettingsOpen && <RoomSettingsModal />}

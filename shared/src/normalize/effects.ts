@@ -68,7 +68,7 @@ function normalizeModifier(raw: unknown): Modifier | null {
   };
 }
 
-function normalizeEffectDuration(raw: unknown): EffectDuration | null {
+export function normalizeEffectDuration(raw: unknown): EffectDuration | null {
   if (!raw || typeof raw !== 'object') return null;
   const d = raw as Record<string, unknown>;
   if (d.type === 'rounds') return { type: 'rounds', rounds: clampInt(d.rounds, 0, 9999, 0) };

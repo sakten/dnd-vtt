@@ -9,6 +9,8 @@ export interface InitiativeEntry {
   initiative: number;
   bonus: string;
   roll?: DiceRollResult;
+  /** Легендарный слот: ссылка на основную запись владельца (пул и экономика — там). */
+  legendaryOwnerId?: string;
 }
 
 /** Состояние хода одного участника боя. */
@@ -37,6 +39,8 @@ export interface TurnState {
   movementOnly: boolean;
   /** id активного эффекта концентрации. */
   concentrationId: string | null;
+  /** Перезарядки способностей: id действия → осталось ходов. */
+  abilityCooldowns?: Record<string, number>;
 }
 
 export function emptyTurnState(movementMax = DEFAULT_SPEED): TurnState {

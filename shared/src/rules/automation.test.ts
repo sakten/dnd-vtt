@@ -175,11 +175,11 @@ describe('automationForSpell', () => {
     expect(def.zone?.excludeSource).toBe(true);
   });
 
-  it('Hunger of Hadar: слепота «полностью внутри» и урон по триггерам', () => {
+  it('Hunger of Hadar: слепота и урон по любому пересечению клеток', () => {
     const def = automationForSpell(
       makeSpell({ key: 'XPHB:Hunger of Hadar', name: 'Hunger of Hadar', automation: 'manual' })
     );
-    expect(def.zone?.containment).toBe('fullyWithin');
+    expect(def.zone?.containment).toBeUndefined();
     expect(def.zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded']);
     expect(def.zone?.triggers?.startOfTurn?.containment).toBe('anyCell');
     expect(def.zone?.triggers?.endOfTurn?.containment).toBe('anyCell');

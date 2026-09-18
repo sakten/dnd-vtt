@@ -13,9 +13,9 @@ check(page3Role === 'dm', 'создание из страницы ведущег
 await S.ctx3.close();
 
 await S.page2.goto(`${S.BASE}?room=${codeY}`, { waitUntil: 'networkidle0' });
-await S.page2.waitForSelector('[data-testid="room-badge"] strong');
-const badge2 = await S.page2.evaluate(() => window.__vtt.getState().roomCode);
-check(badge2 === codeY, `инвайт-ссылка приоритетнее сохранённой комнаты (перешёл в ${badge2})`);
+await S.page2.waitForSelector('[data-testid="table-screen"]');
+const joinedCode = await S.page2.evaluate(() => window.__vtt.getState().roomCode);
+check(joinedCode === codeY, `инвайт-ссылка приоритетнее сохранённой комнаты (перешёл в ${joinedCode})`);
 
 await S.page2.goto(S.BASE, { waitUntil: 'networkidle0' });
 await S.page2.waitForSelector('[data-testid="join-card"]');

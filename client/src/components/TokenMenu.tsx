@@ -59,6 +59,7 @@ export default function TokenMenu() {
   const [visible, setVisible] = useState(true);
   const [conditions, setConditions] = useState<ConditionInstance[]>([]);
   const [statblock, setStatblock] = useState<TokenStatblock | undefined>(undefined);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!menuId || !token) return;
@@ -124,7 +125,7 @@ export default function TokenMenu() {
     setHpCurrent((c) => Math.max(0, Math.min(hpMax || c + delta, c + delta)));
   };
 
-  const save = () => {
+  const persist = () => {
     setTokenFields(token.id, {
       ...draft,
       hpCurrent,
@@ -132,7 +133,17 @@ export default function TokenMenu() {
       conditions,
       ...(isDm ? { speed, senses, faction, visible, statblock } : {}),
     });
+  };
+
+  const save = () => {
+    persist();
     close(null);
+  };
+
+  const saveStay = () => {
+    persist();
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1500);
   };
 
   const removeEffect = (effectId: string) => {
@@ -424,6 +435,9 @@ export default function TokenMenu() {
               {t('ui.common.delete')}
             </button>
           )}
+          <button className={saved ? 'saved' : ''} disabled={!canEdit} onClick={saveStay}>
+            {saved ? t('ui.common.saved') : t('ui.common.save')}
+          </button>
           <button
             className="primary"
             disabled={!canEdit}

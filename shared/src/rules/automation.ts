@@ -10,6 +10,7 @@ import type {
 import type { EffectDuration } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
 import { AUTOMATION_ACTIONS } from './automationActions';
+import { monsterAbilityAutomation } from './monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression } from './spellCast';
 import type { Spell } from './spells';
 
@@ -322,9 +323,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       wakeOnDamage: true,
     },
   ], { ability: 'wis' }),
-  // Hunger of Hadar: сфера 20; «полностью внутри» — слепота (аура), урон по
-  // триггерам (начало хода — холод, конец — спас DEX и кислота). Магическая тьма —
-  // `flags.blocksLight` (учитывается вижном).
+  // Hunger of Hadar: сфера 20; слепота и урон — при любом пересечении клеток
+  // (любая занятая клетка в зоне). Магическая тьма — `flags.blocksLight`.
   'XPHB:Hunger of Hadar': {
     key: 'XPHB:Hunger of Hadar',
     name: 'Hunger of Hadar',
@@ -334,7 +334,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       area: { shape: 'sphere', size: 20 },
       origin: 'point',
       duration: CONCENTRATION,
-      containment: 'fullyWithin',
       aura: {
         effects: [
           {
@@ -347,8 +346,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         ],
       },
       triggers: {
-        // «В области» для урона — любое пересечение клеток (краевые большие токены
-        // тоже бьются); слепота остаётся «полностью внутри» (аура).
+        // «В области» — любое пересечение клеток (краевые большие токены тоже бьются).
         startOfTurn: { containment: 'anyCell', damage: { dice: '2d6', types: ['cold'] } },
         endOfTurn: {
           containment: 'anyCell',
@@ -663,6 +661,7 @@ export interface ActionAutomationOptions {
  * со скейлом по уровню класса. undefined — механики нет (заглушка на сервере).
  */
 export function automationForAction(action: ActionDef, opts: ActionAutomationOptions = {}): AutomationDef | undefined {
+  if (action.ability) return monsterAbilityAutomation(action);
   const base = AUTOMATION_ACTIONS[action.id];
   if (!base) return undefined;
   const classes = opts.classes;

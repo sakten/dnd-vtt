@@ -7,6 +7,13 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
   const base = emptyTurnState(movementMax);
   if (!raw || typeof raw !== 'object') return base;
   const t = raw as Partial<TurnState>;
+  const cooldowns: Record<string, number> = {};
+  if (t.abilityCooldowns && typeof t.abilityCooldowns === 'object') {
+    for (const [key, value] of Object.entries(t.abilityCooldowns)) {
+      const n = clampInt(value, 0, 20, 0);
+      if (key && n > 0) cooldowns[key] = n;
+    }
+  }
   return {
     actionUsed: t.actionUsed === true,
     bonusActionUsed: t.bonusActionUsed === true,
@@ -23,6 +30,7 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     disengaged: t.disengaged === true,
     movementOnly: t.movementOnly === true,
     concentrationId: typeof t.concentrationId === 'string' && t.concentrationId ? t.concentrationId : null,
+    ...(Object.keys(cooldowns).length ? { abilityCooldowns: cooldowns } : {}),
   };
 }
 

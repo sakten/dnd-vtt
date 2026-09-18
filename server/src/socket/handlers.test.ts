@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DEFAULT_ABILITIES,
   DEFAULT_SPEED,
   type AutomationDef,
   type CharacterSheet,
@@ -125,6 +126,238 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
     expect(combatOf(room).turns.e1!.movementMax).toBe(60);
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.extraMovement')).toBe(true);
+  });
+
+  it('способность монстра из статблока: атака тратит действие, сейв вешает состояние', () => {
+    const statblock: TokenStatblock = {
+      abilities: { ...DEFAULT_ABILITIES },
+      attackBonus: '+5',
+      saveDc: 13,
+      actions: [
+        {
+          id: 'bite',
+          name: 'Укус',
+          source: 'monster',
+          costs: ['action'],
+          ability: {
+            attack: { rangeType: 'melee', damage: '1d6+2', types: ['piercing'] },
+            save: { ability: 'con' },
+            effects: [{ condition: 'poisoned', duration: { type: 'rounds', rounds: 1 } }],
+          },
+        },
+      ],
+    };
+    const room = makeRoom([makeToken('t1', { statblock }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })]);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'bite', targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(24);
+    expect(room.scene.maps[0]!.tokens[1]!.conditions.some((c) => c.key === 'poisoned')).toBe(true);
+  });
+
+  it('атака вне досягаемости не тратит действие', () => {
+    const sword: AttackEntry = {
+      name: 'Клинок',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom([
+      makeToken('t1', { attacks: [sword], x: 100, y: 100 }),
+      makeToken('t2', { x: 500, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ]);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
+    expect(f.selfEvents('chat:error').length).toBeGreaterThan(0);
+  });
+
+  it('обычная атака по оглушённой цели идёт с преимуществом', () => {
+    const sword: AttackEntry = {
+      name: 'Клинок',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom([
+      makeToken('t1', { attacks: [sword], x: 100, y: 100 }),
+      makeToken('t2', {
+        x: 150,
+        y: 100,
+        hpMax: '30',
+        hpCurrent: 30,
+        conditions: [{ key: 'stunned', name: 'Ошеломлён' }],
+      }),
+    ]);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll?: { dice?: { advantage?: string | null }[] } }
+      | undefined;
+    expect(attack?.roll?.dice?.[0]?.advantage).toBe('a');
+  });
+
+  it('способность босса: вне дистанции и без точки области действие не тратится', () => {
+    const statblock: TokenStatblock = {
+      abilities: { ...DEFAULT_ABILITIES },
+      actions: [
+        {
+          id: 'bite',
+          name: 'Укус',
+          source: 'monster',
+          costs: ['action'],
+          ability: {
+            targeting: { kind: 'creature', range: 5 },
+            attack: { rangeType: 'melee', damage: '1d6' },
+          },
+        },
+        {
+          id: 'swipe',
+          name: 'Хвостовой удар',
+          source: 'monster',
+          costs: ['action'],
+          ability: {
+            targeting: { kind: 'area', range: 30, area: { shape: 'sphere', size: 10 } },
+            save: { ability: 'dex' },
+            damage: { dice: '2d6' },
+          },
+        },
+      ],
+    };
+    const room = makeRoom([
+      makeToken('t1', { statblock, x: 100, y: 100 }),
+      makeToken('t2', { x: 500, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ]);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'bite', targetIds: ['t2'] });
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'swipe' });
+
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
+  });
+
+  it('способность-область босса собирает цели по aim-точке', () => {
+    const statblock: TokenStatblock = {
+      abilities: { ...DEFAULT_ABILITIES },
+      saveDc: 12,
+      actions: [
+        {
+          id: 'swipe',
+          name: 'Хвостовой удар',
+          source: 'monster',
+          costs: ['action'],
+          ability: {
+            targeting: { kind: 'area', range: 0, area: { shape: 'sphere', size: 10 } },
+            save: { ability: 'dex' },
+            damage: { dice: '2d6', types: ['bludgeoning'] },
+          },
+        },
+      ],
+    };
+    const room = makeRoom([
+      makeToken('t1', { statblock }),
+      makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+      makeToken('t3', { x: 200, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ]);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'swipe',
+      origin: { x: 175, y: 100 },
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(22);
+    expect(room.scene.maps[0]!.tokens[2]!.hpCurrent).toBe(22);
+  });
+
+  it('легендарная способность-заклинание кастуется из полного каталога без слота', () => {
+    const statblock: TokenStatblock = {
+      abilities: { ...DEFAULT_ABILITIES },
+      actions: [
+        {
+          id: 'spell1',
+          name: 'Волшебные стрелы',
+          source: 'monster',
+          costs: [],
+          legendaryCost: 1,
+          spellKey: 'XPHB:Magic Missile',
+        },
+      ],
+    };
+    const room = makeRoom([makeToken('t1', { statblock }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })]);
+    const combat = combatOf(room);
+    combat.entries.push(
+      { id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' },
+      { id: 's1', tokenId: 't1', name: 'A', imageUrl: '', initiative: 10, bonus: '', legendaryOwnerId: 'e1' }
+    );
+    combat.currentIndex = 2;
+    combat.turns.e1!.legendaryRemaining = 3;
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'spell1', targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(combat.turns.e1!.actionUsed).toBe(false);
+    expect(combat.turns.e1!.legendaryRemaining).toBe(2);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
+  });
+
+  it('легендарная способность недоступна на своём ходу', () => {
+    const statblock: TokenStatblock = {
+      abilities: { ...DEFAULT_ABILITIES },
+      actions: [
+        {
+          id: 'spell1',
+          name: 'Волшебные стрелы',
+          source: 'monster',
+          costs: [],
+          legendaryCost: 1,
+          spellKey: 'XPHB:Magic Missile',
+        },
+      ],
+    };
+    const room = makeRoom([makeToken('t1', { statblock }), makeToken('t2', { hpMax: '30', hpCurrent: 30 })]);
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'spell1', targetIds: ['t2'] });
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
+    expect(
+      f.selfEvents('chat:error').some((e) => (e.payload as { code?: string } | undefined)?.code === 'legendaryOnly')
+    ).toBe(true);
   });
 
   it('Второе дыхание лечит 1d10 + уровень воина и тратит ресурс', () => {

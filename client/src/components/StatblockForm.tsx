@@ -3,16 +3,15 @@ import {
   DEFAULT_ABILITIES,
   abilityMod,
   type AbilityKey,
-  type ActionCost,
   type ActionDef,
   type TokenStatblock,
 } from 'shared';
 import { useState } from 'react';
-import { t, type MessageKey } from '../i18n';
+import { t } from '../i18n';
 import { abilityName } from '../i18n/domain';
-import { newId } from '../lib/id';
 import { parseSaveBonus } from '../lib/saves';
 import { Field } from './Field';
+import MonsterAbilityEditor from './MonsterAbilityEditor';
 
 interface Props {
   value: TokenStatblock | undefined;
@@ -20,14 +19,6 @@ interface Props {
   /** Токен персонажа: данные из листа — только просмотр. */
   readOnly?: boolean;
 }
-
-const COSTS: { key: ActionCost; name: MessageKey }[] = [
-  { key: 'action', name: 'ui.statblock.cost.action' },
-  { key: 'bonus', name: 'ui.statblock.cost.bonus' },
-  { key: 'reaction', name: 'ui.statblock.cost.reaction' },
-  { key: 'legendary', name: 'ui.statblock.cost.legendary' },
-  { key: 'free', name: 'ui.statblock.cost.free' },
-];
 
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
@@ -74,11 +65,6 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
     else delete next.actions;
     onChange(next);
   };
-  const updateAction = (index: number, patch: Partial<ActionDef>) =>
-    setActions(actions.map((a, i) => (i === index ? { ...a, ...patch } : a)));
-  const addAction = () =>
-    setActions([...actions, { id: newId(), name: '', source: 'monster', costs: ['action'] }]);
-  const removeAction = (index: number) => setActions(actions.filter((_, i) => i !== index));
 
   return (
     <div className="statblock-form">
@@ -118,6 +104,29 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
             />
           </Field>
         ))}
+      </div>
+
+      <div className="field-row">
+        <Field label={t('ui.statblock.attackBonus')}>
+          <input
+            type="text"
+            placeholder="+5"
+            maxLength={3}
+            value={sb.attackBonus ?? ''}
+            readOnly={readOnly}
+            onChange={(e) => onChange({ ...sb, attackBonus: e.target.value || undefined })}
+          />
+        </Field>
+        <Field label={t('ui.statblock.saveDc')}>
+          <input
+            type="number"
+            min={1}
+            max={40}
+            value={sb.saveDc ?? ''}
+            readOnly={readOnly}
+            onChange={(e) => onChange({ ...sb, saveDc: e.target.value === '' ? undefined : Number(e.target.value) })}
+          />
+        </Field>
       </div>
 
       <div className="field-row">
@@ -161,40 +170,8 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
         <span>{t('ui.statblock.caster')}</span>
       </label>
 
-      <div className="sheet-section-title">{t('ui.statblock.actions')}</div>
-      {actions.map((action, i) => (
-        <div className="statblock-action" key={action.id}>
-          <input
-            type="text"
-            placeholder={t('ui.common.name')}
-            maxLength={40}
-            value={action.name}
-            readOnly={readOnly}
-            onChange={(e) => updateAction(i, { name: e.target.value })}
-          />
-          <select
-            value={action.costs[0] ?? 'action'}
-            disabled={readOnly}
-            onChange={(e) => updateAction(i, { costs: [e.target.value as ActionCost] })}
-          >
-            {COSTS.map((c) => (
-              <option key={c.key} value={c.key}>
-                {t(c.name)}
-              </option>
-            ))}
-          </select>
-          {!readOnly && (
-            <button type="button" className="weapon-remove" onClick={() => removeAction(i)}>
-              ✕
-            </button>
-          )}
-        </div>
-      ))}
-      {!readOnly && (
-        <button type="button" className="weapon-add" onClick={addAction}>
-          {t('ui.statblock.addAction')}
-        </button>
-      )}
+      <div className="sheet-section-title">{t('ui.ability.title')}</div>
+      <MonsterAbilityEditor actions={actions} onChange={setActions} readOnly={readOnly} />
     </div>
   );
 }
