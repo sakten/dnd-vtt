@@ -11,27 +11,30 @@ import {
 } from 'shared';
 import { getLocale } from './index';
 
-/** Лениво догружает RU-описания заклинаний (в русской локали) и перерисовывает при готовности. */
+/** Лениво догружает описания заклинаний текущего языка и перерисовывает при готовности. */
 export function useSpellText(): void {
-  const loaded = useSyncExternalStore(subscribeLocalizedText, isSpellTextLoaded);
+  const lang = getLocale();
+  const loaded = useSyncExternalStore(subscribeLocalizedText, () => isSpellTextLoaded(lang));
   useEffect(() => {
-    if (!loaded && getLocale() === 'ru') void loadSpellText();
-  }, [loaded]);
+    if (!loaded) void loadSpellText(lang);
+  }, [lang, loaded]);
 }
 
-/** Лениво догружает RU-описания фитов (в русской локали). */
+/** Лениво догружает описания и требования фитов текущего языка. */
 export function useFeatText(): void {
-  const loaded = useSyncExternalStore(subscribeLocalizedText, isFeatTextLoaded);
+  const lang = getLocale();
+  const loaded = useSyncExternalStore(subscribeLocalizedText, () => isFeatTextLoaded(lang));
   useEffect(() => {
-    if (!loaded && getLocale() === 'ru') void loadFeatText();
-  }, [loaded]);
+    if (!loaded) void loadFeatText(lang);
+  }, [lang, loaded]);
 }
 
-/** Лениво догружает RU-описания черт того класса, к которому относится ключ. */
+/** Лениво догружает описания черт класса, к которому относится ключ. */
 export function useFeatureText(key: string | undefined): void {
+  const lang = getLocale();
   const cls = featureClassOf(key);
-  const loaded = useSyncExternalStore(subscribeLocalizedText, () => (cls ? isFeatureTextLoaded(cls) : true));
+  const loaded = useSyncExternalStore(subscribeLocalizedText, () => !cls || isFeatureTextLoaded(lang, cls));
   useEffect(() => {
-    if (cls && !loaded && getLocale() === 'ru') void loadFeatureText(cls);
-  }, [cls, loaded]);
+    if (cls && !loaded) void loadFeatureText(lang, cls);
+  }, [lang, cls, loaded]);
 }

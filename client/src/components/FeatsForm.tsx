@@ -4,9 +4,9 @@ import {
   MAGICAL_DISCOVERIES_KEY,
   MAGICAL_DISCOVERIES_LISTS,
   featByKey,
-  featDescriptionRu,
+  featDescription,
   featMechanicsImplemented,
-  featPrereqRu,
+  featPrereq,
   magicalDiscoveriesAvailable,
   magicalDiscoveriesSpells,
   maxSpellLevel,
@@ -41,7 +41,6 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
   const [category, setCategory] = useState<'all' | FeatCategory>('all');
   const [query, setQuery] = useState('');
   const [spells, setSpells] = useState<Spell[] | null>(null);
-  const ru = getLocale() === 'ru';
   useFeatText();
 
   const discovers = magicalDiscoveriesAvailable(classes);
@@ -100,7 +99,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
             </div>
             {feat.prereq && (
               <div className="feat-hint">
-                {t('ui.feats.prereq', { prereq: (ru ? featPrereqRu(feat.key) : undefined) ?? feat.prereq })}
+                {t('ui.feats.prereq', { prereq: featPrereq(feat.key, getLocale()) ?? feat.prereq })}
               </div>
             )}
             {feat.spellLists && (
@@ -185,8 +184,8 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                   {!featMechanicsImplemented(f.key) && <span className="feat-todo"> (TODO)</span>}
                   {f.repeatable ? ` · ${t('ui.feats.repeatable')}` : ''}
                 </span>
-                <span className="feat-option-desc">{(ru ? featDescriptionRu(f.key) : undefined) ?? f.description}</span>
-                {f.prereq && <span className="feat-option-req">{(ru ? featPrereqRu(f.key) : undefined) ?? f.prereq}</span>}
+                <span className="feat-option-desc">{featDescription(f.key, getLocale()) ?? f.description}</span>
+                {f.prereq && <span className="feat-option-req">{featPrereq(f.key, getLocale()) ?? f.prereq}</span>}
               </button>
             ))}
             {!list.length && <div className="feat-hint">{t('ui.common.notFound')}</div>}

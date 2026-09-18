@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { t } from './i18n';
+import { useNames } from './i18n/names';
 import { useGameStore } from './store/useGameStore';
 import JoinScreen from './screens/JoinScreen';
 import AdminScreen from './screens/AdminScreen';
@@ -12,6 +13,7 @@ export default function App() {
   const init = useGameStore((s) => s.init);
   // Подписка на язык: перерисовывает дерево при переключении RU/EN (компоненты не memo).
   useGameStore((s) => s.lang);
+  useNames();
 
   useEffect(() => {
     init();

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { spellDescriptionRu, spellHigherLevelRu, type Spell } from 'shared';
+import { spellDescription, spellHigherLevel, type Spell } from 'shared';
 import { getLocale, t } from '../i18n';
 import { spellDisplayName } from '../i18n/names';
 import { useSpellText } from '../i18n/useLocalizedText';
@@ -54,9 +54,9 @@ function SpellTooltip({ spell, x, y, note }: HoverState) {
   const estHeight = Math.min(340, window.innerHeight * 0.5);
   const left = Math.max(8, Math.min(x + 16, window.innerWidth - width - 8));
   const top = y + 16 + estHeight > window.innerHeight ? Math.max(8, y - estHeight - 16) : y + 16;
-  const ru = getLocale() === 'ru';
-  const description = (ru ? spellDescriptionRu(spell.key) : undefined) ?? spell.description;
-  const higherLevel = (ru ? spellHigherLevelRu(spell.key) : undefined) ?? spell.higherLevel;
+  const lang = getLocale();
+  const description = spellDescription(spell.key, lang) ?? spell.description;
+  const higherLevel = spellHigherLevel(spell.key, lang) ?? spell.higherLevel;
 
   return createPortal(
     <div className="spell-tooltip" style={{ left, top, width }}>

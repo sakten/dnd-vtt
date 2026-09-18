@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { type ChatMessage, type DiceRollResult, type RollKind } from 'shared';
 import { rollMessageLabel } from '../i18n/rolls';
 import { systemText } from '../i18n/system';
-import { t } from '../i18n';
+import { nextLang, t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
 import { useDragSize } from '../lib/useDragSize';
@@ -249,9 +249,9 @@ export default function ChatPanel() {
             className="sheet-button"
             data-testid="lang-toggle"
             title={t('ui.language')}
-            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+            onClick={() => setLang(nextLang(lang))}
           >
-            {lang === 'ru' ? 'EN' : 'RU'}
+            {nextLang(lang).toUpperCase()}
           </button>
           <button className="sheet-button" data-testid="sheet-button" title={t('ui.chat.sheetTitle')} onClick={() => setSheetOpen(true)}>
             {t('ui.chat.sheet')}

@@ -5,6 +5,7 @@ import { setLocale } from '../i18n';
 import { spellLevelLabel, spellMechanics, spellSchoolLabel } from './spellText';
 
 const fireball = spellsData.spells.find((s) => s.key === 'XPHB:Fireball') as Spell;
+const swordBurst = spellsData.spells.find((s) => s.key === 'TCE:Sword Burst') as Spell;
 
 describe('spellText', () => {
   it('RU: сводка локализована, нотация «к», школа и круг по-русски', () => {
@@ -39,5 +40,25 @@ describe('spellText', () => {
     expect(spellSchoolLabel('Unknown')).toBe('Unknown');
     expect(spellLevelLabel(3)).toBe('Level 3');
     expect(spellLevelLabel(0)).toBe('Cantrips');
+  });
+
+  it('EN: Sword Burst — целиком английский (регресс смешанного RU/EN тултипа)', () => {
+    setLocale('en');
+    const lines = spellMechanics(swordBurst).join(' | ');
+    expect(lines).not.toMatch(/[А-Яа-яЁё]/);
+    expect(lines).toContain('Action: 1 Action');
+    expect(lines).toContain('Range: 5 ft.');
+    expect(lines).toContain('Save: Dexterity');
+    expect(lines).toContain('Damage: 1d6, 2d6, 3d6, 4d6 force');
+    expect(lines).toContain('Components: V');
+  });
+
+  it('RU: Sword Burst — целиком русский', () => {
+    setLocale('ru');
+    const lines = spellMechanics(swordBurst).join(' | ');
+    expect(lines).toContain('Спасбросок: Ловкость');
+    expect(lines).toContain('Урон: 1к6, 2к6, 3к6, 4к6 силовой');
+    expect(lines).toContain('Компоненты: В');
+    expect(spellSchoolLabel('Conjuration')).toBe('Вызов');
   });
 });

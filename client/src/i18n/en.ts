@@ -1107,3 +1107,5 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.reaction.monk:deflectAttacks': 'Deflect Attacks',
   'domain.reaction.rogue:uncannyDodge': 'Uncanny Dodge',
 };
+
+export const dict = en;

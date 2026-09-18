@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { detectLang, interpolate, plural, setLocale, t } from './index';
+import { LANGS, detectLang, interpolate, nextLang, plural, setLocale, t } from './index';
 
 describe('i18n', () => {
   it('detectLang: приоритет ?lang= → localStorage → navigator', () => {
     expect(detectLang({ search: '?lang=en', stored: 'ru', navigator: 'ru-RU' })).toBe('en');
     expect(detectLang({ search: '?room=X', stored: 'en', navigator: 'ru-RU' })).toBe('en');
     expect(detectLang({ search: '?lang=de', stored: null, navigator: 'ru-RU' })).toBe('ru');
+  });
+
+  it('реестр языков: ru основной, en зарегистрирован, цикл переключения', () => {
+    expect(LANGS[0]).toBe('ru');
+    expect(LANGS).toContain('en');
+    expect(nextLang('ru')).toBe('en');
+    expect(nextLang('en')).toBe('ru');
   });
 
   it('detectLang: en* → en, остальное → ru', () => {

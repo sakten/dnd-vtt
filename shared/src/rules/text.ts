@@ -1,4 +1,8 @@
-import namesRaw from '../data/text.ru/names.json';
+/**
+ * Локализованные данные контента: `<lang>`-оверлеи в `shared/src/data/text.<lang>/`.
+ * Имена — мелкий чанк (грузится на старте), описания — ленивые чанки (по требованию).
+ * Добавление языка = папка `text.<lang>/` со своими json, без правок кода.
+ */
 
 interface NamesData {
   attribution: string;
@@ -22,45 +26,11 @@ interface FeatureTextData {
   featureDescriptions: Record<string, string>;
 }
 
-const names = namesRaw as NamesData;
-
-export const textAttribution = names.attribution;
-
-/** RU-название заклинания по ключу (undefined — перевода нет). */
-export function spellNameRu(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return names.spells[key];
-}
-
-/** RU-название классовой/подклассовой черты по ключу ресурса. */
-export function featureNameRu(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return names.features[key];
-}
-
-/** RU-название фита по ключу. */
-export function featNameRu(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return names.feats[key];
-}
-
-/** RU-название оружия по ключу. */
-export function weaponNameRu(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return names.weapons[key];
-}
-
-/** Класс черты по ключу (`class.subclass:feature` / `class:feature`). */
-export function featureClassOf(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  const [head] = key.split(':');
-  const cls = head?.split('.')[0];
-  return cls || undefined;
-}
-
-let spellText: SpellTextData | null = null;
-let featText: FeatTextData | null = null;
-const featureText = new Map<string, Record<string, string>>();
+const namesByLang = new Map<string, NamesData>();
+const spellByLang = new Map<string, SpellTextData>();
+const featByLang = new Map<string, FeatTextData>();
+const featureByLang = new Map<string, Map<string, Record<string, string>>>();
+const failed = new Set<string>();
 const pending = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 
@@ -76,25 +46,18 @@ export function subscribeLocalizedText(listener: () => void): () => void {
   };
 }
 
-export function isSpellTextLoaded(): boolean {
-  return spellText !== null;
-}
-
-export function isFeatTextLoaded(): boolean {
-  return featText !== null;
-}
-
-export function isFeatureTextLoaded(className: string): boolean {
-  return featureText.has(className);
-}
-
 function loadChunk(id: string, load: () => Promise<{ default: unknown }>, apply: (data: unknown) => void): Promise<void> {
   const running = pending.get(id);
   if (running) return running;
-  const promise = load()
+  if (failed.has(id)) return Promise.resolve();
+  const promise = Promise.resolve()
+    .then(load)
     .then((mod) => {
       apply(mod.default);
       notify();
+    })
+    .catch(() => {
+      failed.add(id);
     })
     .finally(() => {
       pending.delete(id);
@@ -103,58 +66,115 @@ function loadChunk(id: string, load: () => Promise<{ default: unknown }>, apply:
   return promise;
 }
 
-/** Догружает RU-описания заклинаний (чанк `text.ru/spells.json`). */
-export function loadSpellText(): Promise<void> {
-  if (spellText) return Promise.resolve();
-  return loadChunk('spells', () => import('../data/text.ru/spells.json'), (data) => {
-    spellText = data as SpellTextData;
+/** RU/…-имена контента (список заклинаний, черт, фитов, оружия). */
+export function loadNames(lang: string): Promise<void> {
+  if (namesByLang.has(lang)) return Promise.resolve();
+  return loadChunk(`names:${lang}`, () => import(`../data/text.${lang}/names.json`), (data) => {
+    namesByLang.set(lang, data as NamesData);
   });
 }
 
-/** Догружает RU-описания фитов (чанк `text.ru/feats.json`). */
-export function loadFeatText(): Promise<void> {
-  if (featText) return Promise.resolve();
-  return loadChunk('feats', () => import('../data/text.ru/feats.json'), (data) => {
-    featText = data as FeatTextData;
+/** Ленивые описания заклинаний. */
+export function loadSpellText(lang: string): Promise<void> {
+  if (spellByLang.has(lang)) return Promise.resolve();
+  return loadChunk(`spells:${lang}`, () => import(`../data/text.${lang}/spells.json`), (data) => {
+    spellByLang.set(lang, data as SpellTextData);
   });
 }
 
-/** Догружает RU-описания черт одного класса (чанк `text.ru/features/<класс>.json`). */
-export function loadFeatureText(className: string): Promise<void> {
-  if (featureText.has(className)) return Promise.resolve();
-  return loadChunk(`feature:${className}`, () => import(`../data/text.ru/features/${className}.json`), (data) => {
-    featureText.set(className, (data as FeatureTextData).featureDescriptions);
+/** Ленивые описания и требования фитов. */
+export function loadFeatText(lang: string): Promise<void> {
+  if (featByLang.has(lang)) return Promise.resolve();
+  return loadChunk(`feats:${lang}`, () => import(`../data/text.${lang}/feats.json`), (data) => {
+    featByLang.set(lang, data as FeatTextData);
   });
 }
 
-/** RU-описание черты по ключу (undefined — чанк класса ещё не загружен или перевода нет). */
-export function featureDescriptionRu(key: string | undefined): string | undefined {
+/** Ленивые описания черт одного класса. */
+export function loadFeatureText(lang: string, className: string): Promise<void> {
+  if (featureByLang.get(lang)?.has(className)) return Promise.resolve();
+  return loadChunk(`feature:${lang}:${className}`, () => import(`../data/text.${lang}/features/${className}.json`), (data) => {
+    if (!featureByLang.has(lang)) featureByLang.set(lang, new Map());
+    featureByLang.get(lang)!.set(className, (data as FeatureTextData).featureDescriptions);
+  });
+}
+
+export function isNamesLoaded(lang: string): boolean {
+  return namesByLang.has(lang);
+}
+
+export function isSpellTextLoaded(lang: string): boolean {
+  return spellByLang.has(lang);
+}
+
+export function isFeatTextLoaded(lang: string): boolean {
+  return featByLang.has(lang);
+}
+
+export function isFeatureTextLoaded(lang: string, className: string): boolean {
+  return featureByLang.get(lang)?.has(className) ?? false;
+}
+
+/** RU/…-название заклинания по ключу. */
+export function spellName(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return namesByLang.get(lang)?.spells[key];
+}
+
+/** RU/…-название классовой/подклассовой черты по ключу ресурса. */
+export function featureName(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return namesByLang.get(lang)?.features[key];
+}
+
+/** RU/…-название фита по ключу. */
+export function featName(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return namesByLang.get(lang)?.feats[key];
+}
+
+/** RU/…-название оружия по ключу. */
+export function weaponName(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return namesByLang.get(lang)?.weapons[key];
+}
+
+/** Класс черты по ключу (`class.subclass:feature` / `class:feature`). */
+export function featureClassOf(key: string | undefined): string | undefined {
+  if (!key) return undefined;
+  const [head] = key.split(':');
+  const cls = head?.split('.')[0];
+  return cls || undefined;
+}
+
+/** Абзацы описания заклинания (undefined — чанк не загружен или перевода нет). */
+export function spellDescription(key: string | undefined, lang: string): string[] | undefined {
+  if (!key) return undefined;
+  return spellByLang.get(lang)?.spellDescriptions[key];
+}
+
+/** Абзацы «На больших уровнях». */
+export function spellHigherLevel(key: string | undefined, lang: string): string[] | undefined {
+  if (!key) return undefined;
+  return spellByLang.get(lang)?.spellHigherLevel[key];
+}
+
+/** Описание фита. */
+export function featDescription(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return featByLang.get(lang)?.featDescriptions[key];
+}
+
+/** Строка требований фита. */
+export function featPrereq(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return featByLang.get(lang)?.featPrereq[key];
+}
+
+/** Описание черты (по классу из ключа). */
+export function featureDescription(key: string | undefined, lang: string): string | undefined {
   if (!key) return undefined;
   const cls = featureClassOf(key);
   if (!cls) return undefined;
-  return featureText.get(cls)?.[key];
-}
-
-/** RU-описание фита по ключу (undefined — чанк не загружен или перевода нет). */
-export function featDescriptionRu(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return featText?.featDescriptions[key];
-}
-
-/** RU-строка требований фита по ключу (undefined — чанк не загружен или требований нет). */
-export function featPrereqRu(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return featText?.featPrereq[key];
-}
-
-/** RU-абзацы описания заклинания по ключу (undefined — чанк не загружен или перевода нет). */
-export function spellDescriptionRu(key: string | undefined): string[] | undefined {
-  if (!key) return undefined;
-  return spellText?.spellDescriptions[key];
-}
-
-/** RU-абзацы «На больших уровнях» (undefined — блока нет). */
-export function spellHigherLevelRu(key: string | undefined): string[] | undefined {
-  if (!key) return undefined;
-  return spellText?.spellHigherLevel[key];
+  return featureByLang.get(lang)?.get(cls)?.[key];
 }

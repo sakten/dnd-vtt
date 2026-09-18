@@ -1106,4 +1106,6 @@ export const ru = {
   'domain.reaction.rogue:uncannyDodge': 'Невероятное уклонение',
 } as const;
 
+export const dict = ru;
+
 export type MessageKey = keyof typeof ru;
