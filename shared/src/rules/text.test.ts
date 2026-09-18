@@ -4,7 +4,7 @@ import textData from '../data/text.ru.json';
 import featsData from '../data/feats.json';
 import featuresData from '../data/features.json';
 import weaponsData from '../data/weapons.json';
-import { featNameRu, featureNameRu, spellNameRu, weaponNameRu } from './text';
+import { featDescriptionRu, featNameRu, featureDescriptionRu, featureNameRu, spellDescriptionRu, spellHigherLevelRu, spellNameRu, weaponNameRu } from './text';
 
 const catalog = spellsData.spells;
 
@@ -37,6 +37,53 @@ describe('spellNameRu', () => {
   });
 });
 
+describe('spellDescriptionRu', () => {
+  it('у каждого заклинания каталога есть непустое RU-описание', () => {
+    const missing = catalog
+      .filter((s) => {
+        const ru = spellDescriptionRu(s.key);
+        return !ru?.length || ru.some((p) => !p.trim());
+      })
+      .map((s) => s.key);
+    expect(missing).toEqual([]);
+    expect(Object.keys(textData.spellDescriptions)).toHaveLength(catalog.length);
+  });
+
+  it('описания: непустые абзацы у всех записей', () => {
+    const bad = Object.entries(textData.spellDescriptions)
+      .filter(([, paras]) => !paras.length || paras.some((p) => !p.trim()))
+      .map(([key]) => key);
+    expect(bad).toEqual([]);
+    expect(spellDescriptionRu("XPHB:Hunter's Mark")?.length).toBeGreaterThan(0);
+    expect(spellDescriptionRu('unknown')).toBeUndefined();
+  });
+
+  it('все ключи описаний и higherLevel есть в каталоге', () => {
+    const keys = new Set(catalog.map((s) => s.key));
+    expect(Object.keys(textData.spellDescriptions).filter((k) => !keys.has(k))).toEqual([]);
+    expect(Object.keys(textData.spellHigherLevel).filter((k) => !keys.has(k))).toEqual([]);
+  });
+
+  it('higherLevel: непустые абзацы', () => {
+    const bad = Object.entries(textData.spellHigherLevel)
+      .filter(([, paras]) => !paras.length || paras.some((p) => !p.trim()))
+      .map(([key]) => key);
+    expect(bad).toEqual([]);
+    expect(spellHigherLevelRu("XPHB:Hunter's Mark")).toBeTruthy();
+    expect(spellHigherLevelRu('unknown')).toBeUndefined();
+  });
+
+  it('нет остатков HTML и сущностей', () => {
+    const bad: string[] = [];
+    const higher = textData.spellHigherLevel as Record<string, string[]>;
+    for (const [key, paras] of Object.entries(textData.spellDescriptions)) {
+      const joined = [...paras, ...(higher[key] ?? [])].join(' ');
+      if (/<[a-z/][^>]*>/i.test(joined) || /&(amp|quot|laquo|nbsp|#\d+);/.test(joined)) bad.push(key);
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
 describe('featureNameRu', () => {
   it('у каждой черты каталога есть непустое русское название', () => {
     const missing = featuresData.features.filter((f) => !featureNameRu(f.key)?.trim()).map((f) => f.key);
@@ -54,12 +101,36 @@ describe('featureNameRu', () => {
       .map(([key]) => key);
     expect(bad).toEqual([]);
   });
+
+  it('описания черт: валидность и полное покрытие', () => {
+    const keys = new Set(featuresData.features.map((f) => f.key));
+    const desc = textData.featureDescriptions as Record<string, string>;
+    const bad = Object.entries(desc)
+      .filter(([k, d]) => !keys.has(k) || !d.trim() || /<[a-z/][^>]*>|&(amp|quot|laquo|nbsp|#\d+);/.test(d))
+      .map(([k]) => k);
+    expect(bad).toEqual([]);
+    const missing = featuresData.features.filter((f) => !featureDescriptionRu(f.key)?.trim()).map((f) => f.key);
+    expect(missing).toEqual([]);
+    expect(featureDescriptionRu('unknown')).toBeUndefined();
+  });
 });
 
 describe('featNameRu / weaponNameRu', () => {
   it('у каждого фита и оружия есть непустое русское название', () => {
     expect(featsData.feats.filter((f) => !featNameRu(f.key)?.trim()).map((f) => f.key)).toEqual([]);
     expect(weaponsData.weapons.filter((w) => !weaponNameRu(w.key)?.trim()).map((w) => w.key)).toEqual([]);
+  });
+
+  it('описания фитов: валидность и полное покрытие', () => {
+    const keys = new Set(featsData.feats.map((f) => f.key));
+    expect(Object.keys(textData.featDescriptions).filter((k) => !keys.has(k))).toEqual([]);
+    const bad = Object.entries(textData.featDescriptions).filter(
+      ([, d]) => !d.trim() || /<[a-z/][^>]*>|&(amp|quot|laquo|nbsp|#\d+);/.test(d)
+    );
+    expect(bad).toEqual([]);
+    const missing = featsData.feats.filter((f) => !featDescriptionRu(f.key)?.trim()).map((f) => f.key);
+    expect(missing).toEqual([]);
+    expect(featDescriptionRu('unknown')).toBeUndefined();
   });
 
   it('число переводов совпадает с числом записей каталогов', () => {

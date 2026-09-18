@@ -19,10 +19,10 @@ import type { Spell } from './spells';
  * обновить hash ниже — иначе тест падает и сигналит, какой файл изменился.
  */
 const HASHES = {
-  spells: 'f82b12f43ec96ea9',
+  spells: 'a0d8040304235bd5',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
-  features: 'c83a0c0860835076',
+  features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: '91e403f27800ec45',
 };
@@ -175,7 +175,7 @@ describe('снимок данных', () => {
   it('spells.json: контракт записей', () => {
     const bad: string[] = [];
     for (const s of SPELLS) {
-      if (s.key !== `${s.source}:${s.name}`) bad.push(`${s.key}: key != source:name`);
+      if (!s.key.startsWith(`${s.source}:`)) bad.push(`${s.key}: формат ключа`);
       if (!SOURCES.has(s.source)) bad.push(`${s.key}: источник ${s.source}`);
       if (!Number.isInteger(s.level) || s.level < 0 || s.level > 6) bad.push(`${s.key}: круг ${s.level}`);
       if (!SCHOOLS.has(s.school)) bad.push(`${s.key}: школа ${s.school}`);
@@ -205,6 +205,7 @@ describe('снимок данных', () => {
     }
     expect(bad).toEqual([]);
     expect(new Set(SPELLS.map((s) => s.key)).size).toBe(SPELLS.length);
+    expect(new Set(SPELLS.map((s) => s.name)).size).toBe(SPELLS.length);
   });
 
   it('каталоги кода ссылаются на существующие заклинания', () => {

@@ -16,4 +16,8 @@ PLAN.md
 SESSION.md
 DEPLOY.md
 AGENTS.md
+Load_test.md
+text.verbatim.ru.json
+.loadtest*.tmp.mjs
+.cleanup.tmp.mjs
 lab/lab.js

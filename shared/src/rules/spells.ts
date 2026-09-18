@@ -93,7 +93,8 @@ export interface RawSpell {
   source: string;
   level: number;
   school?: string;
-  srd52?: boolean;
+  /** `true` — контент SRD 5.2; строка — официальное имя из SRD 5.2 (переименование без имён персонажей). */
+  srd52?: boolean | string;
   meta?: { ritual?: boolean };
   time?: unknown;
   range?: unknown;

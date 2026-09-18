@@ -18,6 +18,35 @@ const SPELL_FILES: { file: string; source: string }[] = [
 ];
 const LOOKUP_FILE = 'generated/gendata-spell-source-lookup.json';
 const PRIORITY: Record<string, number> = { XPHB: 0, XGE: 1, TCE: 2 };
+/** Отображаемые имена без имён персонажей (PI): официальное из srd52 либо срез притяжательного; ключи не меняются. */
+const SPELL_RENAMES: Record<string, string> = {
+  "Tasha's Hideous Laughter": 'Hideous Laughter',
+  "Tenser's Floating Disk": 'Floating Disk',
+  "Melf's Acid Arrow": 'Acid Arrow',
+  "Nystul's Magic Aura": "Arcanist's Magic Aura",
+  "Leomund's Tiny Hut": 'Tiny Hut',
+  "Evard's Black Tentacles": 'Black Tentacles',
+  "Leomund's Secret Chest": 'Secret Chest',
+  "Mordenkainen's Faithful Hound": 'Faithful Hound',
+  "Mordenkainen's Private Sanctum": 'Private Sanctum',
+  "Otiluke's Resilient Sphere": 'Resilient Sphere',
+  "Bigby's Hand": 'Arcane Hand',
+  "Jallarzi's Storm of Radiance": 'Storm of Radiance',
+  "Rary's Telepathic Bond": 'Telepathic Bond',
+  "Yolande's Regal Presence": 'Regal Presence',
+  "Drawmij's Instant Summons": 'Instant Summons',
+  "Otiluke's Freezing Sphere": 'Freezing Sphere',
+  "Otto's Irresistible Dance": 'Irresistible Dance',
+  "Tasha's Bubbling Cauldron": 'Bubbling Cauldron',
+  "Tasha's Caustic Brew": 'Caustic Brew',
+  "Tasha's Mind Whip": 'Mind Whip',
+  "Tasha's Otherworldly Guise": 'Otherworldly Guise',
+  "Aganazzar's Scorcher": 'Scorcher',
+  "Maximilian's Earthen Grasp": 'Earthen Grasp',
+  "Melf's Minute Meteors": 'Minute Meteors',
+  "Snilloc's Snowball Swarm": 'Snowball Swarm',
+  "Tenser's Transformation": 'Transformation',
+};
 const CLASS_KEYS: Record<string, string> = {
   Artificer: 'artificer',
   Bard: 'bard',
@@ -191,7 +220,11 @@ async function main() {
   }
 
   const normalized = [...byName.values()]
-    .map((raw) => normalizeSpell(raw, extractClasses(lookup, raw.name, raw.source)))
+    .map((raw) => {
+      const spell = normalizeSpell(raw, extractClasses(lookup, raw.name, raw.source));
+      const renamed = typeof raw.srd52 === 'string' ? raw.srd52 : SPELL_RENAMES[raw.name];
+      return renamed ? { ...spell, name: renamed } : spell;
+    })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 
   const output = {

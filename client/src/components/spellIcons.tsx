@@ -1092,7 +1092,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <circle cx="46" cy="42" r="4" fill="#e9d6b0"/><circle cx="40" cy="35" r="2.2" fill="#e9d6b0"/><circle cx="46" cy="32" r="2.2" fill="#e9d6b0"/><circle cx="52" cy="35" r="2.2" fill="#e9d6b0"/>
     </>
   ),
-  "tasha's caustic brew": (
+  "caustic brew": (
     <>
       <defs><linearGradient id="g-tcb-vial" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#dff4ff"/><stop offset="100%" stopColor="#4a8a20"/></linearGradient><radialGradient id="g-tcb-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#cdf07a" stopOpacity=".6"/><stop offset="100%" stopColor="#4a8a20" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="36" r="24" fill="url(#g-tcb-glow)"/>
@@ -1102,7 +1102,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M32 6V2M28 6l-2-3M36 6l2-3" stroke="#bff29a" strokeWidth="1.8" strokeLinecap="round" opacity=".8"/>
     </>
   ),
-  "tasha's hideous laughter": (
+  "hideous laughter": (
     <>
       <defs><linearGradient id="g-thl-head" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ffe0f4"/><stop offset="100%" stopColor="#e07ad1"/></linearGradient></defs>
       <path d="M32 8a18 18 0 0 1 18 18c0 4-1 7-3 10l2 8-8-4c-3 1.4-6 2-9 2A18 18 0 0 1 32 8z" fill="url(#g-thl-head)"/>
@@ -1112,7 +1112,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#ffb0e6"><circle cx="12" cy="14" r="1.6"/><circle cx="52" cy="14" r="1.6"/></g>
     </>
   ),
-  "tenser's floating disk": (
+  "floating disk": (
     <>
       <defs><radialGradient id="g-tfd-disk" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#fff"/><stop offset="60%" stopColor="#9fd0ff"/><stop offset="100%" stopColor="#4a7fd0"/></radialGradient></defs>
       <ellipse cx="32" cy="36" rx="24" ry="10" fill="url(#g-tfd-disk)"/>
@@ -1382,7 +1382,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g stroke="#fff3c4" strokeWidth="2" strokeLinecap="round"><path d="M32 4v5M12 6l3 4M52 6l-3 4"/></g>
     </>
   ),
-  "aganazzar's scorcher": (
+  "scorcher": (
     <>
       <defs><radialGradient id="g-agz-fire" cx="50%" cy="60%" r="60%"><stop offset="0%" stopColor="#fff3c4"/><stop offset="60%" stopColor="#ff7a18"/><stop offset="100%" stopColor="#b02000"/></radialGradient></defs>
       <path d="M4 56L52 8" stroke="url(#g-agz-fire)" strokeWidth="12" strokeLinecap="round" opacity=".85"/>
@@ -1776,7 +1776,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M32 6l1.4 3 3 1.4-3 1.4L32 15l-1.4-3.2-3-1.4 3-1.4z" fill="#eaf6ff"/>
     </>
   ),
-  "maximilian's earthen grasp": (
+  "earthen grasp": (
     <>
       <defs><linearGradient id="g-meg-hand" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c9a86a"/><stop offset="100%" stopColor="#5a4020"/></linearGradient><radialGradient id="g-meg-glow" cx="50%" cy="65%" r="60%"><stop offset="0%" stopColor="#d9b98a" stopOpacity=".6"/><stop offset="100%" stopColor="#6b4f2a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="40" r="25" fill="url(#g-meg-glow)"/>
@@ -1785,7 +1785,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#8a6a3a"><circle cx="18" cy="40" r="1.6"/><circle cx="26" cy="34" r="1.6"/><circle cx="34" cy="34" r="1.6"/><circle cx="42" cy="37" r="1.6"/></g>
     </>
   ),
-  "melf's acid arrow": (
+  "acid arrow": (
     <>
       <defs><linearGradient id="g-maa" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#eaffb0"/><stop offset="100%" stopColor="#4a8a20"/></linearGradient></defs>
       <path d="M8 56L44 20l6 6-36 36z" fill="url(#g-maa)"/>
@@ -1812,7 +1812,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eaf2ff"><circle cx="32" cy="24" r="1.4"/><circle cx="20" cy="26" r="1"/><circle cx="44" cy="26" r="1"/></g>
     </>
   ),
-  "nystul's magic aura": (
+  "arcanist's magic aura": (
     <>
       <defs><radialGradient id="g-nma-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#c8b0ff" stopOpacity=".7"/><stop offset="100%" stopColor="#5a2ecf" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="26" fill="url(#g-nma-glow)"/>
@@ -1954,7 +1954,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eaf6ff"><circle cx="46" cy="14" r="1.4"/><circle cx="52" cy="22" r="1.1"/></g>
     </>
   ),
-  "snilloc's snowball swarm": (
+  "snowball swarm": (
     <>
       <defs><radialGradient id="g-sns-ball" cx="40%" cy="35%" r="60%"><stop offset="0%" stopColor="#ffffff"/><stop offset="100%" stopColor="#8fd0ea"/></radialGradient><radialGradient id="g-sns-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#cfeaff" stopOpacity=".6"/><stop offset="100%" stopColor="#5a9fd0" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="25" fill="url(#g-sns-glow)"/>
@@ -2009,7 +2009,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eaffd6"><circle cx="12" cy="14" r="1.3"/><circle cx="52" cy="14" r="1.3"/><circle cx="52" cy="52" r="1.2"/><circle cx="12" cy="52" r="1.2"/></g>
     </>
   ),
-  "tasha's mind whip": (
+  "mind whip": (
     <>
       <defs><radialGradient id="g-tmw-glow" cx="50%" cy="45%" r="55%"><stop offset="0%" stopColor="#c77dff" stopOpacity=".7"/><stop offset="100%" stopColor="#4a1a8a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="26" fill="url(#g-tmw-glow)"/>
@@ -2325,7 +2325,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M32 16l3 6 7 .6-5 4.4 1.4 6.8L32 30.4 25.6 34.8 27 28l-5-4.4 7-.6z" fill="#e9dcff"/>
     </>
   ),
-  "leomund's tiny hut": (
+  "tiny hut": (
     <>
       <defs><radialGradient id="g-lth-glow" cx="50%" cy="55%" r="60%"><stop offset="0%" stopColor="#cfe0ff" stopOpacity=".7"/><stop offset="100%" stopColor="#5a7fd0" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="36" r="27" fill="url(#g-lth-glow)"/>
@@ -2400,7 +2400,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M28 24c2 0 4 1 4 3" fill="none" stroke="#5a5448" strokeWidth="2" strokeLinecap="round" opacity=".6"/>
     </>
   ),
-  "melf's minute meteors": (
+  "minute meteors": (
     <>
       <defs><radialGradient id="g-mmm" cx="42%" cy="38%" r="60%"><stop offset="0%" stopColor="#fffdf0"/><stop offset="60%" stopColor="#ff9d2e"/><stop offset="100%" stopColor="#c0260a"/></radialGradient></defs>
       <circle cx="20" cy="18" r="6" fill="url(#g-mmm)"/><circle cx="44" cy="22" r="5" fill="url(#g-mmm)"/><circle cx="30" cy="40" r="6.4" fill="url(#g-mmm)"/>
@@ -2817,7 +2817,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#ffe9a8"><circle cx="14" cy="14" r="1.4"/><circle cx="50" cy="14" r="1.4"/><circle cx="50" cy="50" r="1.2"/></g>
     </>
   ),
-  "evard's black tentacles": (
+  "black tentacles": (
     <>
       <defs><radialGradient id="g-ebt-glow" cx="50%" cy="55%" r="60%"><stop offset="0%" stopColor="#5a2ecf" stopOpacity=".7"/><stop offset="100%" stopColor="#0a0414" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="38" r="27" fill="url(#g-ebt-glow)"/>
@@ -2940,7 +2940,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eafaff"><circle cx="20" cy="48" r="2.4"/><circle cx="32" cy="52" r="2.4"/><circle cx="44" cy="48" r="2.4"/></g>
     </>
   ),
-  "leomund's secret chest": (
+  "secret chest": (
     <>
       <defs><linearGradient id="g-lsc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#a97a3a"/><stop offset="100%" stopColor="#5a3a18"/></linearGradient><radialGradient id="g-lsc-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#c8b0ff" stopOpacity=".6"/><stop offset="100%" stopColor="#4a2a8a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="26" fill="url(#g-lsc-glow)"/>
@@ -2960,7 +2960,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <circle cx="30" cy="32" r="3" fill="#eaffd6"/><circle cx="24" cy="27" r="1.8" fill="#eaffd6"/><circle cx="27" cy="23" r="1.8" fill="#eaffd6"/><circle cx="33" cy="23" r="1.8" fill="#eaffd6"/><circle cx="36" cy="27" r="1.8" fill="#eaffd6"/>
     </>
   ),
-  "mordenkainen's faithful hound": (
+  "faithful hound": (
     <>
       <defs><radialGradient id="g-mfh-glow" cx="50%" cy="45%" r="55%"><stop offset="0%" stopColor="#9cc8ff" stopOpacity=".6"/><stop offset="100%" stopColor="#3a5f9a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="34" r="26" fill="url(#g-mfh-glow)"/>
@@ -2970,7 +2970,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M40 44c4-2 8-2 12 0" fill="none" stroke="#9cc8ff" strokeWidth="1.8" strokeDasharray="3 3" opacity=".7"/>
     </>
   ),
-  "mordenkainen's private sanctum": (
+  "private sanctum": (
     <>
       <defs><radialGradient id="g-mps-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#c8b0ff" stopOpacity=".6"/><stop offset="100%" stopColor="#4a2a8a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="26" fill="url(#g-mps-glow)"/>
@@ -2980,7 +2980,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M20 40c6 3 18 3 24 0" fill="none" stroke="#d9c9ff" strokeWidth="1.6" strokeDasharray="3 3" opacity=".6"/>
     </>
   ),
-  "otiluke's resilient sphere": (
+  "resilient sphere": (
     <>
       <defs><radialGradient id="g-ors-sphere" cx="38%" cy="34%" r="65%"><stop offset="0%" stopColor="#ffffff" stopOpacity=".9"/><stop offset="60%" stopColor="#9fd0ff" stopOpacity=".5"/><stop offset="100%" stopColor="#4a7fd0" stopOpacity=".2"/></radialGradient></defs>
       <circle cx="32" cy="32" r="20" fill="url(#g-ors-sphere)" stroke="#cfe8ff" strokeWidth="2.4"/>
@@ -3165,7 +3165,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M32 12l2.6 6 6 .6-4.6 4 1.2 6L32 26.4 26.8 28.6l1.2-6-4.6-4 6-.6z" fill="#e9dcff"/>
     </>
   ),
-  "bigby's hand": (
+  "arcane hand": (
     <>
       <defs><radialGradient id="g-bgh-glow" cx="50%" cy="45%" r="60%"><stop offset="0%" stopColor="#cfe0ff" stopOpacity=".7"/><stop offset="100%" stopColor="#4a6fd0" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="34" r="27" fill="url(#g-bgh-glow)"/>
@@ -3436,7 +3436,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g stroke="#3a5a1a" strokeWidth="1.2" opacity=".8"><path d="M20 21v-3M34 15v-3M46 23v-3M26 37v-3M42 39v-3M32 27v-3"/></g>
     </>
   ),
-  "jallarzi's storm of radiance": (
+  "storm of radiance": (
     <>
       <defs><radialGradient id="g-jsr-glow" cx="50%" cy="40%" r="65%"><stop offset="0%" stopColor="#fff3c4" stopOpacity=".9"/><stop offset="100%" stopColor="#9fb6ff" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="28" r="27" fill="url(#g-jsr-glow)"/>
@@ -3530,7 +3530,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M32 6v16M26 12l6-6 6 6" fill="none" stroke="#fff7dc" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
     </>
   ),
-  "rary's telepathic bond": (
+  "telepathic bond": (
     <>
       <defs><radialGradient id="g-rtb-glow" cx="50%" cy="45%" r="55%"><stop offset="0%" stopColor="#c77dff" stopOpacity=".6"/><stop offset="100%" stopColor="#4a2a8a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="26" fill="url(#g-rtb-glow)"/>
@@ -3703,7 +3703,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eaffd6"><circle cx="14" cy="16" r="1.4"/><circle cx="50" cy="16" r="1.4"/></g>
     </>
   ),
-  "yolande's regal presence": (
+  "regal presence": (
     <>
       <defs><radialGradient id="g-yrp-glow" cx="50%" cy="40%" r="65%"><stop offset="0%" stopColor="#ffb0e6" stopOpacity=".8"/><stop offset="100%" stopColor="#7a2a66" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="30" r="27" fill="url(#g-yrp-glow)"/>
@@ -3809,7 +3809,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M36 30l8-2M34 36l8-2" stroke="#eaffd6" strokeWidth="1.6" opacity=".7"/>
     </>
   ),
-  "drawmij's instant summons": (
+  "instant summons": (
     <>
       <defs><radialGradient id="g-dis-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#c8b0ff" stopOpacity=".7"/><stop offset="100%" stopColor="#4a2a8a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="27" fill="url(#g-dis-glow)"/>
@@ -3991,7 +3991,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#d9b98a"><circle cx="16" cy="38" r="1.6"/><circle cx="48" cy="38" r="1.6"/></g>
     </>
   ),
-  "otiluke's freezing sphere": (
+  "freezing sphere": (
     <>
       <defs><radialGradient id="g-ofs" cx="40%" cy="35%" r="65%"><stop offset="0%" stopColor="#ffffff"/><stop offset="55%" stopColor="#9fe0ff"/><stop offset="100%" stopColor="#3f8fd6"/></radialGradient></defs>
       <circle cx="32" cy="32" r="17" fill="url(#g-ofs)"/>
@@ -4000,7 +4000,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <circle cx="26" cy="26" r="3" fill="#fff" opacity=".85"/>
     </>
   ),
-  "otto's irresistible dance": (
+  "irresistible dance": (
     <>
       <defs><radialGradient id="g-oid-glow" cx="50%" cy="45%" r="60%"><stop offset="0%" stopColor="#ffb0e6" stopOpacity=".7"/><stop offset="100%" stopColor="#7a2a66" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="32" r="27" fill="url(#g-oid-glow)"/>
@@ -4078,7 +4078,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eaf6ff"><circle cx="16" cy="48" r="1.6"/><circle cx="32" cy="50" r="1.6"/><circle cx="48" cy="48" r="1.6"/><circle cx="24" cy="12" r="1.4"/><circle cx="40" cy="12" r="1.4"/></g>
     </>
   ),
-  "tasha's bubbling cauldron": (
+  "bubbling cauldron": (
     <>
       <defs><radialGradient id="g-tbc-glow" cx="50%" cy="50%" r="60%"><stop offset="0%" stopColor="#cdf07a" stopOpacity=".6"/><stop offset="100%" stopColor="#4a8a20" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="36" r="27" fill="url(#g-tbc-glow)"/>
@@ -4088,7 +4088,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <path d="M14 24c-4-3-6-6-6-9M52 24c4-3 6-6 6-9" fill="none" stroke="#8a6a3a" strokeWidth="2.4" strokeLinecap="round"/>
     </>
   ),
-  "tasha's otherworldly guise": (
+  "otherworldly guise": (
     <>
       <defs><radialGradient id="g-tog-glow" cx="50%" cy="40%" r="65%"><stop offset="0%" stopColor="#c8b0ff" stopOpacity=".8"/><stop offset="100%" stopColor="#4a2a8a" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="30" r="28" fill="url(#g-tog-glow)"/>
@@ -4098,7 +4098,7 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="none" stroke="#e9dcff" strokeWidth="2" strokeLinecap="round"><path d="M24 14l-4-6M40 14l4-6M32 10V4"/></g>
     </>
   ),
-  "tenser's transformation": (
+  "transformation": (
     <>
       <defs><radialGradient id="g-ttf-glow" cx="50%" cy="40%" r="60%"><stop offset="0%" stopColor="#ffd6a0" stopOpacity=".8"/><stop offset="100%" stopColor="#a06020" stopOpacity="0"/></radialGradient></defs>
       <circle cx="32" cy="30" r="27" fill="url(#g-ttf-glow)"/>

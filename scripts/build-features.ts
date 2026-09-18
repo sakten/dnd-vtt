@@ -42,6 +42,7 @@ const CLASS_SOURCE_PREF = ['XPHB', 'EFA', 'TCE', 'PHB'];
 /** Подклассы, у которых shortName 5e.tools не совпадает с нашим ключом. */
 const SUBCLASS_ALIASES: Record<string, { shortName: string; source: string }> = {
   'monk.fourElements': { shortName: 'Elements', source: 'XPHB' },
+  'sorcerer.aberrantMind': { shortName: 'Aberrant', source: 'XPHB' },
 };
 
 /** Служебные записи (не способности): ASI, плейсхолдеры подкласса и эпические дары. */
@@ -110,6 +111,8 @@ interface CatalogFeature {
   subclass?: string;
   level: number;
   source: string;
+  /** Признак контента SRD 5.2 (CC-BY-4.0) — им обусловлены дословные описания в оверлеях. */
+  srd: boolean;
   description: string;
 }
 
@@ -207,6 +210,7 @@ async function main() {
         ...(subclass ? { subclass } : {}),
         level,
         source: String(raw.source ?? classSource),
+        srd: !!raw.srd52,
         description: descriptionOf(raw),
       };
       if (existing) features[features.indexOf(existing)] = feature;

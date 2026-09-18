@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import type { Spell } from 'shared';
-import { t } from '../i18n';
+import { spellDescriptionRu, spellHigherLevelRu, type Spell } from 'shared';
+import { getLocale, t } from '../i18n';
 import { spellDisplayName } from '../i18n/names';
 import { SPELL_SCHOOL_RU, spellLevelLabel, spellMechanics } from '../lib/spellText';
 
@@ -52,6 +52,9 @@ function SpellTooltip({ spell, x, y, note }: HoverState) {
   const estHeight = Math.min(340, window.innerHeight * 0.5);
   const left = Math.max(8, Math.min(x + 16, window.innerWidth - width - 8));
   const top = y + 16 + estHeight > window.innerHeight ? Math.max(8, y - estHeight - 16) : y + 16;
+  const ru = getLocale() === 'ru';
+  const description = (ru ? spellDescriptionRu(spell.key) : undefined) ?? spell.description;
+  const higherLevel = (ru ? spellHigherLevelRu(spell.key) : undefined) ?? spell.higherLevel;
 
   return createPortal(
     <div className="spell-tooltip" style={{ left, top, width }}>
@@ -67,10 +70,10 @@ function SpellTooltip({ spell, x, y, note }: HoverState) {
         ))}
       </div>
       {note && <div className="tip-note">{note}</div>}
-      {spell.description.map((p, i) => (
+      {description.map((p, i) => (
         <p key={i}>{p}</p>
       ))}
-      {spell.higherLevel?.map((p, i) => (
+      {higherLevel?.map((p, i) => (
         <p className="tip-higher" key={`h${i}`}>
           {p}
         </p>

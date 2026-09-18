@@ -4,6 +4,7 @@ import {
   MAGICAL_DISCOVERIES_KEY,
   MAGICAL_DISCOVERIES_LISTS,
   featByKey,
+  featDescriptionRu,
   featMechanicsImplemented,
   magicalDiscoveriesAvailable,
   magicalDiscoveriesSpells,
@@ -16,7 +17,7 @@ import {
   type Spell,
 } from 'shared';
 import { loadSpells } from '../lib/spells';
-import { t, type MessageKey } from '../i18n';
+import { getLocale, t, type MessageKey } from '../i18n';
 import { spellDisplayName, featDisplayName } from '../i18n/names';
 import { abilityName } from '../i18n/domain';
 
@@ -38,6 +39,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
   const [category, setCategory] = useState<'all' | FeatCategory>('all');
   const [query, setQuery] = useState('');
   const [spells, setSpells] = useState<Spell[] | null>(null);
+  const ru = getLocale() === 'ru';
 
   const discovers = magicalDiscoveriesAvailable(classes);
 
@@ -176,7 +178,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                   {!featMechanicsImplemented(f.key) && <span className="feat-todo"> (TODO)</span>}
                   {f.repeatable ? ` · ${t('ui.feats.repeatable')}` : ''}
                 </span>
-                <span className="feat-option-desc">{f.description}</span>
+                <span className="feat-option-desc">{(ru ? featDescriptionRu(f.key) : undefined) ?? f.description}</span>
                 {f.prereq && <span className="feat-option-req">{f.prereq}</span>}
               </button>
             ))}
