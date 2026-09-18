@@ -10,7 +10,7 @@ import {
   type WeaponDef,
 } from 'shared';
 import { t } from '../i18n';
-import { damageLabel } from '../i18n/domain';
+import { damageLabel, masteryLabel } from '../i18n/domain';
 import { weaponDisplayName } from '../i18n/names';
 import { Field } from './Field';
 
@@ -179,7 +179,7 @@ export default function AttacksForm({
             {WEAPONS.map((w) => (
               <option key={w.key} value={w.key}>
                 {weaponDisplayName(w.key, w.name)}
-                {w.mastery.length ? ` · ${w.mastery.join(', ')}` : ''}
+                {w.mastery.length ? ` · ${w.mastery.filter(Boolean).map(masteryLabel).join(', ')}` : ''}
               </option>
             ))}
           </select>

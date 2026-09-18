@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { spellDescriptionRu, spellHigherLevelRu, type Spell } from 'shared';
 import { getLocale, t } from '../i18n';
 import { spellDisplayName } from '../i18n/names';
-import { SPELL_SCHOOL_RU, spellLevelLabel, spellMechanics } from '../lib/spellText';
+import { useSpellText } from '../i18n/useLocalizedText';
+import { spellLevelLabel, spellMechanics, spellSchoolLabel } from '../lib/spellText';
 
 interface HoverState {
   spell: Spell;
@@ -48,6 +49,7 @@ export function useSpellTooltip() {
 }
 
 function SpellTooltip({ spell, x, y, note }: HoverState) {
+  useSpellText();
   const width = Math.min(440, window.innerWidth - 16);
   const estHeight = Math.min(340, window.innerHeight * 0.5);
   const left = Math.max(8, Math.min(x + 16, window.innerWidth - width - 8));
@@ -60,7 +62,7 @@ function SpellTooltip({ spell, x, y, note }: HoverState) {
     <div className="spell-tooltip" style={{ left, top, width }}>
         <h4>{spellDisplayName(spell)}</h4>
       <div className="tip-meta">
-        {spellLevelLabel(spell.level)} · {SPELL_SCHOOL_RU[spell.school] ?? spell.school}
+        {spellLevelLabel(spell.level)} · {spellSchoolLabel(spell.school)}
         {spell.concentration ? t('ui.spellTooltip.concentration') : ''}
         {spell.ritual ? t('ui.spellTooltip.ritual') : ''}
       </div>

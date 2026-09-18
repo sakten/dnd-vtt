@@ -25,7 +25,8 @@ import { useSpells } from '../lib/useSpells';
 import { t } from '../i18n';
 import { spellDisplayName } from '../i18n/names';
 import { abilityName, classLabel } from '../i18n/domain';
-import { SPELL_SCHOOL_RU, spellLevelLabel } from '../lib/spellText';
+import { useSpellText } from '../i18n/useLocalizedText';
+import { spellLevelLabel, spellSchoolLabel } from '../lib/spellText';
 import SpellIcon from './SpellIcon';
 import SpellPicker from './SpellPicker';
 import { useSpellTooltip } from './SpellTooltip';
@@ -38,6 +39,7 @@ interface PanelProps {
 }
 
 export default function SpellsPanel({ sheet, onChange }: PanelProps) {
+  useSpellText();
   const spells = useSpells();
   const [pickerFor, setPickerFor] = useState<ClassLevel | null>(null);
   const tip = useSpellTooltip();
@@ -138,7 +140,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
                           )}
                           {r.spell.ritual && <span title={t('ui.spells.ritual')}>{t('ui.spells.ritualShort')}</span>}
                         </span>
-                        <span className="spell-school">{SPELL_SCHOOL_RU[r.spell.school] ?? r.spell.school}</span>
+                        <span className="spell-school">{spellSchoolLabel(r.spell.school)}</span>
                         {!r.granted && (
                           <button
                             type="button"

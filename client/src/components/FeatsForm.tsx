@@ -6,6 +6,7 @@ import {
   featByKey,
   featDescriptionRu,
   featMechanicsImplemented,
+  featPrereqRu,
   magicalDiscoveriesAvailable,
   magicalDiscoveriesSpells,
   maxSpellLevel,
@@ -20,6 +21,7 @@ import { loadSpells } from '../lib/spells';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { spellDisplayName, featDisplayName } from '../i18n/names';
 import { abilityName } from '../i18n/domain';
+import { useFeatText } from '../i18n/useLocalizedText';
 
 const CATEGORY_NAMES: Record<FeatCategory, MessageKey> = {
   origin: 'ui.feats.category.origin',
@@ -40,6 +42,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
   const [query, setQuery] = useState('');
   const [spells, setSpells] = useState<Spell[] | null>(null);
   const ru = getLocale() === 'ru';
+  useFeatText();
 
   const discovers = magicalDiscoveriesAvailable(classes);
 
@@ -95,7 +98,11 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                 ✕
               </button>
             </div>
-            {feat.prereq && <div className="feat-hint">{t('ui.feats.prereq', { prereq: feat.prereq })}</div>}
+            {feat.prereq && (
+              <div className="feat-hint">
+                {t('ui.feats.prereq', { prereq: (ru ? featPrereqRu(feat.key) : undefined) ?? feat.prereq })}
+              </div>
+            )}
             {feat.spellLists && (
               <FeatSpellPicks feat={feat} choice={choice} spells={spells} onPatch={(p) => patchAt(index, p)} />
             )}
@@ -179,7 +186,7 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
                   {f.repeatable ? ` · ${t('ui.feats.repeatable')}` : ''}
                 </span>
                 <span className="feat-option-desc">{(ru ? featDescriptionRu(f.key) : undefined) ?? f.description}</span>
-                {f.prereq && <span className="feat-option-req">{f.prereq}</span>}
+                {f.prereq && <span className="feat-option-req">{(ru ? featPrereqRu(f.key) : undefined) ?? f.prereq}</span>}
               </button>
             ))}
             {!list.length && <div className="feat-hint">{t('ui.common.notFound')}</div>}

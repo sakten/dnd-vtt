@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ABILITIES, collectText, type AbilityKey } from 'shared';
+import { collectText, type AbilityKey } from 'shared';
 
 /**
  * Сборка `shared/src/data/feats.json` из данных 5e.tools (R8.8, слой выборов).
@@ -75,6 +75,15 @@ async function fetchJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+const ABILITY_NAMES: Record<string, string> = {
+  str: 'Strength',
+  dex: 'Dexterity',
+  con: 'Constitution',
+  int: 'Intelligence',
+  wis: 'Wisdom',
+  cha: 'Charisma',
+};
+
 function prerequisiteOf(raw: RawFeat): { levelReq?: number; prereq?: string } {
   const parts: string[] = [];
   let levelReq: number | undefined;
@@ -85,16 +94,17 @@ function prerequisiteOf(raw: RawFeat): { levelReq?: number; prereq?: string } {
     }
     if (item.level) {
       levelReq = levelReq === undefined ? item.level : Math.min(levelReq, item.level);
-      parts.push(`${item.level} уровень`);
+      if (!parts.some((part) => part.startsWith('Level '))) parts.push(`Level ${item.level}+`);
     }
-    for (const ability of item.ability ?? []) {
-      for (const [key, value] of Object.entries(ability)) {
-        const label = ABILITIES[key as AbilityKey] ?? key;
-        parts.push(`${label} ${value}`);
-      }
+    if (item.ability?.length) {
+      parts.push(
+        item.ability
+          .flatMap((group) => Object.entries(group).map(([key, value]) => `${ABILITY_NAMES[key] ?? key} ${value}+`))
+          .join(' or ')
+      );
     }
-    if (item.spellcasting) parts.push('использование заклинаний');
-    if (item.feature) parts.push('классовая черта');
+    if (item.spellcasting) parts.push('Spellcasting');
+    if (item.feature) parts.push('class feature');
   }
   return { ...(levelReq !== undefined && { levelReq }), ...(parts.length && { prereq: parts.join(', ') }) };
 }

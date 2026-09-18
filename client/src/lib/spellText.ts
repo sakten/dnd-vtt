@@ -1,104 +1,64 @@
-import { conditionName, type Spell } from 'shared';
-import { abilityName } from '../i18n/domain';
+import { type Spell } from 'shared';
+import { getLocale, t, type MessageKey } from '../i18n';
+import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 
-/** Текстовая сводка механики заклинания (RU) для тултипа и списка. */
+/** Текстовая сводка механики заклинания (RU/EN) для тултипа и списка. */
 
-const TIME_UNIT_RU: Record<string, string> = {
-  action: 'действие',
-  bonus: 'бонусное действие',
-  reaction: 'реакция',
-  minute: 'мин',
-  hour: 'ч',
-  round: 'раунд',
-};
-
-const DURATION_UNIT_RU: Record<string, string> = {
-  minute: 'мин',
-  hour: 'ч',
-  day: 'дн',
-  round: 'раунд',
-};
-
-const AREA_RU: Record<string, string> = {
-  ST: 'одна цель',
-  S: 'сфера',
-  C: 'конус',
-  L: 'линия',
-  MT: 'несколько целей',
-  W: 'стена',
-  N: 'область',
-  R: 'радиус',
-};
-
-export const SPELL_SCHOOL_RU: Record<string, string> = {
-  Abjuration: 'Ограждение',
-  Conjuration: 'Вызов',
-  Divination: 'Прорицание',
-  Enchantment: 'Очарование',
-  Evocation: 'Воплощение',
-  Illusion: 'Иллюзия',
-  Necromancy: 'Некромантия',
-  Transmutation: 'Преобразование',
-};
-
-export const spellLevelLabel = (level: number) => (level === 0 ? 'Фокусы' : `${level} круг`);
-
-function distanceTypeRu(type: string): string {
-  switch (type) {
-    case 'self':
-      return 'на себя';
-    case 'touch':
-      return 'касание';
-    case 'sight':
-      return 'в пределах видимости';
-    case 'unlimited':
-      return 'без ограничения';
-    case 'special':
-      return 'особая';
-    default:
-      return type;
-  }
+function catalogText(key: string): string | undefined {
+  const text = t(key as MessageKey);
+  return text === key ? undefined : text;
 }
+
+/** RU/EN-название школы магии по коду (`Abjuration`…). */
+export function spellSchoolLabel(school: string): string {
+  return catalogText(`domain.spellSchool.${school}`) ?? school;
+}
+
+export const spellLevelLabel = (level: number) =>
+  level === 0 ? t('ui.spellLevel.cantrips') : t('ui.spellLevel.rank', { n: level });
 
 function timeText(spell: Spell): string {
   return spell.time
-    .map((t) => `${t.number} ${TIME_UNIT_RU[t.unit] ?? t.unit}${t.condition ? ` (${t.condition})` : ''}`)
+    .map((entry) => {
+      const unit = catalogText(`ui.spellTime.${entry.unit}`) ?? entry.unit;
+      return `${entry.number} ${unit}${entry.condition ? ` (${entry.condition})` : ''}`;
+    })
     .join(', ');
 }
 
 function rangeText(spell: Spell): string {
   const d = spell.range.distance;
   if (d) {
-    if (!d.amount) return distanceTypeRu(d.type);
-    const unit = d.type === 'feet' ? 'фт' : d.type === 'miles' ? 'миль' : distanceTypeRu(d.type);
+    if (!d.amount) return catalogText(`ui.spellRange.${d.type}`) ?? d.type;
+    const unit = catalogText(`ui.spellRange.${d.type}`) ?? d.type;
     return `${d.amount} ${unit}`.trim();
   }
-  return distanceTypeRu(spell.range.type);
+  return catalogText(`ui.spellRange.${spell.range.type}`) ?? spell.range.type;
 }
 
 function areaText(spell: Spell, raw: string): string | undefined {
   if (!spell.area?.length) return undefined;
-  const shape = spell.area.map((a) => AREA_RU[a] ?? a).join('/');
-  const size = raw.match(/\d+[- ]foot(?:[- ]radius)?/i)?.[0]?.replace(/\s+/g, '-');
-  return size ? `${shape} (${size})` : shape;
+  const shape = spell.area.map((a) => catalogText(`ui.spellArea.${a}`) ?? a).join('/');
+  const size = raw.match(/(\d+)[- ]foot(?:\s+radius)?/i)?.[1];
+  return size ? `${shape} (${t('ui.spellArea.size', { n: Number(size) })})` : shape;
 }
 
 function durationText(spell: Spell): string {
   const d = spell.duration[0];
   if (!d) return '—';
-  if (d.type === 'instant') return 'мгновенно';
-  if (d.type === 'permanent') return 'постоянно';
-  if (d.type === 'special') return 'особая';
+  if (d.type === 'instant') return t('ui.spellDuration.instant');
+  if (d.type === 'permanent') return t('ui.spellDuration.permanent');
+  if (d.type === 'special') return t('ui.spellDuration.special');
   if (d.type === 'timed' && d.duration) {
-    const unit = DURATION_UNIT_RU[d.duration.type] ?? d.duration.type;
+    const unit = catalogText(`ui.spellDuration.${d.duration.type}`) ?? d.duration.type;
     const base = `${d.duration.amount ?? ''} ${unit}`.trim();
-    return d.concentration ? `${base} (концентрация)` : base;
+    return d.concentration ? t('ui.spellDuration.timedConcentration', { value: base }) : base;
   }
-  return d.concentration ? 'концентрация' : d.type;
+  return d.concentration ? t('ui.spellDuration.concentration') : d.type;
 }
 
 function componentsText(spell: Spell): string {
-  return [spell.components.v ? 'В' : '', spell.components.s ? 'С' : '', spell.components.m ? 'М' : '']
+  return [spell.components.v ? t('ui.spellComponent.v') : '', spell.components.s ? t('ui.spellComponent.s') : '', spell.components.m ? t('ui.spellComponent.m') : '']
     .filter(Boolean)
     .join(', ');
 }
@@ -107,35 +67,42 @@ function saveText(spell: Spell): string {
   return (spell.save ?? []).map((a) => abilityName(a)).join(', ');
 }
 
+function diceText(dice: string[]): string {
+  const joined = dice.join(', ');
+  return getLocale() === 'ru' ? joined.replace(/(\d+)d(\d+)/gi, '$1к$2') : joined;
+}
+
 function damageText(spell: Spell, raw: string): string | undefined {
   const dice = spell.damage?.dice ?? [];
   const types = spell.damage?.types ?? [];
   if (!dice.length && !types.length) return undefined;
-  let text = [dice.join(', '), types.join(', ')].filter(Boolean).join(' ');
-  if (spell.save?.length && /half as much/i.test(raw)) text += ' (при успехе — половина)';
+  let text = [diceText(dice), types.map((type) => damageLabel(type).toLowerCase()).join(', ')].filter(Boolean).join(' ');
+  if (spell.save?.length && /half as much/i.test(raw)) text += ` ${t('ui.spellMech.halfOnSuccess')}`;
   return text;
 }
 
 function conditionText(spell: Spell): string {
-  return (spell.conditions ?? []).map((c) => conditionName(c).toLowerCase()).join(', ');
+  return (spell.conditions ?? []).map((c) => conditionLabel(c).toLowerCase()).join(', ');
 }
 
 /** Строки механики: действие/дистанция/область/длительность/атака/спасбросок/урон/состояние/компоненты. */
 export function spellMechanics(spell: Spell): string[] {
   const raw = spell.description.join(' ');
   const lines: string[] = [];
-  lines.push(`Действие: ${timeText(spell)}`);
-  lines.push(`Дистанция: ${rangeText(spell)}`);
+  lines.push(`${t('ui.spellMech.action')}: ${timeText(spell)}`);
+  lines.push(`${t('ui.spellMech.range')}: ${rangeText(spell)}`);
   const area = areaText(spell, raw);
-  if (area) lines.push(`Область: ${area}`);
-  lines.push(`Длительность: ${durationText(spell)}`);
-  if (spell.spellAttack) lines.push(`Атака: ${spell.spellAttack === 'ranged' ? 'дальняя' : 'ближняя'} заклинанием`);
-  if (spell.save?.length) lines.push(`Спасбросок: ${saveText(spell)}`);
+  if (area) lines.push(`${t('ui.spellMech.area')}: ${area}`);
+  lines.push(`${t('ui.spellMech.duration')}: ${durationText(spell)}`);
+  if (spell.spellAttack) {
+    lines.push(`${t('ui.spellMech.attack')}: ${t(spell.spellAttack === 'ranged' ? 'ui.spellMech.ranged' : 'ui.spellMech.melee')}`);
+  }
+  if (spell.save?.length) lines.push(`${t('ui.spellMech.save')}: ${saveText(spell)}`);
   const damage = damageText(spell, raw);
-  if (damage) lines.push(`Урон: ${damage}`);
-  if (spell.conditions?.length) lines.push(`Состояние: ${conditionText(spell)}`);
+  if (damage) lines.push(`${t('ui.spellMech.damage')}: ${damage}`);
+  if (spell.conditions?.length) lines.push(`${t('ui.spellMech.condition')}: ${conditionText(spell)}`);
   const comps = componentsText(spell);
-  if (comps) lines.push(`Компоненты: ${comps}`);
+  if (comps) lines.push(`${t('ui.spellMech.components')}: ${comps}`);
   return lines;
 }
 

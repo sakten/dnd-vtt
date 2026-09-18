@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { Spell } from 'shared';
-import { SPELL_SCHOOL_RU, spellLevelLabel, spellMechanicsShort } from '../lib/spellText';
+import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
 import { t } from '../i18n';
 import { spellDisplayName } from '../i18n/names';
 import Modal from './Modal';
@@ -86,7 +86,7 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
               <SpellIcon spell={s} className="spell-pick-icon" />
               <span className="spell-pick-name">{spellDisplayName(s)}</span>
               <span className="spell-pick-meta">
-                {spellLevelLabel(s.level)} · {SPELL_SCHOOL_RU[s.school] ?? s.school}
+                {spellLevelLabel(s.level)} · {spellSchoolLabel(s.school)}
                 {s.concentration ? ` · ${t('ui.spells.concentrationShort')}` : ''}
                 {s.ritual ? ` · ${t('ui.spells.ritualShort')}` : ''}
               </span>

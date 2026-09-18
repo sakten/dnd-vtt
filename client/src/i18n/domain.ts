@@ -34,6 +34,10 @@ export function damageLabel(key: string): string {
   return t(`domain.damage.${key}` as MessageKey);
 }
 
+export function masteryLabel(name: string): string {
+  return label(`domain.mastery.${name}`, name);
+}
+
 export function defenseLabel(key: DamageDefenseType): string {
   return t(`domain.defense.${key}` as MessageKey);
 }

@@ -24,7 +24,7 @@ const HASHES = {
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
-  feats: '91e403f27800ec45',
+  feats: 'f8d310ec0a56a339',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);

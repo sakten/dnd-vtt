@@ -4,6 +4,7 @@ import {
   CLASSES,
   CONDITION_DESCRIPTIONS,
   CONDITION_NAMES,
+  WEAPONS,
   reactionFeatures,
   type ClassLevel,
   type EffectInstance,
@@ -11,6 +12,7 @@ import {
 } from 'shared';
 import { setLocale } from './index';
 import { ru } from './ru';
+import { en } from './en';
 import {
   baseActionLabel,
   classLabel,
@@ -18,6 +20,7 @@ import {
   conditionLabel,
   effectDurationText,
   effectSummaryText,
+  masteryLabel,
   reactionLabel,
   resourceLabel,
   subclassLabel,
@@ -84,6 +87,19 @@ describe('i18n domain', () => {
       expect(ruKey(`domain.reaction.${feature.id}`)).toBe(feature.name);
       expect(reactionLabel(feature.id, feature.name)).toBe(feature.name);
     }
+  });
+
+  it('мастерства оружия: у каждого значения каталога есть ключ RU/EN и fallback', () => {
+    const masteries = [...new Set(WEAPONS.flatMap((w) => w.mastery).filter(Boolean))];
+    expect(masteries.length).toBeGreaterThan(0);
+    for (const name of masteries) {
+      expect(ruKey(`domain.mastery.${name}`)).toBeTruthy();
+      expect(en[`domain.mastery.${name}` as keyof typeof en]).toBeTruthy();
+    }
+    setLocale('ru');
+    expect(masteryLabel('Topple')).toBe(ruKey('domain.mastery.Topple'));
+    setLocale('en');
+    expect(masteryLabel('Unknown')).toBe('Unknown');
   });
 
   it('эффекты: RU-сводка совпадает с прежними строками', () => {
