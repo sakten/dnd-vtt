@@ -18,6 +18,7 @@ const SCENARIOS = [
   ['09', './smoke/09-effects.mjs'],
   ['10', './smoke/10-test-mode.mjs'],
   ['11', './smoke/11-concentration.mjs'],
+  ['12', './smoke/12-roll-anim.mjs'],
   ['05', './smoke/05-admin-persistence.mjs'],
   ['06', './smoke/06-robustness.mjs'],
 ];

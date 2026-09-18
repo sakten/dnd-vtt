@@ -11,6 +11,7 @@ import { registerChatHandlers } from './socket/chat';
 import { registerSheetHandlers } from './socket/sheet';
 import { registerResourceHandlers } from './socket/resources';
 import { registerDiceHandlers } from './socket/dice';
+import { registerRollAnimHandlers } from './socket/rollAnim';
 import { registerActionHandlers } from './socket/actions';
 import { registerSpellHandlers } from './socket/spells';
 import { registerReactionHandlers } from './socket/reactions';
@@ -31,6 +32,7 @@ export function registerHandlers(ctx: ConnCtx) {
   registerSheetHandlers(ctx);
   registerResourceHandlers(ctx);
   registerDiceHandlers(ctx);
+  registerRollAnimHandlers(ctx);
   registerActionHandlers(ctx);
   registerSpellHandlers(ctx);
   registerReactionHandlers(ctx);

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BASE_ACTIONS, abilityMod, actionSlotAvailable, featureActionAutomation, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { BASE_ACTIONS, abilityMod, actionSlotAvailable, automationForAction, featureActionAutomation, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -80,6 +80,8 @@ export default function ActionPanel() {
   const startTargeting = useGameStore((s) => s.startTargeting);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
   const startAim = useGameStore((s) => s.startAim);
+  const rollMode = useGameStore((s) => s.rollMode);
+  const setRollMode = useGameStore((s) => s.setRollMode);
   const spellByKey = useSpellByKey();
   const info = useActionContext();
   const [casting, setCasting] = useState<{ spell: Spell; ability?: ActionDef } | null>(null);
@@ -149,6 +151,9 @@ export default function ActionPanel() {
   /** Клик по кнопке: цели не нужны — применяем сразу, иначе входим в режим выбора цели. */
   const fire = (actionId: string, slot: ActionCost, attackIndex?: number, label?: string) => {
     const def = BASE_ACTIONS.find((a) => a.id === actionId);
+    // Галка Adv/Dis над ROLL даёт преимущество на чеки в игре (Скрыться, Поиск).
+    const isCheck = actionId.startsWith('escape:') || !!def && automationForAction(def)?.utility?.kind === 'check';
+    const advantage = isCheck ? rollMode ?? undefined : undefined;
     if (def?.targeting?.kind === 'creature') {
       startTargeting({
         kind: 'action',
@@ -156,11 +161,14 @@ export default function ActionPanel() {
         actionId,
         slot,
         attackIndex,
+        advantage,
         label: label ?? baseActionLabel(actionId, def.name),
       });
+      if (advantage) setRollMode(null);
       return;
     }
-    runAction(token.id, actionId, { attackIndex, slot });
+    runAction(token.id, actionId, { attackIndex, slot, advantage });
+    if (advantage) setRollMode(null);
   };
 
   const resourceLeft = (f: ActionDef): number | null => {
@@ -251,13 +259,17 @@ export default function ActionPanel() {
           const maxTargets = auto?.targetsAbility
             ? Math.max(1, abilityMod(sheet?.abilities[auto.targetsAbility] ?? 10))
             : auto?.targets ?? 1;
+          // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
+          const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
+          const advantage = isCheck ? rollMode ?? undefined : undefined;
           if (f.targeting?.kind === 'creature' && maxTargets > 1) {
             startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
           } else if (f.targeting?.kind === 'creature') {
-            startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, label: base });
+            startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, advantage, label: base });
           } else {
-            runAction(token.id, f.id, { slot });
+            runAction(token.id, f.id, { slot, advantage });
           }
+          if (advantage) setRollMode(null);
         }}
       >
         <FeatureIcon id={f.id} fallback={featureIconId(f)} className="ap-icon" />

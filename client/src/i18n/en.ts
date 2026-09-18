@@ -181,12 +181,18 @@ export const en: Partial<Record<MessageKey, string>> = {
 
   'ui.roll.advTitle': 'Roll with advantage (d20a)',
   'ui.roll.disTitle': 'Roll with disadvantage (d20d)',
+  'ui.toolbar.dice': 'Dice',
+  'ui.toolbar.diceTitle': 'Roll settings',
+  'ui.roll.anim': 'D20 animation',
+  'ui.roll.animHint': 'Chance to show the dice roll animation for your attacks and checks',
   'ui.roll.title': 'Rolls of the character and its summons',
   'ui.roll.myCharacter': 'My character',
   'ui.roll.token': 'Token',
   'ui.roll.weapon': 'Weapon {n}',
   'ui.roll.back': '← back',
   'ui.roll.attackLabel': 'Attack: {name}',
+  'ui.roll.outcomeOk': 'Success',
+  'ui.roll.outcomeFail': 'Failure',
 
   'ui.common.close': 'Close',
   'ui.common.cancel': 'Cancel',

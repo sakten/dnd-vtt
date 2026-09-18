@@ -45,6 +45,7 @@ export type TargetingState =
       actionId: string;
       slot: ActionCost;
       attackIndex?: number;
+      advantage?: 'a' | 'd';
       label: string;
     }
   | {
@@ -198,7 +199,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
         type: 'runAction',
         tokenId: t.tokenId,
         actionId: t.actionId,
-        extra: { targetIds: [targetId], attackIndex: t.attackIndex, slot: t.slot },
+        extra: { targetIds: [targetId], attackIndex: t.attackIndex, slot: t.slot, advantage: t.advantage },
       },
     };
   }

@@ -2,6 +2,7 @@ import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
 import { useIsDm, useIsRealDm } from '../lib/control';
 import { t } from '../i18n';
+import DiceMenu from './DiceMenu';
 
 export default function Toolbar() {
   const setGridModalOpen = useGameStore((s) => s.setGridModalOpen);
@@ -23,7 +24,8 @@ export default function Toolbar() {
 
   return (
     <div className="toolbar" data-testid="toolbar">
-      <button onClick={() => setGridModalOpen(true)}>{t('ui.toolbar.grid')}</button>
+      {isDm && <button onClick={() => setGridModalOpen(true)}>{t('ui.toolbar.grid')}</button>}
+      {!isDm && <DiceMenu />}
       <button onClick={fitView} disabled={!hasMap}>
         {t('ui.toolbar.fit')}
       </button>

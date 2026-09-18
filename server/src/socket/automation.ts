@@ -40,6 +40,7 @@ import { misdirectCheck } from './misdirect';
 import { startMovementTurns } from './moveTurns';
 import { audienceOf } from './reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
+import { maybeRollAnim } from './rollAnim';
 import { createZoneFromDef, removeZonesOfSource } from './zones';
 
 /**
@@ -490,14 +491,16 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
   check: ({ ctx, room, input, utility }) => {
     const ability = utility.ability ?? 'dex';
     const mod = ctx.manager.abilityModForToken(room, input.caster, ability);
-    const expression = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
-    const roll = rollDice(expression);
+    const base = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
+    // Галка Adv/Dis над ROLL: преимущество/помеха на проверку (Скрыться, Поиск).
+    const roll = rollDice(withAdvantage(base, input.advantage ?? null));
     pushRollMessage(ctx, room, {
       author: input.author,
       roll,
       kind: 'check',
       params: { subject: `${input.def.name}: ${input.caster.name}` },
     });
+    maybeRollAnim(ctx, roll);
   },
 };
 

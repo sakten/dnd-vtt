@@ -21,3 +21,4 @@ text.verbatim.ru.json
 .loadtest*.tmp.mjs
 .cleanup.tmp.mjs
 lab/lab.js
+client/src/lab/

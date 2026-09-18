@@ -387,12 +387,23 @@ function continueAfterRoll(
 }
 
 /** Атака с окнами: до броска (Warding Flare), после броска (Shield/черты/промах), затем урон. */
-export function resolveWeaponAttackWithReactions(ctx: ConnCtx, input: AttackResolveInput): AttackResolveResult {
+export function resolveWeaponAttackWithReactions(
+  ctx: ConnCtx,
+  input: AttackResolveInput,
+  opts: { beforeRoll?: () => boolean } = {}
+): AttackResolveResult {
   const room = ctx.getRoom();
   const prepared = prepareWeaponAttack(ctx, input);
   if (prepared.error) return { error: prepared.error };
   const prep = prepared.prep;
   if (!room || !prep) return {};
+
+  const rollAndContinue = (extraDisadvantage: boolean): AttackResolveResult => {
+    if (opts.beforeRoll && !opts.beforeRoll()) return {};
+    const rolled = rollPreparedAttack(ctx, prep, { extraDisadvantage });
+    if (!rolled.plan) return rolled.result;
+    return continueAfterRoll(ctx, room, input, rolled.result, rolled.plan);
+  };
 
   // Окно до броска (attackRoll): Warding Flare и подобные.
   const preOffers = input.ignoreRange ? [] : preRollOffers(ctx, room, prep);
@@ -407,15 +418,11 @@ export function resolveWeaponAttackWithReactions(ctx: ConnCtx, input: AttackReso
       resume: (choices) => {
         const currentRoom = ctx.getRoom();
         const imposed = currentRoom ? applyAttackRollChoices(ctx, currentRoom, prep, choices, mapId) : false;
-        const rolled = rollPreparedAttack(ctx, prep, { extraDisadvantage: imposed });
-        Object.assign(holder, rolled.result);
-        if (rolled.plan) continueAfterRoll(ctx, currentRoom ?? room, prep.input, holder, rolled.plan);
+        Object.assign(holder, rollAndContinue(imposed));
       },
     });
     return holder;
   }
 
-  const rolled = rollPreparedAttack(ctx, prep);
-  if (!rolled.plan) return rolled.result;
-  return continueAfterRoll(ctx, room, input, rolled.result, rolled.plan);
+  return rollAndContinue(false);
 }

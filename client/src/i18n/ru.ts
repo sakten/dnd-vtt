@@ -179,12 +179,18 @@ export const ru = {
 
   'ui.roll.advTitle': 'Бросок с преимуществом (d20a)',
   'ui.roll.disTitle': 'Бросок с помехой (d20d)',
+  'ui.toolbar.dice': 'Кости',
+  'ui.toolbar.diceTitle': 'Настройки бросков',
+  'ui.roll.anim': 'Анимация d20',
+  'ui.roll.animHint': 'Вероятность показать бросок кубика при своих атаках и проверках',
   'ui.roll.title': 'Броски персонажа и его призывов',
   'ui.roll.myCharacter': 'Мой персонаж',
   'ui.roll.token': 'Токен',
   'ui.roll.weapon': 'Оружие {n}',
   'ui.roll.back': '← назад',
   'ui.roll.attackLabel': 'Атака: {name}',
+  'ui.roll.outcomeOk': 'Успех',
+  'ui.roll.outcomeFail': 'Провал',
 
   'ui.common.close': 'Закрыть',
   'ui.common.cancel': 'Отмена',

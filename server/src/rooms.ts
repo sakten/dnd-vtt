@@ -545,6 +545,7 @@ export class RoomManager {
           name: p.name,
           role: p.role,
           isConnected: p.isConnected,
+          rollAnimChance: p.rollAnimChance ?? 0,
           hpCurrent: res ? res.hp.current : null,
           hpMax: res ? res.hp.max : null,
           classKey: sheet?.classes?.[0]?.className ?? null,

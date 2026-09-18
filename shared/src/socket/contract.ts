@@ -1,7 +1,7 @@
 import type { ActionCost, ReactionOffer } from '../domain/actions';
 import type { ChatMessage, ErrorPayload, RollKind } from '../domain/chat';
 import type { CombatState } from '../domain/combat';
-import type { Player, RoomState } from '../domain/room';
+import type { Player, RollAnimPayload, RoomState } from '../domain/room';
 import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
@@ -42,6 +42,8 @@ export interface ServerToClientEvents {
   'reaction:offer': (offer: ReactionOffer) => void;
   /** Окно закрыто (ответили/таймаут/скип). */
   'reaction:close': (payload: { id: string }) => void;
+  /** Показать анимацию d20 бросающему игроку (шанс задан в его настройке). */
+  'roll:anim': (payload: RollAnimPayload) => void;
   'player:kicked': () => void;
   'room:deleted': () => void;
   'pong': () => void;
@@ -94,7 +96,7 @@ export interface ClientToServerEvents {
   }) => void;
   'grid:update': (payload: { mapId: string; grid: GridSettings }) => void;
   /** Открыть/закрыть дверь (DM — всегда; игрок — контролируемый токен в 5 фт). */
-  'door:toggle': (payload: { mapId: string; wallId: string }) => void;
+  'door:toggle': (payload: { mapId: string; wallId: string; advantage?: 'a' | 'd' }) => void;
   /** Настройки двери (только DM): «только для ведущего» и Сл взлома. */
   'door:update': (payload: { mapId: string; wallId: string; patch: { dmOnly?: boolean; pickDc?: number } }) => void;
   'player:remove': (payload: { id: string }) => void;
@@ -122,6 +124,8 @@ export interface ClientToServerEvents {
     attackIndex: number;
     advantage?: 'a' | 'd';
   }) => void;
+  /** Личная настройка: шанс 0–100 показать анимацию d20 при атаках и проверках. */
+  'player:rollAnimChance': (payload: { value: number }) => void;
   'action:use': (payload: {
     mapId: string;
     tokenId: string;

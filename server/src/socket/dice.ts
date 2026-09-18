@@ -12,6 +12,7 @@ import { actorStats } from '../room/actor';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
+import { maybeRollAnim } from './rollAnim';
 
 export function registerDiceHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, cleanLabel } = ctx;
@@ -22,6 +23,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       const { room } = scope;
       const player = room.players.find((p) => p.id === ctx.playerId);
       const kind: RollKind | undefined = rollKind === 'save' || rollKind === 'check' ? rollKind : undefined;
+      const author = player?.name ?? '?';
       const params: RollLabelParams | undefined = kind ? { subject } : undefined;
       try {
         const roll = rollDice(expression);
@@ -29,9 +31,11 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           ctx,
           room,
           kind
-            ? { author: player?.name ?? '?', roll, kind, params }
-            : { author: player?.name ?? '?', roll, label: cleanLabel(label) }
+            ? { author, roll, kind, params }
+            : { author, roll, label: cleanLabel(label) }
         );
+        // Проверка игрока может показать анимацию d20 (шанс в личной настройке).
+        if (kind === 'check') maybeRollAnim(ctx, roll);
       } catch (e) {
         if (e instanceof DiceParseError) socket.emit('chat:error', { code: e.code, params: e.params });
         else fail(ctx, 'badRoll');
@@ -43,7 +47,8 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       if (!scope) return;
       const { room, playerId } = scope;
       if (rejectIfReaction(ctx)) return;
-      const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
+      const player = room.players.find((p) => p.id === playerId);
+      const author = player?.name ?? '?';
 
       let attacks: AttackEntry[] | undefined;
       let prefix: string | undefined;
@@ -68,32 +73,47 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       const entry = attacks[index];
       if (!entry) return;
 
-      // Единая экономика: в бою атака списывает действие/запас мультиатаки.
-      if (attacker && attackerMapId && manager.combatOf(room, attackerMapId)?.active) {
-        if (!isDm() && !manager.isActiveToken(room, attackerMapId, attacker.id)) {
+      // Единая экономика: в бою атака списывает действие/запас мультиатаки в момент броска.
+      const combatant = attacker && attackerMapId ? { token: attacker, mapId: attackerMapId } : null;
+      const inCombat = !!combatant && manager.combatOf(room, combatant.mapId)?.active === true;
+      const canSpend = () => {
+        if (!inCombat || !combatant) return true;
+        if (!isDm() && !manager.isActiveToken(room, combatant.mapId, combatant.token.id)) {
           fail(ctx, 'notYourTurn');
-          return;
+          return false;
         }
-        if (!isDm() && !manager.canAttack(room, attackerMapId, attacker, { unarmed: entry.kind === 'unarmed' })) {
+        if (!isDm() && !manager.canAttack(room, combatant.mapId, combatant.token, { unarmed: entry.kind === 'unarmed' })) {
           fail(ctx, 'actionSpent');
-          return;
+          return false;
         }
-        manager.consumeAttack(room, attackerMapId, attacker, { unarmed: entry.kind === 'unarmed' });
-        syncCombat(room, attackerMapId);
-      }
+        return true;
+      };
 
       const targetFound = typeof targetId === 'string' && targetId ? manager.locateToken(room, targetId) : null;
 
-      const result = resolveWeaponAttackWithReactions(ctx, {
-        attacker,
-        attackerMapId,
-        target: targetFound?.token ?? null,
-        targetMapId: targetFound?.mapId ?? null,
-        attack: entry,
-        prefix,
-        advantage,
-        author,
-      });
+      const result = resolveWeaponAttackWithReactions(
+        ctx,
+        {
+          attacker,
+          attackerMapId,
+          target: targetFound?.token ?? null,
+          targetMapId: targetFound?.mapId ?? null,
+          attack: entry,
+          prefix,
+          advantage,
+          author,
+        },
+        {
+          beforeRoll: () => {
+            if (!canSpend()) return false;
+            if (inCombat && combatant) {
+              manager.consumeAttack(room, combatant.mapId, combatant.token, { unarmed: entry.kind === 'unarmed' });
+              syncCombat(room, combatant.mapId);
+            }
+            return true;
+          },
+        }
+      );
       if (result.error) socket.emit('chat:error', result.error);
     });
 

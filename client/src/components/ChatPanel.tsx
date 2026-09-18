@@ -5,6 +5,7 @@ import { systemText } from '../i18n/system';
 import { nextLang, t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
+import { rollOutcome } from '../lib/rollOutcome';
 import { useDragSize } from '../lib/useDragSize';
 import RollMenu from './RollMenu';
 import CharacterSheetModal from './CharacterSheetModal';
@@ -72,6 +73,30 @@ function rollLabelType(kind?: RollKind, label?: string): 'attack' | 'save' | 'ch
   return 'plain';
 }
 
+/** Галочка/крестик исхода правее кубиков. */
+function OutcomeMark({ outcome }: { outcome: 'success' | 'fail' }) {
+  const ok = outcome === 'success';
+  const title = ok ? t('ui.roll.outcomeOk') : t('ui.roll.outcomeFail');
+  return (
+    <span className={`roll-outcome ${ok ? 'ok' : 'bad'}`} data-testid="roll-outcome" title={title} aria-label={title}>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        {ok ? (
+          <path
+            d="M4 12.5l5 5L20 6.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : (
+          <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+        )}
+      </svg>
+    </span>
+  );
+}
+
 function authorLabel(author: string): string {
   return author === 'Система' ? t('ui.chat.system') : author;
 }
@@ -108,6 +133,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
   const crit = message.crit ? 'crit' : formatRoll(message.roll);
   const label = rollMessageLabel(message);
   const labelType = rollLabelType(message.rollKind, message.label);
+  const outcome = rollOutcome(message);
   const dice = buildTerms(message.roll)
     .filter((t): t is DieEntry => t.kind === 'die')
     .sort((a, b) => b.sides - a.sides || b.value - a.value || (a.dropped ? 1 : 0) - (b.dropped ? 1 : 0));
@@ -128,17 +154,20 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
       <div className="roll-divider" />
       <div className="roll-right-col">
         <div className="roll-formula">{formulaFromRoll(message.roll)}</div>
-        <div className="roll-terms">
-          {dice.map((d, i) => (
-            <Fragment key={i}>
-              {d.negative && <span className="roll-minus">−</span>}
-              <DieIcon sides={d.sides} value={d.value} dropped={d.dropped} />
-            </Fragment>
-          ))}
-          {message.roll.modifier > 0 && <span className="roll-plus">+</span>}
-          {message.roll.modifier !== 0 && (
-            <span className="roll-bonus">{message.roll.modifier}</span>
-          )}
+        <div className="roll-terms-row">
+          <div className="roll-terms">
+            {dice.map((d, i) => (
+              <Fragment key={i}>
+                {d.negative && <span className="roll-minus">−</span>}
+                <DieIcon sides={d.sides} value={d.value} dropped={d.dropped} />
+              </Fragment>
+            ))}
+            {message.roll.modifier > 0 && <span className="roll-plus">+</span>}
+            {message.roll.modifier !== 0 && (
+              <span className="roll-bonus">{message.roll.modifier}</span>
+            )}
+          </div>
+          {outcome && <OutcomeMark outcome={outcome} />}
         </div>
       </div>
     </div>

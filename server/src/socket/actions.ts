@@ -13,10 +13,12 @@ import {
   rollDice,
   tokensInArea,
   unarmedStrikeEntry as computedUnarmedStrike,
+  withAdvantage,
   type ActionCost,
   type ActionDef,
   type AttackEntry,
   type CharacterSheet,
+  type DiceRollResult,
   type Token,
   type TurnState,
 } from 'shared';
@@ -26,6 +28,7 @@ import { fail } from './errors';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
+import { maybeRollAnim } from './rollAnim';
 import { findSpell } from '../spells';
 import { spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
@@ -39,7 +42,12 @@ function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: Act
 }
 
 /** Действие «Выпутаться»: проверка характеристики снимает эффект (Web: STR/Athletics). */
-function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
+function escapeEffect(
+  ctx: ConnCtx,
+  scope: Scope,
+  effectId: string,
+  advantage?: 'a' | 'd'
+): void {
   const { room, mapId, token } = scope;
   const effect = token.effects.find((e) => e.id === effectId);
   const escape = effect?.escape;
@@ -51,25 +59,32 @@ function escapeEffect(ctx: ConnCtx, scope: Scope, effectId: string): void {
     fail(ctx, 'notYourTurn');
     return;
   }
+
+  const expression = withAdvantage(
+    ctx.manager.abilityCheckExprForToken(room, token, escape.ability, escape.skill),
+    advantage === 'a' || advantage === 'd' ? advantage : null
+  );
+  const applyCheck = (roll: DiceRollResult) => {
+    const success = roll.total >= escape.dc;
+    pushRollMessage(ctx, room, {
+      author: token.name,
+      roll,
+      kind: 'check',
+      params: { subject: `Выпутаться: ${effect.name}` },
+    });
+    maybeRollAnim(ctx, roll);
+    if (!success) return;
+    ctx.manager.removeEffect(room, token, effect.id);
+    ctx.emitToken(room, 'token:update', mapId, token);
+    ctx.systemMessage(room, { code: 'actions.escaped', params: { name: token.name, effect: effect.name } });
+  };
+
   if (!ctx.manager.spendSlot(room, mapId, token, 'action')) {
     fail(ctx, 'noActions');
     return;
   }
   ctx.syncCombat(room, mapId);
-
-  const expression = ctx.manager.abilityCheckExprForToken(room, token, escape.ability, escape.skill);
-  const roll = rollDice(expression);
-  const success = roll.total >= escape.dc;
-  pushRollMessage(ctx, room, {
-    author: token.name,
-    roll,
-    kind: 'check',
-    params: { subject: `Выпутаться: ${effect.name}` },
-  });
-  if (!success) return;
-  ctx.manager.removeEffect(room, token, effect.id);
-  ctx.emitToken(room, 'token:update', mapId, token);
-  ctx.systemMessage(room, { code: 'actions.escaped', params: { name: token.name, effect: effect.name } });
+  applyCheck(rollDice(expression));
 }
 
 /** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */
@@ -101,7 +116,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       // «Выпутаться» (Web и подобные): действие, проверка характеристики против СЛ эффекта.
       if (actionId.startsWith('escape:')) {
-        escapeEffect(ctx, scope, actionId.slice('escape:'.length));
+        escapeEffect(ctx, scope, actionId.slice('escape:'.length), advantage);
         return;
       }
 
@@ -187,23 +202,35 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
         const targetId = targetIds?.[0];
         const target: Token | null = typeof targetId === 'string' ? manager.findToken(room, mapId, targetId) ?? null : null;
-        const result = resolveWeaponAttackWithReactions(ctx, {
-          attacker: token,
-          attackerMapId: mapId,
-          target,
-          targetMapId: target ? mapId : null,
-          attack: entry,
-          prefix: token.name,
-          advantage,
-          author,
-        });
+        const result = resolveWeaponAttackWithReactions(
+          ctx,
+          {
+            attacker: token,
+            attackerMapId: mapId,
+            target,
+            targetMapId: target ? mapId : null,
+            attack: entry,
+            prefix: token.name,
+            advantage,
+            author,
+          },
+          {
+            // Атака списывается в момент броска; ошибки до броска не тратят ресурс.
+            beforeRoll: () => {
+              if (!manager.canAttack(room, mapId, token, { unarmed })) {
+                fail(ctx, 'actionSpent');
+                return false;
+              }
+              manager.consumeAttack(room, mapId, token, { unarmed });
+              syncCombat(room, mapId);
+              return true;
+            },
+          }
+        );
         if (result.error) {
           socket.emit('chat:error', result.error);
           return;
         }
-        // Атака списывается только после успешного резолва (вне досягаемости — не тратит).
-        manager.consumeAttack(room, mapId, token, { unarmed });
-        syncCombat(room, mapId);
         return;
       }
 
@@ -319,15 +346,16 @@ export function registerActionHandlers(ctx: ConnCtx) {
           : sheet && classKey
             ? casterStats(sheet, classKey)
             : null;
-        executeAutomation(ctx, {
-          caster: token,
-          mapId,
-          def: { ...def, name: action.name },
-          targets,
-          stats,
-          author,
-          manual: { description: action.description ? [action.description] : undefined },
-        });
+      executeAutomation(ctx, {
+        caster: token,
+        mapId,
+        def: { ...def, name: action.name },
+        targets,
+        stats,
+        author,
+        advantage,
+        manual: { description: action.description ? [action.description] : undefined },
+      });
         return;
       }
 

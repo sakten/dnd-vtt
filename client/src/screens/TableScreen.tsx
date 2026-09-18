@@ -20,6 +20,7 @@ import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
 import AimPanel from '../components/AimPanel';
 import ReactionPrompt from '../components/ReactionPrompt';
+import RollOverlay from '../components/RollOverlay';
 import CritOverlay from '../components/CritOverlay';
 import { wallsEscapeStep } from '../lib/wallDraw';
 
@@ -86,6 +87,7 @@ export default function TableScreen() {
       {roomSettingsOpen && <RoomSettingsModal />}
       <TokenMenu />
       <DoorMenu />
+      <RollOverlay />
       <CritOverlay />
     </div>
   );

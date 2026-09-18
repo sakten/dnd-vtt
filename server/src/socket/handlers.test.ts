@@ -22,6 +22,7 @@ import { applyAttackRiders } from './attackRiders';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
+import { registerRollAnimHandlers } from './rollAnim';
 import { openReactionWindow, pendingOffers, registerReactionHandlers } from './reactions';
 import { registerSheetHandlers } from './sheet';
 import { createZoneFromDef } from './zones';
@@ -3880,5 +3881,116 @@ describe('библиотека и статблок', () => {
     const stats = actorStats(room, token);
     expect(stats.hp).toEqual({ max: 20, current: 12, temp: 2 });
     expect(stats.name).toBe('Конан');
+  });
+});
+
+describe('анимация броска игрока (шанс)', () => {
+  const animOf = (f: ReturnType<typeof makeCtx>) =>
+    f.selfEvents('roll:anim')[0]?.payload as { roll: { total: number } } | undefined;
+
+  it('проверка: шанс 100 — анимация с выпавшим d20 и обычное сообщение', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.code = 'RA1';
+    const f = makeCtx(room, { playerId: 'p1' });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11
+    registerDiceHandlers(f.ctx);
+    registerRollAnimHandlers(f.ctx);
+
+    f.invoke('player:rollAnimChance', { value: 100 });
+    expect(room.players.find((p) => p.id === 'p1')!.rollAnimChance).toBe(100);
+
+    f.invoke('dice:roll', { expression: 'd20+5', rollKind: 'check', subject: 'Атлетика' });
+    rand.mockRestore();
+
+    expect(room.chat.filter((m) => m.kind === 'roll')).toHaveLength(1);
+    expect(animOf(f)?.roll.total).toBe(16);
+  });
+
+  it('шанс 0: бросок обычный, анимации нет', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.code = 'RA2';
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerDiceHandlers(f.ctx);
+    registerRollAnimHandlers(f.ctx);
+
+    f.invoke('dice:roll', { expression: 'd20+5', rollKind: 'check', subject: 'Атлетика' });
+
+    expect(f.selfEvents('roll:anim')).toHaveLength(0);
+    expect(room.chat.filter((m) => m.kind === 'roll')).toHaveLength(1);
+  });
+
+  it('настройка зажимается в 0–100', () => {
+    const room = makeRoom([], {});
+    room.code = 'RA3';
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerRollAnimHandlers(f.ctx);
+
+    f.invoke('player:rollAnimChance', { value: 150 });
+    expect(room.players.find((p) => p.id === 'p1')!.rollAnimChance).toBe(100);
+    f.invoke('player:rollAnimChance', { value: -20 });
+    expect(room.players.find((p) => p.id === 'p1')!.rollAnimChance).toBe(0);
+  });
+
+  it('атака: шанс 100 — анимация у бросающего, атака проходит сразу', () => {
+    const sword: AttackEntry = {
+      name: 'Клинок',
+      hit: 'd20+20',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, ac: '10', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.code = 'RA4';
+    room.sheets.p1 = { ...casterSheet(), attacks: [sword] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    registerDiceHandlers(f.ctx);
+    registerRollAnimHandlers(f.ctx);
+    f.invoke('player:rollAnimChance', { value: 100 });
+
+    f.invoke('dice:attack', { tokenId: 't1', targetId: 't2', attackIndex: 0 });
+    rand.mockRestore();
+
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+    expect(f.selfEvents('roll:anim')).toHaveLength(1);
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!.hpCurrent).toBeLessThan(30);
+  });
+
+  it('проверка характеристики (Скрыться): анимация при шансе 100', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.code = 'RA5';
+    room.sheets.p1 = casterSheet();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerRollAnimHandlers(f.ctx);
+    f.invoke('player:rollAnimChance', { value: 100 });
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'hide' });
+
+    expect(f.selfEvents('roll:anim')).toHaveLength(1);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'check')).toBe(true);
+  });
+
+  it('галка Adv/Dis: Скрыться с преимуществом даёт d20a', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.code = 'RA6';
+    room.sheets.p1 = casterSheet();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'hide', advantage: 'a' });
+
+    const roll = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'check') as
+      | { roll: { dice: { advantage: string | null }[] } }
+      | undefined;
+    expect(roll?.roll.dice[0]?.advantage).toBe('a');
   });
 });

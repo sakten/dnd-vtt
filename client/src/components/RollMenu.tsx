@@ -23,10 +23,6 @@ interface AttackSource {
   attacks: AttackEntry[];
 }
 
-function applyAdvantage(expression: string, adv: boolean, dis: boolean): string {
-  return advantagedExpression(expression, adv, dis);
-}
-
 export default function RollMenu() {
   const stored = useGameStore((s) => s.sheet);
   const scene = useGameStore((s) => s.scene);
@@ -40,8 +36,8 @@ export default function RollMenu() {
   const rollDeathSave = useGameStore((s) => s.rollDeathSave);
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<MenuLevel>('root');
-  const [adv, setAdv] = useState(false);
-  const [dis, setDis] = useState(false);
+  const rollMode = useGameStore((s) => s.rollMode);
+  const setRollMode = useGameStore((s) => s.setRollMode);
   const [sourceKey, setSourceKey] = useState<string | null>(null);
 
   const sheet = stored ?? defaultSheet();
@@ -74,29 +70,23 @@ export default function RollMenu() {
     setSourceKey(null);
   };
 
-  const resetAdv = () => {
-    setAdv(false);
-    setDis(false);
-  };
-
   const doRoll = (expression: string, rollKind: 'save' | 'check', subject: string) => {
-    rollDice(applyAdvantage(expression, adv, dis), undefined, { rollKind, subject });
-    resetAdv();
+    rollDice(advantagedExpression(expression, rollMode === 'a', rollMode === 'd'), undefined, { rollKind, subject });
+    setRollMode(null);
     close();
   };
 
   const doWeapon = (source: AttackSource, index: number) => {
-    const mode = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
     const entry = source.attacks[index];
     const label = entry?.name.trim() || t('ui.roll.weapon', { n: index + 1 });
     startTargeting({
       kind: 'rollAttack',
       tokenId: source.tokenId,
       attackIndex: index,
-      advantage: mode,
+      advantage: rollMode ?? undefined,
       label: t('ui.roll.attackLabel', { name: label }),
     });
-    resetAdv();
+    setRollMode(null);
     close();
   };
 
@@ -131,22 +121,16 @@ export default function RollMenu() {
         <label className="adv-check" data-testid="adv-check" title={t('ui.roll.advTitle')}>
           <input
             type="checkbox"
-            checked={adv}
-            onChange={(e) => {
-              setAdv(e.target.checked);
-              if (e.target.checked) setDis(false);
-            }}
+            checked={rollMode === 'a'}
+            onChange={(e) => setRollMode(e.target.checked ? 'a' : null)}
           />
           Adv
         </label>
         <label className="adv-check" data-testid="adv-check" title={t('ui.roll.disTitle')}>
           <input
             type="checkbox"
-            checked={dis}
-            onChange={(e) => {
-              setDis(e.target.checked);
-              if (e.target.checked) setAdv(false);
-            }}
+            checked={rollMode === 'd'}
+            onChange={(e) => setRollMode(e.target.checked ? 'd' : null)}
           />
           Dis
         </label>
@@ -214,8 +198,8 @@ export default function RollMenu() {
                 <button
                   className="roll-menu-item" data-testid="roll-menu-item"
                   onClick={() => {
-                    rollDeathSave(applyAdvantage('d20', adv, dis));
-                    resetAdv();
+                    rollDeathSave(advantagedExpression('d20', rollMode === 'a', rollMode === 'd'));
+                    setRollMode(null);
                     close();
                   }}
                 >

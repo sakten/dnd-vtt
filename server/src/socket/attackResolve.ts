@@ -37,6 +37,7 @@ import { applyDamage } from './damage';
 import { fail } from './errors';
 import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
+import { maybeRollAnim } from './rollAnim';
 import { controllerIdOfToken } from '../rooms';
 
 export interface AttackResolveInput {
@@ -259,6 +260,8 @@ export function rollPreparedAttack(
     let hitSuccess: boolean | undefined;
     if (prep.hasHit) {
       const hitRoll = rollDice(withAdvantage(prep.attackExpr, adv));
+      // Анимация d20 у бросающего — по личному шансу (ничего не ждёт).
+      maybeRollAnim(ctx, hitRoll);
       crit =
         isCriticalHit(hitRoll, prep.critMin) ||
         (prep.hasTarget && !!target && autoCrit(target.conditions, prep.distanceFeet, attack.rangeType));

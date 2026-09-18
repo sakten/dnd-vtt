@@ -1,9 +1,10 @@
-import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, type SystemText, type Token, type Wall } from 'shared';
+import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, withAdvantage, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
 import { sheetOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { pushRollMessage } from './messages';
+import { maybeRollAnim } from './rollAnim';
 
 /** Дистанция взаимодействия с дверью: 5 фт = сторона клетки. */
 const DOOR_REACH_CELLS = 1;
@@ -80,7 +81,7 @@ export function registerDoorHandlers(ctx: ConnCtx) {
     ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
   });
 
-  ctx.on('door:toggle', ({ mapId, wallId }) => {
+  ctx.on('door:toggle', ({ mapId, wallId, advantage }) => {
     const room = ctx.getRoom();
     if (!room || typeof mapId !== 'string' || typeof wallId !== 'string') return;
     const map = ctx.manager.findMap(room, mapId);
@@ -121,19 +122,25 @@ export function registerDoorHandlers(ctx: ConnCtx) {
         fail(ctx, 'doorLockedInCombat');
         return;
       }
-      const roll = rollDice(pickExpression(room, actor));
-      const success = roll.total >= dc;
-      // Бросок идёт в чат карточкой (как проверки из roll menu), а не системной строкой.
-      pushRollMessage(ctx, room, {
-        author: actor.name,
-        roll,
-        kind: 'check',
-        params: { subject: 'Взлом двери', dc, checkOutcome: success ? 'success' : 'fail' },
-      });
-      if (!success) return;
-      door.open = true;
-      door.pickDc = 0; // взломана: следующим игрокам взламывать не нужно
-      ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
+      // Галка Adv/Dis над ROLL: преимущество/помеха на проверку взлома.
+      const mode = advantage === 'a' || advantage === 'd' ? advantage : null;
+      const expression = withAdvantage(pickExpression(room, actor), mode);
+      const applyPick = (roll: DiceRollResult) => {
+        const success = roll.total >= dc;
+        // Бросок идёт в чат карточкой (как проверки из roll menu), а не системной строкой.
+        pushRollMessage(ctx, room, {
+          author: actor.name,
+          roll,
+          kind: 'check',
+          params: { subject: 'Взлом двери', dc, checkOutcome: success ? 'success' : 'fail' },
+        });
+        maybeRollAnim(ctx, roll);
+        if (!success) return;
+        door.open = true;
+        door.pickDc = 0; // взломана: следующим игрокам взламывать не нужно
+        ctx.broadcastAll('walls:update', { mapId, walls: map.walls });
+      };
+      applyPick(rollDice(expression));
       return;
     }
 

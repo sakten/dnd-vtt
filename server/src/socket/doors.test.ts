@@ -4,6 +4,7 @@ import { makeConnCtx } from '../test/ctx';
 import { makeRoom, makeToken } from '../test/fixtures';
 import type { Room } from '../roomTypes';
 import { inDoorReach, pickExpression, registerDoorHandlers } from './doors';
+import { registerRollAnimHandlers } from './rollAnim';
 
 const DOOR: Wall = { id: 'd1', kind: 'door', x1: 100, y1: 0, x2: 100, y2: 50 };
 
@@ -158,6 +159,41 @@ describe('door:toggle', () => {
     const okRoll = rolls(player.emitted).at(-1);
     expect(okRoll?.rollKind).toBe('check');
     expect(okRoll?.labelParams).toMatchObject({ subject: 'Взлом двери', dc: 15, checkOutcome: 'success' });
+  });
+
+  it('анимация броска: при шансе 100 взлом сразу шлёт roll:anim игроку', () => {
+    const { room, map } = makeDoorRoom();
+    map.walls[0]!.pickDc = 15;
+    const player = makeConnCtx(room, { playerId: 'p1' });
+    registerDoorHandlers(player.ctx);
+    registerRollAnimHandlers(player.ctx);
+    player.invoke('player:rollAnimChance', { value: 100 });
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.999); // d20 = 20 → успех
+    player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
+
+    expect(map.walls[0]!.open).toBe(true);
+    expect(map.walls[0]!.pickDc).toBe(0);
+    const anim = player.selfEvents('roll:anim')[0]?.payload as { roll: { total: number } } | undefined;
+    expect(anim?.roll.total).toBeGreaterThan(0);
+    expect(rolls(player.emitted).at(-1)?.labelParams).toMatchObject({
+      subject: 'Взлом двери',
+      checkOutcome: 'success',
+    });
+  });
+
+  it('преимущество на взлом: бросок идёт с d20a', () => {
+    const { room, map } = makeDoorRoom();
+    map.walls[0]!.pickDc = 15;
+    const player = makeConnCtx(room, { playerId: 'p1' });
+    registerDoorHandlers(player.ctx);
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1', advantage: 'a' });
+
+    const roll = rolls(player.emitted).at(-1);
+    expect(roll?.roll.dice[0]?.advantage).toBe('a');
+    expect(map.walls[0]!.open).toBe(true);
   });
 
   it('canInteract-токен без листа взламывает Ловкостью (ЛОВ статблока)', () => {

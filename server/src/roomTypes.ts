@@ -23,7 +23,7 @@ export interface Room extends Omit<RoomState, 'players'> {
  */
 export type PersistedRoom = Omit<Room, 'name' | 'players' | 'resources' | 'controllers'> & {
   name?: string;
-  players: Pick<Player, 'id' | 'name' | 'role'>[];
+  players: Pick<Player, 'id' | 'name' | 'role' | 'rollAnimChance'>[];
   resources?: Record<string, PlayerResources>;
   controllers?: Record<string, string>;
 };
@@ -37,7 +37,12 @@ export function toPersistedRoom(room: Room): PersistedRoom {
     library: room.library,
     sheets: room.sheets,
     chat: room.chat,
-    players: room.players.map((p) => ({ id: p.id, name: p.name, role: p.role })),
+    players: room.players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      role: p.role,
+      rollAnimChance: p.rollAnimChance ?? 0,
+    })),
     nextZ: room.nextZ,
     resources: room.resources,
     controllers: room.controllers,

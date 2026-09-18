@@ -83,9 +83,16 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     toggleDoor: (wallId) => {
       // Сначала досылаем отложенный патч стен (там ещё закрытая дверь), иначе он
       // может прийти после door:toggle и вернуть дверь в прежнее состояние.
-      const mapId = get().viewMapId;
+      const state = get();
+      const mapId = state.viewMapId;
       if (mapId) flushThrottled(`walls:${mapId}`);
-      emitInMap(get, 'door:toggle', { wallId });
+      // Галка Adv/Dis над ROLL даёт преимущество/помеху на взлом запертой двери вне боя.
+      const map = mapId ? state.scene.maps.find((m) => m.id === mapId) : undefined;
+      const door = map?.walls.find((w) => w.id === wallId && w.kind === 'door');
+      const check =
+        !!state.rollMode && !!door && !door.open && (door.pickDc ?? 0) > 0 && !map?.combat.active;
+      emitInMap(get, 'door:toggle', { wallId, ...(check ? { advantage: state.rollMode! } : {}) });
+      if (check) set({ rollMode: null });
     },
 
     updateDoor: (mapId, wallId, patch) => {

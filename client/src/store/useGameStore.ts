@@ -11,6 +11,8 @@ import { createChatSlice } from './slices/chat';
 import { createSheetSlice } from './slices/sheet';
 import { createViewSlice } from './slices/view';
 import { createReactionSlice } from './slices/reactions';
+import { createRollAnimSlice } from './slices/rollAnim';
+import { createRollModeSlice } from './slices/rollMode';
 import { createSettingsSlice } from './slices/settings';
 
 export const useGameStore = create<GameState>()((set, get) => ({
@@ -24,6 +26,8 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createSheetSlice(set, get),
   ...createViewSlice(set, get),
   ...createReactionSlice(set, get),
+  ...createRollAnimSlice(set, get),
+  ...createRollModeSlice(set, get),
   ...createSettingsSlice(set, get),
     socket: null,
     socketDispose: null,
@@ -64,6 +68,8 @@ export const useGameStore = create<GameState>()((set, get) => ({
     dragPath: null,
     critHit: null,
     reactionOffers: [],
+    rollAnim: null,
+    rollMode: null,
 }));
 
 if (typeof window !== 'undefined') {

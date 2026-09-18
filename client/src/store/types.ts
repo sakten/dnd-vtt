@@ -13,6 +13,7 @@ import type {
   PlayerResources,
   ReactionOffer,
   Role,
+  RollAnimPayload,
   RollKind,
   Scene,
   ServerToClientEvents,
@@ -23,6 +24,7 @@ import type {
 } from 'shared';
 import type { Lang } from '../i18n';
 import type { AppSocket } from '../net/socket';
+import type { DiceRollFace } from '../components/ThreeD20';
 import type {
   Interaction,
   MultiTargetState,
@@ -117,6 +119,10 @@ export interface GameState {
   critHit: CritHit | null;
   /** Активные окна реакций (R1). */
   reactionOffers: ReactionOffer[];
+  /** Анимация выпавших d20 (по личному шансу): взятые кубики подсвечены, отброшенные тускнеют. */
+  rollAnim: { id: string; dice: DiceRollFace[] } | null;
+  /** Галка Adv/Dis над ROLL: применяется к следующему своему броску, включая чеки в игре. */
+  rollMode: 'a' | 'd' | null;
 
   init: () => void;
   /** Снять мост и отключить сокет (HMR/тесты/выход из комнаты в будущем). */
@@ -269,6 +275,13 @@ export interface GameState {
   onReactionClose: (payload: { id: string }) => void;
   respondReaction: (id: string, optionId: string | null) => void;
   forceSkipReaction: (id: string) => void;
+  /** Показ анимации d20 (значение уже брошено сервером). */
+  onRollAnim: (payload: RollAnimPayload) => void;
+  /** Личная настройка: шанс 0–100 показать анимацию d20. */
+  setRollAnimChance: (value: number) => void;
+  clearRollAnim: () => void;
+  /** Установить/сбросить режим преимущества для следующего броска. */
+  setRollMode: (mode: 'a' | 'd' | null) => void;
 }
 
 export type StoreSet = (partial: Partial<GameState> | ((state: GameState) => Partial<GameState>)) => void;

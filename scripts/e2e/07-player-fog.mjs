@@ -21,6 +21,43 @@ await S.page2.waitForSelector('[data-testid="table-screen"]');
 await S.page2.waitForSelector('canvas');
 await waitFor(S.page2, () => !!(window.__vtt && window.__vtt.getState().viewMapId));
 
+// Верхнее меню игрока: «Сетки» нет, вместо неё «Кости» с ползунком шанса анимации.
+const playerToolbar = await S.page2.$eval('[data-testid="toolbar"]', (el) => el.textContent ?? '');
+check(
+  !playerToolbar.includes('Сетка') && playerToolbar.includes('Кости'),
+  `у игрока нет «Сетки», есть «Кости» (${playerToolbar.trim()})`
+);
+await S.page2.click('[data-testid="dice-menu-btn"]');
+await S.page2.waitForSelector('[data-testid="dice-menu"]');
+const setChance = (value) =>
+  S.page2.$eval(
+    '[data-testid="roll-anim-chance"]',
+    (el, v) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(el, String(v));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    value
+  );
+const chanceState = () =>
+  S.page2.evaluate(() => {
+    const s = window.__vtt.getState();
+    return s.players.find((p) => p.id === s.selfId)?.rollAnimChance;
+  });
+await setChance(100);
+await waitFor(S.page2, () => {
+  const s = window.__vtt.getState();
+  return s.players.find((p) => p.id === s.selfId)?.rollAnimChance === 100;
+}, 5000);
+check((await chanceState()) === 100, 'ползунок выставляет шанс анимации 100%');
+await setChance(0);
+await waitFor(S.page2, () => {
+  const s = window.__vtt.getState();
+  return s.players.find((p) => p.id === s.selfId)?.rollAnimChance === 0;
+}, 5000);
+await S.page2.click('[data-testid="dice-menu-btn"]');
+await waitFor(S.page2, () => !document.querySelector('[data-testid="dice-menu"]'));
+
 const p2Initial = await S.page2.evaluate(() => {
   const s = window.__vtt.getState();
   return { view: s.viewMapId, defaultId: s.scene.activeMapId };
