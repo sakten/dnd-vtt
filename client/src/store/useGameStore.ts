@@ -58,6 +58,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     viewport: { w: 0, h: 0 },
     gridModalOpen: false,
     visionModalOpen: false,
+    bestiaryOpen: false,
     roomSettingsOpen: false,
     tokenMenuId: null,
     doorMenuId: null,

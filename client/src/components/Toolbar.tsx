@@ -17,6 +17,7 @@ export default function Toolbar() {
   const lightActive = useGameStore((s) => s.lightMode.active);
   const setLightMode = useGameStore((s) => s.setLightMode);
   const setVisionModalOpen = useGameStore((s) => s.setVisionModalOpen);
+  const setBestiaryOpen = useGameStore((s) => s.setBestiaryOpen);
   const combatActive = useGameStore((s) => activeMapOf(s)?.combat.active ?? false);
   const startCombat = useGameStore((s) => s.startCombat);
   const endCombat = useGameStore((s) => s.endCombat);
@@ -28,6 +29,9 @@ export default function Toolbar() {
       {!isDm && <DiceMenu />}
       <button onClick={fitView} disabled={!hasMap}>
         {t('ui.toolbar.fit')}
+      </button>
+      <button title={t('ui.toolbar.bestiaryTitle')} onClick={() => setBestiaryOpen(true)}>
+        {t('ui.toolbar.bestiary')}
       </button>
       {isDm && (
         <button

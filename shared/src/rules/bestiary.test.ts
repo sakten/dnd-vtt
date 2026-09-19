@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { RawBestiaryMonster } from '../domain/bestiary';
-import { bestiaryEntryFromRaw, parseAttackText, parseMultiattack, parseSaveText, parseSpellcasting, slugId } from './bestiary';
+import {
+  bestiaryEntryFromRaw,
+  bestiaryTokenFields,
+  parseAttackText,
+  parseDamageDefenses,
+  parseMultiattack,
+  parseSaveText,
+  parseSpellcasting,
+  slugId,
+} from './bestiary';
 
 const WOLF: RawBestiaryMonster = {
   name: 'Wolf',
@@ -71,6 +80,7 @@ const DRAGON: RawBestiaryMonster = {
   cha: 23,
   save: { dex: '+6', wis: '+7' },
   senses: ['Blindsight 60 ft.', 'Darkvision 120 ft.'],
+  immune: ['fire'],
   action: [
     { name: 'Multiattack', entries: ['The dragon makes three Rend attacks.'] },
     {
@@ -130,6 +140,26 @@ const PIRANHA: RawBestiaryMonster = {
     {
       name: 'Bite',
       entries: ["{@atkr m} {@hit 5}, reach 5 ft. {@h}1 Piercing damage."],
+    },
+  ],
+};
+
+const SKELETON: RawBestiaryMonster = {
+  name: 'Skeleton',
+  source: 'XMM',
+  size: ['M'],
+  type: 'undead',
+  cr: '1/4',
+  ac: [14],
+  hp: { average: 13, formula: '2d8 + 4' },
+  speed: { walk: 30 },
+  immune: ['poison'],
+  resist: [],
+  vulnerable: ['bludgeoning'],
+  action: [
+    {
+      name: 'Shortsword',
+      entries: ['{@atkr m} {@hit 5}, reach 5 ft. {@h}6 ({@damage 1d6 + 3}) Piercing damage.'],
     },
   ],
 };
@@ -226,5 +256,35 @@ describe('бестиарий: заклинания и запись целико�
 
   it('слаг для id', () => {
     expect(slugId('Fire Breath')).toBe('fire-breath');
+  });
+
+  it('описание внешности строится из имени/статов', () => {
+    expect(bestiaryEntryFromRaw(WOLF, known)!.appearance).toContain('fangs');
+    expect(bestiaryEntryFromRaw(DRAGON, known)!.appearance).toContain('wings');
+    expect(bestiaryEntryFromRaw(SKELETON, known)!.appearance).toContain('bones');
+    expect(bestiaryEntryFromRaw(SPIRIT, known)!.appearance.length).toBeGreaterThan(10);
+  });
+});
+
+describe('бестиарий: защита и выставление', () => {
+  it('защиты берутся только каноническими типами', () => {
+    expect(parseDamageDefenses(['Poison', 'bludgeoning', { resist: ['cold'], note: 'from nonmagical attacks' }], new Set(['poison', 'bludgeoning']))).toEqual(['poison', 'bludgeoning']);
+    const entry = bestiaryEntryFromRaw(SKELETON, known)!;
+    expect(entry.immunities).toEqual(['poison']);
+    expect(entry.resistances).toEqual([]);
+    expect(entry.vulnerabilities).toEqual(['bludgeoning']);
+  });
+
+  it('поля токена: HP/AC строками, инициатива от Ловкости, защиты и статблок', () => {
+    const entry = bestiaryEntryFromRaw(DRAGON, known)!;
+    const fields = bestiaryTokenFields(entry);
+    expect(fields).toMatchObject({ name: 'Adult Red Dragon', ac: '19', hpMax: '256', cells: 3, initiativeBonus: '+0', isPlayerToken: false });
+    expect(fields.description.length).toBeLessThanOrEqual(200);
+    expect(fields.damageDefenses).toEqual([
+      { id: 'xmm:adult-red-dragon:immunity:fire', type: 'immunity', damageType: 'fire' },
+    ]);
+    expect(fields.statblock).toMatchObject({ multiattack: 3, legendary: { max: 3, actions: [] } });
+    expect(fields.statblock?.actions?.some((a) => a.name === 'Fire Breath')).toBe(true);
+    expect(fields.attacks[0]).toMatchObject({ name: 'Rend', damage: '1d10 + 8 + 2d4fire' });
   });
 });

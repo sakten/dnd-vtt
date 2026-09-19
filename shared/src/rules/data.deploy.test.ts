@@ -27,7 +27,7 @@ const HASHES = {
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: 'f8d310ec0a56a339',
-  bestiary: 'c246e0192c15b009',
+  bestiary: '87e620bd4f836446',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -61,6 +61,21 @@ const SCHOOLS = new Set([
   'Transmutation',
 ]);
 const ABILITIES = new Set(['str', 'dex', 'con', 'int', 'wis', 'cha']);
+const DAMAGE_KEYS = new Set([
+  'bludgeoning',
+  'piercing',
+  'slashing',
+  'fire',
+  'cold',
+  'acid',
+  'poison',
+  'lightning',
+  'thunder',
+  'force',
+  'necrotic',
+  'radiant',
+  'psychic',
+]);
 const AREA_SHAPES = new Set(['sphere', 'cone', 'cube', 'line', 'cylinder']);
 
 /** Состояния с авто-эффектами в `conditions.ts` (charmed/deafened — только чипы). */
@@ -322,6 +337,11 @@ describe('снимок данных', () => {
       if (!(entry.speed > 0 && entry.speed <= 200)) bad.push(`${key}: скорость ${entry.speed}`);
       for (const attack of entry.attacks) {
         if (!attack.name || !attack.hit || !attack.damage) bad.push(`${key}: атака ${attack.name}`);
+      }
+      for (const list of [entry.immunities, entry.resistances, entry.vulnerabilities]) {
+        for (const damageType of list) {
+          if (!DAMAGE_KEYS.has(damageType)) bad.push(`${key}: защита ${damageType}`);
+        }
       }
       const ids = new Set(entry.actions.map((a) => a.id));
       if (ids.size !== entry.actions.length) bad.push(`${key}: id действий`);

@@ -1,10 +1,13 @@
 import type { ActionDef, ActionTargeting, AreaSpec, MonsterAbilityEffect } from '../domain/actions';
 import type { BestiaryEntry, MonsterSize, RawBestiaryMonster } from '../domain/bestiary';
 import type { AbilityKey } from '../domain/core';
+import type { DamageDefense } from '../domain/damage';
 import type { ConditionKey, EffectDuration } from '../domain/effects';
 import type { Sense } from '../domain/sense';
-import type { AttackEntry, TokenStatblock } from '../domain/token';
+import type { AttackEntry, TokenFields, TokenStatblock } from '../domain/token';
 import { CONDITION_KEYS } from './conditions';
+import { bestiaryIconUrl } from './bestiaryIcon';
+import { buildAppearance } from './appearance';
 import { collectText, stripTags } from './spells';
 
 /**
@@ -195,6 +198,16 @@ function parseSaves(value: unknown): Partial<Record<AbilityKey, number>> | undef
     if (Number.isFinite(num)) out[key] = num;
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+/** Иммунитеты/сопротивления/уязвимости: только канонические типы урона (условные — мимо). */
+export function parseDamageDefenses(value: unknown, keys: Set<string>): string[] {
+  const out: string[] = [];
+  for (const item of Array.isArray(value) ? value : []) {
+    const key = typeof item === 'string' ? item.trim().toLowerCase() : '';
+    if (key && keys.has(key) && !out.includes(key)) out.push(key);
+  }
+  return out;
 }
 
 interface ParsedAttack {
@@ -606,7 +619,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
 
   const description = [...traits, ...manual].join('\n\n').slice(0, 6000);
 
-  return {
+  const entry: Omit<BestiaryEntry, 'appearance'> = {
     key,
     name,
     source,
@@ -614,6 +627,9 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     type: parseType(raw.type),
     cr: parseCr(raw.cr) || '—',
     ...(raw.familiar === true ? { familiar: true } : {}),
+    immunities: parseDamageDefenses(raw.immune, DAMAGE_WORDS),
+    resistances: parseDamageDefenses(raw.resist, DAMAGE_WORDS),
+    vulnerabilities: parseDamageDefenses(raw.vulnerable, DAMAGE_WORDS),
     ac: parseAc(raw.ac),
     hpAverage,
     hpFormula,
@@ -628,5 +644,42 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     ...(legendary ? { legendaryMax: legendary.max } : {}),
     ...(spellcasting ? { spellcasting } : {}),
     description,
+  };
+  return { ...entry, appearance: buildAppearance(entry as BestiaryEntry) };
+}
+
+/** Поля токена/предмета библиотеки для выставления существа из каталога. */
+export function bestiaryTokenFields(entry: BestiaryEntry): TokenFields {
+  const base = entry.key.toLowerCase().replace(/[^a-z0-9:]+/g, '-');
+  const defense = (type: DamageDefense['type'], list: string[]): DamageDefense[] =>
+    list.map((damageType) => ({ id: `${base}:${type}:${damageType}`, type, damageType }));
+  const dexMod = Math.floor((entry.abilities.dex - 10) / 2);
+  return {
+    name: entry.name,
+    description: entry.description.slice(0, 200),
+    imageUrl: bestiaryIconUrl(entry),
+    cells: entry.cells,
+    round: false,
+    initiativeBonus: dexMod >= 0 ? `+${dexMod}` : `${dexMod}`,
+    isPlayerToken: false,
+    owner: '',
+    attacks: entry.attacks,
+    ac: String(entry.ac),
+    hpMax: String(entry.hpAverage),
+    showStats: false,
+    canInteract: false,
+    damageDefenses: [
+      ...defense('immunity', entry.immunities),
+      ...defense('resistance', entry.resistances),
+      ...defense('vulnerability', entry.vulnerabilities),
+    ],
+    statblock: {
+      abilities: entry.abilities,
+      ...(entry.saves ? { saves: entry.saves } : {}),
+      ...(entry.spellcasting ? { spellcasting: entry.spellcasting } : {}),
+      ...(entry.multiattack ? { multiattack: entry.multiattack } : {}),
+      ...(entry.legendaryMax ? { legendary: { max: entry.legendaryMax, actions: [] } } : {}),
+      ...(entry.actions.length ? { actions: entry.actions } : {}),
+    },
   };
 }

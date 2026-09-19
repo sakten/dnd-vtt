@@ -37,6 +37,27 @@ export function damageTypeName(key: string | undefined): string | undefined {
   return DAMAGE_TYPES.find((d) => d.key === key)?.name ?? key;
 }
 
+/** Цвета типов урона: чат, FX-эффекты и иконки существ. */
+export const DAMAGE_TYPE_COLORS: Record<string, string> = {
+  fire: '#ff8a2b',
+  cold: '#7fd4ff',
+  lightning: '#ffe86b',
+  acid: '#9bea3a',
+  poison: '#7cd06a',
+  necrotic: '#a06bff',
+  radiant: '#ffe6a3',
+  force: '#8fb7ff',
+  thunder: '#dbe9ff',
+  psychic: '#ff7fd0',
+  bludgeoning: '#c9b8a3',
+  piercing: '#d9d9d9',
+  slashing: '#e0a0a0',
+};
+
+export function damageTypeColor(key: string | undefined): string | undefined {
+  return key ? DAMAGE_TYPE_COLORS[key] : undefined;
+}
+
 export const DEFENSE_TYPE_NAMES: Record<DamageDefenseType, string> = {
   resistance: 'Сопротивление',
   immunity: 'Иммунитет',

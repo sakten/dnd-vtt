@@ -19,6 +19,12 @@ export interface BestiaryEntry {
   cr: string;
   /** Существо входит в списки фамильяров (Find Familiar / Pact of the Chain). */
   familiar?: boolean;
+  /** Иммунитеты к типам урона (ключи). */
+  immunities: string[];
+  /** Сопротивления к типам урона (ключи). */
+  resistances: string[];
+  /** Уязвимости к типам урона (ключи). */
+  vulnerabilities: string[];
   ac: number;
   hpAverage: number;
   hpFormula: string;
@@ -42,6 +48,8 @@ export interface BestiaryEntry {
   spellcasting?: TokenStatblock['spellcasting'];
   /** Полный текст трейтов и неавтоматизированных действий (для каталога). */
   description: string;
+  /** Короткое описание внешности (EN): источник для иконок и будущих портретов. */
+  appearance: string;
 }
 
 /** Сырая запись 5e.tools (`bestiary-xmm.json`/`xphb.json`), читаем только нужное. */

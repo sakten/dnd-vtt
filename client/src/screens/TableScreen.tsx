@@ -9,6 +9,7 @@ import TokenPanel from '../components/TokenPanel';
 import ChatPanel from '../components/ChatPanel';
 import GridSettingsModal from '../components/GridSettingsModal';
 import VisionSettingsModal from '../components/VisionSettingsModal';
+import BestiaryPanel from '../components/BestiaryPanel';
 import RoomSettingsModal from '../components/RoomSettingsModal';
 import TokenMenu from '../components/TokenMenu';
 import DoorMenu from '../components/DoorMenu';
@@ -30,6 +31,7 @@ export default function TableScreen() {
   const removeToken = useGameStore((s) => s.removeToken);
   const gridModalOpen = useGameStore((s) => s.gridModalOpen);
   const visionModalOpen = useGameStore((s) => s.visionModalOpen);
+  const bestiaryOpen = useGameStore((s) => s.bestiaryOpen);
   const roomSettingsOpen = useGameStore((s) => s.roomSettingsOpen);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
@@ -84,6 +86,7 @@ export default function TableScreen() {
       <ReactionPrompt />
       {gridModalOpen && <GridSettingsModal />}
       {visionModalOpen && <VisionSettingsModal />}
+      {bestiaryOpen && <BestiaryPanel />}
       {roomSettingsOpen && <RoomSettingsModal />}
       <TokenMenu />
       <DoorMenu />
