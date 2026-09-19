@@ -137,7 +137,7 @@ const corner = await S.page.evaluate(() => {
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
   const half = (t.w / 2) * s.view.scale;
-  const canvas = document.querySelectorAll('canvas')[4]; // 0 карта, 1 туман, 2 сетка, 3 зоны, 4 токены
+  const canvas = document.querySelectorAll('canvas')[3]; // 0 карта+объекты, 1 сетка, 2 зоны, 3 токены, 4 вуаль
   const ctx = canvas.getContext('2d');
   const px = ctx.getImageData(Math.round(sx - half + 3), Math.round(sy - half + 3), 1, 1).data;
   return { r: px[0], g: px[1], b: px[2] };

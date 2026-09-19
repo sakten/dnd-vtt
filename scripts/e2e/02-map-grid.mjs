@@ -151,7 +151,7 @@ await waitFor(S.page, () => {
   if (!t) return false;
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[4]; // 0 карта, 1 туман, 2 сетка, 3 зоны, 4 токены
+  const canvas = document.querySelectorAll('canvas')[3]; // 0 карта+объекты, 1 сетка, 2 зоны, 3 токены, 4 вуаль
   if (!canvas) return false;
   const d = canvas.getContext('2d').getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return d[0] > 100 && d[0] > d[2];

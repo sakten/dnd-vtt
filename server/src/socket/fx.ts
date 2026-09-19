@@ -25,6 +25,11 @@ export function emitSpellFx(ctx: ConnCtx, input: FxCastInput, targets: Token[]):
   const effects = def.effects ?? [];
   const toSelf = def.resolution === 'effect' && effects.length > 0 && effects.every((e) => (e.to ?? 'self') === 'self');
   const mode = def.heal && !def.damage ? 'heal' : def.resolution === 'effect' ? 'buff' : 'damage';
+  // Вершина области на кастере (Burning Hands, Thunderwave): снаряд не летит, эффект идёт от себя.
+  const selfArea =
+    !!input.area &&
+    !!input.origin &&
+    Math.hypot(input.origin.x - input.caster.x, input.origin.y - input.caster.y) < 1;
 
   const payload: SpellFxPayload = {
     id: randomUUID(),
@@ -42,6 +47,7 @@ export function emitSpellFx(ctx: ConnCtx, input: FxCastInput, targets: Token[]):
     types: def.damage?.types ?? [],
     count: Math.max(1, def.count ?? 1),
     ...(toSelf && { toSelf }),
+    ...(selfArea && { selfArea }),
   };
   ctx.broadcastAll('fx:play', payload);
 }

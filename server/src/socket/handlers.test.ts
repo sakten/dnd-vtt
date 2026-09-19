@@ -882,6 +882,82 @@ describe('action:use', () => {
     expect(without.error?.code).toBe('attackOutOfReach');
   });
 
+  it('атака оружием сквозь стену запрещена (нет чистого пути)', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword], x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 125, y1: 50, x2: 125, y2: 150, kind: 'wall' }];
+    room.sheets.p1 = { ...casterSheet(), spells: [] };
+    room.resources.p1 = casterResources();
+    combatOf(room).active = false;
+    const [attacker, target] = room.scene.maps[0]!.tokens;
+    const f = makeCtx(room, { playerId: 'p1' });
+
+    const result = resolveWeaponAttack(f.ctx, {
+      attacker: attacker!,
+      attackerMapId: 'm1',
+      target: target!,
+      targetMapId: 'm1',
+      attack: sword,
+      prefix: 't1',
+      author: 't1',
+    });
+
+    expect(result.error?.code).toBe('noClearPath');
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack')).toBe(false);
+  });
+
+  it('край цели виден из-за угла — атака разрешена', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword], x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 125, y1: 100, x2: 125, y2: 150, kind: 'wall' }];
+    room.sheets.p1 = { ...casterSheet(), spells: [] };
+    room.resources.p1 = casterResources();
+    combatOf(room).active = false;
+    const [attacker, target] = room.scene.maps[0]!.tokens;
+    const f = makeCtx(room, { playerId: 'p1' });
+
+    const result = resolveWeaponAttack(f.ctx, {
+      attacker: attacker!,
+      attackerMapId: 'm1',
+      target: target!,
+      targetMapId: 'm1',
+      attack: sword,
+      prefix: 't1',
+      author: 't1',
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.hitRoll).toBeDefined();
+  });
+
   it('Шквал ударов: бонусное действие, фокус и +2 доп. атаки', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 2 }], spells: [] };
@@ -2256,6 +2332,126 @@ describe('spell:cast', () => {
     // Ячейка не списана, цели не задеты.
     expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
     expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!.hpCurrent).toBe(30);
+  });
+
+  it('заклинание-атака по большой цели: видна крайняя клетка — каст проходит', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 175, y: 125, w: 100, h: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [{ key: 'XPHB:Scorching Ray', className: 'wizard' }],
+    };
+    room.resources.p1 = casterResources();
+    // Стена закрывает линию до центра цели, но верхняя левая клетка подошвы видна.
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 125, y1: 100, x2: 125, y2: 150, kind: 'wall' }];
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Scorching Ray',
+      slotLevel: 3,
+      targetIds: ['t2'],
+    });
+
+    expect(f.selfEvents('chat:error')).toHaveLength(0);
+    const fx = f.emitted.find((e) => e.event === 'fx:play')?.payload as { targets?: string[] } | undefined;
+    expect(fx?.targets).toEqual(['t2']);
+  });
+
+  it('конус от себя: эффект помечен selfArea (Burning Hands)', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [
+        { key: 'XPHB:Fireball', className: 'wizard' },
+        { key: 'XPHB:Burning Hands', className: 'wizard' },
+      ],
+    };
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Burning Hands',
+      slotLevel: 3,
+      direction: { x: 300, y: 100 },
+    });
+
+    const fx = f.emitted.find((e) => e.event === 'fx:play')?.payload as
+      | { area?: { shape: string; size: number }; selfArea?: boolean; direction?: { x: number } | null }
+      | undefined;
+    expect(fx?.area).toEqual({ shape: 'cone', size: 15 });
+    expect(fx?.selfArea).toBe(true);
+    expect(fx?.direction).toEqual({ x: 300, y: 100 });
+  });
+
+  it('взрыв области: сплошная стена не пропускает эффект', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 400, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { x: 250, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = casterSheet();
+    room.resources.p1 = casterResources();
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 350, y1: -100, x2: 350, y2: 300, kind: 'wall' }];
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 300, y: 100 },
+    });
+
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!.hpCurrent).toBe(30);
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't3')!.hpCurrent).toBeLessThan(30);
+    const fx = f.emitted.find((e) => e.event === 'fx:play')?.payload as { targets?: string[] } | undefined;
+    expect(fx?.targets).toEqual(['t3']);
+  });
+
+  it('взрыв области огибает угол: укрытие за краем стены не спасает', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 375, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = casterSheet();
+    room.resources.p1 = casterResources();
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 350, y1: 50, x2: 350, y2: 100, kind: 'wall' }];
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 300, y: 100 },
+    });
+
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!.hpCurrent).toBeLessThan(30);
   });
 
   it('Scorching Ray: каждый луч бьёт свою цель (3 броска)', () => {

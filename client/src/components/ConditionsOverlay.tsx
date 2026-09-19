@@ -3,6 +3,7 @@ import { canSee, sightContextOf, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveGrid, useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
+import { isCellHidden } from '../lib/fog';
 import { useSpellByKey } from '../lib/useSpells';
 import { useVisionViewers } from '../lib/useVision';
 import ConditionChips from './ConditionChips';
@@ -31,10 +32,8 @@ export default function ConditionsOverlay() {
   return (
     <div className="cond-overlay">
       {tokens.map((t) => {
-        const size = map?.fog.size ?? 50;
-        const cx = Math.floor((t.x - (map?.fog.offsetX ?? 0)) / size);
-        const cy = Math.floor((t.y - (map?.fog.offsetY ?? 0)) / size);
-        if (!isDm && (hidden.has(`${cx},${cy}`) || !isTokenVisible(t))) return null;
+        // Общий visibleCell с TableTop: скрытая туманом клетка центра токена.
+        if (!isDm && (isCellHidden(map?.fog, hidden, t.x, t.y) || !isTokenVisible(t))) return null;
         const left = view.x + t.x * view.scale;
         const top = view.y + (t.y - t.h / 2) * view.scale - 26;
         return (

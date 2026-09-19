@@ -12,6 +12,7 @@ import {
   legendaryOnly,
   monsterStats,
   rollDice,
+  tokenVisibleFrom,
   tokensInArea,
   unarmedStrikeEntry as computedUnarmedStrike,
   withAdvantage,
@@ -161,6 +162,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
         const range = action.ability.targeting?.range ?? (action.ability.attack?.rangeType === 'melee' ? 5 : 30);
         const map = manager.findMap(room, mapId);
         const size = map?.grid.size || room.scene.grid.size || 50;
+        const grid = {
+          size,
+          offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
+          offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
+        };
         if (abilityArea) {
           if (!abilityOrigin) {
             fail(ctx, 'noAreaPoint');
@@ -186,7 +192,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
               fail(ctx, 'outOfRange', { feet: Math.round(feet) });
               return;
             }
-            if (map && crossesWalls(token, found, map.walls, 'sight')) {
+            if (map && !tokenVisibleFrom(token, found, map.walls, grid)) {
               fail(ctx, 'noClearPath');
               return;
             }
@@ -337,7 +343,10 @@ export function registerActionHandlers(ctx: ConnCtx) {
             offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
             offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
           };
-          const affected = map && abilityOrigin ? tokensInArea(map.tokens, abilityArea, abilityOrigin, direction ?? null, grid) : [];
+          const affected =
+            map && abilityOrigin
+              ? tokensInArea(map.tokens, abilityArea, abilityOrigin, direction ?? null, grid, 'euclidean', map.walls)
+              : [];
           for (const found of affected) {
             if (found.id !== token.id) targets.push(found);
           }

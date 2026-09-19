@@ -20,6 +20,7 @@ import {
   rollDice,
   rollMode,
   sightContextOf,
+  tokenVisibleFrom,
   weaponRolls,
   withAdvantage,
   withRollParts,
@@ -156,6 +157,10 @@ export function prepareWeaponAttack(
         }
         forcedDisadvantage = range.disadvantage;
         forcedDisadvantageCode = range.disadvantageCode;
+      }
+      // 5e: атака требует видимой цели — достаточно одной видимой клетки подошвы.
+      if (!input.ignoreRange && !tokenVisibleFrom(attacker, target, map.walls, { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY })) {
+        return { error: { code: 'noClearPath' } };
       }
       hasTarget = true;
       const sight = sightContextOf(map, {

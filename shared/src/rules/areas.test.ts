@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
+import type { Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCells, cellCenter, tokenCells, tokenFullyInArea, tokensInArea, type AreaGrid } from './areas';
+import { areaCells, cellCenter, spreadCells, tokenCells, tokenFullyInArea, tokenVisibleFrom, tokensInArea, type AreaGrid } from './areas';
 
 const grid: AreaGrid = { size: 50, offsetX: 0, offsetY: 0 };
 const origin = cellCenter(0, 0, grid);
 const east = { x: origin.x + 100, y: origin.y };
+
+const wall = (x1: number, y1: number, x2: number, y2: number, kind: Wall['kind'] = 'wall', open = false): Wall => ({
+  id: 'w1',
+  x1,
+  y1,
+  x2,
+  y2,
+  kind,
+  open,
+});
 
 function tokenAt(cx: number, cy: number): Pick<Token, 'x' | 'y' | 'w' | 'h'> {
   const c = cellCenter(cx, cy, grid);
@@ -79,5 +90,37 @@ describe('tokenCells / tokensInArea', () => {
     const big = { x: 75, y: 25, w: 150, h: 50 }; // занимает клетки 0..2 (центры 0/5/10 фт)
     expect(tokenFullyInArea(big, { shape: 'sphere', size: 5 }, origin, null, grid)).toBe(false);
     expect(tokenFullyInArea(big, { shape: 'sphere', size: 10 }, origin, null, grid)).toBe(true);
+  });
+});
+
+describe('распространение области и стены', () => {
+  const sphere = { shape: 'sphere', size: 20 } as const;
+
+  it('сплошная стена не пропускает эффект', () => {
+    const walls = [wall(100, -300, 100, 300)];
+    expect(tokensInArea([tokenAt(2, 0)], sphere, origin, null, grid, 'euclidean', walls)).toHaveLength(0);
+  });
+
+  it('закрытая дверь блокирует, открытая пропускает', () => {
+    const closed = [wall(100, -300, 100, 300, 'door')];
+    const open = [wall(100, -300, 100, 300, 'door', true)];
+    expect(tokensInArea([tokenAt(2, 0)], sphere, origin, null, grid, 'euclidean', closed)).toHaveLength(0);
+    expect(tokensInArea([tokenAt(2, 0)], sphere, origin, null, grid, 'euclidean', open)).toHaveLength(1);
+  });
+
+  it('эффект огибает край стены (укрытие не спасает)', () => {
+    const walls = [wall(100, -25, 100, 25)];
+    expect(tokensInArea([tokenAt(2, 1)], sphere, origin, null, grid, 'euclidean', walls)).toHaveLength(1);
+  });
+
+  it('без стен заливка совпадает с областью', () => {
+    const cells = new Set(areaCells(sphere, origin, null, grid));
+    expect(spreadCells(cells, origin, grid, [])).toEqual(cells);
+  });
+
+  it('цель видна, если видна хотя бы одна её клетка', () => {
+    const big = { x: 175, y: 75, w: 100, h: 100 };
+    expect(tokenVisibleFrom(origin, big, [wall(100, -25, 100, 25)], grid)).toBe(true);
+    expect(tokenVisibleFrom(origin, big, [wall(100, -300, 100, 300)], grid)).toBe(false);
   });
 });

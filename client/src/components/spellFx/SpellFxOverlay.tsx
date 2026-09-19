@@ -57,6 +57,61 @@ const sparkTex = canvasTexture((ctx) => {
   ctx.fillRect(0, 0, 128, 128);
 });
 
+/** Квадратное тело взрыва (куб: Дрожь земли и подобные). */
+const squareTex = canvasTexture((ctx) => {
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 88);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.85, 'rgba(255,255,255,0.5)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+});
+
+/** Конус 53°: вершина слева по центру, раскрыв на весь правый край. */
+const coneTex = canvasTexture((ctx) => {
+  const g = ctx.createRadialGradient(0, 64, 0, 0, 64, 128);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.85)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, 64);
+  ctx.lineTo(128, 0);
+  ctx.lineTo(128, 128);
+  ctx.closePath();
+  ctx.fill();
+});
+
+/** Линия/луч: полоса с затуханием к дальнему концу. */
+const lineTex = canvasTexture((ctx) => {
+  const g = ctx.createLinearGradient(0, 0, 128, 0);
+  g.addColorStop(0, 'rgba(255,255,255,0.95)');
+  g.addColorStop(0.7, 'rgba(255,255,255,0.8)');
+  g.addColorStop(1, 'rgba(255,255,255,0.12)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+});
+
+/** Гранёный щит (Shield): шестиугольник. */
+const hexTex = canvasTexture((ctx) => {
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 10;
+  ctx.shadowColor = 'rgba(255,255,255,0.8)';
+  ctx.shadowBlur = 12;
+  const r = 56;
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 2;
+    const x = 64 + r * Math.cos(a);
+    const y = 64 + r * Math.sin(a);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+});
+
 /** Кадровый контекст: перевод мира в экран и позиции токенов. */
 interface FrameCtx {
   dt: number;
@@ -190,10 +245,10 @@ function travelVisual(phase: FxPhase): Visual {
   };
 }
 
-/** Взрыв области: плотное пламя на весь радиус, ударная волна и горячие угли. */
+/** Взрыв области: плотное пламя на весь радиус (куб — квадратная волна), ударная волна и угли. */
 function burstVisual(phase: FxPhase): Visual {
   const group = new THREE.Group();
-  const body = sprite(flameTex, phase.color);
+  const body = sprite(phase.shape === 'cube' ? squareTex : flameTex, phase.color);
   body.material.blending = THREE.NormalBlending;
   const hot = sprite(glowTex, '#fff2cc');
   const ring = sprite(ringTex, phase.color);
@@ -265,6 +320,83 @@ function burstVisual(phase: FxPhase): Visual {
   };
 }
 
+/** Конус/линия: форма растёт от вершины в сторону прицела (настоящая геометрия 5e). */
+function shapeVisual(phase: FxPhase): Visual {
+  const group = new THREE.Group();
+  const tex = phase.shape === 'line' ? lineTex : coneTex;
+  const body = sprite(tex, phase.color);
+  body.material.blending = THREE.NormalBlending;
+  const hot = sprite(tex, '#ffffff');
+  const sparks = particles(30, phase.color, 10);
+  group.add(body, hot, sparks.points);
+  let spawned = false;
+
+  return {
+    group,
+    update: (t, ctx) => {
+      if (t < 0 || t > 1) {
+        group.visible = false;
+        return;
+      }
+      const at = phase.to ? ctx.resolve(phase.to) : null;
+      if (!at) {
+        group.visible = false;
+        return;
+      }
+      const dirPt = phase.dir ? ctx.resolve(phase.dir) : null;
+      group.visible = true;
+      const anchor = ctx.project(at);
+      const angle = dirPt ? Math.atan2(dirPt.y - at.y, dirPt.x - at.x) : 0;
+      const ca = Math.cos(-angle);
+      const sa = Math.sin(-angle);
+      const len = (phase.radius ?? 50) * ctx.scale;
+      const wid = (phase.width ?? phase.radius ?? 50) * ctx.scale;
+      const growth = 1 - Math.pow(1 - Math.min(1, t / 0.4), 3);
+      const w = len * (0.25 + 0.75 * growth);
+      const h = wid * (0.35 + 0.65 * growth);
+      const fade = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.4);
+
+      // Локальный якорь формы — вершина у левого края по центру: позиция меша смещается,
+      // чтобы при повороте вершина оставалась на точке применения.
+      const place = (mesh: PlaneSprite, scale: number, z: number, opacity: number) => {
+        const lx = -0.5 * w * scale;
+        mesh.rotation.z = -angle;
+        mesh.scale.set(w * scale, h * scale, 1);
+        mesh.position.set(anchor.x - lx * ca, anchor.y + lx * sa, z);
+        spriteMaterial(mesh).opacity = opacity;
+      };
+      place(body, 1, 0.45, 0.9 * fade);
+      place(hot, 0.5, 0.55, 0.45 * fade);
+
+      if (!spawned) {
+        spawned = true;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        for (let i = 0; i < sparks.velocities.length / 2; i++) {
+          const along = Math.random() * w;
+          const half = phase.shape === 'line' ? h / 2 : (along / Math.max(w, 1)) * (h / 2);
+          const side = (Math.random() * 2 - 1) * half;
+          sparks.positions[i * 3] = anchor.x + dx * along - dy * side;
+          sparks.positions[i * 3 + 1] = anchor.y + dy * along + dx * side;
+          sparks.positions[i * 3 + 2] = 0.5;
+          const speed = 0.0002 + Math.random() * 0.0006;
+          sparks.velocities[i * 2] = dx * speed + (Math.random() - 0.5) * speed;
+          sparks.velocities[i * 2 + 1] = dy * speed + (Math.random() - 0.5) * speed;
+        }
+      }
+      stepParticles(sparks, ctx.dt, 0.92);
+      sparks.material.opacity = Math.max(0, 1 - t * 1.05);
+    },
+    dispose: () => {
+      group.clear();
+      body.material.dispose();
+      hot.material.dispose();
+      sparks.points.geometry.dispose();
+      sparks.material.dispose();
+    },
+  };
+}
+
 /** Попадание: вспышка и короткие искры на цели. */
 function impactVisual(phase: FxPhase): Visual {
   const group = new THREE.Group();
@@ -321,9 +453,11 @@ function impactVisual(phase: FxPhase): Visual {
 /** Аура баффа/лечения: мягкое кольцо и поднимающиеся мотыльки. */
 function auraVisual(phase: FxPhase): Visual {
   const group = new THREE.Group();
-  const ring = sprite(ringTex, phase.color);
-  const motes = particles(16, phase.color, 7);
+  const ring = sprite(phase.aura === 'shield' ? hexTex : ringTex, phase.color);
+  const outer = phase.aura === 'holy' ? sprite(ringTex, phase.color) : null;
+  const motes = particles(phase.aura === 'holy' ? 26 : 16, phase.color, 7);
   group.add(ring, motes.points);
+  if (outer) group.add(outer);
   let spawned = false;
 
   return {
@@ -346,6 +480,14 @@ function auraVisual(phase: FxPhase): Visual {
       ring.scale.set(radius * 2 * (0.4 + 0.6 * ease), radius * (0.8 + 0.5 * ease), 1);
       spriteMaterial(ring).opacity = Math.max(0, 1 - t) * 0.7;
 
+      if (outer) {
+        const late = Math.max(0, Math.min(1, (t - 0.12) / 0.88));
+        const oe = 1 - Math.pow(1 - late, 2);
+        outer.position.set(center.x, center.y + radius * 0.2, 0.9);
+        outer.scale.set(radius * 2.5 * (0.3 + 0.7 * oe), radius * (0.8 + 0.6 * oe), 1);
+        spriteMaterial(outer).opacity = Math.max(0, 1 - t) * 0.45;
+      }
+
       if (!spawned) {
         spawned = true;
         for (let i = 0; i < motes.velocities.length / 2; i++) {
@@ -364,6 +506,7 @@ function auraVisual(phase: FxPhase): Visual {
     dispose: () => {
       group.clear();
       ring.material.dispose();
+      outer?.material.dispose();
       motes.points.geometry.dispose();
       motes.material.dispose();
     },
@@ -374,6 +517,7 @@ function createVisual(phase: FxPhase): Visual {
   if (phase.kind === 'travel') return travelVisual(phase);
   if (phase.kind === 'burst') return burstVisual(phase);
   if (phase.kind === 'impact') return impactVisual(phase);
+  if (phase.kind === 'shape') return shapeVisual(phase);
   return auraVisual(phase);
 }
 
@@ -475,7 +619,7 @@ export default function SpellFxOverlay({ mask }: { mask?: FxMask | null }) {
         if (next.mapId !== state.scene.activeMapId || reduced) {
           state.dequeueFx(next.id);
         } else if (now >= next.notBefore && viewport.w > 0 && viewport.h > 0) {
-          const plan = buildFxPlan(next, activeGridOf(state).size || 50);
+          const plan = buildFxPlan(next, activeGridOf(state));
           const visuals = plan.phases.map(createVisual);
           visuals.forEach((visual) => root.add(visual.group));
           active = { plan, startedAt: now, visuals };

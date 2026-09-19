@@ -30,4 +30,6 @@ export interface SpellFxPayload {
   count: number;
   /** Эффект накладывается на кастера (Shield/Haste), а не на цели. */
   toSelf?: boolean;
+  /** Область с вершиной на кастере (конус/линия/куб от себя) — без снаряда-полёта. */
+  selfArea?: boolean;
 }

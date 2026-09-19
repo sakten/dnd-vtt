@@ -5,6 +5,7 @@ import {
   spellHasArea,
   spellIsSelf,
   spellRangeFeet,
+  tokenVisibleFrom,
   tokensInArea,
   type Spell,
   type SpellStats,
@@ -66,7 +67,15 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
       }
     }
     const affected = map
-      ? tokensInArea(map.tokens, spell.areaSpec, originPt, isPoint(params.direction) ? params.direction : null, grid)
+      ? tokensInArea(
+          map.tokens,
+          spell.areaSpec,
+          originPt,
+          isPoint(params.direction) ? params.direction : null,
+          grid,
+          'euclidean',
+          map.walls
+        )
       : [];
     for (const t of affected) {
       if (t.id !== caster.id) targets.push(t);
@@ -75,12 +84,17 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     areaOrigin = originPt;
   } else {
     const map = ctx.manager.findMap(room, mapId);
+    const grid = {
+      size: map?.grid.size || room.scene.grid.size || 50,
+      offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
+      offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
+    };
     for (const id of Array.isArray(params.targetIds) ? params.targetIds : []) {
       if (typeof id !== 'string') continue;
       const found = ctx.manager.findToken(room, mapId, id);
       if (!found) continue;
-      // 5e: до цели нужен чистый путь (не через стену/закрытую дверь).
-      if (map && found.id !== caster.id && crossesWalls(caster, found, map.walls, 'sight')) {
+      // 5e: цель доступна, если видна хотя бы одна её клетка (стена/закрытая дверь рушат линию).
+      if (map && found.id !== caster.id && !tokenVisibleFrom(caster, found, map.walls, grid)) {
         fail(ctx, 'noClearPath');
         return undefined;
       }

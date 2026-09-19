@@ -1,50 +1,38 @@
 # REFACTOR.md — архитектурный долг
 
 > **Назначение:** открытая очередь технических работ (R6–R9). Продукт, фазы и очередь контента классов — `PLAN.md`; карта кода — `ARCHITECTURE.md`; деплой — `DEPLOY.md`.
-> **Очередь:** R7.5, R7.7, R7.10, R7.11, R9.1–R9.4, R10 (карточки ниже — единственный источник деталей).
-> **Сделано (в истории git):** R6.1–R6.9, R7.1–R7.4, R7.6, R7.8, R7.9, R8.1–R8.8 (фундамент черт + лог партий 1–22), R8.6 (метки бросков) — `git log -p -- REFACTOR.md`.
+> **Очередь:** R7.7, R7.10, R9.1–R9.4, R10 (карточки ниже — единственный источник деталей).
+> **Сделано (в истории git):** R6.1–R6.9, R7.1–R7.5, R7.6, R7.8, R7.9, R7.11, R8.1–R8.8 (фундамент черт + лог партий 1–22), R8.6 (метки бросков) — `git log -p -- REFACTOR.md`.
 > **Проверки:** в цикле — `npm run check:quiet`; перед деплоем — полный `npm run verify` (обязателен).
 > **Порядок дальше:** движок restrictions → зоны → призывы (сделаны; хвосты — в карточках).
 
-## R7.5. `TableTop` смешивает Konva-ввод, туман, камеру и рендер. P2, M.
-Геометрия кисти тумана: `TableTop.tsx:133-140,142-182,184-191`, mouse-хендлеры `:219-268`, `rectPreview`; камера `:198-217`; drop `:284-317`; линейка `:111-118,451-472`; оверлеи `:64-109,384-449`. Фильтр токенов для тумана дублирует логику `ConditionsOverlay.tsx:18-29`.
-**Что сделать:** `useFogBrush(map)` + чистый `lib/fog.ts`, `useMapCamera()`, `useTokenDrop()`, оверлеи отдельными компонентами; общий `visibleCell`.
-**Konva (посмотреть):** stage держит 6 слоёв при рекомендованных ≤5 (warning в консоли) — увести зоны/линейку в `Group` основного слоя.
-**Зачем:** новый оверлей/инструмент сейчас впечатывается в 454-строчный файл; правила тумана не тестируются.
-
 ## R7.7. Грубые селекторы → перерисовки/пересчёты. P3, S/M (частично закрыто).
 Сделано (история git, `0772081`): `fogRects`/`veilRects` зависят от данных (туман, стены/тьма/области/зоны/размер), а не от identity карты; `useVisionViewers` стабилен по подписи зрителей (позиции+сенсы); `memo` в `TokenView` работает — патчится только изменённый токен.
-Осталось: `ResourcesPanel.tsx:102-127` подписан на `scene.maps` и сканирует всё ради концентрации; `TableTop.tsx:142-162` пересчитывает `reachableCells` на любой апдейт сцены (в бою — на каждый шаг); фильтр токенов (`:445-449`); `RollMenu.tsx:47-64` пересчитывает `sources` и всегда смонтирован (`ChatPanel.tsx:214`); `fitView` через `setTimeout` (`maps.ts:19,24`).
+Осталось (сверено 19.09): `ResourcesPanel.tsx:105,118-129` подписан на `scene.maps` и сканирует всё ради концентрации; `TableTop.tsx:190-210` пересчитывает `reachableCells` на любой апдейт сцены (в бою — на каждый шаг); фильтр токенов (`TableTop.tsx:939-943`); `RollMenu.tsx:45-62` пересчитывает `sources` и всегда смонтирован (`ChatPanel.tsx:305`); `fitView` через `setTimeout` (`maps.ts:25,30`).
 **Что сделать:** селекторы по entity (map by id)/`useShallow` там, где осталось, `fitView` в `useEffect` по mapId+viewport, концентрация через `characterTokenOf`.
 
 ## R7.10. Черновики форм дублируют инвентарь полей. P2, M (частично закрыто R2).
-`TokenMenu.tsx:57-83` и `TokenPanel.tsx:36-55` вручную копируют 13 полей; `CharacterSheetModal.tsx:34-45` — правила листа в компоненте; сброс черновиков держится на `eslint-disable` deps.
-**Что сделать:** `useDraft(open, value, toDraft, fromDraft)` + один `tokenFieldsFrom(token)`; поля — из реестра R8.2.
-
-## R7.11. Два источника истины: зеркала статов в токенах. P2, M (срезы 1–3 сделаны).
-Правило «у персонажа истина лист/ресурсы, у монстра — токен» реализовано двумя способами сразу: резолв при чтении (`abilitiesForToken`, `adjustTokenHp`…) и зеркалирование при записи (`syncSheetToTokens` копирует ac/hp/speed/senses в токен, а правила читают `token.ac`/`token.senses`). Отсюда рассинхрон и размазанное правило.
-**Вариант A (решение владельца):** один резолвер + не хранить зеркало.
-- **Срез 1 (сделан):** `server/src/room/actor.ts` — `actorStats(room, token)`; переведены `acForToken`/`abilitiesForToken`/`abilityModForToken`/`tokenSpeed`/`turnResources`/`initiativeBonusFor`/`damageDefensesForToken`/сенсы атак/выбор атак (`dice.ts`)/имя в `visibleToken`; инициатива персонажа — автоматически от Ловкости (поле `initiativeBonus` у персонажа игнорируется); при выставлении токена HP — из ресурсов персонажа, иначе полное (`addToken`).
-- **Срез 2 (сделан):** `syncSheetToTokens` → `characterTokens` (сборщик без записи); `visibleToken` отдаёт resolved-статы (identity стабилен: объект обновляется на месте, `context.test.ts`); `token:update` игнорирует производные поля персонажа, HP-патч идёт в ресурсы; `addToken` для персонажа статы не хранит; миграция в `roomNormalize` (чистит зеркала у токенов с контролёром и листом); `freezeCharacterTokens`/`freezeCharacterTokensOfItem` — заморозка статов в токены при отвязке, смене персонажа и удалении предмета.
-- **Срез 3 (сделан):** сервер помечает такие токены флагом `Token.character`, а в статблок resolved-копии кладёт данные из листа (характеристики, спасброски «мод + владение», мультиатака); в меню токена персонажа имя, инициатива, скорость/сенсы, AC/HP — read-only (подсказка «статы из листа»), вкладка «Статблок» выглядит как у монстра (`StatblockForm` + `AttacksForm`), но с `readOnly` и данными из листа (атаки — из листа); правка HP — дельтой (DM), игрок — панель ресурсов. Чужим игрокам статблок не отдаётся (redaction).
-**Решения владельца:** имя из листа; при отвязке копируем статы в токен; инициатива автоматом из Ловкости; `owner` у призывов оставляем до полноценной системы призывов; ручная правка HP персонажа — дельтой (поле в меню токена отражает ресурсы и не пишется в токен; точное HP игрок меняет в панели ресурсов); доступ ДМ к листу игрока не нужен.
+`TokenMenu.tsx:51-92` и `TokenPanel.tsx:37-62` вручную копируют 13 полей (+ `eslint-disable` на :91/:61); `CharacterSheetModal.tsx:36-50` — правила листа в компоненте (:49 `eslint-disable`); часть правил уже в `lib/sheet.ts`.
+**Что сделать:** `useDraft(open, value, toDraft, fromDraft)` + один `tokenFieldsFrom(token)`; поля — из реестра R8.2. Общие поля уже вынесены в `TokenFieldsForm` (сделано в R2).
 
 ## R9.1. Нет тестов компонентов; логика заперта в них. P2, M (частично закрыто).
-Сделано (`617628f`): `client/vitest.config.ts` — проекты `node`/`ui` (jsdom + Testing Library + jest-dom, `src/test/setup.ts`); первые тесты: `SensesForm` (5), `ConditionChips` (4); `advantagedExpression` вынесена из `RollMenu` в `lib/rollMode.ts` с тестом (правило `canSpendSlot` уже в `lib/actionRules.ts`, R7.2).
-Осталось: тесты `SpellsPanel`/`FeatsForm` (ленивые данные заклинаний), `data-testid` на e2e-критичных узлах (пересекается с R7.9).
+Сделано (`617628f` + сверка 19.09): `client/vitest.config.ts` — проекты `node`/`ui` (jsdom + Testing Library + jest-dom, `src/test/setup.ts`); тесты `SensesForm` (5), `ConditionChips` (4), `CharacterSheetModal`, `TokenMenu`, `TokenPanel`, `DoorMenu`, `control`, `bridge`; `advantagedExpression` вынесена из `RollMenu` в `lib/rollMode.ts` с тестом; `data-testid` — 62 узла (e2e-критичные: `ChatPanel`, `RollOverlay`, `TableTop`, `RollMenu`, `CharacterSheetModal`, `TokenPanel`, `Toolbar`).
+Осталось: тесты `SpellsPanel`/`FeatsForm` (ленивые данные заклинаний).
 **Зачем:** сейчас любая правка UI-правила проверяется только полным e2e.
 
-## R9.2. Smoke: сценарии не самодостаточны, покрытие реакций дырявое. P2, M.
-`scripts/smoke.mjs:10-38`: все сценарии в одной общей комнате, `SMOKE_ONLY` не подтягивает зависимости (`:24-25`) — изолированный дебаг ограничен; `scripts/lib/rooms-cleanup.mjs:3` хардкодит `ADMIN_TOKEN=''` — ломается при `VTT_ADMIN_TOKEN`; в скриптах нет `reaction:respond`/`combat:setMovement`; `reactionFeatures`/`absorbTypesOf`/`superiorityDie` без юнит-тестов.
+## R9.2. Smoke: сценарии не самодостаточны, покрытие реакций дырявое. P2, M (частично закрыто).
+`scripts/smoke.mjs:10-24`: все сценарии в одной общей комнате, `SMOKE_ONLY` не подтягивает зависимости (`:26-39`) — изолированный дебаг ограничен; `scripts/lib/rooms-cleanup.mjs:3` хардкодит `ADMIN_TOKEN=''` — ломается при `VTT_ADMIN_TOKEN`; в скриптах нет `reaction:respond`/`combat:setMovement`; `absorbTypesOf`/`superiorityDie` без юнит-тестов.
+Сделано (сверка 19.09): `reactionFeatures` покрыт — `shared/src/rules/features.test.ts:250-273`.
 **Что сделать:** `makeRoom` для самодостаточных сценариев или явные зависимости; admin-токен из env; smoke на реакционные окна и OA; `shared/src/rules/reactions.test.ts`.
 
 ## R9.3. E2E/скриншоты привязаны к окружению и пикселям. P3, S/M.
 Жёсткий путь Chrome (`scripts/e2e/00-setup.mjs:21`), вьюпорт 1440×900 (`:74`); `check-screenshots.mjs:122-188` сверяет точные RGB и координаты в составе `verify` (`package.json:23`) — косметика даёт ложные падения.
 **Что сделать:** `PUPPETEER_EXECUTABLE_PATH`/viewport из env; приоритет DOM/`window.__vtt`-проверкам; оставить 2–3 грубых скриншот-проверки.
 
-## R9.4. Дубли тест-фикстур и переписанный прод-контекст. P2, M.
-`makeToken` в `server/src/test/fixtures.ts:13-48` и `client/src/test/fixtures.ts:13-48` идентичен; фейковый `ConnCtx` (`handlers.test.ts:36-113`) и `applyHp` — копии прод-кода, поэтому изменения прав/redact могут не ловиться тестами.
-**Что сделать:** общие фабрики в `shared/src/test` (или subpath export `test-utils`); критичные тесты — против реального `createCtx` (пересекается с R6.9).
+## R9.4. Дубли тест-фикстур и переписанный прод-контекст. P3, S (частично закрыто).
+`makeToken` в `server/src/test/fixtures.ts:13-50` и `client/src/test/fixtures.ts:13-50` идентичен — дубль остался (сверка 19.09).
+Сделано: фейковый `ConnCtx` закрыт — `server/src/socket/handlers.test.ts:14` использует `makeConnCtx` из `server/src/test/ctx.ts` (реальный `createCtx`), копий прод-кода в тестах нет.
+**Что сделать:** общие фабрики в `shared/src/test` (или subpath export `test-utils`).
 
 ## R10. ML-авторазметка стен для органических карт. P3, L (отложено владельцем).
 Классика (яркость/цвет/контуры/скелет) рисованные пещеры не разделяет: у «The Grotto» порода и вода одной яркости, k-means делит освещение, а не «проходимое/стена» — проверено, стенд в `lab/` (оверлеи — `artifacts/walls-lab`).

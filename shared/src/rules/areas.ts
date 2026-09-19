@@ -1,5 +1,7 @@
 import type { AreaSpec } from '../domain/actions';
+import type { Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
+import { crossesWalls } from './walls';
 
 /**
  * Геометрия областей (Ф7) на квадратной сетке: набор клеток шаблона и сбор
@@ -186,8 +188,65 @@ export function tokensInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   origin: AreaPoint,
   direction: AreaPoint | null,
   grid: AreaGrid,
-  metric: DistanceMetric = 'euclidean'
+  metric: DistanceMetric = 'euclidean',
+  walls?: Wall[]
 ): S[] {
-  const cells = new Set(areaCells(spec, origin, direction, grid, metric));
+  let cells = new Set(areaCells(spec, origin, direction, grid, metric));
+  // 5e: эффект распространяется по клеткам области и огибает углы; сплошная стена обрывает путь.
+  if (walls && walls.length > 0) cells = spreadCells(cells, origin, grid, walls);
   return tokens.filter((t) => tokenCells(t, grid).some((key) => cells.has(key)));
+}
+
+/**
+ * Видна ли от точки хотя бы одна клетка подошвы токена (5e: цель за укрытием
+ * доступна, если виден её край; большие токены бьются через видимую клетку).
+ */
+export function tokenVisibleFrom(
+  from: AreaPoint,
+  token: Pick<Token, 'x' | 'y' | 'w' | 'h'>,
+  walls: Wall[],
+  grid: AreaGrid
+): boolean {
+  for (const key of tokenCells(token, grid)) {
+    const [cx, cy] = key.split(',').map(Number);
+    if (cx === undefined || cy === undefined) continue;
+    if (!crossesWalls(from, cellCenter(cx, cy, grid), walls, 'sight')) return true;
+  }
+  return false;
+}
+
+/**
+ * Клетки области, достижимые от вершины: заливка по 4 соседям, переход между
+ * клетками запрещён, если их центры разделяет блокирующая стена (закрытая дверь).
+ * Укрытие за краем стены не спасает — эффект обходит препятствие по клеткам.
+ */
+export function spreadCells(
+  cells: Set<string>,
+  origin: AreaPoint,
+  grid: AreaGrid,
+  walls: Wall[]
+): Set<string> {
+  const start = pointCell(origin, grid);
+  const startKey = areaCellKey(start.cx, start.cy);
+  if (!cells.has(startKey)) return cells;
+  const reached = new Set<string>([startKey]);
+  const queue: Array<{ cx: number; cy: number }> = [start];
+  for (let head = 0; head < queue.length; head++) {
+    const cur = queue[head]!;
+    const a = cellCenter(cur.cx, cur.cy, grid);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const next = { cx: cur.cx + dx, cy: cur.cy + dy };
+      const key = areaCellKey(next.cx, next.cy);
+      if (!cells.has(key) || reached.has(key)) continue;
+      if (crossesWalls(a, cellCenter(next.cx, next.cy, grid), walls, 'sight')) continue;
+      reached.add(key);
+      queue.push(next);
+    }
+  }
+  return reached;
 }

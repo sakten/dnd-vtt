@@ -1,4 +1,4 @@
-import { S } from './state.mjs';
+﻿import { S } from './state.mjs';
 import { check } from '../lib/check.mjs';
 import { attachErrorLog, findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
@@ -85,7 +85,7 @@ await waitFor(S.page2, () => {
   if (!t) return false;
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[4]; // 0 map, 1 fog, 2 grid, 3 zones, 4 tokens
+  const canvas = document.querySelectorAll('canvas')[3]; // 0 map+objects, 1 grid, 2 zones, 3 tokens, 4 veil
   if (!canvas) return false;
   const d = canvas.getContext('2d').getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return d[0] > 100 && d[0] > d[2];
@@ -138,7 +138,7 @@ const fogPx = await S.page2.evaluate(() => {
   const s = window.__vtt.getState();
   const sx = 225 * s.view.scale + s.view.x;
   const sy = 225 * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[1];
+  const canvas = document.querySelectorAll('canvas')[0]; // туман рисуется в слое карты
   const ctx = canvas.getContext('2d');
   const d = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return { r: d[0], a: d[3] };
@@ -155,7 +155,7 @@ const tokPxBefore = await S.page2.evaluate(() => {
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[4]; // 0 map, 1 fog, 2 grid, 3 zones, 4 tokens
+  const canvas = document.querySelectorAll('canvas')[3]; // 0 map+objects, 1 grid, 2 zones, 3 tokens, 4 veil
   const ctx = canvas.getContext('2d');
   const d = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return { r: d[0], a: d[3] };
@@ -178,7 +178,7 @@ const tokPxAfter = await S.page2.evaluate(() => {
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[4]; // 0 map, 1 fog, 2 grid, 3 zones, 4 tokens
+  const canvas = document.querySelectorAll('canvas')[3]; // 0 map+objects, 1 grid, 2 zones, 3 tokens, 4 veil
   const ctx = canvas.getContext('2d');
   const d = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return { r: d[0], a: d[3] };
