@@ -161,12 +161,15 @@ export function buildFxPlan(fx: SpellFxPayload, grid: FxGrid): FxPlan {
     const shape = fx.area.shape;
     const directional = shape === 'cone' || shape === 'line';
     if (directional) {
-      phases.push({ kind: 'impact', at: 0, dur: 220, to: areaPoint, color, radius: cell * 0.5 });
+      // У областей «от себя» вершина визуально в руках кастера (геометрия урона считается
+      // от центра клетки, но рисовать конус из центра клетки — заметный сдвиг от токена).
+      const vertex = fx.selfArea ? caster : areaPoint;
+      phases.push({ kind: 'impact', at: 0, dur: 220, to: vertex, color, radius: cell * 0.5 });
       phases.push({
         kind: 'shape',
         at: 40,
-        dur: 640,
-        to: areaPoint,
+        dur: 800,
+        to: vertex,
         dir: fx.direction ? { point: fx.direction } : undefined,
         shape,
         color,

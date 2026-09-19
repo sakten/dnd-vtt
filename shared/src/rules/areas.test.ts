@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCells, cellCenter, spreadCells, tokenCells, tokenFullyInArea, tokenVisibleFrom, tokensInArea, type AreaGrid } from './areas';
+import { areaCells, areaCellsSpread, cellCenter, spreadCells, tokenCells, tokenFullyInArea, tokenVisibleFrom, tokensInArea, type AreaGrid } from './areas';
 
 const grid: AreaGrid = { size: 50, offsetX: 0, offsetY: 0 };
 const origin = cellCenter(0, 0, grid);
@@ -128,5 +128,25 @@ describe('распространение области и стены', () => {
     const big = { x: 75, y: 25, w: 100, h: 50 }; // клетки (0,0), (1,0), (2,0)
     expect(tokenFullyInArea(big, sphere, origin, null, grid)).toBe(true);
     expect(tokenFullyInArea(big, sphere, origin, null, grid, 'euclidean', [wall(100, -300, 100, 300)])).toBe(false);
+  });
+
+  it('диагональный конус распространяется даже при стенах на карте', () => {
+    const ne = { x: origin.x + 200, y: origin.y - 200 };
+    const walls = [wall(1000, 1000, 1050, 1050)]; // далёкая стена: заливка запускается, но не мешает
+    const cells = areaCellsSpread({ shape: 'cone', size: 15 }, origin, ne, grid, walls);
+    expect(cells.has('1,-1')).toBe(true);
+    expect(cells.has('2,-2')).toBe(true);
+
+    const lineCells = areaCellsSpread({ shape: 'line', size: 15, width: 5 }, origin, ne, grid, walls);
+    expect(lineCells.has('1,-1')).toBe(true);
+    expect(lineCells.has('2,-2')).toBe(true);
+  });
+
+  it('диагональный шаг через угол, занятый стеной, блокируется', () => {
+    const ne = { x: origin.x + 200, y: origin.y - 200 };
+    // Стена по ребру клеток (0,0)–(1,0): её конец касается общего угла (50, 0).
+    const walls = [wall(50, 0, 50, 50)];
+    const cells = areaCellsSpread({ shape: 'cone', size: 15 }, origin, ne, grid, walls);
+    expect(cells.has('1,-1')).toBe(false);
   });
 });

@@ -14,8 +14,9 @@ import {
   type TurnContext,
 } from '../lib/actionRules';
 import { useActionContext } from '../lib/useActionContext';
+import { spellMechanics } from '../lib/spellText';
 import { t } from '../i18n';
-import { baseActionLabel, resourceLabel } from '../i18n/domain';
+import { baseActionLabel } from '../i18n/domain';
 import { featureDisplayName } from '../i18n/names';
 import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
@@ -208,31 +209,29 @@ export default function ActionPanel() {
   const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'other'));
 
   const spellDisabled = (spell: Spell): boolean => {
-    if (incap || !controlled) return true;
-    if (!combatActive) return false;
+    // Блокируем по экономике действий (действие/бонус/реакция уже потрачены).
     const slot = spellSlotOf(spell);
-    if (!isActive && slot !== 'reaction') return true;
-    if (slot === 'reaction') {
+    if (!canSpendSlot(turnCtx, slot === 'other' ? 'special' : slot, spell.key)) return true;
+    if (slot === 'reaction' && spell.level > 0) {
       const maxLevel = maxCastableForSpell(spell, {
         isCharacter,
         resources,
         token,
         freeCastKeys: featFreeCastKeys(sheet, resources),
       });
-      if (spell.level > 0 && maxLevel < spell.level) return true;
-      const t = isActive ? turn : ownTurn;
-      if (t && !actionSlotAvailable(t, 'reaction')) return true;
+      if (maxLevel < spell.level) return true;
     }
     return false;
   };
 
   const spellButton = (spell: Spell) => {
     const level = spell.level === 0 ? t('ui.action.cantrip') : t('ui.action.level', { n: spell.level });
+    const tip = [`${spellDisplayName(spell)} · ${level}`, ...spellMechanics(spell)].join('\n');
     return (
       <button
         key={`spell:${spell.key}`}
         className="ap-icon-btn ap-spell-btn"
-          data-tip={`${spellDisplayName(spell)} · ${level}`}
+          data-tip={tip}
           aria-label={spellDisplayName(spell)}
         disabled={spellDisabled(spell)}
         onClick={() => setCasting({ spell })}
@@ -244,7 +243,10 @@ export default function ActionPanel() {
 
   const featureButton = (f: ActionDef) => {
     const left = resourceLeft(f);
-    const base = f.resourceKey ? featureDisplayName(f.resourceKey, resourceLabel(f.resourceKey, f.name)) : f.name;
+    // Имя — конкретной черты (Божественная искра / Изгнание нежити), а не ресурса-пула:
+    // у Channel Divinity и подобных пулов одна кнопка-ресурс на несколько способностей.
+    const featureKey = f.id.startsWith('class:') ? f.id.slice('class:'.length) : undefined;
+    const base = featureDisplayName(featureKey, f.name);
     const label = left !== null ? `${base} (${left})` : base;
     return (
       <button

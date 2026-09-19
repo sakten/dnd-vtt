@@ -21,7 +21,11 @@ export interface ApplyEffectArgs {
 /** Накладывает один эффект на токен (заменяя прошлый каст того же источника). */
 export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): string {
   const { sourceKey, sourceId, mapId, effectDef, target, markedId, untilSaveDc, escapeDc, zoneId } = args;
-  for (const stale of target.effects.filter((e) => e.sourceKey === sourceKey && e.sourceId === sourceId)) {
+  // Концентрацию не заменяем: её жизненным циклом управляет clearConcentration
+  // (иначе аура зоны, попавшая на своего кастера, снимает якорь концентрации).
+  for (const stale of target.effects.filter(
+    (e) => e.sourceKey === sourceKey && e.sourceId === sourceId && !e.concentration
+  )) {
     ctx.manager.removeEffect(room, target, stale.id);
   }
   const effectId = randomUUID();

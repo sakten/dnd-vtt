@@ -91,6 +91,15 @@ describe('настоящие формы области (Ф2)', () => {
     expect(shape.to).toEqual({ point: { x: 325, y: 125 } });
   });
 
+  it('конус от себя: вершина у кастера, а не в центре клетки', () => {
+    const plan = buildFxPlan(
+      fx({ area: { shape: 'cone', size: 15 }, selfArea: true, direction: { x: 400, y: 100 }, targets: [] }),
+      GRID
+    );
+    const shape = plan.phases.find((p) => p.kind === 'shape')!;
+    expect(shape.to).toEqual({ tokenId: 't1' });
+  });
+
   it('линия: длина и ширина в мировых px', () => {
     const plan = buildFxPlan(fx({ area: { shape: 'line', size: 30, width: 5 }, direction: { x: 400, y: 100 } }), GRID);
     const shape = plan.phases.find((p) => p.kind === 'shape')!;

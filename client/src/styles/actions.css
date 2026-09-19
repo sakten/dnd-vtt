@@ -259,7 +259,9 @@
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  white-space: nowrap;
+  white-space: pre-line;
+  text-align: left;
+  max-width: 340px;
   pointer-events: none;
   z-index: var(--z-tip);
 }

@@ -6,7 +6,7 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', 'artifacts/**', 'server/data/**', 'test-images/**', 'lab/**', '_walls-lab.mjs'],
+    ignores: ['**/dist/**', '**/node_modules/**', 'artifacts/**', 'server/data/**', 'test-images/**', 'lab/**', 'client/src/lab/**', '_walls-lab.mjs'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

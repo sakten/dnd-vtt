@@ -1,29 +1,12 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { MapInfo } from 'shared';
 import { useGameStore } from '../../store/useGameStore';
 import { activeGridOf, activeMapOf, tokenById } from '../../store/selectors';
 import { buildFxPlan, type FxAnchor, type FxPhase, type FxPlan, type WorldPoint } from './timeline';
 import type { FxMask } from './mask';
-
-function canvasTexture(draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (ctx) draw(ctx);
-  return new THREE.CanvasTexture(canvas);
-}
-
-/** Свечение (ядро снаряда/вспышка). */
-const glowTex = canvasTexture((ctx) => {
-  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.32, 'rgba(255,255,255,0.7)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 128, 128);
-});
+import { createConeFlame } from './flameCone';
+import { canvasTexture, coneTex, glowTex } from './textures';
 
 /** Ударная волна/кольцо ауры. */
 const ringTex = canvasTexture((ctx) => {
@@ -66,21 +49,6 @@ const squareTex = canvasTexture((ctx) => {
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
-});
-
-/** Конус 53°: вершина слева по центру, раскрыв на весь правый край. */
-const coneTex = canvasTexture((ctx) => {
-  const g = ctx.createRadialGradient(0, 64, 0, 0, 64, 128);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.55, 'rgba(255,255,255,0.85)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.moveTo(0, 64);
-  ctx.lineTo(128, 0);
-  ctx.lineTo(128, 128);
-  ctx.closePath();
-  ctx.fill();
 });
 
 /** Линия/луч: полоса с затуханием к дальнему концу. */
@@ -320,8 +288,8 @@ function burstVisual(phase: FxPhase): Visual {
   };
 }
 
-/** Конус/линия: форма растёт от вершины в сторону прицела (настоящая геометрия 5e). */
-function shapeVisual(phase: FxPhase): Visual {
+/** Линия/луч: форма растёт от вершины в сторону прицела (настоящая геометрия 5e). */
+function beamVisual(phase: FxPhase): Visual {
   const group = new THREE.Group();
   const tex = phase.shape === 'line' ? lineTex : coneTex;
   const body = sprite(tex, phase.color);
@@ -360,7 +328,8 @@ function shapeVisual(phase: FxPhase): Visual {
       // чтобы при повороте вершина оставалась на точке применения.
       const place = (mesh: PlaneSprite, scale: number, z: number, opacity: number) => {
         const lx = -0.5 * w * scale;
-        mesh.rotation.z = -angle;
+        // Ось Y камеры экранная (вниз): поворот плоскости = +angle, иначе диагональ зеркалится.
+        mesh.rotation.z = angle;
         mesh.scale.set(w * scale, h * scale, 1);
         mesh.position.set(anchor.x - lx * ca, anchor.y + lx * sa, z);
         spriteMaterial(mesh).opacity = opacity;
@@ -513,11 +482,30 @@ function auraVisual(phase: FxPhase): Visual {
   };
 }
 
+/** Конус: волна «языков» пламени от вершины (лабораторный вариант №5) + дымка и ядро. */
+/** Конус: игровой модуль пламени (общий с лабораторией) — вершина у кастера, языки внутри. */
+function flameConeVisual(phase: FxPhase): Visual {
+  const visual = createConeFlame({
+    apex: (ctx: FrameCtx) => (phase.to ? ctx.resolve(phase.to) : null),
+    angle: (ctx: FrameCtx) => {
+      const at = phase.to ? ctx.resolve(phase.to) : null;
+      const dir = phase.dir ? ctx.resolve(phase.dir) : null;
+      return at && dir ? Math.atan2(dir.y - at.y, dir.x - at.x) : 0;
+    },
+    length: phase.radius ?? 50,
+    color: phase.color,
+  });
+  return {
+    group: visual.group,
+    update: (t, ctx) => visual.update(t, ctx),
+    dispose: () => visual.dispose(),
+  };
+}
 function createVisual(phase: FxPhase): Visual {
   if (phase.kind === 'travel') return travelVisual(phase);
   if (phase.kind === 'burst') return burstVisual(phase);
   if (phase.kind === 'impact') return impactVisual(phase);
-  if (phase.kind === 'shape') return shapeVisual(phase);
+  if (phase.kind === 'shape') return phase.shape === 'line' ? beamVisual(phase) : flameConeVisual(phase);
   return auraVisual(phase);
 }
 

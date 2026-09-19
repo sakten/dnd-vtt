@@ -87,6 +87,37 @@ describe('движок зон', () => {
     expect(behind.effects.some((e) => e.zoneId === zone!.id)).toBe(true);
   });
 
+  it('аура зоны не снимает собственную концентрацию кастера (HoH)', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    // Якорь концентрации кастера — как его ставит anchorConcentration.
+    caster.effects.push({
+      id: 'anchor1',
+      name: 'Зона',
+      sourceKey: 'TEST:Zone',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: zoneDef,
+      stats: null,
+      origin: { x: 100, y: 100 },
+    });
+
+    expect(zone).toBeTruthy();
+    // Аура накрыла самого кастера (слепота), но концентрация цела.
+    expect(caster.effects.some((e) => e.zoneId === zone!.id)).toBe(true);
+    expect(caster.effects.some((e) => e.concentration)).toBe(true);
+
+    handleMovementZones(f.ctx, room, 'm1');
+    expect(room.scene.maps[0]!.zones).toHaveLength(1);
+    expect(caster.effects.some((e) => e.concentration)).toBe(true);
+  });
+
   it('token:step обрабатывает вход в зону по ходу движения', () => {
     const { room, f } = setup();
     const caster = room.scene.maps[0]!.tokens[0]!;

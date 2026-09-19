@@ -14,9 +14,16 @@ const labLoaders = import.meta.glob('./lab/DiceLab.tsx');
 const labLoader = labLoaders['./lab/DiceLab.tsx'];
 const DiceLab = labLoader ? lazy(labLoader as () => Promise<{ default: React.ComponentType }>) : null;
 
+// Лаборатория эффектов (Burning Hands) — тот же принцип, маршрут `?fx-lab`.
+const fxLabLoaders = import.meta.glob('./lab/FxLab.tsx');
+const fxLabLoader = fxLabLoaders['./lab/FxLab.tsx'];
+const FxLab = fxLabLoader ? lazy(fxLabLoader as () => Promise<{ default: React.ComponentType }>) : null;
+
 applyBranding();
 
-const isDiceLab = new URLSearchParams(window.location.search).has('dice-lab');
+const params = new URLSearchParams(window.location.search);
+const isDiceLab = params.has('dice-lab');
+const isFxLab = params.has('fx-lab');
 
 // В dev при полной перезагрузке модулей снимаем сокет и его слушатели (HMR-утечка).
 if (import.meta.hot) import.meta.hot.dispose(() => useGameStore.getState().disposeSocket());
@@ -29,6 +36,10 @@ void loadNames(getLocale()).finally(() => {
         {isDiceLab && DiceLab ? (
           <Suspense fallback={null}>
             <DiceLab />
+          </Suspense>
+        ) : isFxLab && FxLab ? (
+          <Suspense fallback={null}>
+            <FxLab />
           </Suspense>
         ) : (
           <App />
