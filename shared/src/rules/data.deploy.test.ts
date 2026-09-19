@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+﻿import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import spellcastingRaw from '../data/spellcasting.json';
@@ -6,6 +6,8 @@ import subclassRaw from '../data/subclassSpells.json';
 import featuresRaw from '../data/features.json';
 import weaponsRaw from '../data/weapons.json';
 import featsRaw from '../data/feats.json';
+import bestiaryRaw from '../data/bestiary.json';
+import type { BestiaryEntry } from '../domain/bestiary';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPELLS } from './automation';
@@ -25,6 +27,7 @@ const HASHES = {
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: 'f8d310ec0a56a339',
+  bestiary: 'c246e0192c15b009',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -86,6 +89,7 @@ describe('снимок данных', () => {
       features: hash(featuresRaw),
       weapons: hash(weaponsRaw),
       feats: hash(featsRaw),
+      bestiary: hash(bestiaryRaw),
     }).toEqual(HASHES);
   });
 
@@ -299,8 +303,40 @@ describe('снимок данных', () => {
     expect(bad).toEqual([]);
   });
 
-  it('парсеры проходят весь снимок без сбоев', () => {
+  it('bestiary.json: контракт записей', () => {
+    const data = bestiaryRaw as unknown as { count: number; entries: BestiaryEntry[] };
+    expect(data.entries.length).toBe(data.count);
+    expect(data.count).toBeGreaterThanOrEqual(330);
     const bad: string[] = [];
+    const seen = new Set<string>();
+    const sources = new Set(['XMM', 'XPHB']);
+    for (const entry of data.entries) {
+      const key = entry.key;
+      if (!sources.has(entry.source)) bad.push(`${key}: источник`);
+      if (seen.has(key)) bad.push(`${key}: дубль`);
+      seen.add(key);
+      if (!entry.name || !entry.type || !entry.cr) bad.push(`${key}: мета`);
+      if (!(entry.ac > 0 && entry.ac <= 30)) bad.push(`${key}: AC ${entry.ac}`);
+      if (!(entry.hpAverage > 0 && entry.hpAverage <= 1000)) bad.push(`${key}: HP ${entry.hpAverage}`);
+      if (!(entry.cells >= 1 && entry.cells <= 4)) bad.push(`${key}: клетки ${entry.cells}`);
+      if (!(entry.speed > 0 && entry.speed <= 200)) bad.push(`${key}: скорость ${entry.speed}`);
+      for (const attack of entry.attacks) {
+        if (!attack.name || !attack.hit || !attack.damage) bad.push(`${key}: атака ${attack.name}`);
+      }
+      const ids = new Set(entry.actions.map((a) => a.id));
+      if (ids.size !== entry.actions.length) bad.push(`${key}: id действий`);
+      for (const action of entry.actions) {
+        if (!action.id.startsWith(`${entry.source.toLowerCase()}:`) || action.source !== 'monster') {
+          bad.push(`${key}: действие ${action.id}`);
+        }
+        if (action.ability?.save && !(action.ability.dc && action.ability.dc >= 1)) bad.push(`${key}: СЛ ${action.name}`);
+        if (action.ability?.attack && !action.ability.attack.rangeType) bad.push(`${key}: атака способности`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('парсеры проходят весь снимок без сбоев', () => {    const bad: string[] = [];
     for (const s of SPELLS) {
       const baseCast = Math.max(1, s.level);
       if (s.damage?.dice?.length && !spellDamageExpression(s, baseCast, 1)) {

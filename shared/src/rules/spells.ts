@@ -145,6 +145,25 @@ const ATK_CODES: Record<string, string> = {
   r: 'Ranged Attack',
 };
 
+/** Коды `{@atkr m,r}` — проверки атаки/спасброска монстров. */
+const ATK_ROLL_CODES: Record<string, string> = {
+  m: 'Melee Attack Roll',
+  r: 'Ranged Attack Roll',
+  mw: 'Melee Weapon Attack Roll',
+  rw: 'Ranged Weapon Attack Roll',
+  ms: 'Melee Spell Attack Roll',
+  rs: 'Ranged Spell Attack Roll',
+};
+
+const ABILITY_NAMES_EN: Record<string, string> = {
+  str: 'Strength',
+  dex: 'Dexterity',
+  con: 'Constitution',
+  int: 'Intelligence',
+  wis: 'Wisdom',
+  cha: 'Charisma',
+};
+
 function prettify(name: string): string {
   if (!/^[a-z0-9][a-z0-9' -]*$/.test(name)) return name;
   return name.replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
@@ -176,6 +195,21 @@ export function stripTags(input: string): string {
           return `DC ${first}`;
         case 'atk':
           return ATK_CODES[first.toLowerCase()] ?? first;
+        case 'atkr': {
+          const codes = first
+            .split(',')
+            .map((code) => ATK_ROLL_CODES[code.trim().toLowerCase()] ?? code.trim())
+            .filter(Boolean);
+          return codes.length ? `${codes.join(' or ')}:` : '';
+        }
+        case 'actSave': {
+          const ability = ABILITY_NAMES_EN[first.trim().toLowerCase()];
+          return ability ? `${ability} Saving Throw:` : '';
+        }
+        case 'actSaveFail':
+          return 'Failure:';
+        case 'actSaveSuccess':
+          return 'Success:';
         case 'h':
           return 'Hit: ';
         case 'recharge':

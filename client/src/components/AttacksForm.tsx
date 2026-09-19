@@ -97,7 +97,7 @@ export default function AttacksForm({
               <input
                 type="text"
                 value={attack.damage}
-                placeholder="1d8+str"
+                placeholder="1d8+str, 2d6fire"
                 title={t('ui.attacks.formulaTitle')}
                 readOnly={readOnly}
                 onChange={(e) => setAttack(i, { damage: e.target.value })}

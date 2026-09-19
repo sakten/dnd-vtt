@@ -57,7 +57,7 @@ describe('parseDiceExpression', () => {
     expect(() => parseDiceExpression('abc')).toThrow(DiceParseError);
     expect(() => parseDiceExpression('d1')).toThrow(DiceParseError);
     expect(() => parseDiceExpression('d20k5')).toThrow(DiceParseError);
-    expect(parseDiceExpression('5')).toEqual({ dice: [], modifier: 5 });
+    expect(parseDiceExpression('5')).toEqual({ dice: [], modifier: 5, modifiers: [{ amount: 5 }] });
     expect(() => parseDiceExpression('')).toThrow(DiceParseError);
   });
 });
@@ -149,5 +149,35 @@ describe('rollDice с удвоением кубов (крит)', () => {
   it('без флага количество кубов не меняется', () => {
     const r = rollDice('2d6+3', seq([0, 0]), {});
     expect(r.dice[0]!.values).toHaveLength(2);
+  });
+});
+
+describe('типы урона в формуле', () => {
+  it('парсит суффиксы типов у костей и констант', () => {
+    const r = parseDiceExpression('1d10+8+2d4fire+3force');
+    expect(r.dice[0]!.damageType).toBeUndefined();
+    expect(r.dice[1]!.damageType).toBe('fire');
+    expect(r.modifiers).toEqual([{ amount: 8 }, { amount: 3, damageType: 'force' }]);
+    expect(r.modifier).toBe(11);
+  });
+
+  it('не путает преимущество с типом, начинающимся на «a»', () => {
+    expect(parseDiceExpression('2d20a').dice[0]!.advantage).toBe('a');
+    expect(parseDiceExpression('1d6acid').dice[0]!.damageType).toBe('acid');
+  });
+
+  it('раскладывает бросок по типам, неучтённые термы — без типа', () => {
+    const r = rollDice('1d10+8+2d4fire', seq([0, 0, 0.5]));
+    expect(r.total).toBe(13);
+    expect(r.damageParts).toEqual([{ amount: 9 }, { damageType: 'fire', amount: 4 }]);
+  });
+
+  it('крит удваивает кости каждой части', () => {
+    const r = rollDice('1d10+1d6fire', seq([0, 0, 0, 0]), { doubleDice: true });
+    expect(r.damageParts).toEqual([{ amount: 2 }, { damageType: 'fire', amount: 2 }]);
+  });
+
+  it('неизвестный суффикс — ошибка формулы', () => {
+    expect(() => parseDiceExpression('1d6firee')).toThrowError();
   });
 });

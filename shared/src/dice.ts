@@ -1,3 +1,6 @@
+import type { DamagePartAmount } from './domain/damage';
+import { DAMAGE_TYPES } from './labels';
+
 export type DieSign = 1 | -1;
 
 export interface ParsedDie {
@@ -6,6 +9,13 @@ export interface ParsedDie {
   keep: number | null;
   advantage: 'a' | 'd' | null;
   sign: DieSign;
+  /** Тип урона из суффикса терма (`2d4fire`); нет — основной тип формулы. */
+  damageType?: string;
+}
+
+export interface ParsedModifier {
+  amount: number;
+  damageType?: string;
 }
 
 export interface DieResult {
@@ -14,6 +24,7 @@ export interface DieResult {
   dropped: number[];
   advantage: 'a' | 'd' | null;
   sign: DieSign;
+  damageType?: string;
 }
 
 export interface DiceRollResult {
@@ -22,6 +33,8 @@ export interface DiceRollResult {
   modifier: number;
   total: number;
   breakdown: string;
+  /** Раскладка урона по типам (для защит по частям). */
+  damageParts: DamagePartAmount[];
 }
 
 export type DiceErrorCode =
@@ -48,11 +61,19 @@ export class DiceParseError extends Error {
 const MAX_DICE = 100;
 const MAX_SIDES = 1000;
 
-export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier: number } {
+/** Тип урона в суффиксе терма: `1d6fire`, `+3force` (только канонические ключи). */
+const TYPE_PATTERN = DAMAGE_TYPES.map((d) => d.key).join('|');
+
+export function parseDiceExpression(expr: string): {
+  dice: ParsedDie[];
+  modifier: number;
+  modifiers: ParsedModifier[];
+} {
   const s = expr.replace(/\s+/g, '').toLowerCase();
   if (s.length === 0) throw new DiceParseError('rollEmpty');
 
   const dice: ParsedDie[] = [];
+  const modifiers: ParsedModifier[] = [];
   let modifier = 0;
   let sawNumber = false;
   let pos = 0;
@@ -62,51 +83,58 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
     sides: number,
     keep: number | null,
     advantage: 'a' | 'd' | null,
-    sign: DieSign
+    sign: DieSign,
+    damageType: string | undefined
   ) => {
     if (count < 1 || count > MAX_DICE) throw new DiceParseError('rollDiceCount', { max: MAX_DICE });
     if (sides < 2 || sides > MAX_SIDES) throw new DiceParseError('rollDieSides', { max: MAX_SIDES });
     if (keep !== null && (keep < 1 || keep > count)) throw new DiceParseError('rollKeepRange', { max: count });
-    dice.push({ count, sides, keep, advantage, sign });
+    dice.push({ count, sides, keep, advantage, sign, ...(damageType ? { damageType } : {}) });
+  };
+
+  const pushFlat = (amount: number, damageType: string | undefined) => {
+    modifiers.push({ amount, ...(damageType ? { damageType } : {}) });
+    modifier += amount;
+    sawNumber = true;
   };
 
   while (pos < s.length) {
     const rest = s.slice(pos);
-    let m = rest.match(/^(\d*)d(\d+)([ad])?(?:k(\d+))?/);
+    let m = rest.match(new RegExp(`^(\\d*)d(\\d+)(${TYPE_PATTERN})?([ad])?(?:k(\\d+))?`));
     if (m) {
       pushDie(
         m[1] ? parseInt(m[1], 10) : 1,
         parseInt(m[2]!, 10),
-        m[4] ? parseInt(m[4], 10) : null,
-        (m[3] as 'a' | 'd' | undefined) ?? null,
-        1
+        m[5] ? parseInt(m[5], 10) : null,
+        (m[4] as 'a' | 'd' | undefined) ?? null,
+        1,
+        m[3]
       );
       pos += m[0].length;
       continue;
     }
-    m = rest.match(/^([+-])(\d*)d(\d+)([ad])?(?:k(\d+))?/);
+    m = rest.match(new RegExp(`^([+-])(\\d*)d(\\d+)(${TYPE_PATTERN})?([ad])?(?:k(\\d+))?`));
     if (m) {
       pushDie(
         m[2] ? parseInt(m[2], 10) : 1,
         parseInt(m[3]!, 10),
-        m[5] ? parseInt(m[5], 10) : null,
-        (m[4] as 'a' | 'd' | undefined) ?? null,
-        m[1] === '-' ? -1 : 1
+        m[6] ? parseInt(m[6], 10) : null,
+        (m[5] as 'a' | 'd' | undefined) ?? null,
+        m[1] === '-' ? -1 : 1,
+        m[4]
       );
       pos += m[0].length;
       continue;
     }
-    m = rest.match(/^([+-])(\d+)/);
+    m = rest.match(new RegExp(`^([+-])(\\d+)(${TYPE_PATTERN})?`));
     if (m) {
-      modifier += parseInt((m[1] ?? '') + (m[2] ?? ''), 10);
-      sawNumber = true;
+      pushFlat(parseInt((m[1] ?? '') + (m[2] ?? ''), 10), m[3]);
       pos += m[0].length;
       continue;
     }
-    m = rest.match(/^(\d+)/);
+    m = rest.match(new RegExp(`^(\\d+)(${TYPE_PATTERN})?`));
     if (m) {
-      modifier += parseInt(m[1]!, 10);
-      sawNumber = true;
+      pushFlat(parseInt(m[1]!, 10), m[2]);
       pos += m[0].length;
       continue;
     }
@@ -114,7 +142,7 @@ export function parseDiceExpression(expr: string): { dice: ParsedDie[]; modifier
   }
 
   if (dice.length === 0 && !sawNumber) throw new DiceParseError('rollNoDice');
-  return { dice, modifier };
+  return { dice, modifier, modifiers };
 }
 
 function rollOne(sides: number, rng: () => number): number {
@@ -139,7 +167,8 @@ export function rollDice(
   rng: () => number = Math.random,
   options: RollOptions = {}
 ): DiceRollResult {
-  const { dice, modifier } = parseDiceExpression(expression);
+  const { dice, modifiers } = parseDiceExpression(expression);
+  const modifier = modifiers.reduce((acc, m) => acc + m.amount, 0);
   const double = options.doubleDice === true;
 
   const results: DieResult[] = dice.map((d) => {
@@ -157,11 +186,19 @@ export function rollDice(
         dropped: all.filter((_, i) => !keptIdx.has(i)),
         advantage: d.advantage,
         sign: d.sign,
+        ...(d.damageType ? { damageType: d.damageType } : {}),
       };
     }
     const all = Array.from({ length: count }, () => rollOne(d.sides, rng));
     if (keep === null) {
-      return { sides: d.sides, values: all, dropped: [], advantage: null, sign: d.sign };
+      return {
+        sides: d.sides,
+        values: all,
+        dropped: [],
+        advantage: null,
+        sign: d.sign,
+        ...(d.damageType ? { damageType: d.damageType } : {}),
+      };
     }
     const sortedIdx = all.map((v, i) => i).sort((a, b) => all[b]! - all[a]!);
     const keptIdx = new Set(sortedIdx.slice(0, keep));
@@ -171,6 +208,7 @@ export function rollDice(
       dropped: all.filter((_, i) => !keptIdx.has(i)),
       advantage: null,
       sign: d.sign,
+      ...(d.damageType ? { damageType: d.damageType } : {}),
     };
   });
 
@@ -190,5 +228,17 @@ export function rollDice(
   if (modifier > 0) breakdown += ` + ${modifier}`;
   else if (modifier < 0) breakdown += ` - ${Math.abs(modifier)}`;
 
-  return { expression, dice: results, modifier, total, breakdown };
+  const groups = new Map<string, DamagePartAmount>();
+  const addGroup = (damageType: string | undefined, amount: number) => {
+    const key = damageType ?? '';
+    const current = groups.get(key);
+    if (current) current.amount += amount;
+    else groups.set(key, damageType ? { damageType, amount } : { amount });
+  };
+  results.forEach((r, i) => {
+    addGroup(dice[i]!.damageType, r.sign * r.values.reduce((a, b) => a + b, 0));
+  });
+  for (const m of modifiers) addGroup(m.damageType, m.amount);
+
+  return { expression, dice: results, modifier, total, breakdown, damageParts: [...groups.values()] };
 }

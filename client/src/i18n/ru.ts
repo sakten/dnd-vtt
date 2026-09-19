@@ -1,4 +1,4 @@
-export const ru = {
+﻿export const ru = {
   'ui.language': 'Язык интерфейса',
 
   'error.reactionPending': 'Ожидание реакции',
@@ -175,6 +175,7 @@ export const ru = {
   'ui.chat.playersTitle': 'Список игроков',
   'ui.chat.players': 'Игроки ({count})',
   'ui.chat.placeholder': 'Сообщение или бросок: d20 + 3',
+  'ui.chat.damageHint': 'Тип урона после кубика (например 1d6fire) — Tab или клик',
   'ui.chat.replay': 'Клик — повторить бросок',
   'ui.chat.replayLabel': '{label} · клик — повторить бросок',
 

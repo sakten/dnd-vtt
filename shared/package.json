@@ -11,6 +11,10 @@
     "./spellsData": {
       "types": "./src/spellsData.ts",
       "import": "./src/spellsData.ts"
+    },
+    "./bestiaryData": {
+      "types": "./src/bestiaryData.ts",
+      "import": "./src/bestiaryData.ts"
     }
   },
   "scripts": {

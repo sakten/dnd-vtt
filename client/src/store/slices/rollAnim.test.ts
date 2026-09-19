@@ -8,6 +8,7 @@ const roll = (dice: DiceRollResult['dice'], total: number, expression: string): 
   modifier: 0,
   total,
   breakdown: '',
+  damageParts: [],
 });
 
 describe('rollAnim slice', () => {

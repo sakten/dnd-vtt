@@ -1,6 +1,7 @@
 import {
-  applyDamageDefenses,
+  applyDamageToParts,
   statNumber,
+  type DamagePartAmount,
   type DiceRollResult,
   type RollLabelParams,
   type Token,
@@ -23,6 +24,8 @@ export interface ApplyDamageInput {
   /** Урон до защит; для лечения — положительное число. */
   amount: number;
   damageType?: string;
+  /** Разбивка составного урона по типам; части без типа наследуют `damageType`. */
+  parts?: DamagePartAmount[];
   /** Половина после защит (успешный спасбросок, Невероятное уклонение). */
   halve?: boolean;
   /** Сообщение в чат — только когда переданы roll, author и params. */
@@ -48,7 +51,11 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   const { target, mapId, damageType } = input;
 
   const defenses = target ? ctx.manager.damageDefensesForToken(room, target) : [];
-  const adjusted = applyDamageDefenses(input.amount, damageType, defenses);
+  const groups =
+    input.kind === 'heal' || !input.parts?.length
+      ? [{ amount: input.amount, ...(damageType ? { damageType } : {}) }]
+      : input.parts.map((part) => ({ amount: part.amount, ...(part.damageType ?? damageType ? { damageType: part.damageType ?? damageType } : {}) }));
+  const adjusted = applyDamageToParts(groups, defenses);
   const amount = input.halve ? Math.floor(adjusted.amount / 2) : adjusted.amount;
 
   if (input.roll && input.author && input.params) {

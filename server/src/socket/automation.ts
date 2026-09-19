@@ -290,7 +290,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
           });
           searSent = true;
         }
-        applyDamage(ctx, { target: app.target, mapId, amount: searRoll.total, damageType: searType });
+        applyDamage(ctx, { target: app.target, mapId, amount: searRoll.total, damageType: searType, parts: searRoll.damageParts });
       }
       const effectId = applyEffectTo(ctx, room, {
         sourceKey: def.key,
@@ -566,6 +566,7 @@ function applyResult(
     mapId: run.mapId,
     amount: healValue(run, roll.total),
     damageType: run.damageType,
+    ...(run.healing ? {} : { parts: roll.damageParts }),
     ...(opts.silent ? {} : { roll, author: run.author, params: { subject: opts.subject ?? run.subject, damageType: run.damageType } }),
     kind: opts.kind ?? (run.healing ? 'heal' : 'damage'),
     ...(opts.halve !== undefined && { halve: opts.halve }),

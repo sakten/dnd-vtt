@@ -29,6 +29,7 @@
     "features": "tsx scripts/build-features.ts",
     "feats": "tsx scripts/build-feats.ts",
     "weapons": "tsx scripts/build-weapons.ts",
+    "bestiary": "tsx scripts/build-bestiary.ts",
     "e2e": "node scripts/e2e.mjs",
     "shots": "node scripts/check-screenshots.mjs",
     "devcheck": "node scripts/check-dev.mjs"

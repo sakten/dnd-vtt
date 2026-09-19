@@ -1,4 +1,5 @@
 import type { AreaSpec, SpellFxPayload } from 'shared';
+import { ARCANE_COLOR, damageTypeColor } from '../../lib/damageColors';
 
 export interface WorldPoint {
   x: number;
@@ -43,23 +44,6 @@ export interface FxPlan {
   duration: number;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  fire: '#ff8a2b',
-  cold: '#7fd4ff',
-  lightning: '#ffe86b',
-  acid: '#9bea3a',
-  poison: '#7cd06a',
-  necrotic: '#a06bff',
-  radiant: '#ffe6a3',
-  force: '#8fb7ff',
-  thunder: '#dbe9ff',
-  psychic: '#ff7fd0',
-  bludgeoning: '#c9b8a3',
-  piercing: '#d9d9d9',
-  slashing: '#e0a0a0',
-};
-
-const ARCANE = '#8fb7ff';
 const HEAL = '#7dffa8';
 const BUFF = '#ffd98a';
 
@@ -94,10 +78,10 @@ const FX_STYLES: Record<string, FxStyle> = {
 
 export function damageColor(types: string[]): string {
   for (const type of types) {
-    const color = TYPE_COLORS[type];
+    const color = damageTypeColor(type);
     if (color) return color;
   }
-  return ARCANE;
+  return ARCANE_COLOR;
 }
 
 /** Привязка точки к центру клетки сетки: так же считает сервер (`rules/areas.ts`). */

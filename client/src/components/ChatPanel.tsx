@@ -5,6 +5,9 @@ import { systemText } from '../i18n/system';
 import { nextLang, t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 import { formatRoll } from '../lib/format';
+import { damageTypeColor } from '../lib/damageColors';
+import { damageTypeHint, applyDamageHint } from '../lib/damageHint';
+import { damageLabel } from '../i18n/domain';
 import { rollOutcome } from '../lib/rollOutcome';
 import { useDragSize } from '../lib/useDragSize';
 import RollMenu from './RollMenu';
@@ -20,14 +23,14 @@ const DIE_POINTS: Record<number, string> = {
   20: '0,-14 12,-7 12,7 0,14 -12,7 -12,-7',
 };
 
-function DieIcon({ sides, value, dropped }: { sides: number; value: number; dropped: boolean }) {
+function DieIcon({ sides, value, dropped, tint }: { sides: number; value: number; dropped: boolean; tint?: string }) {
   const points = DIE_POINTS[sides] ?? DIE_POINTS[6];
-  let fill = '#2b3039';
+  let fill = tint ? `${tint}3d` : '#2b3039';
   if (sides === 20 && value === 20) fill = '#4ecb71';
   else if (sides === 20 && value === 1) fill = '#ff6b6b';
   return (
     <svg className="die-icon" viewBox="-16 -16 32 32" width="26" height="26" opacity={dropped ? 0.55 : 1}>
-      <polygon points={points} fill={fill} stroke="#7c9cff" strokeWidth="1.5" />
+      <polygon points={points} fill={fill} stroke={tint ?? '#7c9cff'} strokeWidth="1.5" />
       {dropped && <line x1="-14" y1="-14" x2="14" y2="14" stroke="#ff6b6b" strokeWidth="3" />}
       <text x="0" y="4.5" textAnchor="middle" fontSize="11" fontWeight="700" fill="#ffffff">
         {value}
@@ -42,6 +45,8 @@ interface DieEntry {
   value: number;
   dropped: boolean;
   negative: boolean;
+  /** Тип урона терма (`1d6fire`); нет — основной тип броска. */
+  damageType?: string;
 }
 
 type Term = DieEntry | { kind: 'bonus'; value: number };
@@ -51,9 +56,9 @@ function buildTerms(roll: DiceRollResult): Term[] {
   for (const group of roll.dice) {
     const negative = group.sign === -1;
     for (const v of group.values)
-      terms.push({ kind: 'die', sides: group.sides, value: v, dropped: false, negative });
+      terms.push({ kind: 'die', sides: group.sides, value: v, dropped: false, negative, ...(group.damageType ? { damageType: group.damageType } : {}) });
     for (const v of group.dropped)
-      terms.push({ kind: 'die', sides: group.sides, value: v, dropped: true, negative });
+      terms.push({ kind: 'die', sides: group.sides, value: v, dropped: true, negative, ...(group.damageType ? { damageType: group.damageType } : {}) });
   }
   if (roll.modifier !== 0) terms.push({ kind: 'bonus', value: roll.modifier });
   return terms;
@@ -137,6 +142,9 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
   const dice = buildTerms(message.roll)
     .filter((t): t is DieEntry => t.kind === 'die')
     .sort((a, b) => b.sides - a.sides || b.value - a.value || (a.dropped ? 1 : 0) - (b.dropped ? 1 : 0));
+  // Кубики урона — по типу: свой у терма, иначе основной тип броска урона.
+  const tintOf = (d: DieEntry): string | undefined =>
+    damageTypeColor(d.damageType ?? (message.rollKind === 'damage' ? message.labelParams?.damageType : undefined));
 
   return (
     <div
@@ -159,7 +167,7 @@ function MessageView({ message, grouped }: { message: ChatMessage; grouped?: boo
             {dice.map((d, i) => (
               <Fragment key={i}>
                 {d.negative && <span className="roll-minus">−</span>}
-                <DieIcon sides={d.sides} value={d.value} dropped={d.dropped} />
+                <DieIcon sides={d.sides} value={d.value} dropped={d.dropped} tint={tintOf(d)} />
               </Fragment>
             ))}
             {message.roll.modifier > 0 && <span className="roll-plus">+</span>}
@@ -185,6 +193,9 @@ export default function ChatPanel() {
   const shortCode = roomCode && roomCode.length > 8 ? `${roomCode.slice(0, 6)}…` : roomCode;
   const sendChat = useGameStore((s) => s.sendChat);
   const [text, setText] = useState('');
+  const [caret, setCaret] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const damageHint = damageTypeHint(text, caret);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [playersOpen, setPlayersOpen] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
@@ -218,10 +229,35 @@ export default function ChatPanel() {
     setHistory((h) => [...h, text]);
     setHistoryIndex(-1);
     setText('');
+    setCaret(0);
+  };
+
+  const acceptDamageHint = (option: string) => {
+    if (!damageHint) return;
+    const next = applyDamageHint(text, damageHint, option);
+    setText(next.text);
+    setCaret(next.caret);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(next.caret, next.caret);
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab' && damageHint) {
+      e.preventDefault();
+      acceptDamageHint(damageHint.options[0]!);
+      return;
+    }
     if (e.key === 'Enter') {
+      // Незаконченный тип после кубика: первый Enter — как Tab (автодополнение), второй — бросок.
+      if (damageHint) {
+        e.preventDefault();
+        acceptDamageHint(damageHint.options[0]!);
+        return;
+      }
       send();
       return;
     }
@@ -303,10 +339,33 @@ export default function ChatPanel() {
       </div>
       <div className="chat-input" data-testid="chat-input">
         <RollMenu />
+        {damageHint && (
+          <div className="chat-hints" data-testid="damage-hints" title={t('ui.chat.damageHint')}>
+            {damageHint.options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className="chat-hint"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  acceptDamageHint(option);
+                }}
+              >
+                <i style={{ background: damageTypeColor(option) ?? 'var(--accent, #7c9cff)' }} />
+                {damageLabel(option)}
+              </button>
+            ))}
+          </div>
+        )}
         <input
+          ref={inputRef}
           type="text"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setCaret(e.target.selectionStart ?? e.target.value.length);
+          }}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
           onKeyDown={handleKeyDown}
           placeholder={t('ui.chat.placeholder')}
         />

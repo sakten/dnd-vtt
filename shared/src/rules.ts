@@ -2,6 +2,7 @@ export * from './rules/actions';
 export * from './rules/areas';
 export * from './rules/attackRiders';
 export * from './rules/automation';
+export * from './rules/bestiary';
 export * from './rules/classActions';
 export * from './rules/conditions';
 export * from './rules/feats';

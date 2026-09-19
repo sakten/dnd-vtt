@@ -265,7 +265,7 @@ describe('каталог эффектов заклинаний', () => {
     const defs = spellEffectDefs('XPHB:Hex');
     expect(defs?.[0]!.markTarget).toBe(true);
     expect(defs?.[0]!.to).toBe('self');
-    expect(defs![0]!.modifiers[0]!).toMatchObject({ target: 'damage', mode: 'add', value: '1d6' });
+    expect(defs![0]!.modifiers[0]!).toMatchObject({ target: 'damage', mode: 'add', value: '1d6necrotic' });
     expect(defs?.[1]!.to).toBe('targets');
   });
 

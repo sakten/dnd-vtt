@@ -25,6 +25,7 @@ const roll = (dropped: number[]): DiceRollResult => ({
   modifier: 0,
   total: 12,
   breakdown: '',
+  damageParts: [],
 });
 
 describe('fx slice', () => {

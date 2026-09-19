@@ -325,6 +325,7 @@
   padding: 12px;
   border-top: 1px solid var(--panel-border);
   align-items: center;
+  position: relative;
 }
 
 .chat-input input {
@@ -337,6 +338,46 @@
 .chat-input > button {
   align-self: stretch;
   padding: 0 16px;
+}
+
+/* Подсказка типов урона в поле броска: `1d6fi` → fire. */
+.chat-hints {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% + 6px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  background: var(--panel-bg, #20242c);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+}
+
+.chat-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chat-hint:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chat-hint i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .chat-header-actions {

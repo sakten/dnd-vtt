@@ -14,6 +14,12 @@ export interface DamageDefenseResult {
   note?: DamageDefenseType;
 }
 
+/** Часть урона с типом (без типа — основной тип атаки/эффекта). */
+export interface DamagePartAmount {
+  damageType?: string;
+  amount: number;
+}
+
 /**
  * Применяет защиты цели к урону: иммунитет → 0; сопротивление/уязвимость
  * взаимно гасятся, иначе половина/двойной. Без типа урона — без изменений.
@@ -33,4 +39,22 @@ export function applyDamageDefenses(
   if (resistant) return { amount: Math.floor(amount / 2), note: 'resistance' };
   if (vulnerable) return { amount: amount * 2, note: 'vulnerability' };
   return { amount };
+}
+
+/**
+ * Защиты по частям составного урона (например `1d10 slashing + 2d4 fire`):
+ * каждая группа типов проходит защиты отдельно, суммы складываются.
+ */
+export function applyDamageToParts(
+  parts: DamagePartAmount[],
+  defenses: DamageDefense[] | undefined
+): DamageDefenseResult {
+  let amount = 0;
+  let note: DamageDefenseType | undefined;
+  for (const part of parts) {
+    const result = applyDamageDefenses(part.amount, part.damageType, defenses);
+    amount += result.amount;
+    if (result.note && !note) note = result.note;
+  }
+  return { amount, ...(note ? { note } : {}) };
 }

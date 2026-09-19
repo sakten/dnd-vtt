@@ -1,4 +1,4 @@
-import type { MessageKey } from './ru';
+﻿import type { MessageKey } from './ru';
 
 export const en: Partial<Record<MessageKey, string>> = {
   'ui.language': 'Interface language',
@@ -177,6 +177,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.chat.playersTitle': 'Player list',
   'ui.chat.players': 'Players ({count})',
   'ui.chat.placeholder': 'Message or roll: d20 + 3',
+  'ui.chat.damageHint': 'Damage type after a die (e.g. 1d6fire) — Tab or click',
   'ui.chat.replay': 'Click to repeat the roll',
   'ui.chat.replayLabel': '{label} · click to repeat the roll',
 

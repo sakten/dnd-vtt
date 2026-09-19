@@ -404,11 +404,19 @@ export function applyWeaponAttackDamage(
     for (const note of ride.notes) ctx.systemMessage(room, { code: 'attack.riderNote', params: { note } });
     const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;
     const damageRoll = savageAttackerRoll(ctx, room, plan, fullDamageExpr, crit);
+    // Составной урон: части броска по типам; реакции (+/-) идут в основной тип.
+    const parts = damageRoll.damageParts.map((part) => ({ ...part }));
+    const bonus = (mods.extraDamage ?? 0) - (mods.flatReduction ?? 0);
+    if (bonus && parts.length) {
+      const main = parts.find((part) => (part.damageType ?? attack.damageType) === attack.damageType) ?? parts[0]!;
+      main.amount += bonus;
+    }
     const damage = applyDamage(ctx, {
       target,
       mapId: targetMapId,
       amount: Math.max(0, damageRoll.total + (mods.extraDamage ?? 0) - (mods.flatReduction ?? 0)),
       damageType: attack.damageType,
+      ...(parts.length ? { parts } : {}),
       halve: mods.halveDamage,
       roll: damageRoll,
       author: plan.author,

@@ -4,6 +4,7 @@ export * from './domain/effects';
 export * from './domain/feature';
 export * from './domain/actions';
 export * from './domain/automation';
+export * from './domain/bestiary';
 export * from './domain/token';
 export * from './domain/sheet';
 export * from './domain/sense';

@@ -422,7 +422,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                       <Field label={t('ui.ability.damage')}>
                         <input
                           type="text"
-                          placeholder="2d6+3"
+                          placeholder="2d6+3, 1d4fire"
                           value={ability.attack.damage ?? ''}
                           readOnly={readOnly}
                           onChange={(e) => patchAttack({ damage: e.target.value || undefined })}
@@ -438,7 +438,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                     <Field label={t('ui.ability.damage')}>
                       <input
                         type="text"
-                        placeholder="2d6+3"
+                        placeholder="2d6+3, 1d4fire"
                         value={ability.damage?.dice ?? ''}
                         readOnly={readOnly}
                         onChange={(e) =>

@@ -358,16 +358,19 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
         break;
       case 'add': {
         const raw = mod.value;
+        // Типизированные кости (`1d6necrotic`): тип уходит отдельной частью сводки.
+        const typed = typeof raw === 'string' ? /^(.*?\d+d\d+)([a-z]+)$/.exec(raw.trim().toLowerCase()) : null;
+        const base = typed ? typed[1]! : raw;
         const value =
-          raw === undefined
+          base === undefined
             ? ''
-            : typeof raw === 'number'
-              ? raw >= 0
-                ? `+${raw}`
-                : `${raw}`
-              : raw.startsWith('-')
-                ? raw
-                : `+${raw}`;
+            : typeof base === 'number'
+              ? base >= 0
+                ? `+${base}`
+                : `${base}`
+              : base.startsWith('-')
+                ? base
+                : `+${base}`;
         const target =
           mod.target === 'attack'
             ? 'addAttack'
@@ -399,6 +402,7 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
                                     ? 'addReach'
                                     : 'add';
         parts.push({ key: `domain.effect.${target}`, params: { value } });
+        if (typed) parts.push({ key: `domain.damage.${typed[2]}` as EffectTextPart['key'] });
         break;
       }
       case 'multiply':
