@@ -18,6 +18,7 @@ export type ErrorCode =
   | 'spellNotPrepared'
   | 'spellNotInStatblock'
   | 'noAreaPoint'
+  | 'noClearPath'
   | 'outOfRange'
   | 'noSlot'
   | 'noResource'

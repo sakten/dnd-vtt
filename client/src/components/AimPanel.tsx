@@ -36,7 +36,9 @@ export default function AimPanel() {
         <span className="aim-title">
           {t('ui.aim.areaLabel', { shape: t(SHAPE_RU[aim.spec.shape] ?? 'ui.aim.area'), size: aim.spec.size })}
         </span>
-        <span className="aim-hint">{t('ui.aim.aimHint')}</span>
+        <span className={`aim-hint${aim.blocked ? ' aim-blocked' : ''}`}>
+          {aim.blocked ? t('ui.aim.blocked') : t('ui.aim.aimHint')}
+        </span>
         <button className="aim-cancel" onClick={cancel}>
           {t('ui.common.cancel')}
         </button>

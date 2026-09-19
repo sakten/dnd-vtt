@@ -20,6 +20,7 @@ import {
   withAdvantage,
   withRollParts,
   type AbilityKey,
+  type AreaSpec,
   type AutomationDice,
   type AutomationDef,
   type AutomationEffect,
@@ -35,6 +36,7 @@ import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { applyEffectTo } from './effectsApply';
+import { emitSpellFx } from './fx';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { startMovementTurns } from './moveTurns';
@@ -62,6 +64,8 @@ export interface AutomationInput {
   /** Точка привязки/направление каста — для создания зон (`def.zone`). */
   origin?: { x: number; y: number } | null;
   direction?: { x: number; y: number } | null;
+  /** Область применения, если её нет в `def` (заклинания: `spell.areaSpec`). */
+  area?: AreaSpec | null;
 }
 
 /** Единственный тип урона, если он однозначен (иначе защиты не применяются). */
@@ -603,6 +607,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       kind: 'attack',
       params: { subject: label, hit: hitSuccess ? 'hit' : 'miss' },
     });
+    // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друг друга.
+    if (count === 1 || i === 0) maybeRollAnim(ctx, hitRoll);
     if (!hitSuccess) continue;
     // Mirror Image: попадание может принять образ вместо цели.
     if (misdirectCheck(ctx, room, mapId, target, caster)) continue;
@@ -737,6 +743,20 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     applyUtility(ctx, { ...input, targets });
     return;
   }
+
+  // Косметический эффект применения: клиент рисует по этому событию (в т.ч. зоны/ауры).
+  emitSpellFx(
+    ctx,
+    {
+      caster,
+      mapId,
+      def,
+      origin: input.origin ?? null,
+      direction: input.direction ?? null,
+      area: input.area ?? def.area ?? null,
+    },
+    targets
+  );
 
   // Новая концентрация: прошлые эффекты и зоны снимаются до создания новой зоны.
   if (def.concentration) dropConcentration(ctx, room, caster);

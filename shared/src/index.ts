@@ -10,6 +10,7 @@ export * from './domain/sense';
 export * from './domain/combat';
 export * from './domain/scene';
 export * from './domain/chat';
+export * from './domain/fx';
 export * from './domain/room';
 export * from './socket/contract';
 export * from './labels';

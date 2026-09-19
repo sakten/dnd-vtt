@@ -51,6 +51,7 @@ check(slot3 && slot3.max === 2, 'у волшебника 5 есть ячейки
 const saveMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'save');
 const damageMsgP = waitMsg(S.player, (m) => m.kind === 'roll' && m.rollKind === 'damage');
 const hpP = waitToken(S, zombie.id, (t) => t.hpCurrent < 30, S.dm);
+const fxP = eventOnce(S.player, 'fx:play');
 S.player.emit('spell:cast', {
   mapId: S.map1.id,
   tokenId: caster.id,
@@ -58,6 +59,11 @@ S.player.emit('spell:cast', {
   slotLevel: 3,
   origin: { x: zombie.x, y: zombie.y },
 });
+const fx = await fxP;
+check(
+  fx?.key === 'XPHB:Fireball' && fx?.area?.shape === 'sphere' && fx?.types?.includes('fire'),
+  'fx:play: сфера Fireball с типом fire'
+);
 const saveMsg = await saveMsgP;
 check(saveMsg.labelParams?.saveOutcome === 'success' || saveMsg.labelParams?.saveOutcome === 'fail', 'кинут спасбросок');
 const damageMsg = await damageMsgP;

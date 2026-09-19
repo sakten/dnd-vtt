@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
+import { rollAnimMs } from '../lib/rollAnimTiming';
 
 const ThreeD20 = lazy(() => import('./ThreeD20'));
 
@@ -14,8 +15,7 @@ export default function RollOverlay() {
   useEffect(() => {
     if (!anim) return;
     // С преимуществом/помехой анимация длиннее: пауза, «пульс» взятого и растворение отброшенного.
-    const delay = anim.dice.some((d) => !d.kept) ? 2600 : 1700;
-    const timer = window.setTimeout(() => clearRollAnim(), delay);
+    const timer = window.setTimeout(() => clearRollAnim(), rollAnimMs(anim.dice));
     return () => window.clearTimeout(timer);
   }, [anim, clearRollAnim]);
 

@@ -1,5 +1,6 @@
 import type { ActionCost, ReactionOffer } from '../domain/actions';
 import type { ChatMessage, ErrorPayload, RollKind } from '../domain/chat';
+import type { SpellFxPayload } from '../domain/fx';
 import type { CombatState } from '../domain/combat';
 import type { Player, RollAnimPayload, RoomState } from '../domain/room';
 import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall } from '../domain/scene';
@@ -44,6 +45,8 @@ export interface ServerToClientEvents {
   'reaction:close': (payload: { id: string }) => void;
   /** Показать анимацию d20 бросающему игроку (шанс задан в его настройке). */
   'roll:anim': (payload: RollAnimPayload) => void;
+  /** Косметический эффект применения (заклинание/черта/способность монстра). */
+  'fx:play': (payload: SpellFxPayload) => void;
   'player:kicked': () => void;
   'room:deleted': () => void;
   'pong': () => void;

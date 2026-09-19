@@ -86,6 +86,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     advantage: input.advantage,
     origin: input.origin ?? null,
     direction: input.direction ?? null,
+    area: input.spell.areaSpec ?? null,
     manual: {
       description: input.spell.description,
       level: input.spell.level,

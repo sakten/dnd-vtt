@@ -1,0 +1,8 @@
+/* Косметические эффекты применения (fx:play): three.js-оверлей над столом. */
+.spell-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}

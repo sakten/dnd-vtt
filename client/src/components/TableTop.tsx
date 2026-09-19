@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Group, Image as KonvaImage, Line, Shape, Text } from 'react-konva';
 import Konva from 'konva';
 import type { AttackRangeType, CharacterSheet, LightArea, MapInfo, Token, Wall, ZoneInstance } from 'shared';
@@ -28,6 +28,9 @@ import ZoneLayer from './ZoneLayer';
 import ConditionsOverlay from './ConditionsOverlay';
 import DoorView from './DoorView';
 import TokenView from './TokenView';
+import { buildFxMask, type FxMask } from './spellFx/mask';
+
+const SpellFxOverlay = lazy(() => import('./spellFx/SpellFxOverlay'));
 
 function MapSprite({ map }: { map: MapInfo }) {
   const image = useImage(map.url);
@@ -357,6 +360,20 @@ export default function TableTop() {
     cellBounds,
     grid,
   ]);
+
+  // Маска для оверлея эффектов: игрок видит анимацию только в видимых клетках (DM — везде).
+  const fxMask = useMemo<FxMask | null>(() => {
+    if (!visionView || !activeMap) return null;
+    const cell = grid.size || 50;
+    const cols = Math.ceil(activeMap.width / cell);
+    const rows = Math.ceil(activeMap.height / cell);
+    const blocked: string[] = [];
+    for (const r of visionView.rects) {
+      blocked.push(`${Math.round((r.x - grid.offsetX) / cell)},${Math.round((r.y - grid.offsetY) / cell)}`);
+    }
+    for (const key of hiddenSet) blocked.push(key);
+    return buildFxMask({ cell, offsetX: grid.offsetX, offsetY: grid.offsetY, cols, rows, blocked });
+  }, [visionView, hiddenSet, grid, activeMap]);
 
   const isCellHidden = (x: number, y: number): boolean => {
     const f = activeMap?.fog;
@@ -866,7 +883,7 @@ export default function TableTop() {
                 y={c.y}
                 width={c.size}
                 height={c.size}
-                fill="#ff9f43"
+                fill={aim?.blocked ? '#ff6b6b' : '#ff9f43'}
                 opacity={0.34}
                 listening={false}
               />
@@ -879,7 +896,7 @@ export default function TableTop() {
                   aim.origin.x + 8 / view.scale,
                   aim.origin.y,
                 ]}
-                stroke="#ff9f43"
+                stroke={aim.blocked ? '#ff6b6b' : '#ff9f43'}
                 strokeWidth={3 / view.scale}
                 listening={false}
               />
@@ -1025,6 +1042,9 @@ export default function TableTop() {
         </Stage>
       )}
       <ConditionsOverlay />
+      <Suspense fallback={null}>
+        <SpellFxOverlay mask={fxMask} />
+      </Suspense>
     </div>
   );
 }

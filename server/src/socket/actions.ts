@@ -3,6 +3,7 @@ import {
   automationForAction,
   casterStats,
   classFeatures,
+  crossesWalls,
   featureActionAutomation,
   findBaseAction,
   findUnarmedAttack,
@@ -170,6 +171,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
             fail(ctx, 'outOfRange', { feet: Math.round(feet) });
             return;
           }
+          // Чистый путь до точки области (стена/закрытая дверь блокируют).
+          if (map && crossesWalls(token, abilityOrigin, map.walls, 'sight')) {
+            fail(ctx, 'noClearPath');
+            return;
+          }
         } else if (action.ability.attack) {
           for (const id of Array.isArray(targetIds) ? targetIds : []) {
             if (typeof id !== 'string') continue;
@@ -178,6 +184,10 @@ export function registerActionHandlers(ctx: ConnCtx) {
             const feet = gridDistanceFeet(token, found, size);
             if (range > 0 && feet > range) {
               fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+              return;
+            }
+            if (map && crossesWalls(token, found, map.walls, 'sight')) {
+              fail(ctx, 'noClearPath');
               return;
             }
           }
@@ -354,6 +364,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
         stats,
         author,
         advantage,
+        origin: abilityOrigin,
+        direction,
+        area: abilityArea ?? null,
         manual: { description: action.description ? [action.description] : undefined },
       });
         return;

@@ -301,6 +301,45 @@ describe('action:use', () => {
     expect(room.scene.maps[0]!.tokens[2]!.hpCurrent).toBe(22);
   });
 
+  it('способность-область за стену не применяется: нет чистого пути', () => {
+    const statblock: TokenStatblock = {
+      abilities: { ...DEFAULT_ABILITIES },
+      saveDc: 12,
+      actions: [
+        {
+          id: 'swipe',
+          name: 'Хвостовой удар',
+          source: 'monster',
+          costs: ['action'],
+          ability: {
+            targeting: { kind: 'area', range: 0, area: { shape: 'sphere', size: 10 } },
+            save: { ability: 'dex' },
+            damage: { dice: '2d6', types: ['bludgeoning'] },
+          },
+        },
+      ],
+    };
+    const room = makeRoom([
+      makeToken('t1', { statblock }),
+      makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ]);
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 125, y1: 50, x2: 125, y2: 150, kind: 'wall' }];
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'swipe',
+      origin: { x: 175, y: 100 },
+    });
+
+    expect(
+      f.selfEvents('chat:error').some((e) => (e.payload as { code?: string } | undefined)?.code === 'noClearPath')
+    ).toBe(true);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
+  });
+
   it('легендарная способность-заклинание кастуется из полного каталога без слота', () => {
     const statblock: TokenStatblock = {
       abilities: { ...DEFAULT_ABILITIES },
@@ -2169,6 +2208,54 @@ describe('spell:cast', () => {
     expect(t2.hpCurrent).toBeLessThan(30);
     expect(t3.hpCurrent).toBeLessThan(30);
     expect(t5.hpCurrent).toBe(30);
+
+    // Косметический эффект: сфера к точке, типы урона и только задетые цели.
+    const fx = f.emitted.find((e) => e.event === 'fx:play')?.payload as
+      | {
+          key: string;
+          mode: string;
+          types: string[];
+          targets: string[];
+          area?: { shape: string; size: number };
+          origin: { x: number; y: number } | null;
+        }
+      | undefined;
+    expect(fx?.key).toBe('XPHB:Fireball');
+    expect(fx?.mode).toBe('damage');
+    expect(fx?.types).toEqual(['fire']);
+    expect(fx?.area).toEqual({ shape: 'sphere', size: 20 });
+    expect(fx?.origin).toEqual({ x: 300, y: 100 });
+    expect([...(fx?.targets ?? [])].sort()).toEqual(['t2', 't3']);
+  });
+
+  it('файрболл за стену не кастуется: нет чистого пути', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 300, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = casterSheet();
+    room.resources.p1 = casterResources();
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 200, y1: 50, x2: 200, y2: 150, kind: 'wall' }];
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 300, y: 100 },
+    });
+
+    expect(
+      f.selfEvents('chat:error').some((e) => (e.payload as { code?: string } | undefined)?.code === 'noClearPath')
+    ).toBe(true);
+    // Ячейка не списана, цели не задеты.
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
+    expect(room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!.hpCurrent).toBe(30);
   });
 
   it('Scorching Ray: каждый луч бьёт свою цель (3 броска)', () => {
@@ -2194,6 +2281,8 @@ describe('spell:cast', () => {
     };
     const f = makeCtx(room, { playerId: 'p1' });
     registerSpellHandlers(f.ctx);
+    registerRollAnimHandlers(f.ctx);
+    f.invoke('player:rollAnimChance', { value: 100 });
 
     f.invoke('spell:cast', {
       mapId: 'm1',
@@ -2209,6 +2298,8 @@ describe('spell:cast', () => {
       (m as { labelParams?: { subject?: string } }).labelParams?.subject ?? '';
     expect(subject(attacks[0]!)).toContain('(1/3)');
     expect(subject(attacks[2]!)).toContain('(3/3)');
+    // Лучи: анимация d20 только для первого броска, иначе анимации перебивают друг друга.
+    expect(f.selfEvents('roll:anim')).toHaveLength(1);
   });
 
   it('иммунитет к типу урона обнуляет урон атаки', () => {

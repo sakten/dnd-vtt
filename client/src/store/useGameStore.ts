@@ -13,6 +13,7 @@ import { createViewSlice } from './slices/view';
 import { createReactionSlice } from './slices/reactions';
 import { createRollAnimSlice } from './slices/rollAnim';
 import { createRollModeSlice } from './slices/rollMode';
+import { createFxSlice } from './slices/fx';
 import { createSettingsSlice } from './slices/settings';
 
 export const useGameStore = create<GameState>()((set, get) => ({
@@ -28,6 +29,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createReactionSlice(set, get),
   ...createRollAnimSlice(set, get),
   ...createRollModeSlice(set, get),
+  ...createFxSlice(set, get),
   ...createSettingsSlice(set, get),
     socket: null,
     socketDispose: null,
@@ -70,6 +72,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     reactionOffers: [],
     rollAnim: null,
     rollMode: null,
+    fxQueue: [],
 }));
 
 if (typeof window !== 'undefined') {

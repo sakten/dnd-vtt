@@ -17,6 +17,7 @@ import type {
   RollKind,
   Scene,
   ServerToClientEvents,
+  SpellFxPayload,
   Token,
   TokenFields,
   VisionSettings,
@@ -74,6 +75,11 @@ export interface CritHit {
   total: number;
 }
 
+/** Косметический эффект применения в очереди: не стартовать раньше `notBefore` (мс, performance.now). */
+export interface FxCast extends SpellFxPayload {
+  notBefore: number;
+}
+
 export interface GameState {
   socket: AppSocket | null;
   /** Снятие моста сокета (слушатели + heartbeat) для `disposeSocket`. */
@@ -120,7 +126,9 @@ export interface GameState {
   /** Активные окна реакций (R1). */
   reactionOffers: ReactionOffer[];
   /** Анимация выпавших d20 (по личному шансу): взятые кубики подсвечены, отброшенные тускнеют. */
-  rollAnim: { id: string; dice: DiceRollFace[] } | null;
+  rollAnim: { id: string; dice: DiceRollFace[]; startedAt: number } | null;
+  /** Косметический эффект применения в очереди: не стартовать раньше `notBefore` (мс, performance.now). */
+  fxQueue: FxCast[];
   /** Галка Adv/Dis над ROLL: применяется к следующему своему броску, включая чеки в игре. */
   rollMode: 'a' | 'd' | null;
 
@@ -282,6 +290,10 @@ export interface GameState {
   clearRollAnim: () => void;
   /** Установить/сбросить режим преимущества для следующего броска. */
   setRollMode: (mode: 'a' | 'd' | null) => void;
+  /** Получен косметический эффект применения (fx:play). */
+  onFxPlay: (payload: SpellFxPayload) => void;
+  /** Эффект проигран — убрать из очереди. */
+  dequeueFx: (id: string) => void;
 }
 
 export type StoreSet = (partial: Partial<GameState> | ((state: GameState) => Partial<GameState>)) => void;

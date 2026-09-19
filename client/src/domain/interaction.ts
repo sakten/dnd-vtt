@@ -20,6 +20,8 @@ export interface AimState {
   rangeFeet: number | null;
   origin: Point | null;
   direction: Point | null;
+  /** Путь до точки перекрыт стеной/закрытой дверью — применять нельзя. */
+  blocked?: boolean;
 }
 
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */

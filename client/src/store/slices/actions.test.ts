@@ -158,6 +158,25 @@ describe('actions slice', () => {
     expect(aim?.mode === 'aim' ? aim.aim.origin : null).toEqual({ x: 600, y: 100 });
   });
 
+  it('aimToCursor: стена между кастером и точкой — blocked, каст не уходит', () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.walls = [{ id: 'w1', x1: 150, y1: 50, x2: 150, y2: 200, kind: 'wall' }];
+    useGameStore.getState().startAim({
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      spec: { shape: 'sphere', size: 20 },
+      originKind: 'point',
+      rangeFeet: null,
+    });
+    useGameStore.getState().aimToCursor({ x: 250, y: 100 });
+    const aim = useGameStore.getState().interaction;
+    expect(aim?.mode === 'aim' ? aim.aim.blocked : undefined).toBe(true);
+    useGameStore.getState().confirmAim();
+    expect(emitted).toHaveLength(0);
+    expect(useGameStore.getState().interaction?.mode).toBe('aim');
+  });
+
   it('multiTarget: каст после выбора целей на все снаряды', () => {
     useGameStore.getState().startMultiTarget({
       tokenId: 't1',

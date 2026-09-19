@@ -18,7 +18,7 @@ export const createRollAnimSlice: Slice<RollAnimState> = (set, get) => {
             ...group.dropped.map((value) => ({ value, kept: false })),
           ]
         : [{ value: roll.total, kept: true }];
-      set({ rollAnim: { id, dice } });
+      set({ rollAnim: { id, dice, startedAt: performance.now() } });
     },
 
     setRollAnimChance: (value) => {

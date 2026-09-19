@@ -577,6 +577,10 @@
   color: var(--text-dim);
 }
 
+.aim-hint.aim-blocked {
+  color: var(--danger, #ff6b6b);
+}
+
 .aim-panel button {
   padding: 6px 14px;
   border-radius: 8px;

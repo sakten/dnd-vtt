@@ -9,6 +9,7 @@ import {
   startTargeting,
   type InteractionCommand,
 } from '../../domain/interaction';
+import { crossesWalls } from 'shared';
 import { emitInMap } from '../helpers';
 import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
@@ -72,14 +73,24 @@ export const createActionSlice: Slice<
       const state = get();
       const it = state.interaction;
       if (it?.mode !== 'aim') return;
-      const token = tokenById(activeMapOf(state), it.aim.tokenId);
-      _set({ interaction: aimToCursor(it, cursor, token, activeGridOf(state).size || 50) });
+      const map = activeMapOf(state);
+      const token = tokenById(map, it.aim.tokenId);
+      const next = aimToCursor(it, cursor, token, activeGridOf(state).size || 50);
+      if (!next || next.mode !== 'aim' || !next.aim.origin) {
+        _set({ interaction: next });
+        return;
+      }
+      // Подсветка: путь до точки перекрыт стеной/закрытой дверью — применять нельзя.
+      const blocked = !!map && !!token && crossesWalls(token, next.aim.origin, map.walls, 'sight');
+      _set({ interaction: { mode: 'aim', aim: { ...next.aim, blocked } } });
     },
 
     cancelAim: () => _set({ interaction: null }),
 
     confirmAim: () => {
-      const { next, command } = confirmArea(get().interaction);
+      const it = get().interaction;
+      if (it?.mode === 'aim' && it.aim.blocked) return;
+      const { next, command } = confirmArea(it);
       _set({ interaction: next });
       runCommand(command);
     },
