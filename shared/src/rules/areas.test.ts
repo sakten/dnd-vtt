@@ -123,4 +123,10 @@ describe('распространение области и стены', () => {
     expect(tokenVisibleFrom(origin, big, [wall(100, -25, 100, 25)], grid)).toBe(true);
     expect(tokenVisibleFrom(origin, big, [wall(100, -300, 100, 300)], grid)).toBe(false);
   });
+
+  it('«полностью внутри» тоже обрезается стеной', () => {
+    const big = { x: 75, y: 25, w: 100, h: 50 }; // клетки (0,0), (1,0), (2,0)
+    expect(tokenFullyInArea(big, sphere, origin, null, grid)).toBe(true);
+    expect(tokenFullyInArea(big, sphere, origin, null, grid, 'euclidean', [wall(100, -300, 100, 300)])).toBe(false);
+  });
 });

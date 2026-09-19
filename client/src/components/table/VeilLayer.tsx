@@ -1,5 +1,5 @@
 import { Line, Shape, Text } from 'react-konva';
-import type { GridSettings, ZoneInstance } from 'shared';
+import type { GridSettings, Wall, ZoneInstance } from 'shared';
 import ZoneLayer from '../ZoneLayer';
 import type { CellRect, WorldPoint } from '../../lib/fog';
 import { t } from '../../i18n';
@@ -14,13 +14,14 @@ interface Props {
   visionView: VisionView | null;
   zones: ZoneInstance[];
   grid: GridSettings;
+  walls?: Wall[];
   measure: { from: WorldPoint; to: WorldPoint; feet: number; attackMode: 'a' | 'd' | null | undefined } | null;
   attackCursor: WorldPoint | null;
   viewScale: number;
 }
 
 /** Вуаль обзора, разметка вижн-зон, линейка измерения и значок преимущества атаки. */
-export default function VeilLayer({ visionView, zones, grid, measure, attackCursor, viewScale }: Props) {
+export default function VeilLayer({ visionView, zones, grid, walls = [], measure, attackCursor, viewScale }: Props) {
   return (
     <>
       {visionView && visionView.rects.length > 0 && (
@@ -38,6 +39,7 @@ export default function VeilLayer({ visionView, zones, grid, measure, attackCurs
         <ZoneLayer
           zones={zones}
           grid={grid}
+          walls={walls}
           mode="markings"
           visible={visionView.base}
           visibleByZone={visionView.byZone}

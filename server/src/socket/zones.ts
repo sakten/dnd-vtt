@@ -59,8 +59,10 @@ function insideTokens(
   const grid = gridOf(map);
   const inside =
     containment === 'fullyWithin'
-      ? map.tokens.filter((t) => tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid))
-      : tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid);
+      ? map.tokens.filter((t) =>
+          tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls)
+        )
+      : tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls);
   return zone.excludeSource ? inside.filter((t) => t.id !== zone.sourceId) : inside;
 }
 

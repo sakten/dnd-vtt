@@ -59,8 +59,8 @@ export function visibleCells(input: VisionInput): Set<string> | null {
   const cy0 = Math.max(0, bounds?.cy0 ?? 0);
   const cx1 = Math.min(cols - 1, bounds?.cx1 ?? cols - 1);
   const cy1 = Math.min(rows - 1, bounds?.cy1 ?? rows - 1);
-  const zoneCells = zoneVisionCells(zones, { size: cellSize, offsetX, offsetY });
-  const sight = { areas, zones, zoneCells, cellSize, offsetX, offsetY };
+  const zoneCells = zoneVisionCells(zones, { size: cellSize, offsetX, offsetY }, walls);
+  const sight = { areas, zones, zoneCells, cellSize, offsetX, offsetY, walls };
   const visible = new Set<string>();
   for (const viewer of viewers) {
     const vcx = Math.floor((viewer.x - offsetX) / cellSize);

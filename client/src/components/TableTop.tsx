@@ -574,7 +574,12 @@ export default function TableTop() {
           </Layer>
           <GridLayer grid={grid} view={view} viewport={size} />
           <Layer listening={false}>
-            <ZoneLayer zones={activeMap?.zones ?? []} grid={grid} mode={visionView ? 'fills' : 'full'} />
+            <ZoneLayer
+              zones={activeMap?.zones ?? []}
+              grid={grid}
+              walls={activeMap?.walls ?? []}
+              mode={visionView ? 'fills' : 'full'}
+            />
           </Layer>
           <Layer>
             <AimLayer
@@ -599,6 +604,7 @@ export default function TableTop() {
               visionView={visionView}
               zones={activeMap?.zones ?? []}
               grid={grid}
+              walls={activeMap?.walls ?? []}
               measure={measure}
               attackCursor={attackCursor}
               viewScale={view.scale}

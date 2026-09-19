@@ -174,11 +174,25 @@ export function tokenFullyInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   origin: AreaPoint,
   direction: AreaPoint | null,
   grid: AreaGrid,
-  metric: DistanceMetric = 'euclidean'
+  metric: DistanceMetric = 'euclidean',
+  walls?: Wall[]
 ): boolean {
-  const cells = new Set(areaCells(spec, origin, direction, grid, metric));
+  const cells = areaCellsSpread(spec, origin, direction, grid, walls ?? [], metric);
   const own = tokenCells(token, grid);
   return own.length > 0 && own.every((key) => cells.has(key));
+}
+
+/** Клетки шаблона c распространением: сплошные стены обрывают путь, углы огибаются. */
+export function areaCellsSpread(
+  spec: AreaSpec,
+  origin: AreaPoint,
+  direction: AreaPoint | null,
+  grid: AreaGrid,
+  walls: Wall[],
+  metric: DistanceMetric = 'euclidean'
+): Set<string> {
+  const cells = new Set(areaCells(spec, origin, direction, grid, metric));
+  return walls.length > 0 ? spreadCells(cells, origin, grid, walls) : cells;
 }
 
 /** Существа, у которых хотя бы одна занятая клетка попала в шаблон. */
@@ -191,9 +205,8 @@ export function tokensInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   metric: DistanceMetric = 'euclidean',
   walls?: Wall[]
 ): S[] {
-  let cells = new Set(areaCells(spec, origin, direction, grid, metric));
   // 5e: эффект распространяется по клеткам области и огибает углы; сплошная стена обрывает путь.
-  if (walls && walls.length > 0) cells = spreadCells(cells, origin, grid, walls);
+  const cells = areaCellsSpread(spec, origin, direction, grid, walls ?? [], metric);
   return tokens.filter((t) => tokenCells(t, grid).some((key) => cells.has(key)));
 }
 

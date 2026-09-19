@@ -2,7 +2,7 @@ import type { ZoneInstance } from '../domain/automation';
 import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
 import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCellKey, areaCells, areaContainsPoint, pointCell, type AreaGrid } from './areas';
+import { areaCellKey, areaCellsSpread, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
 
 export interface SightContext {
@@ -46,12 +46,17 @@ export function sightContextOf(
 }
 
 /** Клетки вижн-зон с их видами (для вуали: считается один раз на пересчёт). */
-export function zoneVisionCells(zones: ZoneInstance[], grid: AreaGrid): Map<string, LightAreaKind> {
+export function zoneVisionCells(
+  zones: ZoneInstance[],
+  grid: AreaGrid,
+  walls: Wall[] = []
+): Map<string, LightAreaKind> {
   const out = new Map<string, LightAreaKind>();
   for (const zone of zones) {
     const kind = zoneVisionKind(zone);
     if (!kind || !zone.origin || !Number.isFinite(zone.origin.x) || !Number.isFinite(zone.origin.y)) continue;
-    for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, grid)) {
+    // Тьма/мгла зоны не распространяется через стены: только по достижимым клеткам области.
+    for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) {
       const prev = out.get(key);
       out.set(key, prev ? strongestKind(prev, kind) ?? kind : kind);
     }
@@ -60,12 +65,21 @@ export function zoneVisionCells(zones: ZoneInstance[], grid: AreaGrid): Map<stri
 }
 
 /** Вижн-вид зон в точке (для проверок по цели: атаки). */
-export function zoneVisionKindAt(zones: ZoneInstance[], point: Point, grid: AreaGrid): LightAreaKind | null {
+export function zoneVisionKindAt(
+  zones: ZoneInstance[],
+  point: Point,
+  grid: AreaGrid,
+  walls: Wall[] = []
+): LightAreaKind | null {
+  const cell = pointCell(point, grid);
+  const key = areaCellKey(cell.cx, cell.cy);
   let kind: LightAreaKind | null = null;
   for (const zone of zones) {
     const zoneKind = zoneVisionKind(zone);
     if (!zoneKind || !zone.origin || !Number.isFinite(zone.origin.x) || !Number.isFinite(zone.origin.y)) continue;
-    if (areaContainsPoint(zone.area, zone.origin, zone.direction ?? null, point, grid)) kind = strongestKind(kind, zoneKind);
+    if (areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls).has(key)) {
+      kind = strongestKind(kind, zoneKind);
+    }
   }
   return kind;
 }
@@ -75,7 +89,7 @@ export function zoneVisionKindAt(zones: ZoneInstance[], point: Point, grid: Area
  * для `canSee` и вуали; при `zoneCells` зоны берутся из кэша, иначе считаются по точке.
  */
 export function visionKindAt(
-  ctx: Pick<SightContext, 'areas' | 'zones' | 'zoneCells' | 'cellSize' | 'offsetX' | 'offsetY'>,
+  ctx: Pick<SightContext, 'areas' | 'zones' | 'zoneCells' | 'cellSize' | 'offsetX' | 'offsetY' | 'walls'>,
   point: Point
 ): LightAreaKind | null {
   const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
@@ -83,7 +97,7 @@ export function visionKindAt(
   const fromZones = ctx.zoneCells
     ? ctx.zoneCells.get(areaCellKey(cell.cx, cell.cy)) ?? null
     : ctx.zones
-      ? zoneVisionKindAt(ctx.zones, point, grid)
+      ? zoneVisionKindAt(ctx.zones, point, grid, ctx.walls ?? [])
       : null;
   return strongestKind(areaKindAt(ctx.areas ?? [], point), fromZones);
 }

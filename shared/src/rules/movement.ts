@@ -1,7 +1,7 @@
 import { gridDistanceFeet, type GridBox } from './combat';
 import type { ZoneInstance } from '../domain/automation';
 import { snapToGrid, type Wall } from '../domain/scene';
-import { areaCellKey, areaCells, cellCenter, pointCell, tokenCells, type AreaGrid } from './areas';
+import { areaCellKey, areaCellsSpread, cellCenter, pointCell, tokenCells, type AreaGrid } from './areas';
 import { crossesWalls } from './walls';
 
 export const DEFAULT_FEET_PER_CELL = 5;
@@ -380,7 +380,8 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   }
   for (const zone of input.zones) {
     if (!zone.flags?.difficultTerrain) continue;
-    for (const key of areaCells(zone.area, zone.origin, zone.direction ?? null, grid)) difficult.add(key);
+    // Сложная местность зоны тоже не проходит через сплошные стены (огибает углы).
+    for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) difficult.add(key);
   }
   const bounds = { cols, rows };
   const even = cells % 2 === 0;

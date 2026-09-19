@@ -1,6 +1,6 @@
 import { Group, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
-import { areaCells, type GridSettings, type ZoneInstance } from 'shared';
+import { areaCellsSpread, type GridSettings, type Wall, type ZoneInstance } from 'shared';
 import { zoneStyle, type ZoneStyle } from '../lib/zoneRender';
 
 interface CellRect {
@@ -55,6 +55,7 @@ export default function ZoneLayer({
   mode = 'full',
   visible,
   visibleByZone,
+  walls = [],
 }: {
   zones: ZoneInstance[];
   grid: GridSettings;
@@ -63,13 +64,15 @@ export default function ZoneLayer({
   visible?: Set<string>;
   /** Видимость без собственной тьмы/мглы конкретной зоны (иначе зона скрывает саму себя). */
   visibleByZone?: Map<string, Set<string>>;
+  /** Стены карты: зона не показывается сквозь сплошную стену (огибает углы). */
+  walls?: Wall[];
 }) {
   return (
     <>
       {zones
         .filter((zone) => zone.origin && Number.isFinite(zone.origin.x) && Number.isFinite(zone.origin.y))
         .map((zone) => {
-        const all: CellRect[] = areaCells(zone.area, zone.origin, zone.direction ?? null, grid).map((key) => {
+        const all: CellRect[] = [...areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)].map((key) => {
           const [cx, cy] = key.split(',').map(Number);
           return {
             key,

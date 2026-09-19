@@ -51,6 +51,42 @@ describe('движок зон', () => {
     expect(aura?.conditions).toEqual(['blinded']);
   });
 
+  it('сплошная стена не пропускает ауру зоны', () => {
+    const { room, f } = setup();
+    room.scene.maps[0]!.tokens.push(makeToken('t3', { x: 350, y: 100, hpMax: '30', hpCurrent: 30 }));
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 300, y1: -100, x2: 300, y2: 300, kind: 'wall' }];
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: zoneDef,
+      stats: { ability: 'wis', mod: 3, dc: 14, attack: 5 },
+      origin: { x: 250, y: 100 },
+    });
+
+    const behind = room.scene.maps[0]!.tokens.find((t) => t.id === 't3')!;
+    const inside = room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!;
+    expect(behind.effects.some((e) => e.zoneId === zone!.id)).toBe(false);
+    expect(inside.effects.some((e) => e.zoneId === zone!.id)).toBe(true);
+  });
+
+  it('открытая дверь ауру пропускает', () => {
+    const { room, f } = setup();
+    room.scene.maps[0]!.tokens.push(makeToken('t3', { x: 350, y: 100, hpMax: '30', hpCurrent: 30 }));
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 300, y1: -100, x2: 300, y2: 300, kind: 'door', open: true }];
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: zoneDef,
+      stats: { ability: 'wis', mod: 3, dc: 14, attack: 5 },
+      origin: { x: 250, y: 100 },
+    });
+
+    const behind = room.scene.maps[0]!.tokens.find((t) => t.id === 't3')!;
+    expect(behind.effects.some((e) => e.zoneId === zone!.id)).toBe(true);
+  });
+
   it('token:step обрабатывает вход в зону по ходу движения', () => {
     const { room, f } = setup();
     const caster = room.scene.maps[0]!.tokens[0]!;

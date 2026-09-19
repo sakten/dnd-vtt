@@ -138,6 +138,17 @@ describe('вижн-зоны заклинаний', () => {
     expect(canSee({ x: 25, y: 75 }, { x: 125, y: 75 }, darkvision, { ...SIGHT, zones })).toBe(false);
     expect(canSee({ x: 25, y: 75 }, { x: 125, y: 75 }, devilsight, { ...SIGHT, zones })).toBe(true);
   });
+
+  it('тьма зоны не распространяется через сплошную стену', () => {
+    const zones = [zone({ blocksLight: true }, 20)];
+    const wall = { id: 'w1', kind: 'wall' as const, x1: 150, y1: -100, x2: 150, y2: 300 };
+    const cells = zoneVisionCells(zones, grid, [wall]);
+    // Клетки до стены — тьма; за стеной — нет.
+    expect(cells.get('2,1')).toBe('magical');
+    expect(cells.get('3,1')).toBeUndefined();
+    expect(zoneVisionKindAt(zones, { x: 175, y: 75 }, grid, [wall])).toBeNull();
+    expect(zoneVisionKindAt(zones, { x: 175, y: 75 }, grid)).toBe('magical');
+  });
 });
 
 describe('countAttackAdvantage: невидимость (RAW)', () => {
