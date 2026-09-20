@@ -316,6 +316,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.token.makeMyCharacter': 'Make it my character',
   'ui.token.thisIsMyCharacter': 'This is my character',
   'ui.token.tabStatblock': 'Statblock',
+  'ui.token.dismissFamiliar': 'Dismiss familiar',
   'ui.token.faction.ally': 'Ally',
   'ui.token.faction.enemy': 'Enemy',
   'ui.token.faction.neutral': 'Neutral',

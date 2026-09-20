@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attackRange, countAttackAdvantage, critRangeFor, resolveAbilityMods } from './combat';
+import { attackRange, attackRollExpression, countAttackAdvantage, critRangeFor, resolveAbilityMods } from './combat';
 import { rollMode } from './effects';
 import type { ConditionInstance } from '../domain/effects';
 
@@ -92,6 +92,17 @@ describe('resolveAbilityMods', () => {
   it('неизвестные характеристики — модификатор 10', () => {
     expect(resolveAbilityMods('d20+cha', abilities)).toBe('d20+0');
     expect(resolveAbilityMods('d20+constitution', abilities)).toBe('d20+constitution');
+  });
+});
+
+describe('attackRollExpression', () => {
+  it('голый бонус бестиария превращается в d20+бонус', () => {
+    expect(attackRollExpression('+5')).toBe('d20+5');
+    expect(attackRollExpression('5')).toBe('d20+5');
+    expect(attackRollExpression('-1')).toBe('d20-1');
+    expect(attackRollExpression('d20+str')).toBe('d20+str');
+    expect(attackRollExpression('1d20+5')).toBe('1d20+5');
+    expect(attackRollExpression('')).toBe('');
   });
 });
 

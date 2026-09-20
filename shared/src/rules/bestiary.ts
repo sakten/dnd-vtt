@@ -528,6 +528,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
   const actions: ActionDef[] = [];
   const manual: string[] = [];
   let multiattack: number | undefined;
+  let multiattackHalfLevel = false;
   let spellAttack = false;
   let spellDc = false;
 
@@ -537,6 +538,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     if (/^multiattack$/i.test(entry.name)) {
       const count = parseMultiattack(entry.text);
       if (count && count > 1) multiattack = count;
+      else if (/half (?:this |the )?spell'?s level/i.test(entry.text)) multiattackHalfLevel = true;
       else manual.push(`**${entry.name}.** ${entry.text}`);
       continue;
     }
@@ -658,12 +660,13 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
   const description = [...traits, ...manual].join('\n\n').slice(0, 6000);
 
   const summon: BestiarySummonProfile | undefined =
-    hpScaling || acScaling || spellAttack || spellDc
+    hpScaling || acScaling || spellAttack || spellDc || multiattackHalfLevel
       ? {
           ...(hpScaling ? { hpPerLevel: hpScaling.perLevel, baseLevel: hpScaling.baseLevel } : {}),
           ...(acScaling ? { acPerLevel: acScaling.perLevel } : {}),
           ...(spellAttack ? { spellAttack: true } : {}),
           ...(spellDc ? { spellDc: true } : {}),
+          ...(multiattackHalfLevel ? { multiattackHalfLevel: true } : {}),
         }
       : undefined;
 
@@ -722,6 +725,8 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
   const hpMax = profile?.hpPerLevel && steps ? entry.hpAverage + profile.hpPerLevel * steps : entry.hpAverage;
   const ac = profile?.acPerLevel && steps ? entry.ac + profile.acPerLevel * steps : entry.ac;
   const bonusHit = profile?.spellAttack && opts.spellAttackBonus !== undefined ? `+${opts.spellAttackBonus}` : null;
+  const multiattack =
+    profile?.multiattackHalfLevel && level !== undefined ? Math.max(1, Math.floor(level / 2)) : entry.multiattack;
   const attacks = entry.attacks.map((attack) => ({
     ...attack,
     ...(bonusHit !== null && attack.hit === '+0' ? { hit: bonusHit } : {}),
@@ -734,7 +739,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
   });
   return {
     name: entry.name,
-    description: entry.description.slice(0, 200),
+    description: entry.description.slice(0, 2000),
     imageUrl: bestiaryTokenPath(entry),
     cells: entry.cells,
     round: false,
@@ -755,7 +760,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
       abilities: entry.abilities,
       ...(entry.saves ? { saves: entry.saves } : {}),
       ...(entry.spellcasting ? { spellcasting: entry.spellcasting } : {}),
-      ...(entry.multiattack ? { multiattack: entry.multiattack } : {}),
+      ...(multiattack ? { multiattack } : {}),
       ...(entry.legendaryMax ? { legendary: { max: entry.legendaryMax, actions: [] } } : {}),
       ...(actions.length ? { actions } : {}),
     },

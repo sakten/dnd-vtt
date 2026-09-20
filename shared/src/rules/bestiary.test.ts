@@ -250,7 +250,13 @@ describe('бестиарий: заклинания и запись целико�
     expect(entry.key).toBe('XPHB:Bestial Spirit');
     expect(entry.hpAverage).toBe(20);
     expect(entry.hpFormula).toBe('');
-    expect(entry.summon).toMatchObject({ hpPerLevel: 5, baseLevel: 2, acPerLevel: 1, spellAttack: true });
+    expect(entry.summon).toMatchObject({
+      hpPerLevel: 5,
+      baseLevel: 2,
+      acPerLevel: 1,
+      spellAttack: true,
+      multiattackHalfLevel: true,
+    });
     expect(entry.ac).toBe(13);
     expect(entry.attacks[0]).toMatchObject({ hit: '+0', damage: '1d8 + 4 + summonSpellLevel', damageType: 'piercing' });
     expect(entry.description).toContain('Rend');
@@ -281,7 +287,7 @@ describe('бестиарий: защита и выставление', () => {
     const entry = bestiaryEntryFromRaw(DRAGON, known)!;
     const fields = bestiaryTokenFields(entry);
     expect(fields).toMatchObject({ name: 'Adult Red Dragon', ac: '19', hpMax: '256', cells: 3, initiativeBonus: '+0', isPlayerToken: false });
-    expect(fields.description.length).toBeLessThanOrEqual(200);
+    expect(fields.description.length).toBeLessThanOrEqual(2000);
     expect(fields.damageDefenses).toEqual([
       { id: 'xmm:adult-red-dragon:immunity:fire', type: 'immunity', damageType: 'fire' },
     ]);
@@ -296,5 +302,6 @@ describe('бестиарий: защита и выставление', () => {
     expect(fields.hpMax).toBe('30');
     expect(fields.ac).toBe('15');
     expect(fields.attacks[0]).toMatchObject({ hit: '+7', damage: '1d8 + 4 + 4' });
+    expect(fields.statblock?.multiattack).toBe(2);
   });
 });

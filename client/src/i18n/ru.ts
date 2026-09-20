@@ -313,6 +313,7 @@
   'ui.token.makeMyCharacter': 'Сделать моим персонажем',
   'ui.token.thisIsMyCharacter': 'Это мой персонаж',
   'ui.token.tabStatblock': 'Статблок',
+  'ui.token.dismissFamiliar': 'Отпустить фамильяра',
   'ui.token.faction.ally': 'Союзник',
   'ui.token.faction.enemy': 'Враг',
   'ui.token.faction.neutral': 'Нейтрал',

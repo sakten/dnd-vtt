@@ -78,6 +78,8 @@ export interface CritHit {
 /** Косметический эффект применения в очереди: не стартовать раньше `notBefore` (мс, performance.now). */
 export interface FxCast extends SpellFxPayload {
   notBefore: number;
+  /** Когда эффект поставлен в очередь (performance.now): старые в фоне пропускаем. */
+  queuedAt: number;
 }
 
 export interface GameState {
@@ -296,6 +298,8 @@ export interface GameState {
   onFxPlay: (payload: SpellFxPayload) => void;
   /** Эффект проигран — убрать из очереди. */
   dequeueFx: (id: string) => void;
+  /** Очистить очередь (вкладка ушла в фон — копить нечего). */
+  clearFxQueue: () => void;
 }
 
 export type StoreSet = (partial: Partial<GameState> | ((state: GameState) => Partial<GameState>)) => void;

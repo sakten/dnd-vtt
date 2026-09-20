@@ -21,6 +21,8 @@ export interface BestiarySummonProfile {
   spellAttack?: boolean;
   /** Спасброски шаблона — СЛ заклинаний кастера. */
   spellDc?: boolean;
+  /** Мультиатака = половина круга ячейки (округление вниз), как у Summon-*. */
+  multiattackHalfLevel?: boolean;
 }
 
 /** Сжатая запись бестиария: готовые к выставлению поля токена + мета для фильтров. */

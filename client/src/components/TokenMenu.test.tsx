@@ -38,6 +38,23 @@ describe('TokenMenu', () => {
     expect(useGameStore.getState().tokenMenuId).toBeNull();
   });
 
+  it('«Отпустить фамильяра» есть у призыва и удаляет токен', () => {
+    const { socket, emitted: list } = fakeSocket();
+    emitted = list;
+    const map = makeMap('m1', [
+      makeToken('t1', {
+        name: 'Owl',
+        summon: { casterTokenId: 'c1', spellKey: 'XPHB:Find Familiar' },
+      }),
+    ]);
+    useGameStore.setState({ socket, scene: { maps: [map], activeMapId: 'm1', grid: { ...DEFAULT_GRID } } });
+    render(<TokenMenu />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отпустить фамильяра' }));
+    expect(emitted.find((e) => e.event === 'token:remove')?.payload).toMatchObject({ mapId: 'm1', id: 't1' });
+    expect(useGameStore.getState().tokenMenuId).toBeNull();
+  });
+
   it('закрытие без сохранения не отправляет token:update', () => {
     render(<TokenMenu />);
 

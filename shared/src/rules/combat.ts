@@ -116,6 +116,17 @@ export function weaponRolls(entry: AttackEntry): { hit: string | null; damage: s
   return { hit: hit || null, damage: damage || null };
 }
 
+/**
+ * Выражение броска атаки: «голый» бонус (+5, 5) превращаем в `d20+5`,
+ * готовые формулы (`d20+str`, `d20+pb`) не трогаем. Бестиарий хранит только бонус.
+ */
+export function attackRollExpression(hit: string): string {
+  const expr = hit.trim();
+  if (!expr) return '';
+  if (/\d*d\d/i.test(expr)) return expr;
+  return `d20${/^[+-]/.test(expr) ? expr : `+${expr}`}`;
+}
+
 export interface AttackRangeResult {
   outOfRange: boolean;
   disadvantage: boolean;

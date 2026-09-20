@@ -424,6 +424,16 @@ export default function TokenMenu() {
         </div>
 
         <div className="modal-actions spread">
+          {canEdit && token.summon?.spellKey === 'XPHB:Find Familiar' && (
+            <button
+              onClick={() => {
+                removeToken(token.id);
+                close(null);
+              }}
+            >
+              {t('ui.token.dismissFamiliar')}
+            </button>
+          )}
           {canEdit && (
             <button
               className="danger"

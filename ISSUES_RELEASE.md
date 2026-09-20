@@ -16,36 +16,30 @@
   Удалить после отказа читать сейвы прошлых версий.
 - **IR-3. Legacy-подпись бросков.** `rollLabels.ts`/`chat` fallback на строку `label`
   для старых сообщений чата. Удалить после очистки истории чата.
-- **IR-4. `Animate Objects` — manual-запись в `AUTOMATION_SPELLS`** (нужна была, чтобы
-  выключить ложный авто-урон `1d4` из данных). Удалить, когда появится механика
-  десяти предметов.
 
 ## Временные костыли (удалить, когда механика будет готова)
 
-- **IR-5. Красные кружки инвокаций.** `invocationAutomated` (`shared/src/rules/invocations.ts`),
+- **IR-4. Красные кружки инвокаций.** `invocationAutomated` (`shared/src/rules/invocations.ts`),
   `.inv-manual` (`client/src/styles/modals.css`), `InvocationsForm` и i18n-ключи
   `ui.invocations.manual`. Удалить, когда все инвокации будут автоматизированы —
   маркер не должен пережить релиз.
-- **IR-6. Генерация SVG-иконок существ.** `bestiaryIconSvg`/`bestiaryIconUrl`
+- **IR-5. Генерация SVG-иконок существ.** `bestiaryIconSvg`/`bestiaryIconUrl`
   (`shared/src/rules/bestiaryIcon.ts`) + фолбэк в `server/src/bestiaryIcons.ts` и
   `/api/bestiary/icon|token`. Удалить после того, как все записи получат PNG/JPG-портреты.
-- **IR-7. Заглушка списка форм призыва.** `SummonDef.choices: []` в `automationForSpell`
+- **IR-6. Заглушка списка форм призыва.** `SummonDef.choices: []` в `automationForSpell`
   (`shared/src/rules/automation.ts`): список форм резолвится из каталога по флагу
   `familiar`/инвокации, а поле осталось пустым. Убрать поле или наполнять данными.
 
 ## Упрощения механики (довести до правил)
 
-- **IR-8. Pact of the Chain без подстановки атаки.** Сейчас фамильяр с инвокацией
+- **IR-7. Pact of the Chain без подстановки атаки.** Сейчас фамильяр с инвокацией
   атакует сам (по своему действию); по правилам — тратит **реакцию**, а владелец
-  отказывается от одной своей атаки. Место: `server/src/socket/summons.ts`
-  (`familiarCannotAttack`), `socket/attackResolve.ts`.
-- **IR-9. Инвеститура цепи.** `Investment of the Chain Master` пока без механики
-  (полёт/плавание 40, магические атаки, СЛ договора, реакция на сопротивление).
-- **IR-10. Вынужденное движение без провокаций/зон.** `server/src/socket/force.ts`
-  не триггерит зоны и атаки по возможности при толчке/притягивании.
+  отказывается от одной своей атаки. Решение владельца: пока оставляем упрощение.
+  Место: `server/src/socket/summons.ts` (`familiarCannotAttack`), `socket/attackResolve.ts`.
+- **IR-8. Инвеститура цепи.** `Investment of the Chain Master` пока без механики
+  (полёт/плавание 40, магические атаки, СЛ договора, реакция на сопротивление) — TODO.
 
 ## Лицензии (до публичного релиза)
 
-- **IR-11.** 7 инвокаций XPHB не в SRD 5.2 (`invocations.json`, флаг `nonSrd`).
-- **IR-12.** Тексты не-SRD Summon-\* (8 заклинаний) и 11 XPHB-шаблонов бестиария.
-- **IR-13.** `Slaad Tadpole` отсутствует в SRD-каталоге бестиария (нужен свой или исключить форму).
+- **IR-9.** 7 инвокаций XPHB не в SRD 5.2 (`invocations.json`, флаг `nonSrd`).
+- **IR-10.** Тексты не-SRD Summon-\* (8 заклинаний) и 11 XPHB-шаблонов бестиария.

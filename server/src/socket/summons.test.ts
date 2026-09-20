@@ -94,13 +94,14 @@ describe('призывы: серверный спавн', () => {
     expect(map.combat.turns['e1']?.concentrationId).toBeTruthy();
   });
 
-  it('скейл выше: HP/AC/урон растут с кругом', () => {
+  it('скейл выше: HP/AC/урон растут с кругом, мультиатака = половина круга', () => {
     const { room, map, f } = setup();
     cast(room, f, 'XPHB:Summon Fey', 5, { x: 200, y: 200 });
     const summon = map.tokens[1]!;
     expect(summon.hpMax).toBe('50');
     expect(summon.ac).toBe('17');
     expect(summon.attacks[0]!.damage).toBe('2d6 + 3 + 5');
+    expect(summon.statblock?.multiattack).toBe(2);
   });
 
   it('занятая точка: призыв встаёт на свободные клетки рядом', () => {
@@ -214,6 +215,24 @@ describe('призывы: серверный спавн', () => {
     const quasit = map.tokens[1]!;
     expect(quasit.name).toBe('Quasit');
     expect(familiarCannotAttack(quasit)).toBe(false);
+  });
+
+  it('атака призыва: бонус шаблона превращается в бросок d20', () => {
+    const { room, map, f } = setup();
+    const target = makeToken('t2', { x: 225, y: 100, ac: '12', hpMax: '20' });
+    map.tokens.push(target);
+    cast(room, f, 'XPHB:Summon Fey', 3, { x: 175, y: 100 });
+    const summon = map.tokens[2]!;
+    const prep = prepareWeaponAttack(f.ctx, {
+      attacker: summon,
+      attackerMapId: 'm1',
+      target,
+      targetMapId: 'm1',
+      attack: summon.attacks[0]!,
+      author: 'DM',
+    });
+    expect(prep.prep?.attackExpr).toContain('d20+');
+    expect(prep.prep?.attackExpr).not.toBe('+5');
   });
 
   it('валидация каста: точка обязательна, дистанция и путь проверяются', () => {

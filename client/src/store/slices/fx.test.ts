@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DiceRollResult, SpellFxPayload } from 'shared';
 import { useGameStore } from '../useGameStore';
+import { FX_STALE_MS, MAX_FX_QUEUE, fxStale } from './fx';
 
 const payload = (patch: Partial<SpellFxPayload> = {}): SpellFxPayload => ({
   id: 'fx1',
@@ -53,5 +54,37 @@ describe('fx slice', () => {
     useGameStore.getState().onFxPlay(payload({ id: 'fx2' }));
     useGameStore.getState().dequeueFx('fx1');
     expect(useGameStore.getState().fxQueue.map((f) => f.id)).toEqual(['fx2']);
+  });
+
+  it('clearFxQueue очищает очередь (вкладка в фоне)', () => {
+    useGameStore.getState().onFxPlay(payload());
+    useGameStore.getState().onFxPlay(payload({ id: 'fx2' }));
+    useGameStore.getState().clearFxQueue();
+    expect(useGameStore.getState().fxQueue).toEqual([]);
+  });
+
+  it('fxStale: старые эффекты пропускаются, свежие играются', () => {
+    const fx = { ...payload(), notBefore: 1000, queuedAt: 1000 };
+    expect(fxStale(fx, 1000 + FX_STALE_MS - 1)).toBe(false);
+    expect(fxStale(fx, 1000 + FX_STALE_MS + 1)).toBe(true);
+  });
+
+  it('в фоновой вкладке эффекты не копятся', () => {
+    vi.stubGlobal('document', { hidden: true });
+    useGameStore.getState().onFxPlay(payload());
+    expect(useGameStore.getState().fxQueue).toEqual([]);
+    vi.unstubAllGlobals();
+    useGameStore.getState().onFxPlay(payload());
+    expect(useGameStore.getState().fxQueue).toHaveLength(1);
+  });
+
+  it('очередь ограничена: при переполнении отбрасывается старейший', () => {
+    for (let i = 0; i < MAX_FX_QUEUE + 3; i++) {
+      useGameStore.getState().onFxPlay(payload({ id: `fx${i}` }));
+    }
+    const ids = useGameStore.getState().fxQueue.map((f) => f.id);
+    expect(ids).toHaveLength(MAX_FX_QUEUE);
+    expect(ids[0]).toBe('fx3');
+    expect(ids[ids.length - 1]).toBe(`fx${MAX_FX_QUEUE + 2}`);
   });
 });

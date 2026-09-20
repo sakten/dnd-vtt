@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import type { MapInfo } from 'shared';
 import { useGameStore } from '../../store/useGameStore';
+import { fxStale } from '../../store/slices/fx';
 import { activeGridOf, activeMapOf, tokenById } from '../../store/selectors';
 import { buildFxPlan, type FxAnchor, type FxPhase, type FxPlan, type WorldPoint } from './timeline';
 import type { FxMask } from './mask';
@@ -526,6 +527,15 @@ export default function SpellFxOverlay({ mask }: { mask?: FxMask | null }) {
   const maskRef = useRef<FxMask | null>(mask ?? null);
   maskRef.current = mask ?? null;
 
+  // Вкладка в фоне: копить эффекты не нужно — при возврате они бы проиграли пачкой.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) useGameStore.getState().clearFxQueue();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   useEffect(() => {
     const container = ref.current;
     if (!container) return;
@@ -601,10 +611,10 @@ export default function SpellFxOverlay({ mask }: { mask?: FxMask | null }) {
         canvasEl.style.removeProperty('mask-position');
       }
 
-      // Следующий эффект очереди: чужую карту и reduced-motion просто пропускаем.
+      // Следующий эффект очереди: чужую карту, reduced-motion и протухшие просто пропускаем.
       if (!active && state.fxQueue.length > 0) {
         const next = state.fxQueue[0]!;
-        if (next.mapId !== state.scene.activeMapId || reduced) {
+        if (next.mapId !== state.scene.activeMapId || reduced || fxStale(next, now)) {
           state.dequeueFx(next.id);
         } else if (now >= next.notBefore && viewport.w > 0 && viewport.h > 0) {
           const plan = buildFxPlan(next, activeGridOf(state));

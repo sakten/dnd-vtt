@@ -15,6 +15,7 @@ import {
   isCriticalHit,
   modifiedValue,
   proficiencyBonus,
+  attackRollExpression,
   resolveAbilityMods,
   resolveAttack,
   rollDice,
@@ -218,7 +219,7 @@ export function prepareWeaponAttack(
   };
 
   const targetAc = target ? manager.acForToken(room, target) : 0;
-  const attackExpr = hit ? withRollParts(hit, { flat: effectParts.flat, dice: effectParts.dice }) : '';
+  const attackExpr = hit ? withRollParts(attackRollExpression(hit), { flat: effectParts.flat, dice: effectParts.dice }) : '';
   const damageParts = damageRollParts(
     attacker?.effects,
     {

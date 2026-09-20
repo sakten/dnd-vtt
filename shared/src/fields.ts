@@ -40,8 +40,8 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     patch: (raw) => (typeof raw.name === 'string' ? raw.name.slice(0, 40) : undefined),
   },
   description: {
-    full: (raw) => trim(raw.description, 200),
-    patch: (raw) => (typeof raw.description === 'string' ? raw.description.slice(0, 200) : undefined),
+    full: (raw) => trim(raw.description, 2000),
+    patch: (raw) => (typeof raw.description === 'string' ? raw.description.slice(0, 2000) : undefined),
   },
   imageUrl: {
     full: (raw) => trim(raw.imageUrl, 0),
