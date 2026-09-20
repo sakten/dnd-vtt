@@ -1,4 +1,4 @@
-import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_SHEET_SPELLS, type AbilityKey } from '../domain/core';
+import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_INVOCATIONS, MAX_SHEET_SPELLS, type AbilityKey } from '../domain/core';
 import { normalizeSenses } from './sense';
 import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
@@ -24,8 +24,7 @@ export function normalizeClasses(raw: unknown): ClassLevel[] {
 }
 
 /** Чистит список выбранных заклинаний: формат ключа, класс, дедуп, лимит. */
-export function normalizeSheetSpells(raw: unknown): SheetSpell[] {
-  if (!Array.isArray(raw)) return [];
+export function normalizeSheetSpells(raw: unknown): SheetSpell[] {  if (!Array.isArray(raw)) return [];
   const out: SheetSpell[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
@@ -38,6 +37,20 @@ export function normalizeSheetSpells(raw: unknown): SheetSpell[] {
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
     out.push({ key: s.key.slice(0, 80), className: s.className.slice(0, 30) });
+  }
+  return out;
+}
+
+/** Чистит список воззваний варлока: ключ `ИСТОЧНИК:имя`, дедуп, лимит. */
+export function normalizeInvocations(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (out.length >= MAX_INVOCATIONS) break;
+    if (typeof item !== 'string' || item.length > 80 || !SPELL_KEY_RE.test(item) || seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
   }
   return out;
 }
@@ -104,6 +117,7 @@ export function normalizeSheet(
       if (Number.isFinite(n)) abilities[key] = Math.min(30, Math.max(0, Math.round(n)));
     }
   }
+  const invocations = normalizeInvocations((raw as { invocations?: unknown }).invocations);
   return {
     name: typeof raw.name === 'string' ? raw.name.slice(0, 40) : '',
     abilities,
@@ -114,6 +128,7 @@ export function normalizeSheet(
     classes: normalizeClasses(raw.classes),
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
     choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
+    ...(invocations.length ? { invocations } : {}),
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),

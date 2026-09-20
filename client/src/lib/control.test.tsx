@@ -103,4 +103,36 @@ describe('useActionContext: контроль и лист персонажа', ()
     const state = useGameStore.getState();
     expect(isCharacterTokenWith(state, makeToken('x', { owner: 'Иван' }))).toBe(false);
   });
+
+  it('ход контролируемого призыва: панель остаётся на нём и действия доступны', () => {
+    const s = useGameStore.getState();
+    const map = s.scene.maps[0]!;
+    useGameStore.setState({
+      scene: {
+        ...s.scene,
+        maps: [
+          {
+            ...map,
+            combat: {
+              ...map.combat,
+              active: true,
+              currentIndex: 1,
+              entries: [
+                { id: 'e1', tokenId: 't1', name: 'Иван', imageUrl: '', initiative: 10, bonus: '' },
+                { id: 'e2', tokenId: 't2', name: 'Квазит', imageUrl: '', initiative: 5, bonus: '' },
+              ],
+              turns: { e2: { ...emptyTurnState(30), movementUsed: 0 } },
+            },
+          },
+        ],
+      },
+      currentCharacterId: 'lib1',
+      selectedTokenId: 't1',
+    });
+    const { result } = renderHook(() => useActionContext());
+
+    expect(result.current?.token.id).toBe('t2');
+    expect(result.current?.controlled).toBe(true);
+    expect(result.current?.turn).toBeTruthy();
+  });
 });

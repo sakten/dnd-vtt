@@ -487,6 +487,16 @@
   flex-wrap: wrap;
 }
 
+.sp-select {
+  background: var(--panel-2);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+  max-width: 190px;
+}
+
 .sp-level {
   width: 28px;
   height: 28px;

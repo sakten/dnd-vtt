@@ -6,6 +6,23 @@ import type { AttackEntry, TokenStatblock } from './token';
 /** Размер существа (5e.tools: T/S/M/L/H/G). */
 export type MonsterSize = 'T' | 'S' | 'M' | 'L' | 'H' | 'G';
 
+/**
+ * Профиль шаблона призыва (XPHB): что достраивается от круга ячейки и кастера
+ * при спавне. Базовая запись (`ac`/`hpAverage`/`attacks`) — значения на `baseLevel`.
+ */
+export interface BestiarySummonProfile {
+  /** Круг заклинания, на который рассчитаны HP (текст «above N»). */
+  baseLevel?: number;
+  /** HP: +N за каждый круг выше `baseLevel`. */
+  hpPerLevel?: number;
+  /** AC: +N за каждый круг выше `baseLevel`. */
+  acPerLevel?: number;
+  /** Атаки шаблона бьют модификатором атаки заклинанием кастера. */
+  spellAttack?: boolean;
+  /** Спасброски шаблона — СЛ заклинаний кастера. */
+  spellDc?: boolean;
+}
+
 /** Сжатая запись бестиария: готовые к выставлению поля токена + мета для фильтров. */
 export interface BestiaryEntry {
   /** `XMM:Wolf` / `XPHB:Bestial Spirit`. */
@@ -50,6 +67,8 @@ export interface BestiaryEntry {
   description: string;
   /** Короткое описание внешности (EN): источник для иконок и будущих портретов. */
   appearance: string;
+  /** Профиль призыва: скейл от круга ячейки и атака/СЛ кастера (у шаблонов XPHB). */
+  summon?: BestiarySummonProfile;
 }
 
 /** Сырая запись 5e.tools (`bestiary-xmm.json`/`xphb.json`), читаем только нужное. */

@@ -115,7 +115,7 @@ const SPIRIT: RawBestiaryMonster = {
   size: ['S'],
   type: 'beast',
   cr: '—',
-  ac: [11],
+  ac: [{ special: "11 + the spell's level" }],
   hp: { special: '20 (Air only) or 30 (Land and Water only) + 5 for each spell level above 2' },
   speed: { walk: 30, fly: 60 },
   action: [
@@ -245,12 +245,14 @@ describe('бестиарий: заклинания и запись целико�
     expect(parseSpellcasting({ will: ['{@spell Etherealness|XPHB}'], ability: 'cha' }, new Set())).toBeUndefined();
   });
 
-  it('шаблон призыва: hp из special, действия — вручную (бонус от кастера)', () => {
+  it('шаблон призыва: скейл HP/AC, атака от кастера (spell attack)', () => {
     const entry = bestiaryEntryFromRaw(SPIRIT, known)!;
     expect(entry.key).toBe('XPHB:Bestial Spirit');
     expect(entry.hpAverage).toBe(20);
     expect(entry.hpFormula).toBe('');
-    expect(entry.attacks).toEqual([]);
+    expect(entry.summon).toMatchObject({ hpPerLevel: 5, baseLevel: 2, acPerLevel: 1, spellAttack: true });
+    expect(entry.ac).toBe(13);
+    expect(entry.attacks[0]).toMatchObject({ hit: '+0', damage: '1d8 + 4 + summonSpellLevel', damageType: 'piercing' });
     expect(entry.description).toContain('Rend');
   });
 
@@ -286,5 +288,13 @@ describe('бестиарий: защита и выставление', () => {
     expect(fields.statblock).toMatchObject({ multiattack: 3, legendary: { max: 3, actions: [] } });
     expect(fields.statblock?.actions?.some((a) => a.name === 'Fire Breath')).toBe(true);
     expect(fields.attacks[0]).toMatchObject({ name: 'Rend', damage: '1d10 + 8 + 2d4fire' });
+  });
+
+  it('спавн призыва: HP/AC/атака скейлятся от круга и кастера', () => {
+    const entry = bestiaryEntryFromRaw(SPIRIT, known)!;
+    const fields = bestiaryTokenFields(entry, { slotLevel: 4, spellAttackBonus: 7 });
+    expect(fields.hpMax).toBe('30');
+    expect(fields.ac).toBe('15');
+    expect(fields.attacks[0]).toMatchObject({ hit: '+7', damage: '1d8 + 4 + 4' });
   });
 });

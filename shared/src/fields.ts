@@ -1,5 +1,5 @@
 import { clampCells, statsPaired } from './domain/core';
-import type { LibraryItem, Token, TokenFields } from './domain/token';
+import type { LibraryItem, Token, TokenFields, TokenSummon } from './domain/token';
 import { normalizeAttacks, normalizeDamageDefenses } from './normalize/attacks';
 import { normalizeStatblock } from './normalize/actions';
 
@@ -125,7 +125,23 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     // Статблок — данные DM: игрокам ни у токена, ни в библиотеке.
     hidden: { token: undefined, library: undefined },
   },
+  summon: {
+    full: (raw) => normalizeSummon(raw.summon),
+    // Метка ставится сервером при спавне, patch её не принимает.
+    patch: () => undefined,
+  },
 };
+
+function normalizeSummon(value: unknown): TokenSummon | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.casterTokenId !== 'string' || !raw.casterTokenId) return undefined;
+  return {
+    casterTokenId: raw.casterTokenId.slice(0, 64),
+    ...(typeof raw.spellKey === 'string' && raw.spellKey ? { spellKey: raw.spellKey.slice(0, 80) } : {}),
+    ...(raw.pact === true ? { pact: true } : {}),
+  };
+}
 
 export function normalizeTokenFields(
   raw: Partial<TokenFields>,

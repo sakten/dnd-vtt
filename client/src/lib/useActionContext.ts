@@ -6,6 +6,7 @@ import {
   classFeatures,
   featSpellGrants,
   grantedSpells,
+  invocationAtWillSpells,
   isIncapacitated,
   type ActionDef,
   type AttackEntry,
@@ -64,10 +65,15 @@ export function useActionContext(): ActionContext | null {
     } else {
       tokenId = selectedTokenId ?? characterTokenOf(map, currentCharacterId)?.id ?? null;
     }
+    const control = { role, testMode, selfId, currentCharacterId };
     // В чужой ход игрок видит свой токен: доступны реакции, действия — нет.
+    // Но контролируемый призыв (фамильяр/сумммон по владельцу) остаётся со своим ходом.
     if (combat.active && currentCharacterId !== null && !isDm) {
       const shown = tokenById(map, tokenId);
-      if (shown?.libraryItemId !== currentCharacterId) {
+      const shownMine =
+        !!shown &&
+        (shown.libraryItemId === currentCharacterId || canControlTokenWith(control, shown, charName));
+      if (!shownMine) {
         const mine = characterTokenOf(map, currentCharacterId);
         if (mine) {
           tokenId = mine.id;
@@ -85,7 +91,6 @@ export function useActionContext(): ActionContext | null {
     }
     const token = tokenById(map, tokenId);
     if (!token) return null;
-    const control = { role, testMode, selfId, currentCharacterId };
     // Контроль — как у серверного `controlsToken` (контроллер или владелец по имени);
     // лист игрока доступен только при привязке через контроллера (`isCharacter`).
     const controlled = canControlTokenWith(control, token, charName);
@@ -121,6 +126,7 @@ export function useActionContext(): ActionContext | null {
         for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
         for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
         for (const g of choiceSpellGrants(sheet.choices)) keys.add(g.key);
+        for (const key of invocationAtWillSpells(sheet)) keys.add(key);
         panelSpells = [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
       }
     } else {

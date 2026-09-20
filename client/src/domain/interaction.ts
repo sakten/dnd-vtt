@@ -22,6 +22,10 @@ export interface AimState {
   direction: Point | null;
   /** Путь до точки перекрыт стеной/закрытой дверью — применять нельзя. */
   blocked?: boolean;
+  /** Призыв: выбранная форма (Find Familiar). */
+  summonKey?: string;
+  /** Призыв: точка под курсором (подсветка одной клетки, без риски origin). */
+  summon?: boolean;
 }
 
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
@@ -84,6 +88,8 @@ export interface SpellCastPayload {
   advantage?: 'a' | 'd';
   origin?: Point;
   direction?: Point;
+  /** Призыв: выбранная форма (Find Familiar). */
+  summonKey?: string;
 }
 
 /** Команда, которую стор исполняет после перехода машины. */
@@ -185,6 +191,7 @@ export function confirmArea(interaction: Interaction | null): InteractionResult 
         advantage: aim.advantage,
         origin: aim.origin ?? undefined,
         direction: aim.direction ?? undefined,
+        ...(aim.summonKey ? { summonKey: aim.summonKey } : {}),
       },
     },
   };

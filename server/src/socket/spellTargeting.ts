@@ -29,6 +29,8 @@ export interface SpellCastParams {
   advantage?: 'a' | 'd';
   origin?: unknown;
   direction?: unknown;
+  /** Выбранная форма призыва (Find Familiar). */
+  summonKey?: string;
   author: string;
 }
 
@@ -114,6 +116,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     area,
     origin: areaOrigin ?? (isPoint(params.origin) ? params.origin : null),
     direction: isPoint(params.direction) ? params.direction : null,
+    summonKey: params.summonKey,
     author: params.author,
   };
 }

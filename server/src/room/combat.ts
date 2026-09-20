@@ -549,6 +549,26 @@ export function addTokenToCombat(m: CombatDeps, room: Room, mapId: string, token
   m.saveSoon(room);
 }
 
+/** Призыв «в свой ход»: запись встаёт сразу после записи кастера (Summon-*). */
+export function addTokenToCombatAfter(
+  m: CombatDeps,
+  room: Room,
+  mapId: string,
+  token: Token,
+  afterTokenId: string
+) {
+  const combat = combatOf(room, mapId);
+  if (!combat) return;
+  const at = combat.entries.findIndex((e) => e.tokenId === afterTokenId && !e.legendaryOwnerId);
+  if (at < 0) return addTokenToCombat(m, room, mapId, token);
+  const activeId = combat.entries[combat.currentIndex]?.id;
+  combat.entries.splice(at + 1, 0, makeEntry(room, token));
+  redistributeLegendarySlots(room, combat);
+  restoreActive(combat, activeId);
+  ensureActiveTurn(room, mapId);
+  m.saveSoon(room);
+}
+
 export function addCombatToken(m: CombatDeps, room: Room, mapId: string, tokenId: string): boolean {
   const combat = combatOf(room, mapId);
   if (!combat || combat.entries.some((e) => e.tokenId === tokenId)) return false;

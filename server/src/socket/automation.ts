@@ -35,7 +35,9 @@ import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
+import { fail } from './errors';
 import { applyEffectTo } from './effectsApply';
+import { applyForcedMovement } from './force';
 import { emitSpellFx } from './fx';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { misdirectCheck } from './misdirect';
@@ -43,6 +45,7 @@ import { startMovementTurns } from './moveTurns';
 import { audienceOf } from './reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { maybeRollAnim } from './rollAnim';
+import { runSummon, removeConcSummonsOf, familiarCannotAttack } from './summons';
 import { createZoneFromDef, removeZonesOfSource } from './zones';
 
 /**
@@ -66,6 +69,8 @@ export interface AutomationInput {
   direction?: { x: number; y: number } | null;
   /** Область применения, если её нет в `def` (заклинания: `spell.areaSpec`). */
   area?: AreaSpec | null;
+  /** Выбранная форма призыва (Find Familiar): ключ каталога бестиария. */
+  summonKey?: string;
 }
 
 /** Единственный тип урона, если он однозначен (иначе защиты не применяются). */
@@ -150,6 +155,7 @@ function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
     }
     removeZonesOfSource(ctx, room, sourceId);
   }
+  removeConcSummonsOf(ctx, room, sourceIds);
 }
 
 /** Якорь концентрации на кастере для зон без целевых эффектов (HoH, Spirit Guardians). */
@@ -623,6 +629,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       if (save.success) continue;
     }
     applyTargetEffects(run, target, stats);
+    if (def.force) applyForcedMovement(ctx, room, mapId, caster, target, def.force);
   }
 }
 
@@ -701,6 +708,9 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
   const applyAll = () => {
     for (const save of saves) {
       if (!save.success) applyTargetEffects(run, save.target, stats);
+      if (run.def.force && !save.success) {
+        applyForcedMovement(run.ctx, run.room, run.mapId, run.caster, save.target, run.def.force);
+      }
       if (!damageRoll) continue;
       if (save.success && !half) continue;
       applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
@@ -745,6 +755,12 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     return;
   }
 
+  // Фамильяр (Find Familiar) не атакует без Pact of the Chain — ни оружием, ни способностью.
+  if (def.attack && familiarCannotAttack(caster)) {
+    fail(ctx, 'familiarNoAttack', { name: caster.name });
+    return;
+  }
+
   // Косметический эффект применения: клиент рисует по этому событию (в т.ч. зоны/ауры).
   emitSpellFx(
     ctx,
@@ -761,6 +777,22 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
 
   // Новая концентрация: прошлые эффекты и зоны снимаются до создания новой зоны.
   if (def.concentration) dropConcentration(ctx, room, caster);
+
+  // Призыв: спавн токенов по шаблону каталога (скейл круга/кастера, владелец-контролёр).
+  if (def.resolution === 'summon' && def.summon) {
+    runSummon(ctx, {
+      caster,
+      mapId,
+      level: def.summon.level ?? input.manual?.castLevel ?? 1,
+      def: def.summon,
+      stats,
+      origin: input.origin ?? null,
+      ...(input.summonKey ? { summonKey: input.summonKey } : {}),
+      spellKey: def.key,
+    });
+    if (def.concentration) anchorConcentration(ctx, room, caster, mapId, def);
+    return;
+  }
 
   // Зона создаётся независимо от мгновенного payload'а (спас/урон/эффекты — сразу).
   // Для ауры на источнике точка берётся с кастера, даже если клиент её не прислал.

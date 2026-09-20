@@ -10,6 +10,7 @@ import { controllerIdOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushRollMessage } from './messages';
+import { checkSummonDeath } from './summons';
 
 export interface DamageApplication {
   /** Итог после защит и половины. */
@@ -72,5 +73,6 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     return { amount, applied: false };
   }
   ctx.applyHp(room, mapId, target, input.kind === 'heal' ? amount : -amount, { crit: input.crit });
+  checkSummonDeath(ctx, room, mapId, target);
   return { amount, applied: true };
 }

@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  automationForSpell,
+  familiarFormAvailable,
+  hasInvocation,
+  INVOCATION_PACT_KEYS,
+  invocationAtWillSpells,
   spellActionCost,
   spellAreaOrigin,
   spellAutomated,
@@ -44,6 +49,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     resources,
     token: castToken ?? undefined,
     freeCastKeys: sheetCaster ? featFreeCastKeys(sheet, resources) : undefined,
+    atWillKeys: sheetCaster && sheet ? new Set(invocationAtWillSpells(sheet)) : undefined,
   };
   const [level, setLevel] = useState(() => castLevelsForSpell(spell, casterInfo)[0] ?? spell.level);
   const info = spellCastInfo(spell, level, {
@@ -52,6 +58,32 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   });
 
   const mode: 'a' | 'd' | undefined = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
+
+  const summonDef = (() => {
+    const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
+    return def.resolution === 'summon' ? def.summon : undefined;
+  })();
+  const needForm = !!summonDef?.choices && !summonDef.creature;
+  const pactChain = hasInvocation(sheet ?? {}, INVOCATION_PACT_KEYS.chain);
+  const [form, setForm] = useState('');
+  const [forms, setForms] = useState<{ key: string; name: string }[] | null>(null);
+  useEffect(() => {
+    if (!needForm) return;
+    let alive = true;
+    import('shared/bestiaryData')
+      .then((mod) => {
+        if (!alive) return;
+        setForms(
+          mod.default.entries
+            .filter((entry) => familiarFormAvailable(entry.key, entry.familiar, pactChain))
+            .map((entry) => ({ key: entry.key, name: entry.name }))
+        );
+      })
+      .catch(() => void 0);
+    return () => {
+      alive = false;
+    };
+  }, [needForm, pactChain]);
 
   const submit = () => {
     if (!abilityAction && !info.canCast) return;
@@ -78,6 +110,18 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     } else if (info.self) {
       if (abilityAction) runAction(tokenId, abilityAction.id, { slot: abilityAction.slot });
       else castSpell({ tokenId, spellKey: spell.key, slotLevel: info.slotLevel, advantage: mode });
+    } else if (summonDef) {
+      if (needForm && !form) return;
+      startAim({
+        tokenId,
+        ...common,
+        advantage: mode,
+        spec: { shape: 'sphere', size: 0 },
+        originKind: 'point',
+        rangeFeet: spellRangeFeet(spell),
+        summon: true,
+        ...(needForm && form ? { summonKey: form } : {}),
+      });
     } else if (abilityAction) {
       startTargeting({
         kind: 'action',
@@ -164,12 +208,31 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                 : t('ui.spellPopover.projectilesInfo', { n: info.projectiles })}
             </span>
           </div>
+        ) : summonDef ? (
+          <div className="sp-row">
+            <span className="sp-label">{t('ui.spellPopover.summon')}</span>
+            <span className="sp-target">{t('ui.spellPopover.clickPoint')}</span>
+          </div>
         ) : (
           <div className="sp-row">
             <span className="sp-label">{t('ui.spellPopover.target')}</span>
             <span className="sp-target">
               {info.self ? t('ui.spellPopover.self') : t('ui.spellPopover.clickTarget')}
             </span>
+          </div>
+        )}
+
+        {needForm && (
+          <div className="sp-row">
+            <span className="sp-label">{t('ui.spellPopover.summonForm')}</span>
+            <select className="sp-select" value={form} onChange={(e) => setForm(e.target.value)}>
+              <option value="">{t('ui.spellPopover.summonFormPick')}</option>
+              {(forms ?? []).map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -212,14 +275,20 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
           <button className="sp-cancel" onClick={onClose}>
             {t('ui.common.cancel')}
           </button>
-          <button className="sp-cast" disabled={!abilityAction && !info.canCast} onClick={submit}>
+          <button
+            className="sp-cast"
+            disabled={(!abilityAction && !info.canCast) || (needForm && !form)}
+            onClick={submit}
+          >
             {info.area
               ? t('ui.spellPopover.chooseArea')
               : info.multi
                 ? t('ui.spellPopover.chooseTargets')
-                : info.self
-                  ? t('ui.common.apply')
-                  : t('ui.spellPopover.chooseTarget')}
+                : summonDef
+                  ? t('ui.spellPopover.choosePoint')
+                  : info.self
+                    ? t('ui.common.apply')
+                    : t('ui.spellPopover.chooseTarget')}
           </button>
         </div>
       </div>

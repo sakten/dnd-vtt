@@ -2,6 +2,7 @@ import {
   attacksPerAction,
   DEFAULT_SPEED,
   abilityMod,
+  invocationSenses,
   sheetProficiencyBonus,
   statNumber,
   type AbilityKey,
@@ -70,6 +71,10 @@ export function actorStats(room: Room, token: Token): ActorStats {
   for (const key of Object.keys(sheet.abilities) as AbilityKey[]) {
     if (sheet.saves[key]) saves[key] = abilityMod(sheet.abilities[key] ?? 10) + pb;
   }
+  const senses = [...(sheet.senses ?? [])];
+  for (const sense of invocationSenses(sheet)) {
+    if (!senses.some((s) => s.type === sense.type)) senses.push(sense);
+  }
   return {
     character: true,
     controllerId,
@@ -77,7 +82,7 @@ export function actorStats(room: Room, token: Token): ActorStats {
     abilities: sheet.abilities,
     ac: statNumber(sheet.ac),
     speed: sheet.speed ?? DEFAULT_SPEED,
-    senses: sheet.senses ?? [],
+    senses,
     attacks: sheet.attacks ?? [],
     damageDefenses: sheet.damageDefenses ?? [],
     hp: res && res.hp.max > 0 ? { max: res.hp.max, current: res.hp.current, temp: res.hp.temp } : tokenHp,

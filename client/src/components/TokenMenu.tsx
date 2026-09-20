@@ -221,7 +221,7 @@ export default function TokenMenu() {
               {t('ui.token.tabStatblock')}
             </button>
           )}
-          {isDm && statblock?.spellcasting && (
+          {(isDm || canEdit) && statblock?.spellcasting && (
             <button className={`tm-tab${tab === 'spells' ? ' active' : ''}`} onClick={() => setTab('spells')}>
               {t('ui.common.spells')}
             </button>
@@ -418,7 +418,7 @@ export default function TokenMenu() {
             </>
           )}
 
-          {tab === 'spells' && isDm && statblock?.spellcasting && (
+          {tab === 'spells' && (isDm || canEdit) && statblock?.spellcasting && (
             <StatblockSpells statblock={statblock} onChange={setStatblock} />
           )}
         </div>

@@ -179,6 +179,16 @@ export default function TableTop() {
     if (!aim || !aim.origin) return [];
     const size = grid.size || 50;
     const g = { size, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    // Призыв: клетка выбирается как место токена — подсвечиваем ровно её.
+    if (aim.summon) {
+      const cx = Math.floor((aim.origin.x - g.offsetX) / size);
+      const cy = Math.floor((aim.origin.y - g.offsetY) / size);
+      const maxCx = Math.ceil((activeMap?.width ?? 0) / size);
+      const maxCy = Math.ceil((activeMap?.height ?? 0) / size);
+      if (cx < 0 || cy < 0) return [];
+      if (activeMap && (cx >= maxCx || cy >= maxCy)) return [];
+      return [{ x: g.offsetX + cx * size, y: g.offsetY + cy * size, size }];
+    }
     const keys = new Set(areaCells(aim.spec, aim.origin, aim.direction, g));
     // Предпросмотр с распространением: эффект огибает углы, сплошная стена обрывает путь.
     const spread =

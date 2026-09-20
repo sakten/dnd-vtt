@@ -19,7 +19,7 @@ export interface FxCastInput {
  */
 export function emitSpellFx(ctx: ConnCtx, input: FxCastInput, targets: Token[]): void {
   const { def } = input;
-  if (def.resolution === 'utility' || def.resolution === 'manual') return;
+  if (def.resolution === 'utility' || def.resolution === 'manual' || def.resolution === 'summon') return;
   if (!def.zone && !def.attack && !def.save && !def.damage && !def.heal && !def.effects?.length) return;
 
   const effects = def.effects ?? [];

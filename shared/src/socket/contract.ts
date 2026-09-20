@@ -154,6 +154,8 @@ export interface ClientToServerEvents {
     origin?: { x: number; y: number };
     /** Направление конуса/линии (мировая точка). */
     direction?: { x: number; y: number };
+    /** Выбранная форма призыва (Find Familiar): ключ каталога бестиария. */
+    summonKey?: string;
   }) => void;
   /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
   'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;

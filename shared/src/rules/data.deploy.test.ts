@@ -7,10 +7,13 @@ import featuresRaw from '../data/features.json';
 import weaponsRaw from '../data/weapons.json';
 import featsRaw from '../data/feats.json';
 import bestiaryRaw from '../data/bestiary.json';
+import invocationsRaw from '../data/invocations.json';
 import type { BestiaryEntry } from '../domain/bestiary';
+import type { InvocationsData } from '../domain/invocation';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPELLS } from './automation';
+import { INVOCATION_MECHANICS } from './invocations';
 import { ABSORB_SPELL_TYPES, REACTION_SPELL_TRIGGERS } from './reactions';
 import { spellAttackCount, spellDamageExpression } from './spellCast';
 import type { Spell } from './spells';
@@ -27,7 +30,8 @@ const HASHES = {
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: 'f8d310ec0a56a339',
-  bestiary: '87e620bd4f836446',
+  bestiary: 'fe51ccd4ef9df64b',
+  invocations: '7efff7e520cc92ad',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -105,7 +109,28 @@ describe('снимок данных', () => {
       weapons: hash(weaponsRaw),
       feats: hash(featsRaw),
       bestiary: hash(bestiaryRaw),
+      invocations: hash(invocationsRaw),
     }).toEqual(HASHES);
+  });
+
+  it('invocations.json: контракт записей', () => {
+    const data = invocationsRaw as unknown as InvocationsData;
+    expect(data.invocations.length).toBe(data.count);
+    expect(data.limits).toHaveLength(20);
+    expect(data.limits[0]).toBe(1);
+    expect(data.limits[19]).toBe(10);
+    const keys = new Set(data.invocations.map((i) => i.key));
+    const bad: string[] = [];
+    for (const inv of data.invocations) {
+      if (!inv.key.startsWith('XPHB:')) bad.push(`${inv.key}: источник`);
+      if (!inv.name || inv.level < 1 || inv.level > 20) bad.push(`${inv.key}: уровень ${inv.level}`);
+      if (!inv.description) bad.push(`${inv.key}: пустое описание`);
+      if (inv.prereq?.pact && !['blade', 'chain', 'tome'].includes(inv.prereq.pact)) bad.push(`${inv.key}: пакт`);
+      if (inv.prereq?.requires && !keys.has(inv.prereq.requires)) bad.push(`${inv.key}: requires ${inv.prereq.requires}`);
+    }
+    expect(bad).toEqual([]);
+    // Известная движку механика ссылается только на существующие инвокации.
+    expect(Object.keys(INVOCATION_MECHANICS).filter((key) => !keys.has(key))).toEqual([]);
   });
 
   it('feats.json: контракт записей', () => {

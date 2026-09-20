@@ -1,16 +1,21 @@
 import {
   automationForSpell,
+  crossesWalls,
+  effectiveSpellRangeFeet,
   gridDistanceFeet,
+  hasInvocation,
+  INVOCATION_PACT_KEYS,
   spellIsSelf,
-  spellRangeFeet,
   type ErrorPayload,
   type Spell,
   type SpellStats,
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
+import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
+import { summonEntry, summonFormIssue, hasFreeSummonSpot } from './summons';
 
 export interface SpellCastInput {
   caster: Token;
@@ -27,15 +32,19 @@ export interface SpellCastInput {
   /** Точка/направление каста (для создания зон). */
   origin?: { x: number; y: number } | null;
   direction?: { x: number; y: number } | null;
+  /** Выбранная форма призыва (Find Familiar). */
+  summonKey?: string;
   author: string;
 }
 
 /** Проверка возможности накладывания (до списания ячейки/слота). */
 export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPayload | undefined {
   const { caster, spell } = input;
+  const invocations = sheetOfToken(room, caster).sheet?.invocations;
   const def = automationForSpell(spell, {
     castLevel: input.castLevel,
     characterLevel: input.characterLevel,
+    invocations,
   });
   const targets = input.targets.filter((t) => !!t);
   const hasRoll = !!(def.damage || def.heal);
@@ -52,8 +61,31 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (!targets.length && !input.area) return { code: 'spellNoTarget' };
   }
 
+  // Призыв ставится в точку в пределах дистанции с чистым путём (без цели-существа).
+  if (def.resolution === 'summon') {
+    if (!input.origin) return { code: 'noAreaPoint' };
+    // Форма фамильяра: обычная — всегда, особая Pact of the Chain — только с инвокацией.
+    const key = input.summonKey ?? def.summon?.creature ?? '';
+    if (def.summon?.choices) {
+      if (!key) return { code: 'summonNoForm' };
+      const chain = hasInvocation(sheetOfToken(room, caster).sheet ?? {}, INVOCATION_PACT_KEYS.chain);
+      const issue = summonFormIssue(key, chain);
+      if (issue) return { code: issue };
+    }
+    const entry = key ? summonEntry(key) : undefined;
+    if (!entry) return { code: 'summonNoForm' };
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const gridSize = map?.grid.size || 50;
+    const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / gridSize) * 5;
+    const range = effectiveSpellRangeFeet(spell, invocations);
+    if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+    if (map && crossesWalls(caster, input.origin, map.walls, 'sight')) return { code: 'noClearPath' };
+    if (!hasFreeSummonSpot(room, input.mapId, entry.cells, input.origin)) return { code: 'summonNoSpace' };
+    return undefined;
+  }
+
   if (input.area) return undefined;
-  const rangeFeet = spellRangeFeet(spell);
+  const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
   const map = room.scene.maps.find((m) => m.id === input.mapId);
   const gridSize = map?.grid.size || 50;
@@ -75,6 +107,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
   const def = automationForSpell(input.spell, {
     castLevel: input.castLevel,
     characterLevel: input.characterLevel,
+    invocations: sheetOfToken(room, input.caster).sheet?.invocations,
   });
   executeAutomation(ctx, {
     caster: input.caster,
@@ -87,6 +120,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     origin: input.origin ?? null,
     direction: input.direction ?? null,
     area: input.spell.areaSpec ?? null,
+    ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     manual: {
       description: input.spell.description,
       level: input.spell.level,

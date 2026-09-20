@@ -12,7 +12,7 @@ import type { ConditionKey, EffectDuration, EffectEscalation, Modifier, Restrict
  * строки с ними в каталог не заводим.
  */
 
-export type AutomationResolution = 'attack' | 'save' | 'auto' | 'effect' | 'utility' | 'manual';
+export type AutomationResolution = 'attack' | 'save' | 'auto' | 'effect' | 'utility' | 'summon' | 'manual';
 
 export interface AutomationAttack {
   rangeType: 'melee' | 'ranged';
@@ -154,11 +154,19 @@ export interface ZoneInstance {
 }
 
 export interface SummonDef {
-  /** Ссылка на шаблон существа (каталог/библиотека). */
-  creature: string;
+  /** Выбранный шаблон каталога (`XPHB:Fey Spirit`); пусто — выбор формы на клиенте. */
+  creature?: string;
+  /** Доступные формы (Find Familiar / Pact of the Chain). */
+  choices?: string[];
   count?: number;
   duration: EffectDuration;
   initiative: 'afterCaster' | 'own';
+  /** Круг ячейки: скейл HP/AC/урона шаблона. */
+  level?: number;
+  /** Атаки шаблона — модификатором атаки заклинанием кастера. */
+  spellAttack?: boolean;
+  /** Спасброски шаблона — СЛ заклинаний кастера. */
+  spellDc?: boolean;
 }
 
 export interface AutomationUtility {
@@ -205,5 +213,7 @@ export interface AutomationDef extends AutomationPayload {
   targeting?: ActionTargeting;
   zone?: ZoneDef;
   summon?: SummonDef;
+  /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
+  force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   utility?: AutomationUtility;
 }

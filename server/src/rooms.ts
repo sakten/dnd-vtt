@@ -442,7 +442,9 @@ export class RoomManager {
   addTokenToCombat(room: Room, mapId: string, token: Token) {
     Combat.addTokenToCombat(this, room, mapId, token);
   }
-
+  addTokenToCombatAfter(room: Room, mapId: string, token: Token, afterTokenId: string) {
+    Combat.addTokenToCombatAfter(this, room, mapId, token, afterTokenId);
+  }
   addCombatToken(room: Room, mapId: string, tokenId: string): boolean {
     return Combat.addCombatToken(this, room, mapId, tokenId);
   }

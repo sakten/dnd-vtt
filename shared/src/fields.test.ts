@@ -70,13 +70,14 @@ describe('реестр полей', () => {
       'canInteract',
       'damageDefenses',
       'statblock',
+      'summon',
     ];
     expect(Object.keys(TOKEN_FIELD_SPECS).sort()).toEqual([...expected].sort());
 
     const fields = normalizeTokenFields({}, 40);
     for (const key of Object.keys(TOKEN_FIELD_SPECS) as (keyof TokenFields)[]) {
-      if (key === 'statblock') {
-        expect(fields.statblock).toBeUndefined();
+      if (key === 'statblock' || key === 'summon') {
+        expect(fields[key]).toBeUndefined();
         continue;
       }
       expect(fields[key], key).toBeDefined();

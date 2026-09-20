@@ -39,6 +39,7 @@ import { fail } from './errors';
 import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { maybeRollAnim } from './rollAnim';
+import { familiarCannotAttack } from './summons';
 import { controllerIdOfToken } from '../rooms';
 
 export interface AttackResolveInput {
@@ -116,6 +117,10 @@ export function prepareWeaponAttack(
   const room = ctx.getRoom();
   if (!room) return {};
   const { attacker, attackerMapId, target, targetMapId, attack } = input;
+  // Фамильяр (Find Familiar) не атакует без Pact of the Chain.
+  if (familiarCannotAttack(attacker)) {
+    return { error: { code: 'familiarNoAttack', params: { name: attacker?.name ?? '' } } };
+  }
   const attackerControllerId = attacker ? controllerIdOfToken(room, attacker) : undefined;
   const attackerSheet = attackerControllerId ? room.sheets[attackerControllerId] : undefined;
   const critMin = attackerSheet ? critRangeFor(attackerSheet.classes) : 20;

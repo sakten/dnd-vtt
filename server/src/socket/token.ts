@@ -13,6 +13,7 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
+import { removeSummonsOf, summonSourceIds } from './summons';
 import { handleMovementZones, removeZonesOfSource } from './zones';
 
 /** Производные поля персонажа: в токене не хранятся, в патче игнорируются. */
@@ -242,6 +243,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       for (const effect of [...token.effects]) manager.removeEffect(room, token, effect.id);
       for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);
       removeZonesOfSource(ctx, room, id);
+      removeSummonsOf(ctx, room, summonSourceIds(room, token));
       manager.removeToken(room, mapId, id);
       broadcastAll('token:remove', { mapId, id });
       if (manager.combatOf(room, mapId)?.active) {

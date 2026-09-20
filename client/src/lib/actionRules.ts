@@ -71,6 +71,8 @@ export interface CasterInfo {
   token: Token | undefined;
   /** Заклинания фитов с доступным бесплатным кастом (Magic Initiate). */
   freeCastKeys?: Set<string>;
+  /** Заклинания инвокаций «по желанию» (без ячейки, без ограничения). */
+  atWillKeys?: Set<string>;
 }
 
 /** Заклинания фитов, доступные к бесплатному касту без ячейки (заряд ещё не потрачен). */
@@ -93,11 +95,13 @@ export function maxCastableForSpell(spell: Spell, caster: CasterInfo): number {
   const base = caster.isCharacter
     ? maxCastableLevel(spell, caster.resources ?? null)
     : maxCastableLevel(spell, null, caster.token?.statblock?.spellcasting?.slots);
+  if (caster.atWillKeys?.has(spell.key)) return Math.max(base, spell.level);
   return caster.freeCastKeys?.has(spell.key) ? Math.max(base, spell.level) : base;
 }
 
 /** Круги ячеек в наличии для апкаста (без пустых промежуточных кругов). */
 export function castLevelsForSpell(spell: Spell, caster: CasterInfo): number[] {
+  if (caster.atWillKeys?.has(spell.key)) return spell.level > 0 ? [spell.level] : [];
   const levels = caster.isCharacter
     ? castableLevels(spell, caster.resources ?? null)
     : castableLevels(spell, null, caster.token?.statblock?.spellcasting?.slots);

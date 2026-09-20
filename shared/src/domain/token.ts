@@ -24,6 +24,18 @@ export interface TokenFields {
   damageDefenses: DamageDefense[];
   /** Статблок монстра: у токена и в библиотеке (раздаётся при выставлении). */
   statblock?: TokenStatblock;
+  /** Метка призыва: с каким кастером связан срок жизни токена. */
+  summon?: TokenSummon;
+}
+
+/** Призыв, созданный заклинанием: связь с кастером для снятия/концентрации. */
+export interface TokenSummon {
+  /** Токен-кастер, создавший призыв. */
+  casterTokenId: string;
+  /** Ключ заклинания (для сообщений и изгнания). */
+  spellKey?: string;
+  /** Особая форма Pact of the Chain: фамильяр может атаковать. */
+  pact?: boolean;
 }
 
 export interface LibraryItem extends TokenFields {
@@ -84,6 +96,24 @@ export interface TokenStatblock {
 }
 
 export type AttackRangeType = 'melee' | 'ranged' | 'none';
+
+/** Категория размера токена: 1×1 — normal (T/S/M), 2×2 — large, 3×3/4×4 — huge. */
+export type CreatureSize = 'normal' | 'large' | 'huge';
+
+export function creatureSizeOf(cells: number): CreatureSize {
+  if (cells <= 1) return 'normal';
+  return cells === 2 ? 'large' : 'huge';
+}
+
+/** Порядок размеров для сравнений «не больше чем». */
+export function sizeRank(size: CreatureSize): number {
+  return size === 'normal' ? 0 : size === 'large' ? 1 : 2;
+}
+
+/** Существо не крупнее указанной категории (Repelling Blast — large и меньше). */
+export function sizeAtMost(cells: number, max: CreatureSize): boolean {
+  return sizeRank(creatureSizeOf(cells)) <= sizeRank(max);
+}
 
 export interface AttackEntry {
   name: string;

@@ -984,3 +984,15 @@
 .feat-option-req { color: var(--accent); font-size: 11px; }
 .feat-spells { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-top: 6px; }
 .grid-auto-status { font-size: 12px; color: var(--text-dim); align-self: center; }
+.inv-form { display: flex; flex-direction: column; gap: 6px; }
+.inv-counter { font-size: 12px; color: var(--text-dim); }
+.inv-picker { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; margin-top: 4px; }
+.inv-search { background: var(--panel-2); border: 1px solid var(--panel-border); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
+.inv-row { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-2); color: var(--text); cursor: pointer; }
+.inv-row:disabled { opacity: 0.45; cursor: not-allowed; }
+.inv-row.on { border-color: var(--accent); }
+.inv-row-head { display: flex; justify-content: space-between; gap: 8px; }
+.inv-name { font-weight: 600; }
+.inv-manual { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff4d4f; margin-right: 6px; vertical-align: middle; }
+.inv-meta { color: var(--text-dim); font-size: 11px; text-align: right; }
+.inv-desc { color: var(--text-dim); font-size: 12px; white-space: pre-line; max-height: 54px; overflow: hidden; }

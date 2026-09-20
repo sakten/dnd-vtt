@@ -6,6 +6,7 @@ import {
   conditionName,
   effectDefenses,
   exhaustionRollPenalty,
+  hasConcentrationAdvantage,
   modifiedValue,
   rollDice,
   saveRollParts,
@@ -69,10 +70,11 @@ export function rollSave(
   token: Token,
   ability: AbilityKey,
   dc: number,
-  opts: { conditionsAutoFail?: boolean } = {}
+  opts: { conditionsAutoFail?: boolean; advantage?: boolean } = {}
 ): { roll: DiceRollResult; success: boolean } {
   const parts = savePartsForToken(room, token, ability);
-  const roll = rollDice(withAdvantage(withRollParts('d20', parts), parts.mode));
+  const mode = opts.advantage ? (parts.mode === 'd' ? undefined : 'a') : parts.mode;
+  const roll = rollDice(withAdvantage(withRollParts('d20', parts), mode));
   const autoFail = opts.conditionsAutoFail === true && autoFailSave(token.conditions, ability);
   return { roll, success: !autoFail && roll.total >= dc };
 }
@@ -370,7 +372,10 @@ export function concentrationCheck(
   const active = concentratingEffectsOf(room, token);
   if (!active.length) return null;
   const dc = concentrationDc(damage);
-  const { roll, success } = rollSave(room, token, 'con', dc);
+  // Eldritch Mind: преимущество на спасброски концентрации.
+  const controllerId = controllerIdOfToken(room, token);
+  const advantage = !!controllerId && hasConcentrationAdvantage(room.sheets[controllerId] ?? {});
+  const { roll, success } = rollSave(room, token, 'con', dc, { advantage });
   const names = [...new Set(active.map((e) => e.name))];
   const changed = success ? [] : clearConcentration(m, room, token.id);
   return { dc, roll, success, names, changed };

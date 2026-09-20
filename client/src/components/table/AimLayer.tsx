@@ -5,7 +5,7 @@ import type { CellRect, WorldPoint } from '../../lib/fog';
 
 interface Props {
   movementCells: CellRect[];
-  aim: { origin: WorldPoint | null; blocked?: boolean } | null;
+  aim: { origin: WorldPoint | null; blocked?: boolean; summon?: boolean } | null;
   aimCells: CellRect[];
   multiTargetTokens: Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h'>[];
   viewScale: number;
@@ -39,7 +39,7 @@ export default function AimLayer({ movementCells, aim, aimCells, multiTargetToke
           listening={false}
         />
       ))}
-      {aim?.origin && (
+      {aim?.origin && !aim.summon && (
         <Line
           points={[aim.origin.x - 8 / viewScale, aim.origin.y, aim.origin.x + 8 / viewScale, aim.origin.y]}
           stroke={aim.blocked ? '#ff6b6b' : '#ff9f43'}

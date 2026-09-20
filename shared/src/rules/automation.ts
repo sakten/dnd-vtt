@@ -10,7 +10,9 @@ import type {
 import type { EffectDuration } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
 import { AUTOMATION_ACTIONS } from './automationActions';
+import { eldritchBlastMods } from './invocations';
 import { monsterAbilityAutomation } from './monsterAbility';
+import { summonSpellDef } from './summons';
 import { isHealingSpell, spellAttackCount, spellDamageExpression } from './spellCast';
 import type { Spell } from './spells';
 
@@ -506,6 +508,14 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       restrictions: { noReactions: true, actionOrBonusOnly: true, oneAttackOnly: true, spellFailureChance: 25 },
     },
   ], { ability: 'wis' }),
+  // Animate Objects: до 10 предметов со своими статблоками — механика отдельным
+  // срезом. Без записи деривация из данных давала ложный авто-урон 1d4 по цели.
+  'XPHB:Animate Objects': {
+    key: 'XPHB:Animate Objects',
+    name: 'Animate Objects',
+    resolution: 'manual',
+    concentration: true,
+  },
 };
 
 /**
@@ -587,6 +597,8 @@ export interface AutomationOptions {
   castLevel?: number;
   /** Уровень персонажа для скейла кантрипов. */
   characterLevel?: number;
+  /** Выбранные инвокации варлока (модификаторы Eldritch Blast). */
+  invocations?: string[];
 }
 
 /**
@@ -596,6 +608,27 @@ export interface AutomationOptions {
 export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return catalog;
+
+  const summon = summonSpellDef(spell.key);
+  if (summon) {
+    const castLevel = Math.max(summon.baseLevel, opts.castLevel ?? Math.max(1, spell.level));
+    return {
+      key: spell.key,
+      name: spell.name,
+      resolution: 'summon',
+      concentration: spell.concentration === true || undefined,
+      summon: {
+        ...(summon.template ? { creature: summon.template } : {}),
+        ...(summon.fromFamiliar ? { choices: [] } : {}),
+        count: summon.count ?? 1,
+        duration: spell.concentration ? { type: 'concentration' } : summon.duration ?? { type: 'permanent' },
+        initiative: summon.initiative,
+        level: castLevel,
+        spellAttack: true,
+        spellDc: true,
+      },
+    };
+  }
 
   const withAdditions = (def: AutomationDef, spellDamage: string): AutomationDef => {
     const addition = AUTOMATION_ADDITIONS[def.key];
@@ -626,15 +659,19 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
   const rolled = isHealingSpell(spell) ? { heal: dice } : { damage: dice };
   const count = spellAttackCount(spell, castLevel, characterLevel);
   if (spell.spellAttack) {
-    return withAdditions(
-      {
-        ...base,
-        resolution: 'attack',
-        attack: { rangeType: spell.spellAttack },
-        count,
-        ...rolled,
-      },
-      expression
+    return withBlastMods(
+      spell,
+      withAdditions(
+        {
+          ...base,
+          resolution: 'attack',
+          attack: { rangeType: spell.spellAttack },
+          count,
+          ...rolled,
+        },
+        expression
+      ),
+      opts.invocations
     );
   }
   if (spell.save?.length && spell.save[0]) {
@@ -649,6 +686,16 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
     );
   }
   return withAdditions({ ...base, resolution: 'auto', count, ...rolled }, expression);
+}
+
+/** Модификаторы Eldritch Blast от инвокаций: Agonizing (+CHA к лучу) и Repelling (толчок). */
+function withBlastMods(spell: Spell, def: AutomationDef, invocations?: string[]): AutomationDef {
+  if (spell.key !== 'XPHB:Eldritch Blast' || !invocations?.length) return def;
+  const mods = eldritchBlastMods({ invocations });
+  let out = def;
+  if (mods.agonizing && out.damage) out = { ...out, damage: { ...out.damage, dice: `${out.damage.dice}+cha` } };
+  if (mods.repelling) out = { ...out, force: { kind: 'push', feet: 10, maxSize: 'large' } };
+  return out;
 }
 
 export interface ActionAutomationOptions {
@@ -688,5 +735,6 @@ export function spellEffectDefs(spellKey: string): AutomationEffect[] | undefine
 export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolean {
   const def = AUTOMATION_SPELLS[spell.key];
   if (def) return def.resolution !== 'manual';
+  if (summonSpellDef(spell.key)) return true;
   return spell.automation === 'full';
 }

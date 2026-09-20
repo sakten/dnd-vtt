@@ -22,6 +22,7 @@ import SensesForm from './SensesForm';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import FeatsForm from './FeatsForm';
+import InvocationsForm from './InvocationsForm';
 import Modal from './Modal';
 import SpellsPanel from './SpellsPanel';
 
@@ -308,11 +309,17 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         )}
 
         {tab === 'talents' && (
-          <FeatsForm
-            choices={draft.choices ?? []}
-            classes={draft.classes}
-            onChange={(choices) => setDraft((d) => (d ? { ...d, choices } : d))}
-          />
+          <>
+            <InvocationsForm
+              sheet={draft}
+              onChange={(invocations) => setDraft((d) => (d ? { ...d, invocations } : d))}
+            />
+            <FeatsForm
+              choices={draft.choices ?? []}
+              classes={draft.classes}
+              onChange={(choices) => setDraft((d) => (d ? { ...d, choices } : d))}
+            />
+          </>
         )}
         </div>
 

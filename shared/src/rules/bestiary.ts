@@ -1,5 +1,5 @@
 import type { ActionDef, ActionTargeting, AreaSpec, MonsterAbilityEffect } from '../domain/actions';
-import type { BestiaryEntry, MonsterSize, RawBestiaryMonster } from '../domain/bestiary';
+import type { BestiaryEntry, BestiarySummonProfile, MonsterSize, RawBestiaryMonster } from '../domain/bestiary';
 import type { AbilityKey } from '../domain/core';
 import type { DamageDefense } from '../domain/damage';
 import type { ConditionKey, EffectDuration } from '../domain/effects';
@@ -134,8 +134,34 @@ function parseAc(value: unknown): number {
   for (const item of value) {
     if (typeof item === 'number') return item;
     if (isRecord(item) && typeof item.ac === 'number') return item.ac;
+    if (isRecord(item) && typeof item.special === 'string') {
+      const base = /(\d+)/.exec(item.special);
+      if (base) return Number(base[1]);
+    }
   }
   return 10;
+}
+
+/** «40 + 10 for each spell level above 4» → +10 за круг выше 4-го; «5 + 10 per spell level» → +10 с круга 0. */
+function parseHpScaling(value: unknown): { perLevel: number; baseLevel: number } | undefined {
+  if (!isRecord(value) || typeof value.special !== 'string') return undefined;
+  const above = /(\d+)\s*(?:Hit Points?\s*)?for each spell level above (\d+)/i.exec(value.special);
+  if (above) return { perLevel: Number(above[1]), baseLevel: Number(above[2]) };
+  const absolute = /(\d+)\s*(?:Hit Points?\s*)?per spell level/i.exec(value.special);
+  return absolute ? { perLevel: Number(absolute[1]), baseLevel: 0 } : undefined;
+}
+
+/** «11 + the spell's level» → база 11 и +1 за круг; «10 + 1 per spell level» → +1 с круга 0. */
+function parseAcScaling(value: unknown): { base: number; perLevel: number } | undefined {
+  for (const item of Array.isArray(value) ? value : []) {
+    if (!isRecord(item) || typeof item.special !== 'string') continue;
+    const special = item.special.trim();
+    const relative = /^(\d+)\s*\+\s*(?:(\d+)\s*[×x*]\s*)?the spell'?s level/i.exec(special);
+    if (relative) return { base: Number(relative[1]), perLevel: relative[2] ? Number(relative[2]) : 1 };
+    const absolute = /^(\d+)\s*\+\s*(\d+)\s*per spell level/i.exec(special);
+    if (absolute) return { base: Number(absolute[1]), perLevel: Number(absolute[2]) };
+  }
+  return undefined;
 }
 
 function parseHp(value: unknown): { average: number; formula: string } {
@@ -212,6 +238,8 @@ export function parseDamageDefenses(value: unknown, keys: Set<string>): string[]
 
 interface ParsedAttack {
   hit: string;
+  /** Бонус атаки берётся у кастера (шаблоны призывов: «your spell attack modifier»). */
+  spellAttack?: boolean;
   melee: boolean;
   ranged: boolean;
   reach: number;
@@ -246,7 +274,7 @@ function damageMatches(text: string): DamageMatch[] {
     out.push({
       index,
       end: index + match[0].length,
-      dice: match[1]!.replace(/\+\s*summonSpellLevel\s*$/i, '').trim(),
+      dice: match[1]!.trim(),
       word: match[2]!,
     });
   }
@@ -279,8 +307,9 @@ function parseDamageParts(text: string): DamagePart[] {
 
 /** Атака из текста действия: `Melee Attack Roll: +14, reach 10 ft. Hit: 13 (1d10 + 8) Slashing damage…`. */
 export function parseAttackText(text: string): ParsedAttack | undefined {
-  const hit = /Attack Roll:\s*([+-]\d+)/i.exec(text);
-  if (!hit) return undefined;
+  const numeric = /Attack Roll:\s*([+-]\d+)/i.exec(text);
+  const spellAttack = !numeric && /your spell attack modifier/i.test(text);
+  if (!numeric && !spellAttack) return undefined;
   const parts = parseDamageParts(text);
   if (!parts.length) return undefined;
   const first = parts[0]!;
@@ -290,7 +319,8 @@ export function parseAttackText(text: string): ParsedAttack | undefined {
   }
   const range = /range (\d+)(?:\/(\d+))? ft/i.exec(text);
   return {
-    hit: hit[1]!,
+    hit: numeric?.[1] ?? '+0',
+    ...(spellAttack ? { spellAttack: true } : {}),
     melee: /\bMelee Attack Roll/i.test(text),
     ranged: /\bRanged Attack Roll/i.test(text),
     reach: Number(/reach (\d+) ft/i.exec(text)?.[1] ?? 0),
@@ -489,13 +519,21 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
   const saves = parseSaves(raw.save);
   const size = parseMonsterSize(raw.size);
   const { average: hpAverage, formula: hpFormula } = parseHp(raw.hp);
+  const hpScaling = parseHpScaling(raw.hp);
+  const acScaling = parseAcScaling(raw.ac);
+  const acBase = acScaling?.base ?? parseAc(raw.ac);
+  const ac = hpScaling && acScaling ? acBase + acScaling.perLevel * hpScaling.baseLevel : acBase;
 
   const attacks: AttackEntry[] = [];
   const actions: ActionDef[] = [];
   const manual: string[] = [];
   let multiattack: number | undefined;
+  let spellAttack = false;
+  let spellDc = false;
 
   for (const entry of rawActions(raw.action)) {
+    if (/your spell attack modifier/i.test(entry.text)) spellAttack = true;
+    if (/your spell save DC/i.test(entry.text)) spellDc = true;
     if (/^multiattack$/i.test(entry.name)) {
       const count = parseMultiattack(entry.text);
       if (count && count > 1) multiattack = count;
@@ -619,6 +657,16 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
 
   const description = [...traits, ...manual].join('\n\n').slice(0, 6000);
 
+  const summon: BestiarySummonProfile | undefined =
+    hpScaling || acScaling || spellAttack || spellDc
+      ? {
+          ...(hpScaling ? { hpPerLevel: hpScaling.perLevel, baseLevel: hpScaling.baseLevel } : {}),
+          ...(acScaling ? { acPerLevel: acScaling.perLevel } : {}),
+          ...(spellAttack ? { spellAttack: true } : {}),
+          ...(spellDc ? { spellDc: true } : {}),
+        }
+      : undefined;
+
   const entry: Omit<BestiaryEntry, 'appearance'> = {
     key,
     name,
@@ -630,7 +678,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     immunities: parseDamageDefenses(raw.immune, DAMAGE_WORDS),
     resistances: parseDamageDefenses(raw.resist, DAMAGE_WORDS),
     vulnerabilities: parseDamageDefenses(raw.vulnerable, DAMAGE_WORDS),
-    ac: parseAc(raw.ac),
+    ac,
     hpAverage,
     hpFormula,
     abilities,
@@ -643,17 +691,47 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     actions: actions.slice(0, 50),
     ...(legendary ? { legendaryMax: legendary.max } : {}),
     ...(spellcasting ? { spellcasting } : {}),
+    ...(summon ? { summon } : {}),
     description,
   };
   return { ...entry, appearance: buildAppearance(entry as BestiaryEntry) };
 }
 
+/** Параметры спавна шаблона призыва: круг ячейки и бонусы кастера. */
+export interface BestiarySpawnOptions {
+  /** Круг ячейки: HP/AC/урон скейлятся от `baseLevel`. */
+  slotLevel?: number;
+  /** Модификатор атаки заклинанием кастера (заменяет «spell attack» в атаках). */
+  spellAttackBonus?: number;
+}
+
+/** Подстановка круга в формулы шаблона: `1d10 + 3 + summonSpellLevel` → `1d10 + 3 + 4`. */
+export function resolveSummonDamage(damage: string, slotLevel: number): string {
+  return damage.replace(/summonSpellLevel/gi, String(slotLevel));
+}
+
 /** Поля токена/предмета библиотеки для выставления существа из каталога. */
-export function bestiaryTokenFields(entry: BestiaryEntry): TokenFields {
+export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOptions = {}): TokenFields {
   const base = entry.key.toLowerCase().replace(/[^a-z0-9:]+/g, '-');
   const defense = (type: DamageDefense['type'], list: string[]): DamageDefense[] =>
     list.map((damageType) => ({ id: `${base}:${type}:${damageType}`, type, damageType }));
   const dexMod = Math.floor((entry.abilities.dex - 10) / 2);
+  const profile = entry.summon;
+  const level = opts.slotLevel;
+  const steps = profile && level !== undefined && profile.baseLevel !== undefined ? Math.max(0, level - profile.baseLevel) : 0;
+  const hpMax = profile?.hpPerLevel && steps ? entry.hpAverage + profile.hpPerLevel * steps : entry.hpAverage;
+  const ac = profile?.acPerLevel && steps ? entry.ac + profile.acPerLevel * steps : entry.ac;
+  const bonusHit = profile?.spellAttack && opts.spellAttackBonus !== undefined ? `+${opts.spellAttackBonus}` : null;
+  const attacks = entry.attacks.map((attack) => ({
+    ...attack,
+    ...(bonusHit !== null && attack.hit === '+0' ? { hit: bonusHit } : {}),
+    ...(level !== undefined ? { damage: resolveSummonDamage(attack.damage, level) } : {}),
+  }));
+  const actions = entry.actions.map((action) => {
+    const attackBonus = action.ability?.attack?.bonus;
+    if (bonusHit === null || attackBonus !== '0') return action;
+    return { ...action, ability: { ...action.ability, attack: { ...action.ability!.attack!, bonus: bonusHit.replace('+', '') } } };
+  });
   return {
     name: entry.name,
     description: entry.description.slice(0, 200),
@@ -663,9 +741,9 @@ export function bestiaryTokenFields(entry: BestiaryEntry): TokenFields {
     initiativeBonus: dexMod >= 0 ? `+${dexMod}` : `${dexMod}`,
     isPlayerToken: false,
     owner: '',
-    attacks: entry.attacks,
-    ac: String(entry.ac),
-    hpMax: String(entry.hpAverage),
+    attacks,
+    ac: String(ac),
+    hpMax: String(hpMax),
     showStats: false,
     canInteract: false,
     damageDefenses: [
@@ -679,7 +757,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry): TokenFields {
       ...(entry.spellcasting ? { spellcasting: entry.spellcasting } : {}),
       ...(entry.multiattack ? { multiattack: entry.multiattack } : {}),
       ...(entry.legendaryMax ? { legendary: { max: entry.legendaryMax, actions: [] } } : {}),
-      ...(entry.actions.length ? { actions: entry.actions } : {}),
+      ...(actions.length ? { actions } : {}),
     },
   };
 }

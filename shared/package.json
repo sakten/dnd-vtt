@@ -15,6 +15,10 @@
     "./bestiaryData": {
       "types": "./src/bestiaryData.ts",
       "import": "./src/bestiaryData.ts"
+    },
+    "./invocationsData": {
+      "types": "./src/invocationsData.ts",
+      "import": "./src/invocationsData.ts"
     }
   },
   "scripts": {

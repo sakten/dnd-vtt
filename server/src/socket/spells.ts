@@ -2,6 +2,7 @@ import {
   actionSlotAvailable,
   characterLevel,
   featSpellGrants,
+  invocationCoversSpell,
   restrictionsFor,
   rollDice,
   spellActionCost,
@@ -15,12 +16,13 @@ import { spellClassFor, spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
+import { removeConcSummonsOf, summonSourceIds } from './summons';
 import { removeZonesOfSource } from './zones';
 
 export function registerSpellHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, emitToken } = ctx;
 
-  ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction }) => {
+  ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction, summonKey }) => {
     if (!ctx.playerId || typeof spellKey !== 'string') return;
     if (rejectIfReaction(ctx)) return;
     const scope = scopedToken(ctx, mapId, tokenId);
@@ -35,11 +37,13 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
     const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
+    // Инвокация (Armor of Shadows, Mask of Many Faces…): каст без ячейки и подготовки.
+    const atWill = isCharacter && !!sheet && invocationCoversSpell(sheet, spellKey);
 
     let className: string | undefined;
     if (isCharacter && sheet) {
       className = spellClassFor(sheet, spellKey);
-      if (!className) {
+      if (!className && !atWill) {
         fail(ctx, 'spellNotPrepared');
         return;
       }
@@ -64,6 +68,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       const requested = Math.round(Number(slotLevel));
       castLevel = Number.isFinite(requested) ? Math.max(spell.level, Math.min(9, requested)) : spell.level;
     }
+    if (atWill) castLevel = spell.level;
 
     const input = collectSpellCast(ctx, {
       mapId,
@@ -76,6 +81,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       advantage,
       origin,
       direction,
+      summonKey,
       author: room.players.find((p) => p.id === ctx.playerId)?.name ?? '?',
     });
     if (!input) return;
@@ -98,7 +104,9 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const featChargeKey = featGrant ? `${featGrant.className}:freeCast` : undefined;
     const freeCast = !!featChargeKey && !!ctx.playerId && manager.hasResource(room, ctx.playerId, featChargeKey, 1);
 
-    if (spell.level > 0 && freeCast && featChargeKey) {
+    if (atWill) {
+      // Инвокация: ячейка не тратится (действие списывается ниже общим путём).
+    } else if (spell.level > 0 && freeCast && featChargeKey) {
       manager.spendResource(room, ctx.playerId!, featChargeKey, 1);
       ctx.emitResources(room, ctx.playerId!);
       ctx.systemMessage(room, { code: 'spells.featCast', params: { name: token.name, spell: spell.name } });
@@ -148,6 +156,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const { room, token } = scope;
     const changed = manager.clearConcentration(room, token.id);
     removeZonesOfSource(ctx, room, token.id);
+    removeConcSummonsOf(ctx, room, summonSourceIds(room, token));
     if (!changed.length) return;
     for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
     ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });

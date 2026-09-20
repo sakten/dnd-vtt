@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BASE_ACTIONS, abilityMod, actionSlotAvailable, automationForAction, featureActionAutomation, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { BASE_ACTIONS, abilityMod, actionSlotAvailable, automationForAction, featureActionAutomation, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -218,6 +218,7 @@ export default function ActionPanel() {
         resources,
         token,
         freeCastKeys: featFreeCastKeys(sheet, resources),
+      atWillKeys: sheet ? new Set(invocationAtWillSpells(sheet)) : undefined,
       });
       if (maxLevel < spell.level) return true;
     }

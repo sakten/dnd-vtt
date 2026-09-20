@@ -49,6 +49,8 @@ export interface CharacterSheet {
   spells: SheetSpell[];
   /** Выборы способностей (фиты, инвокации, манёвры, метамагия) — R8.8. */
   choices?: FeatureChoice[];
+  /** Выбранные воззвания варлока (ключи `XPHB:…`) — R8.10. */
+  invocations?: string[];
   hpMax: string;
   ac: string;
   /** Базовая скорость, футы. */
