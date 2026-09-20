@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { bestiaryIconUrl, bestiaryTokenFields, type BestiaryEntry, type MonsterSize } from 'shared';
+import { bestiaryIconPath, bestiaryTokenFields, type BestiaryEntry, type MonsterSize } from 'shared';
 import Modal from './Modal';
 import { loadBestiary } from '../lib/bestiary';
 import { useIsDm } from '../lib/control';
@@ -106,7 +106,7 @@ export default function BestiaryPanel() {
         {filtered.map((entry) => (
           <div className="bestiary-item" data-testid="bestiary-item" key={entry.key}>
             <div className="bestiary-row" onClick={() => setSelected((current) => (current === entry.key ? null : entry.key))}>
-              <img className="bestiary-icon" src={bestiaryIconUrl(entry)} alt="" width={40} height={40} loading="lazy" />
+              <img className="bestiary-icon" src={bestiaryIconPath(entry)} alt="" width={40} height={40} loading="lazy" />
               <span className="bestiary-name">{entry.name}</span>
               <span className="bestiary-meta">
                 {entry.type || '—'} · CR {entry.cr} · {t(SIZE_KEYS[entry.size])}

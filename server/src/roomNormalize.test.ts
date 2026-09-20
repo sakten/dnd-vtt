@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, DEFAULT_SPEED, defaultFog, emptyCombatState } from 'shared';
+import { DEFAULT_GRID, DEFAULT_SPEED, bestiaryTokenPath, defaultFog, emptyCombatState } from 'shared';
+import bestiaryData from 'shared/bestiaryData';
 import type { CharacterSheet, Scene } from 'shared';
 import type { PersistedRoom } from './roomTypes';
 import { toPersistedRoom } from './roomTypes';
@@ -39,6 +40,24 @@ function sceneWithMap(extra: Record<string, unknown> = {}): Scene {
 }
 
 describe('hydrateRoom', () => {
+  it('обновляет устаревшие иконки бестиария по имени, не трогая загрузки', () => {
+    const stale = 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22x%22%3E%3C%2Fsvg%3E';
+    const wolf = bestiaryData.entries.find((e) => e.name === 'Wolf')!;
+    const expected = bestiaryTokenPath(wolf);
+    const room = hydrateRoom(
+      base({
+        library: [
+          { id: 'l1', name: 'Wolf', imageUrl: stale },
+          { id: 'l2', name: 'Wolf', imageUrl: '/uploads/wolf.png' },
+        ],
+        scene: sceneWithMap({ tokens: [{ id: 't1', name: 'Wolf', imageUrl: stale }] }),
+      } as never)
+    );
+    expect(room.library[0]!.imageUrl).toBe(expected);
+    expect(room.library[1]!.imageUrl).toBe('/uploads/wolf.png');
+    expect(room.scene.maps[0]!.tokens[0]!.imageUrl).toBe(expected);
+  });
+
   it('переводит legacy scene.map/tokens в maps', () => {
     const legacyScene = {
       activeMapId: null,

@@ -6,7 +6,7 @@ import type { ConditionKey, EffectDuration } from '../domain/effects';
 import type { Sense } from '../domain/sense';
 import type { AttackEntry, TokenFields, TokenStatblock } from '../domain/token';
 import { CONDITION_KEYS } from './conditions';
-import { bestiaryIconUrl } from './bestiaryIcon';
+import { bestiaryTokenPath } from './bestiaryIcon';
 import { buildAppearance } from './appearance';
 import { collectText, stripTags } from './spells';
 
@@ -657,7 +657,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry): TokenFields {
   return {
     name: entry.name,
     description: entry.description.slice(0, 200),
-    imageUrl: bestiaryIconUrl(entry),
+    imageUrl: bestiaryTokenPath(entry),
     cells: entry.cells,
     round: false,
     initiativeBonus: dexMod >= 0 ? `+${dexMod}` : `${dexMod}`,

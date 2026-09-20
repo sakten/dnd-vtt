@@ -161,7 +161,20 @@ export function bestiaryIconSvg(entry: BestiaryEntry): string {
   );
 }
 
-/** Data-URL иконки — годится и для `imageUrl` выставляемого токена. */
+/** Маркер data-URL иконок бестиария: по нему узнаём устаревшие иконки при загрузке комнат. */
+export const BESTIARY_ICON_PREFIX = 'data:image/svg+xml;charset=utf-8,';
+
+/** URL иконки каталога: сервер отдаст файл 128px из `data/bestiary/icons/`, иначе SVG. */
+export function bestiaryIconPath(entry: BestiaryEntry): string {
+  return `/api/bestiary/icon/${encodeURIComponent(entry.key)}`;
+}
+
+/** URL картинки токена (256px) для `imageUrl` — грузится только у выставленных токенов. */
+export function bestiaryTokenPath(entry: BestiaryEntry): string {
+  return `/api/bestiary/token/${encodeURIComponent(entry.key)}`;
+}
+
+/** Data-URL иконки — запасной путь (тесты, офлайн-снимки). */
 export function bestiaryIconUrl(entry: BestiaryEntry): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(bestiaryIconSvg(entry))}`;
+  return `${BESTIARY_ICON_PREFIX}${encodeURIComponent(bestiaryIconSvg(entry))}`;
 }

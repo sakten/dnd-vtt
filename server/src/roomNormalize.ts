@@ -12,6 +12,7 @@ import {
   normalizeSheet,
 } from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
+import { refreshBestiaryIcons } from './bestiaryIcons';
 
 /** Legacy-сцена (map/tokens) → одна карта; иначе — обычная нормализация сцены. */
 function normalizePersistedScene(raw: Scene): Scene {
@@ -106,7 +107,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
       token.initiativeBonus = '';
     }
   }
-  return {
+  const room: Room = {
     code: p.code,
     name:
       typeof p.name === 'string' && p.name.trim()
@@ -132,4 +133,6 @@ export function hydrateRoom(p: PersistedRoom): Room {
     controllers,
     testMode: p.testMode === true,
   };
+  refreshBestiaryIcons(room);
+  return room;
 }

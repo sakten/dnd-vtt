@@ -11,6 +11,7 @@ import type { Room } from './roomTypes';
 import { registerSocket } from './socket';
 import { HERE, UPLOADS_DIR, dirSize, ensureDirs, flatUploadSize, roomUploadDir } from './store';
 import { ROOM_QUOTA_BYTES, ROOM_QUOTA_MB } from './config';
+import { bestiaryEntryByKey, bestiaryIconSvgForKey, bestiaryPortraitFile } from './bestiaryIcons';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_DIST = path.resolve(HERE, '../../client/dist');
@@ -91,6 +92,32 @@ const upload = multer({
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+/** Картинка существа: файл из data/bestiary/<kind>/ (иконка 128, токен 256), иначе SVG. */
+app.get('/api/bestiary/:kind/:key', (req, res) => {
+  const kind = req.params.kind === 'token' ? 'token' : req.params.kind === 'icon' ? 'icon' : null;
+  if (!kind) {
+    res.status(404).json({ error: 'Нет картинки' });
+    return;
+  }
+  const key = String(req.params.key);
+  if (!bestiaryEntryByKey(key)) {
+    res.status(404).json({ error: 'Неизвестное существо' });
+    return;
+  }
+  const file = bestiaryPortraitFile(key, kind);
+  if (file) {
+    res.sendFile(file, { maxAge: 300000 });
+    return;
+  }
+  const svg = bestiaryIconSvgForKey(key);
+  if (!svg) {
+    res.status(404).json({ error: 'Нет картинки' });
+    return;
+  }
+  res.set('Cache-Control', 'public, max-age=300');
+  res.type('image/svg+xml').send(svg);
+});
 
 app.post(
   '/api/upload',

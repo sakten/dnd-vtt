@@ -13,10 +13,15 @@ export const DATA_DIR = process.env.DATA_DIR
 
 export const ROOMS_DIR = path.join(DATA_DIR, 'rooms');
 export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+/** Картинки существ: иконки каталога (128) и токены карты (256). */
+export const BESTIARY_ICONS_DIR = path.join(DATA_DIR, 'bestiary', 'icons');
+export const BESTIARY_TOKENS_DIR = path.join(DATA_DIR, 'bestiary', 'tokens');
 
 export async function ensureDirs() {
   await fs.mkdir(ROOMS_DIR, { recursive: true });
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  await fs.mkdir(BESTIARY_ICONS_DIR, { recursive: true });
+  await fs.mkdir(BESTIARY_TOKENS_DIR, { recursive: true });
 }
 
 export interface RoomRepository {
