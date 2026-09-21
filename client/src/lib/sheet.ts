@@ -1,34 +1,19 @@
 import {
-  DEFAULT_ABILITIES,
-  DEFAULT_SPEED,
   SKILLS,
   abilityMod,
   bonusPart,
   d20Check,
-  emptyAttack,
   fmtMod,
+  normalizeSheet,
   type AbilityKey,
   type CharacterSheet,
 } from 'shared';
 
 export { bonusPart };
 
+/** Новый лист: те же дефолты, что и у гидратированного (один источник — `normalizeSheet`). */
 export function defaultSheet(): CharacterSheet {
-  return {
-    name: '',
-    abilities: { ...DEFAULT_ABILITIES },
-    proficiencyBonus: '2',
-    saves: {},
-    skills: {},
-    attacks: [{ ...emptyAttack(), hit: 'd20', damage: 'd6' }],
-    classes: [],
-    spells: [],
-    hpMax: '',
-    ac: '',
-    speed: DEFAULT_SPEED,
-    senses: [],
-    damageDefenses: [],
-  };
+  return normalizeSheet({});
 }
 
 export function saveExpression(sheet: CharacterSheet, ability: AbilityKey): string {
