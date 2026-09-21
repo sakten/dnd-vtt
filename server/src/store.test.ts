@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { PersistedRoom } from './roomTypes';
 import { createRoomRepository, dirSize } from './store';
 
@@ -73,6 +73,49 @@ describe('roomRepository', () => {
       await repo.flush();
       await expect(readFile(path.join(dir, 'T2.chat.json'))).rejects.toThrow();
     } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    }
+  });
+
+  it('remove во время записи не воскрешает комнату', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'vtt-race-'));
+    const { promises: fsp } = await import('node:fs');
+    const realRename = fsp.rename.bind(fsp);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let blocked = false;
+    const spy = vi.spyOn(fsp, 'rename').mockImplementation(async (from, to) => {
+      if (!blocked && String(to).endsWith('RACE.json')) {
+        blocked = true;
+        started();
+        await gate;
+      }
+      await realRename(from, to);
+    });
+    try {
+      const repo = createRoomRepository({ dir, roomDebounceMs: 5, chatDebounceMs: 5 });
+      const room = { code: 'RACE', chat: [] } as unknown as PersistedRoom;
+      repo.save(room.code, () => room);
+      await writing; // rename уже в полёте и висит на gate
+
+      const removal = repo.remove(room.code);
+      release();
+      await removal;
+      await new Promise((r) => setTimeout(r, 30)); // дать завершиться любой записи, начатой до remove
+      await expect(readFile(path.join(dir, 'RACE.json'))).rejects.toThrow();
+
+      // Поколение не блокирует новую комнату с тем же кодом.
+      repo.save(room.code, () => room);
+      await repo.flush();
+      await expect(readFile(path.join(dir, 'RACE.json'))).resolves.toBeTruthy();
+    } finally {
+      spy.mockRestore();
       await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     }
   });

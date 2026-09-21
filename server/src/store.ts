@@ -54,9 +54,28 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
   const chatTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; chat: () => PersistedRoom['chat'] }>();
   /** JSON последней записанной истории чата: без изменений файл не трогаем. */
   const lastChat = new Map<string, string>();
+  /** Хвост файловых операций комнаты: записи и удаление идут строго по очереди. */
+  const chains = new Map<string, Promise<void>>();
+  /** Поколение комнаты: `remove` инвалидирует отложенные записи (начатая — доигрывается до unlink). */
+  const generations = new Map<string, number>();
 
   const roomPath = (code: string) => path.join(dir, `${code}.json`);
   const chatPath = (code: string) => path.join(dir, `${code}.chat.json`);
+  const generationOf = (code: string) => generations.get(code) ?? 0;
+
+  /**
+   * Ставит операцию в очередь комнаты. Поколение проверяется в момент запуска:
+   * если комнату успели удалить, запись не выполняется и не воскрешает файл.
+   */
+  const enqueue = (code: string, generation: number, task: () => Promise<void>): Promise<void> => {
+    const prev = chains.get(code) ?? Promise.resolve();
+    const next = prev.then(async () => {
+      if (generation !== generationOf(code)) return;
+      await task();
+    });
+    chains.set(code, next.catch(() => void 0));
+    return next;
+  };
 
   const writeJson = async (target: string, json: string) => {
     await fs.mkdir(dir, { recursive: true });
@@ -104,11 +123,14 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
       return rooms;
     },
     save(code, snapshot, chat) {
+      const generation = generationOf(code);
       const existing = roomTimers.get(code);
       if (existing) clearTimeout(existing.timer);
       const timer = setTimeout(() => {
         roomTimers.delete(code);
-        writeRoom(code, snapshot()).catch((e) => console.error(`Не удалось сохранить комнату ${code}:`, e));
+        enqueue(code, generation, () => writeRoom(code, snapshot())).catch((e) =>
+          console.error(`Не удалось сохранить комнату ${code}:`, e)
+        );
       }, roomDelay);
       roomTimers.set(code, { timer, snapshot });
 
@@ -120,7 +142,9 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
         const json = JSON.stringify(chat());
         if (json === (lastChat.get(code) ?? '[]')) return;
         lastChat.set(code, json);
-        writeJson(chatPath(code), json).catch((e) => console.error(`Не удалось сохранить чат ${code}:`, e));
+        enqueue(code, generation, () => writeJson(chatPath(code), json)).catch((e) =>
+          console.error(`Не удалось сохранить чат ${code}:`, e)
+        );
       }, chatDelay);
       chatTimers.set(code, { timer: chatTimer, chat });
     },
@@ -135,11 +159,15 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
         clearTimeout(chatTimer.timer);
         chatTimers.delete(code);
       }
-      lastChat.delete(code);
-      return Promise.all([
-        fs.unlink(roomPath(code)).catch(() => void 0),
-        fs.unlink(chatPath(code)).catch(() => void 0),
-      ]).then(() => void 0);
+      const generation = generationOf(code) + 1;
+      generations.set(code, generation);
+      return enqueue(code, generation, async () => {
+        lastChat.delete(code);
+        await Promise.all([
+          fs.unlink(roomPath(code)).catch(() => void 0),
+          fs.unlink(chatPath(code)).catch(() => void 0),
+        ]);
+      });
     },
     async flush() {
       const pending = [...roomTimers.entries()];
@@ -148,13 +176,15 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
       chatTimers.clear();
       await Promise.all([
         ...pending.map(([code, { snapshot }]) =>
-          writeRoom(code, snapshot()).catch((e) => console.error(`Не удалось сохранить комнату ${code} при остановке:`, e))
+          enqueue(code, generationOf(code), () => writeRoom(code, snapshot())).catch((e) =>
+            console.error(`Не удалось сохранить комнату ${code} при остановке:`, e)
+          )
         ),
         ...pendingChat.map(([code, { chat }]) => {
           const json = JSON.stringify(chat());
           if (json === (lastChat.get(code) ?? '[]')) return Promise.resolve();
           lastChat.set(code, json);
-          return writeJson(chatPath(code), json).catch((e) =>
+          return enqueue(code, generationOf(code), () => writeJson(chatPath(code), json)).catch((e) =>
             console.error(`Не удалось сохранить чат ${code} при остановке:`, e)
           );
         }),
