@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ABILITIES, DAMAGE_TYPES, SKILLS } from 'shared';
 import { LANGS, detectLang, interpolate, nextLang, plural, setLocale, t } from './index';
 
 describe('i18n', () => {
@@ -42,6 +43,20 @@ describe('i18n', () => {
     setLocale('en');
     expect(plural(1, forms)).toBe('фут');
     expect(plural(2, forms)).toBe('футов');
+    setLocale('ru');
+  });
+
+  it('доменные ключи (урон/характеристики/навыки) переведены в обоих словарях', () => {
+    const keys = [
+      ...DAMAGE_TYPES.map((d) => `domain.damage.${d.key}`),
+      ...ABILITIES.map((a) => `domain.ability.${a.key}`),
+      ...SKILLS.map((s) => `domain.skill.${s.key}`),
+    ];
+    const probe = t as (key: string) => string;
+    for (const lang of LANGS) {
+      setLocale(lang);
+      expect(keys.filter((key) => probe(key) === key)).toEqual([]);
+    }
     setLocale('ru');
   });
 });

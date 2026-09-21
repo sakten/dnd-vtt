@@ -1,43 +1,28 @@
 import type { AbilityKey } from './domain/core';
-import type { DamageDefenseType } from './domain/damage';
-import type { LightAreaKind } from './domain/scene';
-import type { SenseType } from './domain/sense';
 
-export const SENSE_NAMES: Record<SenseType, string> = {
-  darkvision: 'Тёмное зрение',
-  blindsight: 'Слепое зрение',
-  devilsight: 'Дьявольское зрение',
-};
+/**
+ * Доменные ключи (без RU-названий): подписи живут в клиентском i18n
+ * (`client/src/i18n/ru.ts`/`en.ts`, `domain.*`), сервер строки не носит.
+ */
 
-export const LIGHT_AREA_NAMES: Record<LightAreaKind, string> = {
-  darkness: 'Тьма',
-  magical: 'Магическая тьма',
-  obscured: 'Мгла',
-};
-
-/** Список типов урона; первые три — физические (в таком порядке в выпадающих списках). */
-export const DAMAGE_TYPES: { key: string; name: string }[] = [
-  { key: 'slashing', name: 'Режущий' },
-  { key: 'piercing', name: 'Колющий' },
-  { key: 'bludgeoning', name: 'Дробящий' },
-  { key: 'acid', name: 'Кислота' },
-  { key: 'cold', name: 'Холод' },
-  { key: 'fire', name: 'Огонь' },
-  { key: 'force', name: 'Силовой' },
-  { key: 'lightning', name: 'Молния' },
-  { key: 'necrotic', name: 'Некротический' },
-  { key: 'poison', name: 'Яд' },
-  { key: 'psychic', name: 'Психический' },
-  { key: 'radiant', name: 'Излучение' },
-  { key: 'thunder', name: 'Гром' },
+/** Ключи типов урона; первые три — физические (в таком порядке в выпадающих списках). */
+export const DAMAGE_TYPES: { key: string }[] = [
+  { key: 'slashing' },
+  { key: 'piercing' },
+  { key: 'bludgeoning' },
+  { key: 'acid' },
+  { key: 'cold' },
+  { key: 'fire' },
+  { key: 'force' },
+  { key: 'lightning' },
+  { key: 'necrotic' },
+  { key: 'poison' },
+  { key: 'psychic' },
+  { key: 'radiant' },
+  { key: 'thunder' },
 ];
 
-export function damageTypeName(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  return DAMAGE_TYPES.find((d) => d.key === key)?.name ?? key;
-}
-
-/** Цвета типов урона: чат, FX-эффекты и иконки существ. */
+/** Цвета типов урона: чат, FX-эффекты и иконки существ (не локализуются). */
 export const DAMAGE_TYPE_COLORS: Record<string, string> = {
   fire: '#ff8a2b',
   cold: '#7fd4ff',
@@ -58,38 +43,32 @@ export function damageTypeColor(key: string | undefined): string | undefined {
   return key ? DAMAGE_TYPE_COLORS[key] : undefined;
 }
 
-export const DEFENSE_TYPE_NAMES: Record<DamageDefenseType, string> = {
-  resistance: 'Сопротивление',
-  immunity: 'Иммунитет',
-  vulnerability: 'Уязвимость',
-};
-
-export const ABILITIES: { key: AbilityKey; name: string }[] = [
-  { key: 'str', name: 'Сила' },
-  { key: 'dex', name: 'Ловкость' },
-  { key: 'con', name: 'Телосложение' },
-  { key: 'int', name: 'Интеллект' },
-  { key: 'wis', name: 'Мудрость' },
-  { key: 'cha', name: 'Харизма' },
+export const ABILITIES: { key: AbilityKey }[] = [
+  { key: 'str' },
+  { key: 'dex' },
+  { key: 'con' },
+  { key: 'int' },
+  { key: 'wis' },
+  { key: 'cha' },
 ];
 
-export const SKILLS: { key: string; name: string; ability: AbilityKey }[] = [
-  { key: 'athletics', name: 'Атлетика', ability: 'str' },
-  { key: 'acrobatics', name: 'Акробатика', ability: 'dex' },
-  { key: 'sleightOfHand', name: 'Ловкость рук', ability: 'dex' },
-  { key: 'stealth', name: 'Скрытность', ability: 'dex' },
-  { key: 'arcana', name: 'Магия', ability: 'int' },
-  { key: 'history', name: 'История', ability: 'int' },
-  { key: 'investigation', name: 'Анализ', ability: 'int' },
-  { key: 'nature', name: 'Природа', ability: 'int' },
-  { key: 'religion', name: 'Религия', ability: 'int' },
-  { key: 'animalHandling', name: 'Уход за животными', ability: 'wis' },
-  { key: 'insight', name: 'Проницательность', ability: 'wis' },
-  { key: 'medicine', name: 'Медицина', ability: 'wis' },
-  { key: 'perception', name: 'Восприятие', ability: 'wis' },
-  { key: 'survival', name: 'Выживание', ability: 'wis' },
-  { key: 'deception', name: 'Обман', ability: 'cha' },
-  { key: 'intimidation', name: 'Запугивание', ability: 'cha' },
-  { key: 'performance', name: 'Выступление', ability: 'cha' },
-  { key: 'persuasion', name: 'Убеждение', ability: 'cha' },
+export const SKILLS: { key: string; ability: AbilityKey }[] = [
+  { key: 'athletics', ability: 'str' },
+  { key: 'acrobatics', ability: 'dex' },
+  { key: 'sleightOfHand', ability: 'dex' },
+  { key: 'stealth', ability: 'dex' },
+  { key: 'arcana', ability: 'int' },
+  { key: 'history', ability: 'int' },
+  { key: 'investigation', ability: 'int' },
+  { key: 'nature', ability: 'int' },
+  { key: 'religion', ability: 'int' },
+  { key: 'animalHandling', ability: 'wis' },
+  { key: 'insight', ability: 'wis' },
+  { key: 'medicine', ability: 'wis' },
+  { key: 'perception', ability: 'wis' },
+  { key: 'survival', ability: 'wis' },
+  { key: 'deception', ability: 'cha' },
+  { key: 'intimidation', ability: 'cha' },
+  { key: 'performance', ability: 'cha' },
+  { key: 'persuasion', ability: 'cha' },
 ];

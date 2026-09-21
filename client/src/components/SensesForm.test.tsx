@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { DEFAULT_SENSE_RANGES, MAX_SENSES, SENSE_NAMES, SENSE_TYPES, type Sense } from 'shared';
+import { DEFAULT_SENSE_RANGES, MAX_SENSES, SENSE_TYPES, type Sense } from 'shared';
 import { describe, expect, it, vi } from 'vitest';
 import SensesForm from './SensesForm';
 
@@ -59,6 +59,6 @@ describe('SensesForm', () => {
 
   it('подписи типов в списке — человекочитаемые', () => {
     render(<SensesForm value={[{ type: 'devilsight', range: 120 }]} onChange={vi.fn()} />);
-    expect(screen.getByRole('option', { name: SENSE_NAMES.devilsight })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Дьявольское зрение' })).toBeInTheDocument();
   });
 });
