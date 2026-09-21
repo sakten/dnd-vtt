@@ -286,14 +286,14 @@ describe('формы: атаки способностями', () => {
     expect(token.cells).toBe(2);
     expect(token.w).toBe(100);
     expect(token.h).toBe(100);
-    // ׸���� ������: ����� ����� �������� � ����������� ������.
+    // Большая форма: центр сохранён, левый край сдвинут влево.
     expect(token.x).toBe(100);
     f.ctx.applyHp(room, 'm1', token, -6);
     expect(token.shape).toBeUndefined();
     expect(token.cells).toBe(1);
     expect(token.w).toBe(50);
     expect(token.h).toBe(50);
-    // �������� ������: ����� ������������ � ����� ��������� ������.
+    // Возврат: центр на месте, левый край снова на исходной позиции.
     expect(token.x).toBe(125);
   });
 

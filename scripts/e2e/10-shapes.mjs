@@ -265,7 +265,6 @@ const ram = await S.page.evaluate(() => {
   };
 });
 check(ram.roll && !ram.err, `RAM бросает d20 в чат (ошибка: ${ram.err ?? 'нет'})`);
-check(true, 'RAM бросает d20 в чат');
 
 // Урон по пулу → возврат, размер снова 1×1.
 await S.page.evaluate(
