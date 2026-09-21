@@ -1,29 +1,10 @@
 import type { ErrorPayload } from '../domain/chat';
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { ConditionInstance } from '../domain/effects';
-import type { CharacterSheet, ClassLevel } from '../domain/sheet';
+import type { ClassLevel } from '../domain/sheet';
 import type { AttackEntry, AttackRangeType, Token } from '../domain/token';
 import { advantageAgainst, attackerAdvantage, attackerDisadvantage, disadvantageAgainst } from './conditions';
 import { rollMode } from './effects';
-
-/**
- * Бонус инициативы токена: сначала явный initiativeBonus; иначе — модификатор
- * Ловкости из листа игрока, чьё имя совпадает с именем токена; иначе из листа
- * владельца (создателя). Пустая строка — если листа нет.
- */
-export function initiativeBonus(
-  token: { name: string; initiativeBonus?: string; ownerId?: string },
-  players: { id: string; name: string }[],
-  sheets: Record<string, CharacterSheet>
-): string {
-  const raw = (token.initiativeBonus ?? '').trim();
-  if (raw) return raw;
-  const byName = players.find((p) => p.name === token.name);
-  const sheet = sheets[byName?.id ?? token.ownerId ?? ''];
-  if (!sheet) return '';
-  const mod = abilityMod(sheet.abilities.dex ?? 10);
-  return mod >= 0 ? `+${mod}` : `${mod}`;
-}
 
 /** Помечает нат. d20 преимуществом/помехой: 'd20+5' → 'd20a+5' / 'd20d+5'.
  *  Терпимо к «1d20» и «D20» (иначе режим молча терялся) и к уже стоящей метке. */
