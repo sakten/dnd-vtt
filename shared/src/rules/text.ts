@@ -30,9 +30,17 @@ const namesByLang = new Map<string, NamesData>();
 const spellByLang = new Map<string, SpellTextData>();
 const featByLang = new Map<string, FeatTextData>();
 const featureByLang = new Map<string, Map<string, Record<string, string>>>();
-const failed = new Set<string>();
+/** Время последнего провала чанка: до истечения паузы повтор не начинаем. */
+const failedAt = new Map<string, number>();
 const pending = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
+
+/** Фоновые повторы после сбоя и пауза, после которой провал можно повторить. */
+const CHUNK_RETRIES = 2;
+const CHUNK_RETRY_DELAY_MS = 500;
+const FAILED_RETRY_MS = 10_000;
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function notify(): void {
   for (const listener of listeners) listener();
@@ -46,24 +54,59 @@ export function subscribeLocalizedText(listener: () => void): () => void {
   };
 }
 
-function loadChunk(id: string, load: () => Promise<{ default: unknown }>, apply: (data: unknown) => void): Promise<void> {
+/**
+ * Загрузка ленивого чанка: дедупликация, фоновые повторы после сбоя и пауза,
+ * после которой провал можно повторить. Вызывающий ждёт только первую попытку.
+ * Экспортирован для тестов.
+ */
+export function loadChunk(
+  id: string,
+  load: () => Promise<{ default: unknown }>,
+  apply: (data: unknown) => void
+): Promise<void> {
   const running = pending.get(id);
   if (running) return running;
-  if (failed.has(id)) return Promise.resolve();
-  const promise = Promise.resolve()
-    .then(load)
-    .then((mod) => {
+  const failedTimestamp = failedAt.get(id);
+  if (failedTimestamp !== undefined && Date.now() - failedTimestamp < FAILED_RETRY_MS) {
+    return Promise.resolve();
+  }
+
+  // Первая попытка завершает возвращаемый промис (main.tsx рендерит экран, даже если
+  // имён нет); повторы идут фоном, их успех доедет до подписчиков через `notify()`.
+  let settle!: () => void;
+  const first = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
+  const chain = (async () => {
+    try {
+      const mod = await load();
       apply(mod.default);
       notify();
-    })
-    .catch(() => {
-      failed.add(id);
-    })
-    .finally(() => {
-      pending.delete(id);
-    });
-  pending.set(id, promise);
-  return promise;
+      return;
+    } catch (e) {
+      console.warn(`Не удалось загрузить чанк локализации «${id}»:`, e);
+    } finally {
+      settle();
+    }
+    for (let attempt = 1; attempt <= CHUNK_RETRIES; attempt++) {
+      await delay(CHUNK_RETRY_DELAY_MS * attempt);
+      try {
+        const mod = await load();
+        apply(mod.default);
+        notify();
+        return;
+      } catch (e) {
+        console.warn(`Повторная загрузка чанка локализации «${id}» не удалась (${attempt}/${CHUNK_RETRIES}):`, e);
+      }
+    }
+    failedAt.set(id, Date.now());
+    console.error(`Чанк локализации «${id}» не загружен после ${CHUNK_RETRIES + 1} попыток; повтор — после паузы или перезагрузки.`);
+  })().finally(() => {
+    settle();
+    pending.delete(id);
+  });
+  pending.set(id, chain);
+  return first;
 }
 
 /** RU/…-имена контента (список заклинаний, черт, фитов, оружия). */

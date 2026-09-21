@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import spellsData from '../data/spells.json';
 import featsData from '../data/feats.json';
 import featuresData from '../data/features.json';
@@ -13,6 +13,7 @@ import {
   featureDescription,
   featureName,
   isNamesLoaded,
+  loadChunk,
   loadFeatText,
   loadFeatureText,
   loadNames,
@@ -20,6 +21,7 @@ import {
   spellDescription,
   spellHigherLevel,
   spellName,
+  subscribeLocalizedText,
   weaponName,
 } from './text';
 
@@ -34,14 +36,96 @@ describe('мультиязычный слой оверлеев', () => {
   });
 
   it('неизвестный (непоставленный) язык: загрузка без падения, геттеры → undefined', async () => {
-    await loadNames('de');
-    await loadSpellText('de');
-    await loadFeatText('de');
-    await loadFeatureText('de', 'fighter');
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => void 0);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => void 0);
+    try {
+      await loadNames('de');
+      await loadSpellText('de');
+      await loadFeatText('de');
+      await loadFeatureText('de', 'fighter');
+      await vi.advanceTimersByTimeAsync(5000); // дождаться фоновых повторов и кэша провала
+      expect(warn).toHaveBeenCalled();
+      expect(error).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+      warn.mockRestore();
+      error.mockRestore();
+    }
     expect(spellName('XPHB:Fireball', 'de')).toBeUndefined();
     expect(spellDescription('XPHB:Fireball', 'de')).toBeUndefined();
     expect(featDescription('XPHB:alert', 'de')).toBeUndefined();
     expect(featureDescription('fighter:secondWind', 'de')).toBeUndefined();
+  });
+});
+
+describe('ленивый чанк: сбои и повторы', () => {
+  function withFakeConsole() {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => void 0);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => void 0);
+    return () => {
+      warn.mockRestore();
+      error.mockRestore();
+    };
+  }
+
+  it('сетевой сбой лечится фоновым повтором, не блокируя вызывающего', async () => {
+    vi.useFakeTimers();
+    const restore = withFakeConsole();
+    try {
+      let calls = 0;
+      const applied: unknown[] = [];
+      const load = vi.fn(async () => {
+        calls += 1;
+        if (calls === 1) throw new Error('network');
+        return { default: { ok: true } };
+      });
+      await loadChunk('test:flaky', load, (data) => applied.push(data));
+      expect(applied).toEqual([]); // первая попытка завершена, фоновых повторов ещё не было
+      await vi.advanceTimersByTimeAsync(600);
+      expect(applied).toEqual([{ ok: true }]);
+      expect(load).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+      restore();
+    }
+  });
+
+  it('после исчерпания повторов чанк ждёт паузу, затем пробует снова', async () => {
+    vi.useFakeTimers();
+    const restore = withFakeConsole();
+    try {
+      const load = vi.fn(async () => {
+        throw new Error('offline');
+      });
+      await loadChunk('test:dead', load, () => void 0);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(load).toHaveBeenCalledTimes(3); // первая попытка + два повтора
+      await loadChunk('test:dead', load, () => void 0);
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(load).toHaveBeenCalledTimes(3); // пауза не истекла — новых запросов нет
+      await vi.advanceTimersByTimeAsync(10_500);
+      await loadChunk('test:dead', load, () => void 0);
+      expect(load).toHaveBeenCalledTimes(4); // после паузы — новая попытка
+    } finally {
+      vi.useRealTimers();
+      restore();
+    }
+  });
+
+  it('успешная загрузка уведомляет подписчиков', async () => {
+    const load = vi.fn(async () => ({ default: { ok: true } }));
+    const applied: unknown[] = [];
+    let notified = 0;
+    const unsubscribe = subscribeLocalizedText(() => (notified += 1));
+    try {
+      await loadChunk('test:once', load, (data) => applied.push(data));
+      expect(applied).toEqual([{ ok: true }]);
+      expect(notified).toBe(1);
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
+    }
   });
 });
 
