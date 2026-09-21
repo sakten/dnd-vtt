@@ -1,8 +1,8 @@
 ﻿import { actionSlotAvailable, characterLevel, crValue, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type ErrorPayload, type MapInfo, type Token } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { Room } from '../roomTypes';
-import { sheetOfToken } from '../room/helpers';
-import { beginShape, revertShape, shapeGrid, shapeName, shapesOfSource, wisdomModOf } from '../room/shape';
+import { sheetOfToken, controllerIdOfItem } from '../room/helpers';
+import { beginShape, revertShape, shapeGrid, shapeImageUrl, shapeName, shapesOfSource, wisdomModOf } from '../room/shape';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { rejectIfIncapacitated, rejectIfReaction, scopedToken } from './guards';
@@ -42,7 +42,7 @@ export function endShapeToken(ctx: ConnCtx, room: Room, mapId: string, token: To
 /** Имя/образ записи боя после смены формы (вне боя — no-op). */
 function syncShapeCombat(ctx: ConnCtx, room: Room, mapId: string, token: Token): void {
   if (!ctx.manager.combatOf(room, mapId)?.active) return;
-  ctx.manager.renameCombatantByToken(room, mapId, token.id, shapeName(token));
+  ctx.manager.renameCombatantByToken(room, mapId, token.id, shapeName(token), shapeImageUrl(token));
   ctx.syncCombat(room, mapId);
 }
 
@@ -104,6 +104,20 @@ export function shapePlacementIssue(
   return undefined;
 }
 
+/** temp HP не складываются (XPHB): пул формы берёт максимум со старыми, старые обнуляются. */
+function fuseTempHp(room: Room, token: Token, pool: number): number {
+  const controllerId = controllerIdOfItem(room, token.libraryItemId);
+  const res = controllerId ? room.resources[controllerId] : undefined;
+  if (res) {
+    const fused = Math.max(pool, res.hp.temp);
+    res.hp.temp = 0;
+    return fused;
+  }
+  const fused = Math.max(pool, token.hpTemp ?? 0);
+  token.hpTemp = 0;
+  return fused;
+}
+
 /** Максимальный CR формы Polymorph: уровень персонажа; у монстра — его CR (XPHB). */
 export function polymorphMaxCr(room: Room, target: Token): number | undefined {
   const { sheet } = sheetOfToken(room, target);
@@ -129,7 +143,7 @@ export function applyPolymorphForm(
   }
   const maxCr = polymorphMaxCr(room, target);
   if (maxCr !== undefined && polymorphFormIssue(entry, maxCr)) {
-    fail(ctx, 'shapeNoForm');
+    fail(ctx, 'shapeCrTooHigh', { max: maxCr });
     return false;
   }
   const placement = shapePlacementIssue(room, mapId, target, entry.cells);
@@ -142,13 +156,15 @@ export function applyPolymorphForm(
     {
       entry,
       kind: 'polymorph',
-      tempHp: entry.hpAverage,
+      tempHp: fuseTempHp(room, target, entry.hpAverage),
       sourceTokenId: caster.id,
       spellKey,
     },
     shapeGrid(room, mapId)
   );
   ctx.emitToken(room, 'token:update', mapId, target);
+  const controllerId = controllerIdOfItem(room, target.libraryItemId);
+  if (controllerId) ctx.emitResources(room, controllerId);
   syncShapeCombat(ctx, room, mapId, target);
   return true;
 }
@@ -214,13 +230,14 @@ export function registerFormHandlers(ctx: ConnCtx) {
       return;
     }
     use.current -= 1;
+    const pool = fuseTempHp(room, token, wildShapeTempHp(level, moon));
     ctx.emitResources(room, character.playerId);
     beginShape(
       token,
       {
         entry,
         kind: 'wildShape',
-        tempHp: wildShapeTempHp(level, moon),
+        tempHp: pool,
         ...(moon ? { wisMod: wisdomModOf(sheet.abilities) } : {}),
       },
       shapeGrid(room, payload.mapId)

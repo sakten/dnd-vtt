@@ -46,6 +46,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const [dis, setDis] = useState(false);
 
   const castToken = tokenById(map, tokenId);
+  const selectedTokenId = useGameStore((s) => s.selectedTokenId);
+  const selectedTarget =
+    selectedTokenId && selectedTokenId !== tokenId ? tokenById(map, selectedTokenId) : null;
+  // CR цели-монстра известен заранее: список Polymorph сразу ограничиваем её лимитом.
+  const maxTargetCr = selectedTarget?.statblock?.cr ? crValue(selectedTarget.statblock.cr) : undefined;
   const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
   const casterInfo: CasterInfo = {
     isCharacter: sheetCaster,
@@ -90,6 +95,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
           ? mod.default.entries.filter((entry) => familiarFormAvailable(entry.key, entry.familiar, pactChain))
           : mod.default.entries
               .filter((entry) => entry.type === 'beast')
+              .filter((entry) => maxTargetCr === undefined || crValue(entry.cr) <= maxTargetCr)
               .filter((entry) => showCr0 || crValue(entry.cr) > 0);
         setForms(list.map((entry) => ({ key: entry.key, name: `${entry.name} (CR ${entry.cr})` })));
       })
@@ -97,7 +103,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     return () => {
       alive = false;
     };
-  }, [needForm, needBeast, pactChain, showCr0]);
+  }, [needForm, needBeast, pactChain, showCr0, maxTargetCr]);
 
   const submit = () => {
     if (!abilityAction && !info.canCast) return;

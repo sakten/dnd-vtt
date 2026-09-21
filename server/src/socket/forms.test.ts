@@ -81,6 +81,8 @@ describe('формы: Wild Shape', () => {
     expect(shapeSpeed(token)).toBe(40);
     expect(formOf(token)?.ac).toBe(12);
     expect(shapeAttacks(token).length + (shapeStatblock(token)?.actions?.length ?? 0)).toBeGreaterThan(0);
+    // Портрет в бою — зверя (как и имя).
+    expect(room.scene.maps[0]!.combat.entries[0]!.imageUrl).toBe(formOf(token)?.fields.imageUrl);
   });
 
   it('неизвестная форма и полёт до 8 уровня отклоняются', () => {
@@ -122,6 +124,7 @@ describe('формы: Wild Shape', () => {
     expect(token.name).toBe('Druid');
     expect(token.ac).toBe('12');
     expect(token.hpMax).toBe('20');
+    expect(map.combat.entries[0]!.imageUrl).toBe(token.imageUrl);
   });
 
   it('досрочный выход из Wild Shape — бонусное действие', () => {
@@ -162,6 +165,18 @@ describe('формы: Wild Shape', () => {
     f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Crocodile' });
     expect(errors()).toEqual(['shapePolymorph']);
     expect(token.shape?.kind).toBe('polymorph');
+  });
+
+  it('в форме патч описания и клеток не трогает свои поля', () => {
+    const { room, token, f } = setup(6);
+    token.description = 'своё описание';
+    f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Wolf' });
+
+    f.invoke('token:update', { mapId: 'm1', id: 't1', patch: { description: 'волчье', cells: 2 } });
+
+    expect(token.description).toBe('своё описание');
+    expect(token.cells).toBe(1);
+    expect(room.library).toHaveLength(0); // шаблоны библиотеки не участвуют
   });
 
   it('недееспособность с панели условий (token:update) снимает форму', () => {
@@ -215,6 +230,24 @@ describe('формы: урон и возврат', () => {
     f.ctx.applyHp(room, 'm1', token, -7);
     expect(token.shape).toBeDefined();
     expect(room.resources['p1']!.hp.current).toBe(10);
+  });
+
+  it('temp HP не складываются: пул формы берёт максимум, старые обнуляются', () => {
+    const { room, token, f } = setup(6);
+    room.resources['p1']!.hp.temp = 10;
+    f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Wolf' });
+    expect(token.shape?.maxHp).toBe(10); // max(уровень 6, temp 10)
+    expect(room.resources['p1']!.hp.temp).toBe(0);
+  });
+
+  it('Polymorph: старые temp HP цели заменяются пулом зверя', () => {
+    const { room, token, f } = setup(6);
+    const target = makeToken('t2', { name: 'Огр', x: 150, y: 100, hpTemp: 3, hpMax: '30', hpCurrent: 30, ac: '11' });
+    room.scene.maps[0]!.tokens.push(target);
+
+    expect(applyPolymorphForm(f.ctx, room, 'm1', token, target, 'XMM:Wolf', 'XPHB:Polymorph')).toBe(true);
+    expect(target.shape?.maxHp).toBe(11); // max(HP волка 11, temp 3)
+    expect(target.hpTemp).toBe(0);
   });
 
   it('Polymorph: обнуление пула возвращает форму, избыток идёт в свои HP', () => {
@@ -293,7 +326,10 @@ describe('формы: Polymorph — валидация до списания', (
       targets: [monster],
       author: 'A',
     };
-    expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Polar Bear' })).toEqual({ code: 'shapeNoForm' });
+    expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Polar Bear' })).toEqual({
+      code: 'shapeCrTooHigh',
+      params: { max: 0.25 },
+    });
     expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Wolf' })).toBeUndefined();
   });
 
@@ -352,7 +388,7 @@ describe('формы: Polymorph', () => {  it('форма по CR цели, пу
     expect(target.shape?.key).toBe('XMM:Polar Bear');
   });
 
-  it('валидация каста: без формы — shapeNoForm, CR выше уровня — shapeNoForm', () => {
+  it('валидация каста: без формы — shapeNoForm, CR выше уровня — shapeCrTooHigh', () => {
     const { room, token } = setup(6);
     const target = makeToken('t2', { name: 'Goblin', x: 300, y: 300, libraryItemId: 'lib2' });
     room.scene.maps[0]!.tokens.push(target);
@@ -369,7 +405,10 @@ describe('формы: Polymorph', () => {  it('форма по CR цели, пу
       author: 'Druid',
     };
     expect(validateSpellCast(room, { ...base })?.code).toBe('shapeNoForm');
-    expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Polar Bear' })?.code).toBe('shapeNoForm');
+    expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Polar Bear' })).toEqual({
+      code: 'shapeCrTooHigh',
+      params: { max: 1 },
+    });
     expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Wolf' })).toBeUndefined();
   });
 });

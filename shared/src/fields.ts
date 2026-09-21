@@ -204,6 +204,8 @@ export function redactToken(token: Token): Token {
     if (hidden && 'token' in hidden) (out as unknown as Record<string, unknown>)[key] = hidden.token;
   }
   out.hpCurrent = 0;
+  // Пул формы — те же скрытые HP: чужим сам объект формы не отдаём.
+  delete out.shape;
   return out;
 }
 

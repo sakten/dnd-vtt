@@ -25,6 +25,7 @@
   'error.shapeNoUse': 'Не осталось использований дикого облика',
   'error.shapeNoSpace': 'Рядом нет свободного места для формы',
   'error.shapePolymorph': 'В форме Polymorph нельзя принять Wild Shape',
+  'error.shapeCrTooHigh': 'CR формы выше лимита цели (не больше {max})',
   'error.shapeInForm': 'В форме зверя нельзя колдовать (нужны «Заклинания зверя», 18 ур.)',
   'error.spellSelfOnly': 'Это воззвание позволяет накладывать заклинание только на себя',
   'error.noAreaPoint': 'Не выбрана точка области',

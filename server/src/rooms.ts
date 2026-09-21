@@ -469,8 +469,8 @@ export class RoomManager {
     Combat.rollCombat(this, room, mapId, id);
   }
 
-  renameCombatantByToken(room: Room, mapId: string, tokenId: string, name: string) {
-    Combat.renameCombatantByToken(this, room, mapId, tokenId, name);
+  renameCombatantByToken(room: Room, mapId: string, tokenId: string, name: string, imageUrl?: string) {
+    Combat.renameCombatantByToken(this, room, mapId, tokenId, name, imageUrl);
   }
 
   /** Токены персонажа игрока на всех картах (статы резолвит `actorStats`). */

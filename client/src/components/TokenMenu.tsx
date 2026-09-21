@@ -9,6 +9,7 @@ import {
   type ConditionInstance,
   type Faction,
   type Sense,
+  type Token,
   type TokenFields,
   type TokenStatblock,
 } from 'shared';
@@ -52,6 +53,9 @@ export default function TokenMenu() {
   const isDm = useIsDm();
   const canEdit = useCanControlId(menuId);
   const spellByKey = useSpellByKey();
+  const wildUses = useGameStore(
+    (s) => s.resources?.resources.find((r) => r.key === 'druid:wildShape')?.current ?? 0
+  );
 
   const [tab, setTab] = useState<'main' | 'statblock' | 'spells'>('main');
   const [draft, setDraft] = useState<TokenFields | null>(null);
@@ -132,13 +136,19 @@ export default function TokenMenu() {
   };
 
   const persist = () => {
-    setTokenFields(token.id, {
+    const patch: Partial<Token> = {
       ...draft,
       hpCurrent,
       hpTemp,
       conditions,
       ...(isDm ? { speed, senses, faction, visible, statblock } : {}),
-    });
+    };
+    // В форме описание/подошва в черновике — витрина зверя: свои поля не перезаписываем.
+    if (token.shape) {
+      delete patch.description;
+      delete patch.cells;
+    }
+    setTokenFields(token.id, patch);
   };
 
   const save = () => {
@@ -338,7 +348,7 @@ export default function TokenMenu() {
                 </div>
               )}
 
-              {isCharacter && sheet && !token.shape && druidLevelOf(sheet.classes) >= 2 && (
+              {isCharacter && canEdit && sheet && !token.shape && wildUses > 0 && druidLevelOf(sheet.classes) >= 2 && (
                 <button type="button" className="tm-link-btn" onClick={() => setShapeOpen((v) => !v)}>
                   {shapeOpen ? t('ui.common.close') : t('ui.shape.take')}
                 </button>
@@ -367,7 +377,7 @@ export default function TokenMenu() {
                   </div>
                 </div>
               )}
-              {shapeOpen && isCharacter && sheet && (
+              {shapeOpen && isCharacter && canEdit && sheet && (
                 <ShapePicker
                   known={sheet.wildShape?.known ?? []}
                   level={druidLevelOf(sheet.classes)}
@@ -447,7 +457,7 @@ export default function TokenMenu() {
                 />
               )}
 
-              <DescriptionField value={draft} onChange={patchDraft} />
+              <DescriptionField value={draft} onChange={patchDraft} readOnly={!!token.shape} />
             </>
           )}
 

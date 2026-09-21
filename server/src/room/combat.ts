@@ -661,11 +661,19 @@ export function rollCombat(m: CombatDeps, room: Room, mapId: string, id?: string
   m.saveSoon(room);
 }
 
-export function renameCombatantByToken(m: CombatDeps, room: Room, mapId: string, tokenId: string, name: string) {
+export function renameCombatantByToken(
+  m: CombatDeps,
+  room: Room,
+  mapId: string,
+  tokenId: string,
+  name: string,
+  imageUrl?: string
+) {
   const combat = combatOf(room, mapId);
   if (!combat) return;
   const entry = combat.entries.find((e) => e.tokenId === tokenId);
   if (!entry) return;
   entry.name = name.slice(0, 40);
+  if (imageUrl !== undefined) entry.imageUrl = imageUrl;
   m.saveSoon(room);
 }

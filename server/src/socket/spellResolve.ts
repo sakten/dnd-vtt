@@ -71,7 +71,9 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (!entry || entry.type !== 'beast') return { code: 'shapeNoForm' };
     for (const target of targets) {
       const maxCr = polymorphMaxCr(room, target);
-      if (maxCr !== undefined && polymorphFormIssue(entry, maxCr)) return { code: 'shapeNoForm' };
+      if (maxCr !== undefined && polymorphFormIssue(entry, maxCr)) {
+        return { code: 'shapeCrTooHigh', params: { max: maxCr } };
+      }
       const placement = shapePlacementIssue(room, input.mapId, target, entry.cells);
       if (placement) return placement;
     }

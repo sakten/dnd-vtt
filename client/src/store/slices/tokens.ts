@@ -22,7 +22,24 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
     onTokenUpdate: ({ mapId, token }) => {
       settleOptimisticPrefix(`token:update:${token.id}`);
-      set((s) => (s.draggingTokenId === token.id ? s : { scene: replaceToken(s.scene, mapId, token) }));
+      set((s) => {
+        if (s.draggingTokenId !== token.id) return { scene: replaceToken(s.scene, mapId, token) };
+        // Во время перетаскивания держим только позицию/геометрию, остальные поля принимаем:
+        // иначе апдейты сервера (HP, эффекты, форма) теряются до следующей рассылки.
+        const current = tokenById(activeMapOf(s), token.id);
+        if (!current) return { scene: replaceToken(s.scene, mapId, token) };
+        return {
+          scene: replaceToken(s.scene, mapId, {
+            ...token,
+            x: current.x,
+            y: current.y,
+            w: current.w,
+            h: current.h,
+            scale: current.scale,
+            rotation: current.rotation,
+          }),
+        };
+      });
     },
 
     onTokenRemove: ({ mapId, id }) => {

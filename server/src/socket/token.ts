@@ -137,6 +137,11 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const fieldPatch = normalizeTokenFieldsPatch(patch, token);
       if (stats.character) {
         for (const key of CHARACTER_DERIVED_FIELDS) delete (fieldPatch as Record<string, unknown>)[key];
+        // Пока персонаж в форме, её витрина перекрывает эти поля: правки из меню не принимаем.
+        if (token.shape) {
+          delete (fieldPatch as Record<string, unknown>).description;
+          delete (fieldPatch as Record<string, unknown>).cells;
+        }
       }
       Object.assign(token, fieldPatch);
       if (typeof patch.cells === 'number' && Number.isFinite(patch.cells)) {

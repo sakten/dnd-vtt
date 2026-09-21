@@ -130,7 +130,12 @@ export default function ResourcesPanel() {
 
   if (!resources) return null;
   const r = resources;
-  const ac = sheet?.ac?.trim() || String(DEFAULT_AC);
+  // В форме AC — зверя (вид токена), иначе из листа; без данных — дефолт.
+  const characterToken = currentCharacterId
+    ? maps.map((m) => characterTokenOf(m, currentCharacterId)).find((token) => !!token) ?? null
+    : null;
+  const tokenAc = Number(characterToken?.ac ?? '');
+  const ac = tokenAc > 0 ? String(tokenAc) : sheet?.ac?.trim() || String(DEFAULT_AC);
   const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : t('ui.resources.title');
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 

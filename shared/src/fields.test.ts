@@ -157,4 +157,14 @@ describe('redactToken / redactLibraryItem', () => {
     expect(token.hpCurrent).toBe(30);
     expect(token.statblock).toBeDefined();
   });
+
+  it('токен в форме: пул формы скрыт от чужих', () => {
+    const token: Token = {
+      ...structuredClone(FULL_TOKEN),
+      shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'wildShape', hp: 6, maxHp: 6 },
+    };
+    const redacted = redactToken(token);
+    expect(redacted.shape).toBeUndefined();
+    expect(token.shape).toBeDefined();
+  });
 });

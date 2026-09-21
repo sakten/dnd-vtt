@@ -233,13 +233,22 @@ export function TokenHealthFields({
 }
 
 /** Описание токена/предмета. */
-export function DescriptionField({ value, onChange }: { value: TokenFields; onChange: Change }) {
+export function DescriptionField({
+  value,
+  onChange,
+  readOnly,
+}: {
+  value: TokenFields;
+  onChange: Change;
+  readOnly?: boolean;
+}) {
   return (
     <Field label={t('ui.common.description')}>
       <textarea
         value={value.description}
         rows={3}
         maxLength={200}
+        readOnly={readOnly}
         onChange={(e) => onChange({ description: e.target.value })}
       />
     </Field>

@@ -26,6 +26,7 @@ export type ErrorCode =
   | 'shapeNoUse'
   | 'shapeNoSpace'
   | 'shapePolymorph'
+  | 'shapeCrTooHigh'
   | 'shapeInForm'
   | 'shapeNoRevert'
   | 'spellSelfOnly'
@@ -67,6 +68,8 @@ export interface ErrorParams {
   /** Ключ ресурса для `noResource`. */
   key?: string;
   name?: string;
+  /** Предел CR для `shapeCrTooHigh`. */
+  max?: number;
 }
 
 /** Отправляет ошибку игроку в чат (единая точка для хендлеров). */
@@ -75,5 +78,6 @@ export function fail(ctx: ConnCtx, code: ErrorCode, params?: ErrorParams) {
   if (params?.feet !== undefined) clean.feet = params.feet;
   if (params?.key !== undefined) clean.key = params.key;
   if (params?.name !== undefined) clean.name = params.name;
+  if (params?.max !== undefined) clean.max = params.max;
   ctx.socket.emit('chat:error', Object.keys(clean).length ? { code, params: clean } : { code });
 }
