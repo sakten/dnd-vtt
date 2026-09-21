@@ -6,6 +6,7 @@ import {
   reactionFeatures,
   reactionSpellTrigger,
   restrictionsFor,
+  shapeAllowsSpellcast,
   type Token,
 } from 'shared';
 import type { Room } from '../../roomTypes';
@@ -77,14 +78,17 @@ export function spellPayable(room: Room, token: Token, spellLevel: number, spell
 /** Есть ли у токена оплачиваемый спец-вариант реакции (для решения «окно или авто-OA»). */
 export function hasPayableSpecial(manager: ConnCtx['manager'], room: Room, mapId: string, token: Token): boolean {
   if (!reactionSlotFree(manager, room, mapId, token)) return false;
-  for (const key of knownSpellKeys(room, token)) {
-    const trigger = reactionSpellTrigger(key);
-    const spell = findSpell(key);
-    if (trigger && spell && spellPayable(room, token, spell.level, key)) return true;
+  const { controllerId: cid, sheet } = sheetOfToken(room, token);
+  // В форме зверя реакционных кастов нет (кроме Beast Spells, друид 18+) — остаются только черты.
+  if (shapeAllowsSpellcast(token.shape, sheet?.classes)) {
+    for (const key of knownSpellKeys(room, token)) {
+      const trigger = reactionSpellTrigger(key);
+      const spell = findSpell(key);
+      if (trigger && spell && spellPayable(room, token, spell.level, key)) return true;
+    }
   }
   // Реакционные черты (Рипост, Парирование, Невероятное уклонение…) — тоже варианты:
   // окно открываем, чтобы игрок мог отказаться от OA и сохранить реакцию.
-  const { controllerId: cid, sheet } = sheetOfToken(room, token);
   if (!cid || !sheet) return false;
   return reactionFeatures(sheet.classes).some(
     (def) => !def.resourceKey || hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)

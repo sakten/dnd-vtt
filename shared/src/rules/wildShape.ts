@@ -1,5 +1,6 @@
 import type { BestiaryEntry } from '../domain/bestiary';
 import type { ClassLevel } from '../domain/sheet';
+import type { TokenShape } from '../domain/token';
 import { MAX_SHAPE_FORMS } from '../domain/core';
 
 /**
@@ -49,6 +50,18 @@ export function wildShapeLimit(druidLevel: number, moon = false): WildShapeLimit
 /** Temp HP формы: дикий облик — уровень друида, круг луны — трижды уровень. */
 export function wildShapeTempHp(druidLevel: number, moon = false): number {
   return Math.max(0, Math.round(moon ? druidLevel * 3 : druidLevel));
+}
+
+/**
+ * Каст в форме (XPHB): разрешён только в Wild Shape по Beast Spells (друиду 18+);
+ * из Polymorph кастовать нельзя независимо от класса.
+ */
+export function shapeAllowsSpellcast(
+  shape: Pick<TokenShape, 'kind'> | undefined,
+  classes: ClassLevel[] | undefined
+): boolean {
+  if (!shape) return true;
+  return shape.kind === 'wildShape' && druidLevelOf(classes) >= 18;
 }
 
 /** CR строкой каталога (`0`, `1/8`, `1/2`, `13`) в число. */

@@ -8,6 +8,7 @@ import {
   isIncapacitated,
   reactionSpellTrigger,
   rollDice,
+  shapeAllowsSpellcast,
   spellEffectDefs,
   type EffectInstance,
   type ErrorPayload,
@@ -19,6 +20,7 @@ import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
 import { findSpell } from '../../spells';
 import { controllerIdOfToken, sheetOfToken, withinFeet } from '../../rooms';
+import { fail } from '../errors';
 import { pushRollMessage } from '../messages';
 import { spellClassFor, spellStatsFor } from '../spellStats';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
@@ -27,6 +29,9 @@ import { audienceOf, featFreeCastKey, knownSpellKeys, reactionSlotFree, spellPay
 
 /** Применимые к триггеру оплачиваемые варианты-заклинания. */
 export function reactionSpellOptions(room: Room, token: Token, trigger: ReactionTriggerKind): ReactionOption[] {
+  const { sheet } = sheetOfToken(room, token);
+  // В форме зверя реакционные касты недоступны (кроме Beast Spells, друид 18+).
+  if (!shapeAllowsSpellcast(token.shape, sheet?.classes)) return [];
   const out: ReactionOption[] = [];
   for (const key of knownSpellKeys(room, token)) {
     if (reactionSpellTrigger(key) !== trigger) continue;
@@ -71,6 +76,11 @@ export function applyReactionChoice(
   if (!spell || !token) return;
 
   const { controllerId: cid, sheet } = sheetOfToken(room, token);
+  // Защита от устаревшего окна: в форме зверя реакционный каст запрещён.
+  if (!shapeAllowsSpellcast(token.shape, sheet?.classes)) {
+    fail(ctx, 'shapeInForm');
+    return;
+  }
   const stats = spellStatsFor(room, token, sheet ? spellClassFor(sheet, key) : undefined);
   const input: SpellCastInput = {
     caster: token,

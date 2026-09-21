@@ -1,4 +1,4 @@
-﻿import { actionSlotAvailable, characterLevel, gridOfMap, polymorphFormIssue, rectCrossesWalls, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type MapInfo, type Token } from 'shared';
+﻿import { actionSlotAvailable, characterLevel, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type MapInfo, type Token } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
@@ -79,7 +79,7 @@ function shapeSpotFree(map: MapInfo, token: Token, cells: number): boolean {
   return true;
 }
 
-/** Beast Spells (друид 18+): каст в форме разрешён всем носителям листа. */
+/** Beast Spells (друид 18+): каст разрешён только в Wild Shape; из Polymorph — нельзя (XPHB). */
 export function spellsInShapeAllowed(room: Room, token: Token): boolean {
   let playerId: string | undefined;
   for (const [pid, libId] of Object.entries(room.controllers)) {
@@ -89,7 +89,7 @@ export function spellsInShapeAllowed(room: Room, token: Token): boolean {
     }
   }
   const sheet = playerId ? room.sheets[playerId] : undefined;
-  return !!(sheet && druidLevelOf(sheet.classes) >= 18);
+  return shapeAllowsSpellcast(token.shape, sheet?.classes);
 }
 
 /** Максимальный CR формы Polymorph: уровень персонажа (у монстров без CR — нет проверки). */
