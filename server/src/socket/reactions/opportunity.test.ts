@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest';
+import { bestiaryTokenFields, type CharacterSheet } from 'shared';
+import bestiaryData from 'shared/bestiaryData';
+import { makeCombatRoom, makeToken } from '../../test/fixtures';
+import { makeConnCtx } from '../../test/ctx';
+import { beginShape } from '../../room/shape';
+import { pendingOffers, registerReactionHandlers } from './queue';
+import { executeOpportunityAttack, opportunityAttack, opportunitySources, triggerOpportunityAttacks } from './opportunity';
+
+const WOLF = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+const BITE = WOLF.actions.find((a) => a.ability?.attack?.rangeType === 'melee')!;
+const SPIRIT = bestiaryData.entries.find((e) => e.key === 'XPHB:Undead Spirit')!;
+const SPIRIT_MELEE = SPIRIT.actions.filter((a) => a.ability?.attack?.rangeType === 'melee');
+
+function setup() {
+  const token = makeToken('t1', { libraryItemId: 'lib1', name: 'Друид', x: 100, y: 100 });
+  const room = makeCombatRoom([token], { p1: 'lib1' });
+  room.sheets['p1'] = {
+    name: 'Друид',
+    abilities: { str: 10, dex: 14, con: 12, int: 10, wis: 16, cha: 10 },
+    proficiencyBonus: '3',
+    saves: {},
+    skills: {},
+    attacks: [{ name: 'Скимитар', hit: 'd20+5', damage: '1d6+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }],
+    classes: [{ className: 'druid', level: 6 }],
+    spells: [],
+    wildShape: { known: ['XMM:Wolf'] },
+    hpMax: '20',
+    ac: '12',
+    speed: 30,
+    senses: [],
+    damageDefenses: [],
+  } as CharacterSheet;
+  const f = makeConnCtx(room, { dm: true, all: true });
+  return { room, token, f };
+}
+
+describe('атака по возможности в форме', () => {
+  it('без формы — своё оружие', () => {
+    const { room, token, f } = setup();
+    expect(opportunityAttack(f.ctx, room, token)?.name).toBe('Скимитар');
+  });
+
+  it('в Wild Shape — melee-способность зверя вместо своего оружия', () => {
+    const { room, token, f } = setup();
+    beginShape(token, { entry: WOLF, kind: 'wildShape', tempHp: 6 });
+    expect(opportunityAttack(f.ctx, room, token)?.name).toBe(BITE.name);
+    expect(BITE.name).not.toBe('Скимитар');
+  });
+
+  it('в Polymorph — тоже способность зверя', () => {
+    const { room, token, f } = setup();
+    beginShape(token, { entry: WOLF, kind: 'polymorph', tempHp: 11, sourceTokenId: 'caster' });
+    expect(opportunityAttack(f.ctx, room, token)?.name).toBe(BITE.name);
+  });
+
+  it('монстр без листа: melee-способность статблока доступна для OA', () => {
+    const monster = makeToken('t9', { name: 'Wolf', x: 100, y: 100 });
+    monster.statblock = bestiaryTokenFields(WOLF).statblock;
+    const room = makeCombatRoom([monster]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    expect(opportunityAttack(f.ctx, room, monster)?.name).toBe(BITE.name);
+  });
+
+  it('executeOpportunityAttack в форме бьёт способностью зверя (имя в чате)', () => {
+    const { room, token, f } = setup();
+    const mover = makeToken('t2', {
+      name: 'Гоблин',
+      x: 150,
+      y: 100,
+      ac: '12',
+      hpMax: '10',
+      hpCurrent: 10,
+      faction: 'enemy',
+    });
+    room.scene.maps[0]!.tokens.push(mover);
+    beginShape(token, { entry: WOLF, kind: 'wildShape', tempHp: 6 });
+
+    executeOpportunityAttack(f.ctx, room, 'm1', token, mover);
+
+    expect(room.chat.some((m) => JSON.stringify(m).includes(BITE.name))).toBe(true);
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(true);
+  });
+
+  it('несколько melee-вариантов: окно даёт выбор, бьёт выбранной способностью', () => {
+    expect(SPIRIT_MELEE).toHaveLength(2);
+    const reactor = makeToken('t1', {
+      libraryItemId: 'lib1',
+      name: 'Дух',
+      x: 150,
+      y: 100,
+      faction: 'ally',
+      statblock: bestiaryTokenFields(SPIRIT).statblock,
+    });
+    const mover = makeToken('t2', { name: 'Гоблин', x: 100, y: 100, faction: 'enemy' });
+    const room = makeCombatRoom([reactor, mover], { p1: 'lib1' });
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    const f = makeConnCtx(room, { dm: true, all: true });
+
+    expect(opportunitySources(f.ctx, room, reactor).map((s) => s.name)).toEqual(SPIRIT_MELEE.map((a) => a.name));
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, [
+      { x: 100, y: 100 },
+      { x: 400, y: 100 },
+    ]);
+
+    const offers = pendingOffers(room.code);
+    expect(offers).toHaveLength(1);
+    expect(offers[0]!.options.map((o) => o.id)).toEqual(['opportunity:0', 'opportunity:1']);
+    expect(offers[0]!.options[1]!.name).toContain(SPIRIT_MELEE[1]!.name);
+
+    const f2 = makeConnCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offers[0]!.id, optionId: 'opportunity:1' });
+
+    expect(room.chat.some((m) => JSON.stringify(m).includes(SPIRIT_MELEE[1]!.name))).toBe(true);
+    expect(room.chat.some((m) => JSON.stringify(m).includes(SPIRIT_MELEE[0]!.name))).toBe(false);
+  });
+});

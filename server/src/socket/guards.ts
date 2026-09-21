@@ -2,7 +2,7 @@ import { isCharacterToken, restrictionsFor, type CharacterSheet, type Token } fr
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
-import { isReactionPending } from './reactions';
+import { isReactionPending } from './reactions/queue';
 
 /** Игрок и его комната (без игрока/комнаты — null). */
 export function playerScope(ctx: ConnCtx): { room: Room; playerId: string } | null {

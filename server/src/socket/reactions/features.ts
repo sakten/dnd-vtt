@@ -4,6 +4,8 @@ import {
   characterLevel,
   isIncapacitated,
   martialArtsDie,
+  monsterAbilityAutomation,
+  monsterStats,
   proficiencyBonus,
   reactionFeatures,
   rollDice,
@@ -17,8 +19,10 @@ import {
 import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
 import { controllerIdOfToken, hasResourceFor, sheetOfToken, withinFeet } from '../../rooms';
+import { shapeStatblock } from '../../room/shape';
 import { pushSaveMessage } from '../messages';
 import { applyDamage } from '../damage';
+import { executeAutomation } from '../automation';
 import { resolveWeaponAttack, type WeaponAttackPlan, type WeaponAttackPrep } from '../attackResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, choiceToken, classLevelOf, reactionSlotFree, type ReactionChoice } from './internal';
@@ -148,16 +152,13 @@ export function applyCounterAttack(
   const def = findFeatureReaction(room, reactor, ['attackMiss', 'damage'], id);
   if (!def || def.kind !== 'counterAttack') return;
   if (!spendFeatureCost(ctx, room, reactor, choice.mapId, def)) return;
-  const attack = opportunityAttack(ctx, room, reactor);
-  if (!attack) return;
+  const source = opportunityAttack(ctx, room, reactor);
+  if (!source) return;
   const die =
     def.resourceKey === 'fighter.battleMaster:superiorityDice'
       ? superiorityDie(classLevelOf(room, reactor, def.className) || 1)
       : 0;
   const dieExpr = die ? `1d${die}` : '';
-  const boosted: AttackEntry = dieExpr
-    ? { ...attack, damage: attack.damage ? `${attack.damage} + ${dieExpr}` : dieExpr }
-    : attack;
   ctx.systemMessage(
     room,
     dieExpr
@@ -170,16 +171,37 @@ export function applyCounterAttack(
           params: { name: reactor.name, feature: def.name, target: opponent.name },
         }
   );
-  resolveWeaponAttack(ctx, {
-    attacker: reactor,
-    attackerMapId: choice.mapId,
-    target: opponent,
-    targetMapId: choice.mapId,
-    attack: boosted,
-    prefix: reactor.name,
-    author: reactor.name,
-    ignoreRange: true,
-  });
+  if (source.weapon) {
+    const boosted: AttackEntry = dieExpr
+      ? { ...source.weapon, damage: source.weapon.damage ? `${source.weapon.damage} + ${dieExpr}` : dieExpr }
+      : source.weapon;
+    resolveWeaponAttack(ctx, {
+      attacker: reactor,
+      attackerMapId: choice.mapId,
+      target: opponent,
+      targetMapId: choice.mapId,
+      attack: boosted,
+      prefix: reactor.name,
+      author: reactor.name,
+      ignoreRange: true,
+    });
+  } else if (source.action) {
+    const base = monsterAbilityAutomation(source.action);
+    if (base) {
+      const def2 =
+        dieExpr && base.damage
+          ? { ...base, damage: { ...base.damage, dice: `${base.damage.dice} + ${dieExpr}` } }
+          : base;
+      executeAutomation(ctx, {
+        caster: reactor,
+        mapId: choice.mapId,
+        def: def2,
+        targets: [opponent],
+        stats: monsterStats(shapeStatblock(reactor), source.action.ability),
+        author: reactor.name,
+      });
+    }
+  }
   ctx.syncCombat(room, choice.mapId);
 }
 
