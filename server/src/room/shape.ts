@@ -1,6 +1,8 @@
 import {
   abilityMod,
   bestiaryTokenFields,
+  DEFAULT_GRID,
+  gridOfMap,
   snapToGrid,
   statNumber,
   type AttackEntry,
@@ -47,16 +49,8 @@ export function shapeGrid(
   mapId?: string
 ): ShapeGrid {
   const map = mapId ? room.scene.maps.find((m) => m.id === mapId) : undefined;
-  const grid = map?.grid ?? room.scene.grid;
-  return {
-    size: grid.size || 50,
-    offsetX: grid.offsetX ?? 0,
-    offsetY: grid.offsetY ?? 0,
-    snap: grid.snap !== false,
-  };
+  return gridOfMap(map, room.scene.grid);
 }
-
-const DEFAULT_GRID: ShapeGrid = { size: 50, offsetX: 0, offsetY: 0, snap: true };
 
 /** Поля формы из каталога: кэш по ключу (звери переиспользуются между токенами). */
 const fieldsCache = new Map<string, TokenFields>();

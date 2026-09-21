@@ -1,5 +1,6 @@
 import {
   crossesWalls,
+  gridOfMap,
   isRecord,
   spellAreaOrigin,
   spellHasArea,
@@ -44,11 +45,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
   let areaOrigin: { x: number; y: number } | null = null;
   if (spellHasArea(spell) && spell.areaSpec) {
     const map = ctx.manager.findMap(room, mapId);
-    const grid = {
-      size: map?.grid.size || room.scene.grid.size || 50,
-      offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
-      offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
-    };
+    const grid = gridOfMap(map, room.scene.grid);
     const originKind = spellAreaOrigin(spell);
     const originPt = originKind === 'self' ? { x: caster.x, y: caster.y } : isPoint(params.origin) ? params.origin : null;
     if (!originPt) {
@@ -86,11 +83,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     areaOrigin = originPt;
   } else {
     const map = ctx.manager.findMap(room, mapId);
-    const grid = {
-      size: map?.grid.size || room.scene.grid.size || 50,
-      offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
-      offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
-    };
+    const grid = gridOfMap(map, room.scene.grid);
     for (const id of Array.isArray(params.targetIds) ? params.targetIds : []) {
       if (typeof id !== 'string') continue;
       const found = ctx.manager.findToken(room, mapId, id);

@@ -1,5 +1,5 @@
 import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, withAdvantage, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
-import { sheetOfToken } from '../rooms';
+import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -104,7 +104,7 @@ export function registerDoorHandlers(ctx: ConnCtx) {
 
     const playerId = ctx.playerId;
     if (!playerId) return;
-    const cellPx = map.grid.size || 50;
+    const cellPx = gridSizeOfMap(map);
     const actor = interactionActor(ctx, room, mapId, map.tokens, door, cellPx);
     if (!actor) return; // нет подходящего токена рядом — тихо (курсор и так неактивен)
     if (door.dmOnly) return; // открывает только ведущий

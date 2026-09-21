@@ -76,6 +76,26 @@ export function defaultFog(grid: GridSettings): FogState {
   return { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY, hidden: [] };
 }
 
+/**
+ * Сетка карты с фолбэками: карта → дефолт комнаты → `DEFAULT_GRID`
+ * (size 50, offset 0, snap). Единый резолвер для сервера и клиента.
+ */
+export function gridOfMap(
+  map?: { grid?: Partial<GridSettings> } | null,
+  sceneGrid?: Partial<GridSettings> | null
+): GridSettings {
+  const src = map?.grid ?? sceneGrid;
+  return {
+    size: src?.size || DEFAULT_GRID.size,
+    color: src?.color ?? DEFAULT_GRID.color,
+    opacity: src?.opacity ?? DEFAULT_GRID.opacity,
+    visible: src?.visible ?? DEFAULT_GRID.visible,
+    offsetX: src?.offsetX ?? DEFAULT_GRID.offsetX,
+    offsetY: src?.offsetY ?? DEFAULT_GRID.offsetY,
+    snap: src?.snap ?? DEFAULT_GRID.snap,
+  };
+}
+
 export interface MapInfo {
   id: string;
   name: string;

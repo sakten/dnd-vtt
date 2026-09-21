@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  gridOfMap,
   rollDice,
   tokenFullyInArea,
   tokensInArea,
@@ -21,12 +22,6 @@ import { applyEffectTo, removeZoneEffects } from './effectsApply';
  * триггеры enter/exit/startOfTurn/endOfTurn, снятие по концентрации.
  * Клиенту зоны приезжают в `maps:update` (поле `zones` карты).
  */
-
-const gridOf = (map: MapInfo) => ({
-  size: map.grid.size || 50,
-  offsetX: map.grid.offsetX,
-  offsetY: map.grid.offsetY,
-});
 
 /** Ключ текущего хода карты (для `enterOncePerTurn`); вне боя — null. */
 function turnKey(map: MapInfo): string | null {
@@ -56,7 +51,7 @@ function insideTokens(
 ): Token[] {
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return [];
-  const grid = gridOf(map);
+  const grid = gridOfMap(map);
   const inside =
     containment === 'fullyWithin'
       ? map.tokens.filter((t) =>

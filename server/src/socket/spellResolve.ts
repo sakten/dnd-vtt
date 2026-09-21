@@ -3,6 +3,7 @@ import {
   crossesWalls,
   effectiveSpellRangeFeet,
   gridDistanceFeet,
+  gridOfMap,
   hasInvocation,
   INVOCATION_PACT_KEYS,
   polymorphFormIssue,
@@ -87,7 +88,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     const entry = key ? summonEntry(key) : undefined;
     if (!entry) return { code: 'summonNoForm' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
-    const gridSize = map?.grid.size || 50;
+    const gridSize = gridOfMap(map, room.scene.grid).size;
     const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / gridSize) * 5;
     const range = effectiveSpellRangeFeet(spell, invocations);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
@@ -100,7 +101,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
   const map = room.scene.maps.find((m) => m.id === input.mapId);
-  const gridSize = map?.grid.size || 50;
+  const gridSize = gridOfMap(map, room.scene.grid).size;
   for (const target of targets) {
     if (target.id === caster.id) continue;
     const feet = gridDistanceFeet(caster, target, gridSize);

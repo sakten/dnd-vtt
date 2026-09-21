@@ -1,6 +1,7 @@
 import { crossesWalls, sizeAtMost, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { gridSizeOfMap } from '../rooms';
 
 /**
  * Вынужденное перемещение (push/pull): шаги по клетке строго от/к источнику,
@@ -19,7 +20,7 @@ export function applyForcedMovement(
   if (force.maxSize && !sizeAtMost(target.cells, force.maxSize)) return;
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return;
-  const size = map.grid.size || 50;
+  const size = gridSizeOfMap(map);
   const steps = Math.max(1, Math.round(force.feet / 5));
   const dx = target.x - source.x;
   const dy = target.y - source.y;

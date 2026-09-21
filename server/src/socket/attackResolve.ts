@@ -41,7 +41,7 @@ import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { maybeRollAnim } from './rollAnim';
 import { familiarCannotAttack } from './summons';
-import { controllerIdOfToken } from '../rooms';
+import { controllerIdOfToken, gridSizeOfMap } from '../rooms';
 
 export interface AttackResolveInput {
   /** Атакующий токен; null — атака только по листу (без токена на карте). */
@@ -149,7 +149,7 @@ export function prepareWeaponAttack(
   if (attacker && attackerMapId && target && targetMapId === attackerMapId && target.id !== attacker.id) {
     const map = manager.findMap(room, attackerMapId);
     if (map) {
-      const size = map.grid.size || 50;
+      const size = gridSizeOfMap(map);
       distanceFeet = gridDistanceFeet(attacker, target, size);
       if (!input.ignoreRange) {
         const adjacentEnemy = map.tokens.some(

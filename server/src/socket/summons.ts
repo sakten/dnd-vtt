@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   bestiaryTokenFields,
+  gridOfMap,
   hasInvocation,
   INVOCATION_PACT_KEYS,
   PACT_OF_CHAIN_FORMS,
@@ -91,7 +92,7 @@ function freeSpots(
   count: number
 ): { x: number; y: number }[] {
   const grid = map.grid;
-  const size = grid.size || 50;
+  const size = gridOfMap(map).size;
   const cols = Math.max(1, Math.floor(map.width / size));
   const rows = Math.max(1, Math.floor(map.height / size));
   const cx = snapToGrid(center.x, grid.offsetX, size, cells);

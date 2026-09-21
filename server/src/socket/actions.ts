@@ -10,6 +10,7 @@
   findUnarmedAttack,
   firstSentence,
   gridDistanceFeet,
+  gridOfMap,
   legendaryOnly,
   monsterStats,
   rollDice,
@@ -164,12 +165,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (action.ability) {
         const range = abilityTargeting?.range ?? (action.ability.attack?.rangeType === 'melee' ? 5 : 30);
         const map = manager.findMap(room, mapId);
-        const size = map?.grid.size || room.scene.grid.size || 50;
-        const grid = {
-          size,
-          offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
-          offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
-        };
+        const grid = gridOfMap(map, room.scene.grid);
+        const size = grid.size;
         if (abilityArea) {
           if (!abilityOrigin) {
             fail(ctx, 'noAreaPoint');
@@ -347,11 +344,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         const targets: Token[] = [];
         if (abilityArea) {
           const map = manager.findMap(room, mapId);
-          const grid = {
-            size: map?.grid.size || room.scene.grid.size || 50,
-            offsetX: map?.grid.offsetX ?? room.scene.grid.offsetX,
-            offsetY: map?.grid.offsetY ?? room.scene.grid.offsetY,
-          };
+          const grid = gridOfMap(map, room.scene.grid);
           const affected =
             map && abilityOrigin
               ? tokensInArea(map.tokens, abilityArea, abilityOrigin, direction ?? null, grid, 'euclidean', map.walls)

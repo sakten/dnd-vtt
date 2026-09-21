@@ -17,6 +17,7 @@ import {
 import type { RoomManager } from '../rooms';
 import type { Room } from '../roomTypes';
 import { actorStats, applyActorStats } from '../room/actor';
+import { gridSizeOfToken } from '../room/helpers';
 import { shapeName } from '../room/shape';
 import { rollConcentrationOnDamage } from './effects';
 import { syncFeatureEffects } from './features';
@@ -42,14 +43,6 @@ interface ResolvedCacheEntry {
 /** Кэш resolved-объектов по токену: identity сохраняем, поля обновляем при каждом вызове. */
 const resolvedCache = new WeakMap<Token, ResolvedCacheEntry>();
 
-/** Размер клетки карты, на которой лежит токен (для подошвы формы). */
-function tokenGridSize(room: Room, token: Token): number {
-  for (const map of room.scene.maps) {
-    if (map.tokens.some((t) => t.id === token.id)) return map.grid.size || 50;
-  }
-  return room.scene.grid.size || 50;
-}
-
 /**
  * Токен персонажа с подставленными статами из листа/ресурсов (см. `actorStats`).
  * Для монстров возвращает сам токен; для персонажа — стабильный по identity объект,
@@ -67,7 +60,7 @@ function resolvedCharacterToken(room: Room, token: Token): Token {
   // Статы формы/листа и HP — единым маппингом (см. `actorStats`/`applyActorStats`).
   applyActorStats(view, stats);
   if (token.shape) {
-    const grid = tokenGridSize(room, token);
+    const grid = gridSizeOfToken(room, token);
     view.w = stats.cells * grid;
     view.h = stats.cells * grid;
   }

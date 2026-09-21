@@ -1,4 +1,4 @@
-﻿import { actionSlotAvailable, characterLevel, polymorphFormIssue, rectCrossesWalls, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type MapInfo, type Token } from 'shared';
+﻿import { actionSlotAvailable, characterLevel, gridOfMap, polymorphFormIssue, rectCrossesWalls, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type MapInfo, type Token } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
@@ -43,7 +43,7 @@ function syncShapeCombat(ctx: ConnCtx, room: Room, mapId: string, token: Token):
 /** Свободна ли площадь под новый размер токена (свои клетки не в счёт). */
 function shapeSpotFree(map: MapInfo, token: Token, cells: number): boolean {
   const grid = map.grid;
-  const size = grid.size || 50;
+  const size = gridOfMap(map).size;
   const cols = Math.max(1, Math.floor(map.width / size));
   const rows = Math.max(1, Math.floor(map.height / size));
   const occupied = new Set(
