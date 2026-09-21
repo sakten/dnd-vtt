@@ -6,6 +6,7 @@ import {
   autoFailSave,
   characterLevel,
   countAttackAdvantage,
+  d20Expr,
   damageRollParts,
   exhaustionRollPenalty,
   gridDistanceFeet,
@@ -503,7 +504,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
   check: ({ ctx, room, input, utility }) => {
     const ability = utility.ability ?? 'dex';
     const mod = ctx.manager.abilityModForToken(room, input.caster, ability);
-    const base = mod >= 0 ? `d20+${mod}` : `d20${mod}`;
+    const base = d20Expr(mod);
     // Галка Adv/Dis над ROLL: преимущество/помеха на проверку (Скрыться, Поиск).
     const roll = rollDice(withAdvantage(base, input.advantage ?? null));
     pushRollMessage(ctx, room, {
@@ -607,7 +608,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
     });
     const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
     const penalty = exhaustionRollPenalty(caster.conditions);
-    const hitExpr = withRollParts(`d20+${stats.attack + penalty}`, { flat: effectParts.flat, dice: effectParts.dice });
+    const hitExpr = withRollParts(d20Expr(stats.attack + penalty), { flat: effectParts.flat, dice: effectParts.dice });
     const hitRoll = rollDice(withAdvantage(hitExpr, advMode));
     const crit = isCriticalHit(hitRoll) || autoCrit(target.conditions, distance, rangeType);
     const targetAc = ctx.manager.acForToken(room, target);

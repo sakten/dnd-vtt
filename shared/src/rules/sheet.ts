@@ -19,3 +19,18 @@ export function bonusPart(pb: string, level: SkillLevel | 0): string {
   }
   return `+${trimmed}`;
 }
+
+/** Знак модификатора в формуле: `+3` / `-2` (ноль — `+0`). */
+export function fmtMod(mod: number): string {
+  return mod >= 0 ? `+${mod}` : `${mod}`;
+}
+
+/** Формула броска d20: `d20±мод`. */
+export function d20Expr(mod: number): string {
+  return `d20${fmtMod(mod)}`;
+}
+
+/** Формула проверки/спасброска: `d20±мод` + владение/экспертиза (`bonusPart`). */
+export function d20Check(mod: number, pb: string, level: SkillLevel | 0): string {
+  return `d20${fmtMod(mod)}${bonusPart(pb, level)}`;
+}

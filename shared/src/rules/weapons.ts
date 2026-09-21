@@ -4,6 +4,7 @@ import type { FeatureChoice } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import type { AttackEntry } from '../domain/token';
 import { martialArtsDie, proficiencyBonus } from './classes';
+import { d20Expr } from './sheet';
 
 /**
  * Справочник оружия 5e.tools (`npm run weapons`): кость урона, свойства и
@@ -81,7 +82,7 @@ export interface WeaponContext {
 }
 
 function hitExpression(bonus: number): string {
-  return bonus >= 0 ? `d20+${bonus}` : `d20${bonus}`;
+  return d20Expr(bonus);
 }
 
 function damageExpression(dice: string, mod: number): string {

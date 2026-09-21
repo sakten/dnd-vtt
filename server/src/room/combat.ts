@@ -2,9 +2,9 @@ import {
   abilityMod,
   attackAvailable,
   attacksPerAction,
-  bonusPart,
   consumeAttackTurn,
   consumeSlotTurn,
+  d20Check,
   DEFAULT_AC,
   DEFAULT_SPEED,
   emptyCombatState,
@@ -344,8 +344,7 @@ export function abilityCheckExprForToken(
   const controllerId = controllerIdOfToken(room, token);
   const sheet = controllerId ? room.sheets[controllerId] : undefined;
   const level = skill && sheet ? sheet.skills[skill] ?? 0 : 0;
-  const suffix = mod >= 0 ? `+${mod}` : `${mod}`;
-  return `d20${suffix}${sheet && level > 0 ? bonusPart(sheet.proficiencyBonus, level) : ''}`;
+  return d20Check(mod, sheet?.proficiencyBonus ?? '', level);
 }
 
 /** Добавляет передвижение на текущий ход (Рывок). */

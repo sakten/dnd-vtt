@@ -3,6 +3,7 @@ import {
   absorbTypesOf,
   characterLevel,
   COUNTERSPELL,
+  d20Expr,
   hostileTokens as hostile,
   isIncapacitated,
   reactionSpellTrigger,
@@ -172,7 +173,7 @@ function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, inp
   let success = COUNTERSPELL_LEVEL >= targetLevel;
   if (!success) {
     const mod = statsForCaster(room, reactor, COUNTERSPELL_KEY)?.mod ?? 0;
-    const roll = rollDice(mod >= 0 ? `d20+${mod}` : `d20${mod}`);
+    const roll = rollDice(d20Expr(mod));
     const dc = 10 + targetLevel;
     success = roll.total >= dc;
     pushRollMessage(ctx, room, {

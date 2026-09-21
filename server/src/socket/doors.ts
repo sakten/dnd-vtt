@@ -1,4 +1,4 @@
-import { abilityMod, bonusPart, rollDice, segmentRectDistance, SKILLS, withAdvantage, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
+import { abilityMod, d20Check, d20Expr, rollDice, segmentRectDistance, SKILLS, withAdvantage, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
@@ -35,11 +35,10 @@ export function pickExpression(room: Room, token: Token): string {
     const skill = SKILLS.find((s) => s.key === 'sleightOfHand');
     const mod = abilityMod(sheet.abilities[skill?.ability ?? 'dex'] ?? 10);
     const level = sheet.skills['sleightOfHand'] ?? 0;
-    const suffix = mod >= 0 ? `+${mod}` : `${mod}`;
-    return `d20${suffix}${bonusPart(sheet.proficiencyBonus, level)}`;
+    return d20Check(mod, sheet.proficiencyBonus, level);
   }
   const dex = abilityMod(Number(token.statblock?.abilities?.dex) || 10);
-  return dex >= 0 ? `d20+${dex}` : `d20${dex}`;
+  return d20Expr(dex);
 }
 
 /** Может ли игрок взаимодействовать этой дверью с какого-то из своих токенов. */
