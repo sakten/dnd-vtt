@@ -143,8 +143,8 @@ export class RoomManager {
     return Tokens.addLibraryItem(this, room, input);
   }
 
-  updateLibraryItem(room: Room, id: string, patch: Partial<LibraryItem>) {
-    Tokens.updateLibraryItem(this, room, id, patch);
+  updateLibraryItem(room: Room, id: string, patch: Partial<LibraryItem>, includeDm: boolean) {
+    Tokens.updateLibraryItem(this, room, id, patch, includeDm);
   }
 
   removeLibraryItem(room: Room, id: string) {

@@ -74,10 +74,16 @@ export function addLibraryItem(m: TokenDeps, room: Room, input: TokenFields): Li
   return item;
 }
 
-export function updateLibraryItem(m: TokenDeps, room: Room, id: string, patch: Partial<LibraryItem>) {
+export function updateLibraryItem(
+  m: TokenDeps,
+  room: Room,
+  id: string,
+  patch: Partial<LibraryItem>,
+  includeDm: boolean
+) {
   const item = room.library.find((i) => i.id === id);
   if (!item) return;
-  Object.assign(item, normalizeTokenFieldsPatch(patch, item, { includeDm: true }));
+  Object.assign(item, normalizeTokenFieldsPatch(patch, item, { includeDm }));
   m.saveSoon(room);
 }
 

@@ -4132,6 +4132,90 @@ describe('библиотека и статблок', () => {
     expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(7); // полное HP при выставлении
   });
 
+  it('игрок не патчит DM-поля предмета библиотеки', () => {
+    const room = makeRoom([], {});
+    const dm = makeCtx(room, { dm: true });
+    registerLibraryHandlers(dm.ctx);
+    dm.invoke('library:add', {
+      name: 'Гоблин',
+      description: '',
+      imageUrl: '',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '12',
+      hpMax: '7',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+
+    const player = makeCtx(room, { playerId: 'p1' });
+    registerLibraryHandlers(player.ctx);
+    player.invoke('library:update', {
+      id: item.id,
+      patch: {
+        name: 'Новый гоблин',
+        owner: 'p1',
+        isPlayerToken: true,
+        showStats: true,
+        canInteract: true,
+        statblock: { abilities: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 } },
+      },
+    });
+
+    expect(item.name).toBe('Новый гоблин');
+    expect(item.owner).toBe('');
+    expect(item.isPlayerToken).toBe(false);
+    expect(item.showStats).toBe(false);
+    expect(item.canInteract).toBe(false);
+    expect(item.statblock).toBeUndefined();
+  });
+
+  it('DM патчит DM-поля предмета библиотеки', () => {
+    const room = makeRoom([], {});
+    const dm = makeCtx(room, { dm: true });
+    registerLibraryHandlers(dm.ctx);
+    dm.invoke('library:add', {
+      name: 'Гоблин',
+      description: '',
+      imageUrl: '',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '12',
+      hpMax: '7',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+
+    dm.invoke('library:update', {
+      id: item.id,
+      patch: {
+        owner: 'p1',
+        isPlayerToken: true,
+        showStats: true,
+        canInteract: true,
+        statblock: { abilities: { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 } },
+      },
+    });
+
+    expect(item.owner).toBe('p1');
+    expect(item.isPlayerToken).toBe(true);
+    expect(item.showStats).toBe(true);
+    expect(item.canInteract).toBe(true);
+    expect(item.statblock?.abilities.str).toBe(20);
+  });
+
   it('токен персонажа получает HP из ресурсов игрока', () => {
     const room = makeRoom([], {});
     const f = makeCtx(room, { dm: true });

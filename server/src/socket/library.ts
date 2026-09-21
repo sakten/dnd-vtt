@@ -30,9 +30,8 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       const room = getRoom();
       if (!room) return;
       if (rejectIfReaction(ctx)) return;
-      const safePatch = { ...patch };
-      if (!isDm() && 'showStats' in safePatch) delete safePatch.showStats;
-      manager.updateLibraryItem(room, id, safePatch);
+      // DM-поля (owner/isPlayerToken/showStats/canInteract/statblock) — как в token:update.
+      manager.updateLibraryItem(room, id, patch, isDm());
       const item = room.library.find((i) => i.id === id);
       if (item && (!item.isPlayerToken || item.owner.trim())) {
         emitFrozen(room, manager.freezeCharacterTokensOfItem(room, id));
