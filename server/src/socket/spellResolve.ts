@@ -18,7 +18,7 @@ import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
 import { summonEntry, summonFormIssue, hasFreeSummonSpot } from './summons';
-import { polymorphMaxCr } from './forms';
+import { polymorphMaxCr, shapePlacementIssue } from './forms';
 
 export interface SpellCastInput {
   caster: Token;
@@ -64,13 +64,16 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (!targets.length && !input.area) return { code: 'spellNoTarget' };
   }
 
-  // Polymorph: форма-зверь обязательна; CR ≤ CR/уровня цели (монстры без CR — без проверки).
+  // Polymorph: форма-зверь обязательна; CR ≤ CR/уровня цели; место проверяется до списания ячейки.
   if (def.shape?.crByTarget) {
+    if (!targets.length) return { code: 'spellNoTarget' };
     const entry = input.summonKey ? summonEntry(input.summonKey) : undefined;
     if (!entry || entry.type !== 'beast') return { code: 'shapeNoForm' };
     for (const target of targets) {
       const maxCr = polymorphMaxCr(room, target);
       if (maxCr !== undefined && polymorphFormIssue(entry, maxCr)) return { code: 'shapeNoForm' };
+      const placement = shapePlacementIssue(room, input.mapId, target, entry.cells);
+      if (placement) return placement;
     }
   }
 

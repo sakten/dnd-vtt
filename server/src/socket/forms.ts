@@ -1,4 +1,4 @@
-﻿import { actionSlotAvailable, characterLevel, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type MapInfo, type Token } from 'shared';
+﻿import { actionSlotAvailable, characterLevel, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type ErrorPayload, type MapInfo, type Token } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
@@ -92,6 +92,18 @@ export function spellsInShapeAllowed(room: Room, token: Token): boolean {
   return shapeAllowsSpellcast(token.shape, sheet?.classes);
 }
 
+/** Проблема размещения формы: нет карты или подошва занята/пересекает стену. */
+export function shapePlacementIssue(
+  room: Room,
+  mapId: string,
+  token: Token,
+  cells: number
+): ErrorPayload | undefined {
+  const map = room.scene.maps.find((m) => m.id === mapId);
+  if (!map || !shapeSpotFree(map, token, cells)) return { code: 'shapeNoSpace' };
+  return undefined;
+}
+
 /** Максимальный CR формы Polymorph: уровень персонажа (у монстров без CR — нет проверки). */
 export function polymorphMaxCr(room: Room, target: Token): number | undefined {
   const { sheet } = sheetOfToken(room, target);
@@ -118,8 +130,8 @@ export function applyPolymorphForm(
     fail(ctx, 'shapeNoForm');
     return false;
   }
-  const map = ctx.manager.findMap(room, mapId);
-  if (!map || !shapeSpotFree(map, target, entry.cells)) {
+  const placement = shapePlacementIssue(room, mapId, target, entry.cells);
+  if (placement) {
     fail(ctx, 'shapeNoSpace');
     return false;
   }

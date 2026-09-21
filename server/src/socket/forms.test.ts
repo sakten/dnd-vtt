@@ -7,6 +7,7 @@ import { findSpell } from '../spells';
 import { beginShape, formOf, shapeAttacks, shapeName, shapeSpeed, shapeStatblock } from '../room/shape';
 import { applyEffectTo } from './effectsApply';
 import { applyPolymorphForm, spellsInShapeAllowed } from './forms';
+import { spellStatsFor } from './spellStats';
 import { validateSpellCast } from './spellResolve';
 
 const KNOWN = ['XMM:Wolf', 'XMM:Crocodile', 'XMM:Polar Bear', 'XMM:Owl'];
@@ -250,6 +251,56 @@ describe('формы: каст', () => {
     expect(spellsInShapeAllowed(room, token)).toBe(false);
     room.sheets['p1'] = sheetWith(18);
     expect(spellsInShapeAllowed(room, token)).toBe(true);
+  });
+});
+
+describe('формы: Polymorph — валидация до списания', () => {
+  it('без цели отклоняется (spellNoTarget)', () => {
+    const { room, token } = setup(6);
+    const invalid = validateSpellCast(room, {
+      caster: token,
+      mapId: 'm1',
+      spell: findSpell('XPHB:Polymorph')!,
+      castLevel: 4,
+      characterLevel: 6,
+      stats: spellStatsFor(room, token),
+      targets: [],
+      summonKey: 'XMM:Wolf',
+      author: 'A',
+    });
+    expect(invalid).toEqual({ code: 'spellNoTarget' });
+  });
+
+  it('нет места под форму: каст отклонён, ячейка и концентрация целы', () => {
+    const { room, map, token, f } = setup(6);
+    room.sheets['p1']!.spells = [{ key: 'XPHB:Polymorph', className: 'druid' }] as CharacterSheet['spells'];
+    room.resources['p1']!.spellSlots = [{ level: 4, current: 1, max: 1 }];
+    f.ctx.manager.applyEffect(room, token, {
+      id: 'conc1',
+      name: 'Старая концентрация',
+      sourceKey: 'test:old',
+      sourceId: token.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    const target = makeToken('t2', { name: 'Dummy', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '10' });
+    map.tokens.push(target);
+    map.walls = [{ id: 'w1', x1: 100, y1: 120, x2: 160, y2: 120, kind: 'wall' }] as typeof map.walls;
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Polymorph',
+      slotLevel: 4,
+      targetIds: [target.id],
+      summonKey: 'XMM:Wolf',
+    });
+
+    expect(f.selfEvents('chat:error')[0]?.payload).toEqual({ code: 'shapeNoSpace' });
+    expect(room.resources['p1']!.spellSlots[0]!.current).toBe(1);
+    expect(token.effects.some((e) => e.concentration)).toBe(true);
+    expect(map.combat.turns['e1']!.actionUsed).toBe(false);
   });
 });
 
