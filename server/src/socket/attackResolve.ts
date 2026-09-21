@@ -9,11 +9,13 @@ import {
   countAttackAdvantage,
   critRangeFor,
   damageRollParts,
+  DiceParseError,
   exhaustionRollPenalty,
   gridDistanceFeet,
   isCriticalFail,
   isCriticalHit,
   modifiedValue,
+  parseDiceExpression,
   proficiencyBonus,
   attackRollExpression,
   resolveAbilityMods,
@@ -317,6 +319,8 @@ export function rollPreparedAttack(
   const result: AttackResolveResult = {};
 
   try {
+    // Формула урона — данные листа/статблока: битую отсекаем до наездников и броска попадания.
+    if (prep.hasDamage) parseDiceExpression(prep.damageExpr);
     let crit = false;
     let hitSuccess: boolean | undefined;
     if (prep.hasHit) {
@@ -363,7 +367,8 @@ export function rollPreparedAttack(
         },
       };
     }
-  } catch {
+  } catch (e) {
+    if (!(e instanceof DiceParseError)) throw e;
     fail(ctx, 'badRoll');
   }
 
@@ -484,7 +489,8 @@ export function applyWeaponAttackDamage(
       crit,
     });
     return { roll: damageRoll, applied: damage.applied ? damage.amount : 0 };
-  } catch {
+  } catch (e) {
+    if (!(e instanceof DiceParseError)) throw e;
     fail(ctx, 'badRoll');
     return undefined;
   }

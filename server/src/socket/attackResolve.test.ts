@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
-import { attackDamageRoll, attackHitRoll, attackUnseen } from './attackResolve';
+import { makeConnCtx } from '../test/ctx';
+import { attackDamageRoll, attackHitRoll, attackUnseen, resolveWeaponAttack } from './attackResolve';
 
 /** Сид Math.random на время колбэка (броски детерминированы). */
 function withRandom(value: number, fn: () => void): void {
@@ -66,6 +67,72 @@ describe('attackDamageRoll', () => {
     withRandom(0.5, () => {
       expect(attackDamageRoll('1d6', undefined, false).total).toBe(4);
       expect(attackDamageRoll('1d6', undefined, true).total).toBe(8);
+    });
+  });
+});
+
+describe('оружие: граница ошибок', () => {
+  const attack = (damage: string) => ({
+    name: 'Меч',
+    hit: 'd20+5',
+    damage,
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+  });
+
+  const setup = (damage: string) => {
+    const entry = attack(damage);
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+    const target = makeToken('t2', { x: 100, y: 100, ac: '15', hpMax: '20', hpCurrent: 20 });
+    const room = makeCombatRoom([attacker, target]);
+    return { entry, attacker, target, room };
+  };
+
+  it('битая формула урона: badRoll до броска попадания, состояние не тронуто', () => {
+    const { entry, attacker, target, room } = setup('abc');
+    const f = makeConnCtx(room, { dm: true });
+    const result = resolveWeaponAttack(f.ctx, {
+      attacker,
+      attackerMapId: 'm1',
+      target,
+      targetMapId: 'm1',
+      attack: entry,
+      author: 'A',
+      ignoreRange: true,
+    });
+
+    expect(result.hitRoll).toBeUndefined();
+    expect(result.damageRoll).toBeUndefined();
+    expect(f.selfEvents('chat:error')[0]?.payload).toEqual({ code: 'badRoll' });
+    expect(attacker.effects).toEqual([]);
+    expect(target.hpCurrent).toBe(20);
+  });
+
+  it('внутренняя ошибка пробрасывается, а не превращается в badRoll', () => {
+    const { entry, attacker, target, room } = setup('1d8+3');
+    const f = makeConnCtx(room, {
+      dm: true,
+      overrides: {
+        applyHp: () => {
+          throw new TypeError('boom');
+        },
+      },
+    });
+
+    withRandom(0.999, () => {
+      expect(() =>
+        resolveWeaponAttack(f.ctx, {
+          attacker,
+          attackerMapId: 'm1',
+          target,
+          targetMapId: 'm1',
+          attack: entry,
+          author: 'A',
+          ignoreRange: true,
+        })
+      ).toThrow(TypeError);
     });
   });
 });

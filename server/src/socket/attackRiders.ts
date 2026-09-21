@@ -3,6 +3,7 @@ import {
   abilityMod,
   attackRidersFor,
   characterLevel,
+  parseDiceExpression,
   proficiencyBonus,
   type AbilityKey,
   type AttackRiderDef,
@@ -62,6 +63,15 @@ export function applyAttackRiders(
 
     const expr = riderExpression(rider, level, abilities);
     if (!expr && !rider.save) continue;
+    if (expr) {
+      try {
+        parseDiceExpression(expr);
+      } catch {
+        // Выражение — данные каталога; битое не применяем и не роняем атаку целиком.
+        console.error(`Некорректное выражение наездника ${rider.id}: ${expr}`);
+        continue;
+      }
+    }
 
     if (rider.resourceKey) {
       ctx.manager.spendResource(room, cid, rider.resourceKey, rider.resourceAmount ?? 1);

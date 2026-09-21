@@ -38,7 +38,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         if (kind === 'check') maybeRollAnim(ctx, roll);
       } catch (e) {
         if (e instanceof DiceParseError) socket.emit('chat:error', { code: e.code, params: e.params });
-        else fail(ctx, 'badRoll');
+        else throw e;
       }
     });
 

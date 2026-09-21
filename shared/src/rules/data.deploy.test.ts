@@ -10,6 +10,8 @@ import bestiaryRaw from '../data/bestiary.json';
 import invocationsRaw from '../data/invocations.json';
 import type { BestiaryEntry } from '../domain/bestiary';
 import type { InvocationsData } from '../domain/invocation';
+import { parseDiceExpression } from '../dice';
+import { ATTACK_RIDERS } from './attackRiders';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPELLS } from './automation';
@@ -164,6 +166,19 @@ describe('снимок данных', () => {
     const magic = data.feats.find((f) => f.key === 'XPHB:magicInitiate');
     expect(magic?.abilityChoose).toEqual(['int', 'wis', 'cha']);
     expect(magic?.spellLists?.map((l) => l.className)).toEqual(['cleric', 'druid', 'wizard']);
+  });
+
+  it('наездники атак: выражения урона парсятся', () => {
+    const bad: string[] = [];
+    for (const rider of ATTACK_RIDERS) {
+      if (!rider.dice) continue;
+      try {
+        parseDiceExpression(rider.dice);
+      } catch {
+        bad.push(`${rider.id}: ${rider.dice}`);
+      }
+    }
+    expect(bad).toEqual([]);
   });
 
   it('weapons.json: контракт записей', () => {
