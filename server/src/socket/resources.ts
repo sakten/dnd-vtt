@@ -11,6 +11,7 @@ import {
   type RollLabelParams,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { endShapeToken, endShapesOf } from './forms';
 import { playerScope, rejectIfReaction } from './guards';
 import { pushRollMessage } from './messages';
 
@@ -74,7 +75,11 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const res = room.resources[playerId];
       if (!res) return;
       if (type === 'long') {
-        // Долгий отдых: истёкшие эффекты (и их состояния/концентрация) снимаются.
+        // Формы не переживают долгий отдых: свои снимаются, Polymorph-цели — по источнику.
+        const owned = manager.characterTokens(room, playerId);
+        for (const c of owned) endShapeToken(ctx, room, c.mapId, c.token);
+        endShapesOf(ctx, room, new Set(owned.map((c) => c.token.id)));
+        // Истёкшие эффекты (и их состояния/концентрация) снимаются.
         for (const c of manager.clearEffectsForPlayer(room, playerId)) {
           emitToken(room, 'token:update', c.mapId, c.token);
         }

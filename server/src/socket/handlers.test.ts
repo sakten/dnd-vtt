@@ -4026,6 +4026,49 @@ describe('отдых и удаление токена', () => {
     expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
   });
 
+  it('долгий отдых возвращает из формы (своя Wild Shape и Polymorph-цель)', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          libraryItemId: 'lib1',
+          cells: 2,
+          x: 100,
+          y: 100,
+          shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'wildShape', hp: 6, maxHp: 6, ownCells: 1 },
+          effects: [
+            {
+              id: 'conc1',
+              name: 'Polymorph',
+              sourceKey: 'XPHB:Polymorph',
+              sourceId: 't1',
+              concentration: true,
+              duration: { type: 'concentration' },
+              modifiers: [],
+            },
+          ],
+        }),
+        makeToken('t2', {
+          libraryItemId: 'lib1',
+          x: 300,
+          y: 100,
+          shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'polymorph', hp: 11, maxHp: 11, sourceTokenId: 't1' },
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:rest', { type: 'long' });
+
+    const [t1, t2] = room.scene.maps[0]!.tokens;
+    expect(t1!.shape).toBeUndefined();
+    expect(t1!.cells).toBe(1); // подошва вернулась к своей
+    expect(t1!.effects).toHaveLength(0); // якорь концентрации Polymorph снят
+    expect(t2!.shape).toBeUndefined();
+  });
+
   it('удаление кастера снимает его концентрацию с других токенов', () => {
     const room = makeRoom(
       [
