@@ -1,4 +1,4 @@
-import type { FogState } from 'shared';
+import { areaCellKey, pointCell, type FogState } from 'shared';
 
 export interface WorldPoint {
   x: number;
@@ -18,36 +18,25 @@ export interface RectPreview {
   y1: number;
 }
 
-/** Индекс клетки по мировой координате. */
-export function cellIndex(v: number, offset: number, size: number): number {
-  return Math.floor((v - offset) / size);
-}
-
-export function cellKey(cx: number, cy: number): string {
-  return `${cx},${cy}`;
-}
-
 /** Клетки в прямоугольнике между двумя точками (включительно). */
 export function fogCellsBetween(a: WorldPoint, b: WorldPoint, fog: FogState): string[] {
-  const cx0 = cellIndex(Math.min(a.x, b.x), fog.offsetX, fog.size);
-  const cx1 = cellIndex(Math.max(a.x, b.x), fog.offsetX, fog.size);
-  const cy0 = cellIndex(Math.min(a.y, b.y), fog.offsetY, fog.size);
-  const cy1 = cellIndex(Math.max(a.y, b.y), fog.offsetY, fog.size);
+  // FogState совпадает с AreaGrid (size/offsetX/offsetY) — клетки считает shared.
+  const p0 = pointCell({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) }, fog);
+  const p1 = pointCell({ x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) }, fog);
   const keys: string[] = [];
-  for (let cx = cx0; cx <= cx1; cx++) {
-    for (let cy = cy0; cy <= cy1; cy++) keys.push(cellKey(cx, cy));
+  for (let cx = p0.cx; cx <= p1.cx; cx++) {
+    for (let cy = p0.cy; cy <= p1.cy; cy++) keys.push(areaCellKey(cx, cy));
   }
   return keys;
 }
 
 /** Клетки в радиусе кисти (круг по клеткам). */
 export function fogCellsAround(w: WorldPoint, radius: number, fog: FogState): string[] {
-  const ccx = cellIndex(w.x, fog.offsetX, fog.size);
-  const ccy = cellIndex(w.y, fog.offsetY, fog.size);
+  const center = pointCell(w, fog);
   const keys: string[] = [];
   for (let dx = -radius; dx <= radius; dx++) {
     for (let dy = -radius; dy <= radius; dy++) {
-      if (dx * dx + dy * dy <= radius * radius) keys.push(cellKey(ccx + dx, ccy + dy));
+      if (dx * dx + dy * dy <= radius * radius) keys.push(areaCellKey(center.cx + dx, center.cy + dy));
     }
   }
   return keys;
@@ -80,5 +69,6 @@ export function isCellHidden(
   y: number
 ): boolean {
   if (!fog) return false;
-  return hidden.has(cellKey(cellIndex(x, fog.offsetX, fog.size), cellIndex(y, fog.offsetY, fog.size)));
+  const p = pointCell({ x, y }, fog);
+  return hidden.has(areaCellKey(p.cx, p.cy));
 }

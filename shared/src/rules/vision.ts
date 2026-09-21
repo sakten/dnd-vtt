@@ -2,7 +2,7 @@ import type { ZoneInstance } from '../domain/automation';
 import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
 import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCellKey, areaCellsSpread, pointCell, type AreaGrid } from './areas';
+import { areaCellKey, areaCellsSpread, cellChebyshev, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
 
 export interface SightContext {
@@ -174,6 +174,6 @@ export function canSee(from: Point, target: Point, senses: Sense[] | undefined, 
   const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
   const fromCell = pointCell(from, grid);
   const targetCell = pointCell(target, grid);
-  const distance = Math.max(Math.abs(targetCell.cx - fromCell.cx), Math.abs(targetCell.cy - fromCell.cy));
+  const distance = cellChebyshev(fromCell, targetCell);
   return visionRadiiCells(ctx.darkness, senses, kind).some((r) => r === null || distance <= r);
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  controlsToken as controlsTokenRule,
   DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
@@ -141,13 +142,12 @@ export function characterName(room: Room, mapId: string, playerId: string): stri
 }
 
 export function controlsToken(room: Room, mapId: string, playerId: string, token: Token): boolean {
-  const libId = room.controllers[playerId];
-  if (libId && token.libraryItemId === libId) return true;
-  if (token.owner) {
-    const name = characterName(room, mapId, playerId);
-    if (name && token.owner === name) return true;
-  }
-  return false;
+  return controlsTokenRule({
+    selfId: playerId,
+    currentCharacterId: room.controllers[playerId] ?? null,
+    charName: token.owner ? characterName(room, mapId, playerId) : '',
+    token,
+  });
 }
 
 export function clearControllersForItem(m: TokenDeps, room: Room, libraryItemId: string): string[] {

@@ -1,4 +1,4 @@
-import type { AreaSpec, SpellFxPayload } from 'shared';
+import { cellCenter, pointCell, type AreaSpec, type SpellFxPayload } from 'shared';
 import { ARCANE_COLOR, damageTypeColor } from '../../lib/damageColors';
 
 export interface WorldPoint {
@@ -84,12 +84,10 @@ export function damageColor(types: string[]): string {
   return ARCANE_COLOR;
 }
 
-/** Привязка точки к центру клетки сетки: так же считает сервер (`rules/areas.ts`). */
+/** Привязка точки к центру клетки сетки: общая геометрия shared (`rules/areas.ts`). */
 function snapToCell(p: WorldPoint, grid: FxGrid): WorldPoint {
-  return {
-    x: grid.offsetX + (Math.floor((p.x - grid.offsetX) / grid.size) + 0.5) * grid.size,
-    y: grid.offsetY + (Math.floor((p.y - grid.offsetY) / grid.size) + 0.5) * grid.size,
-  };
+  const cell = pointCell(p, grid);
+  return cellCenter(cell.cx, cell.cy, grid);
 }
 
 /** Список целей-снарядов: лучей может быть больше целей (Magic Missile, Eldritch Blast). */

@@ -10,6 +10,7 @@ export * from './rules/conditions';
 export * from './rules/feats';
 export * from './rules/classes';
 export * from './rules/combat';
+export * from './rules/control';
 export * from './rules/effects';
 export * from './rules/featureAutomation';
 export * from './rules/features';

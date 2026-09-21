@@ -1,6 +1,5 @@
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
-  DEFAULT_ABILITIES,
   effectiveMaxHp,
   emptyCombatState,
   emptyResources,
@@ -17,8 +16,8 @@ import {
 } from 'shared';
 import type { RoomManager } from '../rooms';
 import type { Room } from '../roomTypes';
-import { actorStats } from '../room/actor';
-import { formOf, shapeName } from '../room/shape';
+import { actorStats, applyActorStats } from '../room/actor';
+import { shapeName } from '../room/shape';
 import { rollConcentrationOnDamage } from './effects';
 import { syncFeatureEffects } from './features';
 import { pushTextMessage } from './messages';
@@ -65,47 +64,13 @@ function resolvedCharacterToken(room: Room, token: Token): Token {
   view.character = true;
   // Кэш живёт между вызовами: исчезнувшие поля снимаем явно (Object.assign их не удаляет).
   if (!token.shape) delete view.shape;
-  // Форма: статы зверя — через резолвер, HP — из ресурсов персонажа.
+  // Статы формы/листа и HP — единым маппингом (см. `actorStats`/`applyActorStats`).
+  applyActorStats(view, stats);
   if (token.shape) {
-    const form = formOf(token);
-    if (form) {
-      view.name = form.fields.name;
-      view.description = form.fields.description;
-      view.imageUrl = form.fields.imageUrl;
-      view.cells = form.fields.cells;
-      view.initiativeBonus = form.fields.initiativeBonus;
-      view.attacks = form.fields.attacks;
-      view.ac = form.ac > 0 ? String(form.ac) : '';
-      view.damageDefenses = form.fields.damageDefenses;
-      view.statblock = form.fields.statblock;
-      view.speed = form.entry.speed;
-      view.senses = form.entry.senses;
-      const grid = tokenGridSize(room, token);
-      view.w = form.fields.cells * grid;
-      view.h = form.fields.cells * grid;
-    }
-    view.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
-    view.hpCurrent = stats.hp.current;
-    view.hpTemp = stats.hp.temp;
-    if (!entry) resolvedCache.set(token, { view });
-    return view;
+    const grid = tokenGridSize(room, token);
+    view.w = stats.cells * grid;
+    view.h = stats.cells * grid;
   }
-  view.name = stats.name;
-  view.ac = stats.ac > 0 ? String(stats.ac) : '';
-  view.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
-  view.hpCurrent = stats.hp.current;
-  view.hpTemp = stats.hp.temp;
-  view.speed = stats.speed;
-  view.initiativeBonus = stats.initiativeBonus;
-  view.senses = stats.senses;
-  view.attacks = stats.attacks;
-  view.damageDefenses = stats.damageDefenses;
-  // Статблок персонажа заполняется из листа: характеристики, спасброски, мультиатака.
-  view.statblock = {
-    abilities: stats.abilities ?? { ...DEFAULT_ABILITIES },
-    ...(stats.saves ? { saves: stats.saves } : {}),
-    ...(stats.attacksPerAction && stats.attacksPerAction > 1 ? { multiattack: stats.attacksPerAction } : {}),
-  };
   if (!entry) resolvedCache.set(token, { view });
   return view;
 }

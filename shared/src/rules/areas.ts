@@ -44,6 +44,11 @@ export function areaCellKey(cx: number, cy: number): string {
   return `${cx},${cy}`;
 }
 
+/** Расстояние между клетками (Чебышёв) — обзор, радиусы тьмы, подсветка пути. */
+export function cellChebyshev(a: { cx: number; cy: number }, b: { cx: number; cy: number }): number {
+  return Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy));
+}
+
 /** Допуск по краям подошвы (px): координаты токенов хранятся с округлением до 0.1. */
 const CELL_EDGE_EPS = 0.25;
 

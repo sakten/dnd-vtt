@@ -1,11 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import type { Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCells, areaCellsSpread, cellCenter, spreadCells, tokenCells, tokenFullyInArea, tokenVisibleFrom, tokensInArea, type AreaGrid } from './areas';
+import {
+  areaCellKey,
+  areaCells,
+  areaCellsSpread,
+  cellCenter,
+  cellChebyshev,
+  pointCell,
+  spreadCells,
+  tokenCells,
+  tokenFullyInArea,
+  tokenVisibleFrom,
+  tokensInArea,
+  type AreaGrid,
+} from './areas';
 
 const grid: AreaGrid = { size: 50, offsetX: 0, offsetY: 0 };
 const origin = cellCenter(0, 0, grid);
 const east = { x: origin.x + 100, y: origin.y };
+
+describe('клеточная геометрия', () => {
+  it('pointCell: FP-граница уходит в соседнюю клетку, отрицательные — floor', () => {
+    expect(pointCell({ x: 120, y: 25 }, grid)).toEqual({ cx: 2, cy: 0 });
+    expect(pointCell({ x: 99.999999999, y: 0 }, grid).cx).toBe(2);
+    expect(pointCell({ x: -1, y: -51 }, grid)).toEqual({ cx: -1, cy: -2 });
+    expect(areaCellKey(2, 3)).toBe('2,3');
+  });
+
+  it('cellChebyshev: максимум по осям', () => {
+    expect(cellChebyshev({ cx: 0, cy: 0 }, { cx: 3, cy: 1 })).toBe(3);
+    expect(cellChebyshev({ cx: 2, cy: 5 }, { cx: 2, cy: 1 })).toBe(4);
+  });
+});
 
 const wall = (x1: number, y1: number, x2: number, y2: number, kind: Wall['kind'] = 'wall', open = false): Wall => ({
   id: 'w1',

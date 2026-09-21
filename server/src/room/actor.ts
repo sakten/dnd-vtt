@@ -10,10 +10,11 @@ import {
   type DamageDefense,
   type Sense,
   type Token,
+  type TokenStatblock,
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { controllerIdOfToken } from './helpers';
-import { formOf, mergeShapeAbilities } from './shape';
+import { formOf, mergeShapeAbilities, revertShape, shapeGrid } from './shape';
 
 /**
  * Единое правило «чей источник истины»: если у токена есть контролёр с листом,
@@ -40,6 +41,14 @@ export interface ActorStats {
   saves?: Partial<Record<AbilityKey, number>>;
   /** Атак за действие (Extra Attack) у персонажа. */
   attacksPerAction?: number;
+  /** Описание: у формы — зверя, иначе своё поле токена. */
+  description: string;
+  /** Картинка: у формы — зверя, иначе своё поле токена. */
+  imageUrl: string;
+  /** Подошва в клетках: у формы — зверя, иначе своя. */
+  cells: number;
+  /** Статблок панелей: персонажу — из листа (спасброски/мультиатака), форме/монстру — свой. */
+  statblock?: TokenStatblock;
 }
 
 export function actorStats(room: Room, token: Token): ActorStats {
@@ -64,6 +73,10 @@ export function actorStats(room: Room, token: Token): ActorStats {
       damageDefenses: token.damageDefenses ?? [],
       hp: tokenHp,
       initiativeBonus: (token.initiativeBonus ?? '').trim(),
+      description: token.description,
+      imageUrl: token.imageUrl,
+      cells: token.cells,
+      statblock: token.statblock,
     };
   }
   // Форма (Wild Shape/Polymorph): статы — зверя (резолвер), свои — HP и владения.
@@ -108,6 +121,10 @@ export function actorStats(room: Room, token: Token): ActorStats {
         hp: res && res.hp.max > 0 ? { max: res.hp.max, current: res.hp.current, temp: res.hp.temp } : tokenHp,
         initiativeBonus: form.fields.initiativeBonus,
         saves: Object.keys(saves).length ? saves : undefined,
+        description: form.fields.description,
+        imageUrl: form.fields.imageUrl,
+        cells: form.fields.cells,
+        statblock: form.fields.statblock,
       };
     }
   }
@@ -121,6 +138,12 @@ export function actorStats(room: Room, token: Token): ActorStats {
   for (const sense of invocationSenses(sheet)) {
     if (!senses.some((s) => s.type === sense.type)) senses.push(sense);
   }
+  const attacksPer = attacksPerAction(sheet.classes);
+  const statblock: TokenStatblock = {
+    abilities: sheet.abilities,
+    ...(Object.keys(saves).length ? { saves } : {}),
+    ...(attacksPer > 1 ? { multiattack: attacksPer } : {}),
+  };
   return {
     character: true,
     controllerId,
@@ -134,13 +157,37 @@ export function actorStats(room: Room, token: Token): ActorStats {
     hp: res && res.hp.max > 0 ? { max: res.hp.max, current: res.hp.current, temp: res.hp.temp } : tokenHp,
     initiativeBonus: dexMod >= 0 ? `+${dexMod}` : `${dexMod}`,
     saves: Object.keys(saves).length ? saves : undefined,
-    attacksPerAction: attacksPerAction(sheet.classes),
+    attacksPerAction: attacksPer,
+    description: token.description,
+    imageUrl: token.imageUrl,
+    cells: token.cells,
+    statblock,
   };
 }
 
+/** Единый маппинг статов в поля токена: и resolved-вид для клиента, и заморозка. */
+export function applyActorStats(target: Token, stats: ActorStats): void {
+  target.name = stats.name;
+  target.description = stats.description;
+  target.imageUrl = stats.imageUrl;
+  target.cells = stats.cells;
+  target.ac = stats.ac > 0 ? String(stats.ac) : '';
+  target.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
+  target.hpCurrent = stats.hp.current;
+  target.hpTemp = stats.hp.temp;
+  target.speed = stats.speed;
+  target.initiativeBonus = stats.initiativeBonus;
+  target.senses = stats.senses;
+  target.attacks = stats.attacks;
+  target.damageDefenses = stats.damageDefenses;
+  if (stats.statblock) target.statblock = stats.statblock;
+  else delete target.statblock;
+}
+
 /**
- * Заморозка при отвязке персонажа: статы из листа/ресурсов один раз копируются
- * в токены, чтобы после снятия контролёра токен остался обычным, а не «пустым».
+ * Заморозка при отвязке персонажа: форма снимается (её статы не резолвятся без листа),
+ * затем статы из листа/ресурсов один раз копируются в токены, чтобы после снятия
+ * контролёра токен остался обычным, а не «пустым».
  * Вызывать до удаления `controllers[playerId]`.
  */
 export function freezeCharacterTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
@@ -150,17 +197,9 @@ export function freezeCharacterTokens(room: Room, playerId: string): { mapId: st
   for (const map of room.scene.maps) {
     for (const token of map.tokens) {
       if (token.libraryItemId !== libId) continue;
-      const stats = actorStats(room, token);
-      token.name = stats.name;
-      token.ac = stats.ac > 0 ? String(stats.ac) : '';
-      token.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
-      token.hpCurrent = stats.hp.current;
-      token.hpTemp = stats.hp.temp;
-      token.speed = stats.speed;
-      token.senses = stats.senses;
-      token.attacks = stats.attacks;
-      token.damageDefenses = stats.damageDefenses;
-      token.initiativeBonus = stats.initiativeBonus;
+      // Форма не переживает отвязку: возвращаем свои поля и геометрию до чтения статов.
+      if (token.shape) revertShape(token, shapeGrid(room, map.id));
+      applyActorStats(token, actorStats(room, token));
       out.push({ mapId: map.id, token });
     }
   }

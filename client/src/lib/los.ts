@@ -1,6 +1,10 @@
 import {
+  areaCellKey,
   canSee,
+  cellCenter,
+  cellChebyshev,
   crossesWalls,
+  pointCell,
   strongestKind,
   tokenSenses,
   visionKindAt,
@@ -59,12 +63,12 @@ export function visibleCells(input: VisionInput): Set<string> | null {
   const cy0 = Math.max(0, bounds?.cy0 ?? 0);
   const cx1 = Math.min(cols - 1, bounds?.cx1 ?? cols - 1);
   const cy1 = Math.min(rows - 1, bounds?.cy1 ?? rows - 1);
-  const zoneCells = zoneVisionCells(zones, { size: cellSize, offsetX, offsetY }, walls);
+  const grid = { size: cellSize, offsetX, offsetY };
+  const zoneCells = zoneVisionCells(zones, grid, walls);
   const sight = { areas, zones, zoneCells, cellSize, offsetX, offsetY, walls };
   const visible = new Set<string>();
   for (const viewer of viewers) {
-    const vcx = Math.floor((viewer.x - offsetX) / cellSize);
-    const vcy = Math.floor((viewer.y - offsetY) / cellSize);
+    const vc = pointCell({ x: viewer.x, y: viewer.y }, grid);
     const viewerKind = visionKindAt(sight, { x: viewer.x, y: viewer.y });
     const radiiByKind = new Map<LightAreaKind | null, (number | null)[]>();
     const radiiFor = (kind: LightAreaKind | null): (number | null)[] => {
@@ -77,19 +81,16 @@ export function visibleCells(input: VisionInput): Set<string> | null {
     };
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
-        const key = `${cx},${cy}`;
+        const key = areaCellKey(cx, cy);
         if (visible.has(key)) continue;
-        const center = {
-          x: offsetX + cx * cellSize + cellSize / 2,
-          y: offsetY + cy * cellSize + cellSize / 2,
-        };
+        const center = cellCenter(cx, cy, grid);
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
         const kind = strongestKind(viewerKind, visionKindAt(sight, center));
         if (!kind && !darkness) {
           visible.add(key);
           continue;
         }
-        const distance = Math.max(Math.abs(cx - vcx), Math.abs(cy - vcy));
+        const distance = cellChebyshev({ cx, cy }, vc);
         if (radiiFor(kind).some((r) => r === null || distance <= r)) visible.add(key);
       }
     }

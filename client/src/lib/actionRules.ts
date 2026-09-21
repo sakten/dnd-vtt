@@ -1,11 +1,12 @@
 import {
-  actionSlotAvailable,
+  attackAvailable,
   automationForSpell,
   castableLevels,
   characterLevel,
   featSpellGrants,
   isHealingSpell,
   maxCastableLevel,
+  slotSpendable,
   spellActionCost,
   spellAttackCount,
   spellAutomated,
@@ -18,6 +19,7 @@ import {
   type AutomationPayload,
   type CharacterSheet,
   type PlayerResources,
+  type Restrictions,
   type Spell,
   type Token,
   type TurnState,
@@ -119,6 +121,8 @@ export interface TurnContext {
   ownTurn: TurnState | null | undefined;
   incapacitated: boolean;
   controlled: boolean;
+  /** Ограничения экономики от условий/эффектов (`restrictionsFor`). */
+  restrictions: Restrictions;
 }
 
 /** Доступен ли слот для действия (без учёта ресурсов/ячеек). */
@@ -128,11 +132,11 @@ export function canSpendSlot(ctx: TurnContext, slot: ActionCost, actionId: strin
   if (!ctx.isActive && slot !== 'reaction') return false;
   const turn = ctx.isActive ? ctx.turn : ctx.ownTurn;
   if (!turn) return ctx.isActive ? false : true;
-  if (actionId === 'attack' || actionId === 'unarmedStrike') {
+  if ((actionId === 'attack' || actionId === 'unarmedStrike') && slot === 'action') {
     const isUnarmed = unarmed || actionId === 'unarmedStrike';
-    return turn.attacksRemaining > 0 || (isUnarmed && turn.flurryAttacks > 0) || actionSlotAvailable(turn, slot);
+    return attackAvailable(turn, ctx.restrictions, { unarmed: isUnarmed });
   }
-  return actionSlotAvailable(turn, slot);
+  return slotSpendable(turn, ctx.restrictions, slot);
 }
 
 /** Хватает ли ресурса на классовую черту и доступен ли её слот. */
@@ -144,7 +148,7 @@ export function canUseFeature(f: ActionDef, ctx: TurnContext, resourceLeft: numb
   if (!ctx.isActive && !f.costs.includes('reaction')) return false;
   const turn = ctx.isActive ? ctx.turn : ctx.ownTurn;
   if (!turn) return ctx.isActive ? false : true;
-  return f.costs.some((c) => actionSlotAvailable(turn, c));
+  return f.costs.some((c) => slotSpendable(turn, ctx.restrictions, c));
 }
 
 /** Слот для черты: доступный из её cost или первый заявленный. */
@@ -153,7 +157,7 @@ export function featureSlot(f: ActionDef, ctx: TurnContext): ActionCost {
   if (!ctx.isActive && f.costs.includes('reaction')) return 'reaction';
   const turn = ctx.isActive ? ctx.turn : ctx.ownTurn;
   if (!turn) return f.costs[0] ?? 'special';
-  return f.costs.find((c) => actionSlotAvailable(turn, c)) ?? f.costs[0] ?? 'special';
+  return f.costs.find((c) => slotSpendable(turn, ctx.restrictions, c)) ?? f.costs[0] ?? 'special';
 }
 
 /** Данные попапа заклинания: доступный круг, режим цели, урон/лечение. */

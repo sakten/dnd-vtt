@@ -17,18 +17,22 @@ const SCENARIOS = [
   ['08', './e2e/08-admin-invite.mjs'],
 ];
 
+// Опциональные сценарии: в полный прогон не входят, запуск — только через E2E_ONLY.
+const OPTIONAL = [['11', './e2e/11-action-economy.mjs']];
+const ALL = [...SCENARIOS, ...OPTIONAL];
+
 // E2E_ONLY=02,09 — дебаг-прогон: 00-setup + выбранные сценарии. Зависимости от
 // предыдущих сценариев не подтягиваются (выбирайте пары вида «подготовка+цель»).
 const only = (process.env.E2E_ONLY ?? '')
   .split(/[\s,]+/)
   .filter(Boolean);
-const known = SCENARIOS.map(([code]) => code).join(', ');
-const unknown = only.filter((code) => !SCENARIOS.some(([c]) => c === code));
+const known = ALL.map(([code]) => code).join(', ');
+const unknown = only.filter((code) => !ALL.some(([c]) => c === code));
 if (unknown.length) {
   console.error(`E2E_ONLY: неизвестный сценарий «${unknown.join(', ')}». Доступно: ${known}`);
   process.exit(1);
 }
-const selected = only.length ? SCENARIOS.filter(([code]) => only.includes(code)) : SCENARIOS;
+const selected = only.length ? ALL.filter(([code]) => only.includes(code)) : SCENARIOS;
 if (only.length) console.log(`E2E_ONLY: 00, ${selected.map(([code]) => code).join(', ')}`);
 
 try {

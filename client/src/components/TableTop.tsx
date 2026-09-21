@@ -4,9 +4,11 @@ import Konva from 'konva';
 import type { AttackRangeType, CharacterSheet, MapInfo, Token, Wall, ZoneInstance } from 'shared';
 import {
   BASE_ACTIONS,
+  areaCellKey,
   areaCells,
   countAttackAdvantage,
   gridDistanceFeet,
+  pointCell,
   reachableCells,
   segmentRectDistance,
   sightContextOf,
@@ -23,7 +25,7 @@ import { visibleCells } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
 import { canControlWith, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
-import { cellIndex, cellKey, fogRects as buildFogRects, type WorldPoint } from '../lib/fog';
+import { fogRects as buildFogRects, type WorldPoint } from '../lib/fog';
 import { useMapCamera } from '../lib/useMapCamera';
 import { useFogBrush } from '../lib/useFogBrush';
 import { useAreaBrush } from '../lib/useAreaBrush';
@@ -162,14 +164,13 @@ export default function TableTop() {
     if (!entry || !token || !turn) return [];
     const remaining = Math.max(0, turn.movementMax - turn.movementUsed);
     const size = grid.size || 50;
-    const ccx = cellIndex(token.x, grid.offsetX, size);
-    const ccy = cellIndex(token.y, grid.offsetY, size);
+    const vc = pointCell({ x: token.x, y: token.y }, { size, offsetX: grid.offsetX, offsetY: grid.offsetY });
     const maxCx = Math.ceil(activeMap.width / size);
     const maxCy = Math.ceil(activeMap.height / size);
     const cells: { x: number; y: number; size: number }[] = [];
-    for (const { cx: gx, cy: gy } of reachableCells(ccx, ccy, remaining, turn.diagonalsUsed)) {
+    for (const { cx: gx, cy: gy } of reachableCells(vc.cx, vc.cy, remaining, turn.diagonalsUsed)) {
       if (gx < 0 || gy < 0 || gx >= maxCx || gy >= maxCy) continue;
-      if (!isDm && hiddenSet.has(cellKey(gx, gy))) continue;
+      if (!isDm && hiddenSet.has(areaCellKey(gx, gy))) continue;
       cells.push({ x: grid.offsetX + gx * size, y: grid.offsetY + gy * size, size });
     }
     return cells;
@@ -181,8 +182,9 @@ export default function TableTop() {
     const g = { size, offsetX: grid.offsetX, offsetY: grid.offsetY };
     // Призыв: клетка выбирается как место токена — подсвечиваем ровно её.
     if (aim.summon) {
-      const cx = Math.floor((aim.origin.x - g.offsetX) / size);
-      const cy = Math.floor((aim.origin.y - g.offsetY) / size);
+      const cell = pointCell(aim.origin, g);
+      const cx = cell.cx;
+      const cy = cell.cy;
       const maxCx = Math.ceil((activeMap?.width ?? 0) / size);
       const maxCy = Math.ceil((activeMap?.height ?? 0) / size);
       if (cx < 0 || cy < 0) return [];
@@ -296,7 +298,7 @@ export default function TableTop() {
     const rects: { x: number; y: number; size: number }[] = [];
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
-        const key = cellKey(cx, cy);
+        const key = areaCellKey(cx, cy);
         if (base.has(key) || hiddenSet.has(key)) continue;
         rects.push({
           x: grid.offsetX + cx * cell,

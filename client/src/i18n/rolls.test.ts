@@ -1,27 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { rollLabelText as sharedLabel } from 'shared';
 import { rollMessageLabel, rollLabelText } from './rolls';
 import { setLocale } from './index';
 
 const cases = [
-  ['attack', { subject: 'Волк — Когти', distanceFeet: 15, disadvantage: 'adjacent', hit: 'hit' }],
-  ['attack', { subject: 'Меч', penalty: -2, hit: 'miss' }],
-  ['damage', { subject: 'Топор', damageType: 'slashing', damageNote: 'resistance' }],
-  ['heal', { subject: 'Хит дайс d8' }],
-  ['save', { subject: 'Ловкость', saveOutcome: 'fail' }],
-  ['check', { subject: 'Атлетика', dc: 15, checkOutcome: 'success' }],
-  ['death', { outcome: 'critSuccess', successes: 2, failures: 1 }],
-  ['plain', { subject: 'Хит дайс d8 (лечение 5)' }],
-  ['attack', {}],
+  ['attack', { subject: 'Волк — Когти', distanceFeet: 15, disadvantage: 'adjacent', hit: 'hit' }, 'Атака: Волк — Когти · 15 фт (помеха: враг рядом) — Попал'],
+  ['attack', { subject: 'Меч', penalty: -2, hit: 'miss' }, 'Атака: Меч (истощение -2) — Промах'],
+  ['damage', { subject: 'Топор', damageType: 'slashing', damageNote: 'resistance' }, 'Урон: Топор (Режущий) — сопротивление'],
+  ['heal', { subject: 'Хит дайс d8' }, 'Лечение: Хит дайс d8'],
+  ['save', { subject: 'Ловкость', saveOutcome: 'fail' }, 'Спасбросок: Ловкость — Провал'],
+  ['check', { subject: 'Атлетика', dc: 15, checkOutcome: 'success' }, 'Проверка: Атлетика · Сл 15 — Успех'],
+  ['death', { outcome: 'critSuccess', successes: 2, failures: 1 }, 'Спасбросок от смерти: критический успех (успехи 2/3, провалы 1/3)'],
+  ['plain', { subject: 'Хит дайс d8 (лечение 5)' }, 'Хит дайс d8 (лечение 5)'],
+  ['attack', {}, 'Атака: Атака'],
 ] as const;
 
 describe('rollLabelText (i18n)', () => {
-  it('RU совпадает с shared-версией', () => {
+  it('RU собирает метку из структуры броска', () => {
     setLocale('ru');
-    for (const [kind, params] of cases) {
-      expect(rollLabelText(kind, params)).toBe(sharedLabel(kind, params));
+    for (const [kind, params, expected] of cases) {
+      expect(rollLabelText(kind, params)).toBe(expected);
     }
-    setLocale('ru');
   });
 
   it('EN переводит заголовок и исход', () => {

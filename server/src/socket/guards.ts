@@ -1,4 +1,4 @@
-import { restrictionsFor, type CharacterSheet, type Token } from 'shared';
+import { isCharacterToken, restrictionsFor, type CharacterSheet, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -40,7 +40,7 @@ export function scopedToken(ctx: ConnCtx, mapId: unknown, tokenId: unknown, opts
   if (!ctx.canControlToken(room, mapId, token)) return null;
   const playerId = ctx.playerId;
   const character =
-    playerId && room.controllers[playerId] === token.libraryItemId
+    playerId && isCharacterToken(room.controllers[playerId], token)
       ? { playerId, sheet: room.sheets[playerId] }
       : null;
   return { room, mapId, token, isDm, character };

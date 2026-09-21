@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { emptyAttack, type CharacterSheet, type Sense } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
-import { makeResources, makeRoom, makeToken } from '../test/fixtures';
-import { actorStats } from './actor';
+import { makeCombatRoom, makeResources, makeRoom, makeToken } from '../test/fixtures';
+import { actorStats, freezeCharacterTokens } from './actor';
 
 function sheet(overrides: Partial<CharacterSheet> = {}): CharacterSheet {
   return {
@@ -51,6 +51,10 @@ describe('actorStats', () => {
     expect(stats.senses).toEqual([{ type: 'darkvision', range: 60 }]);
     expect(stats.damageDefenses).toEqual([{ id: 'd1', type: 'resistance', damageType: 'fire' }]);
     expect(stats.abilities?.str).toBe(16);
+    // Вид/заморозка собираются из этих же полей (единый маппинг).
+    expect(stats.cells).toBe(1);
+    expect(stats.description).toBe('');
+    expect(stats.statblock?.abilities.str).toBe(16);
   });
 
   it('персонаж без настроенных ресурсов: HP из полей токена', () => {
@@ -135,5 +139,35 @@ describe('actorStats', () => {
     // У волка нет явных спасбросков — своё владение CON не подмешивается.
     expect(stats.saves).toBeUndefined();
     expect(stats.senses).toEqual(wolf.senses);
+  });
+});
+
+describe('freezeCharacterTokens', () => {
+  it('снимает форму и сохраняет свои поля (включая мультиатаку статблока)', () => {
+    const token = makeToken('t1', {
+      libraryItemId: 'lib1',
+      name: 'Токен',
+      description: 'своё описание',
+      imageUrl: 'own.png',
+      cells: 2,
+      shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'wildShape', hp: 6, maxHp: 6, ownCells: 1 },
+    });
+    const room = makeCombatRoom([token], { p1: 'lib1' });
+    room.sheets.p1 = sheet({ classes: [{ className: 'fighter', level: 5 }] });
+    room.resources = {
+      p1: makeResources({ hp: { current: 10, max: 20, temp: 2, deathSuccesses: 0, deathFailures: 0 } }),
+    };
+
+    const changed = freezeCharacterTokens(room, 'p1');
+    expect(changed.map((c) => c.token.id)).toEqual(['t1']);
+    expect(token.shape).toBeUndefined();
+    expect(token.cells).toBe(1);
+    expect(token.name).toBe('Конан');
+    expect(token.description).toBe('своё описание');
+    expect(token.imageUrl).toBe('own.png');
+    expect(token.ac).toBe('16');
+    expect(token.hpMax).toBe('20');
+    expect(token.hpCurrent).toBe(10);
+    expect(token.statblock?.multiattack).toBe(2);
   });
 });

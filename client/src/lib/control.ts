@@ -1,4 +1,4 @@
-import type { LibraryItem, Token } from 'shared';
+import { controlsToken, isCharacterToken, type LibraryItem, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf, characterTokenOf, tokenById } from '../store/selectors';
 
@@ -31,14 +31,16 @@ type ControlState = Pick<State, 'role' | 'testMode' | 'selfId' | 'currentCharact
 
 /**
  * Проверка контроля по минимальному срезу состояния (для мемоизированных предикатов,
- * где нельзя тянуть весь стор): DM/тест — да, свой персонаж или токен с именем персонажа.
+ * где нельзя тянуть весь стор): единое правило `controlsToken` из shared.
  */
 export function canControlTokenWith(s: ControlState, token: Token, charName: string): boolean {
-  if (isDmWith(s)) return true;
-  if (!s.selfId) return false;
-  if (s.currentCharacterId && token.libraryItemId === s.currentCharacterId) return true;
-  if (token.owner && charName && token.owner === charName) return true;
-  return false;
+  return controlsToken({
+    isDm: isDmWith(s),
+    selfId: s.selfId,
+    currentCharacterId: s.currentCharacterId,
+    charName,
+    token,
+  });
 }
 
 /**
@@ -49,7 +51,7 @@ export function isCharacterTokenWith(
   s: Pick<ControlState, 'selfId' | 'currentCharacterId'>,
   token: Token
 ): boolean {
-  return !!s.selfId && s.currentCharacterId !== null && token.libraryItemId === s.currentCharacterId;
+  return !!s.selfId && isCharacterToken(s.currentCharacterId, token);
 }
 
 /** Хук: может завершить текущий ход (DM/тест или контролёр активного токена). */

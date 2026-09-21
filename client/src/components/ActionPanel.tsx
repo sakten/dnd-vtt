@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, actionSlotAvailable, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, restrictionsFor, slotSpendable, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -151,7 +151,15 @@ export default function ActionPanel() {
     legendaryMax,
   } = info;
 
-  const turnCtx: TurnContext = { combatActive, isActive, turn, ownTurn, incapacitated: incap, controlled };
+  const turnCtx: TurnContext = {
+    combatActive,
+    isActive,
+    turn,
+    ownTurn,
+    incapacitated: incap,
+    controlled,
+    restrictions: restrictionsFor(token.conditions, token.effects),
+  };
 
   /** Клик по кнопке: цели не нужны — применяем сразу, иначе входим в режим выбора цели. */
   const fire = (actionId: string, slot: ActionCost, attackIndex?: number, label?: string) => {
@@ -292,7 +300,7 @@ export default function ActionPanel() {
   const abilitySlot = (a: ActionDef): ActionCost => {
     const state = isActive ? turn : ownTurn;
     if (state) {
-      const available = a.costs.find((c) => actionSlotAvailable(state, c));
+      const available = a.costs.find((c) => slotSpendable(state, turnCtx.restrictions, c));
       if (available) return available;
     }
     return a.costs[0] ?? 'action';

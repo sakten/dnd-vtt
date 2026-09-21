@@ -38,6 +38,7 @@ const outOfCombat: TurnContext = {
   ownTurn: undefined,
   incapacitated: false,
   controlled: true,
+  restrictions: {},
 };
 
 describe('spellSlotOf', () => {
@@ -205,6 +206,7 @@ describe('canSpendSlot', () => {
       ownTurn: undefined,
       incapacitated: false,
       controlled: true,
+      restrictions: {},
     };
     expect(canSpendSlot(ctx, 'action', 'attack')).toBe(false);
     expect(canSpendSlot(ctx, 'reaction', 'attack')).toBe(true);
@@ -212,6 +214,33 @@ describe('canSpendSlot', () => {
     const offTurn: TurnContext = { ...ctx, isActive: false, turn: undefined, ownTurn: turn };
     expect(canSpendSlot(offTurn, 'action', 'attack')).toBe(false);
     expect(canSpendSlot(offTurn, 'reaction', 'attack')).toBe(true);
+  });
+
+  it('учитывает ограничения эффектов: Slow, noBonus, доп. действия', () => {
+    const slow: TurnContext = {
+      combatActive: true,
+      isActive: true,
+      turn: { ...emptyTurnState(30), actionUsed: true, attacksRemaining: 1 },
+      ownTurn: undefined,
+      incapacitated: false,
+      controlled: true,
+      restrictions: { oneAttackOnly: true },
+    };
+    expect(canSpendSlot(slow, 'action', 'attack')).toBe(false);
+
+    const noBonus: TurnContext = {
+      ...slow,
+      turn: emptyTurnState(30),
+      restrictions: { noBonus: true },
+    };
+    expect(canSpendSlot(noBonus, 'bonus', 'dash')).toBe(false);
+
+    const hasted: TurnContext = {
+      ...slow,
+      turn: { ...emptyTurnState(30), actionUsed: true, extraActions: 1 },
+      restrictions: {},
+    };
+    expect(canSpendSlot(hasted, 'action', 'attack')).toBe(true);
   });
 });
 

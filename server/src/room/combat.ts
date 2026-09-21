@@ -1,8 +1,10 @@
 import {
   abilityMod,
-  actionSlotAvailable,
+  attackAvailable,
   attacksPerAction,
   bonusPart,
+  consumeAttackTurn,
+  consumeSlotTurn,
   DEFAULT_AC,
   DEFAULT_SPEED,
   emptyCombatState,
@@ -393,9 +395,7 @@ export function canAttack(
 ): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
-  if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
-  const flurry = opts.unarmed === true && turn.flurryAttacks > 0;
-  return turn.attacksRemaining > 0 || flurry || !turn.actionUsed || turn.extraActions > 0;
+  return attackAvailable(turn, restrictionsFor(token.conditions, token.effects), opts);
 }
 
 /** Списывает атаку (запас мультиатаки/Шквала либо действие). */
@@ -408,20 +408,13 @@ export function consumeAttack(
 ): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;
-  if (restrictionsFor(token.conditions, token.effects).oneAttackOnly && turn.actionUsed) return false;
-  if (turn.attacksRemaining > 0) {
-    turn.attacksRemaining -= 1;
-  } else if (opts.unarmed === true && turn.flurryAttacks > 0) {
-    turn.flurryAttacks -= 1;
-  } else if (turn.extraActions > 0) {
-    turn.extraActions -= 1;
-    turn.attacksRemaining = Math.max(0, attacksPerToken(room, token) - 1);
-  } else if (!turn.actionUsed) {
-    turn.actionUsed = true;
-    turn.attacksRemaining = Math.max(0, attacksPerToken(room, token) - 1);
-  } else {
-    return false;
-  }
+  const ok = consumeAttackTurn(
+    turn,
+    attacksPerToken(room, token),
+    restrictionsFor(token.conditions, token.effects),
+    opts
+  );
+  if (!ok) return false;
   m.saveSoon(room);
   return true;
 }
@@ -431,30 +424,7 @@ export function spendSlot(m: CombatDeps, room: Room, mapId: string, token: Token
   // Реакция доступна в чужой ход: берём состояние записи токена, не только активной.
   const turn = slot === 'reaction' ? turnStateFor(room, mapId, token) : turnForToken(room, mapId, token);
   if (!turn) return true;
-  const restrictions = restrictionsFor(token.conditions, token.effects);
-  switch (slot) {
-    case 'action':
-      if (restrictions.noActions) return false;
-      if (restrictions.actionOrBonusOnly && turn.bonusActionUsed) return false;
-      if (!actionSlotAvailable(turn, 'action')) return false;
-      if (turn.extraActions > 0) turn.extraActions -= 1;
-      else turn.actionUsed = true;
-      break;
-    case 'bonus':
-      if (restrictions.noBonus) return false;
-      if (restrictions.actionOrBonusOnly && turn.actionUsed) return false;
-      if (!actionSlotAvailable(turn, 'bonus')) return false;
-      if (turn.extraBonusActions > 0) turn.extraBonusActions -= 1;
-      else turn.bonusActionUsed = true;
-      break;
-    case 'reaction':
-      if (restrictions.noReactions) return false;
-      if (!actionSlotAvailable(turn, 'reaction')) return false;
-      turn.reactionUsed = true;
-      break;
-    default:
-      return true;
-  }
+  if (!consumeSlotTurn(turn, restrictionsFor(token.conditions, token.effects), slot)) return false;
   m.saveSoon(room);
   return true;
 }

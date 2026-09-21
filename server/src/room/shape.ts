@@ -5,8 +5,6 @@ import {
   statNumber,
   type AttackEntry,
   type BestiaryEntry,
-  type DamageDefense,
-  type Sense,
   type Token,
   type TokenFields,
   type TokenStatblock,
@@ -97,16 +95,8 @@ export function shapeName(token: Token): string {
   return formOf(token)?.fields.name ?? token.name;
 }
 
-export function shapeDescription(token: Token): string {
-  return formOf(token)?.fields.description ?? token.description;
-}
-
 export function shapeImageUrl(token: Token): string {
   return formOf(token)?.fields.imageUrl ?? token.imageUrl;
-}
-
-export function shapeCells(token: Token): number {
-  return formOf(token)?.fields.cells ?? token.cells;
 }
 
 export function shapeAttacks(token: Token): AttackEntry[] {
@@ -117,24 +107,8 @@ export function shapeStatblock(token: Token): TokenStatblock | undefined {
   return formOf(token)?.fields.statblock ?? token.statblock;
 }
 
-export function shapeDamageDefenses(token: Token): DamageDefense[] {
-  return formOf(token)?.fields.damageDefenses ?? token.damageDefenses;
-}
-
-export function shapeInitiativeBonus(token: Token): string {
-  return formOf(token)?.fields.initiativeBonus ?? token.initiativeBonus;
-}
-
-export function shapeAc(token: Token, fallback: number): number {
-  return formOf(token)?.ac ?? fallback;
-}
-
 export function shapeSpeed(token: Token): number {
   return formOf(token)?.entry.speed ?? token.speed;
-}
-
-export function shapeSenses(token: Token): Sense[] {
-  return formOf(token)?.entry.senses ?? token.senses;
 }
 
 /** Пересчёт размера подошвы и привязка центра к сетке. */
