@@ -136,6 +136,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.rollDiceCount': 'Dice count must be from 1 to {max}',
   'error.rollDieSides': 'Sides must be from 2 to {max}',
   'error.rollKeepRange': 'k must be from 1 to the dice count',
+  'error.rollTooLong': 'Expression is too long (max {max} characters)',
+  'error.rollValueRange': 'Numbers in the expression are too large',
 
   'ui.join.subtitle': 'A virtual tabletop for playing with friends',
   'ui.join.name': 'Your name',

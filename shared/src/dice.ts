@@ -41,9 +41,11 @@ export type DiceErrorCode =
   | 'rollEmpty'
   | 'rollNoDice'
   | 'rollSyntax'
+  | 'rollTooLong'
   | 'rollDiceCount'
   | 'rollDieSides'
-  | 'rollKeepRange';
+  | 'rollKeepRange'
+  | 'rollValueRange';
 
 /** Ошибка разбора выражения; текст рендерит клиент по `code` (i18n). */
 export class DiceParseError extends Error {
@@ -60,6 +62,8 @@ export class DiceParseError extends Error {
 
 const MAX_DICE = 100;
 const MAX_SIDES = 1000;
+/** Лимит длины выражения: до цикла разбора (защита от O(n²) на огромных строках). */
+const MAX_EXPR_LENGTH = 200;
 
 /** Тип урона в суффиксе терма: `1d6fire`, `+3force` (только канонические ключи). */
 const TYPE_PATTERN = DAMAGE_TYPES.map((d) => d.key).join('|');
@@ -71,10 +75,12 @@ export function parseDiceExpression(expr: string): {
 } {
   const s = expr.replace(/\s+/g, '').toLowerCase();
   if (s.length === 0) throw new DiceParseError('rollEmpty');
+  if (s.length > MAX_EXPR_LENGTH) throw new DiceParseError('rollTooLong', { max: MAX_EXPR_LENGTH });
 
   const dice: ParsedDie[] = [];
   const modifiers: ParsedModifier[] = [];
   let modifier = 0;
+  let totalDice = 0;
   let sawNumber = false;
   let pos = 0;
 
@@ -87,12 +93,15 @@ export function parseDiceExpression(expr: string): {
     damageType: string | undefined
   ) => {
     if (count < 1 || count > MAX_DICE) throw new DiceParseError('rollDiceCount', { max: MAX_DICE });
+    if (totalDice + count > MAX_DICE) throw new DiceParseError('rollDiceCount', { max: MAX_DICE });
     if (sides < 2 || sides > MAX_SIDES) throw new DiceParseError('rollDieSides', { max: MAX_SIDES });
     if (keep !== null && (keep < 1 || keep > count)) throw new DiceParseError('rollKeepRange', { max: count });
+    totalDice += count;
     dice.push({ count, sides, keep, advantage, sign, ...(damageType ? { damageType } : {}) });
   };
 
   const pushFlat = (amount: number, damageType: string | undefined) => {
+    if (!Number.isSafeInteger(amount)) throw new DiceParseError('rollValueRange');
     modifiers.push({ amount, ...(damageType ? { damageType } : {}) });
     modifier += amount;
     sawNumber = true;

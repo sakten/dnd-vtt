@@ -9,6 +9,15 @@ function seq(values: number[]) {
   };
 }
 
+function failCode(fn: () => unknown): string | undefined {
+  try {
+    fn();
+    return undefined;
+  } catch (e) {
+    return e instanceof DiceParseError ? e.code : 'not-dice';
+  }
+}
+
 describe('parseDiceExpression', () => {
   it('парсит простой d20', () => {
     const r = parseDiceExpression('d20');
@@ -59,6 +68,23 @@ describe('parseDiceExpression', () => {
     expect(() => parseDiceExpression('d20k5')).toThrow(DiceParseError);
     expect(parseDiceExpression('5')).toEqual({ dice: [], modifier: 5, modifiers: [{ amount: 5 }] });
     expect(() => parseDiceExpression('')).toThrow(DiceParseError);
+  });
+
+  it('отвергает выражение длиннее лимита до разбора', () => {
+    expect(failCode(() => parseDiceExpression('1'.repeat(50_000)))).toBe('rollTooLong');
+    expect(failCode(() => parseDiceExpression('1d6+'.repeat(51)))).toBe('rollTooLong');
+    expect(failCode(() => parseDiceExpression('1d6+'.repeat(50) + '1'))).toBe('rollTooLong');
+    expect(parseDiceExpression('1d6+'.repeat(49) + '1').dice).toHaveLength(49);
+  });
+
+  it('ограничивает суммарное число кубиков', () => {
+    expect(failCode(() => parseDiceExpression('60d6+41d6'))).toBe('rollDiceCount');
+    expect(parseDiceExpression('60d6+40d6').dice).toHaveLength(2);
+  });
+
+  it('отвергает небезопасно большие числа', () => {
+    expect(failCode(() => parseDiceExpression('1'.repeat(30)))).toBe('rollValueRange');
+    expect(parseDiceExpression('d20+99999').modifier).toBe(99999);
   });
 });
 

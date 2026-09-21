@@ -133,6 +133,8 @@
   'error.rollDiceCount': 'Количество кубиков должно быть от 1 до {max}',
   'error.rollDieSides': 'Граней должно быть от 2 до {max}',
   'error.rollKeepRange': 'k должно быть от 1 до количества кубиков',
+  'error.rollTooLong': 'Выражение слишком длинное (максимум {max} символов)',
+  'error.rollValueRange': 'Числа в выражении слишком большие',
 
   'ui.join.subtitle': 'Виртуальный стол для игры с друзьями',
   'ui.join.name': 'Ваше имя',
