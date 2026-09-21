@@ -11,11 +11,8 @@ import {
   exhaustionRollPenalty,
   gridDistanceFeet,
   hostileTokens,
-  isCriticalFail,
-  isCriticalHit,
   proficiencyBonus,
   resolveAbilityMods,
-  resolveAttack,
   rollDice,
   statNumber,
   withAdvantage,
@@ -36,6 +33,7 @@ import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
+import { attackDamageRoll, attackHitRoll, attackUnseen } from './attackResolve';
 import { fail } from './errors';
 import { applyEffectTo } from './effectsApply';
 import { applyForcedMovement } from './force';
@@ -593,41 +591,50 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   const { rangeType } = def.attack;
   const castMap = ctx.manager.findMap(room, mapId);
   const gridSize = castMap ? gridSizeOfMap(castMap) : 50;
+  const penalty = exhaustionRollPenalty(caster.conditions);
   for (let i = 0; i < count; i++) {
     // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
     if (!target) continue;
     const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
     const effectParts = attackRollParts(caster.effects, target.effects, { rangeType, attackType: rangeType }, abilities);
-    const { mode: advMode } = countAttackAdvantage({
+    // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
+    const unseen = castMap ? attackUnseen(room, caster, target, castMap) : undefined;
+    const { advantage, disadvantage } = countAttackAdvantage({
       explicit: adv,
       attackerConditions: caster.conditions,
       targetConditions: target.conditions,
       rangeType,
       effectMode: effectParts.mode,
+      includeTarget: true,
+      unseenTarget: unseen?.unseenTarget,
+      unseenAttacker: unseen?.unseenAttacker,
     });
     const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
-    const penalty = exhaustionRollPenalty(caster.conditions);
-    const hitExpr = withRollParts(d20Expr(stats.attack + penalty), { flat: effectParts.flat, dice: effectParts.dice });
-    const hitRoll = rollDice(withAdvantage(hitExpr, advMode));
-    const crit = isCriticalHit(hitRoll) || autoCrit(target.conditions, distance, rangeType);
-    const targetAc = ctx.manager.acForToken(room, target);
-    const hitSuccess = targetAc > 0 ? resolveAttack(hitRoll.total, crit, isCriticalFail(hitRoll), targetAc) : true;
+    const hit = attackHitRoll({
+      attackExpr: withRollParts(d20Expr(stats.attack), { flat: effectParts.flat, dice: effectParts.dice }),
+      advCount: advantage,
+      disCount: disadvantage,
+      penalty,
+      critMin: 20,
+      targetAc: ctx.manager.acForToken(room, target),
+      autoCrit: autoCrit(target.conditions, distance, rangeType),
+    });
     pushRollMessage(ctx, room, {
       author,
-      roll: hitRoll,
+      roll: hit.hitRoll,
       kind: 'attack',
-      params: { subject: label, hit: hitSuccess ? 'hit' : 'miss' },
+      params: { subject: label, hit: hit.hitSuccess ? 'hit' : 'miss', penalty: penalty || undefined },
     });
     // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друг друга.
-    if (count === 1 || i === 0) maybeRollAnim(ctx, hitRoll);
-    if (!hitSuccess) continue;
+    if (count === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);
+    if (hit.hitSuccess === false) continue;
     // Mirror Image: попадание может принять образ вместо цели.
     if (misdirectCheck(ctx, room, mapId, target, caster)) continue;
     if (expression) {
       const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
-      const damageRoll = rollDice(withRollParts(expression, damageParts), Math.random, { doubleDice: crit });
-      applyResult(run, target, damageRoll, { subject: label, crit });
+      const damageRoll = attackDamageRoll(expression, damageParts, hit.crit);
+      applyResult(run, target, damageRoll, { subject: label, crit: hit.crit });
     }
     if (def.save && def.effects?.length) {
       const save = rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability);

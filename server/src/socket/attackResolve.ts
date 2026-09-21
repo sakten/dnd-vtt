@@ -28,7 +28,9 @@ import {
   type AttackEntry,
   type DiceRollResult,
   type ErrorPayload,
+  type MapInfo,
   type RollLabelParams,
+  type RollParts,
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
@@ -64,6 +66,59 @@ export interface AttackResolveResult {
   crit?: boolean;
   hitRoll?: DiceRollResult;
   damageRoll?: DiceRollResult;
+}
+
+/** Невидимость участников для adv/dis (одна карта): общий расчёт оружия и заклинаний. */
+export function attackUnseen(
+  room: Room,
+  attacker: Token,
+  target: Token,
+  map: MapInfo
+): { unseenTarget: boolean; unseenAttacker: boolean } {
+  const size = gridSizeOfMap(map);
+  const sight = sightContextOf(map, { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY });
+  return {
+    unseenTarget: !canSee(attacker, target, actorStats(room, attacker).senses, sight),
+    unseenAttacker: !canSee(target, attacker, actorStats(room, target).senses, sight),
+  };
+}
+
+export interface AttackHitInput {
+  attackExpr: string;
+  advCount: number;
+  disCount: number;
+  penalty: number;
+  critMin: number;
+  /** AC цели; 0 — попадание не проверяется (нет учёта статов). */
+  targetAc: number;
+  /** Доп. авто-крит (условия цели + дистанция/тип атаки). */
+  autoCrit?: boolean;
+}
+
+export interface AttackHitResult {
+  hitRoll: DiceRollResult;
+  crit: boolean;
+  /** undefined — AC неизвестен, попадание не проверялось. */
+  hitSuccess: boolean | undefined;
+}
+
+/** Бросок атаки: преимущество → d20 → крит → проверка AC. Общий для оружия и заклинаний. */
+export function attackHitRoll(input: AttackHitInput): AttackHitResult {
+  const adv = rollMode(input.advCount, input.disCount);
+  const hitRoll = rollDice(withAdvantage(input.attackExpr, adv));
+  const crit = isCriticalHit(hitRoll, input.critMin) || input.autoCrit === true;
+  const hitSuccess =
+    input.targetAc > 0
+      ? resolveAttack(hitRoll.total + input.penalty, crit, isCriticalFail(hitRoll), input.targetAc)
+      : undefined;
+  return { hitRoll, crit, hitSuccess };
+}
+
+/** Бросок урона атаки: формула + кости эффектов; крит — удвоение костей. */
+export function attackDamageRoll(damageExpr: string, effectParts: RollParts | undefined, crit: boolean): DiceRollResult {
+  const expr =
+    effectParts && (effectParts.flat || effectParts.dice) ? withRollParts(damageExpr, effectParts) : damageExpr;
+  return rollDice(expr, Math.random, { doubleDice: crit });
 }
 
 /** Данные атаки, достаточные для отложенного нанесения урона (после окна реакций). */
@@ -169,13 +224,9 @@ export function prepareWeaponAttack(
         return { error: { code: 'noClearPath' } };
       }
       hasTarget = true;
-      const sight = sightContextOf(map, {
-        size,
-        offsetX: map.grid.offsetX,
-        offsetY: map.grid.offsetY,
-      });
-      unseenTarget = !canSee(attacker, target, actorStats(room, attacker).senses, sight);
-      unseenAttacker = !canSee(target, attacker, actorStats(room, target).senses, sight);
+      const unseen = attackUnseen(room, attacker, target, map);
+      unseenTarget = unseen.unseenTarget;
+      unseenAttacker = unseen.unseenAttacker;
     }
   }
 
@@ -263,28 +314,31 @@ export function rollPreparedAttack(
   const { attacker, attackerMapId, target, targetMapId, attack, author } = prep.input;
 
   const disCount = prep.disCount + (opts.extraDisadvantage ? 1 : 0);
-  const adv = rollMode(prep.advCount, disCount);
   const result: AttackResolveResult = {};
 
   try {
     let crit = false;
     let hitSuccess: boolean | undefined;
     if (prep.hasHit) {
-      const hitRoll = rollDice(withAdvantage(prep.attackExpr, adv));
+      const hit = attackHitRoll({
+        attackExpr: prep.attackExpr,
+        advCount: prep.advCount,
+        disCount,
+        penalty: prep.penalty,
+        critMin: prep.critMin,
+        targetAc: prep.targetAc,
+        autoCrit: prep.hasTarget && !!target && autoCrit(target.conditions, prep.distanceFeet, attack.rangeType),
+      });
       // Анимация d20 у бросающего — по личному шансу (ничего не ждёт).
-      maybeRollAnim(ctx, hitRoll);
-      crit =
-        isCriticalHit(hitRoll, prep.critMin) ||
-        (prep.hasTarget && !!target && autoCrit(target.conditions, prep.distanceFeet, attack.rangeType));
-      if (prep.targetAc > 0) {
-        hitSuccess = resolveAttack(hitRoll.total + prep.penalty, crit, isCriticalFail(hitRoll), prep.targetAc);
-      }
+      maybeRollAnim(ctx, hit.hitRoll);
+      crit = hit.crit;
+      hitSuccess = hit.hitSuccess;
       const params: RollLabelParams = {
         ...prep.baseParams,
         hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
       };
-      pushRollMessage(ctx, room, { author, roll: hitRoll, kind: 'attack', params });
-      result.hitRoll = hitRoll;
+      pushRollMessage(ctx, room, { author, roll: hit.hitRoll, kind: 'attack', params });
+      result.hitRoll = hit.hitRoll;
       result.hitSuccess = hitSuccess;
       result.crit = crit;
     }
@@ -360,7 +414,7 @@ function savageAttackerRoll(
   expression: string,
   crit: boolean
 ): DiceRollResult {
-  let roll = rollDice(expression, Math.random, { doubleDice: crit });
+  let roll = attackDamageRoll(expression, undefined, crit);
   const attacker = plan.attacker;
   if (!attacker) return roll;
   const controllerId = controllerIdOfToken(room, attacker);
@@ -368,7 +422,7 @@ function savageAttackerRoll(
     (c) => c.kind === 'feat' && c.key === 'XPHB:savageAttacker'
   );
   if (!hasFeat || attacker.effects.some((e) => e.sourceKey === SAVAGE_MARKER)) return roll;
-  const again = rollDice(expression, Math.random, { doubleDice: crit });
+  const again = attackDamageRoll(expression, undefined, crit);
   if (again.total > roll.total) roll = again;
   ctx.manager.applyEffect(room, attacker, {
     id: randomUUID(),
