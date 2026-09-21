@@ -27,9 +27,15 @@ export function endShapesOf(ctx: ConnCtx, room: Room, sourceIds: Set<string>): n
 
 /** Принудительный возврат токена (недееспособность/смерть/конец Polymorph). */
 export function endShapeToken(ctx: ConnCtx, room: Room, mapId: string, token: Token): void {
-  if (revertShape(token, shapeGrid(room, mapId))) {
-    ctx.emitToken(room, 'token:update', mapId, token);
-    syncShapeCombat(ctx, room, mapId, token);
+  const sourceTokenId = token.shape?.kind === 'polymorph' ? token.shape.sourceTokenId : undefined;
+  if (!revertShape(token, shapeGrid(room, mapId))) return;
+  ctx.emitToken(room, 'token:update', mapId, token);
+  syncShapeCombat(ctx, room, mapId, token);
+  // Polymorph окончился досрочно (недееспособность/DM) — концентрация кастера тоже кончается.
+  if (sourceTokenId) {
+    for (const c of ctx.manager.clearConcentration(room, sourceTokenId)) {
+      ctx.emitToken(room, 'token:update', c.mapId, c.token);
+    }
   }
 }
 
@@ -144,8 +150,10 @@ export function registerFormHandlers(ctx: ConnCtx) {
       return;
     }
     if (rejectIfIncapacitated(ctx, token)) return;
-    if (token.shape) {
-      fail(ctx, 'shapeAlready');
+    // Повторный Wild Shape меняет форму за новый заряд (XPHB: «until you use Wild Shape again»),
+    // из Polymorph в Wild Shape нельзя — форма держится чужой концентрацией.
+    if (token.shape?.kind === 'polymorph') {
+      fail(ctx, 'shapePolymorph');
       return;
     }
     const sheet = character.sheet;
@@ -181,7 +189,11 @@ export function registerFormHandlers(ctx: ConnCtx) {
       fail(ctx, 'shapeNoSpace');
       return;
     }
-    // Wild Shape — бонусное действие (XPHB): проверяем и списываем слот.
+    // Wild Shape — бонусное действие (XPHB): только в свой ход и при свободном бонусе.
+    if (!scope.isDm && !ctx.manager.isActiveToken(room, payload.mapId, token.id)) {
+      fail(ctx, 'notYourTurn');
+      return;
+    }
     const turn = ctx.manager.turnForToken(room, payload.mapId, token);
     if (turn && !actionSlotAvailable(turn, 'bonus')) {
       fail(ctx, 'noActions');
@@ -196,7 +208,6 @@ export function registerFormHandlers(ctx: ConnCtx) {
         kind: 'wildShape',
         tempHp: wildShapeTempHp(level, moon),
         ...(moon ? { wisMod: wisdomModOf(sheet.abilities) } : {}),
-        carryOverflow: true,
       },
       shapeGrid(room, payload.mapId)
     );
@@ -218,7 +229,11 @@ export function registerFormHandlers(ctx: ConnCtx) {
       fail(ctx, 'shapeNoRevert');
       return;
     }
-    // Досрочный выход из Wild Shape — бонусное действие (XPHB).
+    // Досрочный выход из Wild Shape — бонусное действие (XPHB), только в свой ход.
+    if (!isDm && !ctx.manager.isActiveToken(room, mapId, token.id)) {
+      fail(ctx, 'notYourTurn');
+      return;
+    }
     const turn = ctx.manager.turnForToken(room, mapId, token);
     if (turn && !actionSlotAvailable(turn, 'bonus')) {
       fail(ctx, 'noActions');

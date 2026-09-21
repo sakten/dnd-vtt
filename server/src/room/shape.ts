@@ -32,8 +32,6 @@ export interface BeginShapeInput {
   /** Источник (Polymorph): токен-кастер для снятия по концентрации. */
   sourceTokenId?: string;
   spellKey?: string;
-  /** Избыток урона при обнулении пула переносится на свои HP (Wild Shape). */
-  carryOverflow?: boolean;
 }
 
 /** Сетка карты (с фолбэком на сетку комнаты) — размер и смещения для снапа формы. */
@@ -130,7 +128,6 @@ export function beginShape(token: Token, input: BeginShapeInput, grid: ShapeGrid
     maxHp: pool,
     ...(ac > 0 ? { ac } : {}),
     ownCells: token.cells,
-    ...(input.carryOverflow ? { carryOverflow: true } : {}),
     ...(input.sourceTokenId ? { sourceTokenId: input.sourceTokenId } : {}),
     ...(input.spellKey ? { spellKey: input.spellKey } : {}),
   };

@@ -25,7 +25,7 @@ export type ErrorCode =
   | 'shapeNoForm'
   | 'shapeNoUse'
   | 'shapeNoSpace'
-  | 'shapeAlready'
+  | 'shapePolymorph'
   | 'shapeInForm'
   | 'shapeNoRevert'
   | 'spellSelfOnly'

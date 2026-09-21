@@ -71,7 +71,7 @@ describe('формы: Wild Shape', () => {
     expect(errors()).toEqual([]);
     const use = room.resources['p1']!.resources[0]!;
     expect(use.current).toBe(2);
-    expect(token.shape).toMatchObject({ key: 'XMM:Wolf', kind: 'wildShape', hp: 6, maxHp: 6, carryOverflow: true });
+    expect(token.shape).toMatchObject({ key: 'XMM:Wolf', kind: 'wildShape', hp: 6, maxHp: 6 });
     // Свои поля токена не подменяются: статы отдаёт резолвер.
     expect(token.name).toBe('Druid');
     expect(token.ac).toBe('12');
@@ -132,6 +132,48 @@ describe('формы: Wild Shape', () => {
     expect(map.combat.turns['e1']!.bonusActionUsed).toBe(true);
   });
 
+  it('повторный Wild Shape меняет форму за новый заряд', () => {
+    const { map, room, token, f, errors } = setup(6);
+    f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Wolf' });
+    map.combat.turns['e1']!.bonusActionUsed = false; // новый ход
+    f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Crocodile' });
+    expect(errors()).toEqual([]);
+    expect(token.shape?.key).toBe('XMM:Crocodile');
+    expect(room.resources['p1']!.resources[0]!.current).toBe(1);
+  });
+
+  it('в чужой ход форма не меняется и не сбрасывается', () => {
+    const { map, token, f, errors } = setup(6);
+    map.combat.entries[0]!.tokenId = 't9'; // ход другого бойца
+    const entry = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+    beginShape(token, { entry, kind: 'wildShape', tempHp: 6 });
+    f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Crocodile' });
+    f.invoke('token:revert', { mapId: 'm1', id: 't1' });
+    expect(errors()).toEqual(['notYourTurn', 'notYourTurn']);
+    expect(token.shape?.key).toBe('XMM:Wolf');
+  });
+
+  it('из Polymorph в Wild Shape нельзя (shapePolymorph)', () => {
+    const { token, f, errors } = setup(6);
+    const entry = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+    beginShape(token, { entry, kind: 'polymorph', tempHp: 11, sourceTokenId: 'caster' });
+    f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Crocodile' });
+    expect(errors()).toEqual(['shapePolymorph']);
+    expect(token.shape?.kind).toBe('polymorph');
+  });
+
+  it('недееспособность с панели условий (token:update) снимает форму', () => {
+    const { token, f } = setup(6);
+    const entry = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+    beginShape(token, { entry, kind: 'polymorph', tempHp: 11, sourceTokenId: 'caster' });
+    f.invoke('token:update', {
+      mapId: 'm1',
+      id: 't1',
+      patch: { conditions: [{ key: 'stunned', name: 'Ошеломлён' }] },
+    });
+    expect(token.shape).toBeUndefined();
+  });
+
   it('Polymorph вручную не снять (только DM)', () => {
     const { room, token, f, errors } = setup(6);
     const entry = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
@@ -158,19 +200,22 @@ describe('формы: круг луны', () => {
 });
 
 describe('формы: урон и возврат', () => {
-  it('Wild Shape: урон в пул, обнуление — возврат с переносом избытка', () => {
+  it('Wild Shape: урон в пул; при нуле форма не спадает, урон идёт в свои HP', () => {
     const { room, token, f } = setup(6);
     f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Wolf' });
     f.ctx.applyHp(room, 'm1', token, -4);
     expect(token.shape?.hp).toBe(2);
     expect(room.resources['p1']!.hp.current).toBe(20);
     f.ctx.applyHp(room, 'm1', token, -5);
-    expect(token.shape).toBeUndefined();
-    expect(token.name).toBe('Druid');
+    expect(token.shape?.hp).toBe(0);
+    expect(shapeName(token)).toBe('Wolf');
     expect(room.resources['p1']!.hp.current).toBe(17);
+    f.ctx.applyHp(room, 'm1', token, -7);
+    expect(token.shape).toBeDefined();
+    expect(room.resources['p1']!.hp.current).toBe(10);
   });
 
-  it('Polymorph: обнуление пула без переноса избытка', () => {
+  it('Polymorph: обнуление пула возвращает форму, избыток идёт в свои HP', () => {
     const { room, token, f } = setup(6);
     const entry = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
     beginShape(token, { entry, kind: 'polymorph', tempHp: 4 });
@@ -178,7 +223,7 @@ describe('формы: урон и возврат', () => {
     f.ctx.applyHp(room, 'm1', token, -10);
     expect(token.shape).toBeUndefined();
     expect(token.name).toBe('Druid');
-    expect(room.resources['p1']!.hp.current).toBe(20);
+    expect(room.resources['p1']!.hp.current).toBe(14);
   });
 
   it('недееспособность снимает форму', () => {
@@ -280,7 +325,7 @@ describe('формы: атаки способностями', () => {
   });
 
   it('размер токена синхронизируется: Large-форма и возврат сбрасывают w/h', () => {
-    const { room, token, f } = setup(6);
+    const { map, room, token, f } = setup(6);
     room.sheets['p1'] = sheetWith(6, [...KNOWN, 'XMM:Crocodile']) as CharacterSheet;
     f.invoke('token:shape', { mapId: 'm1', id: 't1', formKey: 'XMM:Crocodile' });
     expect(token.cells).toBe(2);
@@ -289,6 +334,9 @@ describe('формы: атаки способностями', () => {
     // Большая форма: центр сохранён, левый край сдвинут влево.
     expect(token.x).toBe(100);
     f.ctx.applyHp(room, 'm1', token, -6);
+    expect(token.shape?.hp).toBe(0); // при пуле 0 форма держится (XPHB)
+    map.combat.turns['e1']!.bonusActionUsed = false;
+    f.invoke('token:revert', { mapId: 'm1', id: 't1' });
     expect(token.shape).toBeUndefined();
     expect(token.cells).toBe(1);
     expect(token.w).toBe(50);

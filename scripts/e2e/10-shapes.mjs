@@ -4,7 +4,7 @@ import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 // С5: превращение через UI (меню токена), витрина формы, Large-форма + RAM,
-// возврат по урону. Проверяем реальный клиент: DOM + стор (`window.__vtt`).
+// пул формы и снятие по недееспособности. Проверяем реальный клиент: DOM + стор (`window.__vtt`).
 
 const mapState = () =>
   S.page.evaluate(() => {
@@ -266,9 +266,41 @@ const ram = await S.page.evaluate(() => {
 });
 check(ram.roll && !ram.err, `RAM бросает d20 в чат (ошибка: ${ram.err ?? 'нет'})`);
 
-// Урон по пулу → возврат, размер снова 1×1.
+// Урон по пулу: форма держится (XPHB), урон сверх пула идёт в свои HP.
 await S.page.evaluate(
   ({ mapId, id }) => window.__vtt.getState().socket.emit('token:hp', { mapId, id, delta: -6 }),
+  { mapId: setup.mapId, id: setup.tokenId }
+);
+await waitFor(
+  S.page,
+  (tid) => {
+    const s = window.__vtt.getState();
+    const map = s.scene.maps.find((m) => m.id === s.viewMapId) ?? s.scene.maps[0];
+    const t = map?.tokens.find((x) => x.id === tid);
+    return !!t?.shape && t.shape.hp === 0 && t.cells === 2;
+  },
+  6000,
+  setup.tokenId
+);
+const wounded = await S.page.evaluate(
+  (tid) => {
+    const s = window.__vtt.getState();
+    const map = s.scene.maps.find((m) => m.id === s.viewMapId) ?? s.scene.maps[0];
+    const t = map?.tokens.find((x) => x.id === tid);
+    return { shapeHp: t?.shape?.hp ?? null, cells: t?.cells ?? null };
+  },
+  setup.tokenId
+);
+check(wounded.shapeHp === 0 && wounded.cells === 2, `пул 0 не спадает форму: hp=${wounded.shapeHp}, cells=${wounded.cells}`);
+
+// Недееспособность (панель условий) снимает форму → размер снова 1×1.
+await S.page.evaluate(
+  ({ mapId, id }) =>
+    window.__vtt.getState().socket.emit('token:update', {
+      mapId,
+      id,
+      patch: { conditions: [{ key: 'unconscious', name: 'Без сознания' }] },
+    }),
   { mapId: setup.mapId, id: setup.tokenId }
 );
 await waitFor(
@@ -283,7 +315,10 @@ await waitFor(
   setup.tokenId
 );
 const back = await tokenById(setup.tokenId);
-check(!back?.shape && back?.cells === 1 && back?.w === 50, `возврат по урону: cells=${back?.cells}, w=${back?.w}`);
+check(
+  !back?.shape && back?.cells === 1 && back?.w === 50,
+  `возврат по недееспособности: cells=${back?.cells}, w=${back?.w}`
+);
 await S.page.screenshot({ path: path.join(S.OUT, '10-shapes.png') });
 
 // Уборка: токены и предметы не должны мешать другим сценариям/скриншотам.

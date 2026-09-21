@@ -54,8 +54,6 @@ export interface TokenShape {
   ac?: number;
   /** Клетки «своей» формы до трансформации (для возврата). */
   ownCells?: number;
-  /** Пул на нуле: избыток урона переносится на свои HP (Wild Shape); Polymorph — нет. */
-  carryOverflow?: boolean;
   /** Источник (Polymorph): токен-кастер, по чьей концентрации держится форма. */
   sourceTokenId?: string;
   /** Заклинание-источник (Polymorph). */

@@ -163,7 +163,6 @@ function normalizeShape(value: unknown): TokenShape | undefined {
     maxHp,
     ...(Number.isFinite(ac) && ac > 0 ? { ac: Math.round(ac) } : {}),
     ...(Number.isFinite(ownCells) && ownCells > 0 ? { ownCells: clampCells(ownCells) } : {}),
-    ...(raw.carryOverflow === true ? { carryOverflow: true } : {}),
     ...(typeof raw.sourceTokenId === 'string' && raw.sourceTokenId
       ? { sourceTokenId: raw.sourceTokenId.slice(0, 64) }
       : {}),

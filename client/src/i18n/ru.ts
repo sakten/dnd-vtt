@@ -24,7 +24,7 @@
   'error.shapeNoForm': 'Форма недоступна: проверьте известные формы и лимит CR',
   'error.shapeNoUse': 'Не осталось использований дикого облика',
   'error.shapeNoSpace': 'Рядом нет свободного места для формы',
-  'error.shapeAlready': 'Токен уже в форме',
+  'error.shapePolymorph': 'В форме Polymorph нельзя принять Wild Shape',
   'error.shapeInForm': 'В форме зверя нельзя колдовать (нужны «Заклинания зверя», 18 ур.)',
   'error.spellSelfOnly': 'Это воззвание позволяет накладывать заклинание только на себя',
   'error.noAreaPoint': 'Не выбрана точка области',

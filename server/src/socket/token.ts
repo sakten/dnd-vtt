@@ -1,4 +1,5 @@
 import {
+  isIncapacitated,
   isRecord,
   movementBlocked,
   normalizeConditions,
@@ -14,7 +15,7 @@ import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
 import { removeSummonsOf, summonSourceIds } from './summons';
-import { endShapesOf } from './forms';
+import { endShapeToken, endShapesOf } from './forms';
 import { handleMovementZones, removeZonesOfSource } from './zones';
 
 /** Производные поля персонажа: в токене не хранятся, в патче игнорируются. */
@@ -176,7 +177,11 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         const maxHp = statNumber(token.hpMax);
         if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
       }
-      if (Array.isArray(patch.conditions)) token.conditions = normalizeConditions(patch.conditions);
+      if (Array.isArray(patch.conditions)) {
+        token.conditions = normalizeConditions(patch.conditions);
+        // Недееспособность с панели условий снимает форму так же, как через эффекты (XPHB).
+        if (token.shape && isIncapacitated(token.conditions)) endShapeToken(ctx, room, mapId, token);
+      }
       if (Array.isArray(patch.effects)) {
         const next = normalizeEffects(patch.effects);
         const nextIds = new Set(next.map((e) => e.id));

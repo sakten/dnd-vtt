@@ -449,15 +449,9 @@ export function adjustTokenHp(
     const absorbed = Math.min(shape.hp, -delta);
     shape.hp -= absorbed;
     delta += absorbed;
-    if (shape.hp <= 0) {
-      const carry = shape.carryOverflow === true;
-      revertShape(token, shapeGrid(room, mapId));
-      // Polymorph обнулился: спелл кончается, избыток урона теряется.
-      if (!carry) {
-        m.saveSoon(room);
-        return [{ mapId, token }];
-      }
-    }
+    // Polymorph: temp HP зверя обнулились — заклинание оканчивается (XPHB), избыток идёт в свои HP.
+    // Wild Shape: форма живёт дальше (XPHB) — урон сверх пула уходит в свои HP, форма не спадает.
+    if (shape.hp <= 0 && shape.kind === 'polymorph') revertShape(token, shapeGrid(room, mapId));
   }
   const controllerId = controllerIdOfToken(room, token);
   const res = controllerId ? room.resources[controllerId] : undefined;

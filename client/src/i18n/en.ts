@@ -26,7 +26,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.shapeNoForm': 'Form unavailable: check known forms and the CR limit',
   'error.shapeNoUse': 'No Wild Shape uses left',
   'error.shapeNoSpace': 'No free space nearby for the form',
-  'error.shapeAlready': 'Token is already in a form',
+  'error.shapePolymorph': "Can't use Wild Shape while in Polymorph",
   'error.shapeInForm': "Can't cast in beast form (Beast Spells, level 18, required)",
   'error.spellSelfOnly': 'This invocation allows casting the spell on yourself only',
 
