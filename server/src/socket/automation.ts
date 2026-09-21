@@ -718,11 +718,12 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
     saves.push(save);
   }
   const applyAll = () => {
+    let shaped = false;
     for (const save of saves) {
       if (!save.success) applyTargetEffects(run, save.target, stats);
-      // Polymorph: проваливший сейв превращается в выбранного зверя (концентрация — до конца).
+      // Polymorph: провалившийся сейв превращается в выбранного зверя (концентрация — до конца).
       if (run.def.shape && !save.success) {
-        applyPolymorphForm(run.ctx, run.room, run.mapId, run.caster, save.target, run.shapeForm, run.def.key);
+        shaped = applyPolymorphForm(run.ctx, run.room, run.mapId, run.caster, save.target, run.shapeForm, run.def.key) || shaped;
       }
       if (run.def.force && !save.success) {
         applyForcedMovement(run.ctx, run.room, run.mapId, run.caster, save.target, run.def.force);
@@ -731,6 +732,8 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
       if (save.success && !half) continue;
       applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
     }
+    // Форма — не эффект: якорь концентрации на кастере нужен для проверки уроном и снятия.
+    if (run.def.concentration && shaped) anchorConcentration(run.ctx, run.room, run.caster, run.mapId, run.def);
   };
   if (openSaveInspiration(ctx, room, run.mapId, stats.dc, def.name, saves, applyAll)) return;
   applyAll();

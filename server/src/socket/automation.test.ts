@@ -126,6 +126,66 @@ describe('AoE-урон в чат', () => {
   });
 });
 
+describe('Polymorph: якорь концентрации', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const castPolymorph = (f: ReturnType<typeof setup>['f'], room: ReturnType<typeof setup>['room']) => {
+    const map = room.scene.maps[0]!;
+    // В фикстурах карта без размеров: зона подошвы формы требует границ.
+    map.width = 1000;
+    map.height = 800;
+    executeAutomation(f.ctx, {
+      caster: map.tokens[0]!,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Polymorph')!, { castLevel: 4, characterLevel: 8 }),
+      targets: [map.tokens[1]!],
+      stats,
+      author: 'DM',
+      summonKey: 'XMM:Wolf',
+    });
+    return map;
+  };
+
+  it('провал сейва: форма + якорь концентрации на кастере', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    vi.spyOn(Math, 'random').mockReturnValue(0); // сейв цели провален
+    const map = castPolymorph(f, room);
+
+    expect(target.shape?.kind).toBe('polymorph');
+    expect(target.shape?.sourceTokenId).toBe(caster.id);
+    const anchor = caster.effects.find((e) => e.concentration && e.sourceKey === 'XPHB:Polymorph');
+    expect(anchor).toBeTruthy();
+    expect(map.combat.turns['e1']?.concentrationId).toBe(anchor!.id);
+  });
+
+  it('провал спасброска концентрации от урона возвращает цель из формы', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    castPolymorph(f, room);
+    expect(target.shape).toBeTruthy();
+
+    f.ctx.applyHp(room, 'm1', caster, -30); // CON-спасбросок с DC 15 провален тем же сидом
+
+    expect(target.shape).toBeUndefined();
+    expect(caster.effects.some((e) => e.concentration)).toBe(false);
+  });
+
+  it('успешный сейв: формы и якоря нет', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    vi.spyOn(Math, 'random').mockReturnValue(0.99); // сейв цели успешен
+    castPolymorph(f, room);
+
+    expect(target.shape).toBeUndefined();
+    expect(caster.effects.some((e) => e.concentration && e.sourceKey === 'XPHB:Polymorph')).toBe(false);
+  });
+});
+
 describe('способности монстров', () => {
   afterEach(() => vi.restoreAllMocks());
 
