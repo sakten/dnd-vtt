@@ -409,7 +409,7 @@ describe('hydrateRoom: зеркала статов персонажа', () => {
     expect(monsterToken).toMatchObject({ ac: '15', hpMax: '7', hpCurrent: 7 });
   });
 
-  it('токен без листа у контролёра не чистится', () => {
+  it('токен без листа у контролёра чистится — как при спавне', () => {
     const fixture = base({
       scene: sceneWithMap({
         tokens: [{ id: 't1', libraryItemId: 'l1', name: 'Токен', ac: '16', hpMax: '20', hpCurrent: 12 }],
@@ -420,7 +420,7 @@ describe('hydrateRoom: зеркала статов персонажа', () => {
 
     const room = hydrateRoom(structuredClone(fixture));
 
-    expect(room.scene.maps[0]!.tokens[0]).toMatchObject({ ac: '16', hpMax: '20', hpCurrent: 12 });
+    expect(room.scene.maps[0]!.tokens[0]).toMatchObject({ ac: '', hpMax: '', hpCurrent: 0 });
   });
 
   it('legacy-форма: снапшот shape.original возвращается в поля токена (С5)', () => {

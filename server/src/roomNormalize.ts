@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import type { CharacterSheet, CombatState, MapInfo, Scene, Token } from 'shared';
 import {
   DEFAULT_GRID,
-  DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
   isRecord,
@@ -13,6 +12,7 @@ import {
 } from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
 import { refreshBestiaryIcons } from './bestiaryIcons';
+import { clearCharacterStats } from './room/tokens';
 
 /**
  * Legacy-миграция формы токена (до С5 поле `shape.original` хранило снапшот своих полей,
@@ -119,24 +119,13 @@ export function hydrateRoom(p: PersistedRoom): Room {
     }
   }
   // Статы персонажей больше не хранятся в токенах (резолвит actorStats): чистим
-  // старые зеркала у токенов, чей предмет привязан к игроку с листом.
-  const characterLibIds = new Set(
-    Object.entries(controllers)
-      .filter(([pid]) => sheets[pid] !== undefined)
-      .map(([, libId]) => libId)
-  );
+  // зеркала у токенов, привязанных к игроку — тем же инвариантом, что и при спавне
+  // (`clearCharacterStats`; лист может быть ещё не заполнен).
+  const characterLibIds = new Set(Object.values(controllers));
   for (const map of scene.maps) {
     for (const token of map.tokens) {
       if (!characterLibIds.has(token.libraryItemId)) continue;
-      token.ac = '';
-      token.hpMax = '';
-      token.hpCurrent = 0;
-      token.hpTemp = 0;
-      token.speed = DEFAULT_SPEED;
-      token.senses = [];
-      token.attacks = [];
-      token.damageDefenses = [];
-      token.initiativeBonus = '';
+      clearCharacterStats(token);
     }
   }
   const room: Room = {

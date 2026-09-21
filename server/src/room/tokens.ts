@@ -86,6 +86,22 @@ export function removeLibraryItem(m: TokenDeps, room: Room, id: string) {
   m.saveSoon(room);
 }
 
+/**
+ * Обнуляет производные статы токена персонажа: истина — лист/ресурсы (см. `actorStats`).
+ * Один инвариант для спавна (`addToken`) и загрузки комнаты (`hydrateRoom`).
+ */
+export function clearCharacterStats(token: Token): void {
+  token.ac = '';
+  token.hpMax = '';
+  token.hpCurrent = 0;
+  token.hpTemp = 0;
+  token.speed = DEFAULT_SPEED;
+  token.senses = [];
+  token.attacks = [];
+  token.damageDefenses = [];
+  token.initiativeBonus = '';
+}
+
 export function addToken(
   m: TokenDeps,
   room: Room,
@@ -99,19 +115,13 @@ export function addToken(
   if (!map) return null;
   const fields = normalizeTokenFields(item);
   const character = controllerIdOfItem(room, item.id) !== undefined;
-  // У персонажа статы живут в листе/ресурсах (резолвит actorStats) — в токене не храним.
-  // У монстра HP полное из максимума.
+  // У монстра HP полное из максимума; у персонажа статы резолвит actorStats (ниже чистятся).
   const token: Token = {
     ...fields,
-    ac: character ? '' : fields.ac,
-    hpMax: character ? '' : fields.hpMax,
     hpCurrent: character ? 0 : statNumber(fields.hpMax),
     hpTemp: 0,
     speed: DEFAULT_SPEED,
     senses: [],
-    attacks: character ? [] : fields.attacks,
-    damageDefenses: character ? [] : fields.damageDefenses,
-    initiativeBonus: character ? '' : fields.initiativeBonus,
     id: randomUUID(),
     libraryItemId: item.id,
     x,
@@ -128,6 +138,7 @@ export function addToken(
     conditions: [],
     effects: [],
   };
+  if (character) clearCharacterStats(token);
   map.tokens.push(token);
   m.saveSoon(room);
   return token;
