@@ -37,21 +37,13 @@ export function attackIsActive(a: AttackEntry): boolean {
 
 /**
  * Приводит список атак к валидному виду: динамическая длина (до `MAX_ATTACKS`),
- * обрезка пустых строк в конце, минимум одна строка. Legacy-одиночная атака
- * подставляется, если в списке нет ничего содержательного.
+ * обрезка пустых строк в конце, минимум одна строка.
  */
-export function normalizeAttacks(
-  attacks: unknown,
-  legacy?: Partial<AttackEntry> | null
-): AttackEntry[] {
+export function normalizeAttacks(attacks: unknown): AttackEntry[] {
   const list = Array.isArray(attacks) ? attacks : [];
-  let result = list.slice(0, MAX_ATTACKS).map((a) => coerceAttack(a as Partial<AttackEntry> | undefined));
-  if (result.every(attackIsEmpty) && legacy) {
-    result = [coerceAttack(legacy)];
-  } else {
-    while (result.length > 1 && attackIsEmpty(result[result.length - 1]!)) result.pop();
-  }
-  if (result.length === 0) result = [emptyAttack()];
+  const result = list.slice(0, MAX_ATTACKS).map((a) => coerceAttack(a as Partial<AttackEntry> | undefined));
+  while (result.length > 1 && attackIsEmpty(result[result.length - 1]!)) result.pop();
+  if (result.length === 0) result.push(emptyAttack());
   return result;
 }
 

@@ -17,7 +17,7 @@ import type {
   TurnState,
 } from 'shared';
 import { DEFAULT_GRID } from 'shared';
-import { createRoomRepository, removeRoomUploadDir, removeRoomUploads, type RoomRepository } from './store';
+import { createRoomRepository, removeRoomUploadDir, type RoomRepository } from './store';
 import { toPersistedRoom, type Room } from './roomTypes';
 import { hydrateRoom } from './roomNormalize';
 import * as Actor from './room/actor';
@@ -25,14 +25,7 @@ import * as Combat from './room/combat';
 import * as Effects from './room/effects';
 import * as Resources from './room/resources';
 import * as Tokens from './room/tokens';
-import {
-  controllerIdOfToken,
-  findTokenById,
-  hasResourceFor,
-  locateToken,
-  roomUploadUrls,
-  tokenById,
-} from './room/helpers';
+import { controllerIdOfToken, findTokenById, hasResourceFor, locateToken, tokenById } from './room/helpers';
 
 export {
   controllerIdOfItem,
@@ -40,7 +33,6 @@ export {
   gridSizeOfMap,
   gridSizeOfToken,
   hasResourceFor,
-  roomUploadUrls,
   sheetOfToken,
   withinFeet,
 } from './room/helpers';
@@ -84,7 +76,6 @@ export class RoomManager {
     this.rooms.delete(code);
     this.repo.remove(code);
     removeRoomUploadDir(code);
-    removeRoomUploads(roomUploadUrls(room));
     return true;
   }
 

@@ -8,8 +8,6 @@ import { normalizeSenses } from './sense';
 export interface NormalizeEntityOptions {
   /** Лимит имени: 40 — токен, 60 — предмет библиотеки. */
   nameLimit?: number;
-  /** Не требовать пару AC+hpMax (данные с диска старых версий). */
-  keepAcHp?: boolean;
 }
 
 /**
@@ -18,9 +16,7 @@ export interface NormalizeEntityOptions {
  */
 export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}): Token {
   const source = isRecord(raw) ? raw : {};
-  const fields = normalizeTokenFields(source as Partial<TokenFields>, opts.nameLimit ?? 40, {
-    keepAcHp: opts.keepAcHp === true,
-  });
+  const fields = normalizeTokenFields(source as Partial<TokenFields>, opts.nameLimit ?? 40);
   const token: Token = {
     ...(source as unknown as Token),
     ...fields,
@@ -41,7 +37,7 @@ export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}):
       typeof source.speed === 'number' && Number.isFinite(source.speed)
         ? Math.max(0, Math.round(source.speed))
         : DEFAULT_SPEED,
-    senses: normalizeSenses(source.senses, source.darkvision),
+    senses: normalizeSenses(source.senses),
     conditions: normalizeConditions(source.conditions),
     effects: normalizeEffects(source.effects),
   };
@@ -49,15 +45,10 @@ export function normalizeToken(raw: unknown, opts: NormalizeEntityOptions = {}):
   return token;
 }
 
-/** Полная нормализация предмета библиотеки (legacy `url` → `imageUrl`). */
+/** Полная нормализация предмета библиотеки. */
 export function normalizeLibraryItem(raw: unknown): LibraryItem {
-  const { url, ...rest } = isRecord(raw) ? raw : {};
-  const source = rest as Record<string, unknown>;
-  const imageUrl =
-    typeof source.imageUrl === 'string' ? source.imageUrl : typeof url === 'string' ? url : '';
-  const fields = normalizeTokenFields({ ...source, imageUrl } as Partial<TokenFields>, 60, {
-    keepAcHp: true,
-  });
+  const source = (isRecord(raw) ? raw : {}) as Record<string, unknown>;
+  const fields = normalizeTokenFields(source as Partial<TokenFields>, 60);
   return {
     ...(source as unknown as LibraryItem),
     ...fields,

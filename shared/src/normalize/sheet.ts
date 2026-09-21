@@ -2,7 +2,6 @@ import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX
 import { normalizeSenses } from './sense';
 import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
-import type { AttackEntry } from '../domain/token';
 import { normalizeAttacks, normalizeDamageDefenses } from './attacks';
 import { SPELL_KEY_RE, clampInt } from './internal';
 
@@ -121,9 +120,7 @@ export function normalizeWildShape(raw: unknown): { known?: string[] } | undefin
   return { ...(known.length ? { known } : {}) };
 }
 
-export function normalizeSheet(
-  raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
-): CharacterSheet {
+export function normalizeSheet(raw: Partial<CharacterSheet>): CharacterSheet {
   const abilities = { ...DEFAULT_ABILITIES };
   if (raw.abilities && typeof raw.abilities === 'object') {
     const source = raw.abilities as Record<string, unknown>;
@@ -140,7 +137,7 @@ export function normalizeSheet(
     proficiencyBonus: typeof raw.proficiencyBonus === 'string' ? raw.proficiencyBonus.slice(0, 10) : '2',
     saves: raw.saves ?? {},
     skills: raw.skills ?? {},
-    attacks: normalizeAttacks(raw.attacks, raw.attack),
+    attacks: normalizeAttacks(raw.attacks),
     classes: normalizeClasses(raw.classes),
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
     choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
@@ -149,7 +146,7 @@ export function normalizeSheet(
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),
-    senses: normalizeSenses((raw as { senses?: unknown }).senses, (raw as { darkvision?: unknown }).darkvision),
+    senses: normalizeSenses((raw as { senses?: unknown }).senses),
     damageDefenses: normalizeDamageDefenses((raw as { damageDefenses?: unknown }).damageDefenses),
   };
 }

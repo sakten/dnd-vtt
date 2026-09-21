@@ -230,8 +230,8 @@ describe('action:use', () => {
           name: 'Укус',
           source: 'monster',
           costs: ['action'],
+          targeting: { kind: 'creature', range: 5 },
           ability: {
-            targeting: { kind: 'creature', range: 5 },
             attack: { rangeType: 'melee', damage: '1d6' },
           },
         },
@@ -240,8 +240,8 @@ describe('action:use', () => {
           name: 'Хвостовой удар',
           source: 'monster',
           costs: ['action'],
+          targeting: { kind: 'area', range: 30, area: { shape: 'sphere', size: 10 } },
           ability: {
-            targeting: { kind: 'area', range: 30, area: { shape: 'sphere', size: 10 } },
             save: { ability: 'dex' },
             damage: { dice: '2d6' },
           },
@@ -272,8 +272,8 @@ describe('action:use', () => {
           name: 'Хвостовой удар',
           source: 'monster',
           costs: ['action'],
+          targeting: { kind: 'area', range: 0, area: { shape: 'sphere', size: 10 } },
           ability: {
-            targeting: { kind: 'area', range: 0, area: { shape: 'sphere', size: 10 } },
             save: { ability: 'dex' },
             damage: { dice: '2d6', types: ['bludgeoning'] },
           },
@@ -311,8 +311,8 @@ describe('action:use', () => {
           name: 'Хвостовой удар',
           source: 'monster',
           costs: ['action'],
+          targeting: { kind: 'area', range: 0, area: { shape: 'sphere', size: 10 } },
           ability: {
-            targeting: { kind: 'area', range: 0, area: { shape: 'sphere', size: 10 } },
             save: { ability: 'dex' },
             damage: { dice: '2d6', types: ['bludgeoning'] },
           },

@@ -163,38 +163,12 @@ export function createRoomRepository(options: RoomRepositoryOptions = {}): RoomR
   };
 }
 
-/** Имя плоского (legacy) файла из url вида `/uploads/<name>`; null — если это не он. */
-export function flatUploadName(url: string): string | null {
-  if (!url.startsWith('/uploads/')) return null;
-  const name = url.slice('/uploads/'.length);
-  if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) return null;
-  return name;
-}
-
-export function removeRoomUploads(urls: string[]) {
-  for (const url of urls) {
-    const name = flatUploadName(url);
-    if (!name) continue;
-    fs.unlink(path.join(UPLOADS_DIR, name)).catch(() => void 0);
-  }
-}
-
 export function roomUploadDir(code: string) {
   return path.join(UPLOADS_DIR, code);
 }
 
 export function removeRoomUploadDir(code: string) {
   fs.rm(roomUploadDir(code), { recursive: true, force: true }).catch(() => void 0);
-}
-
-export async function flatUploadSize(url: string): Promise<number> {
-  const name = flatUploadName(url);
-  if (!name) return 0;
-  try {
-    return (await fs.stat(path.join(UPLOADS_DIR, name))).size;
-  } catch {
-    return 0;
-  }
 }
 
 export async function dirSize(dir: string): Promise<number> {

@@ -41,7 +41,7 @@ describe('normalizeWalls: дверные настройки', () => {
 
 describe('normalizeToken', () => {
   it('добирает дефолты и выводит hpCurrent из hpMax', () => {
-    const token = normalizeToken({ id: 't1', hpMax: '17' }, { keepAcHp: true });
+    const token = normalizeToken({ id: 't1', ac: '10', hpMax: '17' });
     expect(token.id).toBe('t1');
     expect(token.hpCurrent).toBe(17);
     expect(token.speed).toBe(DEFAULT_SPEED);
@@ -56,10 +56,9 @@ describe('normalizeToken', () => {
 });
 
 describe('normalizeLibraryItem', () => {
-  it('legacy url → imageUrl, имя до 60 символов', () => {
-    const item = normalizeLibraryItem({ id: 'l1', name: 'x'.repeat(80), url: '/uploads/g.png' });
+  it('imageUrl и имя до 60 символов', () => {
+    const item = normalizeLibraryItem({ id: 'l1', name: 'x'.repeat(80), imageUrl: '/uploads/g.png' });
     expect(item.imageUrl).toBe('/uploads/g.png');
-    expect('url' in item).toBe(false);
     expect(item.name).toHaveLength(60);
   });
 });
@@ -80,15 +79,12 @@ describe('normalizeScene', () => {
     expect(scene.grid).toEqual(DEFAULT_GRID);
   });
 
-  it('нормализует карты и токены (keepAcHp проходит в токены)', () => {
-    const scene = normalizeScene(
-      {
-        maps: [{ id: 'm1', tokens: [{ id: 't1', hpMax: '5' }] }],
-        activeMapId: 'm1',
-        grid: DEFAULT_GRID,
-      },
-      { keepAcHp: true }
-    );
+  it('нормализует карты и токены', () => {
+    const scene = normalizeScene({
+      maps: [{ id: 'm1', tokens: [{ id: 't1', ac: '10', hpMax: '5' }] }],
+      activeMapId: 'm1',
+      grid: DEFAULT_GRID,
+    });
     expect(scene.maps[0]!.tokens[0]!.hpCurrent).toBe(5);
     expect(scene.maps[0]!.fog).toEqual(defaultFog(DEFAULT_GRID));
   });

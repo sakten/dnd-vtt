@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, DEFAULT_SPEED, bestiaryTokenPath, defaultFog, emptyCombatState } from 'shared';
-import bestiaryData from 'shared/bestiaryData';
+import { DEFAULT_GRID, DEFAULT_SPEED, defaultFog, emptyCombatState } from 'shared';
 import type { CharacterSheet, Scene } from 'shared';
 import type { PersistedRoom } from './roomTypes';
 import { toPersistedRoom } from './roomTypes';
@@ -40,69 +39,6 @@ function sceneWithMap(extra: Record<string, unknown> = {}): Scene {
 }
 
 describe('hydrateRoom', () => {
-  it('обновляет устаревшие иконки бестиария по имени, не трогая загрузки', () => {
-    const stale = 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22x%22%3E%3C%2Fsvg%3E';
-    const wolf = bestiaryData.entries.find((e) => e.name === 'Wolf')!;
-    const expected = bestiaryTokenPath(wolf);
-    const room = hydrateRoom(
-      base({
-        library: [
-          { id: 'l1', name: 'Wolf', imageUrl: stale },
-          { id: 'l2', name: 'Wolf', imageUrl: '/uploads/wolf.png' },
-        ],
-        scene: sceneWithMap({ tokens: [{ id: 't1', name: 'Wolf', imageUrl: stale }] }),
-      } as never)
-    );
-    expect(room.library[0]!.imageUrl).toBe(expected);
-    expect(room.library[1]!.imageUrl).toBe('/uploads/wolf.png');
-    expect(room.scene.maps[0]!.tokens[0]!.imageUrl).toBe(expected);
-  });
-
-  it('переводит legacy scene.map/tokens в maps', () => {
-    const legacyScene = {
-      activeMapId: null,
-      grid: { ...DEFAULT_GRID },
-      map: { url: '/uploads/old.png', width: 50, height: 60 },
-      tokens: [{ id: 't1' }, { id: 't2' }],
-    } as unknown as Scene;
-
-    const room = hydrateRoom(base({ scene: legacyScene }));
-
-    expect(room.scene.maps).toHaveLength(1);
-    expect(room.scene.maps[0]!.url).toBe('/uploads/old.png');
-    expect(room.scene.maps[0]!.width).toBe(50);
-    expect(room.scene.maps[0]!.height).toBe(60);
-    expect(room.scene.maps[0]!.tokens).toHaveLength(2);
-    expect(room.scene.activeMapId).toBe(room.scene.maps[0]!.id);
-  });
-
-  it('legacy map:null даёт пустой список карт', () => {
-    const legacyScene = {
-      activeMapId: null,
-      grid: { ...DEFAULT_GRID },
-      map: null,
-    } as unknown as Scene;
-
-    const room = hydrateRoom(base({ scene: legacyScene }));
-
-    expect(room.scene.maps).toEqual([]);
-    expect(room.scene.activeMapId).toBeNull();
-  });
-
-  it('переносит legacy top-level combat в активную карту', () => {
-    const entry = { id: 'e1', tokenId: null, name: 'A', imageUrl: '', initiative: 15, bonus: '' };
-    const room = hydrateRoom(
-      base({
-        scene: sceneWithMap(),
-        combat: { active: true, entries: [entry] },
-      } as Partial<PersistedRoom>)
-    );
-
-    expect(room.scene.maps[0]!.combat.active).toBe(true);
-    expect(room.scene.maps[0]!.combat.entries).toHaveLength(1);
-    expect(room.scene.maps[0]!.combat.entries[0]!.name).toBe('A');
-  });
-
   it('добирает дефолты карты и токенов', () => {
     const scene = {
       maps: [{ id: 'm1', name: 'X', url: '', width: 0, height: 0, tokens: [{ id: 't1' }] }],
@@ -188,7 +124,7 @@ describe('hydrateRoom', () => {
 
   it('hpCurrent выводится из hpMax, если не задан', () => {
     const scene = {
-      maps: [{ id: 'm1', name: 'X', url: '', width: 0, height: 0, tokens: [{ id: 't1', hpMax: '17' }] }],
+      maps: [{ id: 'm1', name: 'X', url: '', width: 0, height: 0, tokens: [{ id: 't1', ac: '10', hpMax: '17' }] }],
       activeMapId: 'm1',
       grid: { ...DEFAULT_GRID },
     } as unknown as Scene;
@@ -196,16 +132,6 @@ describe('hydrateRoom', () => {
     const room = hydrateRoom(base({ scene }));
 
     expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(17);
-  });
-
-  it('переводит library url в imageUrl и удаляет url', () => {
-    const item = { id: 'l1', name: 'Гоблин', url: '/uploads/g.png' } as unknown as PersistedRoom['library'][number];
-    const room = hydrateRoom(base({ library: [item] }));
-
-    expect(room.library[0]!.imageUrl).toBe('/uploads/g.png');
-    expect('url' in room.library[0]!).toBe(false);
-    expect(room.library[0]!.cells).toBe(1);
-    expect(room.library[0]!.attacks).toHaveLength(1);
   });
 
   it('имя комнаты: дефолт, trim и обрезка', () => {
@@ -421,56 +347,5 @@ describe('hydrateRoom: зеркала статов персонажа', () => {
     const room = hydrateRoom(structuredClone(fixture));
 
     expect(room.scene.maps[0]!.tokens[0]).toMatchObject({ ac: '', hpMax: '', hpCurrent: 0 });
-  });
-
-  it('legacy-форма: снапшот shape.original возвращается в поля токена (С5)', () => {
-    const legacyShape = {
-      key: 'XMM:Wolf',
-      name: 'Wolf',
-      kind: 'wildShape',
-      hp: 6,
-      maxHp: 6,
-      carryOverflow: true,
-      original: {
-        name: 'Druid',
-        description: '',
-        imageUrl: '',
-        cells: 1,
-        initiativeBonus: '+2',
-        attacks: [{ name: 'Scimitar', hit: '+5', damage: '1d6+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }],
-        ac: '12',
-        hpMax: '20',
-        damageDefenses: [],
-        speed: 30,
-        senses: [],
-      },
-    };
-    const fixture = base({
-      scene: sceneWithMap({
-        tokens: [
-          {
-            id: 't1',
-            libraryItemId: 'l1',
-            name: 'Wolf',
-            ac: '14',
-            hpMax: '11',
-            cells: 2,
-            w: 100,
-            h: 100,
-            speed: 40,
-            attacks: [{ name: 'Bite', hit: '+4', damage: '1d6+2', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }],
-            shape: legacyShape,
-          },
-        ],
-      }),
-      sheets: {},
-      controllers: {},
-    });
-
-    const token = hydrateRoom(structuredClone(fixture)).scene.maps[0]!.tokens[0]!;
-    expect(token).toMatchObject({ name: 'Druid', ac: '12', cells: 1, w: 50, h: 50, speed: 30 });
-    expect(token.attacks[0]?.name).toBe('Scimitar');
-    expect(token.shape).toMatchObject({ key: 'XMM:Wolf', hp: 6, ownCells: 1 });
-    expect((token.shape as { original?: unknown }).original).toBeUndefined();
   });
 });

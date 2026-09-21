@@ -4,9 +4,8 @@ import { isRecord } from './guards';
 /**
  * Нормализация восприятия: только известные типы, дистанция 0–1000 фт (нулевые отбрасываются),
  * по одному значению на тип (берётся максимум), лимит `MAX_SENSES`.
- * `legacyDarkvision` — старое числовое поле, из него собирается тёмное зрение.
  */
-export function normalizeSenses(raw: unknown, legacyDarkvision?: unknown): Sense[] {
+export function normalizeSenses(raw: unknown): Sense[] {
   const seen = new Map<SenseType, number>();
   if (Array.isArray(raw)) {
     for (const item of raw) {
@@ -19,12 +18,6 @@ export function normalizeSenses(raw: unknown, legacyDarkvision?: unknown): Sense
       if (value <= 0) continue;
       const prev = seen.get(type);
       if (prev === undefined || value > prev) seen.set(type, value);
-    }
-  }
-  if (seen.size === 0) {
-    const legacy = Number(legacyDarkvision);
-    if (Number.isFinite(legacy) && legacy > 0) {
-      seen.set('darkvision', Math.min(1000, Math.round(legacy)));
     }
   }
   const out: Sense[] = [];

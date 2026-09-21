@@ -3,24 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PersistedRoom } from './roomTypes';
-import { createRoomRepository, dirSize, flatUploadName } from './store';
-
-describe('flatUploadName', () => {
-  it('возвращает имя плоского legacy-файла', () => {
-    expect(flatUploadName('/uploads/a.png')).toBe('a.png');
-  });
-
-  it('отвергает вложенный путь (новый формат подпапок)', () => {
-    expect(flatUploadName('/uploads/ABCD1234/a.png')).toBeNull();
-  });
-
-  it('отвергает чужие url и попытки обхода', () => {
-    expect(flatUploadName('a.png')).toBeNull();
-    expect(flatUploadName('/uploads/')).toBeNull();
-    expect(flatUploadName('/uploads/..')).toBeNull();
-    expect(flatUploadName('/uploads/..\\x')).toBeNull();
-  });
-});
+import { createRoomRepository, dirSize } from './store';
 
 describe('dirSize', () => {
   let root = '';

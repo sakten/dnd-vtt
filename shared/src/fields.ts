@@ -17,8 +17,6 @@ type FieldValue = TokenFields[keyof TokenFields];
 interface NormalizeOpts {
   /** Лимит имени: 40 — токен, 60 — предмет библиотеки. */
   nameLimit: number;
-  /** Не требовать пару AC+hpMax (данные с диска старых версий). */
-  keepAcHp: boolean;
 }
 
 interface FieldSpec {
@@ -77,9 +75,9 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     hidden: { library: [] },
   },
   ac: {
-    full: (raw, opts) => {
+    full: (raw) => {
       const ac = trim(raw.ac, 10);
-      return !opts.keepAcHp && !statsPaired(ac, trim(raw.hpMax, 10)) ? '' : ac;
+      return statsPaired(ac, trim(raw.hpMax, 10)) ? ac : '';
     },
     patch: (raw, prev) => {
       if (typeof raw.ac !== 'string') return undefined;
@@ -90,9 +88,9 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     hidden: { token: '', library: '' },
   },
   hpMax: {
-    full: (raw, opts) => {
+    full: (raw) => {
       const hpMax = trim(raw.hpMax, 10);
-      return !opts.keepAcHp && !statsPaired(trim(raw.ac, 10), hpMax) ? '' : hpMax;
+      return statsPaired(trim(raw.ac, 10), hpMax) ? hpMax : '';
     },
     patch: (raw, prev) => {
       if (typeof raw.hpMax !== 'string') return undefined;
@@ -157,7 +155,6 @@ function normalizeShape(value: unknown): TokenShape | undefined {
   const hp = Math.min(maxHp, Math.max(0, Math.floor(Number(raw.hp) || 0)));
   const ac = Number(raw.ac);
   const ownCells = Number(raw.ownCells);
-  const legacyCells = Number((raw.original as Record<string, unknown> | undefined)?.cells);
   return {
     key,
     name: trim(raw.name, 60) || key,
@@ -165,11 +162,7 @@ function normalizeShape(value: unknown): TokenShape | undefined {
     hp,
     maxHp,
     ...(Number.isFinite(ac) && ac > 0 ? { ac: Math.round(ac) } : {}),
-    ...(Number.isFinite(ownCells) && ownCells > 0
-      ? { ownCells: clampCells(ownCells) }
-      : Number.isFinite(legacyCells) && legacyCells > 0
-        ? { ownCells: clampCells(legacyCells) }
-        : {}),
+    ...(Number.isFinite(ownCells) && ownCells > 0 ? { ownCells: clampCells(ownCells) } : {}),
     ...(raw.carryOverflow === true ? { carryOverflow: true } : {}),
     ...(typeof raw.sourceTokenId === 'string' && raw.sourceTokenId
       ? { sourceTokenId: raw.sourceTokenId.slice(0, 64) }
@@ -178,13 +171,9 @@ function normalizeShape(value: unknown): TokenShape | undefined {
   };
 }
 
-export function normalizeTokenFields(
-  raw: Partial<TokenFields>,
-  nameLimit = 40,
-  opts: { keepAcHp?: boolean } = {}
-): TokenFields {
+export function normalizeTokenFields(raw: Partial<TokenFields>, nameLimit = 40): TokenFields {
   const out = {} as TokenFields;
-  const fullOpts: NormalizeOpts = { nameLimit, keepAcHp: opts.keepAcHp === true };
+  const fullOpts: NormalizeOpts = { nameLimit };
   for (const key of Object.keys(TOKEN_FIELD_SPECS) as (keyof TokenFields)[]) {
     (out as unknown as Record<string, unknown>)[key] = TOKEN_FIELD_SPECS[key].full(raw, fullOpts);
   }

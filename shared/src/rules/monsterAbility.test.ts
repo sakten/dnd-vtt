@@ -11,8 +11,8 @@ function makeAction(over: Partial<ActionDef> = {}): ActionDef {
 describe('monsterAbilityAutomation', () => {
   it('атака: попадание, урон и эффект по сейву', () => {
     const action = makeAction({
+      targeting: { kind: 'creature', range: 5, targets: 2 },
       ability: {
-        targeting: { kind: 'creature', range: 5, targets: 2 },
         attack: { rangeType: 'melee', bonus: '+5', damage: '1d6+3', types: ['piercing'] },
         save: { ability: 'con' },
         effects: [{ condition: 'poisoned', duration: { type: 'rounds', rounds: 2 } }],
@@ -65,14 +65,16 @@ describe('monsterAbilityAutomation', () => {
 
   it('дистанция по умолчанию: ближняя атака 5, прочее 30', () => {
     const melee = makeAction({
-      ability: { targeting: { kind: 'creature' }, attack: { rangeType: 'melee' } },
+      targeting: { kind: 'creature' },
+      ability: { attack: { rangeType: 'melee' } },
     });
     expect(monsterAbilityAutomation(melee)!.targeting?.range).toBe(5);
     const ranged = makeAction({
-      ability: { targeting: { kind: 'creature' }, attack: { rangeType: 'ranged' } },
+      targeting: { kind: 'creature' },
+      ability: { attack: { rangeType: 'ranged' } },
     });
     expect(monsterAbilityAutomation(ranged)!.targeting?.range).toBe(30);
-    const save = makeAction({ ability: { targeting: { kind: 'area', area: { shape: 'sphere', size: 20 } } } });
+    const save = makeAction({ targeting: { kind: 'area', area: { shape: 'sphere', size: 20 } }, ability: {} });
     expect(monsterAbilityAutomation(save)!.targeting?.range).toBe(30);
   });
 });

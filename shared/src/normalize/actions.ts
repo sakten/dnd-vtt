@@ -42,8 +42,6 @@ function normalizeAbility(raw: unknown): MonsterAbilityDef | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const a = raw as Partial<MonsterAbilityDef>;
   const out: MonsterAbilityDef = {};
-  const targeting = normalizeTargeting(a.targeting);
-  if (targeting) out.targeting = targeting;
   if (a.attack && typeof a.attack === 'object') {
     const at = a.attack as Partial<MonsterAbilityAttack>;
     if (at.rangeType === 'melee' || at.rangeType === 'ranged') {
@@ -132,11 +130,6 @@ export function normalizeActions(raw: unknown): ActionDef[] {
       action.spellKey = a.spellKey;
     }
     const ability = normalizeAbility(a.ability);
-    // Канон — таргетинг на самом действии: поднимаем легаси-поле из ability.
-    if (ability?.targeting) {
-      if (!action.targeting) action.targeting = ability.targeting;
-      delete ability.targeting;
-    }
     if (ability && Object.keys(ability).length) action.ability = ability;
     if (typeof a.libraryId === 'string' && a.libraryId) action.libraryId = a.libraryId.slice(0, 100);
     out.push(action);

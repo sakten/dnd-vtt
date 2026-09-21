@@ -1,11 +1,9 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { BESTIARY_ICON_PREFIX, bestiaryIconSvg, bestiaryTokenPath, type BestiaryEntry } from 'shared';
+import { bestiaryIconSvg, type BestiaryEntry } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import { BESTIARY_ICONS_DIR, BESTIARY_TOKENS_DIR } from './store';
-import type { Room } from './roomTypes';
 
-const byName = new Map(bestiaryData.entries.map((entry) => [entry.name.trim().toLowerCase(), entry]));
 const byKey = new Map(bestiaryData.entries.map((entry) => [entry.key, entry]));
 
 /** Форматы картинок в порядке приоритета (будущее — PNG/JPG; webp/svg терпим). */
@@ -56,24 +54,4 @@ export function bestiaryIconSvgForKey(key: string): string | undefined {
   return entry ? bestiaryIconSvg(entry) : undefined;
 }
 
-interface ImageTarget {
-  name: string;
-  imageUrl: string;
-}
 
-/**
- * Обновляет устаревшие data-URL иконки бестиария при загрузке комнаты: старые
- * снимки переводим на URL токена `/api/bestiary/token/<key>` (сервер сам решит —
- * файл-картинка или сгенерированный SVG). Пользовательские загрузки не трогаем.
- */
-export function refreshBestiaryIcons(room: Room): void {
-  const refresh = (target: ImageTarget) => {
-    if (!target.imageUrl.startsWith(BESTIARY_ICON_PREFIX)) return;
-    const entry = byName.get(target.name.trim().toLowerCase());
-    if (entry) target.imageUrl = bestiaryTokenPath(entry);
-  };
-  for (const item of room.library) refresh(item);
-  for (const map of room.scene.maps) {
-    for (const token of map.tokens) refresh(token);
-  }
-}

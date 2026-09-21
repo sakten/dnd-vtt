@@ -1,14 +1,6 @@
 import { gridDistanceFeet, gridOfMap, type CharacterSheet, type GridSettings, type MapInfo, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 
-/** Все upload-ссылки, на которые ссылается состояние комнаты (карты, токены, библиотека). */
-export function roomUploadUrls(room: Room): string[] {
-  return [
-    ...room.library.map((i) => i.imageUrl),
-    ...room.scene.maps.flatMap((m) => [m.url, ...m.tokens.map((t) => t.imageUrl)]),
-  ];
-}
-
 /** id игрока-контролёра токена (персонажа/призыва). */
 export function controllerIdOfToken(room: Room, token: Token): string | undefined {
   return Object.keys(room.controllers).find((pid) => room.controllers[pid] === token.libraryItemId);

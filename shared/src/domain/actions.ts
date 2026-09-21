@@ -44,7 +44,6 @@ export interface MonsterAbilityEffect {
 
 /** Механика способности монстра: исполняется через AutomationDef. */
 export interface MonsterAbilityDef {
-  targeting?: ActionTargeting;
   attack?: MonsterAbilityAttack;
   /** Спасбросок цели; пусто — без сейва. */
   save?: { ability: AbilityKey };
@@ -108,12 +107,7 @@ export interface ReactionOffer {
   expiresAt: number;
 }
 
-/**
- * Таргетинг действия — единственная точка чтения: канон `action.targeting`,
- * фолбэк на `ability.targeting` для легаси-снимков комнат.
- */
-export function actionTargeting(
-  action: Pick<ActionDef, 'targeting' | 'ability'>
-): ActionTargeting | undefined {
-  return action.targeting ?? action.ability?.targeting;
+/** Таргетинг действия — единственная точка чтения канона `action.targeting`. */
+export function actionTargeting(action: Pick<ActionDef, 'targeting'>): ActionTargeting | undefined {
+  return action.targeting;
 }

@@ -100,12 +100,6 @@ describe('normalizeTokenFields', () => {
   it('имя предмета библиотеки — до 60 символов', () => {
     expect(normalizeTokenFields({ name: 'y'.repeat(80) }, 60).name).toHaveLength(60);
   });
-
-  it('keepAcHp сохраняет непарные AC/HP из старых данных', () => {
-    const fields = normalizeTokenFields({ hpMax: '17' }, 40, { keepAcHp: true });
-    expect(fields.hpMax).toBe('17');
-    expect(fields.ac).toBe('');
-  });
 });
 
 describe('normalizeTokenFieldsPatch', () => {

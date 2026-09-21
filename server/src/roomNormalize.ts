@@ -1,80 +1,7 @@
-import { randomUUID } from 'node:crypto';
-import type { CharacterSheet, CombatState, MapInfo, Scene, Token } from 'shared';
-import {
-  DEFAULT_GRID,
-  defaultFog,
-  emptyCombatState,
-  isRecord,
-  normalizeCombatState,
-  normalizeLibraryItem,
-  normalizeScene,
-  normalizeSheet,
-} from 'shared';
+import type { CharacterSheet, Scene } from 'shared';
+import { isRecord, normalizeLibraryItem, normalizeScene, normalizeSheet } from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
-import { refreshBestiaryIcons } from './bestiaryIcons';
 import { clearCharacterStats } from './room/tokens';
-
-/**
- * Legacy-миграция формы токена (до С5 поле `shape.original` хранило снапшот своих полей,
- * а статы зверя лежали в полях токена): возвращаем свои поля и оставляем `ownCells`.
- */
-function upgradeTokenShape(token: Token, gridSize: number): Token {
-  const shape = token.shape as (Token['shape'] & { original?: Record<string, unknown> }) | undefined;
-  const original = shape?.original;
-  if (!shape || !original) return token;
-  const cells = typeof original.cells === 'number' ? original.cells : token.cells;
-  return {
-    ...token,
-    ...(original as Partial<Token>),
-    w: cells * gridSize,
-    h: cells * gridSize,
-    shape: { ...shape, ownCells: cells },
-  };
-}
-
-function upgradeSceneShapes(scene: Scene): Scene {
-  if (!Array.isArray(scene.maps)) return scene;
-  return {
-    ...scene,
-    maps: scene.maps.map((map) => {
-      const gridSize = map.grid?.size || scene.grid?.size || 50;
-      return {
-        ...map,
-        tokens: (map.tokens ?? []).map((token) => upgradeTokenShape(token, gridSize)),
-      };
-    }),
-  };
-}
-
-/** Legacy-сцена (map/tokens) → одна карта; иначе — обычная нормализация сцены. */
-function normalizePersistedScene(raw: Scene): Scene {
-  if (Array.isArray(raw.maps)) return normalizeScene(upgradeSceneShapes(raw), { keepAcHp: true });
-  const grid = raw.grid ?? DEFAULT_GRID;
-  const legacy = raw as unknown as {
-    map: { url: string; width: number; height: number } | null;
-    tokens?: Token[];
-  };
-  const maps: MapInfo[] = legacy.map
-    ? [
-        {
-          id: randomUUID(),
-          name: 'Карта 1',
-          url: legacy.map.url,
-          width: legacy.map.width,
-          height: legacy.map.height,
-          tokens: (legacy.tokens ?? []).map((token) => upgradeTokenShape(token, grid.size || 50)),
-          zones: [],
-          walls: [],
-          vision: { los: false, darkness: false },
-          lightAreas: [],
-          fog: defaultFog(grid),
-          grid,
-          combat: emptyCombatState(),
-        },
-      ]
-    : [];
-  return normalizeScene({ maps, activeMapId: maps[0]?.id ?? null, grid }, { keepAcHp: true });
-}
 
 /** Сносит зоны концентрации без живого эффекта-источника (legacy-снимки, сбои). */
 function dropOrphanZones(scene: Scene): void {
@@ -92,20 +19,13 @@ function dropOrphanZones(scene: Scene): void {
 }
 
 /**
- * Приводит прочитанный с диска PersistedRoom к валидному Room: переводит legacy-форматы,
- * добирает отсутствующие поля дефолтами, нормализует листы и контроллеров.
+ * Приводит прочитанный с диска PersistedRoom к валидному Room: добирает
+ * отсутствующие поля дефолтами, нормализует листы и контроллеров.
  * Вход не мутирует — собирает новую комнату (в т.ч. карты и токены).
  */
 export function hydrateRoom(p: PersistedRoom): Room {
-  const scene = normalizePersistedScene(p.scene as Scene);
+  const scene = normalizeScene(p.scene as Scene);
   dropOrphanZones(scene);
-  const legacyCombat = (p as PersistedRoom & { combat?: CombatState }).combat;
-  if (isRecord(legacyCombat) && scene.maps.length) {
-    const found = scene.maps.findIndex((m) => m.id === scene.activeMapId);
-    const index = found >= 0 ? found : 0;
-    const map = scene.maps[index]!;
-    scene.maps[index] = { ...map, combat: normalizeCombatState(legacyCombat) };
-  }
   const controllers: Record<string, string> = {};
   if (isRecord(p.controllers)) {
     for (const [pid, lid] of Object.entries(p.controllers)) {
@@ -154,6 +74,5 @@ export function hydrateRoom(p: PersistedRoom): Room {
     controllers,
     testMode: p.testMode === true,
   };
-  refreshBestiaryIcons(room);
   return room;
 }

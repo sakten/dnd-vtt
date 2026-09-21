@@ -6,10 +6,9 @@ import { randomUUID } from 'node:crypto';
 import multer from 'multer';
 import { Server } from 'socket.io';
 import type { ClientToServerEvents, ServerToClientEvents } from 'shared';
-import { RoomManager, roomUploadUrls } from './rooms';
-import type { Room } from './roomTypes';
+import { RoomManager } from './rooms';
 import { registerSocket } from './socket';
-import { HERE, UPLOADS_DIR, dirSize, ensureDirs, flatUploadSize, roomUploadDir } from './store';
+import { HERE, UPLOADS_DIR, dirSize, ensureDirs, roomUploadDir } from './store';
 import { ROOM_QUOTA_BYTES, ROOM_QUOTA_MB } from './config';
 import { bestiaryEntryByKey, bestiaryIconSvgForKey, bestiaryPortraitFile } from './bestiaryIcons';
 
@@ -66,10 +65,8 @@ function roomCodeOf(req: express.Request): string {
   return (req.header('x-room') ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 }
 
-async function roomUploadsSize(code: string, room: Room): Promise<number> {
-  let total = await dirSize(roomUploadDir(code));
-  for (const url of new Set(roomUploadUrls(room))) total += await flatUploadSize(url);
-  return total;
+async function roomUploadsSize(code: string): Promise<number> {
+  return dirSize(roomUploadDir(code));
 }
 
 const storage = multer.diskStorage({
@@ -144,7 +141,7 @@ app.post(
     }
     const roomCode = roomCodeOf(req);
     const room = manager.get(roomCode);
-    if (room && (await roomUploadsSize(roomCode, room)) > ROOM_QUOTA_BYTES) {
+    if (room && (await roomUploadsSize(roomCode)) > ROOM_QUOTA_BYTES) {
       await fsp.unlink(req.file.path).catch(() => void 0);
       res.status(413).json({ error: `Превышен лимит загрузок комнаты (${ROOM_QUOTA_MB} МБ)` });
       return;
