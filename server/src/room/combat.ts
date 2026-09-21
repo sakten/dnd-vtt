@@ -22,6 +22,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { actorStats } from './actor';
+import { shapeImageUrl, shapeName, shapeStatblock } from './shape';
 import { controllerIdOfToken, findTokenById } from './helpers';
 
 /** Зависимости боевого домена: сохранение комнаты. */
@@ -57,8 +58,8 @@ function makeEntry(room: Room, token: Token): InitiativeEntry {
   return {
     id: crypto.randomUUID(),
     tokenId: token.id,
-    name: token.name,
-    imageUrl: token.imageUrl,
+    name: shapeName(token),
+    imageUrl: shapeImageUrl(token),
     initiative: roll.total,
     bonus,
     roll,
@@ -143,7 +144,7 @@ function legendarySlotUsable(room: Room, combat: CombatState, entry: InitiativeE
   if (!owner) return false;
   const token = entry.tokenId ? findTokenById(room, entry.tokenId) : null;
   if (!token) return false;
-  const min = minLegendaryCost(token.statblock?.actions);
+  const min = minLegendaryCost(shapeStatblock(token)?.actions);
   return owner.legendaryRemaining > 0 && owner.legendaryRemaining >= min;
 }
 
@@ -160,7 +161,9 @@ export function startCombat(m: CombatDeps, room: Room, mapId: string) {
     currentIndex: entries.length ? 0 : -1,
   };
   distributeLegendarySlots(room, map.combat);
-  if (map.combat.entries.length) beginTurn(room, mapId, map.combat.entries[0]!.id);
+  // Состояние хода — всем участникам сразу: панель/реакции должны видеть счётчики
+  // ещё до первого хода токена (иначе «вне боя» при активном бое).
+  for (const entry of map.combat.entries) beginTurn(room, mapId, entry.id);
   m.saveSoon(room);
 }
 
@@ -189,7 +192,7 @@ function turnResources(
   const afterExhaustion = Math.max(0, stats.speed + exhaustionSpeedPenalty(token.conditions));
   return {
     speed: Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, stats.abilities)),
-    legendaryMax: token.statblock?.legendary?.max ?? 0,
+    legendaryMax: shapeStatblock(token)?.legendary?.max ?? 0,
     extraActions: Math.max(0, modifiedValue(0, token.effects, 'extraActions', {}, stats.abilities)),
     extraBonusActions: Math.max(0, modifiedValue(0, token.effects, 'extraBonusActions', {}, stats.abilities)),
   };
@@ -302,8 +305,8 @@ export function setTurnPointer(m: CombatDeps, room: Room, mapId: string, entryId
 export function attacksPerToken(room: Room, token: Token): number {
   const controllerId = controllerIdOfToken(room, token);
   const sheet = controllerId ? room.sheets[controllerId] : undefined;
-  if (sheet) return attacksPerAction(sheet.classes);
-  return Math.max(1, token.statblock?.multiattack ?? 1);
+  if (sheet && !token.shape) return attacksPerAction(sheet.classes);
+  return Math.max(1, shapeStatblock(token)?.multiattack ?? 1);
 }
 
 /** Эффективная скорость токена: лист/статблок + бонусы и множители эффектов. */
@@ -546,6 +549,8 @@ export function addTokenToCombat(m: CombatDeps, room: Room, mapId: string, token
   redistributeLegendarySlots(room, combat);
   restoreActive(combat, activeId);
   ensureActiveTurn(room, mapId);
+  // Новый участник получает состояние хода (реакции/счётчики в чужие ходы).
+  if (combat.active) beginTurn(room, mapId, entry.id);
   m.saveSoon(room);
 }
 
@@ -562,10 +567,12 @@ export function addTokenToCombatAfter(
   const at = combat.entries.findIndex((e) => e.tokenId === afterTokenId && !e.legendaryOwnerId);
   if (at < 0) return addTokenToCombat(m, room, mapId, token);
   const activeId = combat.entries[combat.currentIndex]?.id;
-  combat.entries.splice(at + 1, 0, makeEntry(room, token));
+  const entry = makeEntry(room, token);
+  combat.entries.splice(at + 1, 0, entry);
   redistributeLegendarySlots(room, combat);
   restoreActive(combat, activeId);
   ensureActiveTurn(room, mapId);
+  if (combat.active) beginTurn(room, mapId, entry.id);
   m.saveSoon(room);
 }
 

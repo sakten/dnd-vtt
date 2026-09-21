@@ -1,5 +1,5 @@
 import { clampCells, statsPaired } from './domain/core';
-import type { LibraryItem, Token, TokenFields, TokenSummon } from './domain/token';
+import type { LibraryItem, Token, TokenFields, TokenShape, TokenSummon } from './domain/token';
 import { normalizeAttacks, normalizeDamageDefenses } from './normalize/attacks';
 import { normalizeStatblock } from './normalize/actions';
 
@@ -130,6 +130,11 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
     // Метка ставится сервером при спавне, patch её не принимает.
     patch: () => undefined,
   },
+  shape: {
+    full: (raw) => normalizeShape(raw.shape),
+    // Форма ставится сервером (Wild Shape/Polymorph), patch её не принимает.
+    patch: () => undefined,
+  },
 };
 
 function normalizeSummon(value: unknown): TokenSummon | undefined {
@@ -140,6 +145,36 @@ function normalizeSummon(value: unknown): TokenSummon | undefined {
     casterTokenId: raw.casterTokenId.slice(0, 64),
     ...(typeof raw.spellKey === 'string' && raw.spellKey ? { spellKey: raw.spellKey.slice(0, 80) } : {}),
     ...(raw.pact === true ? { pact: true } : {}),
+  };
+}
+
+function normalizeShape(value: unknown): TokenShape | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  const key = typeof raw.key === 'string' ? raw.key.slice(0, 80) : '';
+  if (!key) return undefined;
+  const maxHp = Math.max(0, Math.floor(Number(raw.maxHp) || 0));
+  const hp = Math.min(maxHp, Math.max(0, Math.floor(Number(raw.hp) || 0)));
+  const ac = Number(raw.ac);
+  const ownCells = Number(raw.ownCells);
+  const legacyCells = Number((raw.original as Record<string, unknown> | undefined)?.cells);
+  return {
+    key,
+    name: trim(raw.name, 60) || key,
+    kind: raw.kind === 'polymorph' ? 'polymorph' : 'wildShape',
+    hp,
+    maxHp,
+    ...(Number.isFinite(ac) && ac > 0 ? { ac: Math.round(ac) } : {}),
+    ...(Number.isFinite(ownCells) && ownCells > 0
+      ? { ownCells: clampCells(ownCells) }
+      : Number.isFinite(legacyCells) && legacyCells > 0
+        ? { ownCells: clampCells(legacyCells) }
+        : {}),
+    ...(raw.carryOverflow === true ? { carryOverflow: true } : {}),
+    ...(typeof raw.sourceTokenId === 'string' && raw.sourceTokenId
+      ? { sourceTokenId: raw.sourceTokenId.slice(0, 64) }
+      : {}),
+    ...(typeof raw.spellKey === 'string' && raw.spellKey ? { spellKey: raw.spellKey.slice(0, 80) } : {}),
   };
 }
 

@@ -190,6 +190,10 @@ export interface GameState {
   setDragPath: (path: FoundPath | null) => void;
   lockToken: (id: string, lock: boolean) => void;
   setTokenFields: (id: string, patch: Partial<Token>) => void;
+  /** Принять форму Wild Shape по ключу известной формы (сервер проверит права и ресурс). */
+  shapeToken: (id: string, formKey: string) => void;
+  /** Вернуться в свою форму (Wild Shape/Polymorph). */
+  revertShape: (id: string) => void;
   setView: (view: ViewState) => void;
   setViewport: (v: { w: number; h: number }) => void;
   /** Сменить язык интерфейса (RU/EN); выбор сохраняется в localStorage. */

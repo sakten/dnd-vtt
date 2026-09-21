@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyAttack, type CharacterSheet, type Sense } from 'shared';
+import bestiaryData from 'shared/bestiaryData';
 import { makeResources, makeRoom, makeToken } from '../test/fixtures';
 import { actorStats } from './actor';
 
@@ -93,5 +94,46 @@ describe('actorStats', () => {
     expect(stats.attacks.map((a) => a.name)).toEqual(['Кинжал']);
     expect(stats.senses).toEqual(senses);
     expect(stats.damageDefenses).toEqual([{ id: 'd2', type: 'immunity', damageType: 'poison' }]);
+  });
+
+  it('Wild Shape: физические статы зверя, ментальные свои, владения сохраняются', () => {
+    const wolf = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+    const room = makeRoom({
+      controllers: { p1: 'lib1' },
+      sheets: { p1: sheet({ abilities: { str: 10, dex: 12, con: 12, int: 10, wis: 10, cha: 8 }, saves: { con: true } }) },
+      resources: { p1: makeResources() },
+    });
+    const token = makeToken('t1', {
+      libraryItemId: 'lib1',
+      shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'wildShape', hp: 6, maxHp: 6, ac: 12 },
+    });
+
+    const stats = actorStats(room, token);
+    expect(stats.abilities?.str).toBe(wolf.abilities.str);
+    expect(stats.abilities?.con).toBe(wolf.abilities.con);
+    expect(stats.abilities?.int).toBe(10);
+    // Своё владение CON: мод +1 + бонус владения 2 = +3 (у зверя явных спасбросков нет).
+    expect(stats.saves?.con).toBe(3);
+    expect(stats.speed).toBe(wolf.speed);
+  });
+
+  it('Polymorph: статы и спасброски целиком из статблока зверя, свои владения не действуют', () => {
+    const wolf = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+    const room = makeRoom({
+      controllers: { p1: 'lib1' },
+      sheets: { p1: sheet({ abilities: { str: 10, dex: 12, con: 12, int: 10, wis: 10, cha: 8 }, saves: { con: true } }) },
+      resources: { p1: makeResources() },
+    });
+    const token = makeToken('t1', {
+      libraryItemId: 'lib1',
+      shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'polymorph', hp: 11, maxHp: 11, ac: 12 },
+    });
+
+    const stats = actorStats(room, token);
+    expect(stats.abilities).toEqual(wolf.abilities);
+    expect(stats.abilities?.int).toBe(wolf.abilities.int);
+    // У волка нет явных спасбросков — своё владение CON не подмешивается.
+    expect(stats.saves).toBeUndefined();
+    expect(stats.senses).toEqual(wolf.senses);
   });
 });

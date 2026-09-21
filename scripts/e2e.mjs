@@ -13,6 +13,7 @@ const SCENARIOS = [
   ['06', './e2e/06-maps2.mjs'],
   ['07', './e2e/07-player-fog.mjs'],
   ['09', './e2e/09-walls.mjs'],
+  ['10', './e2e/10-shapes.mjs'],
   ['08', './e2e/08-admin-invite.mjs'],
 ];
 

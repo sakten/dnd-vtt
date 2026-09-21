@@ -55,6 +55,8 @@ export interface BestiaryEntry {
   cells: number;
   /** Скорость ходьбы (или максимальная из прочих), футы. */
   speed: number;
+  /** Есть Fly Speed (лимит Wild Shape до 8 уровня). */
+  fly?: boolean;
   senses: Sense[];
   /** Число атак за действие (Мультиатака). */
   multiattack?: number;

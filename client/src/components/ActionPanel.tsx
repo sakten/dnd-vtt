@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BASE_ACTIONS, abilityMod, actionSlotAvailable, automationForAction, featureActionAutomation, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, actionSlotAvailable, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, type ActionCost, type ActionDef, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -25,6 +25,7 @@ import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 import FeatureIcon from './featureIcons';
 import SpellIcon from './SpellIcon';
+import ShapePicker from './ShapePicker';
 import SpellPopover from './SpellPopover';
 import WeaponIcon from './WeaponIcon';
 
@@ -87,6 +88,9 @@ export default function ActionPanel() {
   const info = useActionContext();
   const [casting, setCasting] = useState<{ spell: Spell; ability?: ActionDef } | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
+  const [shapeOpen, setShapeOpen] = useState(false);
+  const shapeToken = useGameStore((s) => s.shapeToken);
+  const revertShape = useGameStore((s) => s.revertShape);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -257,6 +261,11 @@ export default function ActionPanel() {
         aria-label={label}
         disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
         onClick={() => {
+          // «Дикий облик»: открываем выбор известной формы (принятие — сервер).
+          if (f.id === 'class:druid:wildShape') {
+            if (isCharacter && sheet && !token.shape) setShapeOpen(true);
+            return;
+          }
           const slot = featureSlot(f, turnCtx);
           const auto = sheet ? featureActionAutomation(f.id, sheet.classes) : undefined;
           const maxTargets = auto?.targetsAbility
@@ -319,7 +328,8 @@ export default function ActionPanel() {
       if (spell) setCasting({ spell, ability: a });
       return;
     }
-    const targeting = a.ability?.targeting;
+    // Таргетинг — единый аксессор (`actionTargeting`): канон — на действии.
+    const targeting = actionTargeting(a);
     if (targeting?.kind === 'area' && targeting.area) {
       startAim({
         tokenId: token.id,
@@ -394,7 +404,24 @@ export default function ActionPanel() {
         }
       }
     }
+    if (slot === 'bonus' && token.shape?.kind === 'wildShape') {
+      // Досрочный выход из Wild Shape — бонусное действие (XPHB).
+      buttons.push(
+        <button
+          key="shape:revert"
+          className="ap-icon-btn"
+          data-tip={t('ui.shape.revertAction')}
+          aria-label={t('ui.shape.revertAction')}
+          disabled={!controlled || !canSpendSlot(turnCtx, 'bonus', 'shape:revert')}
+          onClick={() => revertShape(token.id)}
+        >
+          <FeatureIcon id="class:druid:wildShape" fallback="beast" className="ap-icon" />
+        </button>
+      );
+    }
     for (const a of BASE_ACTIONS.filter((x) => x.costs.includes(slot) && x.id !== 'attack')) {
+      // В форме зверя нет «безоружного удара»: у формы свои естественные атаки.
+      if (token.shape && a.id === 'unarmedStrike') continue;
       // Безоружный удар, захват и толчок — тоже атаки: меч-бейдж и метка «Атака: …».
       const isAttack = ATTACK_BADGED.has(a.id);
       const name = baseActionLabel(a.id, a.name);
@@ -482,6 +509,20 @@ export default function ActionPanel() {
       </div>
       {!collapsed && (
         <>
+      {shapeOpen && isCharacter && sheet && (
+        <div className="ap-shape-picker">
+          <ShapePicker
+            known={sheet.wildShape?.known ?? []}
+            level={druidLevelOf(sheet.classes)}
+            moon={hasMoonCircle(sheet.classes)}
+            onPick={(key) => {
+              shapeToken(token.id, key);
+              setShapeOpen(false);
+            }}
+            onClose={() => setShapeOpen(false)}
+          />
+        </div>
+      )}
       <div className="ap-body">
         {legendarySlot ? (
           <section className="ap-panel legendary">

@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { type AutomationEffect, type EffectInstance, type Token } from 'shared';
+import { isIncapacitated, type AutomationEffect, type EffectInstance, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { endShapeToken } from './forms';
 
 export interface ApplyEffectArgs {
   sourceKey: string;
@@ -56,6 +57,10 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     senses: effectDef.senses ? [...effectDef.senses] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
+  // Wild Shape/Polymorph оканчиваются от недееспособности (XPHB).
+  if (target.shape && isIncapacitated(target.conditions)) {
+    endShapeToken(ctx, room, mapId, target);
+  }
   if (effectDef.tempHp) {
     ctx.manager.grantTempHp(room, target, effectDef.tempHp);
     const controllerId = ctx.manager.controllerOfToken(room, target);

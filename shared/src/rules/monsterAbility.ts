@@ -1,4 +1,4 @@
-import type { ActionDef, MonsterAbilityDef } from '../domain/actions';
+import { actionTargeting, type ActionDef, type MonsterAbilityDef } from '../domain/actions';
 import type { AutomationDef, AutomationEffect, AutomationResolution } from '../domain/automation';
 import type { TokenStatblock } from '../domain/token';
 import type { SpellStats } from './spellCast';
@@ -21,16 +21,17 @@ export function monsterAbilityAutomation(action: ActionDef): AutomationDef | und
   if (!ability) return undefined;
   const resolution: AutomationResolution = ability.attack ? 'attack' : ability.save ? 'save' : 'auto';
   const def: AutomationDef = { key: `statblock:${action.id}`, name: action.name, resolution };
-  if (ability.targeting) {
+  const targeting = actionTargeting(action);
+  if (targeting) {
     def.targeting = {
-      ...ability.targeting,
-      range: ability.targeting.range ?? (ability.attack?.rangeType === 'melee' ? 5 : 30),
+      ...targeting,
+      range: targeting.range ?? (ability.attack?.rangeType === 'melee' ? 5 : 30),
     };
   }
   if (ability.attack) {
     def.attack = { rangeType: ability.attack.rangeType };
     if (ability.attack.damage) def.damage = { dice: ability.attack.damage, types: ability.attack.types };
-    const targets = ability.targeting?.targets ?? 1;
+    const targets = targeting?.targets ?? 1;
     if (targets > 1) def.count = targets;
   } else if (ability.damage) {
     def.damage = { dice: ability.damage.dice, types: ability.damage.types };

@@ -14,9 +14,41 @@ import {
 import type { PersistedRoom, Room } from './roomTypes';
 import { refreshBestiaryIcons } from './bestiaryIcons';
 
+/**
+ * Legacy-миграция формы токена (до С5 поле `shape.original` хранило снапшот своих полей,
+ * а статы зверя лежали в полях токена): возвращаем свои поля и оставляем `ownCells`.
+ */
+function upgradeTokenShape(token: Token, gridSize: number): Token {
+  const shape = token.shape as (Token['shape'] & { original?: Record<string, unknown> }) | undefined;
+  const original = shape?.original;
+  if (!shape || !original) return token;
+  const cells = typeof original.cells === 'number' ? original.cells : token.cells;
+  return {
+    ...token,
+    ...(original as Partial<Token>),
+    w: cells * gridSize,
+    h: cells * gridSize,
+    shape: { ...shape, ownCells: cells },
+  };
+}
+
+function upgradeSceneShapes(scene: Scene): Scene {
+  if (!Array.isArray(scene.maps)) return scene;
+  return {
+    ...scene,
+    maps: scene.maps.map((map) => {
+      const gridSize = map.grid?.size || scene.grid?.size || 50;
+      return {
+        ...map,
+        tokens: (map.tokens ?? []).map((token) => upgradeTokenShape(token, gridSize)),
+      };
+    }),
+  };
+}
+
 /** Legacy-сцена (map/tokens) → одна карта; иначе — обычная нормализация сцены. */
 function normalizePersistedScene(raw: Scene): Scene {
-  if (Array.isArray(raw.maps)) return normalizeScene(raw, { keepAcHp: true });
+  if (Array.isArray(raw.maps)) return normalizeScene(upgradeSceneShapes(raw), { keepAcHp: true });
   const grid = raw.grid ?? DEFAULT_GRID;
   const legacy = raw as unknown as {
     map: { url: string; width: number; height: number } | null;
@@ -30,7 +62,7 @@ function normalizePersistedScene(raw: Scene): Scene {
           url: legacy.map.url,
           width: legacy.map.width,
           height: legacy.map.height,
-          tokens: legacy.tokens ?? [],
+          tokens: (legacy.tokens ?? []).map((token) => upgradeTokenShape(token, grid.size || 50)),
           zones: [],
           walls: [],
           vision: { los: false, darkness: false },

@@ -3,6 +3,7 @@ import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushSaveMessage as pushSaveRoll } from './messages';
 import { removeConcSummonsOf, summonSourceIds } from './summons';
+import { endShapesOf } from './forms';
 import { removeZonesOfSource } from './zones';
 
 /** Сообщение-бросок спасброска в чат от имени системы (обёртка над `messages`). */
@@ -30,6 +31,7 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
     for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
     removeZonesOfSource(ctx, room, token.id);
     removeConcSummonsOf(ctx, room, summonSourceIds(room, token));
+    endShapesOf(ctx, room, summonSourceIds(room, token));
     ctx.systemMessage(room, {
       code: 'concentration.broken',
       params: { name: token.name, effects: result.names.join(', ') },

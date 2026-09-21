@@ -213,6 +213,13 @@ export function sanitizeResources(
 /** Восстанавливает ресурсы по отдыху: короткий — 'short' + pact, долгий — всё, HP до max. */
 export function applyRest(res: PlayerResources, type: 'short' | 'long'): PlayerResources {
   const restore = (r: ResourceItem) => (type === 'long' ? r.reset !== 'never' : r.reset === 'short');
+  // Wild Shape (2024): на коротком отдыхе возвращается одно использование, не все.
+  const rested = (r: ResourceItem) => {
+    if (type === 'short' && r.key?.endsWith(':wildShape')) {
+      return { ...r, current: Math.min(r.max, r.current + 1) };
+    }
+    return restore(r) ? { ...r, current: r.max } : r;
+  };
   return {
     hp:
       type === 'long'
@@ -221,7 +228,7 @@ export function applyRest(res: PlayerResources, type: 'short' | 'long'): PlayerR
     hitDice: type === 'long' ? res.hitDice.map((h) => ({ ...h, current: h.max })) : res.hitDice,
     spellSlots: type === 'long' ? res.spellSlots.map((s) => ({ ...s, current: s.max })) : res.spellSlots,
     pact: { ...res.pact, current: res.pact.max },
-    resources: res.resources.map((r) => (restore(r) ? { ...r, current: r.max } : r)),
+    resources: res.resources.map(rested),
     notes: res.notes ?? '',
   };
 }

@@ -8,7 +8,7 @@ import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import { clearTokenUiFor } from '../uiReset';
 import type { GameState, MovingToken, Slice } from '../types';
 
-export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'onTokenWalk' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'startTokenWalk' | 'finishTokenWalk' | 'stepTokenWalk' | 'clearMoving' | 'setDragGhost' | 'setDragPath' | 'lockToken' | 'setTokenFields' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
+export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpdate' | 'onTokenRemove' | 'onTokenWalk' | 'addTokenAt' | 'removeToken' | 'moveToken' | 'startTokenWalk' | 'finishTokenWalk' | 'stepTokenWalk' | 'clearMoving' | 'setDragGhost' | 'setDragPath' | 'lockToken' | 'setTokenFields' | 'shapeToken' | 'revertShape' | 'setSelected' | 'setDragging' | 'setTokenMenu' | 'setHoverToken'>> = (set, get) => {
   const viewMapId = () => get().viewMapId;
 
   const patchTokenInMap = (mapId: string, id: string, patch: Partial<Token>) =>
@@ -38,6 +38,14 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
 
     removeToken: (id) => {
       emitInMap(get, 'token:remove', { id });
+    },
+
+    shapeToken: (id, formKey) => {
+      emitInMap(get, 'token:shape', { id, formKey });
+    },
+
+    revertShape: (id) => {
+      emitInMap(get, 'token:revert', { id });
     },
 
     moveToken: (id, x, y) => {

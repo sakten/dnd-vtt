@@ -46,6 +46,7 @@ import { audienceOf } from './reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { maybeRollAnim } from './rollAnim';
 import { runSummon, removeConcSummonsOf, familiarCannotAttack } from './summons';
+import { applyPolymorphForm, endShapesOf } from './forms';
 import { createZoneFromDef, removeZonesOfSource } from './zones';
 
 /**
@@ -156,6 +157,7 @@ function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
     removeZonesOfSource(ctx, room, sourceId);
   }
   removeConcSummonsOf(ctx, room, sourceIds);
+  endShapesOf(ctx, room, sourceIds);
 }
 
 /** Якорь концентрации на кастере для зон без целевых эффектов (HoH, Spirit Guardians). */
@@ -546,6 +548,8 @@ interface AutomationRun {
   damageType: string | undefined;
   adv: 'a' | 'd' | undefined;
   count: number;
+  /** Выбранная форма Polymorph (ключ каталога бестиария). */
+  shapeForm?: string;
 }
 
 /** Лечение с бонусом Ученика жизни. */
@@ -708,6 +712,10 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
   const applyAll = () => {
     for (const save of saves) {
       if (!save.success) applyTargetEffects(run, save.target, stats);
+      // Polymorph: проваливший сейв превращается в выбранного зверя (концентрация — до конца).
+      if (run.def.shape && !save.success) {
+        applyPolymorphForm(run.ctx, run.room, run.mapId, run.caster, save.target, run.shapeForm, run.def.key);
+      }
       if (run.def.force && !save.success) {
         applyForcedMovement(run.ctx, run.room, run.mapId, run.caster, save.target, run.def.force);
       }
@@ -833,6 +841,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     adv: input.advantage === 'a' || input.advantage === 'd' ? input.advantage : undefined,
     damageType: singleDamageType(def),
     count: Math.max(1, def.count ?? 1),
+    ...(input.summonKey ? { shapeForm: input.summonKey } : {}),
   };
 
   if (def.attack && stats) return runWeaponAttacks(run, stats);

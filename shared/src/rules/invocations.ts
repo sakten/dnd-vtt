@@ -54,6 +54,25 @@ export function invocationMechanics(key: string): InvocationMechanics | undefine
   return INVOCATION_MECHANICS[key];
 }
 
+/**
+ * At-will заклинания, которые инвокация разрешает только на себя (XPHB):
+ * Armor of Shadows (Mage Armor), Fiendish Vigor, Mask of Many Faces, Otherworldly Leap,
+ * One with Shadows, Ascendant Step, Master of Myriad Forms.
+ */
+const AT_WILL_SELF_ONLY = new Set([
+  'XPHB:Mage Armor',
+  'XPHB:False Life',
+  'XPHB:Disguise Self',
+  'XPHB:Jump',
+  'XPHB:Invisibility',
+  'XPHB:Levitate',
+  'XPHB:Alter Self',
+]);
+
+export function invocationAtWillSelfOnly(spellKey: string): boolean {
+  return AT_WILL_SELF_ONLY.has(spellKey);
+}
+
 export function warlockLevelOf(sheet: Pick<CharacterSheet, 'classes'>): number {
   return sheet.classes.find((c) => c.className === 'warlock')?.level ?? 0;
 }

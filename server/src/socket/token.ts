@@ -14,6 +14,7 @@ import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
 import { removeSummonsOf, summonSourceIds } from './summons';
+import { endShapesOf } from './forms';
 import { handleMovementZones, removeZonesOfSource } from './zones';
 
 /** Производные поля персонажа: в токене не хранятся, в патче игнорируются. */
@@ -244,6 +245,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);
       removeZonesOfSource(ctx, room, id);
       removeSummonsOf(ctx, room, summonSourceIds(room, token));
+      endShapesOf(ctx, room, summonSourceIds(room, token));
       manager.removeToken(room, mapId, id);
       broadcastAll('token:remove', { mapId, id });
       if (manager.combatOf(room, mapId)?.active) {

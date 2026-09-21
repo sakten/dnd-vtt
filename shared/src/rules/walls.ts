@@ -58,6 +58,15 @@ export function crossesWalls(a: Point, b: Point, walls: Wall[], mode: WallCheckM
   );
 }
 
+/** Пересекает ли прямоугольник блокирующую стену/закрытую дверь (для подошвы формы/спавна). */
+export function rectCrossesWalls(rect: Rect, walls: Wall[], mode: WallCheckMode = 'move'): boolean {
+  return walls.some(
+    (w) =>
+      blocks(w, mode) &&
+      segmentRectDistance({ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }, rect) <= 0
+  );
+}
+
 /** Прямоугольник в мировых координатах (подошва токена и т.п.). */
 export interface Rect {
   x: number;

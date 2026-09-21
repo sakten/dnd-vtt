@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ABILITIES,
+  actionTargeting,
   CONDITION_KEYS,
   DAMAGE_TYPES,
   MONSTER_ABILITIES,
@@ -114,7 +115,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
         const isSpell = !!a.spellKey;
         const isAttack = !!ability.attack;
         const isSave = !!ability.save;
-        const targeting = ability.targeting;
+        const targeting = actionTargeting(a);
         const kind = targeting?.kind === 'area' ? 'area' : 'creature';
         const patch = (p: Partial<ActionDef>) => onChange(actions.map((x) => (x.id === a.id ? { ...x, ...p } : x)));
         const patchAbility = (p: Partial<MonsterAbilityDef>) => patch({ ability: { ...ability, ...p } });
@@ -123,7 +124,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
         const patchEffects = (effects: MonsterAbilityEffect[]) =>
           patchAbility({ effects: effects.length ? effects : undefined });
         const setKind = (next: 'creature' | 'area') =>
-          patchAbility({
+          patch({
             targeting:
               next === 'area'
                 ? { kind: 'area', range: targeting?.range ?? 30, area: targeting?.area ?? { shape: 'sphere', size: 20 } }
@@ -135,20 +136,17 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
           const prevDefault = attackType === 'melee' ? 5 : 30;
           const nextDefault = rangeType === 'melee' ? 5 : 30;
           const range = targeting?.range === undefined || targeting.range === prevDefault ? nextDefault : targeting.range;
-          patchAbility({
-            attack: { ...ability.attack, rangeType },
-            targeting: { ...(targeting ?? { kind: 'creature' }), kind, range },
-          });
+          patchAbility({ attack: { ...ability.attack, rangeType } });
+          patch({ targeting: { ...(targeting ?? { kind: 'creature' }), kind, range } });
         };
-        const toggleAttack = (on: boolean) =>
-          patchAbility(
-            on
-              ? {
-                  attack: { rangeType: 'melee' },
-                  targeting: { ...(targeting ?? { kind: 'creature' }), kind, range: targeting?.range ?? 5 },
-                }
-              : { attack: undefined }
-          );
+        const toggleAttack = (on: boolean) => {
+          if (!on) {
+            patchAbility({ attack: undefined });
+            return;
+          }
+          patchAbility({ attack: { rangeType: 'melee' } });
+          patch({ targeting: { ...(targeting ?? { kind: 'creature' }), kind, range: targeting?.range ?? 5 } });
+        };
 
         return (
           <details
@@ -285,7 +283,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                       value={targeting?.range ?? ''}
                       readOnly={readOnly}
                       onChange={(e) =>
-                        patchAbility({
+                        patch({
                           targeting: {
                             ...(targeting ?? { kind: 'creature' }),
                             kind,
@@ -310,7 +308,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                         value={targeting?.targets ?? 1}
                         readOnly={readOnly}
                         onChange={(e) =>
-                          patchAbility({
+                          patch({
                             targeting: {
                               ...(targeting ?? { kind: 'creature' }),
                               kind: 'creature',
@@ -327,7 +325,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                           value={targeting?.area?.shape ?? 'sphere'}
                           disabled={readOnly}
                           onChange={(e) =>
-                            patchAbility({
+                            patch({
                               targeting: {
                                 ...(targeting ?? { kind: 'area' }),
                                 kind: 'area',
@@ -351,7 +349,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                           value={targeting?.area?.size ?? 20}
                           readOnly={readOnly}
                           onChange={(e) =>
-                            patchAbility({
+                            patch({
                               targeting: {
                                 ...(targeting ?? { kind: 'area' }),
                                 kind: 'area',
@@ -373,7 +371,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                             value={targeting.area.width ?? 5}
                             readOnly={readOnly}
                             onChange={(e) =>
-                              patchAbility({
+                              patch({
                                 targeting: {
                                   ...(targeting ?? { kind: 'area' }),
                                   kind: 'area',

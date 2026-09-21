@@ -13,6 +13,8 @@ export const MAX_ATTACKS = 10;
 export const MAX_SHEET_SPELLS = 200;
 /** Верхняя граница числа выбранных воззваний варлока. */
 export const MAX_INVOCATIONS = 20;
+/** Известные формы друида: максимум по таблице Beast Shapes (8 на 8+ уровне). */
+export const MAX_SHAPE_FORMS = 8;
 /** Верхняя граница числа выборов способностей (фиты/манёвры/метамагия). */
 export const MAX_FEATURE_CHOICES = 100;
 export const MAX_CONDITIONS = 20;

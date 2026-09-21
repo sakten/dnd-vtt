@@ -132,7 +132,12 @@ export function normalizeActions(raw: unknown): ActionDef[] {
       action.spellKey = a.spellKey;
     }
     const ability = normalizeAbility(a.ability);
-    if (ability) action.ability = ability;
+    // Канон — таргетинг на самом действии: поднимаем легаси-поле из ability.
+    if (ability?.targeting) {
+      if (!action.targeting) action.targeting = ability.targeting;
+      delete ability.targeting;
+    }
+    if (ability && Object.keys(ability).length) action.ability = ability;
     if (typeof a.libraryId === 'string' && a.libraryId) action.libraryId = a.libraryId.slice(0, 100);
     out.push(action);
   }

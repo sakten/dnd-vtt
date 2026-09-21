@@ -1,5 +1,6 @@
-import {
+﻿import {
   actionSlotAvailable,
+  actionTargeting,
   automationForAction,
   casterStats,
   classFeatures,
@@ -28,6 +29,7 @@ import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
 import { fail } from './errors';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
+import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { pushRollMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
@@ -125,7 +127,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const sheet = character?.sheet;
       const classAction = sheet ? classFeatures(sheet.classes).find((a) => a.id === actionId) : undefined;
       const action: ActionDef | undefined =
-        token.statblock?.actions?.find((a) => a.id === actionId) ?? findBaseAction(actionId) ?? classAction;
+        shapeStatblock(token)?.actions?.find((a) => a.id === actionId) ?? findBaseAction(actionId) ?? classAction;
       if (!action) return;
 
       const combat = manager.combatOf(room, mapId);
@@ -156,10 +158,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       // Проверки способности до списания действия: точка области и дистанция до целей.
-      const abilityArea = action.ability?.targeting?.kind === 'area' ? action.ability.targeting.area : undefined;
+      const abilityTargeting = actionTargeting(action);
+      const abilityArea = abilityTargeting?.kind === 'area' ? abilityTargeting.area : undefined;
       const abilityOrigin = origin && Number.isFinite(origin.x) && Number.isFinite(origin.y) ? origin : null;
       if (action.ability) {
-        const range = action.ability.targeting?.range ?? (action.ability.attack?.rangeType === 'melee' ? 5 : 30);
+        const range = abilityTargeting?.range ?? (action.ability.attack?.rangeType === 'melee' ? 5 : 30);
         const map = manager.findMap(room, mapId);
         const size = map?.grid.size || room.scene.grid.size || 50;
         const grid = {
@@ -203,8 +206,14 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
 
       if (action.id === 'attack' || action.id === 'unarmedStrike') {
+        // В форме зверя безоружного удара нет (действуют атаки статблока формы).
+        if (action.id === 'unarmedStrike' && token.shape) {
+          fail(ctx, 'noWeapon');
+          return;
+        }
         const index = Math.round(Number(attackIndex));
-        const attacks: AttackEntry[] = character ? sheet?.attacks ?? [] : token.attacks;
+        // В форме (Wild Shape/Polymorph) оружие и атаки — из статблока зверя, не из листа.
+        const attacks: AttackEntry[] = character && !token.shape ? sheet?.attacks ?? [] : shapeAttacks(token);
         const entry = action.id === 'unarmedStrike' ? unarmedStrikeEntry(ctx, room, token, sheet) : attacks[index];
         if (!entry || (action.id === 'attack' && !Number.isFinite(index))) {
           fail(ctx, 'noWeapon');
@@ -254,7 +263,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         if (rejectIfSpellsBlocked(ctx, token)) return;
         const spell = findSpell(action.spellKey);
         if (!spell) return;
-        const stats = spellStatsFor(room, token) ?? monsterStats(token.statblock, undefined);
+        const stats = spellStatsFor(room, token) ?? monsterStats(shapeStatblock(token), undefined);
         const input = collectSpellCast(ctx, {
           mapId,
           caster: token,
@@ -361,7 +370,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         // Классовые черты со спасбросками (Изгнание нежити, Сияние рассвета): СЛ из листа.
         const classKey = actionId.startsWith('class:') ? actionId.slice('class:'.length).split(/[:.]/)[0] : undefined;
         const stats = action.ability
-          ? monsterStats(token.statblock, action.ability)
+          ? monsterStats(shapeStatblock(token), action.ability)
           : sheet && classKey
             ? casterStats(sheet, classKey)
             : null;
@@ -394,3 +403,4 @@ export function registerActionHandlers(ctx: ConnCtx) {
       );
     });
 }
+

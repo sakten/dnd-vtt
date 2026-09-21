@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   DEFAULT_AC,
   DEFAULT_SPEED,
+  druidLevelOf,
+  hasMoonCircle,
   modifiedValue,
   statNumber,
   type ConditionInstance,
@@ -23,6 +25,7 @@ import DamageDefensesForm from './DamageDefensesForm';
 import DefenseChips from './DefenseChips';
 import EffectChips from './EffectChips';
 import Modal from './Modal';
+import ShapePicker from './ShapePicker';
 import StatblockForm from './StatblockForm';
 import StatblockSpells from './StatblockSpells';
 import { DescriptionField, TokenHealthFields, TokenPassportFields, TokenPlayerFields } from './TokenFieldsForm';
@@ -41,6 +44,8 @@ export default function TokenMenu() {
   const removeToken = useGameStore((s) => s.removeToken);
   const adjustTokenHp = useGameStore((s) => s.adjustTokenHp);
   const endConcentration = useGameStore((s) => s.endConcentration);
+  const shapeToken = useGameStore((s) => s.shapeToken);
+  const revertShape = useGameStore((s) => s.revertShape);
   const setCurrentCharacter = useGameStore((s) => s.setCurrentCharacter);
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
@@ -60,6 +65,7 @@ export default function TokenMenu() {
   const [conditions, setConditions] = useState<ConditionInstance[]>([]);
   const [statblock, setStatblock] = useState<TokenStatblock | undefined>(undefined);
   const [saved, setSaved] = useState(false);
+  const [shapeOpen, setShapeOpen] = useState(false);
 
   useEffect(() => {
     if (!menuId || !token) return;
@@ -330,6 +336,48 @@ export default function TokenMenu() {
                 <div className="field-warning">
                   {t('ui.tokenMenu.characterStatsNote')}
                 </div>
+              )}
+
+              {isCharacter && sheet && !token.shape && druidLevelOf(sheet.classes) >= 2 && (
+                <button type="button" className="tm-link-btn" onClick={() => setShapeOpen((v) => !v)}>
+                  {shapeOpen ? t('ui.common.close') : t('ui.shape.take')}
+                </button>
+              )}
+              {token.shape && (
+                <div className="conditions-form">
+                  <div className="sheet-section-title">{t('ui.shape.formTitle')}</div>
+                  <div className="condition-row">
+                    <span className="condition-label">
+                      {t('ui.shape.pool', { name: token.shape.name, hp: token.shape.hp, max: token.shape.maxHp })}
+                    </span>
+                    {canEdit && (token.shape.kind === 'wildShape' || isDm) ? (
+                      <button
+                        type="button"
+                        className="condition-remove"
+                        onClick={() => {
+                          revertShape(token.id);
+                          close(null);
+                        }}
+                      >
+                        {t('ui.shape.revert')}
+                      </button>
+                    ) : token.shape.kind === 'polymorph' ? (
+                      <span className="condition-label">{t('ui.shape.polyHint')}</span>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+              {shapeOpen && isCharacter && sheet && (
+                <ShapePicker
+                  known={sheet.wildShape?.known ?? []}
+                  level={druidLevelOf(sheet.classes)}
+                  moon={hasMoonCircle(sheet.classes)}
+                  onPick={(key) => {
+                    shapeToken(token.id, key);
+                    close(null);
+                  }}
+                  onClose={() => setShapeOpen(false)}
+                />
               )}
 
               <ConditionsForm value={conditions} onChange={setConditions} />

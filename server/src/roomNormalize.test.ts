@@ -422,4 +422,55 @@ describe('hydrateRoom: зеркала статов персонажа', () => {
 
     expect(room.scene.maps[0]!.tokens[0]).toMatchObject({ ac: '16', hpMax: '20', hpCurrent: 12 });
   });
+
+  it('legacy-форма: снапшот shape.original возвращается в поля токена (С5)', () => {
+    const legacyShape = {
+      key: 'XMM:Wolf',
+      name: 'Wolf',
+      kind: 'wildShape',
+      hp: 6,
+      maxHp: 6,
+      carryOverflow: true,
+      original: {
+        name: 'Druid',
+        description: '',
+        imageUrl: '',
+        cells: 1,
+        initiativeBonus: '+2',
+        attacks: [{ name: 'Scimitar', hit: '+5', damage: '1d6+3', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }],
+        ac: '12',
+        hpMax: '20',
+        damageDefenses: [],
+        speed: 30,
+        senses: [],
+      },
+    };
+    const fixture = base({
+      scene: sceneWithMap({
+        tokens: [
+          {
+            id: 't1',
+            libraryItemId: 'l1',
+            name: 'Wolf',
+            ac: '14',
+            hpMax: '11',
+            cells: 2,
+            w: 100,
+            h: 100,
+            speed: 40,
+            attacks: [{ name: 'Bite', hit: '+4', damage: '1d6+2', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }],
+            shape: legacyShape,
+          },
+        ],
+      }),
+      sheets: {},
+      controllers: {},
+    });
+
+    const token = hydrateRoom(structuredClone(fixture)).scene.maps[0]!.tokens[0]!;
+    expect(token).toMatchObject({ name: 'Druid', ac: '12', cells: 1, w: 50, h: 50, speed: 30 });
+    expect(token.attacks[0]?.name).toBe('Scimitar');
+    expect(token.shape).toMatchObject({ key: 'XMM:Wolf', hp: 6, ownCells: 1 });
+    expect((token.shape as { original?: unknown }).original).toBeUndefined();
+  });
 });

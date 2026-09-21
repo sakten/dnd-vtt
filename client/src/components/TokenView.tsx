@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Group, Rect, Text, Image as KonvaImage } from 'react-konva';
+import { Group, Line, Rect, Text, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
+import { hpBarHeight, hpBarLayout } from '../lib/hpBars';
 import {
   canSee,
   cellCenter,
@@ -316,26 +317,81 @@ function TokenView({ token }: { token: Token }) {
           listening={false}
         />
       )}
-      {hpMax > 0 && (
-        <Group y={-token.h / 2 - 9 / token.scale} listening={false}>
-          <Rect
-            x={-token.w / 2}
-            width={token.w}
-            height={8 / token.scale}
-            fill="#2b3039"
-            stroke="#000000"
-            strokeWidth={1 / token.scale}
-            cornerRadius={2 / token.scale}
-          />
-          <Rect
-            x={-token.w / 2}
-            width={Math.max(0, Math.min(1, token.hpCurrent / hpMax)) * token.w}
-            height={8 / token.scale}
-            fill={token.hpCurrent / hpMax > 0.5 ? '#4ecb71' : token.hpCurrent / hpMax > 0.25 ? '#ffd166' : '#ff6b6b'}
-            cornerRadius={2 / token.scale}
-          />
-        </Group>
-      )}
+      {hpMax > 0 &&
+        (() => {
+          const scale = token.scale || 1;
+          const barH = hpBarHeight(scale);
+          const layout = hpBarLayout({
+            w: token.w,
+            h: token.h,
+            scale,
+            hpCurrent: token.hpCurrent,
+            hpMax,
+            tempValue: token.shape ? token.shape.hp : token.hpTemp ?? 0,
+            tempMax: token.shape ? token.shape.maxHp : hpMax,
+          });
+          const sectorLines = (fractions: number[], y: number, key: string) =>
+            fractions.map((f, i) => {
+              const x = -token.w / 2 + f * token.w;
+              return (
+                <Line
+                  key={`${key}:${i}`}
+                  points={[x, y, x, y + barH]}
+                  stroke="#000000"
+                  strokeWidth={1 / scale}
+                  listening={false}
+                />
+              );
+            });
+          return (
+            <Group listening={false}>
+              {layout.temp && (
+                <>
+                  <Rect
+                    x={-token.w / 2}
+                    y={layout.temp.y}
+                    width={token.w}
+                    height={barH}
+                    fill="#2b3039"
+                    stroke="#000000"
+                    strokeWidth={1 / scale}
+                    cornerRadius={2 / scale}
+                  />
+                  <Rect
+                    x={-token.w / 2}
+                    y={layout.temp.y}
+                    width={layout.temp.width}
+                    height={barH}
+                    fill="#9aa4b2"
+                    cornerRadius={2 / scale}
+                  />
+                  {sectorLines(layout.tempSectors, layout.temp.y, 'temp')}
+                </>
+              )}
+              <Rect
+                x={-token.w / 2}
+                y={layout.hp.y}
+                width={token.w}
+                height={barH}
+                fill="#2b3039"
+                stroke="#000000"
+                strokeWidth={1 / scale}
+                cornerRadius={2 / scale}
+              />
+              <Rect
+                x={-token.w / 2}
+                y={layout.hp.y}
+                width={layout.hp.width}
+                height={barH}
+                fill={
+                  token.hpCurrent / hpMax > 0.5 ? '#4ecb71' : token.hpCurrent / hpMax > 0.25 ? '#ffd166' : '#ff6b6b'
+                }
+                cornerRadius={2 / scale}
+              />
+              {sectorLines(layout.hpSectors, layout.hp.y, 'hp')}
+            </Group>
+          );
+        })()}
       <Text
         text={token.name}
         fontSize={14 / token.scale}

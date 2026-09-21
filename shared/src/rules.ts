@@ -27,6 +27,7 @@ export * from './rules/spells';
 export * from './rules/text';
 export * from './rules/subclassSpells';
 export * from './rules/summons';
+export * from './rules/wildShape';
 export * from './rules/weapons';
 export * from './rules/walls';
 export * from './rules/vision';

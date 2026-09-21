@@ -13,6 +13,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { controllerIdOfToken } from './helpers';
+import { formOf, mergeShapeAbilities } from './shape';
 
 /**
  * Единое правило «чей источник истины»: если у токена есть контролёр с листом,
@@ -64,6 +65,51 @@ export function actorStats(room: Room, token: Token): ActorStats {
       hp: tokenHp,
       initiativeBonus: (token.initiativeBonus ?? '').trim(),
     };
+  }
+  // Форма (Wild Shape/Polymorph): статы — зверя (резолвер), свои — HP и владения.
+  if (token.shape) {
+    const form = formOf(token);
+    if (form) {
+      const polymorph = token.shape.kind === 'polymorph';
+      const pb = sheetProficiencyBonus(sheet);
+      // Polymorph (XPHB 2024): статы целиком из статблока зверя, свои владения не сохраняются.
+      const abilities = polymorph
+        ? form.entry.abilities
+        : mergeShapeAbilities(sheet.abilities, form.entry.abilities) ?? sheet.abilities;
+      const saves: Partial<Record<AbilityKey, number>> = {};
+      if (polymorph) {
+        for (const [key, value] of Object.entries(form.entry.saves ?? {}) as [AbilityKey, number][]) {
+          saves[key] = value;
+        }
+      } else {
+        for (const key of Object.keys(sheet.abilities) as AbilityKey[]) {
+          if (sheet.saves[key]) saves[key] = abilityMod(sheet.abilities[key] ?? 10) + pb;
+        }
+        for (const [key, value] of Object.entries(form.entry.saves ?? {}) as [AbilityKey, number][]) {
+          if (value > (saves[key] ?? Number.NEGATIVE_INFINITY)) saves[key] = value;
+        }
+      }
+      const senses = [...form.entry.senses];
+      if (!polymorph) {
+        for (const sense of invocationSenses(sheet)) {
+          if (!senses.some((s) => s.type === sense.type)) senses.push(sense);
+        }
+      }
+      return {
+        character: true,
+        controllerId,
+        name: form.fields.name,
+        abilities,
+        ac: form.ac,
+        speed: form.entry.speed,
+        senses,
+        attacks: form.fields.attacks,
+        damageDefenses: form.fields.damageDefenses,
+        hp: res && res.hp.max > 0 ? { max: res.hp.max, current: res.hp.current, temp: res.hp.temp } : tokenHp,
+        initiativeBonus: form.fields.initiativeBonus,
+        saves: Object.keys(saves).length ? saves : undefined,
+      };
+    }
   }
   const dexMod = abilityMod(sheet.abilities.dex ?? 10);
   const pb = sheetProficiencyBonus(sheet);

@@ -1,4 +1,4 @@
-import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_INVOCATIONS, MAX_SHEET_SPELLS, type AbilityKey } from '../domain/core';
+import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_INVOCATIONS, MAX_SHEET_SPELLS, MAX_SHAPE_FORMS, type AbilityKey } from '../domain/core';
 import { normalizeSenses } from './sense';
 import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
@@ -106,6 +106,21 @@ export function normalizeSheetChoices(raw: unknown): FeatureChoice[] {
   return out;
 }
 
+export function normalizeWildShape(raw: unknown): { known?: string[] } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const source = (raw as { known?: unknown }).known;
+  if (!Array.isArray(source)) return undefined;
+  const known: string[] = [];
+  const seen = new Set<string>();
+  for (const item of source) {
+    if (known.length >= MAX_SHAPE_FORMS) break;
+    if (typeof item !== 'string' || item.length > 80 || !SPELL_KEY_RE.test(item) || seen.has(item)) continue;
+    seen.add(item);
+    known.push(item);
+  }
+  return { ...(known.length ? { known } : {}) };
+}
+
 export function normalizeSheet(
   raw: Partial<CharacterSheet> & { attack?: Partial<AttackEntry> | null }
 ): CharacterSheet {
@@ -118,6 +133,7 @@ export function normalizeSheet(
     }
   }
   const invocations = normalizeInvocations((raw as { invocations?: unknown }).invocations);
+  const wildShape = normalizeWildShape((raw as { wildShape?: unknown }).wildShape);
   return {
     name: typeof raw.name === 'string' ? raw.name.slice(0, 40) : '',
     abilities,
@@ -129,6 +145,7 @@ export function normalizeSheet(
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
     choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
     ...(invocations.length ? { invocations } : {}),
+    ...(wildShape ? { wildShape } : {}),
     hpMax: typeof raw.hpMax === 'string' ? raw.hpMax.slice(0, 10) : '',
     ac: typeof raw.ac === 'string' ? raw.ac.slice(0, 10) : '',
     speed: clampInt((raw as { speed?: unknown }).speed, 0, 1000, DEFAULT_SPEED),

@@ -18,6 +18,7 @@ import {
 import type { RoomManager } from '../rooms';
 import type { Room } from '../roomTypes';
 import { actorStats } from '../room/actor';
+import { formOf, shapeName } from '../room/shape';
 import { rollConcentrationOnDamage } from './effects';
 import { syncFeatureEffects } from './features';
 import { pushTextMessage } from './messages';
@@ -42,6 +43,14 @@ interface ResolvedCacheEntry {
 /** Кэш resolved-объектов по токену: identity сохраняем, поля обновляем при каждом вызове. */
 const resolvedCache = new WeakMap<Token, ResolvedCacheEntry>();
 
+/** Размер клетки карты, на которой лежит токен (для подошвы формы). */
+function tokenGridSize(room: Room, token: Token): number {
+  for (const map of room.scene.maps) {
+    if (map.tokens.some((t) => t.id === token.id)) return map.grid.size || 50;
+  }
+  return room.scene.grid.size || 50;
+}
+
 /**
  * Токен персонажа с подставленными статами из листа/ресурсов (см. `actorStats`).
  * Для монстров возвращает сам токен; для персонажа — стабильный по identity объект,
@@ -54,6 +63,33 @@ function resolvedCharacterToken(room: Room, token: Token): Token {
   const view = entry?.view ?? { ...token };
   Object.assign(view, token);
   view.character = true;
+  // Кэш живёт между вызовами: исчезнувшие поля снимаем явно (Object.assign их не удаляет).
+  if (!token.shape) delete view.shape;
+  // Форма: статы зверя — через резолвер, HP — из ресурсов персонажа.
+  if (token.shape) {
+    const form = formOf(token);
+    if (form) {
+      view.name = form.fields.name;
+      view.description = form.fields.description;
+      view.imageUrl = form.fields.imageUrl;
+      view.cells = form.fields.cells;
+      view.initiativeBonus = form.fields.initiativeBonus;
+      view.attacks = form.fields.attacks;
+      view.ac = form.ac > 0 ? String(form.ac) : '';
+      view.damageDefenses = form.fields.damageDefenses;
+      view.statblock = form.fields.statblock;
+      view.speed = form.entry.speed;
+      view.senses = form.entry.senses;
+      const grid = tokenGridSize(room, token);
+      view.w = form.fields.cells * grid;
+      view.h = form.fields.cells * grid;
+    }
+    view.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
+    view.hpCurrent = stats.hp.current;
+    view.hpTemp = stats.hp.temp;
+    if (!entry) resolvedCache.set(token, { view });
+    return view;
+  }
   view.name = stats.name;
   view.ac = stats.ac > 0 ? String(stats.ac) : '';
   view.hpMax = stats.hp.max > 0 ? String(stats.hp.max) : '';
@@ -256,8 +292,21 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
     },
     applyHp: (room, mapId, token, amount, opts = {}) => {
       if (!amount) return;
+      const shapeBefore = token.shape?.key;
+      const shapeSource = token.shape?.kind === 'polymorph' ? token.shape.sourceTokenId : undefined;
       const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit });
       for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      // Форма кончилась от урона: имя в бою — снова своё.
+      if (shapeBefore && !token.shape && manager.combatOf(room, mapId)?.active) {
+        manager.renameCombatantByToken(room, mapId, token.id, shapeName(token));
+        ctx.syncCombat(room, mapId);
+      }
+      // Polymorph обнулил пул: форма снята, концентрация кастера прекращается.
+      if (shapeSource && !token.shape) {
+        for (const c of manager.clearConcentration(room, shapeSource)) {
+          ctx.emitToken(room, 'token:update', c.mapId, c.token);
+        }
+      }
       const controllerId = manager.controllerOfToken(room, token);
       if (controllerId) ctx.emitResources(room, controllerId);
       ctx.notifyPlayers(room);

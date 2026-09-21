@@ -191,6 +191,16 @@ function parseSpeed(value: unknown): number {
   return best || 30;
 }
 
+/** Fly Speed в любом виде 5e.tools (`fly: 60`, `fly: "60"`, `fly: true`, `fly: {…}`). */
+function parseFly(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const fly = value.fly;
+  if (typeof fly === 'number') return fly > 0;
+  if (typeof fly === 'string') return Number.parseFloat(fly) > 0;
+  if (fly === true) return true;
+  return isRecord(fly);
+}
+
 function parseSenses(value: unknown): Sense[] {
   const out: Sense[] = [];
   for (const text of Array.isArray(value) ? value : []) {
@@ -688,6 +698,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     ...(saves ? { saves } : {}),
     cells: cellsForSize(size),
     speed: parseSpeed(raw.speed),
+    ...(parseFly(raw.speed) ? { fly: true } : {}),
     senses: parseSenses(raw.senses),
     ...(multiattack ? { multiattack } : {}),
     attacks: attacks.slice(0, 12),

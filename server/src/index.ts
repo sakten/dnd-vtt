@@ -161,7 +161,14 @@ app.use(
   },
   express.static(UPLOADS_DIR)
 );
-app.use(express.static(CLIENT_DIST));
+app.use(
+  express.static(CLIENT_DIST, {
+    // index.html не кэшируем: иначе браузер держит старый бандл после обновления.
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    },
+  })
+);
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/socket.io/')) {
     next();

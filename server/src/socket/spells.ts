@@ -2,6 +2,7 @@ import {
   actionSlotAvailable,
   characterLevel,
   featSpellGrants,
+  invocationAtWillSelfOnly,
   invocationCoversSpell,
   restrictionsFor,
   rollDice,
@@ -17,6 +18,7 @@ import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { removeConcSummonsOf, summonSourceIds } from './summons';
+import { endShapesOf, spellsInShapeAllowed } from './forms';
 import { removeZonesOfSource } from './zones';
 
 export function registerSpellHandlers(ctx: ConnCtx) {
@@ -30,6 +32,11 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const { room, token } = scope;
     if (rejectIfIncapacitated(ctx, token)) return;
     if (rejectIfSpellsBlocked(ctx, token)) return;
+    // В форме зверя каст запрещён (кроме Beast Spells, друид 18+).
+    if (token.shape && !spellsInShapeAllowed(room, token)) {
+      fail(ctx, 'shapeInForm');
+      return;
+    }
 
     const spell = findSpell(spellKey);
     if (!spell) return;
@@ -39,6 +46,15 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
     // Инвокация (Armor of Shadows, Mask of Many Faces…): каст без ячейки и подготовки.
     const atWill = isCharacter && !!sheet && invocationCoversSpell(sheet, spellKey);
+    // At-will «на себя» (Armor of Shadows и подобные): цель — только сам кастер.
+    if (atWill && invocationAtWillSelfOnly(spellKey)) {
+      const ids = Array.isArray(targetIds) ? targetIds : [];
+      if (ids.some((id) => id !== token.id)) {
+        fail(ctx, 'spellSelfOnly');
+        return;
+      }
+      targetIds = [token.id];
+    }
 
     let className: string | undefined;
     if (isCharacter && sheet) {
@@ -157,6 +173,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const changed = manager.clearConcentration(room, token.id);
     removeZonesOfSource(ctx, room, token.id);
     removeConcSummonsOf(ctx, room, summonSourceIds(room, token));
+    endShapesOf(ctx, room, summonSourceIds(room, token));
     if (!changed.length) return;
     for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
     ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });

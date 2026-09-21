@@ -1,4 +1,4 @@
-import {
+﻿import {
   abilityMod,
   autoFailSave,
   concentrationDc,
@@ -26,6 +26,7 @@ import type { Room } from '../roomTypes';
 import { actorStats } from './actor';
 import { abilitiesForToken, turnStateFor } from './combat';
 import { controllerIdOfToken } from './helpers';
+import { revertShape, shapeGrid } from './shape';
 
 /** Зависимости домена эффектов: сохранение и зеркалирование HP персонажа в токены. */
 export interface EffectsDeps {
@@ -44,6 +45,13 @@ export function damageDefensesForToken(room: Room, token: Token): DamageDefense[
 export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey): number {
   const controllerId = controllerIdOfToken(room, token);
   const sheet = controllerId ? room.sheets[controllerId] : undefined;
+  // В форме спасброски — сводные (владения свои, явные бонусы зверя выше своих).
+  if (token.shape) {
+    const stats = actorStats(room, token);
+    const explicit = stats.saves?.[ability];
+    if (typeof explicit === 'number') return explicit;
+    return abilityMod(stats.abilities?.[ability] ?? 10);
+  }
   if (sheet) {
     const mod = abilityMod(sheet.abilities[ability] ?? 10);
     return sheet.saves[ability] ? mod + sheetProficiencyBonus(sheet) : mod;
@@ -435,6 +443,22 @@ export function adjustTokenHp(
   opts: { crit?: boolean } = {}
 ): { mapId: string; token: Token }[] {
   if (delta < 0) wakeOnDamage(m, room, token);
+  // Урон в форме: сначала отдельный пул формы; обнуление — возврат.
+  if (delta < 0 && token.shape) {
+    const shape = token.shape;
+    const absorbed = Math.min(shape.hp, -delta);
+    shape.hp -= absorbed;
+    delta += absorbed;
+    if (shape.hp <= 0) {
+      const carry = shape.carryOverflow === true;
+      revertShape(token, shapeGrid(room, mapId));
+      // Polymorph обнулился: спелл кончается, избыток урона теряется.
+      if (!carry) {
+        m.saveSoon(room);
+        return [{ mapId, token }];
+      }
+    }
+  }
   const controllerId = controllerIdOfToken(room, token);
   const res = controllerId ? room.resources[controllerId] : undefined;
   if (controllerId && res && res.hp.max > 0) {
@@ -473,3 +497,4 @@ export function adjustTokenHp(
   m.saveSoon(room);
   return [{ mapId, token }];
 }
+

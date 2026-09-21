@@ -7,6 +7,7 @@ import { registerDoorHandlers } from './socket/doors';
 import { registerLibraryHandlers } from './socket/library';
 import { registerCombatHandlers } from './socket/combat';
 import { registerTokenHandlers } from './socket/token';
+import { registerFormHandlers } from './socket/forms';
 import { registerChatHandlers } from './socket/chat';
 import { registerSheetHandlers } from './socket/sheet';
 import { registerResourceHandlers } from './socket/resources';
@@ -28,6 +29,7 @@ export function registerHandlers(ctx: ConnCtx) {
   registerLibraryHandlers(ctx);
   registerCombatHandlers(ctx);
   registerTokenHandlers(ctx);
+  registerFormHandlers(ctx);
   registerChatHandlers(ctx);
   registerSheetHandlers(ctx);
   registerResourceHandlers(ctx);

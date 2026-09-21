@@ -4,6 +4,7 @@ import {
   attacksPerAction,
   choiceSpellGrants,
   classFeatures,
+  druidLevelOf,
   featSpellGrants,
   grantedSpells,
   invocationAtWillSpells,
@@ -101,7 +102,9 @@ export function useActionContext(): ActionContext | null {
     const activeEntry =
       combat.active && combat.currentIndex >= 0 ? combat.entries[combat.currentIndex] : undefined;
     const legendarySlot = !!activeEntry?.legendaryOwnerId && activeEntry.tokenId === token.id;
-    const weapons: { entry: AttackEntry; index: number }[] = (isCharacter ? sheet?.attacks ?? [] : token.attacks)
+    // В форме зверя (Wild Shape/Polymorph) оружие и атаки — из статблока формы.
+    const inShape = !!token.shape;
+    const weapons: { entry: AttackEntry; index: number }[] = (isCharacter && !inShape ? sheet?.attacks ?? [] : token.attacks)
       .map((entry, index) => ({ entry, index }))
       .filter((x) => attackIsActive(x.entry));
     // «Выпутаться» (Web и подобные): динамические действия из эффектов токена.
@@ -115,11 +118,15 @@ export function useActionContext(): ActionContext | null {
         description: e.name,
       }));
     const features = [...(isCharacter && sheet ? classFeatures(sheet.classes) : []), ...escapeActions];
-    const attacksPer = isCharacter ? attacksPerAction(sheet?.classes ?? []) : Math.max(1, token.statblock?.multiattack ?? 1);
+    const attacksPer = isCharacter && !inShape
+      ? attacksPerAction(sheet?.classes ?? [])
+      : Math.max(1, token.statblock?.multiattack ?? 1);
 
     const byKey = new Map((spells ?? []).map((s) => [s.key, s]));
     let panelSpells: Spell[] = [];
-    if (isCharacter) {
+    // Beast Spells (друид 18+): каст в форме разрешён.
+    const sheetSpells = isCharacter && (!inShape || druidLevelOf(sheet?.classes) >= 18);
+    if (sheetSpells) {
       if (sheet) {
         const keys = new Set<string>();
         for (const s of sheet.spells ?? []) keys.add(s.key);

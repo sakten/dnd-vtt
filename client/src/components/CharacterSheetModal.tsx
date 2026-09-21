@@ -23,6 +23,7 @@ import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import FeatsForm from './FeatsForm';
 import InvocationsForm from './InvocationsForm';
+import WildShapeForm from './WildShapeForm';
 import Modal from './Modal';
 import SpellsPanel from './SpellsPanel';
 
@@ -310,6 +311,10 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
 
         {tab === 'talents' && (
           <>
+            <WildShapeForm
+              sheet={draft}
+              onChange={(known) => setDraft((d) => (d ? { ...d, wildShape: { known } } : d))}
+            />
             <InvocationsForm
               sheet={draft}
               onChange={(invocations) => setDraft((d) => (d ? { ...d, invocations } : d))}

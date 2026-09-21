@@ -87,6 +87,15 @@ function spellEffect(
 }
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
+  /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
+  'XPHB:Polymorph': {
+    key: 'XPHB:Polymorph',
+    name: 'Polymorph',
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'wis' },
+    shape: { kind: 'polymorph', crByTarget: true },
+  },
   'XPHB:Shield': spellEffect('XPHB:Shield', 'Shield', [
     {
       name: 'Shield',

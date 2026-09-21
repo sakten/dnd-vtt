@@ -61,6 +61,8 @@ export type TargetingState =
       slotLevel?: number;
       advantage?: 'a' | 'd';
       label: string;
+      /** Polymorph: выбранная форма-зверь (ключ каталога). */
+      summonKey?: string;
     }
   | {
       kind: 'rollAttack';
@@ -223,6 +225,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           slotLevel: t.slotLevel,
           advantage: t.advantage,
           targetIds: [targetId],
+          ...(t.summonKey ? { summonKey: t.summonKey } : {}),
         },
       },
     };

@@ -146,6 +146,13 @@
   min-height: 0;
 }
 
+.ap-shape-picker {
+  max-height: 45%;
+  overflow-y: auto;
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 .ap-panel {
   flex: 1;
   display: flex;

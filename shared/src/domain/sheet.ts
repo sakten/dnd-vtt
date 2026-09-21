@@ -51,6 +51,8 @@ export interface CharacterSheet {
   choices?: FeatureChoice[];
   /** Выбранные воззвания варлока (ключи `XPHB:…`) — R8.10. */
   invocations?: string[];
+  /** Известные формы друида (ключи бестиария) — Wild Shape/Polymorph. */
+  wildShape?: { known?: string[] };
   hpMax: string;
   ac: string;
   /** Базовая скорость, футы. */

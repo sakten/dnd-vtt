@@ -114,6 +114,10 @@ export interface ClientToServerEvents {
   /** Быстрое изменение HP токена (только DM): delta>0 — лечение, <0 — урон. */
   'token:hp': (payload: { mapId: string; id: string; delta: number }) => void;
   'token:remove': (payload: { mapId: string; id: string }) => void;
+  /** Принять форму Wild Shape (друид, известная форма из листа). */
+  'token:shape': (payload: { mapId: string; id: string; formKey: string }) => void;
+  /** Вернуться в свою форму (Wild Shape/Polymorph). */
+  'token:revert': (payload: { mapId: string; id: string }) => void;
   'chat:send': (text: string) => void;
   'dice:roll': (payload: {
     expression: string;

@@ -12,7 +12,7 @@ import type { ConditionKey, EffectDuration, EffectEscalation, Modifier, Restrict
  * строки с ними в каталог не заводим.
  */
 
-export type AutomationResolution = 'attack' | 'save' | 'auto' | 'effect' | 'utility' | 'summon' | 'manual';
+export type AutomationResolution = 'attack' | 'save' | 'auto' | 'effect' | 'utility' | 'summon' | 'shape' | 'manual';
 
 export interface AutomationAttack {
   rangeType: 'melee' | 'ranged';
@@ -169,6 +169,13 @@ export interface SummonDef {
   spellDc?: boolean;
 }
 
+/** Трансформа цели заклинанием (Polymorph): форма — зверь, выбранный кастером. */
+export interface ShapeDef {
+  kind: 'polymorph';
+  /** Максимальный CR формы: CR/уровень цели (у монстров без CR — без проверки). */
+  crByTarget?: boolean;
+}
+
 export interface AutomationUtility {
   kind:
     | 'extraAction'
@@ -213,6 +220,8 @@ export interface AutomationDef extends AutomationPayload {
   targeting?: ActionTargeting;
   zone?: ZoneDef;
   summon?: SummonDef;
+  /** Трансформа цели (Polymorph): спасбросок + форма-зверь. */
+  shape?: ShapeDef;
   /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   utility?: AutomationUtility;

@@ -27,7 +27,6 @@ export interface ActionTargeting {
   targets?: number;
   area?: AreaSpec;
 }
-
 export interface MonsterAbilityAttack {
   rangeType: 'melee' | 'ranged';
   /** Бонус к попаданию; пусто — из статблока, затем +3. */
@@ -107,4 +106,14 @@ export interface ReactionOffer {
   sourceName?: string;
   options: ReactionOption[];
   expiresAt: number;
+}
+
+/**
+ * Таргетинг действия — единственная точка чтения: канон `action.targeting`,
+ * фолбэк на `ability.targeting` для легаси-снимков комнат.
+ */
+export function actionTargeting(
+  action: Pick<ActionDef, 'targeting' | 'ability'>
+): ActionTargeting | undefined {
+  return action.targeting ?? action.ability?.targeting;
 }

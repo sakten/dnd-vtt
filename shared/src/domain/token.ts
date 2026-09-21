@@ -26,6 +26,8 @@ export interface TokenFields {
   statblock?: TokenStatblock;
   /** Метка призыва: с каким кастером связан срок жизни токена. */
   summon?: TokenSummon;
+  /** Форма Wild Shape/Polymorph: подмена полей токена и свой пул HP. */
+  shape?: TokenShape;
 }
 
 /** Призыв, созданный заклинанием: связь с кастером для снятия/концентрации. */
@@ -36,6 +38,28 @@ export interface TokenSummon {
   spellKey?: string;
   /** Особая форма Pact of the Chain: фамильяр может атаковать. */
   pact?: boolean;
+}
+
+/** Форма Wild Shape/Polymorph: подмена статов резолвером и свой пул HP. */
+export interface TokenShape {
+  /** Ключ формы в каталоге бестиария. */
+  key: string;
+  /** Имя зверя (для чипа формы и сообщений). */
+  name: string;
+  kind: 'wildShape' | 'polymorph';
+  /** Остаток пула формы: урон идёт сюда, пул не смешивается с temp HP токена. */
+  hp: number;
+  maxHp: number;
+  /** AC формы, зафиксированный при принятии (круг луны: 13+WIS). */
+  ac?: number;
+  /** Клетки «своей» формы до трансформации (для возврата). */
+  ownCells?: number;
+  /** Пул на нуле: избыток урона переносится на свои HP (Wild Shape); Polymorph — нет. */
+  carryOverflow?: boolean;
+  /** Источник (Polymorph): токен-кастер, по чьей концентрации держится форма. */
+  sourceTokenId?: string;
+  /** Заклинание-источник (Polymorph). */
+  spellKey?: string;
 }
 
 export interface LibraryItem extends TokenFields {

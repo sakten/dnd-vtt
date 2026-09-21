@@ -1,5 +1,6 @@
 import type { Token } from 'shared';
 import type { Room } from '../roomTypes';
+import { shapeStatblock } from './shape';
 
 /** Зависимости домена ресурсов: сохранение комнаты. */
 export interface ResourceDeps {
@@ -35,7 +36,7 @@ export function spendSpellSlot(m: ResourceDeps, room: Room, playerId: string, le
 
 /** Списывает ячейку заклинания монстра из статблока; без настроенных ячеек — без учёта. */
 export function spendTokenSpellSlot(m: ResourceDeps, room: Room, token: Token, level: number): boolean {
-  const sc = token.statblock?.spellcasting;
+  const sc = shapeStatblock(token)?.spellcasting;
   if (!sc) return false;
   if (!sc.slots?.length) return true;
   const slot = sc.slots.find((s) => s.level === level && s.current > 0);
