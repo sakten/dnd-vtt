@@ -83,8 +83,8 @@ export function loadChunk(
       apply(mod.default);
       notify();
       return;
-    } catch (e) {
-      console.warn(`Не удалось загрузить чанк локализации «${id}»:`, e);
+    } catch {
+      // Первый сбой не считаем окончательным: ниже фоновые повторы.
     } finally {
       settle();
     }
@@ -95,12 +95,12 @@ export function loadChunk(
         apply(mod.default);
         notify();
         return;
-      } catch (e) {
-        console.warn(`Повторная загрузка чанка локализации «${id}» не удалась (${attempt}/${CHUNK_RETRIES}):`, e);
+      } catch {
+        // Повтор не удался — ждём следующего.
       }
     }
     failedAt.set(id, Date.now());
-    console.error(`Чанк локализации «${id}» не загружен после ${CHUNK_RETRIES + 1} попыток; повтор — после паузы или перезагрузки.`);
+    console.warn(`Чанк локализации «${id}» не загружен после ${CHUNK_RETRIES + 1} попыток; повтор — после паузы или перезагрузки.`);
   })().finally(() => {
     settle();
     pending.delete(id);

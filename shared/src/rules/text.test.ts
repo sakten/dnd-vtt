@@ -38,7 +38,6 @@ describe('мультиязычный слой оверлеев', () => {
   it('неизвестный (непоставленный) язык: загрузка без падения, геттеры → undefined', async () => {
     vi.useFakeTimers();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => void 0);
-    const error = vi.spyOn(console, 'error').mockImplementation(() => void 0);
     try {
       await loadNames('de');
       await loadSpellText('de');
@@ -46,11 +45,9 @@ describe('мультиязычный слой оверлеев', () => {
       await loadFeatureText('de', 'fighter');
       await vi.advanceTimersByTimeAsync(5000); // дождаться фоновых повторов и кэша провала
       expect(warn).toHaveBeenCalled();
-      expect(error).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
       warn.mockRestore();
-      error.mockRestore();
     }
     expect(spellName('XPHB:Fireball', 'de')).toBeUndefined();
     expect(spellDescription('XPHB:Fireball', 'de')).toBeUndefined();
