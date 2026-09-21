@@ -1,4 +1,4 @@
-﻿import { actionSlotAvailable, characterLevel, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type ErrorPayload, type MapInfo, type Token } from 'shared';
+﻿import { actionSlotAvailable, characterLevel, crValue, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type ErrorPayload, type MapInfo, type Token } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
@@ -104,10 +104,12 @@ export function shapePlacementIssue(
   return undefined;
 }
 
-/** Максимальный CR формы Polymorph: уровень персонажа (у монстров без CR — нет проверки). */
+/** Максимальный CR формы Polymorph: уровень персонажа; у монстра — его CR (XPHB). */
 export function polymorphMaxCr(room: Room, target: Token): number | undefined {
   const { sheet } = sheetOfToken(room, target);
-  return sheet ? characterLevel(sheet.classes) : undefined;
+  if (sheet) return characterLevel(sheet.classes);
+  const cr = target.statblock?.cr;
+  return cr ? crValue(cr) : undefined;
 }
 
 /** Polymorph: превращает цель в выбранного зверя (пул = HP зверя, без переноса урона). */

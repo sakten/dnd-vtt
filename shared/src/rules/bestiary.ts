@@ -769,6 +769,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
     ],
     statblock: {
       abilities: entry.abilities,
+      ...(entry.cr ? { cr: entry.cr } : {}),
       ...(entry.saves ? { saves: entry.saves } : {}),
       ...(entry.spellcasting ? { spellcasting: entry.spellcasting } : {}),
       ...(multiattack ? { multiattack } : {}),

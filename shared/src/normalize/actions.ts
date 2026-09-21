@@ -164,6 +164,10 @@ export function normalizeStatblock(raw: unknown): TokenStatblock | undefined {
   if (typeof s.saveDc === 'number' && s.saveDc >= 1) {
     statblock.saveDc = clampInt(s.saveDc, 1, 40, 10);
   }
+  if (typeof s.cr === 'string') {
+    const cr = s.cr.trim().slice(0, 8);
+    if (/^\d+(?:\/\d+)?$/.test(cr)) statblock.cr = cr;
+  }
   if (s.spellcasting && typeof s.spellcasting === 'object' && isAbilityKey(s.spellcasting.ability)) {
     const sc: NonNullable<TokenStatblock['spellcasting']> = { ability: s.spellcasting.ability };
     if (typeof s.spellcasting.dc === 'number') sc.dc = clampInt(s.spellcasting.dc, 0, 40, 0);

@@ -140,6 +140,28 @@ describe('actorStats', () => {
     expect(stats.saves).toBeUndefined();
     expect(stats.senses).toEqual(wolf.senses);
   });
+
+  it('монстр в форме: статы зверя из резолвера, HP — поля токена', () => {
+    const wolf = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
+    const room = makeRoom();
+    const token = makeToken('t1', {
+      name: 'Огр',
+      ac: '11',
+      hpMax: '30',
+      hpCurrent: 30,
+      shape: { key: 'XMM:Wolf', name: 'Wolf', kind: 'polymorph', hp: 11, maxHp: 11, ac: 12 },
+    });
+
+    const stats = actorStats(room, token);
+    expect(stats.character).toBe(false);
+    expect(stats.name).toBe('Wolf');
+    expect(stats.ac).toBe(12);
+    expect(stats.speed).toBe(wolf.speed);
+    expect(stats.cells).toBe(1);
+    expect(stats.statblock?.cr).toBe('1/4');
+    expect(stats.statblock?.actions?.length).toBeGreaterThan(0);
+    expect(stats.hp).toEqual({ max: 30, current: 30, temp: 0 });
+  });
 });
 
 describe('freezeCharacterTokens', () => {

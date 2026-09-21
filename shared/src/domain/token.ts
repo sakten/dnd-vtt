@@ -112,6 +112,8 @@ export interface TokenStatblock {
   saveDc?: number;
   /** Число атак за действие (мультиатака), по умолчанию 1. */
   multiattack?: number;
+  /** CR монстра строкой каталога (`1/4`, `5`) — для лимита формы Polymorph. */
+  cr?: string;
   legendary?: { max: number; actions: ActionDef[] };
   /** Особые действия/способности монстра. */
   actions?: ActionDef[];

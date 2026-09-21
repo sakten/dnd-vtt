@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterSheet } from 'shared';
+import { bestiaryTokenFields, type CharacterSheet } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
@@ -11,6 +11,7 @@ import { spellStatsFor } from './spellStats';
 import { validateSpellCast } from './spellResolve';
 
 const KNOWN = ['XMM:Wolf', 'XMM:Crocodile', 'XMM:Polar Bear', 'XMM:Owl'];
+const WOLF_ENTRY = bestiaryData.entries.find((e) => e.key === 'XMM:Wolf')!;
 
 function sheetWith(level: number, known: string[] = KNOWN, moon = false): CharacterSheet {
   return {
@@ -255,8 +256,7 @@ describe('формы: каст', () => {
 });
 
 describe('формы: Polymorph — валидация до списания', () => {
-  it('без цели отклоняется (spellNoTarget)', () => {
-    const { room, token } = setup(6);
+  it('без цели отклоняется (spellNoTarget)', () => {    const { room, token } = setup(6);
     const invalid = validateSpellCast(room, {
       caster: token,
       mapId: 'm1',
@@ -269,6 +269,32 @@ describe('формы: Polymorph — валидация до списания', (
       author: 'A',
     });
     expect(invalid).toEqual({ code: 'spellNoTarget' });
+  });
+
+  it('CR цели-монстра ограничивает форму', () => {
+    const { room, map, token } = setup(6);
+    const monster = makeToken('t2', {
+      name: 'Волк',
+      x: 150,
+      y: 100,
+      hpMax: '11',
+      hpCurrent: 11,
+      ac: '12',
+      statblock: bestiaryTokenFields(WOLF_ENTRY).statblock,
+    });
+    map.tokens.push(monster);
+    const base = {
+      caster: token,
+      mapId: 'm1',
+      spell: findSpell('XPHB:Polymorph')!,
+      castLevel: 4,
+      characterLevel: 6,
+      stats: spellStatsFor(room, token),
+      targets: [monster],
+      author: 'A',
+    };
+    expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Polar Bear' })).toEqual({ code: 'shapeNoForm' });
+    expect(validateSpellCast(room, { ...base, summonKey: 'XMM:Wolf' })).toBeUndefined();
   });
 
   it('нет места под форму: каст отклонён, ячейка и концентрация целы', () => {

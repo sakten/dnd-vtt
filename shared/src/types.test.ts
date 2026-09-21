@@ -274,6 +274,13 @@ describe('normalizeStatblock', () => {
     expect(empty?.saveDc).toBeUndefined();
   });
 
+  it('CR монстра: валидные строки, мусор отбрасывается', () => {
+    expect(normalizeStatblock({ abilities: {}, cr: ' 1/2 ' })?.cr).toBe('1/2');
+    expect(normalizeStatblock({ abilities: {}, cr: '13' })?.cr).toBe('13');
+    expect(normalizeStatblock({ abilities: {}, cr: 'abc' })?.cr).toBeUndefined();
+    expect(normalizeStatblock({ abilities: {}, cr: {} })?.cr).toBeUndefined();
+  });
+
   it('ячейки и список заклинаний кастера-монстра', () => {
     const statblock = normalizeStatblock({
       abilities: {},

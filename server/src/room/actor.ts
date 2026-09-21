@@ -61,6 +61,28 @@ export function actorStats(room: Room, token: Token): ActorStats {
     temp: token.hpTemp ?? 0,
   };
   if (!sheet) {
+    // Монстр/NPC в форме: статы целиком зверя (резолвер), HP — поля токена.
+    const form = token.shape ? formOf(token) : undefined;
+    if (form) {
+      return {
+        character: false,
+        controllerId,
+        name: form.fields.name,
+        abilities: form.entry.abilities,
+        ac: form.ac,
+        speed: form.entry.speed,
+        senses: [...form.entry.senses],
+        attacks: form.fields.attacks,
+        damageDefenses: form.fields.damageDefenses,
+        hp: tokenHp,
+        initiativeBonus: form.fields.initiativeBonus,
+        ...(form.entry.saves ? { saves: { ...form.entry.saves } } : {}),
+        description: form.fields.description,
+        imageUrl: form.fields.imageUrl,
+        cells: form.fields.cells,
+        statblock: form.fields.statblock,
+      };
+    }
     return {
       character: false,
       controllerId,
