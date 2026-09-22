@@ -23,7 +23,7 @@ import { shapeStatblock } from '../../room/shape';
 import { pushSaveMessage } from '../messages';
 import { applyDamage } from '../damage';
 import { executeAutomation } from '../automation';
-import { resolveWeaponAttack, type WeaponAttackPlan, type WeaponAttackPrep } from '../attackResolve';
+import { resolveWeaponAttack, type WeaponAttackPrep } from '../attackResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, choiceToken, classLevelOf, reactionSlotFree, type ReactionChoice } from './internal';
 import { opportunityAttack } from './opportunity';
@@ -225,8 +225,9 @@ export function openRedirectWindow(
   ctx: ConnCtx,
   room: Room,
   mapId: string,
-  plan: WeaponAttackPlan,
-  redirect: { reactorId: string; mapId: string }
+  plan: { attacker: Token | null; attack: Pick<AttackEntry, 'rangeType' | 'damageType'> },
+  redirect: { reactorId: string; mapId: string },
+  opts: { onDone?: () => void } = {}
 ): void {
   const monk = ctx.manager.findToken(room, redirect.mapId, redirect.reactorId);
   const attacker = plan.attacker;
@@ -267,6 +268,7 @@ export function openRedirectWindow(
         }
       }
       ctx.syncCombat(currentRoom, mapId);
+      opts.onDone?.();
     },
   });
 }
@@ -276,7 +278,7 @@ export function applyDeflectRedirect(
   ctx: ConnCtx,
   room: Room,
   choice: ReactionChoice,
-  plan: WeaponAttackPlan,
+  plan: { attacker: Token | null; attack: Pick<AttackEntry, 'damageType'> },
   def: ReactionFeatureDef
 ): void {
   const monk = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
@@ -316,7 +318,11 @@ export function applyDeflectRedirect(
 }
 
 /** Офферы Направленного удара (+10 к промаху): сам атакующий (без реакции) и союзники в 30 фт. */
-export function rollBonusOffers(ctx: ConnCtx, room: Room, plan: WeaponAttackPlan): ReactionOfferInput[] {
+export function rollBonusOffers(
+  ctx: ConnCtx,
+  room: Room,
+  plan: { attacker: Token | null; attackerMapId: string | null }
+): ReactionOfferInput[] {
   const attacker = plan.attacker;
   const attackerMapId = plan.attackerMapId;
   if (!attacker || !attackerMapId) return [];
@@ -346,7 +352,7 @@ export function rollBonusOffers(ctx: ConnCtx, room: Room, plan: WeaponAttackPlan
 }
 
 /** Тратит ресурсы выбранных Направленных ударов; возвращает суммарный бонус к броску. */
-export function applyRollBonusChoices(ctx: ConnCtx, room: Room, plan: WeaponAttackPlan, choices: ReactionChoice[]): number {
+export function applyRollBonusChoices(ctx: ConnCtx, room: Room, choices: ReactionChoice[]): number {
   let bonus = 0;
   for (const choice of choices) {
     const id = choice.optionId ?? '';

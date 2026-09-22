@@ -87,6 +87,12 @@ describe('инвокации: механики движка', () => {
     expect(eldritchBlastMods(s)).toEqual({ agonizing: true, repelling: true, spear: false });
   });
 
+  it('Pact of the Chain даёт Find Familiar без ячейки', () => {
+    const s = sheet({ invocations: ['XPHB:Pact of the Chain'] });
+    expect(invocationAtWillSpells(s)).toEqual(['XPHB:Find Familiar']);
+    expect(invocationAutomated('XPHB:Pact of the Chain', { spellAutomated: () => true })).toBe(true);
+  });
+
   it('каждый ключ механики существует в каталоге', () => {
     const keys = new Set(invocationsData.invocations.map((i) => i.key));
     for (const key of Object.keys(INVOCATION_MECHANICS)) expect(keys.has(key), key).toBe(true);
@@ -107,7 +113,7 @@ describe('маркер автоматизации инвокаций', () => {
   it('механизированные — да, остальные — красный маркер', () => {
     expect(invocationAutomated("XPHB:Devil's Sight")).toBe(true);
     expect(invocationAutomated('XPHB:Eldritch Mind')).toBe(true);
-    expect(invocationAutomated('XPHB:Pact of the Chain')).toBe(true);
+    expect(invocationAutomated('XPHB:Pact of the Chain', { spellAutomated: () => true })).toBe(true);
     expect(invocationAutomated('XPHB:Agonizing Blast')).toBe(true);
     expect(invocationAutomated('XPHB:Pact of the Blade')).toBe(false);
     expect(invocationAutomated('XPHB:Thirsting Blade')).toBe(false);

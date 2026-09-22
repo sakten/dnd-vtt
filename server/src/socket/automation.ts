@@ -13,6 +13,7 @@ import {
   hostileTokens,
   proficiencyBonus,
   resolveAbilityMods,
+  resolveAttack,
   rollDice,
   sideMatches,
   statNumber,
@@ -34,7 +35,7 @@ import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
-import { attackDamageRoll, attackHitRoll, attackUnseen } from './attackResolve';
+import { attackDamageRoll, attackHitRoll, attackUnseen, type WeaponDamageMods } from './attackResolve';
 import { fail, type ErrorCode } from './errors';
 import { applyEffectTo, type ApplyEffectArgs } from './effectsApply';
 import { applyForcedMovement } from './force';
@@ -45,6 +46,8 @@ import { misdirectCheck } from './misdirect';
 import { startMovementTurns } from './moveTurns';
 import { audienceOf } from './reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
+import { openAttackHitWindows, openAttackMissWindows, offerDamageReactions } from './reactions/windows';
+import { openRedirectWindow } from './reactions/features';
 import { maybeRollAnim } from './rollAnim';
 import { runSummon, removeConcSummonsOf, familiarCannotAttack } from './summons';
 import { applyPolymorphForm, endShapesOf } from './forms';
@@ -600,17 +603,32 @@ function applyResult(
   run: AutomationRun,
   target: Token,
   roll: DiceRollResult,
-  opts: { subject?: string; halve?: boolean; kind?: 'damage' | 'heal'; crit?: boolean; silent?: boolean } = {}
-): void {
+  opts: {
+    subject?: string;
+    halve?: boolean;
+    kind?: 'damage' | 'heal';
+    crit?: boolean;
+    silent?: boolean;
+    /** Модификаторы реакций (половина/снижение/добавка к урону) из окна попадания. */
+    mods?: WeaponDamageMods;
+  } = {}
+): ReturnType<typeof applyDamage> {
+  const mods = run.healing ? undefined : opts.mods;
+  const parts = roll.damageParts.map((part) => ({ ...part }));
+  const bonus = (mods?.extraDamage ?? 0) - (mods?.flatReduction ?? 0);
+  if (bonus && parts.length) {
+    const main = parts.find((part) => (part.damageType ?? run.damageType) === run.damageType) ?? parts[0]!;
+    main.amount += bonus;
+  }
   const result = applyDamage(run.ctx, {
     target,
     mapId: run.mapId,
-    amount: healValue(run, roll.total),
+    amount: Math.max(0, healValue(run, roll.total) + bonus),
     damageType: run.damageType,
-    ...(run.healing ? {} : { parts: roll.damageParts }),
+    ...(run.healing ? {} : { parts }),
     ...(opts.silent ? {} : { roll, author: run.author, params: { subject: opts.subject ?? run.subject, damageType: run.damageType } }),
     kind: opts.kind ?? (run.healing ? 'heal' : 'damage'),
-    ...(opts.halve !== undefined && { halve: opts.halve }),
+    ...(opts.halve !== undefined ? { halve: opts.halve } : mods?.halveDamage ? { halve: true } : {}),
     ...(opts.crit !== undefined && { crit: opts.crit }),
   });
   healAfter(run, target);
@@ -625,6 +643,7 @@ function applyResult(
       });
     }
   }
+  return result;
 }
 
 /** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
@@ -635,10 +654,16 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   const castMap = ctx.manager.findMap(room, mapId);
   const gridSize = castMap ? gridSizeOfMap(castMap) : 50;
   const penalty = exhaustionRollPenalty(caster.conditions);
-  for (let i = 0; i < count; i++) {
-    // Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
+
+  /**
+   * Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
+   * Окна реакций приостанавливают резолв, поэтому лучи — рекурсивная
+   * последовательность: следующий запускается из resume окна.
+   */
+  const resolveRay = (i: number): void => {
+    if (i >= count) return;
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
-    if (!target) continue;
+    if (!target) return resolveRay(i + 1);
     const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
     const effectParts = attackRollParts(caster.effects, target.effects, { rangeType, attackType: rangeType }, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
@@ -654,13 +679,14 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       unseenAttacker: unseen?.unseenAttacker,
     });
     const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
+    const ac = ctx.manager.acForToken(room, target);
     const hit = attackHitRoll({
       attackExpr: withRollParts(d20Expr(stats.attack), { flat: effectParts.flat, dice: effectParts.dice }),
       advCount: advantage,
       disCount: disadvantage,
       penalty,
       critMin: 20,
-      targetAc: ctx.manager.acForToken(room, target),
+      targetAc: ac,
       autoCrit: autoCrit(target.conditions, distance, rangeType),
     });
     pushRollMessage(ctx, room, {
@@ -669,23 +695,81 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       kind: 'attack',
       params: { subject: label, hit: hit.hitSuccess ? 'hit' : 'miss', penalty: penalty || undefined },
     });
-    // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друг друга.
+    // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друга.
     if (count === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);
-    if (hit.hitSuccess === false) continue;
-    // Mirror Image: попадание может принять образ вместо цели.
-    if (misdirectCheck(ctx, room, mapId, target, caster)) continue;
-    if (expression) {
-      const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
-      const damageRoll = attackDamageRoll(expression, damageParts, hit.crit);
-      applyResult(run, target, damageRoll, { subject: label, crit: hit.crit });
+
+    const windowPlan = { attacker: caster, attackerMapId: mapId, target, targetMapId: mapId, damageType, rangeType };
+    const nextRay = () => resolveRay(i + 1);
+
+    /** Урон и эффекты луча; выполняется после окон (промах мог стать попаданием). */
+    const applyRayHit = (mods: WeaponDamageMods, done: () => void) => {
+      // Mirror Image: попадание может принять образ вместо цели.
+      if (misdirectCheck(ctx, room, mapId, target, caster)) return done();
+      let damageRoll: DiceRollResult | undefined;
+      if (expression) {
+        const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
+        damageRoll = attackDamageRoll(expression, damageParts, hit.crit);
+      }
+      const applied = damageRoll
+        ? applyResult(run, target, damageRoll, { subject: label, crit: hit.crit, mods })
+        : undefined;
+      // Отражение атак: удар полностью погашен — окно перенаправления.
+      if (damageRoll && mods.redirect && damageRoll.total <= (mods.flatReduction ?? 0)) {
+        openRedirectWindow(
+          ctx,
+          room,
+          mapId,
+          { attacker: caster, attack: { rangeType, damageType } },
+          mods.redirect,
+          { onDone: done }
+        );
+        return;
+      }
+      if (applied?.applied) offerDamageReactions(ctx, room, mapId, target, caster);
+      if (def.save && def.effects?.length) {
+        const save = rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability);
+        if (save.success) return done();
+      }
+      applyTargetEffects(run, target, stats);
+      if (def.force) applyForcedMovement(ctx, room, mapId, caster, target, def.force);
+      done();
+    };
+
+    /** Окно попадания: Shield/Absorb/Отражение/Режущие слова; onDone — попадание после реакций. */
+    const withHitWindows = (total: number, onDone: (ok: boolean, mods?: WeaponDamageMods) => void) => {
+      if (!castMap) return onDone(true);
+      const opened = openAttackHitWindows(ctx, room, windowPlan, { ac, total, melee: rangeType !== 'ranged' }, (mods) => {
+        if (!ctx.getRoom()) return;
+        // Shield/Парирование: AC мог вырасти после реакций — пересчитываем попадание.
+        const acNow = ctx.manager.acForToken(room, target) + (mods.extraAc ?? 0);
+        onDone(resolveAttack(total, hit.crit, false, acNow), mods);
+      });
+      if (!opened) onDone(true);
+    };
+
+    // Промах: окно реакций (Направленный удар +10, кости вдохновения).
+    if (hit.hitSuccess === false) {
+      const opened = openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
+        if (!ctx.getRoom()) return;
+        const total = hit.hitRoll.total + penalty + bonus + inspiration;
+        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, ac)) return nextRay();
+        withHitWindows(total, (ok, mods) => {
+          if (ok) applyRayHit(mods ?? {}, nextRay);
+          else nextRay();
+        });
+      });
+      if (opened) return;
+      return nextRay();
     }
-    if (def.save && def.effects?.length) {
-      const save = rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability);
-      if (save.success) continue;
-    }
-    applyTargetEffects(run, target, stats);
-    if (def.force) applyForcedMovement(ctx, room, mapId, caster, target, def.force);
-  }
+
+    // Попадание: окно защитных реакций цели и защитников-союзников.
+    withHitWindows(hit.hitRoll.total + penalty, (ok, mods) => {
+      if (ok) applyRayHit(mods ?? {}, nextRay);
+      else nextRay();
+    });
+  };
+
+  resolveRay(0);
 }
 
 /** Эффекты способности/заклинания цели: при попадании или провале спасброска. */

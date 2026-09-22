@@ -204,6 +204,17 @@ export function registerTokenHandlers(ctx: ConnCtx) {
           }
           removeZonesOfSource(ctx, room, token.id);
           ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });
+        } else {
+          // Снятие эффекта-цели: если это была последняя цель каста — концентрация гаснет.
+          let pruned = false;
+          for (const old of removed) {
+            if (!old.concentration || !old.sourceId || !old.sourceKey) continue;
+            for (const changed of manager.pruneConcentration(room, old.sourceId, old.sourceKey)) {
+              emitToken(room, 'token:update', changed.mapId, changed.token);
+            }
+            pruned = true;
+          }
+          if (pruned) syncCombat(room, mapId);
         }
       }
       if (isDm()) {
@@ -251,7 +262,15 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (!scope) return;
       const { room, token } = scope;
       // Эффекты снимаемого токена откатываются, его концентрация и зоны гаснут на всех картах.
-      for (const effect of [...token.effects]) manager.removeEffect(room, token, effect.id);
+      for (const effect of [...token.effects]) {
+        if (!manager.removeEffect(room, token, effect.id)) continue;
+        // У снятой цели могла быть последняя цель каста — концентрация кастера гаснет.
+        if (effect.concentration && effect.sourceId && effect.sourceKey) {
+          for (const c of manager.pruneConcentration(room, effect.sourceId, effect.sourceKey)) {
+            emitToken(room, 'token:update', c.mapId, c.token);
+          }
+        }
+      }
       for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);
       removeZonesOfSource(ctx, room, id);
       removeSummonsOf(ctx, room, summonSourceIds(room, token));

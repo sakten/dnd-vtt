@@ -38,6 +38,11 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
       params: { name: token.name, effect: esc.name, condition: esc.condition },
     });
   }
+  // Целей у каста не осталось — концентрация кастера снята (якоря/чипы обновились).
+  for (const changed of effects.pruned) {
+    ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+  }
+  if (effects.pruned.length) ctx.syncCombat(room, mapId);
 
   // Зоны: аура, вход/выход, startOfTurn/endOfTurn.
   tickZones(ctx, room, mapId, token, phase);

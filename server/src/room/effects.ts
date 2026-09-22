@@ -214,10 +214,13 @@ export function tickEffects(
   saves: { name: string; roll: DiceRollResult; success: boolean }[];
   removed: string[];
   escalated: { name: string; condition: ConditionKey }[];
+  /** Токены с снятой концентрацией (последняя цель каста ушла). */
+  pruned: { mapId: string; token: Token }[];
 } {
   const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
   const removed: string[] = [];
   const escalated: { name: string; condition: ConditionKey }[] = [];
+  const removedConcentration: { sourceId: string; sourceKey: string }[] = [];
   let changed = false;
 
   const kept = token.effects.filter((effect) => {
@@ -259,6 +262,9 @@ export function tickEffects(
     if (remove) {
       changeMaxHp(m, room, token, effect, -1);
       token.conditions = token.conditions.filter((c) => c.effectId !== effect.id);
+      if (effect.concentration && effect.sourceId && effect.sourceKey) {
+        removedConcentration.push({ sourceId: effect.sourceId, sourceKey: effect.sourceKey });
+      }
       changed = true;
     }
     return !remove;
@@ -278,6 +284,9 @@ export function tickEffects(
           changeMaxHp(m, room, other, effect, -1);
           other.conditions = other.conditions.filter((c) => c.effectId !== effect.id);
           removed.push(effect.name);
+          if (effect.concentration && effect.sourceId && effect.sourceKey) {
+            removedConcentration.push({ sourceId: effect.sourceId, sourceKey: effect.sourceKey });
+          }
           changed = true;
           return false;
         }
@@ -287,8 +296,17 @@ export function tickEffects(
     }
   }
 
+  const pruned = new Map<string, { mapId: string; token: Token }>();
+  const seen = new Set<string>();
+  for (const { sourceId, sourceKey } of removedConcentration) {
+    const key = `${sourceId}\u0000${sourceKey}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    for (const c of pruneConcentration(m, room, sourceId, sourceKey)) pruned.set(c.token.id, c);
+  }
+
   if (changed) m.saveSoon(room);
-  return { changed, saves, removed, escalated };
+  return { changed, saves, removed, escalated, pruned: [...pruned.values()] };
 }
 
 /** Эффекты концентрации существа-источника на всех картах. */
@@ -300,6 +318,45 @@ export function concentratingEffectsOf(room: Room, token: Token): EffectInstance
     }
   }
   return out;
+}
+
+/** Служебный якорь концентрации: пустая запись на кастере (без цели, состояний и модификаторов). */
+function isConcentrationAnchor(effect: EffectInstance): boolean {
+  return (
+    effect.duration.type === 'concentration' &&
+    !effect.conditions?.length &&
+    !effect.modifiers.length &&
+    !effect.mark &&
+    !effect.bonusDie &&
+    !effect.light &&
+    !effect.restrictions &&
+    !effect.wakeOnDamage
+  );
+}
+
+/**
+ * Концентрация без цели: после снятия эффекта, если у каста (`sourceId` + `sourceKey`)
+ * не осталось эффектов-целей и нет зоны — снимает концентрацию с кастера.
+ * Области не трогаем: их триггеры живут, пока зона на карте.
+ */
+export function pruneConcentration(
+  m: EffectsDeps,
+  room: Room,
+  sourceId: string,
+  sourceKey: string
+): { mapId: string; token: Token }[] {
+  if (room.scene.maps.some((map) => map.zones.some((z) => z.sourceId === sourceId && z.sourceKey === sourceKey))) {
+    return [];
+  }
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      const remains = token.effects.some(
+        (e) => e.concentration && e.sourceId === sourceId && e.sourceKey === sourceKey && !isConcentrationAnchor(e)
+      );
+      if (remains) return [];
+    }
+  }
+  return clearConcentration(m, room, sourceId);
 }
 
 /** Снимает все эффекты концентрации заклинателя; возвращает изменённые токены. */
@@ -425,13 +482,24 @@ export function markControlledTokensDead(
  * HP ≤ 0 → «Без сознания»/«Мёртв». Возвращает изменившиеся токены для рассылки.
  */
 /** Урон снимает эффекты с `wakeOnDamage` (Sleep, Hypnotic Pattern) вместе с их состояниями. */
-function wakeOnDamage(m: EffectsDeps, room: Room, token: Token) {
-  const waking = token.effects.filter((e) => e.wakeOnDamage);
-  if (!waking.length) return;
-  const ids = new Set(waking.map((e) => e.id));
-  for (const effect of waking) changeMaxHp(m, room, token, effect, -1);
-  token.effects = token.effects.filter((e) => !ids.has(e.id));
-  token.conditions = token.conditions.filter((c) => !(c.effectId && ids.has(c.effectId)));
+function wakeOnDamage(m: EffectsDeps, room: Room, token: Token): { mapId: string; token: Token }[] {
+  const pruned = new Map<string, { mapId: string; token: Token }>();
+  for (const effect of [...token.effects]) {
+    if (!effect.wakeOnDamage) continue;
+    if (!removeEffect(m, room, token, effect.id)) continue;
+    if (!effect.concentration || !effect.sourceId || !effect.sourceKey) continue;
+    for (const c of pruneConcentration(m, room, effect.sourceId, effect.sourceKey)) pruned.set(c.token.id, c);
+  }
+  return [...pruned.values()];
+}
+
+/** Склеивает списки изменённых токенов без дублей (по id токена). */
+function mergeChanges(
+  base: { mapId: string; token: Token }[],
+  extra: { mapId: string; token: Token }[]
+): { mapId: string; token: Token }[] {
+  const seen = new Set(base.map((c) => c.token.id));
+  return [...base, ...extra.filter((c) => !seen.has(c.token.id))];
 }
 
 export function adjustTokenHp(
@@ -442,7 +510,7 @@ export function adjustTokenHp(
   delta: number,
   opts: { crit?: boolean } = {}
 ): { mapId: string; token: Token }[] {
-  if (delta < 0) wakeOnDamage(m, room, token);
+  const woken = delta < 0 ? wakeOnDamage(m, room, token) : [];
   // Урон в форме: сначала отдельный пул формы; обнуление — возврат.
   if (delta < 0 && token.shape) {
     const shape = token.shape;
@@ -476,7 +544,7 @@ export function adjustTokenHp(
     for (const c of changed) {
       applyDownState(c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, res.hp.deathFailures >= 3);
     }
-    return changed;
+    return mergeChanges(changed, woken);
   }
   const max = statNumber(token.hpMax);
   if (delta < 0 && token.hpTemp > 0) {
@@ -489,6 +557,6 @@ export function adjustTokenHp(
   token.hpCurrent = next;
   applyDownState(token, next <= 0, next <= 0);
   m.saveSoon(room);
-  return [{ mapId, token }];
+  return mergeChanges([{ mapId, token }], woken);
 }
 

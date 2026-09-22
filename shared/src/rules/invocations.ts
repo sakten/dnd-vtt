@@ -32,7 +32,8 @@ export const INVOCATION_MECHANICS: Record<string, InvocationMechanics> = {
   "XPHB:Devil's Sight": { sense: { type: 'devilsight', range: 120 } },
   'XPHB:Eldritch Mind': { concentrationAdvantage: true },
   'XPHB:Pact of the Blade': { pact: 'blade' },
-  'XPHB:Pact of the Chain': { pact: 'chain' },
+  // Pact of the Chain: Find Familiar без ячейки (XPHB) + особые формы в пикере.
+  'XPHB:Pact of the Chain': { pact: 'chain', atWill: 'XPHB:Find Familiar' },
   'XPHB:Pact of the Tome': { pact: 'tome', tome: true },
   'XPHB:Agonizing Blast': { blast: 'agonizing' },
   'XPHB:Repelling Blast': { blast: 'repelling' },

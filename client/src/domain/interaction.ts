@@ -158,9 +158,14 @@ export function aimToCursor(
 ): Interaction | null {
   if (interaction?.mode !== 'aim' || !caster) return interaction;
   const aim = interaction.aim;
+  const directional = aim.spec.shape === 'cone' || aim.spec.shape === 'line';
   if (aim.originKind === 'self') {
-    const needsDirection = aim.spec.shape === 'cone' || aim.spec.shape === 'line';
-    return { mode: 'aim', aim: { ...aim, direction: needsDirection ? cursor : null } };
+    if (!directional) return { mode: 'aim', aim: { ...aim, direction: null } };
+    // Конус/линия: направление от вершины к курсору; вплотную к вершине угол
+    // скачет на каждый пиксель — держим последнее устойчивое направление.
+    const origin = aim.origin ?? { x: caster.x, y: caster.y };
+    if (Math.hypot(cursor.x - origin.x, cursor.y - origin.y) < gridSize) return { mode: 'aim', aim };
+    return { mode: 'aim', aim: { ...aim, direction: cursor } };
   }
   let origin = cursor;
   if (aim.rangeFeet !== null) {
@@ -173,7 +178,12 @@ export function aimToCursor(
       origin = { x: anchor.x + (dx / dist) * maxPx, y: anchor.y + (dy / dist) * maxPx };
     }
   }
-  return { mode: 'aim', aim: { ...aim, origin, direction: origin } };
+  return { mode: 'aim', aim: { ...aim, origin, direction: directional ? cursor : origin } };
+}
+
+/** Область-конус/линия всегда исходит от кастера; остальные — от выбранной точки. */
+export function aimOriginKind(shape: AreaSpec['shape']): 'self' | 'point' {
+  return shape === 'cone' || shape === 'line' ? 'self' : 'point';
 }
 
 /** Клик по карте в режиме области: каст или применение способности с origin/direction. */

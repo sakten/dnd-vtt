@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Group, Line, Rect, Text, Circle, Image as KonvaImage } from 'react-konva';
+import { Group, Line, Rect, Circle, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import { hpBarHeight, hpBarLayout } from '../lib/hpBars';
 import {
@@ -18,6 +18,7 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf, activeMapOf } from '../store/selectors';
 import { enterableCell } from '../lib/los';
+import { tokenImageUrl } from '../lib/imageVariants';
 import { useVisionViewers } from '../lib/useVision';
 import { useMapLight } from '../lib/light';
 import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
@@ -25,7 +26,7 @@ import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
 
 function TokenView({ token }: { token: Token }) {
-  const image = useImage(token.imageUrl);
+  const image = useImage(tokenImageUrl(token.imageUrl), token.imageUrl);
   const selfId = useGameStore((s) => s.selfId);
   const grid = useGameStore(activeGridOf);
   const selected = useGameStore((s) => s.selectedTokenId === token.id);
@@ -433,20 +434,6 @@ function TokenView({ token }: { token: Token }) {
             </Group>
           );
         })()}
-      <Text
-        text={token.name}
-        fontSize={14 / token.scale}
-        fontStyle="bold"
-        fill="#ffffff"
-        stroke="#000000"
-        strokeWidth={3 / token.scale}
-        fillAfterStrokeEnabled
-        x={-token.w / 2}
-        y={token.h / 2 + 4}
-        width={token.w}
-        align="center"
-        listening={false}
-      />
     </Group>
   );
 }

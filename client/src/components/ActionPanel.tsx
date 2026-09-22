@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouse
 import { createPortal } from 'react-dom';
 import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
 import {
   canSpendSlot,
@@ -461,7 +462,7 @@ export default function ActionPanel() {
         actionId: a.id,
         slot,
         spec: targeting.area,
-        originKind: 'point',
+        originKind: aimOriginKind(targeting.area.shape),
         rangeFeet: targeting.range ?? 30,
       });
       return;

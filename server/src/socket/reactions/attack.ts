@@ -1,7 +1,5 @@
-import { abilityMod, absorbTypesOf, hostileTokens, isIncapacitated, rollDice, superiorityDie, type ReactionOption, type Token } from 'shared';
 import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
-import { withinFeet } from '../../rooms';
 import { availableChoiceRiders } from '../attackRiders';
 import {
   applyWeaponAttackDamage,
@@ -12,142 +10,10 @@ import {
   type WeaponAttackPlan,
   type WeaponDamageMods,
 } from '../attackResolve';
-import { isReactionPending, openReactionWindow, type ReactionOfferInput } from './queue';
-import { audienceOf, classLevelOf, diceMax, reactionSlotFree, type ReactionChoice } from './internal';
-import {
-  applyAttackRollChoices,
-  applyCounterAttack,
-  applyRollBonusChoices,
-  availableFeatureReactions,
-  featureOffer,
-  featureOption,
-  openRedirectWindow,
-  preRollOffers,
-  reactionDieExpr,
-  rollBonusOffers,
-  spendFeatureCost,
-} from './features';
-import { acBonusOf, applyReactionChoice, reactionSpellOptions } from './spellReactions';
-import { applyBonusDieChoices, applyCombatInspirationChoices, bonusDieOptions } from '../bonusDice';
-import { pushRollMessage } from '../messages';
-
-/** Выбранные в окне попадания черты → модификаторы урона (половина/AC/снижение). */
-function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: ReactionChoice[]): WeaponDamageMods {
-  const mods: WeaponDamageMods = {};
-  for (const choice of choices) {
-    if (!choice.optionId?.startsWith('feature:')) continue;
-    const id = choice.optionId.slice('feature:'.length);
-    const choiceMapId = choice.mapId ?? mapId;
-    const reactor = ctx.manager.findToken(room, choiceMapId, choice.tokenId);
-    if (!reactor) continue;
-    const def = availableFeatureReactions(room, reactor, 'attackHit').find((d) => d.id === id);
-    if (!def) continue;
-    if (!spendFeatureCost(ctx, room, reactor, choiceMapId, def)) continue;
-    if (def.kind === 'halveDamage') {
-      mods.halveDamage = true;
-      continue;
-    }
-    if (def.kind === 'reduceDamage') {
-      const roll = rollDice(def.dice ?? '2d6');
-      let reduction = roll.total;
-      if (def.abilityBonus) {
-        const abilities = (ctx.manager.abilitiesForToken(room, reactor) ?? {}) as Partial<Record<string, number>>;
-        reduction += abilityMod(abilities[def.abilityBonus] ?? 10);
-      }
-      if (def.levelBonusClass) reduction += classLevelOf(room, reactor, def.levelBonusClass);
-      mods.flatReduction = (mods.flatReduction ?? 0) + reduction;
-      if (def.redirect) mods.redirect = { reactorId: reactor.id, mapId: choiceMapId };
-      pushRollMessage(ctx, room, {
-        author: reactor.name,
-        roll,
-        kind: 'plain',
-        params: { subject: `${def.name} (−${reduction} урона)` },
-      });
-      continue;
-    }
-    if (def.kind === 'acBonus') {
-      const die = superiorityDie(classLevelOf(room, reactor, def.className) || 1);
-      const roll = rollDice(`1d${die}`);
-      mods.extraAc = (mods.extraAc ?? 0) + roll.total;
-      pushRollMessage(ctx, room, {
-        author: reactor.name,
-        roll,
-        kind: 'plain',
-        params: { subject: `${def.name} (+${roll.total} к AC)` },
-      });
-      continue;
-    }
-    if (def.kind === 'acBonusAlly') {
-      const roll = rollDice(def.dice ?? '1d8');
-      mods.extraAc = (mods.extraAc ?? 0) + roll.total;
-      pushRollMessage(ctx, room, {
-        author: reactor.name,
-        roll,
-        kind: 'plain',
-        params: { subject: `${def.name} (+${roll.total} к AC)` },
-      });
-      continue;
-    }
-    if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
-      const expr = reactionDieExpr(def, room, reactor);
-      if (!expr) continue;
-      const roll = rollDice(expr);
-      if (def.kind === 'rollPenalty') {
-        mods.extraAc = (mods.extraAc ?? 0) + roll.total;
-        pushRollMessage(ctx, room, {
-          author: reactor.name,
-          roll,
-          kind: 'plain',
-          params: { subject: `${def.name} (−${roll.total} к атаке)` },
-        });
-      } else {
-        mods.flatReduction = (mods.flatReduction ?? 0) + roll.total;
-        pushRollMessage(ctx, room, {
-          author: reactor.name,
-          roll,
-          kind: 'plain',
-          params: { subject: `${def.name} (−${roll.total} урона)` },
-        });
-      }
-    }
-  }
-  return mods;
-}
-
-/** Окно «получен урон»: Hellish Rebuke и подобные (после списания HP). */
-function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, target: Token, source: Token): void {
-  if (isReactionPending(room.code)) return;
-  if (isIncapacitated(target.conditions)) return;
-  if (!reactionSlotFree(ctx.manager, room, mapId, target)) return;
-  const features = availableFeatureReactions(room, target, 'damage').filter((def) => {
-    if (def.kind !== 'counterAttack') return false;
-    if (def.rangeFeet && !withinFeet(room, target, source, def.rangeFeet)) return false;
-    return true;
-  });
-  const options: ReactionOption[] = [
-    ...reactionSpellOptions(room, target, 'damage'),
-    ...features.map((def) => featureOption(def, room, target)),
-  ];
-  if (!options.length) return;
-  const audience = audienceOf(ctx, room, mapId, target);
-  if (!audience.length) return;
-  openReactionWindow(ctx, room, {
-    mapId,
-    trigger: 'damage',
-    sourceName: source.name,
-    offers: [{ token: target, audience, options }],
-    resume: (choices) => {
-      const currentRoom = ctx.getRoom();
-      if (!currentRoom) return;
-      for (const choice of choices) {
-        if (!choice.optionId) continue;
-        if (choice.optionId.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, source);
-        else applyReactionChoice(ctx, currentRoom, choice, [source]);
-      }
-      ctx.syncCombat(currentRoom, mapId);
-    },
-  });
-}
+import { openReactionWindow } from './queue';
+import { audienceOf } from './internal';
+import { applyAttackRollChoices, openRedirectWindow, preRollOffers } from './features';
+import { offerDamageReactions, openAttackHitWindows, openAttackMissWindows } from './windows';
 
 /** Фазы после броска: промах → attackMiss, попадание → attackHit, затем урон. */
 function continueAfterRoll(
@@ -159,6 +25,14 @@ function continueAfterRoll(
 ): AttackResolveResult {
   const target = plan.target;
   const targetMapId = plan.targetMapId;
+  const windowPlan = {
+    attacker: plan.attacker,
+    attackerMapId: plan.attackerMapId,
+    target,
+    targetMapId,
+    damageType: plan.attack.damageType,
+    rangeType: plan.attack.rangeType,
+  };
 
   const applyDamage = (mods: WeaponDamageMods = {}) => {
     const damage = applyWeaponAttackDamage(ctx, plan, mods);
@@ -219,173 +93,44 @@ function continueAfterRoll(
     return result;
   }
 
-  // Промах: Ответный удар цели (реакция) и Направленный удар (+10; свой — без реакции).
+  const openHitWindows = (): boolean => {
+    if (!target || !targetMapId || result.hitSuccess !== true || result.crit) return false;
+    const ac = ctx.manager.acForToken(room, target);
+    const total = result.hitRoll ? result.hitRoll.total + plan.penalty : 0;
+    return openAttackHitWindows(
+      ctx,
+      room,
+      windowPlan,
+      { ac, total, melee: plan.attack.rangeType !== 'ranged' },
+      (mods) => applyDamageWithRiders(mods)
+    );
+  };
+
+  // Промах: Ответный удар цели (реакция), Направленный удар (+10) и кости вдохновения.
   if (result.hitSuccess === false && target && targetMapId) {
-    const melee = plan.attack.rangeType !== 'ranged';
-    const features = availableFeatureReactions(room, target, 'attackMiss').filter((def) => def.kind === 'counterAttack');
-    const offers: ReactionOfferInput[] = [];
-    if (melee && features.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
-      offers.push({
-        token: target,
-        audience: audienceOf(ctx, room, targetMapId, target),
-        options: features.map((def) => featureOption(def, room, target)),
-      });
-    }
-    offers.push(...rollBonusOffers(ctx, room, plan));
-    // Бардовское вдохновение: кости на самом атакующем (без реакции).
-    if (plan.attacker && plan.attackerMapId) {
-      const dice = bonusDieOptions(plan.attacker);
-      if (dice.length) {
-        offers.push({
-          token: plan.attacker,
-          audience: audienceOf(ctx, room, plan.attackerMapId, plan.attacker),
-          options: dice,
-        });
+    const opened = openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
+      const currentRoom = ctx.getRoom();
+      if (!currentRoom) {
+        applyDamage();
+        return;
       }
-    }
-    if (offers.length) {
-      const opened = openReactionWindow(ctx, room, {
-        mapId: targetMapId,
-        trigger: 'attackMiss',
-        sourceName: plan.attacker?.name,
-        offers,
-        resume: (choices) => {
-          const currentRoom = ctx.getRoom();
-          if (!currentRoom) return;
-          for (const choice of choices) {
-            if (choice.optionId?.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, plan.attacker);
-          }
-          const bonus = applyRollBonusChoices(ctx, currentRoom, plan, choices);
-          const inspiration = applyBonusDieChoices(ctx, currentRoom, plan, choices);
-          ctx.syncCombat(currentRoom, targetMapId);
-          if (bonus + inspiration > 0) {
-            plan.penalty += bonus + inspiration;
-            plan.hitSuccess = true;
-            result.hitSuccess = true;
-            if (!openHitWindows()) applyDamageWithRiders();
-          } else {
-            // Graze: промах оружием с мастерством — урон по модификатору характеристики.
-            applyWeaponAttackDamage(ctx, plan);
-          }
-        },
-      });
-      if (opened) return result;
-    }
+      if (bonus + inspiration > 0) {
+        plan.penalty += bonus + inspiration;
+        plan.hitSuccess = true;
+        result.hitSuccess = true;
+        if (!openHitWindows()) applyDamageWithRiders();
+      } else {
+        // Graze: промах оружием с мастерством — урон по модификатору характеристики.
+        applyWeaponAttackDamage(ctx, plan);
+      }
+    });
+    if (opened) return result;
     // Graze без окна реакций.
     applyWeaponAttackDamage(ctx, plan);
     return result;
   }
 
-  // Попадание: Shield/черты цели перед уроном (объявление — после промаха тоже зовёт).
-  function openHitWindows(): boolean {
-    if (!target || !targetMapId || result.hitSuccess !== true || result.crit) return false;
-    const ac = ctx.manager.acForToken(room, target);
-    const total = result.hitRoll ? result.hitRoll.total + plan.penalty : 0;
-    const melee = plan.attack.rangeType !== 'ranged';
-    const features = availableFeatureReactions(room, target, 'attackHit').filter((def) => {
-      if (def.kind === 'halveDamage') return true;
-      if (def.kind === 'reduceDamage') {
-        if (!def.redirect) return false;
-        return (
-          plan.attack.damageType === 'bludgeoning' ||
-          plan.attack.damageType === 'piercing' ||
-          plan.attack.damageType === 'slashing'
-        );
-      }
-      if (def.kind === 'acBonus') {
-        if (!melee) return false;
-        return total < ac + superiorityDie(classLevelOf(room, target, def.className) || 1);
-      }
-      // Режущие слова носителя (Знание): −кость к атаке врага или к урону.
-      if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
-        if (!plan.attacker || !hostileTokens(target, plan.attacker)) return false;
-        if (def.rangeFeet && !withinFeet(room, target, plan.attacker, def.rangeFeet)) return false;
-        if (def.kind === 'damagePenalty') return true;
-        const expr = reactionDieExpr(def, room, target);
-        return !!expr && total - diceMax(expr) < ac;
-      }
-      return false;
-    });
-    const spellOpts = reactionSpellOptions(room, target, 'attackHit').filter((o) => {
-      const absorb = absorbTypesOf(o.spellKey ?? '');
-      if (absorb.length) return !!plan.attack.damageType && absorb.includes(plan.attack.damageType);
-      return total < ac + acBonusOf(o);
-    });
-    const options: ReactionOption[] = [
-      ...spellOpts,
-      ...features.map((def) => featureOption(def, room, target)),
-      ...bonusDieOptions(target, 'ac'),
-    ];
-    // Опции защитников-союзников: Щит духов (снижение урона) и Защитный манёвр (+AC).
-    const helperOffers: ReactionOfferInput[] = [];
-    for (const helper of ctx.manager.findMap(room, targetMapId)?.tokens ?? []) {
-      if (helper.id === target.id || helper.id === plan.attacker?.id) continue;
-      if (isIncapacitated(helper.conditions)) continue;
-      if (!reactionSlotFree(ctx.manager, room, targetMapId, helper)) continue;
-      const defs = availableFeatureReactions(room, helper, 'attackHit').filter((def) => {
-        // Режущие слова (Знание): кость снимается с атаки/урона врага, дистанция — до атакующего.
-        if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
-          if (!plan.attacker || !hostileTokens(helper, plan.attacker)) return false;
-          if (def.rangeFeet && !withinFeet(room, helper, plan.attacker, def.rangeFeet)) return false;
-          if (def.kind === 'damagePenalty') return true;
-          const expr = reactionDieExpr(def, room, helper);
-          return !!expr && total - diceMax(expr) < ac;
-        }
-        if (def.kind !== 'reduceDamage' && def.kind !== 'acBonusAlly') return false;
-        if (def.rangeFeet && !withinFeet(room, helper, target, def.rangeFeet)) return false;
-        if (def.kind === 'reduceDamage') return total > 0;
-        return total < ac + diceMax(def.dice);
-      });
-      if (!defs.length) continue;
-      helperOffers.push(featureOffer(ctx, room, targetMapId, helper, defs));
-    }
-    // Боевое вдохновение (Доблесть): кость атакующего в урон — без реакции.
-    const attackerOffers: ReactionOfferInput[] = [];
-    if (plan.attacker && plan.attackerMapId) {
-      const dice = bonusDieOptions(plan.attacker, 'damage');
-      if (dice.length) {
-        attackerOffers.push({
-          token: plan.attacker,
-          audience: audienceOf(ctx, room, plan.attackerMapId, plan.attacker),
-          options: dice,
-        });
-      }
-    }
-    const offers: ReactionOfferInput[] = [];
-    if (options.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
-      offers.push({ token: target, audience: audienceOf(ctx, room, targetMapId, target), options });
-    }
-    offers.push(...helperOffers, ...attackerOffers);
-    if (offers.length) {
-      const opened = openReactionWindow(ctx, room, {
-        mapId: targetMapId,
-        trigger: 'attackHit',
-        sourceName: plan.attacker?.name,
-        offers,
-        resume: (choices) => {
-          const currentRoom = ctx.getRoom();
-          if (!currentRoom) {
-            applyDamage();
-            return;
-          }
-          const combat = applyCombatInspirationChoices(ctx, currentRoom, plan, target, choices);
-          const mods = attackWindowMods(ctx, currentRoom, targetMapId, choices);
-          if (combat.extraDamage) mods.extraDamage = (mods.extraDamage ?? 0) + combat.extraDamage;
-          if (combat.extraAc) mods.extraAc = (mods.extraAc ?? 0) + combat.extraAc;
-          for (const choice of choices) {
-            if (choice.optionId?.startsWith('spell:')) {
-              applyReactionChoice(ctx, currentRoom, choice, [target], plan.attack.damageType);
-            }
-          }
-          ctx.syncCombat(currentRoom, targetMapId);
-          applyDamageWithRiders(mods);
-        },
-      });
-      if (opened) return true;
-    }
-    return false;
-  }
-
+  // Попадание: Shield/черты цели перед уроном.
   if (openHitWindows()) return result;
   applyDamageWithRiders();
   return result;

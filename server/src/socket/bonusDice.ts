@@ -2,7 +2,6 @@ import { rollDice, type ReactionOption, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushRollMessage } from './messages';
-import type { WeaponAttackPlan } from './attackResolve';
 import type { ReactionChoice } from './reactions/internal';
 
 /**
@@ -46,7 +45,7 @@ export function spendBonusDie(ctx: ConnCtx, room: Room, mapId: string, token: To
 export function applyBonusDieChoices(
   ctx: ConnCtx,
   room: Room,
-  plan: WeaponAttackPlan,
+  plan: { attacker: Token | null; attackerMapId: string | null },
   choices: ReactionChoice[]
 ): number {
   const attacker = plan.attacker;
@@ -72,7 +71,7 @@ export interface CombatInspirationMods {
 export function applyCombatInspirationChoices(
   ctx: ConnCtx,
   room: Room,
-  plan: WeaponAttackPlan,
+  plan: { attacker: Token | null; attackerMapId: string | null; targetMapId: string | null },
   target: Token | undefined,
   choices: ReactionChoice[]
 ): CombatInspirationMods {

@@ -385,12 +385,17 @@ export class RoomManager {
     saves: { name: string; roll: DiceRollResult; success: boolean }[];
     removed: string[];
     escalated: { name: string; condition: ConditionKey }[];
+    pruned: { mapId: string; token: Token }[];
   } {
     return Effects.tickEffects(this, room, token, phase);
   }
 
   concentratingEffectsOf(room: Room, token: Token): EffectInstance[] {
     return Effects.concentratingEffectsOf(room, token);
+  }
+
+  pruneConcentration(room: Room, sourceId: string, sourceKey: string): { mapId: string; token: Token }[] {
+    return Effects.pruneConcentration(this, room, sourceId, sourceKey);
   }
 
   clearConcentration(room: Room, sourceId: string): { mapId: string; token: Token }[] {

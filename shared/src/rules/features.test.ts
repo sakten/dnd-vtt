@@ -254,6 +254,15 @@ describe('каталог черт (features.json)', () => {
     expect(def?.resourceKey).toBe('cleric:channelDivinity');
   });
 
+  it('Защитные reduceDamage: Отражение атак только на себя, Щит духов — на союзника', () => {
+    const monk = reactionFeatures([{ className: 'monk', level: 3 }]).find((d) => d.id === 'monk:deflectAttacks');
+    expect(monk).toMatchObject({ kind: 'reduceDamage', targets: 'self' });
+    const shield = reactionFeatures([{ className: 'barbarian', level: 6, subclass: 'ancestralGuardian' }]).find(
+      (d) => d.id === 'barbarian.ancestralGuardian:spiritShield'
+    );
+    expect(shield).toMatchObject({ kind: 'reduceDamage', targets: 'creature', rangeFeet: 30 });
+  });
+
   it('Режущие слова: две реакции барда-знания (−к атаке и −к урону)', () => {
     const defs = reactionFeatures([{ className: 'bard', level: 3, subclass: 'lore' }]).filter((d) =>
       d.id.startsWith('bard.lore:cuttingWords')

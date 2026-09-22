@@ -829,6 +829,203 @@ describe('RoomManager эффекты', () => {
     expect(tk.hpCurrent).toBe(7);
   });
 
+  it('последняя цель Sleep уходит уроном — концентрация кастера снимается', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1', {
+      effects: [
+        {
+          id: 'anchor',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+    });
+    const target = token('t2', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          wakeOnDamage: true,
+          modifiers: [],
+        },
+      ],
+      conditions: [{ key: 'unconscious', name: 'Без сознания', effectId: 'ef1' }],
+    });
+    room.scene.maps[0]!.tokens = [caster, target];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10), entry('e2', 't2', 5)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    combat.turns.e1!.concentrationId = 'anchor';
+
+    const changed = manager.adjustTokenHp(room, 'm1', target, -3);
+
+    expect(target.effects).toHaveLength(0);
+    expect(caster.effects).toHaveLength(0);
+    expect(combat.turns.e1!.concentrationId).toBeNull();
+    expect(changed.some((c) => c.token.id === 't1')).toBe(true);
+  });
+
+  it('пока держится другая цель Sleep — концентрация остаётся', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1', {
+      effects: [
+        {
+          id: 'anchor',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+    });
+    const victim = token('t2', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          wakeOnDamage: true,
+          modifiers: [],
+        },
+      ],
+    });
+    const sleeper = token('t3', {
+      effects: [
+        {
+          id: 'ef2',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          wakeOnDamage: true,
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [caster, victim, sleeper];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    combat.turns.e1!.concentrationId = 'anchor';
+
+    manager.adjustTokenHp(room, 'm1', victim, -3);
+
+    expect(caster.effects.map((e) => e.id)).toEqual(['anchor']);
+    expect(combat.turns.e1!.concentrationId).toBe('anchor');
+  });
+
+  it('зона каста остаётся — концентрация не снимается при уходе цели', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1');
+    const victim = token('t2', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          wakeOnDamage: true,
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [caster, victim];
+    room.scene.maps[0]!.zones = [
+      {
+        id: 'z1',
+        name: 'Sleep',
+        sourceKey: 'XPHB:Sleep',
+        sourceId: 't1',
+        origin: { x: 0, y: 0 },
+        area: { shape: 'sphere', size: 20 },
+        duration: { type: 'concentration' },
+        concentration: true,
+      },
+    ];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    combat.turns.e1!.concentrationId = 'anchor';
+
+    manager.adjustTokenHp(room, 'm1', victim, -3);
+
+    expect(combat.turns.e1!.concentrationId).toBe('anchor');
+  });
+
+  it('тик эффектов: уход последней цели снимает концентрацию', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1');
+    const target = token('t2', {
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Hold Person',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Hold Person',
+          duration: { type: 'rounds', rounds: 1 },
+          modifiers: [],
+        },
+      ],
+    });
+    caster.effects = [
+      {
+        id: 'anchor',
+        name: 'Hold Person',
+        concentration: true,
+        sourceId: 't1',
+        sourceKey: 'XPHB:Hold Person',
+        duration: { type: 'concentration' },
+        modifiers: [],
+      },
+    ];
+    room.scene.maps[0]!.tokens = [caster, target];
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 10)];
+    combat.currentIndex = 0;
+    manager.beginTurn(room, 'm1', 'e1');
+    combat.turns.e1!.concentrationId = 'anchor';
+
+    const res = manager.tickEffects(room, target, 'start');
+
+    expect(res.pruned.some((c) => c.token.id === 't1')).toBe(true);
+    expect(caster.effects).toHaveLength(0);
+    expect(combat.turns.e1!.concentrationId).toBeNull();
+  });
+
   it('clearConcentration снимает эффекты и чистит concentrationId', () => {
     const manager = setup();
     const room = makeRoom();

@@ -36,6 +36,8 @@ export function absorbTypesOf(spellKey: string): string[] {
  * Реакционные черты классов/подклассов (ручной каталог). Эффекты автоматизируются
  * на сервере по `kind`: halveDamage — половина урона атаки, acBonus — кость в AC,
  * reduceDamage — снижение урона союзнику на кости, acBonusAlly — кость в AC союзнику.
+ * `targets` обязателен для reduceDamage: 'self' — только когда бьют носителя
+ * (Отражение атак), 'creature' — защита существа на дистанции (Щит духов).
  */
 export interface ReactionFeatureDef {
   id: string;
@@ -58,6 +60,8 @@ export interface ReactionFeatureDef {
   resourceAmount?: number;
   /** Максимальная дистанция до защищаемого союзника, футы. */
   rangeFeet?: number;
+  /** Кого защищает черта (reduceDamage): себя или существо в пределах `rangeFeet`. */
+  targets?: 'self' | 'creature';
   /** Готовый бонус к броску атаки (Направленный удар: +10). */
   amount?: number;
   /** Кости эффекта (reduceDamage/acBonusAlly). */
@@ -122,6 +126,7 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     levelReq: 6,
     trigger: 'attackHit',
     kind: 'reduceDamage',
+    targets: 'creature',
     rangeFeet: 30,
     dice: '2d6',
   },
@@ -145,6 +150,7 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     levelReq: 3,
     trigger: 'attackHit',
     kind: 'reduceDamage',
+    targets: 'self',
     dice: '1d10',
     abilityBonus: 'dex',
     levelBonusClass: 'monk',

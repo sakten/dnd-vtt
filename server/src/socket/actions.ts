@@ -498,23 +498,28 @@ export function registerActionHandlers(ctx: ConnCtx) {
       const abilityTargeting = actionTargeting(action);
       const abilityArea = abilityTargeting?.kind === 'area' ? abilityTargeting.area : undefined;
       const abilityOrigin = origin && Number.isFinite(origin.x) && Number.isFinite(origin.y) ? origin : null;
+      // Конус/линия способности всегда исходят от носителя: присланная точка игнорируется.
+      const anchoredOrigin =
+        abilityArea && (abilityArea.shape === 'cone' || abilityArea.shape === 'line')
+          ? { x: token.x, y: token.y }
+          : abilityOrigin;
       if (action.ability) {
         const range = abilityTargeting?.range ?? (action.ability.attack?.rangeType === 'melee' ? 5 : 30);
         const map = manager.findMap(room, mapId);
         const grid = gridOfMap(map, room.scene.grid);
         const size = grid.size;
         if (abilityArea) {
-          if (!abilityOrigin) {
+          if (!anchoredOrigin) {
             fail(ctx, 'noAreaPoint');
             return;
           }
-          const feet = (Math.hypot(abilityOrigin.x - token.x, abilityOrigin.y - token.y) / size) * 5;
+          const feet = (Math.hypot(anchoredOrigin.x - token.x, anchoredOrigin.y - token.y) / size) * 5;
           if (range > 0 && feet > range) {
             fail(ctx, 'outOfRange', { feet: Math.round(feet) });
             return;
           }
           // Чистый путь до точки области (стена/закрытая дверь блокируют).
-          if (map && crossesWalls(token, abilityOrigin, map.walls, 'sight')) {
+          if (map && crossesWalls(token, anchoredOrigin, map.walls, 'sight')) {
             fail(ctx, 'noClearPath');
             return;
           }
@@ -781,7 +786,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (def) {
         const targets = actionTargets(ctx, room, mapId, token, {
           area: abilityArea,
-          origin: abilityOrigin,
+          origin: anchoredOrigin,
           direction,
           targetIds,
           selfWhenEmpty: def.targeting?.kind === 'self',
@@ -801,7 +806,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         stats,
         author,
         advantage,
-        origin: abilityOrigin,
+        origin: anchoredOrigin,
         direction,
         area: abilityArea ?? null,
         manual: { description: action.description ? [action.description] : undefined },

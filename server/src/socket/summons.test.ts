@@ -143,6 +143,23 @@ describe('призывы: серверный спавн', () => {
     expect(map.tokens).toHaveLength(1);
   });
 
+  it('Pact of the Chain: Find Familiar кастуется без ячейки через spell:cast', () => {
+    const { room, map } = setup({ pactChain: true });
+    const player = makeConnCtx(room, { playerId: 'p1', all: true });
+
+    player.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Find Familiar',
+      origin: { x: 150, y: 150 },
+      summonKey: 'XMM:Owl',
+    });
+
+    expect(player.selfEvents('chat:error')).toHaveLength(0);
+    expect(map.tokens).toHaveLength(2);
+    expect(map.tokens[1]!.name).toBe('Owl');
+  });
+
   it('вне боя: токен создаётся, инициатива не трогается', () => {
     const { room, map, f } = setup();
     map.combat.active = false;

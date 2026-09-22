@@ -580,7 +580,11 @@ export function removeTokenFromCombat(m: CombatDeps, room: Room, mapId: string, 
   redistributeLegendarySlots(room, combat);
   const activeRemoved = !!activeId && removed.some((e) => e.id === activeId);
   restoreActive(combat, activeRemoved ? undefined : activeId);
-  if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
+  // Ход снятого активного начинается с нуля; у оставшегося активного состояние не трогаем.
+  if (combat.active && combat.entries.length) {
+    if (activeRemoved) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
+    else ensureActiveTurn(room, mapId);
+  }
   m.saveSoon(room);
 }
 
@@ -601,7 +605,11 @@ export function removeCombatant(m: CombatDeps, room: Room, mapId: string, id: st
   if (!target.legendaryOwnerId) redistributeLegendarySlots(room, combat);
   const activeRemoved = !combat.entries.some((e) => e.id === activeId);
   restoreActive(combat, activeRemoved ? undefined : activeId);
-  if (combat.active && combat.entries.length) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
+  // Снятие чужой записи не сбрасывает ресурсы текущего хода (см. removeTokenFromCombat).
+  if (combat.active && combat.entries.length) {
+    if (activeRemoved) beginTurn(room, mapId, combat.entries[combat.currentIndex]!.id);
+    else ensureActiveTurn(room, mapId);
+  }
   m.saveSoon(room);
 }
 

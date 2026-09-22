@@ -140,7 +140,8 @@ export function addToken(
     visible: true,
     ownerId,
     lockedBy: null,
-    faction: fields.isPlayerToken ? 'ally' : 'neutral',
+    // Персонажи — союзники; всё, что DM вытаскивает из библиотеки (монстры/NPC) — враги.
+    faction: fields.isPlayerToken ? 'ally' : 'enemy',
     conditions: [],
     effects: [],
   };
