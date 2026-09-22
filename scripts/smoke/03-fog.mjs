@@ -70,7 +70,7 @@ check(svgRes.status === 400, 'SVG-загрузки запрещены (400)');
 
 const pngForm = new FormData();
 const pngBytes = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEklEQVQYlWM4YWPzHx9mGBkKAA++j8HQ/VN1AAAAAElFTkSuQmCC',
   'base64'
 );
 pngForm.append('image', new Blob([pngBytes], { type: 'image/png' }), 'dot.png');
@@ -87,6 +87,9 @@ check(
 );
 S.uploadedDir = path.resolve('server/data/uploads', S.created.room.code);
 check(fs.existsSync(S.uploadedDir), 'папка загрузок комнаты создана на диске');
+const uploadedFile = path.resolve('server/data', pngBody.url.replace(/^\//, ''));
+check(fs.existsSync(`${uploadedFile}.thumb.webp`), 'миниатюра загрузки сгенерирована (webp)');
+check(fs.existsSync(`${uploadedFile}.token.webp`), 'токенная версия загрузки сгенерирована (webp)');
 
 await setSheet(S, {
   name: 'Боец',

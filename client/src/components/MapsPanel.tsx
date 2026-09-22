@@ -49,7 +49,7 @@ export default function MapsPanel() {
     e.target.value = '';
     if (!file) return;
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, 'map');
       const size = await readImageSize(url);
       // Сетку выравниваем до добавления карты и передаём её новой карте.
       const grid = await autoAlign(url);

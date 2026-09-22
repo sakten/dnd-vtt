@@ -1,11 +1,11 @@
 import { t } from '../i18n';
 import { useGameStore } from '../store/useGameStore';
 
-export async function uploadImage(file: File): Promise<string> {
+export async function uploadImage(file: File, kind?: 'map'): Promise<string> {
   const form = new FormData();
   form.append('image', file);
   const { roomCode, selfId } = useGameStore.getState();
-  const res = await fetch('/api/upload', {
+  const res = await fetch(kind === 'map' ? '/api/upload?kind=map' : '/api/upload', {
     method: 'POST',
     body: form,
     headers: roomCode ? { 'X-Room': roomCode, 'X-Player': selfId ?? '' } : undefined,

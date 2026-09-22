@@ -3,6 +3,7 @@ import type { TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
+import { thumbUrl } from '../lib/imageVariants';
 import { t } from '../i18n';
 import { canAddLibraryItem, canSetAsCharacter, useIsDm } from '../lib/control';
 import Modal from './Modal';
@@ -133,7 +134,10 @@ export default function TokenPanel() {
             title={t('ui.tokenPanel.itemTitle', { name: item.name, cells: item.cells })}
           >
             <img
-              src={item.imageUrl}
+              src={thumbUrl(item.imageUrl)}
+              onError={(e) => {
+                if (e.currentTarget.src !== item.imageUrl) e.currentTarget.src = item.imageUrl;
+              }}
               alt={item.name}
               draggable={canAddLibraryItem(item) || canSetAsCharacter(item)}
               onClick={() => handleItemClick(item.id)}
@@ -167,7 +171,18 @@ export default function TokenPanel() {
         <Modal onClose={() => setEditingId(null)} className="token-modal">
           <div className="tm-header">
             <div className="tm-portrait">
-              {draft.imageUrl ? <img src={draft.imageUrl} alt={draft.name} draggable={false} /> : <span>?</span>}
+              {draft.imageUrl ? (
+                <img
+                  src={thumbUrl(draft.imageUrl)}
+                  onError={(e) => {
+                    if (e.currentTarget.src !== draft.imageUrl) e.currentTarget.src = draft.imageUrl;
+                  }}
+                  alt={draft.name}
+                  draggable={false}
+                />
+              ) : (
+                <span>?</span>
+              )}
             </div>
             <div className="tm-head-info">
               <div className="tm-name">{draft.name || t('ui.token.noName')}</div>

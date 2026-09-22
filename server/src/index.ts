@@ -11,6 +11,7 @@ import { registerSocket } from './socket';
 import { HERE, UPLOADS_DIR, dirSize, ensureDirs, roomUploadDir } from './store';
 import { ROOM_QUOTA_BYTES, ROOM_QUOTA_MB } from './config';
 import { bestiaryEntryByKey, bestiaryIconSvgForKey, bestiaryPortraitFile } from './bestiaryIcons';
+import { writeImageDerivatives } from './images';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_DIST = path.resolve(HERE, '../../client/dist');
@@ -145,6 +146,10 @@ app.post(
       await fsp.unlink(req.file.path).catch(() => void 0);
       res.status(413).json({ error: `Превышен лимит загрузок комнаты (${ROOM_QUOTA_MB} МБ)` });
       return;
+    }
+    // Токенам/портретам — лёгкие webp-производные; карты (kind=map) не сжимаем.
+    if (req.query.kind !== 'map') {
+      await writeImageDerivatives(req.file.path).catch(() => void 0);
     }
     res.json({ url: `/uploads/${roomCode}/${req.file.filename}` });
   }

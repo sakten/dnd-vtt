@@ -2,12 +2,13 @@ import { Group, Image as KonvaImage, Line, Rect, Text } from 'react-konva';
 import type { MapInfo, Token } from 'shared';
 import TokenView from '../TokenView';
 import { useImage } from '../../lib/useImage';
+import { tokenImageUrl } from '../../lib/imageVariants';
 import { isCellHidden, type WorldPoint } from '../../lib/fog';
 import { t } from '../../i18n';
 
 /** Бледная копия токена на месте начала перетаскивания. */
 function TokenGhost({ token, x, y }: { token: Token; x: number; y: number }) {
-  const image = useImage(token.imageUrl);
+  const image = useImage(tokenImageUrl(token.imageUrl), token.imageUrl);
   return (
     <Group
       x={x}

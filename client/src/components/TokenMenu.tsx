@@ -18,6 +18,7 @@ import { t, type MessageKey } from '../i18n';
 import { effectDurationText, effectSummaryText } from '../i18n/domain';
 import { useMapToken } from '../store/hooks';
 import { useCanControlId, useIsDm } from '../lib/control';
+import { thumbUrl } from '../lib/imageVariants';
 import { useSpellByKey } from '../lib/useSpells';
 import AttacksForm from './AttacksForm';
 import ConditionChips from './ConditionChips';
@@ -173,7 +174,18 @@ export default function TokenMenu() {
     <Modal onClose={() => close(null)} className="token-modal">
         <div className="tm-header">
           <div className="tm-portrait">
-            {draft.imageUrl ? <img src={draft.imageUrl} alt={draft.name} draggable={false} /> : <span>{'?'}</span>}
+            {draft.imageUrl ? (
+              <img
+                src={thumbUrl(draft.imageUrl)}
+                onError={(e) => {
+                  if (e.currentTarget.src !== draft.imageUrl) e.currentTarget.src = draft.imageUrl;
+                }}
+                alt={draft.name}
+                draggable={false}
+              />
+            ) : (
+              <span>{'?'}</span>
+            )}
           </div>
           <div className="tm-head-info">
             <div className="tm-name">{draft.name || t('ui.token.noName')}</div>

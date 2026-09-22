@@ -4,6 +4,7 @@ import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { activeMapOf } from '../store/selectors';
 import { useCanEndTurn, useIsDm } from '../lib/control';
+import { thumbUrl } from '../lib/imageVariants';
 
 const EMPTY_COMBAT = emptyCombatState();
 
@@ -140,7 +141,14 @@ export default function InitiativeBar() {
               setDragOverId(null);
             }}
           >
-            <img src={entry.imageUrl} alt={entry.name} draggable={false} />
+            <img
+              src={thumbUrl(entry.imageUrl)}
+              onError={(e) => {
+                if (entry.imageUrl && e.currentTarget.src !== entry.imageUrl) e.currentTarget.src = entry.imageUrl;
+              }}
+              alt={entry.name}
+              draggable={false}
+            />
             <span className="initiative-value">{entry.initiative}</span>
             {isDm && index !== activeIndex && (
               <button
