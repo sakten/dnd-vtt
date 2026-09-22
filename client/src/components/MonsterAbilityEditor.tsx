@@ -58,7 +58,24 @@ const DURATIONS: { key: string; label: MessageKey; duration: EffectDuration }[] 
 const durationKey = (duration: EffectDuration): string =>
   DURATIONS.find((d) => JSON.stringify(d.duration) === JSON.stringify(duration))?.key ?? 'turnTarget';
 
+/** Триггеры автосрабатывания способности (пусто — обычная, кнопкой). */
+const TRIGGERS: { key: '' | 'takeDamage' | 'death'; label: MessageKey }[] = [
+  { key: '', label: 'ui.ability.triggerNone' },
+  { key: 'takeDamage', label: 'ui.ability.triggerDamage' },
+  { key: 'death', label: 'ui.ability.triggerDeath' },
+];
+
+const SIDES: { key: 'any' | 'hostile' | 'ally'; label: MessageKey }[] = [
+  { key: 'any', label: 'ui.ability.sideAny' },
+  { key: 'hostile', label: 'ui.ability.sideHostile' },
+  { key: 'ally', label: 'ui.ability.sideAlly' },
+];
+
+const triggerLabel = (trigger: 'takeDamage' | 'death'): MessageKey =>
+  trigger === 'death' ? 'ui.ability.triggerDeath' : 'ui.ability.triggerDamage';
+
 const costSummary = (a: ActionDef): string => {
+  if (a.ability?.trigger) return t(triggerLabel(a.ability.trigger));
   const parts = a.costs.map((c) => t(COSTS.find((x) => x.key === c)?.label ?? 'ui.ability.costAction'));
   if (a.legendaryCost) parts.push(t('ui.action.legendaryCost', { n: a.legendaryCost }));
   if (a.spellKey) parts.push(t('ui.ability.spell'));
@@ -88,7 +105,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
   };
 
   const typeChips = (types: string[] | undefined, set: (v: string[] | undefined) => void) => (
-    <div className="ability-types">
+    <div className="ability-types" title={t('ui.chat.damageHint')}>
       {DAMAGE_TYPES.map((d) => (
         <button
           key={d.key}
@@ -131,6 +148,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                 : { kind: 'creature', range: targeting?.range ?? 30, targets: targeting?.targets ?? 1 },
           });
         const attackType = ability.attack?.rangeType ?? 'melee';
+        const isTriggered = !isSpell && !!ability.trigger;
         const defaultRange = isAttack && attackType === 'melee' ? 5 : 30;
         const switchAttackType = (rangeType: 'melee' | 'ranged') => {
           const prevDefault = attackType === 'melee' ? 5 : 30;
@@ -187,6 +205,60 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
               />
             </Field>
 
+            {!isSpell && (
+              <div className="field-row">
+                <Field label={t('ui.ability.trigger')}>
+                  <select
+                    value={ability.trigger ?? ''}
+                    disabled={readOnly}
+                    onChange={(e) => {
+                      const value = e.target.value as '' | 'takeDamage' | 'death';
+                      patchAbility({
+                        trigger: value || undefined,
+                        ...(value ? { radius: ability.radius ?? 5, side: ability.side ?? 'any' } : {}),
+                      });
+                    }}
+                  >
+                    {TRIGGERS.map((tr) => (
+                      <option key={tr.key || 'none'} value={tr.key}>
+                        {t(tr.label)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {isTriggered && (
+                  <>
+                    <Field label={t('ui.ability.radius')}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={500}
+                        value={ability.radius ?? 5}
+                        readOnly={readOnly}
+                        onChange={(e) =>
+                          patchAbility({ radius: Math.max(0, Math.min(500, Number(e.target.value) || 0)) })
+                        }
+                      />
+                    </Field>
+                    <Field label={t('ui.ability.side')}>
+                      <select
+                        value={ability.side ?? 'any'}
+                        disabled={readOnly}
+                        onChange={(e) => patchAbility({ side: e.target.value as 'any' | 'hostile' | 'ally' })}
+                      >
+                        {SIDES.map((side) => (
+                          <option key={side.key} value={side.key}>
+                            {t(side.label)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </>
+                )}
+              </div>
+            )}
+
+            {!isTriggered && (
             <div className="field-row">
               <Field label={t('ui.ability.cost')}>
                 <div className="ability-costs">
@@ -235,6 +307,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                 />
               </Field>
             </div>
+            )}
 
             <label className="checkbox-row">
               <input
@@ -271,7 +344,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
               </Field>
             )}
 
-            {!isSpell && (
+            {!isSpell && !isTriggered && (
               <>
                 <div className="field-row">
                   <Field label={t('ui.ability.range')}>
@@ -421,6 +494,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                         <input
                           type="text"
                           placeholder="2d6+3, 1d4fire"
+                          title={t('ui.chat.damageHint')}
                           value={ability.attack.damage ?? ''}
                           readOnly={readOnly}
                           onChange={(e) => patchAttack({ damage: e.target.value || undefined })}
@@ -437,6 +511,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                       <input
                         type="text"
                         placeholder="2d6+3, 1d4fire"
+                        title={t('ui.chat.damageHint')}
                         value={ability.damage?.dice ?? ''}
                         readOnly={readOnly}
                         onChange={(e) =>

@@ -20,6 +20,7 @@ import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
 import { summonEntry, summonFormIssue, hasFreeSummonSpot } from './summons';
 import { polymorphMaxCr, shapePlacementIssue } from './forms';
+import { teleportIssue } from './teleport';
 
 export interface SpellCastInput {
   caster: Token;
@@ -113,6 +114,12 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (map && crossesWalls(caster, input.origin, map.walls, 'sight')) return { code: 'noClearPath' };
     if (!hasFreeSummonSpot(room, input.mapId, entry.cells, input.origin)) return { code: 'summonNoSpace' };
     return undefined;
+  }
+
+  // Телепорт (Misty Step): точка в пределах дистанции, свободна и видна кастеру.
+  if (def.utility?.kind === 'teleport') {
+    if (!input.origin) return { code: 'noAreaPoint' };
+    return teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
   }
 
   if (input.area) return undefined;

@@ -516,6 +516,12 @@ describe('automationForSpell', () => {
 });
 
 describe('automationForAction', () => {
+  it('Misty Step: телепорт до 30 футов (utility)', () => {
+    const def = automationForSpell(makeSpell({ key: 'XPHB:Misty Step', name: 'Misty Step', level: 2 }), {});
+    expect(def.resolution).toBe('utility');
+    expect(def.utility).toEqual({ kind: 'teleport', amount: 30 });
+  });
+
   it('базовое действие: Рывок — utility extraMovement', () => {
     const def = automationForAction(makeAction({ id: 'dash', name: 'Рывок' }));
     expect(def?.resolution).toBe('utility');

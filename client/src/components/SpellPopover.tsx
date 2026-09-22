@@ -75,6 +75,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     return def.resolution === 'summon' ? def.summon : undefined;
   })();
   const needForm = !!summonDef?.choices && !summonDef.creature;
+  // Misty Step и подобные: режим точки — выбор клетки телепорта в пределах дистанции.
+  const teleportDef = (() => {
+    const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
+    return def.utility?.kind === 'teleport' ? def.utility : undefined;
+  })();
   // Polymorph: форма-зверь выбирается в попапе, цель — кликом по токену.
   const shapeDef = (() => {
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
@@ -134,6 +139,16 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         count: info.multiCount,
         distinct: info.multiKind === 'targets',
+      });
+    } else if (teleportDef) {
+      startAim({
+        tokenId,
+        ...common,
+        advantage: mode,
+        spec: { shape: 'sphere', size: 0 },
+        originKind: 'point',
+        rangeFeet: teleportDef.amount ?? 30,
+        summon: true,
       });
     } else if (info.self || selfOnlyAtWill) {
       if (abilityAction) runAction(tokenId, abilityAction.id, { slot: abilityAction.slot });

@@ -224,7 +224,8 @@ export interface AutomationUtility {
     | 'tempHp'
     | 'patientDefense'
     | 'stepOfTheWind'
-    | 'moveZone';
+    | 'moveZone'
+    | 'teleport';
   amount?: number;
   ability?: AbilityKey;
   /** Кость временных HP (tempHp), бросается один раз на всех. */
@@ -261,8 +262,8 @@ export interface AutomationDef extends AutomationPayload {
   targets?: number;
   /** Максимум целей = модификатор способности (Мантия вдохновения: Харизма, min 1). */
   targetsAbility?: AbilityKey;
-  /** Автосбор целей в радиусе от кастера (черты без мультивыбора): враги или союзники. */
-  autoTargets?: { feet: number; side: 'hostile' | 'ally' };
+  /** Автосбор целей в радиусе от кастера (черты без мультивыбора): сторона и дистанция. */
+  autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any' };
   /** Стоимость/цель черты (для классовых действий). */
   costs?: ActionCost[];
   targeting?: ActionTargeting;

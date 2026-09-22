@@ -182,6 +182,14 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
     },
   ]),
+  /** Misty Step: бонусным действием телепорт до 30 футов в свободную видимую клетку. */
+  'XPHB:Misty Step': {
+    key: 'XPHB:Misty Step',
+    name: 'Misty Step',
+    resolution: 'utility',
+    utility: { kind: 'teleport', amount: 30 },
+    targeting: { kind: 'point', range: 30 },
+  },
   'XPHB:Blur': spellEffect('XPHB:Blur', 'Blur', [
     {
       name: 'Blur',

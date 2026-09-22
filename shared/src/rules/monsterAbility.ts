@@ -7,6 +7,11 @@ export function legendaryOnly(action: ActionDef): boolean {
   return !!action.legendaryCost && action.costs.length === 0;
 }
 
+/** Триггерная (авто) способность: не показывается в панели, срабатывает на событие. */
+export function isTriggeredAbility(action: ActionDef): boolean {
+  return !!action.ability?.trigger;
+}
+
 export function minLegendaryCost(actions: ActionDef[] | undefined): number {
   let min = Infinity;
   for (const action of actions ?? []) {
@@ -37,6 +42,10 @@ export function monsterAbilityAutomation(action: ActionDef): AutomationDef | und
     def.damage = { dice: ability.damage.dice, types: ability.damage.types };
   }
   if (ability.save) def.save = { ability: ability.save.ability, half: !ability.attack && !!ability.damage };
+  // Триггерная способность сама собирает цели в радиусе от монстра (при смерти/уроне).
+  if (ability.trigger) {
+    def.autoTargets = { feet: ability.radius && ability.radius > 0 ? ability.radius : 5, side: ability.side ?? 'any' };
+  }
   if (ability.effects?.length) {
     def.effects = ability.effects.map(
       (e): AutomationEffect => ({

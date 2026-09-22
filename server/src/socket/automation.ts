@@ -35,9 +35,10 @@ import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { attackDamageRoll, attackHitRoll, attackUnseen } from './attackResolve';
-import { fail } from './errors';
+import { fail, type ErrorCode } from './errors';
 import { applyEffectTo, type ApplyEffectArgs } from './effectsApply';
 import { applyForcedMovement } from './force';
+import { executeTeleport, teleportIssue } from './teleport';
 import { emitSpellFx } from './fx';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { misdirectCheck } from './misdirect';
@@ -118,14 +119,14 @@ function lifeHealing(
   return { bonus: 2 + castLevel, selfHeal: life >= 6 };
 }
 
-/** Токены в радиусе от кастера: враждебные (`hostile`) или союзные (без нейтралов). */
+/** Токены в радиусе от кастера: враждебные (`hostile`), союзные (`ally`) или любые (`any`). */
 function tokensAround(
   ctx: ConnCtx,
   room: Room,
   mapId: string,
   caster: Token,
   feet: number,
-  side: 'hostile' | 'ally',
+  side: 'hostile' | 'ally' | 'any',
   includeSelf = false
 ): Token[] {
   const map = ctx.manager.findMap(room, mapId);
@@ -133,6 +134,7 @@ function tokensAround(
   return map.tokens.filter((token) => {
     if (token.id === caster.id) return includeSelf;
     if (gridDistanceFeet(token, caster, gridSizeOfMap(map)) > feet) return false;
+    if (side === 'any') return true;
     return side === 'hostile'
       ? hostileTokens(caster, token)
       : token.faction === caster.faction && token.faction !== 'neutral';
@@ -523,6 +525,19 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
   },
   // Перемещение зоны обрабатывается веткой `zone:` в action:use — до executeAutomation.
   moveZone: () => void 0,
+  /** Misty Step: телепорт кастера в выбранную точку в пределах дистанции. */
+  teleport: ({ ctx, room, input, utility }) => {
+    if (!input.origin) {
+      fail(ctx, 'noAreaPoint');
+      return;
+    }
+    const issue = teleportIssue(room, input.mapId, input.caster, input.origin, utility.amount ?? 30);
+    if (issue) {
+      fail(ctx, issue.code as ErrorCode, issue.params);
+      return;
+    }
+    executeTeleport(ctx, room, input.mapId, input.caster, input.origin);
+  },
 };
 
 /** Простые утилиты действий (базовые и классовые): доп. действие/движение, отход, проверка. */

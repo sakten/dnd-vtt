@@ -21,6 +21,7 @@ export type ErrorCode =
   | 'summonNoPact'
   | 'summonNoForm'
   | 'summonNoSpace'
+  | 'teleportNoSpace'
   | 'shapeNoAbility'
   | 'shapeNoForm'
   | 'shapeNoUse'

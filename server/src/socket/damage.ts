@@ -9,6 +9,7 @@ import {
 import { controllerIdOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { runAbilityTriggers } from './abilityTriggers';
 import { pushRollMessage } from './messages';
 import { checkSummonDeath } from './summons';
 
@@ -72,7 +73,13 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   if (!target || !mapId || amount <= 0 || !hasHpTracking(room, target)) {
     return { amount, applied: false };
   }
+  const hpBefore = target.hpCurrent ?? 0;
   ctx.applyHp(room, mapId, target, input.kind === 'heal' ? amount : -amount, { crit: input.crit });
   checkSummonDeath(ctx, room, mapId, target);
+  if (input.kind !== 'heal') {
+    // Триггеры монстра: «при получении урона» — на каждый урон, «при смерти» — переход HP к 0.
+    runAbilityTriggers(ctx, room, mapId, target, 'takeDamage');
+    if (hpBefore > 0 && (target.hpCurrent ?? 0) <= 0) runAbilityTriggers(ctx, room, mapId, target, 'death');
+  }
   return { amount, applied: true };
 }

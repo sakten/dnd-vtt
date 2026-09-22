@@ -9,6 +9,7 @@ import {
   grantedSpells,
   invocationAtWillSpells,
   isIncapacitated,
+  isTriggeredAbility,
   type ActionDef,
   type AttackEntry,
   type Spell,
@@ -190,7 +191,8 @@ export function useActionContext(): ActionContext | null {
       incapacitated: !isDm && isIncapacitated(token.conditions),
       weapons,
       features,
-      abilities: token.statblock?.actions ?? [],
+      // Триггерные способности («при уроне»/«при смерти») — только авто, в панели не показываем.
+      abilities: (token.statblock?.actions ?? []).filter((a) => !isTriggeredAbility(a)),
       attacksPer,
       panelSpells,
       legendarySlot,

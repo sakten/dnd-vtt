@@ -57,6 +57,9 @@ function normalizeAbility(raw: unknown): MonsterAbilityDef | undefined {
   }
   if (a.save && typeof a.save === 'object' && isAbilityKey(a.save.ability)) out.save = { ability: a.save.ability };
   if (typeof a.dc === 'number' && a.dc >= 1) out.dc = clampInt(a.dc, 1, 40, 10);
+  if (a.trigger === 'takeDamage' || a.trigger === 'death') out.trigger = a.trigger;
+  if (out.trigger && typeof a.radius === 'number') out.radius = clampInt(a.radius, 0, 500, 5);
+  if (a.side === 'any' || a.side === 'hostile' || a.side === 'ally') out.side = a.side;
   if (a.damage && typeof a.damage === 'object') {
     const dice = validDice(a.damage.dice);
     if (dice) {
