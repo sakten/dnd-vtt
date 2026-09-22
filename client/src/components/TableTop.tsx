@@ -83,6 +83,23 @@ function distToSegment(p: { x: number; y: number }, w: Wall): number {
 
 export default function TableTop() {
   const containerRef = useRef<HTMLDivElement>(null);
+  /** Слой токенов (вместе с прицелом): e2e помечает его канвас, чтобы не зависеть от порядка слоёв. */
+  const tokenLayerRef = useRef<Konva.Layer>(null);
+  useEffect(() => {
+    let raf = 0;
+    let tries = 0;
+    // Канвас слоя появляется не мгновенно: помечаем его кадром-позже (e2e ищет по `data-vtt-layer`).
+    const mark = () => {
+      const canvas = tokenLayerRef.current?.getCanvas()._canvas;
+      if (canvas) {
+        canvas.dataset.vttLayer = 'tokens';
+        return;
+      }
+      if (tries++ < 120) raf = requestAnimationFrame(mark);
+    };
+    mark();
+    return () => cancelAnimationFrame(raf);
+  }, []);
   const { size, toWorld, handleWheel, handleStageDrag } = useMapCamera(containerRef);
   const { onDragOver, onDrop } = useTokenDrop(containerRef);
 
@@ -613,7 +630,7 @@ export default function TableTop() {
               subtleLabels={isDm}
             />
           </Layer>
-          <Layer>
+          <Layer ref={tokenLayerRef}>
             <AimLayer
               movementCells={movementCells}
               aim={aim}

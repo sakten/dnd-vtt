@@ -85,7 +85,7 @@ await waitFor(S.page2, () => {
   if (!t) return false;
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[3]; // 0 map+objects, 1 grid, 2 zones, 3 tokens, 4 veil
+  const canvas = document.querySelector('canvas[data-vtt-layer="tokens"]'); // слой токенов и прицела
   if (!canvas) return false;
   const d = canvas.getContext('2d').getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return d[0] > 100 && d[0] > d[2];
@@ -155,7 +155,7 @@ const tokPxBefore = await S.page2.evaluate(() => {
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[3]; // 0 map+objects, 1 grid, 2 zones, 3 tokens, 4 veil
+  const canvas = document.querySelector('canvas[data-vtt-layer="tokens"]'); // слой токенов и прицела
   const ctx = canvas.getContext('2d');
   const d = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return { r: d[0], a: d[3] };
@@ -178,7 +178,7 @@ const tokPxAfter = await S.page2.evaluate(() => {
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[1];
   const sx = t.x * s.view.scale + s.view.x;
   const sy = t.y * s.view.scale + s.view.y;
-  const canvas = document.querySelectorAll('canvas')[3]; // 0 map+objects, 1 grid, 2 zones, 3 tokens, 4 veil
+  const canvas = document.querySelector('canvas[data-vtt-layer="tokens"]'); // слой токенов и прицела
   const ctx = canvas.getContext('2d');
   const d = ctx.getImageData(Math.round(sx), Math.round(sy), 1, 1).data;
   return { r: d[0], a: d[3] };
