@@ -283,7 +283,8 @@ describe('каталог эффектов заклинаний', () => {
   it('spellAutomated: full или есть каталог эффектов', () => {
     expect(spellAutomated({ key: 'XPHB:Fireball', automation: 'full' })).toBe(true);
     expect(spellAutomated({ key: 'XPHB:Shield', automation: 'manual' })).toBe(true);
-    expect(spellAutomated({ key: 'XPHB:Light', automation: 'manual' })).toBe(false);
+    expect(spellAutomated({ key: 'XPHB:Light', automation: 'manual' })).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Comprehend Languages', automation: 'manual' })).toBe(false);
   });
 });
 

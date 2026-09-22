@@ -154,6 +154,12 @@ describe('visibleCells', () => {
     expect(cells?.has('3,3')).toBe(false);
   });
 
+  it('свет заклинаний делает клетку видимой в темноте', () => {
+    const light = new Map<string, 'bright' | 'dim'>([['2,1', 'bright']]);
+    const cells = visibleCells({ ...VISION_BASE, darkness: true, viewers: [viewer(25, 75)], light })!;
+    expect(cells.has('2,1')).toBe(true);
+  });
+
   it('тёмное зрение расширяет, но в магической тьме не работает', () => {
     const senses: Sense[] = [{ type: 'darkvision', range: 60 }];
     const bright = visibleCells({ ...VISION_BASE, darkness: true, viewers: [viewer(25, 75, senses)] });

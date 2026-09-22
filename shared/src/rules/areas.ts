@@ -200,6 +200,28 @@ export function areaCellsSpread(
   return walls.length > 0 ? spreadCells(cells, origin, grid, walls) : cells;
 }
 
+/**
+ * Клетки светящейся зоны (свет/тьма от точки): только напрямую видимые из вершины.
+ * Стены дают тень — в отличие от `areaCellsSpread`, свет не огибает края стен.
+ */
+export function areaCellsLit(
+  spec: AreaSpec,
+  origin: AreaPoint,
+  direction: AreaPoint | null,
+  grid: AreaGrid,
+  walls: Wall[],
+  metric: DistanceMetric = 'euclidean'
+): Set<string> {
+  const cells = new Set(areaCells(spec, origin, direction, grid, metric));
+  if (!walls.length) return cells;
+  for (const key of cells) {
+    const [cx, cy] = key.split(',').map(Number);
+    if (cx === undefined || cy === undefined) continue;
+    if (crossesWalls(origin, cellCenter(cx, cy, grid), walls, 'sight')) cells.delete(key);
+  }
+  return cells;
+}
+
 /** Существа, у которых хотя бы одна занятая клетка попала в шаблон. */
 export function tokensInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   tokens: S[],

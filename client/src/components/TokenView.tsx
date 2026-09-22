@@ -19,6 +19,7 @@ import { useGameStore } from '../store/useGameStore';
 import { activeGridOf, activeMapOf } from '../store/selectors';
 import { enterableCell } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
+import { useMapLight } from '../lib/light';
 import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
@@ -54,6 +55,7 @@ function TokenView({ token }: { token: Token }) {
   const [animPos, setAnimPos] = useState<{ x: number; y: number } | null>(null);
   const displayPos = animPos ?? (moving && moving.points.length > 0 ? moving.points[0]! : null);
   const visionViewersList = useVisionViewers();
+  const lightMap = useMapLight();
 
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
@@ -75,7 +77,7 @@ function TokenView({ token }: { token: Token }) {
     let blind = false;
     if (!isDm && visionViewersList && visionViewersList.length > 0) {
       const viewers = visionViewersList;
-      const sight = sightContextOf(map, pathGrid);
+      const sight = { ...sightContextOf(map, pathGrid), light: lightMap };
       const cache = new Map<string, boolean>();
       // Вход в клетку: видна зрителям или это тьма/мгла (входим вслепую); кэш на пересчёт маршрута.
       visibleAt = (cx, cy) => {

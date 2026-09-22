@@ -1,6 +1,6 @@
 import { Group, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
-import { areaCellsSpread, type GridSettings, type Wall, type ZoneInstance } from 'shared';
+import { areaCellsLit, areaCellsSpread, type GridSettings, type Wall, type ZoneInstance } from 'shared';
 import { zoneStyle, type ZoneStyle } from '../lib/zoneRender';
 
 interface CellRect {
@@ -72,7 +72,10 @@ export default function ZoneLayer({
       {zones
         .filter((zone) => zone.origin && Number.isFinite(zone.origin.x) && Number.isFinite(zone.origin.y))
         .map((zone) => {
-        const all: CellRect[] = [...areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)].map((key) => {
+        const spread = zone.light
+          ? areaCellsLit(zone.area, zone.origin, zone.direction ?? null, grid, walls)
+          : areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls);
+        const all: CellRect[] = [...spread].map((key) => {
           const [cx, cy] = key.split(',').map(Number);
           return {
             key,

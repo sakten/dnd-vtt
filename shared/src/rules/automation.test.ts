@@ -277,6 +277,22 @@ describe('automationForSpell', () => {
     }
   });
 
+  it('свет: Faerie Fire dim, Sunbeam sunlight, Light/Daylight — источники света', () => {
+    const faerie = automationForSpell(makeSpell({ key: 'XPHB:Faerie Fire', name: 'Faerie Fire', automation: 'manual' }));
+    expect(faerie.effects?.[0]?.light).toEqual({ bright: 0, dim: 10 });
+
+    const sun = automationForSpell(makeSpell({ key: 'XPHB:Sunbeam', name: 'Sunbeam', level: 6 }));
+    expect(sun.effects?.[1]?.light).toEqual({ bright: 30, dim: 30, sunlight: true });
+
+    const light = automationForSpell(makeSpell({ key: 'XPHB:Light', name: 'Light', level: 0 }));
+    expect(light.resolution).toBe('effect');
+    expect(light.effects?.[0]?.light).toEqual({ bright: 20, dim: 20 });
+    expect(spellAutomated({ key: 'XPHB:Light', automation: 'manual' })).toBe(true);
+
+    const daylight = automationForSpell(makeSpell({ key: 'XPHB:Daylight', name: 'Daylight', level: 3 }));
+    expect(daylight.zone?.light).toEqual({ bright: 60, dim: 60, sunlight: true });
+  });
+
   it('эффектные дебаффы несут спас и концентрацию (Hold Person)', () => {
     const def = automationForSpell(makeSpell({ key: 'XPHB:Hold Person', name: 'Hold Person', automation: 'manual' }));
     expect(def.save).toEqual({ ability: 'wis', half: undefined });

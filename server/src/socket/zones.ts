@@ -205,6 +205,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     enterOncePerTurn: zoneDef.enterOncePerTurn,
     excludeSource: zoneDef.excludeSource,
     side: zoneDef.side,
+    light: zoneDef.light ? { ...zoneDef.light } : undefined,
     dc: input.stats?.dc,
     aura: zoneDef.aura,
     triggers: zoneDef.triggers,

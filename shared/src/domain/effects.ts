@@ -1,4 +1,4 @@
-import type { GrantedAction } from './automation';
+import type { GrantedAction, LightSource } from './automation';
 import type { AbilityKey } from './core';
 import type { Sense } from './sense';
 import type { AttackRangeType } from './token';
@@ -175,4 +175,6 @@ export interface EffectInstance {
   variant?: string;
   /** Метка-прицел на цели (Hex/Hunter's Mark): клиент рисует прицел поверх токена. */
   mark?: boolean;
+  /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
+  light?: LightSource;
 }

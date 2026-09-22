@@ -190,6 +190,8 @@ describe('области (Ф7)', () => {
         })
       )
     ).toBe(true);
+    // Daylight — зона от точки без спасброска: прицел всё равно нужен.
+    expect(spellHasArea(makeSpell({ key: 'XPHB:Daylight', areaSpec: { shape: 'sphere', size: 60 } }))).toBe(true);
     // Dragon's Breath: areaSpec относится к выданному действию, каст — по существу.
     expect(
       spellHasArea(

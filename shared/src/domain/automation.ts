@@ -36,6 +36,16 @@ export interface AutomationDice {
   abilityMod?: boolean;
 }
 
+/** Источник света эффекта/зоны: яркий радиус + сумеречное кольцо за ним. */
+export interface LightSource {
+  /** Радиус яркого света, футы. */
+  bright: number;
+  /** Дополнительный радиус сумерек за ярким (0 — только яркий). */
+  dim: number;
+  /** Свет — солнечный (вампиры/регенерация — позже; сейчас только тег). */
+  sunlight?: boolean;
+}
+
 export interface AutomationEffect {
   name: string;
   duration: EffectDuration;
@@ -82,6 +92,8 @@ export interface AutomationEffect {
   variant?: string;
   /** Метка-прицел на цели (Hex/Hunter's Mark): клиент рисует прицел поверх токена. */
   mark?: boolean;
+  /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
+  light?: LightSource;
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */
@@ -107,6 +119,8 @@ export interface ZoneDef {
   containment?: 'anyCell' | 'fullyWithin';
   /** Аура и триггеры зоны действуют только на враждебных/союзных источнику. */
   side?: 'hostile' | 'ally';
+  /** Свет, исходящий от зоны (Daylight, Moonbeam, Flaming Sphere). */
+  light?: LightSource;
   /** Вход срабатывает первый раз за ход (Spirit Guardians). */
   enterOncePerTurn?: boolean;
   movable?: boolean;
@@ -147,6 +161,8 @@ export interface ZoneInstance {
   containment?: 'anyCell' | 'fullyWithin';
   /** Аура и триггеры зоны действуют только на враждебных/союзных источнику. */
   side?: 'hostile' | 'ally';
+  /** Свет, исходящий от зоны. */
+  light?: LightSource;
   /** Вход срабатывает первый раз за ход (Spirit Guardians). */
   enterOncePerTurn?: boolean;
   /** Аура и триггеры не действуют на источник зоны. */

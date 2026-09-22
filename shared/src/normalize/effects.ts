@@ -11,6 +11,7 @@ import type {
 } from '../domain/effects';
 import { clampInt, isAbilityKey, newId } from './internal';
 import { normalizeSenses } from './sense';
+import type { LightSource } from '../domain/automation';
 
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
@@ -134,6 +135,14 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.hidden === true) effect.hidden = true;
     if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
     if (e.mark === true) effect.mark = true;
+    if (e.light && typeof e.light === 'object') {
+      const l = e.light as Partial<LightSource>;
+      effect.light = {
+        bright: clampInt(l.bright, 0, 1000, 0),
+        dim: clampInt(l.dim, 0, 1000, 0),
+        ...(l.sunlight === true ? { sunlight: true } : {}),
+      };
+    }
     if (Array.isArray(e.conditions)) {
       const conditions = e.conditions.filter((c): c is ConditionKey => typeof c === 'string');
       if (conditions.length) effect.conditions = conditions.slice(0, MAX_CONDITIONS);

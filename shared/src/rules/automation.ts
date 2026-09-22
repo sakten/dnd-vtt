@@ -6,6 +6,7 @@ import type {
   AutomationPayload,
   AutomationSave,
   GrantedAction,
+  LightSource,
   ZoneDef,
 } from '../domain/automation';
 import type { EffectDuration } from '../domain/effects';
@@ -317,8 +318,27 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       concentration: true,
       to: 'targets',
       modifiers: [{ target: 'attack', mode: 'advantage' }],
+      light: { bright: 0, dim: 10 },
     },
   ]),
+  /** Светящиеся заклинания без боевой механики: источник света для обзора и вида. */
+  'XPHB:Light': spellEffect('XPHB:Light', 'Light', [
+    { name: 'Light', duration: PERMANENT, to: 'targets', modifiers: [], light: { bright: 20, dim: 20 } },
+  ]),
+  'XPHB:Continual Flame': spellEffect('XPHB:Continual Flame', 'Continual Flame', [
+    { name: 'Continual Flame', duration: PERMANENT, to: 'targets', modifiers: [], light: { bright: 20, dim: 20 } },
+  ]),
+  'XPHB:Daylight': {
+    key: 'XPHB:Daylight',
+    name: 'Daylight',
+    resolution: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 60 },
+      origin: 'point',
+      duration: PERMANENT,
+      light: { bright: 60, dim: 60, sunlight: true },
+    },
+  },
   /**
    * Conjure Woodland Beings (XPHB 2024): аура духов вокруг вас бьёт только врагов
    * (спас WIS, урон от круга) + Отход бонусным действием, пока держится концентрация.
@@ -733,7 +753,7 @@ function spellDice(spell: Spell, opts: AutomationOptions, fallback = ''): string
 function actionCarrier(
   spell: Spell,
   action: GrantedAction,
-  opts: { to?: 'self' | 'targets'; variant?: string } = {}
+  opts: { to?: 'self' | 'targets'; variant?: string; light?: LightSource } = {}
 ): AutomationEffect {
   return {
     name: spell.name,
@@ -742,6 +762,7 @@ function actionCarrier(
     to: opts.to ?? 'self',
     modifiers: [],
     ...(opts.variant ? { variant: opts.variant } : {}),
+    ...(opts.light ? { light: opts.light } : {}),
     actions: [action],
   };
 }
@@ -813,7 +834,7 @@ function flameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | u
     name: spell.name,
     resolution: 'effect',
     concentration: true,
-    effects: [actionCarrier(spell, { id: 'blade', name: 'Клинок', cost: 'action', def: blade })],
+    effects: [actionCarrier(spell, { id: 'blade', name: 'Клинок', cost: 'action', def: blade }, { light: { bright: 10, dim: 10 } })],
   };
 }
 
@@ -848,7 +869,7 @@ function sunbeamDef(spell: Spell, opts: AutomationOptions): AutomationDef | unde
     resolution: 'save',
     concentration: true,
     ...payload,
-    effects: [blind, actionCarrier(spell, { id: 'beam', name: 'Луч', cost: 'action', def: beam })],
+    effects: [blind, actionCarrier(spell, { id: 'beam', name: 'Луч', cost: 'action', def: beam }, { light: { bright: 30, dim: 30, sunlight: true } })],
   };
 }
 

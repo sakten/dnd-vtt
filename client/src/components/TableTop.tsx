@@ -32,6 +32,8 @@ import { useAreaBrush } from '../lib/useAreaBrush';
 import { useTokenDrop } from '../lib/useTokenDrop';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
+import LightLayer from './LightLayer';
+import { useMapLight } from '../lib/light';
 import ConditionsOverlay from './ConditionsOverlay';
 import ObjectsLayer from './table/ObjectsLayer';
 import AimLayer from './table/AimLayer';
@@ -244,6 +246,8 @@ export default function TableTop() {
   const veilZones = activeMap?.zones;
   const veilWidth = activeMap?.width ?? 0;
   const veilHeight = activeMap?.height ?? 0;
+  // Свет заклинаний: клетки с ярким/сумеречным светом (с тенями от стен) — для вуали и ходьбы.
+  const lightMap = useMapLight();
 
   const visionView = useMemo(() => {
     if (!veilActive || isDm) return null;
@@ -259,6 +263,7 @@ export default function TableTop() {
         height: veilHeight,
         bounds,
         viewers: viewers ?? [],
+        light: lightMap,
       });
     const base = compute(veilZones);
     if (base === null) return null;
@@ -321,6 +326,7 @@ export default function TableTop() {
     viewers,
     cellBounds,
     grid,
+    lightMap,
   ]);
 
   // Маска для оверлея эффектов: игрок видит анимацию только в видимых клетках (DM — везде).
@@ -585,6 +591,14 @@ export default function TableTop() {
             />
           </Layer>
           <GridLayer grid={grid} view={view} viewport={size} />
+          <Layer listening={false}>
+            <LightLayer
+              tokens={activeMap?.tokens ?? []}
+              zones={activeMap?.zones ?? []}
+              grid={grid}
+              dimmed={!!visionView}
+            />
+          </Layer>
           <Layer listening={false}>
             <ZoneLayer
               zones={activeMap?.zones ?? []}

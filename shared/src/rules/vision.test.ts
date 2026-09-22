@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee, tokenSenses, zoneVisionCells, zoneVisionKindAt } from './vision';
+import { canSee, lightCells, tokenSenses, zoneVisionCells, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -44,6 +44,32 @@ describe('canSee', () => {
   it('стена блокирует и тёмное зрение', () => {
     const darkvision: Sense[] = [{ type: 'darkvision', range: 120 }];
     expect(canSee({ x: 25, y: 75 }, { x: 225, y: 75 }, darkvision, { ...DARK_SIGHT, walls: [wall(100, 0, 100, 150)] })).toBe(
+      false
+    );
+  });
+});
+
+describe('свет заклинаний', () => {
+  const grid = { size: 50, offsetX: 0, offsetY: 0 };
+
+  it('lightCells: яркий круг, сумерки за ним и тени от стен', () => {
+    const cells = lightCells([{ x: 25, y: 25, light: { bright: 10, dim: 10 } }], grid);
+    expect(cells.get('0,0')).toBe('bright');
+    expect(cells.get('2,0')).toBe('bright'); // 10 фт
+    expect(cells.get('3,0')).toBe('dim'); // 15 фт
+    expect(cells.get('4,0')).toBe('dim'); // 20 фт
+    expect(cells.get('5,0')).toBeUndefined();
+
+    const shadowed = lightCells([{ x: 25, y: 25, light: { bright: 20, dim: 0 } }], grid, [wall(50, 0, 50, 200)]);
+    expect(shadowed.get('0,0')).toBe('bright');
+    expect(shadowed.get('2,0')).toBeUndefined(); // за стеной света нет
+  });
+
+  it('canSee: свет перекрывает обычную тьму, но не мглу и магическую тьму', () => {
+    const light = lightCells([{ x: 625, y: 75, light: { bright: 20, dim: 0 } }], grid);
+    expect(canSee({ x: 25, y: 25 }, { x: 625, y: 75 }, undefined, { ...DARK_SIGHT, light })).toBe(true);
+    const magical: LightArea[] = [{ id: 'a1', kind: 'magical', x: 600, y: 50, w: 50, h: 50 }];
+    expect(canSee({ x: 25, y: 25 }, { x: 625, y: 75 }, undefined, { ...DARK_SIGHT, light, areas: magical })).toBe(
       false
     );
   });

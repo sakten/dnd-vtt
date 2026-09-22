@@ -4,6 +4,7 @@ import type { Token } from '../domain/token';
 import {
   areaCellKey,
   areaCells,
+  areaCellsLit,
   areaCellsSpread,
   cellCenter,
   cellChebyshev,
@@ -155,6 +156,13 @@ describe('распространение области и стены', () => {
     const big = { x: 75, y: 25, w: 100, h: 50 }; // клетки (0,0), (1,0), (2,0)
     expect(tokenFullyInArea(big, sphere, origin, null, grid)).toBe(true);
     expect(tokenFullyInArea(big, sphere, origin, null, grid, 'euclidean', [wall(100, -300, 100, 300)])).toBe(false);
+  });
+
+  it('светящаяся зона не заходит за стену (луч из центра)', () => {
+    const walls = [wall(100, -300, 100, 300)];
+    const lit = areaCellsLit(sphere, origin, null, grid, walls);
+    expect(lit.has('0,1')).toBe(true);
+    expect(lit.has('2,1')).toBe(false);
   });
 
   it('диагональный конус распространяется даже при стенах на карте', () => {

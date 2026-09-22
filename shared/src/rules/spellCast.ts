@@ -177,10 +177,15 @@ const AOE_TAGS = new Set(['S', 'C', 'L', 'N', 'Q', 'R', 'Y']);
  */
 const GRANTED_ACTION_AREA = new Set(["XPHB:Dragon's Breath"]);
 
-/** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег (или эманация от себя). */
+/** Заклинания-зоны без спасброска: прицел нужен для точки (Daylight). */
+const POINT_ZONE_SPELLS = new Set(['XPHB:Daylight']);
+
+/** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег (или эманация/зона от точки). */
 export function spellHasArea(spell: Spell): boolean {
   if (GRANTED_ACTION_AREA.has(spell.key)) return false;
-  if (!spell.areaSpec || (spell.save?.length ?? 0) === 0) return false;
+  if (!spell.areaSpec) return false;
+  if (POINT_ZONE_SPELLS.has(spell.key)) return true;
+  if ((spell.save?.length ?? 0) === 0) return false;
   if (spell.range.type === 'emanation') return true;
   return (spell.area ?? []).some((t) => AOE_TAGS.has(t));
 }

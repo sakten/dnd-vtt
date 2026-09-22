@@ -53,7 +53,7 @@ export function enterableCell(sight: SightContext, viewers: Viewer[], center: { 
  * ограничивает дальность по восприятию (Чёбышёв по клеткам). Нет зрителей — null.
  */
 export function visibleCells(input: VisionInput): Set<string> | null {
-  const { width, height, cellSize, offsetX, offsetY, walls, darkness, bounds, viewers } = input;
+  const { width, height, cellSize, offsetX, offsetY, walls, darkness, bounds, viewers, light } = input;
   const areas = input.areas ?? [];
   const zones = input.zones ?? [];
   if (viewers.length === 0) return null;
@@ -85,8 +85,16 @@ export function visibleCells(input: VisionInput): Set<string> | null {
         if (visible.has(key)) continue;
         const center = cellCenter(cx, cy, grid);
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
-        const kind = strongestKind(viewerKind, visionKindAt(sight, center));
-        if (!kind && !darkness) {
+        const lit = light?.get(key);
+        const cellKind = visionKindAt(sight, center);
+        // Мгла и магическая тьма свет игнорируют; обычная тьма (в т.ч. глобальная) — перекрывается.
+        const blocked =
+          viewerKind === 'magical' ||
+          viewerKind === 'obscured' ||
+          cellKind === 'magical' ||
+          cellKind === 'obscured';
+        const kind = lit && !blocked ? null : strongestKind(viewerKind, cellKind);
+        if (!kind && (!darkness || lit)) {
           visible.add(key);
           continue;
         }

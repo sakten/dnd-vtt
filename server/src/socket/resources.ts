@@ -12,6 +12,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import { endShapeToken, endShapesOf } from './forms';
+import { removeZonesOfSource } from './zones';
 import { playerScope, rejectIfReaction } from './guards';
 import { pushRollMessage } from './messages';
 
@@ -79,6 +80,8 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         const owned = manager.characterTokens(room, playerId);
         for (const c of owned) endShapeToken(ctx, room, c.mapId, c.token);
         endShapesOf(ctx, room, new Set(owned.map((c) => c.token.id)));
+        // Зоны без концентрации (Daylight и подобные) тоже снимаются — длительности >1 мин не трекаем.
+        for (const c of owned) removeZonesOfSource(ctx, room, c.token.id);
         // Истёкшие эффекты (и их состояния/концентрация) снимаются.
         for (const c of manager.clearEffectsForPlayer(room, playerId)) {
           emitToken(room, 'token:update', c.mapId, c.token);

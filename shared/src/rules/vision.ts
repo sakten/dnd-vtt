@@ -1,9 +1,57 @@
 import type { ZoneInstance } from '../domain/automation';
+import type { LightSource } from '../domain/automation';
 import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
 import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { areaCellKey, areaCellsSpread, cellChebyshev, pointCell, type AreaGrid } from './areas';
+import { areaCellKey, areaCellsSpread, cellCenter, cellChebyshev, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
+
+/** Уровень света клетки от заклинаний: яркий или сумеречный. */
+export type LightLevel = 'bright' | 'dim';
+
+/** Источник света в мире (эффект токена или светящаяся зона). */
+export interface LightEmitter {
+  x: number;
+  y: number;
+  light: LightSource;
+}
+
+/**
+ * Клетки, освещённые источниками: радиус по Чебышёву, тени от стен, ярче — ближе.
+ * Несколько источников комбинируются максимумом (bright > dim).
+ */
+export function lightCells(
+  emitters: LightEmitter[],
+  grid: AreaGrid,
+  walls: Wall[] = [],
+  bounds?: { cx0: number; cy0: number; cx1: number; cy1: number } | null
+): Map<string, LightLevel> {
+  const out = new Map<string, LightLevel>();
+  for (const emitter of emitters) {
+    const brightFeet = Math.max(0, emitter.light.bright);
+    const radiusFeet = brightFeet + Math.max(0, emitter.light.dim);
+    if (radiusFeet <= 0) continue;
+    const radiusCells = Math.ceil(radiusFeet / 5);
+    const source = pointCell({ x: emitter.x, y: emitter.y }, grid);
+    for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+      for (let dy = -radiusCells; dy <= radiusCells; dy++) {
+        const distance = Math.max(Math.abs(dx), Math.abs(dy));
+        if (distance > radiusCells) continue;
+        const cx = source.cx + dx;
+        const cy = source.cy + dy;
+        if (bounds && (cx < bounds.cx0 || cx > bounds.cx1 || cy < bounds.cy0 || cy > bounds.cy1)) continue;
+        const feet = distance * 5;
+        const level: LightLevel | null = feet <= brightFeet ? 'bright' : emitter.light.dim > 0 ? 'dim' : null;
+        if (!level) continue;
+        // Свет не проходит через стены/закрытые двери.
+        if (crossesWalls({ x: emitter.x, y: emitter.y }, cellCenter(cx, cy, grid), walls, 'sight')) continue;
+        const key = areaCellKey(cx, cy);
+        if (level === 'bright' || !out.has(key)) out.set(key, level);
+      }
+    }
+  }
+  return out;
+}
 
 export interface SightContext {
   walls: Wall[];
@@ -19,6 +67,8 @@ export interface SightContext {
   zones?: ZoneInstance[];
   /** Предвычисленные клетки вижн-зон (Map из `zoneVisionCells`) — для массовых расчётов. */
   zoneCells?: Map<string, LightAreaKind>;
+  /** Клетки со светом заклинаний: яркий свет и сумерки перекрывают обычную тьму. */
+  light?: Map<string, LightLevel>;
 }
 
 /** Вижн-вид зоны по флагам: `blocksLight` — магическая тьма, `obscured: heavy` — мгла. */
@@ -169,11 +219,16 @@ export function visionRadiiCells(
  */
 export function canSee(from: Point, target: Point, senses: Sense[] | undefined, ctx: SightContext): boolean {
   if (crossesWalls(from, target, ctx.walls, 'sight')) return false;
-  const kind = strongestKind(visionKindAt(ctx, from), visionKindAt(ctx, target));
-  if (!kind && !ctx.darkness) return true;
   const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
-  const fromCell = pointCell(from, grid);
   const targetCell = pointCell(target, grid);
+  const lit = ctx.light?.get(areaCellKey(targetCell.cx, targetCell.cy));
+  const fromKind = visionKindAt(ctx, from);
+  const toKind = visionKindAt(ctx, target);
+  // Мгла и магическая тьма свет игнорируют; обычная тьма у цели — перекрывается светом.
+  const blocked = fromKind === 'magical' || fromKind === 'obscured' || toKind === 'magical' || toKind === 'obscured';
+  const kind = lit && !blocked ? null : strongestKind(fromKind, toKind);
+  if (!kind && (!ctx.darkness || lit)) return true;
+  const fromCell = pointCell(from, grid);
   const distance = cellChebyshev(fromCell, targetCell);
   return visionRadiiCells(ctx.darkness, senses, kind).some((r) => r === null || distance <= r);
 }

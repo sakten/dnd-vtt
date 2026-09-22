@@ -518,6 +518,50 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(false);
   });
 
+  it('Light: эффект-источник света вешается на цель', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '10', hpCurrent: 10, faction: 'ally' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Light', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Light', targetIds: ['t2'] });
+
+    const effect = room.scene.maps[0]!.tokens[1]!.effects.find((e) => e.sourceKey === 'XPHB:Light');
+    expect(effect?.light).toEqual({ bright: 20, dim: 20 });
+  });
+
+  it('Daylight: зона-солнечный свет в точке', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' })], {
+      p1: 'lib1',
+    });
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Daylight', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 3, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Daylight',
+      slotLevel: 3,
+      origin: { x: 200, y: 100 },
+    });
+
+    expect(room.scene.maps[0]!.zones[0]?.light).toEqual({ bright: 60, dim: 60, sunlight: true });
+  });
+
   it("Dragon's Breath: без точки области Выдох отклоняется", () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.scene.maps[0]!.tokens[0]!.effects.push({
@@ -4448,6 +4492,29 @@ describe('отдых и удаление токена', () => {
     expect(room.resources.p1!.hp.max).toBe(20);
     expect(room.resources.p1!.hp.current).toBe(20);
     expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
+  });
+
+  it('долгий отдых снимает зоны без концентрации (Daylight)', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.scene.maps[0]!.zones.push({
+      id: 'z1',
+      name: 'Daylight',
+      sourceKey: 'XPHB:Daylight',
+      sourceId: 't1',
+      origin: { x: 200, y: 100 },
+      direction: null,
+      area: { shape: 'sphere', size: 60 },
+      duration: { type: 'permanent' },
+      light: { bright: 60, dim: 60, sunlight: true },
+      occupants: [],
+    });
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:rest', { type: 'long' });
+
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
   });
 
   it('долгий отдых возвращает из формы (своя Wild Shape и Polymorph-цель)', () => {
