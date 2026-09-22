@@ -148,7 +148,7 @@
   'ui.join.name': 'Ваше имя',
   'ui.join.namePlaceholder': 'Например: Виктор',
   'ui.join.code': 'Код комнаты',
-  'ui.join.codePlaceholder': 'Например: XK42',
+  'ui.join.codePlaceholder': 'Например: XK42M9PQ7RTV',
   'ui.join.enter': 'Войти в комнату',
   'ui.join.noConnection': 'Нет соединения с сервером…',
   'ui.join.connecting': 'Подключение к серверу…',

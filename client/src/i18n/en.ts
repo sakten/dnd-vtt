@@ -151,7 +151,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.join.name': 'Your name',
   'ui.join.namePlaceholder': 'For example: Victor',
   'ui.join.code': 'Room code',
-  'ui.join.codePlaceholder': 'For example: XK42',
+  'ui.join.codePlaceholder': 'For example: XK42M9PQ7RTV',
   'ui.join.enter': 'Join room',
   'ui.join.noConnection': 'No connection to the server…',
   'ui.join.connecting': 'Connecting to the server…',

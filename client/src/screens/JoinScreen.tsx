@@ -41,10 +41,10 @@ export default function JoinScreen({ connected }: { connected: boolean }) {
           <span>{t('ui.join.code')}</span>
           <input
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             placeholder={t('ui.join.codePlaceholder')}
-            maxLength={6}
+            maxLength={12}
           />
         </label>
         <div className="join-actions" data-testid="join-actions">
