@@ -344,8 +344,9 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
               </Field>
             )}
 
-            {!isSpell && !isTriggered && (
+            {!isSpell && (
               <>
+                {!isTriggered && (
                 <div className="field-row">
                   <Field label={t('ui.ability.range')}>
                     <input
@@ -458,6 +459,7 @@ export default function MonsterAbilityEditor({ actions, onChange, readOnly }: Pr
                     </>
                   )}
                 </div>
+                )}
 
                 <label className="checkbox-row">
                   <input
