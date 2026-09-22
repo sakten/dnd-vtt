@@ -239,7 +239,7 @@ export interface GameState {
   runAction: (
     tokenId: string,
     actionId: string,
-    extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost }
+    extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost; offhand?: boolean; cleave?: boolean }
   ) => void;
   castSpell: (payload: SpellCastPayload) => void;
   startAim: (payload: StartAimPayload) => void;

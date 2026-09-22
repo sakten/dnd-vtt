@@ -403,7 +403,7 @@ export function consumeAttack(
   room: Room,
   mapId: string,
   token: Token,
-  opts: { unarmed?: boolean } = {}
+  opts: { unarmed?: boolean; loading?: boolean } = {}
 ): boolean {
   const turn = turnForToken(room, mapId, token);
   if (!turn) return true;

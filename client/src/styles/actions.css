@@ -154,6 +154,7 @@
 }
 
 .ap-panel {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -167,23 +168,45 @@
 
 .ap-panel.actions {
   border-color: var(--indigo);
-  flex: 2 1 0;
+  flex: 1 1 0;
 }
 
 .ap-panel.bonus {
   border-color: var(--ok-deep);
-  flex: 1 1 0;
+  flex: 0 0 92px;
 }
 
 .ap-panel.other {
   border-color: var(--gold);
-  flex: 0 0 auto;
-  min-height: 0;
+  flex: 0 0 92px;
 }
 
-.ap-panel.reaction {
-  border-color: var(--magic-2);
-  flex: 1 1 0;
+/* Ручка ширины колонки: лежит в зазоре между панелями, не занимая место в раскладке. */
+.ap-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -10px;
+  width: 20px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 3;
+  touch-action: none;
+}
+
+.ap-col-resizer::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 8%;
+  bottom: 8%;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.ap-col-resizer:hover::after {
+  background: var(--accent);
 }
 
 .ap-panel.legendary {
@@ -215,10 +238,6 @@
 
 .ap-panel.other .ap-panel-title {
   color: var(--warn);
-}
-
-.ap-panel.reaction .ap-panel-title {
-  color: var(--magic);
 }
 
 .ap-panel.legendary .ap-panel-title {
@@ -327,11 +346,6 @@
 .ap-panel.other .ap-icon-btn {
   color: var(--warn);
   border-color: var(--gold);
-}
-
-.ap-panel.reaction .ap-icon-btn {
-  color: var(--magic);
-  border-color: var(--magic-2);
 }
 
 .ap-counter.attack-left {

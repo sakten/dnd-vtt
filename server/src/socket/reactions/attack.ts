@@ -177,7 +177,7 @@ function continueAfterRoll(
   // Необязательные наездники атакующего (Ошеломляющий удар): окно после попадания.
   const applyDamageWithRiders = (mods: WeaponDamageMods = {}) => {
     const currentRoom = ctx.getRoom();
-    const riders = currentRoom && plan.attacker ? availableChoiceRiders(ctx, currentRoom, plan.attacker) : [];
+    const riders = currentRoom && plan.attacker ? availableChoiceRiders(ctx, currentRoom, plan.attacker, plan.attack) : [];
     if (!riders.length || !plan.attacker || !plan.attackerMapId || !currentRoom) {
       applyDamage(mods);
       return;
@@ -263,11 +263,16 @@ function continueAfterRoll(
             plan.hitSuccess = true;
             result.hitSuccess = true;
             if (!openHitWindows()) applyDamageWithRiders();
+          } else {
+            // Graze: промах оружием с мастерством — урон по модификатору характеристики.
+            applyWeaponAttackDamage(ctx, plan);
           }
         },
       });
       if (opened) return result;
     }
+    // Graze без окна реакций.
+    applyWeaponAttackDamage(ctx, plan);
     return result;
   }
 

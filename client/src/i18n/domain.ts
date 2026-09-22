@@ -38,6 +38,11 @@ export function masteryLabel(name: string): string {
   return label(`domain.mastery.${name}`, name);
 }
 
+/** Свойство оружия по коду справочника (V/F/T/2H/LD/…). */
+export function weaponPropertyLabel(code: string): string {
+  return label(`domain.property.${code}`, code);
+}
+
 export function defenseLabel(key: DamageDefenseType): string {
   return t(`domain.defense.${key}` as MessageKey);
 }

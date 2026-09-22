@@ -112,6 +112,17 @@ describe('attackAvailable / consumeAttackTurn', () => {
     expect(consumeAttackTurn(turn, 1, {}, { unarmed: true })).toBe(true);
     expect(turn.flurryAttacks).toBe(0);
   });
+
+  it('Loading: один боеприпас за действие — остаток серии атак сгорает', () => {
+    const turn = { ...emptyTurnState(), attacksRemaining: 2 };
+    expect(consumeAttackTurn(turn, 3, {}, { loading: true })).toBe(true);
+    expect(turn.attacksRemaining).toBe(0);
+    expect(turn.actionUsed).toBe(false);
+    const fresh = emptyTurnState();
+    expect(consumeAttackTurn(fresh, 3, {}, { loading: true })).toBe(true);
+    expect(fresh.actionUsed).toBe(true);
+    expect(fresh.attacksRemaining).toBe(0);
+  });
 });
 
 describe('slotSpendable / consumeSlotTurn', () => {

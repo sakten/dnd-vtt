@@ -141,6 +141,10 @@ export interface ClientToServerEvents {
     attackIndex?: number;
     advantage?: 'a' | 'd';
     slot?: ActionCost;
+    /** Атака второй рукой (Light/Nick): урон без модификатора характеристики (кроме отрицательного). */
+    offhand?: boolean;
+    /** Прорубающее (Cleave): вторая цель последнего попадания этим оружием. */
+    cleave?: boolean;
     /** Точка привязки области (мировые координаты) для способностей-областей. */
     origin?: { x: number; y: number };
     /** Направление конуса/линии (мировая точка). */

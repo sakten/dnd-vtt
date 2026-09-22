@@ -30,6 +30,13 @@ export function normalizeTurnState(raw: unknown, movementMax = DEFAULT_SPEED): T
     disengaged: t.disengaged === true,
     movementOnly: t.movementOnly === true,
     concentrationId: typeof t.concentrationId === 'string' && t.concentrationId ? t.concentrationId : null,
+    ...(t.nickUsed === true ? { nickUsed: true } : {}),
+    ...(t.cleaveUsed === true ? { cleaveUsed: true } : {}),
+    ...(typeof t.cleaveFrom === 'string' && t.cleaveFrom ? { cleaveFrom: t.cleaveFrom.slice(0, 80) } : {}),
+    ...(typeof t.cleaveWeapon === 'string' && t.cleaveWeapon ? { cleaveWeapon: t.cleaveWeapon.slice(0, 80) } : {}),
+    ...(typeof t.lastWeaponKey === 'string' && t.lastWeaponKey
+      ? { lastWeaponKey: t.lastWeaponKey.slice(0, 80) }
+      : {}),
     ...(Object.keys(cooldowns).length ? { abilityCooldowns: cooldowns } : {}),
   };
 }

@@ -24,6 +24,8 @@ function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry
     rangeLong: Number.isFinite(rangeLong) ? Math.max(0, Math.round(rangeLong)) : 0,
     damageType: typeof raw?.damageType === 'string' && raw.damageType ? raw.damageType.slice(0, 20) : undefined,
     kind: raw?.kind === 'unarmed' ? 'unarmed' : undefined,
+    weaponKey: typeof raw?.weaponKey === 'string' && raw.weaponKey ? raw.weaponKey.slice(0, 80) : undefined,
+    grip: raw?.grip === '1h' || raw?.grip === '2h' ? raw.grip : undefined,
   };
 }
 

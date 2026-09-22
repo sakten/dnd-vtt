@@ -1,6 +1,7 @@
 import {
   DiceParseError,
   rollDice,
+  weaponHasProperty,
   type AttackEntry,
   type RollKind,
   type RollLabelParams,
@@ -107,7 +108,10 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           beforeRoll: () => {
             if (!canSpend()) return false;
             if (inCombat && combatant) {
-              manager.consumeAttack(room, combatant.mapId, combatant.token, { unarmed: entry.kind === 'unarmed' });
+              manager.consumeAttack(room, combatant.mapId, combatant.token, {
+                unarmed: entry.kind === 'unarmed',
+                loading: weaponHasProperty(entry, 'LD'),
+              });
               syncCombat(room, combatant.mapId);
             }
             return true;

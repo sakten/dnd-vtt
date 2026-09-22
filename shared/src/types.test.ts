@@ -35,6 +35,15 @@ describe('normalizeAttacks', () => {
     const many = Array.from({ length: MAX_ATTACKS + 5 }, (_, i) => ({ name: `A${i}` }));
     expect(normalizeAttacks(many)).toHaveLength(MAX_ATTACKS);
   });
+
+  it('сохраняет ключ оружия и хват, отбрасывает мусор', () => {
+    const [kept] = normalizeAttacks([{ name: 'Меч', weaponKey: 'XPHB:Longsword', grip: '2h' }]);
+    expect(kept?.weaponKey).toBe('XPHB:Longsword');
+    expect(kept?.grip).toBe('2h');
+    const [bad] = normalizeAttacks([{ name: 'Меч', weaponKey: 42, grip: 'three' }] as never);
+    expect(bad?.weaponKey).toBeUndefined();
+    expect(bad?.grip).toBeUndefined();
+  });
 });
 
 describe('normalizeSheet', () => {
@@ -125,6 +134,15 @@ describe('turn state', () => {
     expect(turn.actionUsed).toBe(false);
     expect(turn.movementUsed).toBe(0);
     expect(turn.concentrationId).toBeNull();
+  });
+
+  it('Light/Nick-поля: nickUsed и lastWeaponKey сохраняются, мусор отбрасывается', () => {
+    const turn = normalizeTurnState({ nickUsed: true, lastWeaponKey: 'XPHB:Dagger' });
+    expect(turn.nickUsed).toBe(true);
+    expect(turn.lastWeaponKey).toBe('XPHB:Dagger');
+    const bad = normalizeTurnState({ nickUsed: 'yes', lastWeaponKey: 42 });
+    expect(bad.nickUsed).toBeUndefined();
+    expect(bad.lastWeaponKey).toBeUndefined();
   });
 });
 

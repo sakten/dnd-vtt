@@ -40,6 +40,56 @@ export function weaponByKey(key: string): WeaponDef | undefined {
   return WEAPONS.find((weapon) => weapon.key === key);
 }
 
+/** Есть ли у атаки свойство оружия из справочника (Heavy/Loading/…); без ключа — false. */
+export function weaponHasProperty(attack: AttackEntry, code: string): boolean {
+  return attack.weaponKey ? !!weaponByKey(attack.weaponKey)?.properties.includes(code) : false;
+}
+
+/**
+ * Доступ к мастерствам оружия по классу (2024): «Владение оружием» есть у
+ * варвара, воина, паладина, следопыта и плута — автоматически, без выбора игроком.
+ */
+const MASTERY_CLASSES = new Set(['barbarian', 'fighter', 'paladin', 'ranger', 'rogue']);
+
+export function masteryAccessible(classes: ClassLevel[] | undefined): boolean {
+  return (classes ?? []).some((c) => MASTERY_CLASSES.has(c.className) && c.level > 0);
+}
+
+/** Активное мастерство оружия атаки: класс даёт доступ, оружие — свойство. */
+export function weaponMastery(attack: AttackEntry, classes: ClassLevel[] | undefined): string | undefined {
+  if (!attack.weaponKey || !masteryAccessible(classes)) return undefined;
+  return weaponByKey(attack.weaponKey)?.mastery.find(Boolean);
+}
+
+/**
+ * Дистанции броска для метательного оружия ближнего боя. Справочник их не несёт
+ * (5e.tools для melee отдаёт 5/0), поэтому таблица официальных дистанций 2024.
+ */const THROWN_RANGES: Record<string, { normal: number; long: number }> = {
+  'XPHB:Dagger': { normal: 20, long: 60 },
+  'XPHB:Handaxe': { normal: 20, long: 60 },
+  'XPHB:Javelin': { normal: 30, long: 120 },
+  'XPHB:Light Hammer': { normal: 20, long: 60 },
+  'XPHB:Spear': { normal: 20, long: 60 },
+  'XPHB:Trident': { normal: 20, long: 60 },
+};
+
+/** Дистанции броска для метательного оружия ближнего боя; undefined — не метательное. */
+export function thrownRange(weapon: WeaponDef): { normal: number; long: number } | undefined {
+  if (weapon.rangeType !== 'melee' || !weapon.properties.includes('T')) return undefined;
+  return THROWN_RANGES[weapon.key];
+}
+
+/**
+ * Атаки для оружия: обычная, а у метательного ближнего боя — ещё и бросок
+ * (отдельная ranged-атака той же формулы: 5/0 в ближнем, например 20/60 броском).
+ */
+export function weaponAttackEntries(weapon: WeaponDef, ctx: WeaponContext): AttackEntry[] {
+  const base = weaponAttackEntry(weapon, ctx);
+  const thrown = thrownRange(weapon);
+  if (!thrown) return [base];
+  return [base, { ...base, rangeType: 'ranged', rangeNormal: thrown.normal, rangeLong: thrown.long }];
+}
+
 /** Явный безоружный удар (kind или имя). */
 export function isUnarmedAttack(attack: AttackEntry): boolean {
   return attack.kind === 'unarmed' || /unarmed|безоруж/i.test(attack.name);
@@ -90,20 +140,34 @@ function damageExpression(dice: string, mod: number): string {
   return `${dice}${mod > 0 ? `+${mod}` : `${mod}`}`;
 }
 
+/** Модификатор характеристики, которым считается атака оружием (Graze, урон второй рукой). */
+export function weaponAbilityMod(weapon: WeaponDef, ctx: WeaponContext): number {
+  const str = abilityMod(ctx.abilities.str ?? 10);
+  const dex = abilityMod(ctx.abilities.dex ?? 10);
+  if (weapon.unarmed) {
+    const monkLevel = ctx.classes.find((c) => c.className === 'monk')?.level ?? 0;
+    return monkLevel > 0 ? dex : str;
+  }
+  return weapon.rangeType === 'ranged' ? dex : weapon.properties.includes('F') ? Math.max(str, dex) : str;
+}
+
 /**
  * Заготовка атаки из оружия: попадание/урон по характеристикам листа
  * (дальнее и фехтовальное — Ловкость или лучшая, иначе Сила; безоружный удар
- * у монаха — Ловкость и кость боевых искусств).
+ * у монаха — Ловкость и кость боевых искусств). `offhand` — атака второй рукой
+ * (Light/Nick): урон без модификатора, но не выше нуля.
  */
-export function weaponAttackEntry(weapon: WeaponDef, ctx: WeaponContext): AttackEntry {
+export function weaponAttackEntry(
+  weapon: WeaponDef,
+  ctx: WeaponContext,
+  opts: { offhand?: boolean } = {}
+): AttackEntry {
   const totalLevel = ctx.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
   const pb = proficiencyBonus(totalLevel || 1);
-  const str = abilityMod(ctx.abilities.str ?? 10);
-  const dex = abilityMod(ctx.abilities.dex ?? 10);
 
   if (weapon.unarmed) {
     const monkLevel = ctx.classes.find((c) => c.className === 'monk')?.level ?? 0;
-    const mod = monkLevel > 0 ? dex : str;
+    const mod = weaponAbilityMod(weapon, ctx);
     const dice = monkLevel > 0 ? `1d${martialArtsDie(monkLevel)}` : weapon.damage;
     return {
       name: weapon.name,
@@ -114,18 +178,22 @@ export function weaponAttackEntry(weapon: WeaponDef, ctx: WeaponContext): Attack
       rangeType: 'melee',
       rangeNormal: weapon.rangeNormal,
       rangeLong: 0,
+      weaponKey: weapon.key,
     };
   }
 
-  const mod =
-    weapon.rangeType === 'ranged' ? dex : weapon.properties.includes('F') ? Math.max(str, dex) : str;
+  const mod = weaponAbilityMod(weapon, ctx);
+  // Универсальное оружие: пока всегда двуручный хват (решение владельца;
+  // позже — ячейки рук в панели и явный учёт хвата).
+  const dice = weapon.properties.includes('V') && weapon.versatileDamage ? weapon.versatileDamage : weapon.damage;
   return {
     name: weapon.name,
     hit: hitExpression(pb + mod),
-    damage: damageExpression(weapon.damage, mod),
+    damage: damageExpression(dice, opts.offhand ? Math.min(0, mod) : mod),
     damageType: weapon.damageType,
     rangeType: weapon.rangeType,
     rangeNormal: weapon.rangeNormal,
     rangeLong: weapon.rangeLong,
+    weaponKey: weapon.key,
   };
 }

@@ -175,6 +175,8 @@ export interface EffectInstance {
   variant?: string;
   /** Метка-прицел на цели (Hex/Hunter's Mark): клиент рисует прицел поверх токена. */
   mark?: boolean;
+  /** Одноразовое мастерство (Sap/Vex): сгорает после ближайшего броска атаки носителя. */
+  consumeOnAttackRoll?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
   light?: LightSource;
 }

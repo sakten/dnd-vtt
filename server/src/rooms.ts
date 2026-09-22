@@ -281,7 +281,7 @@ export class RoomManager {
     return Combat.canAttack(room, mapId, token, opts);
   }
 
-  consumeAttack(room: Room, mapId: string, token: Token, opts: { unarmed?: boolean } = {}): boolean {
+  consumeAttack(room: Room, mapId: string, token: Token, opts: { unarmed?: boolean; loading?: boolean } = {}): boolean {
     return Combat.consumeAttack(this, room, mapId, token, opts);
   }
 

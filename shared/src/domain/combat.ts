@@ -31,6 +31,16 @@ export interface TurnState {
   attacksRemaining: number;
   /** Доп. безоружные удары бонусным действием (Шквал ударов). */
   flurryAttacks: number;
+  /** Nick: доп. атака Light уже сделана частью действия «Атака» в этом ходу. */
+  nickUsed?: boolean;
+  /** Cleave: доп. атака по второй цели уже сделана в этом ходу. */
+  cleaveUsed?: boolean;
+  /** Cleave: цель последнего попадания оружием с «Прорубающим» (вторая — в 5 фт от неё). */
+  cleaveFrom?: string;
+  /** Cleave: ключ оружия последнего попадания (для кнопки «Прорубить»). */
+  cleaveWeapon?: string;
+  /** Ключ оружия последней оружейной атаки за ход (для Light/Nick: «другое лёгкое оружие»). */
+  lastWeaponKey?: string;
   legendaryRemaining: number;
   legendaryMax: number;
   /** Действие «Отход»: движение в этом ходу не провоцирует атаки по возможности. */

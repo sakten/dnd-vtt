@@ -56,6 +56,10 @@ export type TargetingState =
       slot: ActionCost;
       attackIndex?: number;
       advantage?: 'a' | 'd';
+      /** Атака второй рукой (Light/Nick). */
+      offhand?: boolean;
+      /** Прорубающее (Cleave): вторая цель. */
+      cleave?: boolean;
       label: string;
     }
   | {
@@ -115,6 +119,8 @@ export type InteractionCommand =
         origin?: Point;
         direction?: Point;
         advantage?: 'a' | 'd';
+        offhand?: boolean;
+        cleave?: boolean;
       };
     }
   | { type: 'castSpell'; payload: SpellCastPayload }
@@ -220,7 +226,14 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
         type: 'runAction',
         tokenId: t.tokenId,
         actionId: t.actionId,
-        extra: { targetIds: [targetId], attackIndex: t.attackIndex, slot: t.slot, advantage: t.advantage },
+        extra: {
+          targetIds: [targetId],
+          attackIndex: t.attackIndex,
+          slot: t.slot,
+          advantage: t.advantage,
+          ...(t.offhand ? { offhand: true } : {}),
+          ...(t.cleave ? { cleave: true } : {}),
+        },
       },
     };
   }

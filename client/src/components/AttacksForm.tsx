@@ -4,15 +4,36 @@ import {
   WEAPONS,
   emptyAttack,
   isUnarmedAttack,
-  weaponAttackEntry,
+  weaponAttackEntries,
+  weaponByKey,
   type AttackEntry,
   type WeaponContext,
   type WeaponDef,
 } from 'shared';
 import { t } from '../i18n';
-import { damageLabel, masteryLabel } from '../i18n/domain';
+import { damageLabel, masteryLabel, weaponPropertyLabel } from '../i18n/domain';
 import { weaponDisplayName } from '../i18n/names';
 import { Field } from './Field';
+
+/** Теги справочника для атаки из списка: свойства оружия и мастерство. */
+function WeaponTags({ weaponKey }: { weaponKey?: string }) {
+  const weapon = weaponKey ? weaponByKey(weaponKey) : undefined;
+  if (!weapon) return null;
+  return (
+    <div className="weapon-tags">
+      {weapon.properties.filter(Boolean).map((code) => (
+        <span key={code} className="weapon-tag" title={weaponPropertyLabel(code)}>
+          {weaponPropertyLabel(code)}
+        </span>
+      ))}
+      {weapon.mastery.filter(Boolean).map((name) => (
+        <span key={name} className="weapon-tag mastery" title={masteryLabel(name)}>
+          {masteryLabel(name)}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   attacks: AttackEntry[];
@@ -46,15 +67,21 @@ export default function AttacksForm({
   };
   const addFromList = (weapon: WeaponDef) => {
     if (!weaponContext) return;
-    const entry = { ...weaponAttackEntry(weapon, weaponContext), name: weaponDisplayName(weapon.key, weapon.name) };
+    const display = weaponDisplayName(weapon.key, weapon.name);
+    // Метательное ближнего боя добавляется двумя атаками: ближней (5/0) и броском.
+    const entries = weaponAttackEntries(weapon, weaponContext).map((e, i) => ({
+      ...e,
+      name: i > 0 ? `${display} (${t('ui.attacks.thrown')})` : display,
+    }));
     if (weapon.unarmed) {
       const index = attacks.findIndex(isUnarmedAttack);
       if (index >= 0) {
-        onChange(attacks.map((a, i) => (i === index ? entry : a)));
+        onChange(attacks.map((a, i) => (i === index ? entries[0]! : a)));
         return;
       }
     }
-    if (attacks.length < MAX_ATTACKS) onChange([...attacks, entry]);
+    const room = Math.max(0, MAX_ATTACKS - attacks.length);
+    if (room > 0) onChange([...attacks, ...entries.slice(0, room)]);
   };
 
   return (
@@ -164,6 +191,7 @@ export default function AttacksForm({
               </>
             )}
           </div>
+          <WeaponTags weaponKey={attack.weaponKey} />
         </div>
       ))}
       {!readOnly && weaponContext && (

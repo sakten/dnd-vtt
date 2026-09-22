@@ -48,6 +48,28 @@
   margin-top: 4px;
 }
 
+.weapon-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.weapon-tag {
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-3, rgba(255, 255, 255, 0.06));
+  color: var(--text-dim);
+}
+
+.weapon-tag.mastery {
+  border-color: var(--gold);
+  color: var(--warn);
+}
+
 .weapon-head {
   display: flex;
   align-items: center;

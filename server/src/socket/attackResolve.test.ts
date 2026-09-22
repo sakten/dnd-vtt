@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { WEAPONS, type AbilityKey } from 'shared';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
-import { attackDamageRoll, attackHitRoll, attackUnseen, resolveWeaponAttack } from './attackResolve';
+import { attackDamageRoll, attackHitRoll, attackUnseen, prepareWeaponAttack, resolveWeaponAttack } from './attackResolve';
 
 /** Сид Math.random на время колбэка (броски детерминированы). */
 function withRandom(value: number, fn: () => void): void {
@@ -134,5 +135,41 @@ describe('оружие: граница ошибок', () => {
         })
       ).toThrow(TypeError);
     });
+  });
+});
+
+describe('Heavy: помеха по профильной характеристике', () => {
+  const heavy = WEAPONS.find((w) => w.rangeType === 'melee' && w.properties.includes('H'))!;
+  const entry = {
+    name: heavy.name,
+    hit: 'd20+5',
+    damage: '1d10',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+    weaponKey: heavy.key,
+  };
+
+  const disFor = (str: number, dex: number): number => {
+    const abilities: Record<AbilityKey, number> = { str, dex, con: 10, int: 10, wis: 10, cha: 10 };
+    const attacker = makeToken('t1', { x: 50, y: 100, statblock: { abilities } });
+    const target = makeToken('t2', { x: 100, y: 100 });
+    const room = makeCombatRoom([attacker, target]);
+    const f = makeConnCtx(room, { dm: true });
+    const { prep } = prepareWeaponAttack(f.ctx, {
+      attacker,
+      attackerMapId: 'm1',
+      target,
+      targetMapId: 'm1',
+      attack: entry,
+      author: 'A',
+    });
+    return prep!.disCount;
+  };
+
+  it('Сила ≤ 12 — помеха, Сила 13 — без помехи', () => {
+    expect(disFor(12, 14)).toBe(1);
+    expect(disFor(13, 8)).toBe(0);
   });
 });

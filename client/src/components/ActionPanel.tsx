@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, restrictionsFor, slotSpendable, type ActionCost, type ActionDef, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -17,7 +17,7 @@ import { useActionContext } from '../lib/useActionContext';
 import { useActiveMap } from '../store/hooks';
 import { spellMechanics } from '../lib/spellText';
 import { t } from '../i18n';
-import { baseActionLabel } from '../i18n/domain';
+import { baseActionLabel, masteryLabel } from '../i18n/domain';
 import { featureDisplayName } from '../i18n/names';
 import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
@@ -33,6 +33,12 @@ import WeaponIcon from './WeaponIcon';
 
 /** Базовые действия, которые по правилам являются атаками (бейдж-меч). */
 const ATTACK_BADGED = new Set(['unarmedStrike', 'grapple', 'shove']);
+
+/** Ширины колонок нижней панели: одна иконная полоса по умолчанию, минимум и остаток для «Действий». */
+const COL_MIN = 92;
+const COL_DEFAULT = 92;
+const COL_ACTIONS_MIN = 200;
+type ColKind = 'bonus' | 'split' | 'other';
 
 /** Тултип иконки: рисуется порталом, чтобы не резался скроллом панели. */
 interface IconTipState {
@@ -104,6 +110,67 @@ export default function ActionPanel() {
     onPointerDown: onResizeDown,
     onPointerMove: onResizeMove,
   } = useDragSize('vtt-action-height', 'y', clampHeight, null, measureHeight);
+
+  /** Ширины колонок (px); null — дефолт из CSS: бонус и «прочие» по одной полосе, действия — остаток. */
+  const [cols, setCols] = useState<{ bonus: number; other: number } | null>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('vtt-action-cols') ?? 'null') as {
+        bonus?: unknown;
+        other?: unknown;
+      } | null;
+      if (typeof parsed?.bonus === 'number' && typeof parsed.other === 'number') {
+        return { bonus: parsed.bonus, other: parsed.other };
+      }
+    } catch {
+      /* повреждённое значение — дефолт */
+    }
+    return null;
+  });
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const colDrag = useRef<{ kind: ColKind; x: number; bonus: number; other: number } | null>(null);
+
+  useEffect(() => {
+    if (cols) {
+      localStorage.setItem('vtt-action-cols', JSON.stringify({ bonus: Math.round(cols.bonus), other: Math.round(cols.other) }));
+    }
+  }, [cols]);
+
+  const onColDown = (kind: ColKind) => (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const current = cols ?? { bonus: COL_DEFAULT, other: COL_DEFAULT };
+    colDrag.current = { kind, x: e.clientX, bonus: current.bonus, other: current.other };
+    setCols(current);
+  };
+
+  const onColMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = colDrag.current;
+    if (!drag || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const bodyW = bodyRef.current?.clientWidth ?? 1200;
+    const maxSum = Math.max(COL_MIN * 2, bodyW - 32 - COL_ACTIONS_MIN);
+    const dx = e.clientX - drag.x;
+    let { bonus, other } = drag;
+    if (drag.kind === 'bonus') {
+      bonus = Math.max(COL_MIN, Math.min(bonus - dx, maxSum - other));
+    } else if (drag.kind === 'other') {
+      other = Math.max(COL_MIN, Math.min(other + dx, maxSum - bonus));
+    } else {
+      const total = bonus + other;
+      bonus = Math.max(COL_MIN, Math.min(bonus + dx, total - COL_MIN, maxSum - COL_MIN));
+      other = total - bonus;
+    }
+    setCols({ bonus, other });
+  };
+
+  const onColUp = () => {
+    colDrag.current = null;
+  };
+
+  const resetCols = () => {
+    colDrag.current = null;
+    localStorage.removeItem('vtt-action-cols');
+    setCols(null);
+  };
 
   const toggleCollapsed = () => {
     setCollapsed((v) => {
@@ -208,20 +275,34 @@ export default function ActionPanel() {
 
   const featuresAction = features.filter((f) => f.costs.includes('action'));
   const featuresBonus = features.filter((f) => f.costs.includes('bonus'));
-  const featuresReaction = features.filter((f) => f.costs.includes('reaction'));
   const featuresOther = features.filter(
     (f) => !f.costs.includes('action') && !f.costs.includes('bonus') && !f.costs.includes('reaction')
   );
   const legendaryAbilities = abilities.filter(legendaryOnly);
-  const hasReaction =
-    BASE_ACTIONS.some((a) => a.costs.includes('reaction')) ||
-    featuresReaction.length > 0 ||
-    panelSpells.some((s) => spellSlotOf(s) === 'reaction');
 
   const spellsAction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'action'));
   const spellsBonus = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'bonus'));
-  const spellsReaction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'reaction'));
   const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'other'));
+
+  // Атака второй рукой (Light): нужно второе лёгкое оружие; триггер — прошлая атака другим лёгким.
+  // Оружие с Nick и доступом к мастерствам — в «Свободных и прочих» (не тратит бонусное действие).
+  const lightWeapons = weapons.filter(({ entry }) => weaponHasProperty(entry, 'L'));
+  const lastWeapon = turn?.lastWeaponKey ? weaponByKey(turn.lastWeaponKey) : undefined;
+  const lastIsLight = !!lastWeapon?.properties.includes('L');
+  const hasMastery = masteryAccessible(sheet?.classes);
+  const isNickWeapon = (entry: AttackEntry) =>
+    hasMastery && !!entry.weaponKey && !!weaponByKey(entry.weaponKey)?.mastery.includes('Nick');
+  const nickWeapons = lightWeapons.filter(({ entry }) => isNickWeapon(entry));
+  const bonusOffhand = lightWeapons.filter(({ entry }) => !isNickWeapon(entry));
+  const canOffhand = controlled && !incap && lightWeapons.length >= 2;
+  const offhandReady = (entry: AttackEntry) =>
+    !combatActive || (lastIsLight && entry.weaponKey !== turn?.lastWeaponKey);
+  // Cleave: после попадания оружием с «Прорубающим» сервер помечает цель (раз в ход).
+  const cleaveWeapon = turn?.cleaveWeapon ? weaponByKey(turn.cleaveWeapon) : undefined;
+  const cleaveEntry =
+    !turn?.cleaveUsed && turn?.cleaveFrom && cleaveWeapon
+      ? weapons.find(({ entry }) => entry.weaponKey === turn.cleaveWeapon)
+      : undefined;
 
   const spellDisabled = (spell: Spell): boolean => {
     // Блокируем по экономике действий (действие/бонус/реакция уже потрачены).
@@ -411,6 +492,76 @@ export default function ActionPanel() {
     </button>
   );
 
+  /** Атака второй рукой (Light/Nick): урон без модификатора; `nick` — частью «Атаки» без бонусного. */
+  const offhandButton = (entry: AttackEntry, index: number, kind: 'light' | 'nick') => {
+    const label = entry.name.trim() || t('ui.action.weaponN', { n: index + 1 });
+    const tip = t(kind === 'nick' ? 'ui.action.nickLabel' : 'ui.action.offhandLabel', { name: label });
+    const disabled =
+      !controlled ||
+      incap ||
+      (combatActive &&
+        (!isActive ||
+          !turn ||
+          !offhandReady(entry) ||
+          (kind === 'nick' ? !!turn.nickUsed : !canSpendSlot(turnCtx, 'bonus', `offhand:${index}`))));
+    return (
+      <button
+        key={`${kind}:${index}`}
+        className="ap-icon-btn"
+        data-tip={tip}
+        aria-label={tip}
+        disabled={disabled}
+        onClick={() =>
+          startTargeting({
+            kind: 'action',
+            tokenId: token.id,
+            actionId: 'attack',
+            slot: 'bonus',
+            attackIndex: index,
+            offhand: true,
+            label: tip,
+          })
+        }
+      >
+        <WeaponIcon name={entry.name} className="ap-icon" />
+        <span className="ap-attack-badge">
+          <ActionIcon id="sword" className="ap-badge-icon" />
+        </span>
+      </button>
+    );
+  };
+
+  /** Прорубить (Cleave): вторая цель после попадания; часть «Атаки», бонус не тратит. */
+  const cleaveButton = (entry: AttackEntry, index: number) => {
+    const label = entry.name.trim() || t('ui.action.weaponN', { n: index + 1 });
+    const tip = t('ui.action.cleaveLabel', { name: label });
+    return (
+      <button
+        key={`cleave:${index}`}
+        className="ap-icon-btn"
+        data-tip={tip}
+        aria-label={tip}
+        disabled={!controlled || incap || (combatActive && !isActive)}
+        onClick={() =>
+          startTargeting({
+            kind: 'action',
+            tokenId: token.id,
+            actionId: 'attack',
+            slot: 'action',
+            attackIndex: index,
+            cleave: true,
+            label: tip,
+          })
+        }
+      >
+        <WeaponIcon name={entry.name} className="ap-icon" />
+        <span className="ap-attack-badge">
+          <ActionIcon id="sword" className="ap-badge-icon" />
+        </span>
+      </button>
+    );
+  };
+
   const renderButtons = (slot: ActionCost) => {
     const buttons: ReactNode[] = [];
     const hasAttack = BASE_ACTIONS.some((a) => a.id === 'attack' && a.costs.includes(slot));
@@ -430,12 +581,15 @@ export default function ActionPanel() {
       } else {
         for (const { entry, index } of weapons) {
           const label = entry.name.trim() || t('ui.action.weaponN', { n: index + 1 });
+          const mastery = weaponMastery(entry, sheet?.classes);
+          const attackLabel = t('ui.action.attackLabel', { name: label });
+          const tip = mastery ? `${attackLabel} · ${masteryLabel(mastery)}` : attackLabel;
           buttons.push(
             <button
               key={`${slot}:attack:${index}`}
               className="ap-icon-btn"
-              data-tip={t('ui.action.attackLabel', { name: label })}
-              aria-label={t('ui.action.attackLabel', { name: label })}
+              data-tip={tip}
+              aria-label={tip}
               disabled={!canSpendSlot(turnCtx, slot, 'attack', isUnarmedAttack(entry))}
               onClick={() => fire('attack', slot, index, t('ui.action.attackLabel', { name: label }))}
             >
@@ -488,14 +642,14 @@ export default function ActionPanel() {
         </button>
       );
     }
-    if (slot === 'action' || slot === 'bonus' || slot === 'reaction') {
-      const featureList = slot === 'action' ? featuresAction : slot === 'bonus' ? featuresBonus : featuresReaction;
-      const spellList = slot === 'action' ? spellsAction : slot === 'bonus' ? spellsBonus : spellsReaction;
+    if (slot === 'action' || slot === 'bonus') {
+      const featureList = slot === 'action' ? featuresAction : featuresBonus;
+      const spellList = slot === 'action' ? spellsAction : spellsBonus;
       buttons.push(...featureList.map(featureButton));
       buttons.push(...spellList.map(spellButton));
     }
     buttons.push(...abilities.filter((a) => !legendaryOnly(a) && a.costs.includes(slot)).map(abilityButton));
-    if (buttons.length === 0) return <span className="ap-empty">{t('ui.action.none')}</span>;
+    if (buttons.length === 0) return slot === 'bonus' && canOffhand && bonusOffhand.length > 0 ? null : <span className="ap-empty">{t('ui.action.none')}</span>;
     return buttons;
   };
 
@@ -567,7 +721,7 @@ export default function ActionPanel() {
           />
         </div>
       )}
-      <div className="ap-body">
+      <div className="ap-body" ref={bodyRef}>
         {legendarySlot ? (
           <section className="ap-panel legendary">
             <div className="ap-panel-head">
@@ -586,23 +740,52 @@ export default function ActionPanel() {
             {combatActive && turn && <Dots total={actionTotal} remaining={actionRemaining} tone="action" />}
           </div>
           <div className="ap-icons">{renderButtons('action')}</div>
+          <div
+            className="ap-col-resizer"
+            data-tip={t('ui.action.resizeCols')}
+            onPointerDown={onColDown('bonus')}
+            onPointerMove={onColMove}
+            onPointerUp={onColUp}
+            onDoubleClick={resetCols}
+          />
         </section>
-        <section className="ap-panel bonus">
+        <section className="ap-panel bonus" style={cols ? { flex: `0 0 ${cols.bonus}px` } : undefined}>
           <div className="ap-panel-head">
             <span className="ap-panel-title">{t('ui.action.bonusActions')}</span>
             {combatActive && turn && <Dots total={bonusTotal} remaining={bonusRemaining} tone="bonus" />}
           </div>
-          <div className="ap-icons">{renderButtons('bonus')}</div>
+          <div className="ap-icons">
+            {renderButtons('bonus')}
+            {canOffhand && bonusOffhand.map(({ entry, index }) => offhandButton(entry, index, 'light'))}
+          </div>
+          <div
+            className="ap-col-resizer"
+            data-tip={t('ui.action.resizeCols')}
+            onPointerDown={onColDown('split')}
+            onPointerMove={onColMove}
+            onPointerUp={onColUp}
+            onDoubleClick={resetCols}
+          />
         </section>
-        {hasReaction && (
-          <section className="ap-panel reaction">
+        {(featuresOther.length > 0 || spellsOther.length > 0 || (canOffhand && nickWeapons.length > 0) || !!cleaveEntry) && (
+          <section className="ap-panel other" style={cols ? { flex: `0 0 ${cols.other}px` } : undefined}>
             <div className="ap-panel-head">
-              <span className="ap-panel-title">{t('ui.action.reaction')}</span>
-              {combatActive && reactionTurn && (
-                <Dots total={reactionTotal} remaining={reactionRemaining} tone="reaction" />
-              )}
+              <span className="ap-panel-title">{t('ui.action.other')}</span>
             </div>
-            <div className="ap-icons">{renderButtons('reaction')}</div>
+            <div className="ap-icons">
+              {featuresOther.map(featureButton)}
+              {spellsOther.map(spellButton)}
+              {canOffhand && nickWeapons.map(({ entry, index }) => offhandButton(entry, index, 'nick'))}
+              {cleaveEntry && cleaveButton(cleaveEntry.entry, cleaveEntry.index)}
+            </div>
+            <div
+              className="ap-col-resizer"
+              data-tip={t('ui.action.resizeCols')}
+              onPointerDown={onColDown('other')}
+              onPointerMove={onColMove}
+              onPointerUp={onColUp}
+              onDoubleClick={resetCols}
+            />
           </section>
         )}
         {legendaryAbilities.length > 0 && (
@@ -621,17 +804,6 @@ export default function ActionPanel() {
           </>
         )}
       </div>
-      {!legendarySlot && (featuresOther.length > 0 || spellsOther.length > 0) && (
-        <section className="ap-panel other">
-          <div className="ap-panel-head">
-            <span className="ap-panel-title">{t('ui.action.other')}</span>
-          </div>
-          <div className="ap-icons">
-            {featuresOther.map(featureButton)}
-            {spellsOther.map(spellButton)}
-          </div>
-        </section>
-      )}
         </>
       )}
       {casting && (

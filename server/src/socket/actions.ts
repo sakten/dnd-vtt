@@ -4,6 +4,7 @@
   automationForAction,
   casterStats,
   classFeatures,
+  consumeSlotTurn,
   crossesWalls,
   featureActionAutomation,
   findBaseAction,
@@ -12,11 +13,18 @@
   gridDistanceFeet,
   gridOfMap,
   legendaryOnly,
+  masteryAccessible,
   monsterStats,
+  restrictionsFor,
   rollDice,
+  slotSpendable,
   tokenVisibleFrom,
   tokensInArea,
   unarmedStrikeEntry as computedUnarmedStrike,
+  weaponAttackEntry,
+  weaponByKey,
+  weaponHasProperty,
+  weaponMastery,
   withAdvantage,
   type ActionCost,
   type ActionDef,
@@ -427,7 +435,7 @@ function unarmedStrikeEntry(
 export function registerActionHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
-    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, origin, direction }) => {
+    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction }) => {
       if (!ctx.playerId || typeof actionId !== 'string') return;
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, tokenId);
@@ -545,7 +553,69 @@ export function registerActionHandlers(ctx: ConnCtx) {
           return;
         }
         const unarmed = action.id === 'unarmedStrike' || entry.kind === 'unarmed';
-        if (!manager.canAttack(room, mapId, token, { unarmed })) {
+        const offTurn = manager.turnStateFor(room, mapId, token);
+        const offRestrictions = restrictionsFor(token.conditions, token.effects);
+        let attackEntry = entry;
+        let offhandNick = false;
+        if (cleave) {
+          // Прорубающее: вторая цель в 5 фт от цели последнего попадания и в досягаемости,
+          // частью действия «Атака», раз в ход; урон без модификатора.
+          const weapon = entry.weaponKey ? weaponByKey(entry.weaponKey) : undefined;
+          const chosenId = targetIds?.[0];
+          const from = offTurn?.cleaveFrom ? manager.findToken(room, mapId, offTurn.cleaveFrom) : null;
+          const chosen = typeof chosenId === 'string' ? manager.findToken(room, mapId, chosenId) : null;
+          if (
+            !offTurn ||
+            offTurn.cleaveUsed ||
+            unarmed ||
+            !weapon ||
+            weapon.rangeType !== 'melee' ||
+            weaponMastery(entry, sheet?.classes) !== 'Cleave' ||
+            !from ||
+            !chosen
+          ) {
+            fail(ctx, 'actionSpent');
+            return;
+          }
+          const map = manager.findMap(room, mapId);
+          const grid = gridOfMap(map, room.scene.grid);
+          const betweenFeet = gridDistanceFeet(from, chosen, grid.size);
+          const reachFeet = gridDistanceFeet(token, chosen, grid.size);
+          if (betweenFeet > 5 || reachFeet > (entry.rangeNormal || 5)) {
+            fail(ctx, 'outOfRange', { feet: Math.round(Math.max(betweenFeet, reachFeet)) });
+            return;
+          }
+          const abilities = manager.abilitiesForToken(room, token) ?? {};
+          attackEntry = {
+            ...weaponAttackEntry(weapon, { abilities, classes: sheet?.classes ?? [] }, { offhand: true }),
+            name: entry.name || weapon.name,
+          };
+        } else if (offhand) {
+          // Атака второй рукой (Light): лёгкое оружие, отличное от оружия прошлой атаки;
+          // Nick с доступом к мастерствам — частью действия, без бонусного.
+          const weapon = entry.weaponKey ? weaponByKey(entry.weaponKey) : undefined;
+          if (unarmed || !weapon || !weapon.properties.includes('L')) {
+            fail(ctx, 'actionSpent');
+            return;
+          }
+          offhandNick = weapon.mastery.includes('Nick') && masteryAccessible(sheet?.classes);
+          if (offTurn) {
+            const last = offTurn.lastWeaponKey ? weaponByKey(offTurn.lastWeaponKey) : undefined;
+            if (!last?.properties.includes('L') || offTurn.lastWeaponKey === weapon.key) {
+              fail(ctx, 'actionSpent');
+              return;
+            }
+            if (offhandNick ? offTurn.nickUsed : !slotSpendable(offTurn, offRestrictions, 'bonus')) {
+              fail(ctx, 'actionSpent');
+              return;
+            }
+          }
+          const abilities = manager.abilitiesForToken(room, token) ?? {};
+          attackEntry = {
+            ...weaponAttackEntry(weapon, { abilities, classes: sheet?.classes ?? [] }, { offhand: true }),
+            name: entry.name || weapon.name,
+          };
+        } else if (!manager.canAttack(room, mapId, token, { unarmed })) {
           fail(ctx, 'actionSpent');
           return;
         }
@@ -559,7 +629,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
             attackerMapId: mapId,
             target,
             targetMapId: target ? mapId : null,
-            attack: entry,
+            attack: attackEntry,
             prefix: token.name,
             advantage,
             author,
@@ -567,11 +637,51 @@ export function registerActionHandlers(ctx: ConnCtx) {
           {
             // Атака списывается в момент броска; ошибки до броска не тратят ресурс.
             beforeRoll: () => {
+              if (cleave) {
+                const turn = manager.turnStateFor(room, mapId, token);
+                if (turn) {
+                  if (turn.cleaveUsed) {
+                    fail(ctx, 'actionSpent');
+                    return false;
+                  }
+                  turn.cleaveUsed = true;
+                  turn.cleaveFrom = undefined;
+                  turn.cleaveWeapon = undefined;
+                  turn.lastWeaponKey = attackEntry.weaponKey;
+                }
+                syncCombat(room, mapId);
+                return true;
+              }
+              if (offhand) {
+                const turn = manager.turnStateFor(room, mapId, token);
+                if (turn) {
+                  if (offhandNick) {
+                    if (turn.nickUsed) {
+                      fail(ctx, 'actionSpent');
+                      return false;
+                    }
+                    turn.nickUsed = true;
+                  } else if (!consumeSlotTurn(turn, restrictionsFor(token.conditions, token.effects), 'bonus')) {
+                    fail(ctx, 'actionSpent');
+                    return false;
+                  }
+                  turn.lastWeaponKey = attackEntry.weaponKey;
+                }
+                syncCombat(room, mapId);
+                return true;
+              }
               if (!manager.canAttack(room, mapId, token, { unarmed })) {
                 fail(ctx, 'actionSpent');
                 return false;
               }
-              manager.consumeAttack(room, mapId, token, { unarmed });
+              manager.consumeAttack(room, mapId, token, {
+                unarmed,
+                loading: weaponHasProperty(attackEntry, 'LD'),
+              });
+              {
+                const turn = manager.turnStateFor(room, mapId, token);
+                if (turn) turn.lastWeaponKey = attackEntry.weaponKey;
+              }
               syncCombat(room, mapId);
               return true;
             },

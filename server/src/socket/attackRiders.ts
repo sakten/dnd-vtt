@@ -6,6 +6,7 @@ import {
   parseDiceExpression,
   proficiencyBonus,
   type AbilityKey,
+  type AttackEntry,
   type AttackRiderDef,
   type EffectInstance,
   type Token,
@@ -14,6 +15,7 @@ import { controllerIdOfToken, hasResourceFor } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushSaveMessage } from './messages';
+import { applyMasteryChoice, MASTERY_RU, masteryFor } from './masteries';
 
 const USED_PREFIX = 'rider-used:';
 const RAGE_KEY = 'class:barbarian:rage';
@@ -36,11 +38,21 @@ export function applyAttackRiders(
   attacker: Token,
   mapId: string,
   target?: Token | null,
-  activated?: string[]
+  activated?: string[],
+  attack?: AttackEntry
 ): AppliedRiders {
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!cid || !sheet) return { expr: '', notes: [] };
+
+  // Мастерства по выбору (Push/Topple) из того же окна выбора, что и наездники.
+  if (attack && target) {
+    for (const id of activated ?? []) {
+      if (id.startsWith('mastery:')) {
+        applyMasteryChoice(ctx, room, mapId, attacker, target, attack, id.slice('mastery:'.length));
+      }
+    }
+  }
 
   const abilities = ctx.manager.abilitiesForToken(room, attacker) ?? {};
   const wisMod = abilityMod((abilities as Partial<Record<string, number>>).wis ?? 10);
@@ -93,7 +105,7 @@ export interface ChoiceRider {
   resourceAmount?: number;
 }
 
-export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token): ChoiceRider[] {
+export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token, attack?: AttackEntry): ChoiceRider[] {
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!cid || !sheet) return [];
@@ -103,6 +115,13 @@ export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token)
     if (attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
     out.push({ id: rider.id, name: rider.name, resourceKey: rider.resourceKey, resourceAmount: rider.resourceAmount });
+  }
+  // Мастерства Push/Topple: правило «you can» — выбор игрока, отдельный пункт окна.
+  if (attack) {
+    const mastery = masteryFor(ctx, room, attacker, attack);
+    if (mastery === 'Push' || mastery === 'Topple') {
+      out.push({ id: `mastery:${mastery}`, name: `${MASTERY_RU[mastery] ?? mastery} (мастерство)` });
+    }
   }
   return out;
 }

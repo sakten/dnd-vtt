@@ -63,7 +63,7 @@ export function consumeAttackTurn(
   turn: TurnState,
   attacksPer: number,
   restrictions: Restrictions,
-  opts: { unarmed?: boolean } = {}
+  opts: { unarmed?: boolean; loading?: boolean } = {}
 ): boolean {
   if (!attackAvailable(turn, restrictions, opts)) return false;
   if (turn.attacksRemaining > 0) {
@@ -77,6 +77,8 @@ export function consumeAttackTurn(
     turn.actionUsed = true;
     turn.attacksRemaining = Math.max(0, attacksPer - 1);
   }
+  // Перезарядка (Loading): один боеприпас за действие, остаток серии атак сгорает.
+  if (opts.loading) turn.attacksRemaining = 0;
   return true;
 }
 

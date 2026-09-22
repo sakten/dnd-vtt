@@ -25,6 +25,7 @@ import {
   sightContextOf,
   tokenVisibleFrom,
   weaponRolls,
+  weaponHasProperty,
   withAdvantage,
   withRollParts,
   type AttackEntry,
@@ -41,6 +42,7 @@ import { actorStats } from '../room/actor';
 import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { fail } from './errors';
+import { applyDamageMastery, applyHitMastery, consumeAttackRollEffects, grazeDamage } from './masteries';
 import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { maybeRollAnim } from './rollAnim';
@@ -237,6 +239,12 @@ export function prepareWeaponAttack(
 
   // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
   const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
+  // Тяжёлое оружие: помеха, если профильная характеристика ниже 13 (решение владельца:
+  // ближний бой — Сила, дальний — Ловкость).
+  const heavyPenalty =
+    weaponHasProperty(attack, 'H') && abilities
+      ? (attack.rangeType === 'ranged' ? abilities.dex : abilities.str) < 13
+      : false;
   // Формулы могут содержать характеристики и бонус владения: d20+str, d20+pb.
   const hit = rawHit ? resolveAbilityMods(rawHit, abilities, proficiency) : '';
   const damage = rawDamage ? resolveAbilityMods(rawDamage, abilities, proficiency) : '';
@@ -250,7 +258,7 @@ export function prepareWeaponAttack(
     },
     abilities
   );
-  const { advantage: advCount, disadvantage: disCount } = countAttackAdvantage({
+  const { advantage: advCount, disadvantage: disCountBase } = countAttackAdvantage({
     explicit: input.advantage,
     attackerConditions: attacker?.conditions,
     targetConditions: target?.conditions,
@@ -261,6 +269,7 @@ export function prepareWeaponAttack(
     unseenTarget,
     unseenAttacker,
   });
+  const disCount = disCountBase + (heavyPenalty ? 1 : 0);
 
   const penalty = exhaustionRollPenalty(attacker?.conditions);
   const baseParams: RollLabelParams = {
@@ -342,6 +351,8 @@ export function rollPreparedAttack(
         hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
       };
       pushRollMessage(ctx, room, { author, roll: hit.hitRoll, kind: 'attack', params });
+      // Sap/Vex: одноразовые мастерства сгорают после броска атаки (даже промаха).
+      if (attacker && attackerMapId) consumeAttackRollEffects(ctx, room, attackerMapId, attacker, target);
       result.hitRoll = hit.hitRoll;
       result.hitSuccess = hitSuccess;
       result.crit = crit;
@@ -458,13 +469,33 @@ export function applyWeaponAttackDamage(
     const ac = manager.acForToken(room, target) + (mods.extraAc ?? 0);
     if (ac > 0) hitSuccess = resolveAttack(plan.hitRoll.total + plan.penalty, crit, false, ac);
   }
-  if (hitSuccess === false) return undefined;
+  if (hitSuccess === false) {
+    // Graze: промах оружием с мастерством — урон, равный модификатору (0 — не наносим).
+    if (plan.attacker && plan.attackerMapId && target && targetMapId) {
+      const graze = grazeDamage(ctx, room, plan.attacker, attack);
+      if (graze > 0) {
+        applyDamage(ctx, {
+          target,
+          mapId: targetMapId,
+          amount: graze,
+          damageType: attack.damageType,
+          author: plan.author,
+          params: baseParams,
+        });
+      }
+    }
+    return undefined;
+  }
   // Mirror Image: попадание может принять образ вместо цели (урона нет).
   if (target && targetMapId && misdirectCheck(ctx, room, targetMapId, target, plan.attacker)) return undefined;
+  // Sap: попадание достаточно, урон не требуется.
+  if (plan.attacker && plan.attackerMapId && target && targetMapId) {
+    applyHitMastery(ctx, room, targetMapId, plan.attacker, target, attack);
+  }
 
   try {
     const ride = plan.attacker && plan.attackerMapId
-      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders)
+      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders, plan.attack)
       : { expr: '', notes: [] };
     for (const note of ride.notes) ctx.systemMessage(room, { code: 'attack.riderNote', params: { note } });
     const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;
@@ -488,6 +519,10 @@ export function applyWeaponAttackDamage(
       params: baseParams,
       crit,
     });
+    // Vex/Slow: срабатывают при нанесённом уроне.
+    if (damage.applied && plan.attacker && plan.attackerMapId && target && targetMapId) {
+      applyDamageMastery(ctx, room, targetMapId, plan.attacker, target, attack);
+    }
     return { roll: damageRoll, applied: damage.applied ? damage.amount : 0 };
   } catch (e) {
     if (!(e instanceof DiceParseError)) throw e;
