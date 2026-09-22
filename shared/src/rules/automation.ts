@@ -19,6 +19,22 @@ import type { Spell } from './spells';
 
 export { AUTOMATION_ACTIONS };
 
+/** Выданное действие «Перенести метку» (Hex/Hunter's Mark): только после смерти текущей цели. */
+function remarkAction(spellKey: string, name: string): GrantedAction {
+  return {
+    id: 'remark',
+    name: 'Перенести метку',
+    cost: 'bonus',
+    def: {
+      key: spellKey,
+      name,
+      resolution: 'manual',
+      retarget: true,
+      targeting: { kind: 'creature', range: 90 },
+    },
+  };
+}
+
 /**
  * Каталог автоматизации (R8.1). Ключ — `Spell.key` (или id действия для черт).
  * Строка каталога полностью описывает механику; заклинания без строки получают
@@ -236,8 +252,9 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'self',
       markTarget: true,
       modifiers: [{ target: 'damage', mode: 'add', value: '1d6necrotic' }],
+      actions: [remarkAction('XPHB:Hex', 'Hex')],
     },
-    { name: 'Hex', duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [] },
+    { name: 'Hex', duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [], mark: true },
   ]),
   "XPHB:Hunter's Mark": spellEffect("XPHB:Hunter's Mark", "Hunter's Mark", [
     {
@@ -247,8 +264,9 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'self',
       markTarget: true,
       modifiers: [{ target: 'damage', mode: 'add', value: '1d6force' }],
+      actions: [remarkAction("XPHB:Hunter's Mark", "Hunter's Mark")],
     },
-    { name: "Hunter's Mark", duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [] },
+    { name: "Hunter's Mark", duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [], mark: true },
   ]),
   'XPHB:Hold Person': spellEffect('XPHB:Hold Person', 'Hold Person', [
     {

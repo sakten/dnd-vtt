@@ -80,6 +80,8 @@ export interface AutomationEffect {
   actions?: GrantedAction[];
   /** Выбранный при касте вариант (Dragon's Breath: тип урона) — для подписи. */
   variant?: string;
+  /** Метка-прицел на цели (Hex/Hunter's Mark): клиент рисует прицел поверх токена. */
+  mark?: boolean;
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */
@@ -251,5 +253,7 @@ export interface AutomationDef extends AutomationPayload {
   side?: 'hostile' | 'ally';
   /** Лечение на половину фактически нанесённого урона (Vampiric Touch). */
   lifesteal?: boolean;
+  /** Перенос метки эффекта на новую цель (Hex/Hunter's Mark): обновляет filter.targetId. */
+  retarget?: boolean;
   utility?: AutomationUtility;
 }

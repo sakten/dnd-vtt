@@ -22,14 +22,17 @@
   type ActionDef,
   type AreaSpec,
   type AttackEntry,
+  type AutomationDef,
   type CharacterSheet,
   type DiceRollResult,
+  type EffectInstance,
   type Token,
   type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
 import { fail } from './errors';
+import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { sheetOfToken } from '../room/helpers';
@@ -92,6 +95,91 @@ function escapeEffect(
   }
   ctx.syncCombat(room, mapId);
   applyCheck(rollDice(expression));
+}
+
+/** Считается ли цель «убитой» для переноса метки: HP ≤ 0 или состояние без сознания/смерти. */
+function targetDowned(ctx: ConnCtx, room: Scope['room'], token: Token): boolean {
+  if (token.conditions.some((c) => c.key === 'unconscious' || c.key === 'dead')) return true;
+  const controllerId = ctx.manager.controllerOfToken(room, token);
+  const hp = controllerId ? room.resources[controllerId]?.hp.current : token.hpCurrent;
+  return (hp ?? 1) <= 0;
+}
+
+/** Перенос метки Hex/Hunter's Mark на новую цель: только после смерти текущей, бонусным действием. */
+function retargetMark(
+  ctx: ConnCtx,
+  room: Scope['room'],
+  mapId: string,
+  token: Token,
+  mark: EffectInstance,
+  def: AutomationDef,
+  targetIds: unknown,
+  slot?: ActionCost
+): void {
+  const newTargetId = (Array.isArray(targetIds) ? targetIds : []).find((id) => typeof id === 'string');
+  const newTarget = typeof newTargetId === 'string' ? ctx.manager.findToken(room, mapId, newTargetId) : undefined;
+  if (!newTarget) {
+    fail(ctx, 'spellNoTarget');
+    return;
+  }
+  const markedId = mark.modifiers.find((m) => m.filter?.targetId)?.filter?.targetId;
+  const marked = markedId ? ctx.manager.findToken(room, mapId, markedId) : undefined;
+  if (marked && !targetDowned(ctx, room, marked)) {
+    fail(ctx, 'markTargetAlive');
+    return;
+  }
+
+  const map = ctx.manager.findMap(room, mapId);
+  const grid = gridOfMap(map, room.scene.grid);
+  const range = def.targeting?.range ?? 90;
+  const feet = gridDistanceFeet(token, newTarget, grid.size);
+  if (feet > range) {
+    fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+    return;
+  }
+  if (map && !tokenVisibleFrom(token, newTarget, map.walls, grid)) {
+    fail(ctx, 'noClearPath');
+    return;
+  }
+
+  const combat = ctx.manager.combatOf(room, mapId);
+  const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, token.id);
+  if (combat?.active && !isActive && !ctx.isDm()) {
+    fail(ctx, 'notYourTurn');
+    return;
+  }
+  const turn = isActive ? ctx.manager.turnForToken(room, mapId, token) : null;
+  if (!ctx.manager.spendSlot(room, mapId, token, chooseSlot(turn, ['bonus'], slot))) {
+    fail(ctx, 'noActions');
+    return;
+  }
+  ctx.syncCombat(room, mapId);
+
+  // Модификаторы метки (урон) — на новую цель.
+  for (const mod of mark.modifiers) {
+    if (mod.filter?.targetId) mod.filter = { ...mod.filter, targetId: newTarget.id };
+  }
+  // Чип метки: снять со старой цели, повесить на новую.
+  if (marked && marked.id !== newTarget.id) {
+    for (const chip of marked.effects.filter(
+      (e) => e.sourceKey === mark.sourceKey && e.sourceId === mark.sourceId && !e.modifiers.length
+    )) {
+      ctx.manager.removeEffect(room, marked, chip.id);
+    }
+    ctx.emitToken(room, 'token:update', mapId, marked);
+  }
+  applyEffectTo(ctx, room, {
+    sourceKey: mark.sourceKey ?? def.key,
+    sourceId: mark.sourceId ?? token.id,
+    mapId,
+    effectDef: { name: mark.name, duration: { type: 'concentration' }, concentration: true, to: 'targets', modifiers: [], mark: true },
+    target: newTarget,
+  });
+  ctx.emitToken(room, 'token:update', mapId, token);
+  ctx.systemMessage(room, {
+    code: 'automation.markMoved',
+    params: { name: token.name, feature: mark.name, target: newTarget.name },
+  });
 }
 
 /**
@@ -160,6 +248,12 @@ function useGrantedAction(
   const base = granted.baseActionId ? findBaseAction(granted.baseActionId) : undefined;
   const def = base ? automationForAction(base) : granted.def;
   if (!def) return;
+
+  // Перенос метки (Hex/Hunter's Mark): своя логика — проверки, слот, обновление filter.targetId.
+  if (def.retarget) {
+    retargetMark(ctx, room, mapId, token, effect, def, opts.targetIds, opts.slot);
+    return;
+  }
 
   const targeting = granted.def?.targeting;
   const area = targeting?.kind === 'area' ? targeting.area : undefined;

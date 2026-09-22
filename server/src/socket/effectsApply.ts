@@ -58,6 +58,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     senses: effectDef.senses ? [...effectDef.senses] : undefined,
     actions: effectDef.actions,
     variant: effectDef.variant,
+    mark: effectDef.mark,
   };
   ctx.manager.applyEffect(room, target, effect);
   // Wild Shape/Polymorph оканчиваются от недееспособности (XPHB).

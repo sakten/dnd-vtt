@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Group, Line, Rect, Text, Image as KonvaImage } from 'react-konva';
+import { Group, Line, Rect, Text, Circle, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
 import { hpBarHeight, hpBarLayout } from '../lib/hpBars';
 import {
@@ -58,6 +58,8 @@ function TokenView({ token }: { token: Token }) {
   const lockedByOther = token.lockedBy !== null && token.lockedBy !== selfId;
   const hpMax = statNumber(token.hpMax);
   const dead = hpMax > 0 && token.hpCurrent <= 0;
+  // Метка-прицел (Hex/Hunter's Mark): прицел поверх помеченного существа.
+  const marked = token.effects.some((e) => e.mark === true && !e.hidden);
 
   /** Путь токена: видимость, стены, союзники (×2), полная слепота — 1 клетка. */
   const computeRoute = (world: { x: number; y: number }): FoundPath | null => {
@@ -304,6 +306,43 @@ function TokenView({ token }: { token: Token }) {
           dash={[6 / token.scale, 4 / token.scale]}
           listening={false}
         />
+      )}
+      {marked && (
+        <Group listening={false}>
+          {(() => {
+            const s = Math.min(token.w, token.h);
+            const inner = s * 0.13;
+            const outer = s * 0.42;
+            const width = 2.2 / token.scale;
+            const tick = {
+              stroke: '#ffd166',
+              strokeWidth: width,
+              lineCap: 'round' as const,
+              shadowColor: '#000000',
+              shadowBlur: 4 / token.scale,
+              shadowOpacity: 0.65,
+              opacity: 0.95,
+            };
+            return (
+              <>
+                <Line points={[0, -outer, 0, -inner]} {...tick} />
+                <Line points={[0, inner, 0, outer]} {...tick} />
+                <Line points={[-outer, 0, -inner, 0]} {...tick} />
+                <Line points={[inner, 0, outer, 0]} {...tick} />
+                <Circle
+                  x={0}
+                  y={0}
+                  radius={1.8 / token.scale}
+                  fill="#ffd166"
+                  shadowColor="#000000"
+                  shadowBlur={3 / token.scale}
+                  shadowOpacity={0.65}
+                  opacity={0.95}
+                />
+              </>
+            );
+          })()}
+        </Group>
       )}
       {hovered && !selected && (
         <Rect

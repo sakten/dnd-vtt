@@ -44,6 +44,7 @@ export type ErrorCode =
   | 'spellNoTarget'
   | 'spellNoAttack'
   | 'spellNoDc'
+  | 'markTargetAlive'
   | 'rollEmpty'
   | 'rollNoDice'
   | 'rollSyntax'

@@ -173,4 +173,6 @@ export interface EffectInstance {
   actions?: GrantedAction[];
   /** Выбранный при касте вариант (Dragon's Breath: тип урона) — для подписи. */
   variant?: string;
+  /** Метка-прицел на цели (Hex/Hunter's Mark): клиент рисует прицел поверх токена. */
+  mark?: boolean;
 }

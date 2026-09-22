@@ -441,6 +441,83 @@ describe('action:use', () => {
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(25);
   });
 
+  it("Hex: метка переносится на новую цель после смерти старой", () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '10', hpCurrent: 10, faction: 'enemy' }),
+        makeToken('t3', { x: 100, y: 300, hpMax: '10', hpCurrent: 10, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Hex', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 1, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Hex', slotLevel: 1, targetIds: ['t2'] });
+
+    const tokens = room.scene.maps[0]!.tokens;
+    const mark = tokens[0]!.effects.find((e) => e.sourceKey === 'XPHB:Hex' && e.modifiers.length)!;
+    expect(mark.modifiers[0]?.filter?.targetId).toBe('t2');
+    const chip = tokens[1]!.effects.find((e) => e.sourceKey === 'XPHB:Hex' && !e.modifiers.length);
+    expect(chip?.mark).toBe(true);
+
+    tokens[1]!.hpCurrent = 0;
+    combatOf(room).turns.e1!.bonusActionUsed = false; // перенос — на следующем ходу
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `spell:${mark.id}:remark`,
+      targetIds: ['t3'],
+    });
+
+    expect(mark.modifiers[0]?.filter?.targetId).toBe('t3');
+    expect(tokens[1]!.effects.some((e) => e.sourceKey === 'XPHB:Hex' && !e.modifiers.length)).toBe(false);
+    expect(tokens[2]!.effects.find((e) => e.sourceKey === 'XPHB:Hex' && !e.modifiers.length)?.mark).toBe(true);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.markMoved')).toBe(true);
+  });
+
+  it("Hex: перенос метки при живой цели отклоняется", () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '10', hpCurrent: 10, faction: 'enemy' }),
+        makeToken('t3', { x: 100, y: 300, hpMax: '10', hpCurrent: 10, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Hex', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 1, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Hex', slotLevel: 1, targetIds: ['t2'] });
+    const mark = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'XPHB:Hex' && e.modifiers.length)!;
+    combatOf(room).turns.e1!.bonusActionUsed = false; // перенос — на следующем ходу
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `spell:${mark.id}:remark`,
+      targetIds: ['t3'],
+    });
+
+    const error = f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined;
+    expect(error?.code).toBe('markTargetAlive');
+    expect(mark.modifiers[0]?.filter?.targetId).toBe('t2');
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(false);
+  });
+
   it("Dragon's Breath: без точки области Выдох отклоняется", () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.scene.maps[0]!.tokens[0]!.effects.push({

@@ -266,6 +266,17 @@ describe('automationForSpell', () => {
     expect(action?.def?.targeting).toEqual({ kind: 'creature', range: 60 });
   });
 
+  it('Hex/Hunter\'s Mark: метку можно перенести бонусным действием', () => {
+    for (const key of ['XPHB:Hex', "XPHB:Hunter's Mark"]) {
+      const def = automationForSpell(makeSpell({ key, name: key, automation: 'manual' }));
+      const action = def.effects?.[0]?.actions?.[0];
+      expect(action?.cost).toBe('bonus');
+      expect(action?.def?.retarget).toBe(true);
+      expect(action?.def?.targeting).toEqual({ kind: 'creature', range: 90 });
+      expect(def.effects?.[1]?.mark).toBe(true);
+    }
+  });
+
   it('эффектные дебаффы несут спас и концентрацию (Hold Person)', () => {
     const def = automationForSpell(makeSpell({ key: 'XPHB:Hold Person', name: 'Hold Person', automation: 'manual' }));
     expect(def.save).toEqual({ ability: 'wis', half: undefined });
