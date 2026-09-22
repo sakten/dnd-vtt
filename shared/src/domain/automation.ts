@@ -32,6 +32,8 @@ export interface AutomationDice {
   classLevelBonus?: { className: string; per?: number };
   /** Число костей = модификатор характеристики, минимум `min` (Sear Undead: кd8 по Мдр). */
   abilityDice?: { ability: AbilityKey; min?: number };
+  /** Прибавить модификатор заклинательной характеристики кастера (Flame Blade). */
+  abilityMod?: boolean;
 }
 
 export interface AutomationEffect {
@@ -58,6 +60,8 @@ export interface AutomationEffect {
   escalate?: EffectEscalation;
   /** Урон/встряска снимает эффект (Sleep, Hypnotic Pattern). */
   wakeOnDamage?: boolean;
+  /** Повторный спасбросок при получении урона; успех снимает эффект (Hideous Laughter). */
+  saveOnDamage?: { advantage?: boolean };
   /** Временные HP, выдаваемые при наложении (Fighting Spirit и подобные). */
   tempHp?: number;
   /** Кость бонуса к d20-тесту, тратится при использовании (Бардовское вдохновение). */
@@ -72,6 +76,10 @@ export interface AutomationEffect {
   escape?: { ability: AbilityKey; skill?: string };
   /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
   senses?: Sense[];
+  /** Действия, выдаваемые эффектом на время его действия (Expeditious Retreat, Dragon's Breath). */
+  actions?: GrantedAction[];
+  /** Выбранный при касте вариант (Dragon's Breath: тип урона) — для подписи. */
+  variant?: string;
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */
@@ -95,6 +103,8 @@ export interface ZoneDef {
   anchor?: 'source' | 'point';
   /** «Полностью внутри» для состояний аурой (Hunger of Hadar). */
   containment?: 'anyCell' | 'fullyWithin';
+  /** Аура и триггеры зоны действуют только на враждебных/союзных источнику. */
+  side?: 'hostile' | 'ally';
   /** Вход срабатывает первый раз за ход (Spirit Guardians). */
   enterOncePerTurn?: boolean;
   movable?: boolean;
@@ -133,6 +143,8 @@ export interface ZoneInstance {
   anchor?: 'source' | 'point';
   movable?: boolean;
   containment?: 'anyCell' | 'fullyWithin';
+  /** Аура и триггеры зоны действуют только на враждебных/союзных источнику. */
+  side?: 'hostile' | 'ally';
   /** Вход срабатывает первый раз за ход (Spirit Guardians). */
   enterOncePerTurn?: boolean;
   /** Аура и триггеры не действуют на источник зоны. */
@@ -198,6 +210,17 @@ export interface AutomationUtility {
   thenMove?: boolean;
 }
 
+/** Действие, выдаваемое эффектом (Expeditious Retreat: Рывок бонусным действием). */
+export interface GrantedAction {
+  id: string;
+  name: string;
+  cost: 'action' | 'bonus';
+  /** Механика базового действия каталога (`dash`) — payload не дублируется. */
+  baseActionId?: string;
+  /** Своя механика, если действие не ссылается на базовое (Dragon's Breath). */
+  def?: AutomationDef;
+}
+
 export interface AutomationDef extends AutomationPayload {
   /** Ключ заклинания (`источник:имя`) или id действия (`class:barbarian:rage`). */
   key: string;
@@ -224,5 +247,9 @@ export interface AutomationDef extends AutomationPayload {
   shape?: ShapeDef;
   /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
+  /** Фильтр целей по отношению к кастеру (Conjure Woodland Beings: только враги). */
+  side?: 'hostile' | 'ally';
+  /** Лечение на половину фактически нанесённого урона (Vampiric Touch). */
+  lifesteal?: boolean;
   utility?: AutomationUtility;
 }

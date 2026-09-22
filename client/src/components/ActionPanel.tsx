@@ -282,6 +282,18 @@ export default function ActionPanel() {
           // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
           const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
           const advantage = isCheck ? rollMode ?? undefined : undefined;
+          // Действие-область из эффекта (Dragon's Breath): прицел от носителя эффекта.
+          if (f.targeting?.kind === 'area' && f.targeting.area) {
+            startAim({
+              tokenId: token.id,
+              actionId: f.id,
+              slot: featureSlot(f, turnCtx),
+              spec: f.targeting.area,
+              originKind: 'self',
+              rangeFeet: f.targeting.range ?? null,
+            });
+            return;
+          }
           if (f.targeting?.kind === 'creature' && maxTargets > 1) {
             startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
           } else if (f.targeting?.kind === 'creature') {

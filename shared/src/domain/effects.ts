@@ -1,3 +1,4 @@
+import type { GrantedAction } from './automation';
 import type { AbilityKey } from './core';
 import type { Sense } from './sense';
 import type { AttackRangeType } from './token';
@@ -150,6 +151,8 @@ export interface EffectInstance {
   escalate?: EffectEscalation;
   /** Урон снимает эффект (Sleep, Hypnotic Pattern). */
   wakeOnDamage?: boolean;
+  /** Повторный спасбросок при получении урона; успех снимает эффект (Hideous Laughter). */
+  saveOnDamage?: { advantage?: boolean };
   /** Ограничения экономики/действий, пока эффект активен. */
   restrictions?: Restrictions;
   /** id зоны-источника (аура): снимается при выходе из зоны и её окончании. */
@@ -166,4 +169,8 @@ export interface EffectInstance {
   hidden?: boolean;
   /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
   senses?: Sense[];
+  /** Действия, выдаваемые эффектом (Expeditious Retreat: Рывок бонусным действием). */
+  actions?: GrantedAction[];
+  /** Выбранный при касте вариант (Dragon's Breath: тип урона) — для подписи. */
+  variant?: string;
 }

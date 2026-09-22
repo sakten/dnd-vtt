@@ -129,6 +129,353 @@ describe('action:use', () => {
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.extraMovement')).toBe(true);
   });
 
+  it('Expeditious Retreat: Рывок из эффекта тратит бонусное действие', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', speed: 30 })], { p1: 'lib1' });
+    room.scene.maps[0]!.tokens[0]!.effects.push({
+      id: 'er1',
+      name: 'Expeditious Retreat',
+      duration: { type: 'concentration' },
+      concentration: true,
+      modifiers: [],
+      actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'spell:er1:dash' });
+
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
+    expect(combatOf(room).turns.e1!.movementMax).toBe(60);
+  });
+
+  it('выданное действие без эффекта не тратит слот', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', speed: 30 })], { p1: 'lib1' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'spell:missing:dash' });
+
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(false);
+  });
+
+  it("Dragon's Breath: Выдох из эффекта — конус, спас DEX и урон", () => {
+    const caster = makeToken('t1', {
+      libraryItemId: 'lib1',
+      x: 100,
+      y: 100,
+      statblock: {
+        abilities: { ...DEFAULT_ABILITIES },
+        spellcasting: { ability: 'int', dc: 13, spells: [] },
+        actions: [],
+      },
+    });
+    const target = makeToken('t2', { x: 100, y: 200, hpMax: '30', hpCurrent: 30 });
+    const room = makeRoom([caster, target], { p1: 'lib1' });
+    caster.effects.push({
+      id: 'db1',
+      name: "Dragon's Breath",
+      sourceId: 't1',
+      duration: { type: 'concentration' },
+      concentration: true,
+      modifiers: [],
+      actions: [
+        {
+          id: 'breath',
+          name: 'Выдох',
+          cost: 'action',
+          def: {
+            key: "XPHB:Dragon's Breath",
+            name: 'Выдох',
+            resolution: 'save',
+            save: { ability: 'dex', half: true },
+            damage: { dice: '3d6', types: ['cold'] },
+            area: { shape: 'cone', size: 15 },
+            targeting: { kind: 'area', area: { shape: 'cone', size: 15 }, range: 15 },
+          },
+        },
+      ],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'spell:db1:breath',
+      origin: { x: 100, y: 100 },
+      direction: { x: 100, y: 400 },
+    });
+    rand.mockRestore();
+
+    expect(target.hpCurrent).toBeLessThan(30);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+  });
+
+  it("Dragon's Breath: каст вешает действие, Выдох кидает спас по врагу", () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, hpMax: '20', hpCurrent: 20 }),
+        makeToken('t2', { x: 100, y: 200, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: "XPHB:Dragon's Breath", className: 'wizard' }] };
+    room.resources.p1 = casterResources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: "XPHB:Dragon's Breath",
+      slotLevel: 3,
+      targetIds: ['t1'],
+      variant: 'cold',
+    });
+
+    const breath = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === "XPHB:Dragon's Breath");
+    expect(breath?.variant).toBe('cold');
+    expect(breath?.actions?.[0]?.def?.damage).toMatchObject({ types: ['cold'] });
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `spell:${breath!.id}:breath`,
+      origin: { x: 100, y: 100 },
+      direction: { x: 100, y: 400 },
+    });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
+  });
+
+  it('Vampiric Touch: атака лечит кастера на половину урона', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Vampiric Touch', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 10, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 3, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Vampiric Touch',
+      slotLevel: 3,
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.hpCurrent).toBeLessThan(40);
+    expect(room.resources.p1!.hp.current).toBeGreaterThan(10);
+    const effect = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'XPHB:Vampiric Touch');
+    expect(effect?.actions?.[0]?.id).toBe('touch');
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.lifesteal')).toBe(true);
+  });
+
+  it('Conjure Woodland Beings: аура бьёт только врагов', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 130, y: 120, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t3', { x: 120, y: 130, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Conjure Woodland Beings', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 4, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Conjure Woodland Beings',
+      slotLevel: 4,
+    });
+    rand.mockRestore();
+
+    const tokens = room.scene.maps[0]!.tokens;
+    expect(tokens[1]!.hpCurrent).toBe(30);
+    expect(tokens[2]!.hpCurrent).toBeLessThan(30);
+    expect(room.scene.maps[0]!.zones).toHaveLength(1);
+  });
+
+  it('Sunbeam: каст бьёт линией, слепит и вешает повтор действием', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 100, y: 200, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Sunbeam', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 6, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Sunbeam',
+      slotLevel: 6,
+      origin: { x: 100, y: 100 },
+      direction: { x: 100, y: 400 },
+    });
+    rand.mockRestore();
+
+    const tokens = room.scene.maps[0]!.tokens;
+    expect(tokens[1]!.hpCurrent).toBeLessThan(40);
+    expect(tokens[1]!.conditions.some((c) => c.key === 'blinded')).toBe(true);
+    const effect = tokens[0]!.effects.find((e) => e.sourceKey === 'XPHB:Sunbeam' && e.concentration);
+    expect(effect?.actions?.[0]?.id).toBe('beam');
+  });
+
+  it('Heat Metal: авто-урон с помехой и повтор бонусным действием', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Heat Metal', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 3, current: 2, max: 2 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Heat Metal',
+      slotLevel: 3,
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    const tokens = room.scene.maps[0]!.tokens;
+    const target = tokens[1]!;
+    expect(target.hpCurrent).toBeLessThan(40);
+    const holding = target.effects.find((e) => e.sourceKey === 'XPHB:Heat Metal' && !e.concentration);
+    expect(holding?.modifiers.map((m) => [m.target, m.mode])).toEqual([
+      ['attack', 'disadvantage'],
+      ['check', 'disadvantage'],
+    ]);
+    const effect = tokens[0]!.effects.find((e) => e.sourceKey === 'XPHB:Heat Metal' && e.concentration);
+    const burn = effect?.actions?.[0];
+    expect(burn?.cost).toBe('bonus');
+
+    const before = target.hpCurrent;
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `spell:${effect!.id}:burn`,
+      targetIds: ['t2'],
+    });
+
+    expect(target.hpCurrent).toBeLessThan(before);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+  });
+
+  it('Eldritch Blast: Agonizing добавляет мод. характеристики к урону', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 200, y: 100, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 },
+      classes: [{ className: 'warlock', level: 1 }],
+      invocations: ['XPHB:Agonizing Blast'],
+      spells: [{ key: 'XPHB:Eldritch Blast', className: 'warlock' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValueOnce(0.5).mockReturnValueOnce(0);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Eldritch Blast',
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    // 1d10(1) + мод. Харизмы 4 = 5.
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(25);
+  });
+
+  it("Dragon's Breath: без точки области Выдох отклоняется", () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.scene.maps[0]!.tokens[0]!.effects.push({
+      id: 'db1',
+      name: "Dragon's Breath",
+      sourceId: 't1',
+      duration: { type: 'concentration' },
+      modifiers: [],
+      actions: [
+        {
+          id: 'breath',
+          name: 'Выдох',
+          cost: 'action',
+          def: {
+            key: "XPHB:Dragon's Breath",
+            name: 'Выдох',
+            resolution: 'save',
+            save: { ability: 'dex', half: true },
+            damage: { dice: '3d6', types: ['cold'] },
+            area: { shape: 'cone', size: 15 },
+            targeting: { kind: 'area', area: { shape: 'cone', size: 15 }, range: 15 },
+          },
+        },
+      ],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'spell:db1:breath' });
+
+    const error = f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined;
+    expect(error?.code).toBe('noAreaPoint');
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
+  });
+
   it('способность монстра из статблока: атака тратит действие, сейв вешает состояние', () => {
     const statblock: TokenStatblock = {
       abilities: { ...DEFAULT_ABILITIES },

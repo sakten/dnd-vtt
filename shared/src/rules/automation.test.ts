@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
-import { automationForAction, automationForSpell } from './automation';
+import { automationForAction, automationForSpell, spellAutomated } from './automation';
 import type { Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
@@ -125,6 +125,147 @@ describe('automationForSpell', () => {
     expect(def.effects?.[0]?.modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
   });
 
+  it('Expeditious Retreat: эффект выдаёт Рывок бонусным действием', () => {
+    const def = automationForSpell(
+      makeSpell({ key: 'XPHB:Expeditious Retreat', name: 'Expeditious Retreat', automation: 'manual' })
+    );
+    const effect = def.effects?.[0];
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(effect?.to).toBe('self');
+    expect(effect?.actions).toEqual([{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }]);
+  });
+
+  it("Dragon's Breath: эффект выдаёт Выдох с типом урона и скейлом от круга", () => {
+    const spell = makeSpell({
+      key: "XPHB:Dragon's Breath",
+      name: "Dragon's Breath",
+      level: 2,
+      save: ['dex'],
+      saveHalf: true,
+      areaSpec: { shape: 'cone', size: 15 },
+      damage: { dice: ['3d6'], types: ['acid', 'cold', 'fire', 'lightning', 'poison'] },
+      higherLevel: ['The damage increases by 1d6 for each spell slot level above 2.'],
+    });
+    const def = automationForSpell(spell, { castLevel: 3, variant: 'cold' });
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(def.effects?.[0]?.variant).toBe('cold');
+    expect(action?.cost).toBe('action');
+    expect(action?.def?.resolution).toBe('save');
+    expect(action?.def?.save).toEqual({ ability: 'dex', half: true });
+    expect(action?.def?.damage).toEqual({ dice: '3d6 + 1d6', types: ['cold'] });
+    expect(action?.def?.area).toEqual({ shape: 'cone', size: 15 });
+    expect(action?.def?.targeting).toEqual({ kind: 'area', area: { shape: 'cone', size: 15 }, range: 15 });
+  });
+
+  it('Vampiric Touch: атака при касте, повтор действием, вытягивание жизни', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Vampiric Touch',
+      name: 'Vampiric Touch',
+      level: 3,
+      spellAttack: 'melee',
+      damage: { dice: ['3d6'], types: ['necrotic'] },
+      higherLevel: ['The damage increases by 1d6 for each spell slot level above 3.'],
+    });
+    const def = automationForSpell(spell, { castLevel: 4 });
+    expect(def.resolution).toBe('attack');
+    expect(def.attack?.rangeType).toBe('melee');
+    expect(def.damage).toEqual({ dice: '3d6 + 1d6', types: ['necrotic'] });
+    expect(def.lifesteal).toBe(true);
+    expect(def.concentration).toBe(true);
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(action?.cost).toBe('action');
+    expect(action?.def?.resolution).toBe('attack');
+    expect(action?.def?.damage).toEqual({ dice: '3d6 + 1d6', types: ['necrotic'] });
+    expect(action?.def?.targeting).toEqual({ kind: 'creature', range: 5 });
+  });
+
+  it('Flame Blade: клинок даёт атаку с мод. характеристики', () => {
+    const spell = makeSpell({ key: 'XPHB:Flame Blade', name: 'Flame Blade', level: 2 });
+    const def = automationForSpell(spell, { castLevel: 2 });
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(action?.cost).toBe('action');
+    expect(action?.def?.damage).toEqual({ dice: '3d6', types: ['fire'], abilityMod: true });
+  });
+
+  it('Sunbeam: луч при касте (слепота) и повтор действием', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Sunbeam',
+      name: 'Sunbeam',
+      level: 6,
+      save: ['con'],
+      saveHalf: true,
+      damage: { dice: ['6d8'], types: ['radiant'] },
+      areaSpec: { shape: 'line', size: 60, width: 5 },
+    });
+    const def = automationForSpell(spell, { castLevel: 6 });
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'con', half: true });
+    expect(def.damage?.types).toEqual(['radiant']);
+    expect(def.effects?.[0]?.conditions).toEqual(['blinded']);
+    const action = def.effects?.[1]?.actions?.[0];
+    expect(action?.cost).toBe('action');
+    expect(action?.def?.resolution).toBe('save');
+    expect(action?.def?.effects?.[0]?.conditions).toEqual(['blinded']);
+  });
+
+  it('Conjure Woodland Beings: аура по врагам, кости от круга, Отход бонусом', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Conjure Woodland Beings',
+      name: 'Conjure Woodland Beings',
+      level: 4,
+      save: ['wis'],
+      saveHalf: true,
+      damage: { dice: ['5d8'], types: ['force'] },
+      higherLevel: ['The damage increases by 1d8 for each spell slot level above 4.'],
+    });
+    const def = automationForSpell(spell, { castLevel: 5 });
+    expect(def.side).toBe('hostile');
+    expect(def.damage).toEqual({ dice: '5d8 + 1d8', types: ['force'] });
+    expect(def.zone?.side).toBe('hostile');
+    expect(def.zone?.triggers?.endOfTurn?.damage?.dice).toBe('5d8 + 1d8');
+    expect(def.effects?.[0]?.actions?.[0]).toEqual({
+      id: 'disengage',
+      name: 'Отход',
+      cost: 'bonus',
+      baseActionId: 'disengage',
+    });
+  });
+
+  it("spellAutomated: билдеры (Dragon's Breath, Sunbeam, Vampiric Touch) автоматизированы", () => {
+    expect(spellAutomated({ key: "XPHB:Dragon's Breath", automation: 'manual' })).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Sunbeam', automation: 'manual' })).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Vampiric Touch', automation: 'manual' })).toBe(true);
+  });
+
+  it('Heat Metal: авто-урон, помеха на атаки/проверки, повтор бонусом', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Heat Metal',
+      name: 'Heat Metal',
+      level: 2,
+      damage: { dice: ['2d8'], types: ['fire'] },
+      higherLevel: ['The damage increases by 1d8 for each spell slot level above 2.'],
+    });
+    const def = automationForSpell(spell, { castLevel: 3 });
+    expect(def.resolution).toBe('auto');
+    expect(def.concentration).toBe(true);
+    expect(def.damage).toEqual({ dice: '2d8 + 1d8', types: ['fire'] });
+    expect(def.effects?.[0]?.modifiers?.map((m) => [m.target, m.mode])).toEqual([
+      ['attack', 'disadvantage'],
+      ['check', 'disadvantage'],
+    ]);
+    expect(def.effects?.[0]?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    const action = def.effects?.[1]?.actions?.[0];
+    expect(action?.cost).toBe('bonus');
+    expect(action?.def?.resolution).toBe('auto');
+    expect(action?.def?.damage).toEqual({ dice: '2d8 + 1d8', types: ['fire'] });
+    expect(action?.def?.targeting).toEqual({ kind: 'creature', range: 60 });
+  });
+
   it('эффектные дебаффы несут спас и концентрацию (Hold Person)', () => {
     const def = automationForSpell(makeSpell({ key: 'XPHB:Hold Person', name: 'Hold Person', automation: 'manual' }));
     expect(def.save).toEqual({ ability: 'wis', half: undefined });
@@ -138,6 +279,19 @@ describe('automationForSpell', () => {
     expect(effect?.conditions).toEqual(['incapacitated']);
     expect(effect?.escalate?.condition).toBe('unconscious');
     expect(effect?.wakeOnDamage).toBe(true);
+  });
+
+  it('Hideous Laughter: спас WIS, prone+incapacitated, повтор от урона с преимуществом', () => {
+    const def = automationForSpell(
+      makeSpell({ key: "XPHB:Tasha's Hideous Laughter", name: 'Hideous Laughter', automation: 'manual' })
+    );
+    const effect = def.effects?.[0];
+    expect(def.resolution).toBe('effect');
+    expect(def.save?.ability).toBe('wis');
+    expect(def.concentration).toBe(true);
+    expect(effect?.conditions).toEqual(['incapacitated', 'prone']);
+    expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' });
+    expect(effect?.saveOnDamage).toEqual({ advantage: true });
   });
 
   it('Shocking Grasp: деривация атаки + добавка с запретом OA', () => {

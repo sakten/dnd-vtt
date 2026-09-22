@@ -19,7 +19,7 @@ import type { Room } from '../roomTypes';
 import { actorStats, applyActorStats } from '../room/actor';
 import { gridSizeOfToken } from '../room/helpers';
 import { shapeName } from '../room/shape';
-import { rollConcentrationOnDamage } from './effects';
+import { rollConcentrationOnDamage, rollDamageSavesOnDamage } from './effects';
 import { syncFeatureEffects } from './features';
 import { pushTextMessage } from './messages';
 
@@ -269,6 +269,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (controllerId) ctx.emitResources(room, controllerId);
       ctx.notifyPlayers(room);
       if (amount < 0 && opts.concentration !== false) rollConcentrationOnDamage(ctx, room, token, -amount);
+      if (amount < 0) rollDamageSavesOnDamage(ctx, room, mapId, token);
     },
     syncCombat: (room, mapId) => {
       ctx.broadcastAll('combat:update', {

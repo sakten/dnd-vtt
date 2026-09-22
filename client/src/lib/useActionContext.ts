@@ -117,7 +117,22 @@ export function useActionContext(): ActionContext | null {
         costs: ['action' as const],
         description: e.name,
       }));
-    const features = [...(isCharacter && sheet ? classFeatures(sheet.classes) : []), ...escapeActions];
+    // Действия, выданные эффектами (Expeditious Retreat: Рывок бонусным действием).
+    const grantedActions: ActionDef[] = token.effects.flatMap((e) =>
+      (e.actions ?? []).map((a) => ({
+        id: `spell:${e.id}:${a.id}`,
+        name: a.name,
+        source: 'spell' as const,
+        costs: [a.cost],
+        targeting: a.def?.targeting,
+        description: e.name,
+      }))
+    );
+    const features = [
+      ...(isCharacter && sheet ? classFeatures(sheet.classes) : []),
+      ...escapeActions,
+      ...grantedActions,
+    ];
     const attacksPer = isCharacter && !inShape
       ? attacksPerAction(sheet?.classes ?? [])
       : Math.max(1, token.statblock?.multiattack ?? 1);

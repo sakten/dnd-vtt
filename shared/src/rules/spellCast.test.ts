@@ -180,6 +180,27 @@ describe('области (Ф7)', () => {
       spellHasArea(makeSpell({ areaSpec: { shape: 'sphere', size: 20 }, save: ['dex'], area: ['ST'] }))
     ).toBe(false);
     expect(spellHasArea(makeSpell({ areaSpec: { shape: 'sphere', size: 20 }, area: ['S'] }))).toBe(false);
+    // Эманация от себя — область даже без AoE-тега (Conjure Woodland Beings).
+    expect(
+      spellHasArea(
+        makeSpell({
+          areaSpec: { shape: 'sphere', size: 10 },
+          save: ['wis'],
+          range: { type: 'emanation', distance: { type: 'feet', amount: 10 } },
+        })
+      )
+    ).toBe(true);
+    // Dragon's Breath: areaSpec относится к выданному действию, каст — по существу.
+    expect(
+      spellHasArea(
+        makeSpell({
+          key: "XPHB:Dragon's Breath",
+          areaSpec: { shape: 'cone', size: 15 },
+          save: ['dex'],
+          area: ['ST'],
+        })
+      )
+    ).toBe(false);
   });
 
   it('spellAreaOrigin: конус/линия/куб/эманация — от кастера', () => {

@@ -24,6 +24,8 @@ export interface AimState {
   blocked?: boolean;
   /** Призыв: выбранная форма (Find Familiar). */
   summonKey?: string;
+  /** Вариант каста (Dragon's Breath: тип урона выдоха). */
+  variant?: string;
   /** Призыв: точка под курсором (подсветка одной клетки, без риски origin). */
   summon?: boolean;
 }
@@ -63,6 +65,8 @@ export type TargetingState =
       label: string;
       /** Polymorph: выбранная форма-зверь (ключ каталога). */
       summonKey?: string;
+      /** Вариант каста (Dragon's Breath: тип урона выдоха). */
+      variant?: string;
     }
   | {
       kind: 'rollAttack';
@@ -92,6 +96,8 @@ export interface SpellCastPayload {
   direction?: Point;
   /** Призыв: выбранная форма (Find Familiar). */
   summonKey?: string;
+  /** Вариант каста (Dragon's Breath: тип урона выдоха). */
+  variant?: string;
 }
 
 /** Команда, которую стор исполняет после перехода машины. */
@@ -194,6 +200,7 @@ export function confirmArea(interaction: Interaction | null): InteractionResult 
         origin: aim.origin ?? undefined,
         direction: aim.direction ?? undefined,
         ...(aim.summonKey ? { summonKey: aim.summonKey } : {}),
+        ...(aim.variant ? { variant: aim.variant } : {}),
       },
     },
   };
@@ -226,6 +233,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           advantage: t.advantage,
           targetIds: [targetId],
           ...(t.summonKey ? { summonKey: t.summonKey } : {}),
+          ...(t.variant ? { variant: t.variant } : {}),
         },
       },
     };

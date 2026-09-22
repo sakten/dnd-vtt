@@ -160,6 +160,8 @@ export interface ClientToServerEvents {
     direction?: { x: number; y: number };
     /** Выбранная форма призыва (Find Familiar): ключ каталога бестиария. */
     summonKey?: string;
+    /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
+    variant?: string;
   }) => void;
   /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
   'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;

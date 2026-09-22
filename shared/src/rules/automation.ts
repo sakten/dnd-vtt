@@ -5,6 +5,7 @@ import type {
   AutomationEffect,
   AutomationPayload,
   AutomationSave,
+  GrantedAction,
   ZoneDef,
 } from '../domain/automation';
 import type { EffectDuration } from '../domain/effects';
@@ -137,6 +138,17 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       modifiers: [{ target: 'speed', mode: 'add', value: 10 }],
     },
   ]),
+  /** Expeditious Retreat (XPHB 2024): Рывок бонусным действием, пока держится концентрация. */
+  'XPHB:Expeditious Retreat': spellEffect('XPHB:Expeditious Retreat', 'Expeditious Retreat', [
+    {
+      name: 'Expeditious Retreat',
+      duration: CONCENTRATION,
+      concentration: true,
+      to: 'self',
+      modifiers: [],
+      actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
+    },
+  ]),
   'XPHB:Blur': spellEffect('XPHB:Blur', 'Blur', [
     {
       name: 'Blur',
@@ -248,6 +260,18 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       modifiers: [],
     },
   ], { ability: 'wis' }),
+  /** Hideous Laughter (XPHB 2024): спас WIS в конце хода и от урона (с преимуществом). */
+  "XPHB:Tasha's Hideous Laughter": spellEffect("XPHB:Tasha's Hideous Laughter", 'Hideous Laughter', [
+    {
+      name: 'Hideous Laughter',
+      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+      concentration: true,
+      to: 'targets',
+      conditions: ['incapacitated', 'prone'],
+      modifiers: [],
+      saveOnDamage: { advantage: true },
+    },
+  ], { ability: 'wis' }),
   'XPHB:Entangle': spellEffect('XPHB:Entangle', 'Entangle', [
     {
       name: 'Entangle',
@@ -277,6 +301,42 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       modifiers: [{ target: 'attack', mode: 'advantage' }],
     },
   ]),
+  /**
+   * Conjure Woodland Beings (XPHB 2024): аура духов вокруг вас бьёт только врагов
+   * (спас WIS, урон от круга) + Отход бонусным действием, пока держится концентрация.
+   */
+  'XPHB:Conjure Woodland Beings': {
+    key: 'XPHB:Conjure Woodland Beings',
+    name: 'Conjure Woodland Beings',
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'wis', half: true },
+    side: 'hostile',
+    damage: { dice: '$spell', types: ['force'] },
+    effects: [
+      {
+        name: 'Conjure Woodland Beings',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [{ id: 'disengage', name: 'Отход', cost: 'bonus', baseActionId: 'disengage' }],
+      },
+    ],
+    zone: {
+      area: { shape: 'sphere', size: 10 },
+      origin: 'point',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      excludeSource: true,
+      side: 'hostile',
+      triggers: {
+        enter: { save: { ability: 'wis', half: true }, damage: { dice: '$spell', types: ['force'] } },
+        endOfTurn: { save: { ability: 'wis', half: true }, damage: { dice: '$spell', types: ['force'] } },
+      },
+    },
+  },
   'XPHB:Aid': spellEffect('XPHB:Aid', 'Aid', [
     {
       name: 'Aid',
@@ -601,6 +661,16 @@ function resolveZoneDice(zone: ZoneDef, expression: string): ZoneDef {
   };
 }
 
+/** Подстановка выражения урона в `$spell`-поля статичной строки каталога (Conjure Woodland Beings). */
+function withSpellDice(def: AutomationDef, spell: Spell, opts: AutomationOptions): AutomationDef {
+  if (!def.zone) return def;
+  const castLevel = opts.castLevel ?? Math.max(1, spell.level);
+  const expression = spellDamageExpression(spell, castLevel, opts.characterLevel ?? 1);
+  if (!expression) return def;
+  const damage = def.damage?.dice === '$spell' ? { ...def.damage, dice: expression } : def.damage;
+  return { ...def, ...(damage ? { damage } : {}), zone: resolveZoneDice(def.zone, expression) };
+}
+
 export interface AutomationOptions {
   /** Круг ячейки (по умолчанию — базовый круг заклинания). */
   castLevel?: number;
@@ -608,6 +678,191 @@ export interface AutomationOptions {
   characterLevel?: number;
   /** Выбранные инвокации варлока (модификаторы Eldritch Blast). */
   invocations?: string[];
+  /** Выбор варианта при касте (Dragon's Breath: тип урона выдоха). */
+  variant?: string;
+}
+
+/** Варианты заклинания, выбираемые при касте (Dragon's Breath: тип урона). */
+export const SPELL_VARIANTS: Record<string, { param: 'damageType'; options: string[] }> = {
+  "XPHB:Dragon's Breath": { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'poison'] },
+};
+
+/** Варианты каста заклинания (undefined — выбора нет). */
+export function spellVariantDef(spellKey: string): { param: 'damageType'; options: string[] } | undefined {
+  return SPELL_VARIANTS[spellKey];
+}
+
+/** Заклинания с собранной в коде автоматизацией (билдеры, не строки каталога). */
+const BUILTIN_AUTOMATION = new Set([
+  "XPHB:Dragon's Breath",
+  'XPHB:Vampiric Touch',
+  'XPHB:Flame Blade',
+  'XPHB:Sunbeam',
+  'XPHB:Heat Metal',
+]);
+
+/** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
+export function spellBuiltinAutomated(spellKey: string): boolean {
+  return BUILTIN_AUTOMATION.has(spellKey);
+}
+
+/** Кость заклинания с учётом круга/уровня; `fallback` — если данных нет. */
+function spellDice(spell: Spell, opts: AutomationOptions, fallback = ''): string {
+  return spellDamageExpression(spell, opts.castLevel ?? Math.max(1, spell.level), opts.characterLevel ?? 1) ?? fallback;
+}
+
+/** Эффект-носитель выданного действия: бафф на себя (или цель у DB) с `actions`. */
+function actionCarrier(
+  spell: Spell,
+  action: GrantedAction,
+  opts: { to?: 'self' | 'targets'; variant?: string } = {}
+): AutomationEffect {
+  return {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: opts.to ?? 'self',
+    modifiers: [],
+    ...(opts.variant ? { variant: opts.variant } : {}),
+    actions: [action],
+  };
+}
+
+/**
+ * Dragon's Breath: бафф-эффект выдаёт действие-выдох (конус 15 фт, спас DEX,
+ * тип урона и скейл от круга фиксируются при касте).
+ */
+function breathSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  const variant = SPELL_VARIANTS[spell.key];
+  if (!variant) return undefined;
+  const type = variant.options.includes(opts.variant ?? '') ? opts.variant! : variant.options[0]!;
+  const dice = spellDice(spell, opts);
+  const area = spell.areaSpec ?? { shape: 'cone' as const, size: 15 };
+  const breath: AutomationDef = {
+    key: spell.key,
+    name: 'Выдох',
+    resolution: 'save',
+    save: { ability: 'dex', half: true },
+    ...(dice ? { damage: { dice, types: [type] } } : {}),
+    area,
+    targeting: { kind: 'area', area, range: Math.max(5, area.size) },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    effects: [
+      actionCarrier(spell, { id: 'breath', name: 'Выдох', cost: 'action', def: breath }, { to: 'targets', variant: type }),
+    ],
+  };
+}
+
+/** Vampiric Touch (XPHB 2024): атака при касте, повтор магическим действием, лечение на половину урона. */
+function vampiricTouchDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Vampiric Touch') return undefined;
+  const dice = spellDice(spell, opts);
+  const strike = (name: string, targeting?: AutomationDef['targeting']): AutomationDef => ({
+    key: spell.key,
+    name,
+    resolution: 'attack',
+    attack: { rangeType: 'melee' },
+    ...(dice ? { damage: { dice, types: ['necrotic'] } } : {}),
+    lifesteal: true,
+    ...(targeting ? { targeting } : {}),
+  });
+  return {
+    ...strike(spell.name),
+    concentration: true,
+    effects: [actionCarrier(spell, { id: 'touch', name: 'Касание', cost: 'action', def: strike('Касание', { kind: 'creature', range: 5 }) })],
+  };
+}
+
+/** Flame Blade (XPHB 2024): бонусным действием — клинок; магическим — атака огнём (+мод. характеристики). */
+function flameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Flame Blade') return undefined;
+  const dice = spellDice(spell, opts, '3d6');
+  const blade: AutomationDef = {
+    key: spell.key,
+    name: 'Огненный клинок',
+    resolution: 'attack',
+    attack: { rangeType: 'melee' },
+    damage: { dice, types: ['fire'], abilityMod: true },
+    targeting: { kind: 'creature', range: 5 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    effects: [actionCarrier(spell, { id: 'blade', name: 'Клинок', cost: 'action', def: blade })],
+  };
+}
+
+/** Sunbeam (XPHB 2024): луч 60×5 от себя; повтор магическим действием, слепота до начала вашего след. хода. */
+function sunbeamDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Sunbeam') return undefined;
+  const dice = spellDice(spell, opts, '6d8');
+  const area = spell.areaSpec ?? { shape: 'line' as const, size: 60, width: 5 };
+  const payload = {
+    save: { ability: 'con' as const, half: true },
+    damage: { dice, types: ['radiant'] },
+    area,
+  };
+  const blind: AutomationEffect = {
+    name: 'Sunbeam',
+    duration: { type: 'endOfTurn', of: 'source' },
+    to: 'targets',
+    conditions: ['blinded'],
+    modifiers: [],
+  };
+  const beam: AutomationDef = {
+    key: spell.key,
+    name: 'Луч',
+    resolution: 'save',
+    ...payload,
+    targeting: { kind: 'area', area, range: Math.max(5, area.size) },
+    effects: [blind],
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    ...payload,
+    effects: [blind, actionCarrier(spell, { id: 'beam', name: 'Луч', cost: 'action', def: beam })],
+  };
+}
+
+/** Heat Metal (XPHB 2024): авто-урон 2d8 огня + помеха на атаки/проверки; повтор бонусным действием. */
+function heatMetalDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Heat Metal') return undefined;
+  const damage = { dice: spellDice(spell, opts, '2d8'), types: ['fire'] };
+  const holding: AutomationEffect = {
+    name: 'Heat Metal',
+    duration: { type: 'endOfTurn', of: 'source' },
+    to: 'targets',
+    modifiers: [
+      { target: 'attack', mode: 'disadvantage' },
+      { target: 'check', mode: 'disadvantage' },
+    ],
+  };
+  const burn: AutomationDef = {
+    key: spell.key,
+    name: 'Раскалённый металл',
+    resolution: 'auto',
+    damage,
+    targeting: { kind: 'creature', range: 60 },
+    effects: [holding],
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'auto',
+    concentration: true,
+    damage,
+    effects: [holding, actionCarrier(spell, { id: 'burn', name: 'Раскалённый металл', cost: 'bonus', def: burn })],
+  };
 }
 
 /**
@@ -616,7 +871,22 @@ export interface AutomationOptions {
  */
 export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
   const catalog = AUTOMATION_SPELLS[spell.key];
-  if (catalog) return catalog;
+  if (catalog) return withSpellDice(catalog, spell, opts);
+
+  const breath = breathSpellDef(spell, opts);
+  if (breath) return breath;
+
+  const vampiric = vampiricTouchDef(spell, opts);
+  if (vampiric) return vampiric;
+
+  const flameBlade = flameBladeDef(spell, opts);
+  if (flameBlade) return flameBlade;
+
+  const sunbeam = sunbeamDef(spell, opts);
+  if (sunbeam) return sunbeam;
+
+  const heatMetal = heatMetalDef(spell, opts);
+  if (heatMetal) return heatMetal;
 
   const summon = summonSpellDef(spell.key);
   if (summon) {
@@ -697,12 +967,12 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
   return withAdditions({ ...base, resolution: 'auto', count, ...rolled }, expression);
 }
 
-/** Модификаторы Eldritch Blast от инвокаций: Agonizing (+CHA к лучу) и Repelling (толчок). */
+  /** Модификаторы Eldritch Blast от инвокаций: Agonizing (+мод. характеристики) и Repelling (толчок). */
 function withBlastMods(spell: Spell, def: AutomationDef, invocations?: string[]): AutomationDef {
   if (spell.key !== 'XPHB:Eldritch Blast' || !invocations?.length) return def;
   const mods = eldritchBlastMods({ invocations });
   let out = def;
-  if (mods.agonizing && out.damage) out = { ...out, damage: { ...out.damage, dice: `${out.damage.dice}+cha` } };
+  if (mods.agonizing && out.damage) out = { ...out, damage: { ...out.damage, abilityMod: true } };
   if (mods.repelling) out = { ...out, force: { kind: 'push', feet: 10, maxSize: 'large' } };
   return out;
 }
@@ -744,6 +1014,7 @@ export function spellEffectDefs(spellKey: string): AutomationEffect[] | undefine
 export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolean {
   const def = AUTOMATION_SPELLS[spell.key];
   if (def) return def.resolution !== 'manual';
+  if (spellBuiltinAutomated(spell.key)) return true;
   if (summonSpellDef(spell.key)) return true;
   return spell.automation === 'full';
 }

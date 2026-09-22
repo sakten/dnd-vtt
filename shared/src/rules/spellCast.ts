@@ -171,9 +171,18 @@ export function spellExtraTargets(spell: Spell, castLevel: number): number {
 
 const AOE_TAGS = new Set(['S', 'C', 'L', 'N', 'Q', 'R', 'Y']);
 
-/** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег. */
+/**
+ * Заклинания, у которых `areaSpec` относится к выданному действию, а не к касту
+ * (Dragon's Breath: касание + действие-выдох) — каст целится в существо.
+ */
+const GRANTED_ACTION_AREA = new Set(["XPHB:Dragon's Breath"]);
+
+/** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег (или эманация от себя). */
 export function spellHasArea(spell: Spell): boolean {
-  return !!spell.areaSpec && (spell.save?.length ?? 0) > 0 && (spell.area ?? []).some((t) => AOE_TAGS.has(t));
+  if (GRANTED_ACTION_AREA.has(spell.key)) return false;
+  if (!spell.areaSpec || (spell.save?.length ?? 0) === 0) return false;
+  if (spell.range.type === 'emanation') return true;
+  return (spell.area ?? []).some((t) => AOE_TAGS.has(t));
 }
 
 /** Область исходит от кастера (конус/линия/куб/эманация) или от выбранной точки. */

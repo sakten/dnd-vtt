@@ -47,6 +47,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     conditions: effectDef.conditions,
     escalate: effectDef.escalate,
     wakeOnDamage: effectDef.wakeOnDamage,
+    saveOnDamage: effectDef.saveOnDamage,
     restrictions: effectDef.restrictions,
     zoneId,
     escape: effectDef.escape && escapeDc !== undefined ? { ...effectDef.escape, dc: escapeDc } : undefined,
@@ -55,6 +56,8 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     bonusDie: effectDef.bonusDie,
     bonusDieUses: effectDef.bonusDieUses ? [...effectDef.bonusDieUses] : undefined,
     senses: effectDef.senses ? [...effectDef.senses] : undefined,
+    actions: effectDef.actions,
+    variant: effectDef.variant,
   };
   ctx.manager.applyEffect(room, target, effect);
   // Wild Shape/Polymorph оканчиваются от недееспособности (XPHB).

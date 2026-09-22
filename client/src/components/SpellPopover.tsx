@@ -12,12 +12,14 @@ import {
   spellAreaOrigin,
   spellAutomated,
   spellRangeFeet,
+  spellVariantDef,
   type ActionCost,
   type Spell,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { spellDisplayName } from '../i18n/names';
+import { damageLabel } from '../i18n/domain';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import { t } from '../i18n';
@@ -78,6 +80,8 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     return def.shape;
   })();
   const needBeast = !!shapeDef;
+  // Вариант каста (Dragon's Breath: тип урона); значение по умолчанию — первый вариант.
+  const variantDef = spellVariantDef(spell.key);
   // At-will инвокация «на себя» (Armor of Shadows): цель не выбирается.
   const selfOnlyAtWill =
     !!sheet && sheetCaster && invocationCoversSpell(sheet, spell.key) && invocationAtWillSelfOnly(spell.key);
@@ -85,6 +89,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const [form, setForm] = useState('');
   const [forms, setForms] = useState<{ key: string; name: string }[] | null>(null);
   const [showCr0, setShowCr0] = useState(false);
+  const [variant, setVariant] = useState(() => variantDef?.options[0] ?? '');
   useEffect(() => {
     if (!needForm && !needBeast) return;
     let alive = true;
@@ -176,6 +181,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         slotLevel: info.slotLevel,
         advantage: mode,
         label: spellDisplayName(spell),
+        ...(variant ? { variant } : {}),
       });
     }
     onClose();
@@ -257,6 +263,19 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
             <span className="sp-target">
               {info.self || selfOnlyAtWill ? t('ui.spellPopover.self') : t('ui.spellPopover.clickTarget')}
             </span>
+          </div>
+        )}
+
+        {variantDef && (
+          <div className="sp-row">
+            <span className="sp-label">{t('ui.spellPopover.damageType')}</span>
+            <select className="sp-select" value={variant} onChange={(e) => setVariant(e.target.value)}>
+              {variantDef.options.map((option) => (
+                <option key={option} value={option}>
+                  {damageLabel(option)}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 

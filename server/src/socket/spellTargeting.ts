@@ -32,6 +32,8 @@ export interface SpellCastParams {
   direction?: unknown;
   /** Выбранная форма призыва (Find Familiar). */
   summonKey?: string;
+  /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
+  variant?: string;
   author: string;
 }
 
@@ -110,6 +112,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     origin: areaOrigin ?? (isPoint(params.origin) ? params.origin : null),
     direction: isPoint(params.direction) ? params.direction : null,
     summonKey: params.summonKey,
+    variant: params.variant,
     author: params.author,
   };
 }

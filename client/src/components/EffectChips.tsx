@@ -1,6 +1,6 @@
 import { type EffectInstance, type Spell } from 'shared';
 import { t } from '../i18n';
-import { effectDurationText, effectSummaryText } from '../i18n/domain';
+import { damageLabel, effectDurationText, effectSummaryText } from '../i18n/domain';
 import ChipRow from './ChipRow';
 import SpellIcon from './SpellIcon';
 
@@ -31,13 +31,15 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
       parts.push(effectDurationText(e.duration));
     }
     const rounds = e.duration.type === 'rounds' ? e.duration.rounds : undefined;
+    // Выбранный вариант (Dragon's Breath: тип урона) — в скобках к имени.
+    const label = e.variant ? `${e.name} (${damageLabel(e.variant)})` : e.name;
     return {
       key: e.id,
-      title: e.name,
+      title: label,
       node: (
-        <span className={`eff-chip${ownConcentration ? ' eff-concentration' : ''}`} title={`${e.name} — ${parts.join(' · ')}`}>
+        <span className={`eff-chip${ownConcentration ? ' eff-concentration' : ''}`} title={`${label} — ${parts.join(' · ')}`}>
           {spell ? <SpellIcon spell={spell} className="eff-chip-icon" /> : <span className="eff-chip-dot" />}
-          <span className="eff-chip-name">{e.name}</span>
+          <span className="eff-chip-name">{label}</span>
           {rounds != null ? <span className="eff-chip-num">{rounds > 9 ? '9+' : rounds}</span> : null}
         </span>
       ),

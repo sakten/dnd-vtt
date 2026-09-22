@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   gridOfMap,
   rollDice,
+  sideMatches,
   tokenFullyInArea,
   tokensInArea,
   type AutomationDef,
@@ -58,7 +59,10 @@ function insideTokens(
           tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls)
         )
       : tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls);
-  return zone.excludeSource ? inside.filter((t) => t.id !== zone.sourceId) : inside;
+  // Фильтр по отношению к источнику (Conjure Woodland Beings: только враги).
+  const source = zone.side ? map.tokens.find((t) => t.id === zone.sourceId) : undefined;
+  const sided = zone.side && source ? inside.filter((t) => sideMatches(source, t, zone.side!)) : inside;
+  return zone.excludeSource ? sided.filter((t) => t.id !== zone.sourceId) : sided;
 }
 
 function singleType(payload: AutomationPayload): string | undefined {
@@ -200,6 +204,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     containment: zoneDef.containment,
     enterOncePerTurn: zoneDef.enterOncePerTurn,
     excludeSource: zoneDef.excludeSource,
+    side: zoneDef.side,
     dc: input.stats?.dc,
     aura: zoneDef.aura,
     triggers: zoneDef.triggers,

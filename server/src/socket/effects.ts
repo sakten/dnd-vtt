@@ -19,6 +19,26 @@ export function pushSaveMessage(
 }
 
 /**
+ * Повторные спасброски эффектов «от урона» (Hideous Laughter): успех снимает
+ * эффект вместе с состояниями; преимущество — флаг эффекта (XPHB).
+ */
+export function rollDamageSavesOnDamage(ctx: ConnCtx, room: Room, mapId: string, token: Token) {
+  const pending = token.effects.filter((e) => e.saveOnDamage && e.duration.type === 'untilSave');
+  for (const effect of pending) {
+    const duration = effect.duration;
+    if (duration.type !== 'untilSave') continue;
+    const { roll, success } = ctx.manager.rollSave(room, token, duration.ability, duration.dc, {
+      advantage: effect.saveOnDamage?.advantage,
+    });
+    pushSaveMessage(ctx, room, `${effect.name} · ${token.name}`, roll, success);
+    if (success) {
+      ctx.manager.removeEffect(room, token, effect.id);
+      ctx.emitToken(room, 'token:update', mapId, token);
+    }
+  }
+}
+
+/**
  * Проверка концентрации при получении урона (СЛ 10 или половина урона).
  * Провал — эффекты концентрации снимаются, в чат уходит бросок и системка.
  */

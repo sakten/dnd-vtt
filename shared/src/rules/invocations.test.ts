@@ -147,7 +147,8 @@ describe('Eldritch Blast: инвокации', () => {
       characterLevel: 5,
       invocations: ['XPHB:Agonizing Blast', 'XPHB:Repelling Blast', 'XPHB:Eldritch Spear'],
     });
-    expect(boosted.damage?.dice).toBe('1d10+cha');
+    expect(boosted.damage?.dice).toBe('1d10');
+    expect(boosted.damage?.abilityMod).toBe(true);
     expect(boosted.force).toEqual({ kind: 'push', feet: 10, maxSize: 'large' });
     expect(effectiveSpellRangeFeet(eb, ['XPHB:Eldritch Spear'])).toBe(300);
     expect(effectiveSpellRangeFeet(eb, [])).toBe(spellRangeFeet(eb));

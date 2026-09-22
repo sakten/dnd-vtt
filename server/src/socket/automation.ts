@@ -14,6 +14,7 @@ import {
   proficiencyBonus,
   resolveAbilityMods,
   rollDice,
+  sideMatches,
   statNumber,
   withAdvantage,
   withRollParts,
@@ -563,6 +564,13 @@ function healAfter(run: AutomationRun, target: Token): void {
   }
 }
 
+/** Flame Blade: + модификатор заклинательной характеристики кастера к урону. */
+function withSpellAbilityMod(expression: string | null, def: AutomationDef, stats: SpellStats | null): string | null {
+  const mod = stats ? Math.round(stats.mod) : 0;
+  if (!expression || !def.damage?.abilityMod || !mod) return expression;
+  return `${expression}${mod > 0 ? '+' : ''}${mod}`;
+}
+
 /** Единая точка урона/лечения прогона: бонус Ученика жизни, сообщение, самолечение Целителя. */
 function applyResult(
   run: AutomationRun,
@@ -570,7 +578,7 @@ function applyResult(
   roll: DiceRollResult,
   opts: { subject?: string; halve?: boolean; kind?: 'damage' | 'heal'; crit?: boolean; silent?: boolean } = {}
 ): void {
-  applyDamage(run.ctx, {
+  const result = applyDamage(run.ctx, {
     target,
     mapId: run.mapId,
     amount: healValue(run, roll.total),
@@ -582,6 +590,17 @@ function applyResult(
     ...(opts.crit !== undefined && { crit: opts.crit }),
   });
   healAfter(run, target);
+  // Vampiric Touch: лечение кастера на половину фактически нанесённого урона.
+  if (run.def.lifesteal && !run.healing && result.applied && result.amount > 0) {
+    const heal = Math.floor(result.amount / 2);
+    if (heal > 0) {
+      applyDamage(run.ctx, { target: run.caster, mapId: run.mapId, amount: heal, kind: 'heal' });
+      run.ctx.systemMessage(run.room, {
+        code: 'automation.lifesteal',
+        params: { name: run.caster.name, feature: run.def.name, target: target.name, amount: heal },
+      });
+    }
+  }
 }
 
 /** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
@@ -649,6 +668,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
 function applyTargetEffects(run: AutomationRun, target: Token, stats: SpellStats | null): void {
   const { ctx, room, def, caster, mapId } = run;
   for (const effectDef of def.effects ?? []) {
+    // Self-эффекты наложены один раз до резолва (Vampiric Touch, Sunbeam).
+    if (effectDef.to === 'self') continue;
     const recipients = effectDef.to === 'targets' ? [target] : [caster];
     for (const recipient of recipients) {
       applyEffectTo(ctx, room, {
@@ -765,9 +786,11 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   if (!room) return;
   const { caster, def, mapId, stats, author } = input;
   // Черты без выбора целей (Изгнание нежити): цели собираются по радиусу от кастера.
-  const targets = def.autoTargets
+  const rawTargets = def.autoTargets
     ? tokensAround(ctx, room, mapId, caster, def.autoTargets.feet, def.autoTargets.side)
     : input.targets;
+  // Фильтр по отношению к кастеру (Conjure Woodland Beings: только враги).
+  const targets = def.side ? rawTargets.filter((t) => sideMatches(caster, t, def.side!)) : rawTargets;
 
   if (def.resolution === 'utility' && def.utility) {
     applyUtility(ctx, { ...input, targets });
@@ -825,6 +848,24 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     return;
   }
 
+  // Self-эффекты не-effect резолвов (Vampiric Touch, Sunbeam, Conjure Woodland Beings):
+  // один раз на кастера + якорь концентрации (зоны/эффекты живут до её снятия).
+  const selfEffects = (def.effects ?? []).filter((e) => e.to === 'self');
+  if (selfEffects.length) {
+    for (const effectDef of selfEffects) {
+      applyEffectTo(ctx, room, {
+        sourceKey: def.key,
+        sourceId: caster.id,
+        mapId,
+        effectDef,
+        target: caster,
+        untilSaveDc: stats?.dc,
+        escapeDc: stats?.dc,
+      });
+    }
+    if (def.concentration) anchorConcentration(ctx, room, caster, mapId, def);
+  }
+
   // Зонная концентрация без целевых эффектов: якорь на кастере — чип и «Прекратить».
   if (def.zone && def.concentration && !def.effects?.length) {
     anchorConcentration(ctx, room, caster, mapId, def);
@@ -832,7 +873,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
 
   const abilities = ctx.manager.abilitiesForToken(room, caster);
   const proficiency = proficiencyFor(ctx, room, caster);
-  const expression = resolveDiceExpression(def.damage ?? def.heal, abilities, proficiency);
+  const expression = withSpellAbilityMod(resolveDiceExpression(def.damage ?? def.heal, abilities, proficiency), def, stats);
 
   const run: AutomationRun = {
     ctx,

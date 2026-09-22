@@ -20,6 +20,7 @@
   withAdvantage,
   type ActionCost,
   type ActionDef,
+  type AreaSpec,
   type AttackEntry,
   type CharacterSheet,
   type DiceRollResult,
@@ -31,11 +32,12 @@ import { executeAutomation } from './automation';
 import { fail } from './errors';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
+import { sheetOfToken } from '../room/helpers';
 import { pushRollMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
 import { findSpell } from '../spells';
-import { spellStatsFor } from './spellStats';
+import { spellClassFor, spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 
@@ -92,6 +94,128 @@ function escapeEffect(
   applyCheck(rollDice(expression));
 }
 
+/**
+ * Цели действия: область от точки, выбранные id или сам носитель.
+ * Общий сбор для обычных (`action:use`) и выданных эффектом действий.
+ */
+function actionTargets(
+  ctx: ConnCtx,
+  room: Scope['room'],
+  mapId: string,
+  token: Token,
+  opts: {
+    area?: AreaSpec;
+    origin?: { x: number; y: number } | null;
+    direction?: { x: number; y: number } | null;
+    targetIds?: unknown;
+    selfWhenEmpty?: boolean;
+  }
+): Token[] {
+  const targets: Token[] = [];
+  if (opts.area && opts.origin) {
+    const map = ctx.manager.findMap(room, mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const affected = map
+      ? tokensInArea(map.tokens, opts.area, opts.origin, opts.direction ?? null, grid, 'euclidean', map.walls)
+      : [];
+    for (const found of affected) {
+      if (found.id !== token.id) targets.push(found);
+    }
+    return targets;
+  }
+  for (const id of Array.isArray(opts.targetIds) ? opts.targetIds : []) {
+    if (typeof id !== 'string') continue;
+    const found = ctx.manager.findToken(room, mapId, id);
+    if (found) targets.push(found);
+  }
+  if (!targets.length && opts.selfWhenEmpty) targets.push(token);
+  return targets;
+}
+
+/**
+ * Действие, выданное эффектом (`spell:<effectId>:<actionId>`): Рывок от
+ * Expeditious Retreat, Выдох от Dragon's Breath и подобные. Слот — по стоимости
+ * действия эффекта; спасброски/атаки считаются по характеристикам кастера.
+ */
+function useGrantedAction(
+  ctx: ConnCtx,
+  scope: Scope,
+  actionId: string,
+  opts: {
+    advantage?: 'a' | 'd';
+    slot?: ActionCost;
+    origin?: { x: number; y: number };
+    direction?: { x: number; y: number };
+    targetIds?: string[];
+  }
+): void {
+  const { room, mapId, token } = scope;
+  const rest = actionId.slice('spell:'.length);
+  const at = rest.indexOf(':');
+  if (at < 0) return;
+  const effect = token.effects.find((e) => e.id === rest.slice(0, at));
+  const granted = effect?.actions?.find((a) => a.id === rest.slice(at + 1));
+  if (!effect || !granted) return;
+
+  const base = granted.baseActionId ? findBaseAction(granted.baseActionId) : undefined;
+  const def = base ? automationForAction(base) : granted.def;
+  if (!def) return;
+
+  const targeting = granted.def?.targeting;
+  const area = targeting?.kind === 'area' ? targeting.area : undefined;
+  const origin = opts.origin && Number.isFinite(opts.origin.x) && Number.isFinite(opts.origin.y) ? opts.origin : null;
+  if (area && !origin) {
+    fail(ctx, 'noAreaPoint');
+    return;
+  }
+
+  // СЛ/атака выданного действия считаются по характеристикам кастера-источника
+  // (лист с классом заклинания или статблок); без них сейв молча пропускался бы.
+  const caster = effect.sourceId ? ctx.manager.findToken(room, mapId, effect.sourceId) ?? undefined : undefined;
+  const casterSheet = caster ? sheetOfToken(room, caster).sheet : undefined;
+  const className = casterSheet && def.key ? spellClassFor(casterSheet, def.key) : undefined;
+  const stats = caster ? spellStatsFor(room, caster, className) : null;
+  if ((def.save || def.attack) && !stats) {
+    fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
+    return;
+  }
+
+  const combat = ctx.manager.combatOf(room, mapId);
+  const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, token.id);
+  if (combat?.active && !isActive && !ctx.isDm()) {
+    fail(ctx, 'notYourTurn');
+    return;
+  }
+  const turn = isActive ? ctx.manager.turnForToken(room, mapId, token) : null;
+  if (!ctx.manager.spendSlot(room, mapId, token, chooseSlot(turn, [granted.cost], opts.slot))) {
+    fail(ctx, 'noActions');
+    return;
+  }
+  ctx.syncCombat(room, mapId);
+
+  const targets = actionTargets(ctx, room, mapId, token, {
+    area,
+    origin,
+    direction: opts.direction ?? null,
+    targetIds: opts.targetIds,
+    selfWhenEmpty: def.targeting?.kind !== 'creature',
+  });
+
+  const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
+  executeAutomation(ctx, {
+    caster: token,
+    mapId,
+    def: { ...def, name: granted.name },
+    targets,
+    stats,
+    author,
+    advantage: opts.advantage,
+    origin,
+    direction: opts.direction ?? null,
+    area: area ?? null,
+  });
+}
+
 /** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */
 function unarmedStrikeEntry(
   ctx: ConnCtx,
@@ -122,6 +246,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // «Выпутаться» (Web и подобные): действие, проверка характеристики против СЛ эффекта.
       if (actionId.startsWith('escape:')) {
         escapeEffect(ctx, scope, actionId.slice('escape:'.length), advantage);
+        return;
+      }
+
+      // Действия, выданные эффектами (Expeditious Retreat: Рывок бонусным действием).
+      if (actionId.startsWith('spell:')) {
+        useGrantedAction(ctx, scope, actionId, { advantage, slot, origin, direction, targetIds });
         return;
       }
 
@@ -341,25 +471,13 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // Автоматизированные действия (базовые/классовые) — через общий executor.
       const def = automationForAction(action, { classes: sheet?.classes }) ?? featureActionAutomation(action.id, sheet?.classes);
       if (def) {
-        const targets: Token[] = [];
-        if (abilityArea) {
-          const map = manager.findMap(room, mapId);
-          const grid = gridOfMap(map, room.scene.grid);
-          const affected =
-            map && abilityOrigin
-              ? tokensInArea(map.tokens, abilityArea, abilityOrigin, direction ?? null, grid, 'euclidean', map.walls)
-              : [];
-          for (const found of affected) {
-            if (found.id !== token.id) targets.push(found);
-          }
-        } else {
-          for (const id of Array.isArray(targetIds) ? targetIds : []) {
-            if (typeof id !== 'string') continue;
-            const found = manager.findToken(room, mapId, id);
-            if (found) targets.push(found);
-          }
-        }
-        if (!targets.length && def.targeting?.kind === 'self') targets.push(token);
+        const targets = actionTargets(ctx, room, mapId, token, {
+          area: abilityArea,
+          origin: abilityOrigin,
+          direction,
+          targetIds,
+          selfWhenEmpty: def.targeting?.kind === 'self',
+        });
         // Классовые черты со спасбросками (Изгнание нежити, Сияние рассвета): СЛ из листа.
         const classKey = actionId.startsWith('class:') ? actionId.slice('class:'.length).split(/[:.]/)[0] : undefined;
         const stats = action.ability

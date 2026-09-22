@@ -156,6 +156,17 @@ export function hostileTokens(
   return a.faction !== b.faction;
 }
 
+/** Подходит ли токен фильтру стороны относительно источника (`side`: только враги/союзники). */
+export function sideMatches(
+  source: Pick<Token, 'isPlayerToken' | 'faction'>,
+  token: Pick<Token, 'isPlayerToken' | 'faction'>,
+  side: 'hostile' | 'ally'
+): boolean {
+  return side === 'hostile'
+    ? hostileTokens(source, token)
+    : token.faction === source.faction && token.faction !== 'neutral';
+}
+
 /**
  * Минимальная грань d20 для критического попадания (Чемпион: 19 со 3 ур.,
  * 18 с 15 ур.; прочие — только natural 20).

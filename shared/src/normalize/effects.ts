@@ -132,6 +132,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (typeof e.sourceId === 'string' && e.sourceId) effect.sourceId = e.sourceId;
     if (e.concentration === true) effect.concentration = true;
     if (e.hidden === true) effect.hidden = true;
+    if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
     if (Array.isArray(e.conditions)) {
       const conditions = e.conditions.filter((c): c is ConditionKey => typeof c === 'string');
       if (conditions.length) effect.conditions = conditions.slice(0, MAX_CONDITIONS);

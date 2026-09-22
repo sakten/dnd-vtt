@@ -37,6 +37,8 @@ export interface SpellCastInput {
   direction?: { x: number; y: number } | null;
   /** Выбранная форма призыва (Find Familiar). */
   summonKey?: string;
+  /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
+  variant?: string;
   author: string;
 }
 
@@ -126,6 +128,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     castLevel: input.castLevel,
     characterLevel: input.characterLevel,
     invocations: sheetOfToken(room, input.caster).sheet?.invocations,
+    variant: input.variant,
   });
   executeAutomation(ctx, {
     caster: input.caster,
