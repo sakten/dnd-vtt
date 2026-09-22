@@ -2,6 +2,8 @@ import type { CharacterSheet, Player, PlayerResources, RoomState } from 'shared'
 
 export interface RoomPlayer extends Player {
   socketId: string | null;
+  /** Локальный id браузера, которым входили в этот аккаунт (для перехвата своей же сессии). */
+  clientId?: string | null;
 }
 
 /**

@@ -18,7 +18,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       }
       const playerName = asString(name, 30) ?? '';
       const room = manager.create(asString(roomName));
-      room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
+      room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id, clientId: ownerId });
       ctx.roomCode = room.code;
       ctx.playerId = ownerId;
       socket.join(room.code);
@@ -40,16 +40,37 @@ export function registerRoomHandlers(ctx: ConnCtx) {
         return;
       }
       const safeName = asTrimmedString(name, 30) ?? '';
-      const displayName = safeName || 'Игрок';
-      const existing = room.players.find((p) => p.id === playerId);
+      if (!safeName) {
+        cb({ error: { code: 'badRequest' } });
+        return;
+      }
+      // Аккаунт: сначала свой браузер (clientId/id — лист мог переименовать игрока),
+      // затем имя как логин (вход с другого браузера после выхода).
+      const nameKey = safeName.toLocaleLowerCase();
+      const byClient = room.players.find((p) => p.clientId === playerId || p.id === playerId);
+      const byName = room.players.find((p) => p.name.trim().toLocaleLowerCase() === nameKey);
+      const existing = byClient ?? byName;
       if (existing) {
-        cancelPendingLeave(room.code, playerId);
+        const sameBrowser = existing === byClient;
+        // Занятое имя: живая сессия чужого браузера недоступна, имя ведущего — тем более.
+        if (!sameBrowser && (existing.socketId !== null || existing.role === 'dm')) {
+          cb({ error: { code: 'nameTaken' } });
+          return;
+        }
+        cancelPendingLeave(room.code, existing.id);
         existing.socketId = socket.id;
         existing.isConnected = true;
-      } else {
-        room.players.push({ id: playerId, name: displayName, role: 'player', isConnected: true, socketId: socket.id });
-        systemMessage(room, { code: 'room.joined', params: { name: displayName } });
+        existing.clientId = playerId;
+        ctx.roomCode = room.code;
+        ctx.playerId = existing.id;
+        socket.join(room.code);
+        emitJoined(room, existing.id);
+        cb({ ok: true });
+        broadcast('players:update', manager.toState(room).players);
+        return;
       }
+      room.players.push({ id: playerId, name: safeName, role: 'player', isConnected: true, socketId: socket.id, clientId: playerId });
+      systemMessage(room, { code: 'room.joined', params: { name: safeName } });
       ctx.roomCode = room.code;
       ctx.playerId = playerId;
       socket.join(room.code);

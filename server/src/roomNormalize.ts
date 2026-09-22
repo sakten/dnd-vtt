@@ -61,8 +61,11 @@ export function hydrateRoom(p: PersistedRoom): Room {
     players: Array.isArray(p.players)
       ? p.players.map((pl) => {
           const chance = Number(pl.rollAnimChance);
+          const rawClientId = (pl as unknown as { clientId?: unknown }).clientId;
+          const clientId = typeof rawClientId === 'string' ? rawClientId.slice(0, 64) : null;
           return {
             ...pl,
+            clientId,
             isConnected: false,
             socketId: null,
             rollAnimChance: Number.isFinite(chance) ? Math.max(0, Math.min(100, Math.round(chance))) : 0,

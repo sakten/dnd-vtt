@@ -62,8 +62,9 @@ export function registerAdminHandlers(ctx: ConnCtx) {
         existing.isConnected = true;
         existing.role = 'dm';
         existing.name = playerName;
+        existing.clientId = ownerId;
       } else {
-        room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
+        room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id, clientId: ownerId });
       }
       ctx.roomCode = room.code;
       ctx.playerId = ownerId;

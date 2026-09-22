@@ -23,6 +23,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.summonNoForm': 'Choose a familiar form',
   'error.summonNoSpace': 'No free space nearby for the summon',
   'error.teleportNoSpace': 'No free visible space for the teleport',
+  'error.nameTaken': 'This name is already taken in the room — pick another or join later',
   'error.shapeNoAbility': 'Wild Shape is available to druids from level 2',
   'error.shapeNoForm': 'Form unavailable: check known forms and the CR limit',
   'error.shapeNoUse': 'No Wild Shape uses left',
