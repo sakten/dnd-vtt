@@ -11,6 +11,7 @@ import {
   spellActionCost,
   spellAreaOrigin,
   spellAutomated,
+  spellCastAreaOverride,
   spellRangeFeet,
   spellVariantDef,
   type ActionCost,
@@ -122,7 +123,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         tokenId,
         ...common,
         advantage: mode,
-        spec: zoneDef?.area ?? spell.areaSpec,
+        spec: spellCastAreaOverride(spell) ?? zoneDef?.area ?? spell.areaSpec,
         originKind: spellAreaOrigin(spell),
         rangeFeet: spellRangeFeet(spell),
       });

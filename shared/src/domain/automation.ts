@@ -142,6 +142,8 @@ export interface ZoneDef {
     blocksLight?: boolean;
     blocksMovement?: boolean;
     blocksLineOfSight?: boolean;
+    /** Почти незаметный визуал зоны (туча Call Lightning): только тонкий контур. */
+    subtle?: boolean;
   };
 }
 

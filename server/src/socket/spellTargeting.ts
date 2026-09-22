@@ -3,6 +3,7 @@ import {
   gridOfMap,
   isRecord,
   spellAreaOrigin,
+  spellCastArea,
   spellHasArea,
   spellIsSelf,
   spellRangeFeet,
@@ -45,7 +46,8 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
   const targets: Token[] = [];
   let area = false;
   let areaOrigin: { x: number; y: number } | null = null;
-  if (spellHasArea(spell) && spell.areaSpec) {
+  const castArea = spellCastArea(spell);
+  if (spellHasArea(spell) && castArea) {
     const map = ctx.manager.findMap(room, mapId);
     const grid = gridOfMap(map, room.scene.grid);
     const originKind = spellAreaOrigin(spell);
@@ -70,7 +72,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     const affected = map
       ? tokensInArea(
           map.tokens,
-          spell.areaSpec,
+          castArea,
           originPt,
           isPoint(params.direction) ? params.direction : null,
           grid,

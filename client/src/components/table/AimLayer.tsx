@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Line, Rect, Text } from 'react-konva';
+import { Circle, Line, Rect, Text } from 'react-konva';
 import type { Token } from 'shared';
 import type { CellRect, WorldPoint } from '../../lib/fog';
 
@@ -7,14 +7,28 @@ interface Props {
   movementCells: CellRect[];
   aim: { origin: WorldPoint | null; blocked?: boolean; summon?: boolean } | null;
   aimCells: CellRect[];
+  /** Радиус досягаемости действия зоны (якорь + лимит): подсказка при прицеле. */
+  rangeCircle?: { x: number; y: number; radius: number } | null;
   multiTargetTokens: Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h'>[];
   viewScale: number;
 }
 
 /** Подсветка движения, прицеливания области и выбранных целей мультиатаки. */
-export default function AimLayer({ movementCells, aim, aimCells, multiTargetTokens, viewScale }: Props) {
+export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, multiTargetTokens, viewScale }: Props) {
   return (
     <>
+      {rangeCircle && (
+        <Circle
+          x={rangeCircle.x}
+          y={rangeCircle.y}
+          radius={rangeCircle.radius}
+          stroke="#ffd166"
+          strokeWidth={1.5 / viewScale}
+          dash={[8 / viewScale, 8 / viewScale]}
+          opacity={0.35}
+          listening={false}
+        />
+      )}
       {movementCells.map((c) => (
         <Rect
           key={`mv-${c.x},${c.y}`}

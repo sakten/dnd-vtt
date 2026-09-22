@@ -236,6 +236,24 @@ describe('движок зон', () => {
     expect(f.emitted.filter((e) => e.event === 'maps:update')).toHaveLength(0);
   });
 
+  it('снятие концентрации не трогает зоны без концентрации', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const daylight: AutomationDef = {
+      ...zoneDef,
+      key: 'XPHB:Daylight',
+      name: 'Daylight',
+      zone: { ...zoneDef.zone!, duration: { type: 'permanent' } },
+    };
+    const concentration: AutomationDef = { ...zoneDef, key: 'TEST:Conc', name: 'Концентрация', concentration: true };
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: daylight, stats: null, origin: { x: 250, y: 100 } });
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: concentration, stats: null, origin: { x: 100, y: 100 } });
+
+    removeZonesOfSource(f.ctx, room, caster.id, { onlyConcentration: true });
+
+    expect(room.scene.maps[0]!.zones.map((z) => z.sourceKey)).toEqual(['XPHB:Daylight']);
+  });
+
   it('сдвиг ауры за источником рассылает zones:update с новой позицией', () => {
     const { room, f } = setup();
     const caster = room.scene.maps[0]!.tokens[0]!;
@@ -251,5 +269,75 @@ describe('движок зон', () => {
     const payload = events[0]!.payload as { mapId: string; zones: { origin: { x: number } }[] };
     expect(payload.mapId).toBe('m1');
     expect(payload.zones[0]!.origin.x).toBe(500);
+  });
+});
+
+describe('диспел света и тьмы', () => {
+  /** Darkness L2: магическая тьма. */
+  const darknessDef: AutomationDef = {
+    key: 'XPHB:Darkness',
+    name: 'Darkness',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      duration: { type: 'concentration' },
+      flags: { blocksLight: true },
+    },
+  };
+  /** Moonbeam L2: источник света. */
+  const moonbeamDef: AutomationDef = {
+    key: 'XPHB:Moonbeam',
+    name: 'Moonbeam',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: { type: 'concentration' },
+      light: { bright: 0, dim: 5 },
+    },
+  };
+  /** Hunger of Hadar L3: магическая тьма выше уровнем. */
+  const hadarDef: AutomationDef = {
+    ...darknessDef,
+    key: 'XPHB:Hunger of Hadar',
+    name: 'Hunger of Hadar',
+    zone: { ...darknessDef.zone!, area: { shape: 'sphere', size: 20 } },
+  };
+
+  it('равный уровень: свет гасит тьму', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: darknessDef, stats: null, origin: { x: 250, y: 100 } });
+    const moon = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: moonbeamDef, stats: null, origin: { x: 250, y: 100 } });
+
+    expect(moon).toBeTruthy();
+    expect(room.scene.maps[0]!.zones.map((z) => z.sourceKey)).toEqual(['XPHB:Moonbeam']);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.dispelled')).toBe(true);
+  });
+
+  it('тьма выше уровнем гасит свет (и свет её не убивает)', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const hadar = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: hadarDef,
+      stats: null,
+      origin: { x: 250, y: 100 },
+    });
+    const moon = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: moonbeamDef,
+      stats: null,
+      origin: { x: 250, y: 100 },
+    });
+
+    expect(moon).toBeNull();
+    expect(room.scene.maps[0]!.zones.map((z) => z.sourceKey)).toEqual(['XPHB:Hunger of Hadar']);
+    expect(hadar).toBeTruthy();
   });
 });

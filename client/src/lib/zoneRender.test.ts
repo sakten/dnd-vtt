@@ -32,4 +32,12 @@ describe('zoneStyle', () => {
   it('обычная зона получает стабильный цвет по sourceKey', () => {
     expect(zoneStyle(zone({ sourceKey: 'a' })).fill).toBe(zoneStyle(zone({ sourceKey: 'a' })).fill);
   });
+
+  it('крупные зоны затухают и не штрихуются, компактные остаются', () => {
+    const big = zoneStyle(zone({ area: { shape: 'sphere', size: 60 } }));
+    const small = zoneStyle(zone({ area: { shape: 'sphere', size: 15 } }));
+    expect(big.fillAlpha).toBeLessThan(small.fillAlpha);
+    expect(big.stripe).toBeNull();
+    expect(small.stripe).not.toBeNull();
+  });
 });

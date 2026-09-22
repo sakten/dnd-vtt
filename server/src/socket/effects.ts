@@ -49,7 +49,7 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
   pushSaveMessage(ctx, room, `Концентрация: ${result.names.join(', ')}`, result.roll, result.success);
   if (!result.success) {
     for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    removeZonesOfSource(ctx, room, token.id);
+    removeZonesOfSource(ctx, room, token.id, { onlyConcentration: true });
     removeConcSummonsOf(ctx, room, summonSourceIds(room, token));
     endShapesOf(ctx, room, summonSourceIds(room, token));
     ctx.systemMessage(room, {

@@ -338,6 +338,30 @@ describe('automationForSpell', () => {
     expect(hound.zone?.actions?.[0]).toMatchObject({ cost: 'action', def: { utility: { kind: 'moveZone', amount: 30 } } });
   });
 
+  it('Call Lightning: туча-цилиндр 60, удар 5 фт при касте и повтор действием', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Call Lightning',
+      name: 'Call Lightning',
+      level: 3,
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['3d10'], types: ['lightning'] },
+      higherLevel: ['The damage increases by 1d10 for each spell slot level above 3.'],
+    });
+    const def = automationForSpell(spell, { castLevel: 4 });
+    expect(def.resolution).toBe('save');
+    expect(def.concentration).toBe(true);
+    expect(def.damage).toEqual({ dice: '3d10 + 1d10', types: ['lightning'] });
+    expect(def.area).toEqual({ shape: 'sphere', size: 5 });
+    expect(def.zone?.area).toEqual({ shape: 'cylinder', size: 60 });
+    const strike = def.zone?.actions?.[0];
+    expect(strike?.cost).toBe('action');
+    expect(strike?.def?.save).toEqual({ ability: 'dex', half: true });
+    expect(strike?.def?.damage).toEqual({ dice: '3d10 + 1d10', types: ['lightning'] });
+    expect(strike?.def?.targeting).toEqual({ kind: 'area', area: { shape: 'sphere', size: 5 }, range: 60 });
+    expect(spellAutomated({ key: 'XPHB:Call Lightning', automation: 'manual' })).toBe(true);
+  });
+
   it('эффектные дебаффы несут спас и концентрацию (Hold Person)', () => {
     const def = automationForSpell(makeSpell({ key: 'XPHB:Hold Person', name: 'Hold Person', automation: 'manual' }));
     expect(def.save).toEqual({ ability: 'wis', half: undefined });

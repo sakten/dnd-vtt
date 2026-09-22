@@ -1,4 +1,4 @@
-import type { ActionCost } from '../domain/actions';
+import type { ActionCost, AreaSpec } from '../domain/actions';
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { CharacterSheet, ClassLevel, PlayerResources } from '../domain/sheet';
 import type { Spell } from './spells';
@@ -180,9 +180,25 @@ const GRANTED_ACTION_AREA = new Set(["XPHB:Dragon's Breath"]);
 /** Заклинания-зоны без спасброска: прицел нужен для точки (Daylight). */
 const POINT_ZONE_SPELLS = new Set(['XPHB:Daylight']);
 
+/** Область применения каста, отличная от данных (Call Lightning: удар 5 фт, туча — отдельно). */
+const CAST_AREA_OVERRIDES: Record<string, AreaSpec> = {
+  'XPHB:Call Lightning': { shape: 'sphere', size: 5 },
+};
+
+/** Только явный оверрайд области каста (клиентский прицел предпочитает геометрию зоны). */
+export function spellCastAreaOverride(spell: Spell): AreaSpec | undefined {
+  return CAST_AREA_OVERRIDES[spell.key];
+}
+
+/** Область применения каста: оверрайд, иначе данные заклинания. */
+export function spellCastArea(spell: Spell): AreaSpec | undefined {
+  return CAST_AREA_OVERRIDES[spell.key] ?? spell.areaSpec;
+}
+
 /** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег (или эманация/зона от точки). */
 export function spellHasArea(spell: Spell): boolean {
   if (GRANTED_ACTION_AREA.has(spell.key)) return false;
+  if (CAST_AREA_OVERRIDES[spell.key]) return true;
   if (!spell.areaSpec) return false;
   if (POINT_ZONE_SPELLS.has(spell.key)) return true;
   if ((spell.save?.length ?? 0) === 0) return false;

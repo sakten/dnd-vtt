@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import {
+  areaCells,
   gridOfMap,
   rollDice,
   sideMatches,
   tokenFullyInArea,
   tokensInArea,
+  zoneVisionKind,
   type AutomationDef,
   type AutomationPayload,
   type MapInfo,
@@ -17,6 +19,7 @@ import type { ConnCtx } from './context';
 import { applyDamage } from './damage';
 import { pushSaveMessage } from './effects';
 import { applyEffectTo, removeZoneEffects } from './effectsApply';
+import { findSpell } from '../spells';
 
 /**
  * Зоны на карте (R8.1, движок областей): создание при касте, аура внутри,
@@ -166,6 +169,44 @@ export function removeZone(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneIn
   map.zones = map.zones.filter((z) => z.id !== zone.id);
 }
 
+/** Уровень заклинания-источника зоны (undefined — не заклинание/неизвестно). */
+function zoneSpellLevel(zone: ZoneInstance): number | undefined {
+  return findSpell(zone.sourceKey)?.level;
+}
+
+/**
+ * Диспел-пересечения света и магической тьмы (3c-3): тьма сильнее света **ниже** её
+ * уровня — гибнет свет; свет равного или большего уровня — гибнет тьма. Мгла игнорирует свет.
+ */
+function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): void {
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map?.zones?.length) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const cellsOf = (zone: ZoneInstance) => areaCells(zone.area, zone.origin, zone.direction ?? null, grid);
+  const lights = map.zones.filter((z) => z.light && zoneSpellLevel(z) !== undefined);
+  const darks = map.zones.filter((z) => zoneVisionKind(z) === 'magical' && zoneSpellLevel(z) !== undefined);
+  const losers = new Set<ZoneInstance>();
+  for (const light of lights) {
+    const lightSet = new Set(cellsOf(light));
+    for (const dark of darks) {
+      if (light === dark || losers.has(light) || losers.has(dark)) continue;
+      if (!cellsOf(dark).some((key) => lightSet.has(key))) continue;
+      const lightLevel = zoneSpellLevel(light)!;
+      const darkLevel = zoneSpellLevel(dark)!;
+      losers.add(lightLevel >= darkLevel ? dark : light);
+    }
+  }
+  for (const zone of losers) {
+    // Концентрация источника гибнет вместе с зоной.
+    for (const changed of ctx.manager.clearConcentration(room, zone.sourceId)) {
+      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+    removeZone(ctx, room, mapId, zone);
+    ctx.systemMessage(room, { code: 'automation.dispelled', params: { name: zone.name } });
+  }
+  if (losers.size) ctx.broadcastZones(room, mapId);
+}
+
 /** Создаёт зону из def при касте (прошлая зона того же источника заменяется). */
 export interface CreateZoneInput {
   caster: Token;
@@ -216,8 +257,10 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
   map.zones.push(zone);
   // Появившиеся внутри сразу получают ауру (HoH: «полностью внутри — ослеплён»).
   syncZone(ctx, room, input.mapId, zone, { aura: true, enterExit: false });
+  // Диспел-пересечения со тьмой/светом: зона может погибнуть сразу (тогда null).
+  resolveLightDispels(ctx, room, input.mapId);
   ctx.broadcastZones(room, input.mapId);
-  return zone;
+  return map.zones.some((z) => z.id === zone.id) ? zone : null;
 }
 
 /** Есть ли у источника живой эффект концентрации; иначе зона осиротела. */
@@ -301,15 +344,22 @@ export function moveZone(
 ): void {
   zone.origin = { x: origin.x, y: origin.y };
   syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
+  resolveLightDispels(ctx, room, mapId);
   ctx.broadcastZones(room, mapId);
 }
 
-/** Снимает все зоны существа-источника (концентрация, выход из боя, удаление). */
-export function removeZonesOfSource(ctx: ConnCtx, room: Room, sourceId: string): boolean {
+/** Снимает зоны существа-источника; `onlyConcentration` — не трогать зоны без концентрации. */
+export function removeZonesOfSource(
+  ctx: ConnCtx,
+  room: Room,
+  sourceId: string,
+  opts: { onlyConcentration?: boolean } = {}
+): boolean {
   const changedMaps = new Set<string>();
   for (const map of room.scene.maps) {
     for (const zone of [...(map.zones ?? [])]) {
       if (zone.sourceId !== sourceId) continue;
+      if (opts.onlyConcentration && !zone.concentration) continue;
       removeZone(ctx, room, map.id, zone);
       changedMaps.add(map.id);
     }

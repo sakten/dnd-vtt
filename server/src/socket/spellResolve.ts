@@ -7,6 +7,7 @@ import {
   hasInvocation,
   INVOCATION_PACT_KEYS,
   polymorphFormIssue,
+  spellCastArea,
   spellIsSelf,
   type ErrorPayload,
   type Spell,
@@ -150,7 +151,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     advantage: input.advantage,
     origin: input.origin ?? null,
     direction: input.direction ?? null,
-    area: input.spell.areaSpec ?? null,
+    area: spellCastArea(input.spell) ?? null,
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     manual: {
       description: input.spell.description,

@@ -154,7 +154,7 @@ function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
     for (const changed of ctx.manager.clearConcentration(room, sourceId)) {
       ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
     }
-    removeZonesOfSource(ctx, room, sourceId);
+    removeZonesOfSource(ctx, room, sourceId, { onlyConcentration: true });
   }
   removeConcSummonsOf(ctx, room, sourceIds);
   endShapesOf(ctx, room, sourceIds);

@@ -284,17 +284,18 @@ export default function ActionPanel() {
           // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
           const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
           const advantage = isCheck ? rollMode ?? undefined : undefined;
-          // Действие зоны (перемещение): прицел с якорем от текущего центра зоны.
-          if (f.zoneId) {
+          // Действие зоны (перемещение/удар): прицел с якорем от текущего центра зоны.
+          if (f.zoneId && (f.targeting?.kind === 'point' || f.targeting?.kind === 'area')) {
             const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
-            if (zone && f.targeting?.kind === 'point') {
+            const targeting = f.targeting;
+            if (zone && targeting) {
               startAim({
                 tokenId: token.id,
                 actionId: f.id,
                 slot: featureSlot(f, turnCtx),
-                spec: zone.area,
+                spec: targeting.kind === 'area' ? targeting.area! : zone.area,
                 originKind: 'point',
-                rangeFeet: f.targeting.range ?? null,
+                rangeFeet: targeting.range ?? null,
                 anchor: zone.origin,
               });
               return;

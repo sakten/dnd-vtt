@@ -1,7 +1,7 @@
-import { Group, Shape, Text } from 'react-konva';
+import { Group, Line, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
 import { areaCellsLit, areaCellsSpread, type GridSettings, type Wall, type ZoneInstance } from 'shared';
-import { zoneStyle, type ZoneStyle } from '../lib/zoneRender';
+import { zoneColor, zoneStyle, type ZoneStyle } from '../lib/zoneRender';
 
 interface CellRect {
   key: string;
@@ -56,6 +56,7 @@ export default function ZoneLayer({
   visible,
   visibleByZone,
   walls = [],
+  subtleLabels = false,
 }: {
   zones: ZoneInstance[];
   grid: GridSettings;
@@ -66,12 +67,47 @@ export default function ZoneLayer({
   visibleByZone?: Map<string, Set<string>>;
   /** Стены карты: зона не показывается сквозь сплошную стену (огибает углы). */
   walls?: Wall[];
+  /** Подписывать почти незаметные зоны (DM): имя рядом со значком. */
+  subtleLabels?: boolean;
 }) {
   return (
     <>
       {zones
         .filter((zone) => zone.origin && Number.isFinite(zone.origin.x) && Number.isFinite(zone.origin.y))
         .map((zone) => {
+        // Почти незаметные зоны (туча Call Lightning): маленькая молния в центре (+ имя для DM).
+        if (zone.flags?.subtle) {
+          const x = zone.origin.x;
+          const y = zone.origin.y;
+          const color = zoneColor(zone.sourceKey);
+          return (
+            <Group key={zone.id} listening={false}>
+              <Line
+                points={[x + 2, y - 13, x - 6, y + 1, x, y + 1, x - 3, y + 13, x + 7, y - 2, x + 1, y - 2, x + 5, y - 13]}
+                closed
+                fill={color}
+                stroke="#000000"
+                strokeWidth={1}
+                opacity={0.8}
+                listening={false}
+              />
+              {subtleLabels && (
+                <Text
+                  text={zone.name}
+                  x={x}
+                  y={y + 16}
+                  fontSize={11}
+                  fill={color}
+                  opacity={0.5}
+                  offsetX={zone.name.length * 3}
+                  listening={false}
+                  shadowColor="#000000"
+                  shadowBlur={3}
+                />
+              )}
+            </Group>
+          );
+        }
         const spread = zone.light
           ? areaCellsLit(zone.area, zone.origin, zone.direction ?? null, grid, walls)
           : areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls);

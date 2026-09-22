@@ -18,6 +18,12 @@ export interface ZoneStyle {
   labelColor: string;
 }
 
+/** Затухание крупных зон: чем больше область, тем прозрачнее заливка и штриховка. */
+function sizeAttenuation(size: number): number {
+  if (!Number.isFinite(size) || size <= 20) return 1;
+  return Math.max(0.2, 20 / size);
+}
+
 /** Стиль заливки зоны: вижн-зоны отличаются от обычных эффектов и друг от друга. */
 export function zoneStyle(zone: ZoneInstance): ZoneStyle {
   const vision = zoneVisionKind(zone);
@@ -42,5 +48,15 @@ export function zoneStyle(zone: ZoneInstance): ZoneStyle {
     };
   }
   const color = zoneColor(zone.sourceKey);
-  return { kind: 'effect', fill: color, fillAlpha: 0.1, stripe: color, stripeAlpha: 0.4, labelColor: color };
+  // Крупные зоны (туча Call Lightning, Daylight) — без штриховки и почти прозрачные.
+  const scale = sizeAttenuation(zone.area.size);
+  const compact = zone.area.size <= 30;
+  return {
+    kind: 'effect',
+    fill: color,
+    fillAlpha: 0.1 * scale,
+    stripe: compact ? color : null,
+    stripeAlpha: 0.4 * scale,
+    labelColor: color,
+  };
 }

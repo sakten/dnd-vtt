@@ -90,6 +90,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.automation.lifesteal': '{name}: {feature} drains {target} (+{amount} HP)',
   'system.automation.markMoved': '{name}: {feature} moved to {target}',
   'system.automation.zoneMoved': '{name}: {feature} moved',
+  'system.automation.dispelled': '{name} dispelled',
   'system.automation.utility': '{name}: {feature}',
   'system.automation.extraAttacks': '{name}: {feature} (+{amount})',
   'system.automation.weaponAttacks': '{name}: {feature} (+{amount} weapon attack)',

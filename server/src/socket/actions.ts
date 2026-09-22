@@ -26,6 +26,7 @@
   type CharacterSheet,
   type DiceRollResult,
   type EffectInstance,
+  type SpellStats,
   type Token,
   type TurnState,
 } from 'shared';
@@ -221,9 +222,16 @@ function actionTargets(
   return targets;
 }
 
+/** Боевые характеристики кастера-источника: лист с классом заклинания или статблок. */
+function casterStatsFor(ctx: ConnCtx, room: Scope['room'], caster: Token, spellKey: string): SpellStats | null {
+  const sheet = sheetOfToken(room, caster).sheet;
+  const className = sheet ? spellClassFor(sheet, spellKey) : undefined;
+  return spellStatsFor(room, caster, className);
+}
+
 /**
- * Действие зоны (`zone:<zoneId>:<actionId>`): перемещение Moonbeam/Flaming Sphere и подобное.
- * Доступ — контролёр кастера-источника или DM; центр переносится в указанную точку.
+ * Действие зоны (`zone:<zoneId>:<actionId>`): перемещение Moonbeam/Flaming Sphere
+ * или удар/эффект зоны (Call Lightning). Доступ — контролёр кастера-источника или DM.
  */
 function useZoneAction(
   ctx: ConnCtx,
@@ -240,7 +248,7 @@ function useZoneAction(
   const granted = zone?.actions?.find((a) => a.id === rest.slice(at + 1));
   if (!zone || !granted) return;
   const def = granted.def;
-  if (!def || def.utility?.kind !== 'moveZone') return;
+  if (!def) return;
 
   const caster = zone.sourceId ? ctx.manager.findToken(room, mapId, zone.sourceId) : null;
   if (!caster) return;
@@ -254,15 +262,23 @@ function useZoneAction(
     fail(ctx, 'noAreaPoint');
     return;
   }
+  const moving = def.utility?.kind === 'moveZone';
   const grid = gridOfMap(map, room.scene.grid);
   const feet = (Math.hypot(origin.x - zone.origin.x, origin.y - zone.origin.y) / grid.size) * 5;
-  const limit = Math.max(0, def.utility.amount ?? 0);
+  const limit = moving ? Math.max(0, def.utility?.amount ?? 0) : def.targeting?.range ?? 0;
   if (feet > limit) {
     fail(ctx, 'outOfRange', { feet: Math.round(feet) });
     return;
   }
   if (map && crossesWalls(caster, origin, map.walls, 'sight')) {
     fail(ctx, 'noClearPath');
+    return;
+  }
+
+  // Удар/эффект зоны требует характеристик кастера — проверяем до списания слота.
+  const stats = moving ? null : casterStatsFor(ctx, room, caster, zone.sourceKey);
+  if (!moving && (def.save || def.attack) && !stats) {
+    fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
     return;
   }
 
@@ -279,10 +295,28 @@ function useZoneAction(
   }
   ctx.syncCombat(room, mapId);
 
-  moveZone(ctx, room, mapId, zone, origin);
-  ctx.systemMessage(room, {
-    code: 'automation.zoneMoved',
-    params: { name: caster.name, feature: zone.name },
+  if (moving) {
+    moveZone(ctx, room, mapId, zone, origin);
+    ctx.systemMessage(room, {
+      code: 'automation.zoneMoved',
+      params: { name: caster.name, feature: zone.name },
+    });
+    return;
+  }
+
+  const area = def.targeting?.kind === 'area' ? def.targeting.area : undefined;
+  const targets = actionTargets(ctx, room, mapId, caster, { area, origin, selfWhenEmpty: !area });
+  const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
+  executeAutomation(ctx, {
+    caster,
+    mapId,
+    def: { ...def, name: granted.name },
+    targets,
+    stats,
+    author,
+    origin,
+    direction: null,
+    area: area ?? null,
   });
 }
 
@@ -332,9 +366,7 @@ function useGrantedAction(
   // СЛ/атака выданного действия считаются по характеристикам кастера-источника
   // (лист с классом заклинания или статблок); без них сейв молча пропускался бы.
   const caster = effect.sourceId ? ctx.manager.findToken(room, mapId, effect.sourceId) ?? undefined : undefined;
-  const casterSheet = caster ? sheetOfToken(room, caster).sheet : undefined;
-  const className = casterSheet && def.key ? spellClassFor(casterSheet, def.key) : undefined;
-  const stats = caster ? spellStatsFor(room, caster, className) : null;
+  const stats = caster ? casterStatsFor(ctx, room, caster, def.key) : null;
   if ((def.save || def.attack) && !stats) {
     fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
     return;

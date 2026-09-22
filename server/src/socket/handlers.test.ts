@@ -653,6 +653,91 @@ describe('action:use', () => {
     expect((other.selfEvents('chat:error')[0]?.payload as { code?: string })?.code).toBe('notYourToken');
   });
 
+  it('Call Lightning: удар при касте и повтор действием зоны', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 250, y: 100, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Call Lightning', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 3, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Call Lightning',
+      slotLevel: 3,
+      origin: { x: 250, y: 100 },
+    });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.hpCurrent).toBeLessThan(40);
+    const zone = room.scene.maps[0]!.zones[0]!;
+    expect(zone.actions?.[0]?.id).toBe('strike');
+
+    combatOf(room).turns.e1!.actionUsed = false;
+    const before = target.hpCurrent;
+    const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0);
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `zone:${zone.id}:strike`,
+      origin: { x: 250, y: 100 },
+    });
+    rand2.mockRestore();
+
+    expect(target.hpCurrent).toBeLessThan(before);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+  });
+
+  it('концентрация не снимает Daylight: каст Call Lightning оставляет обе зоны', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' })], {
+      p1: 'lib1',
+    });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [
+        { key: 'XPHB:Daylight', className: 'wizard' },
+        { key: 'XPHB:Call Lightning', className: 'wizard' },
+      ],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 3, current: 2, max: 2 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Daylight',
+      slotLevel: 3,
+      origin: { x: 300, y: 100 },
+    });
+    combatOf(room).turns.e1!.actionUsed = false;
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Call Lightning',
+      slotLevel: 3,
+      origin: { x: 250, y: 100 },
+    });
+
+    const keys = room.scene.maps[0]!.zones.map((z) => z.sourceKey).sort();
+    expect(keys).toEqual(['XPHB:Call Lightning', 'XPHB:Daylight']);
+  });
+
   it("Dragon's Breath: без точки области Выдох отклоняется", () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.scene.maps[0]!.tokens[0]!.effects.push({

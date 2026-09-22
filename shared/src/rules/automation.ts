@@ -807,6 +807,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Flame Blade',
   'XPHB:Sunbeam',
   'XPHB:Heat Metal',
+  'XPHB:Call Lightning',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -974,6 +975,37 @@ function heatMetalDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
   };
 }
 
+/** Call Lightning (XPHB 2024): туча-цилиндр 60 фт, удар 5 фт при касте (в центр) и повтор действием. */
+function callLightningDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Call Lightning') return undefined;
+  const dice = spellDice(spell, opts, '3d10');
+  const impact: AutomationDef = {
+    key: spell.key,
+    name: 'Удар молнии',
+    resolution: 'save',
+    save: { ability: 'dex', half: true },
+    damage: { dice, types: ['lightning'] },
+    area: { shape: 'sphere', size: 5 },
+    targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 60 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice, types: ['lightning'] },
+    area: { shape: 'sphere', size: 5 },
+    zone: {
+      area: { shape: 'cylinder', size: 60 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { subtle: true },
+      actions: [{ id: 'strike', name: 'Удар молнии', cost: 'action', def: impact }],
+    },
+  };
+}
+
 /**
  * Определение автоматизации заклинания: строка каталога → деривация из данных
  * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
@@ -996,6 +1028,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const heatMetal = heatMetalDef(spell, opts);
   if (heatMetal) return heatMetal;
+
+  const callLightning = callLightningDef(spell, opts);
+  if (callLightning) return callLightning;
 
   const summon = summonSpellDef(spell.key);
   if (summon) {

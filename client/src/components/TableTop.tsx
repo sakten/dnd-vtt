@@ -111,6 +111,11 @@ export default function TableTop() {
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
   const aim = interaction?.mode === 'aim' ? interaction.aim : null;
+  // Подсказка при действии зоны: пунктирный радиус от якоря (перемещение/удар).
+  const aimRangeCircle = useMemo(() => {
+    if (!aim?.anchor || !aim.rangeFeet) return null;
+    return { x: aim.anchor.x, y: aim.anchor.y, radius: (aim.rangeFeet / 5) * (grid.size || 50) };
+  }, [aim, grid.size]);
   const targeting = interaction?.mode === 'target' ? interaction.target : null;
   const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
   const activeMap = useActiveMap();
@@ -605,6 +610,7 @@ export default function TableTop() {
               grid={grid}
               walls={activeMap?.walls ?? []}
               mode={visionView ? 'fills' : 'full'}
+              subtleLabels={isDm}
             />
           </Layer>
           <Layer>
@@ -612,6 +618,7 @@ export default function TableTop() {
               movementCells={movementCells}
               aim={aim}
               aimCells={aimCells}
+              rangeCircle={aimRangeCircle}
               multiTargetTokens={multiTargetTokens}
               viewScale={view.scale}
             />
