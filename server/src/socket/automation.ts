@@ -36,7 +36,7 @@ import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { attackDamageRoll, attackHitRoll, attackUnseen } from './attackResolve';
 import { fail } from './errors';
-import { applyEffectTo } from './effectsApply';
+import { applyEffectTo, type ApplyEffectArgs } from './effectsApply';
 import { applyForcedMovement } from './force';
 import { emitSpellFx } from './fx';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -47,7 +47,7 @@ import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { maybeRollAnim } from './rollAnim';
 import { runSummon, removeConcSummonsOf, familiarCannotAttack } from './summons';
 import { applyPolymorphForm, endShapesOf } from './forms';
-import { createZoneFromDef, removeZonesOfSource } from './zones';
+import { createZoneFromDef, removeZonesOfSource, resolveLightDispels } from './zones';
 
 /**
  * Generic-executor автоматизации (R8.1): выполняет `AutomationDef` — атаку,
@@ -246,6 +246,13 @@ function openSaveInspiration(
   return opened;
 }
 
+/** Накладывает эффект; для светящих эффектов сразу разрешает диспел-пересечения со тьмой. */
+function applyEffectLight(ctx: ConnCtx, room: Room, mapId: string, args: ApplyEffectArgs): string {
+  const id = applyEffectTo(ctx, room, args);
+  if (args.effectDef.light) resolveLightDispels(ctx, room, mapId);
+  return id;
+}
+
 /** Накладывает эффекты заклинания (баффы/дебаффы), включая спасброски целей. */
 function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const room = ctx.getRoom();
@@ -300,7 +307,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
         }
         applyDamage(ctx, { target: app.target, mapId, amount: searRoll.total, damageType: searType, parts: searRoll.damageParts });
       }
-      const effectId = applyEffectTo(ctx, room, {
+      const effectId = applyEffectLight(ctx, room, mapId, {
         sourceKey: def.key,
         sourceId: caster.id,
         mapId,
@@ -446,7 +453,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       const inCombat = !!combat?.active && combat.entries.some((e) => e.tokenId === target.id);
       if (inCombat) {
         for (const effectDef of input.def.effects ?? []) {
-          applyEffectTo(ctx, room, {
+          applyEffectLight(ctx, room, input.mapId, {
             sourceKey: input.def.key,
             sourceId: input.caster.id,
             mapId: input.mapId,
@@ -674,7 +681,7 @@ function applyTargetEffects(run: AutomationRun, target: Token, stats: SpellStats
     if (effectDef.to === 'self') continue;
     const recipients = effectDef.to === 'targets' ? [target] : [caster];
     for (const recipient of recipients) {
-      applyEffectTo(ctx, room, {
+      applyEffectLight(ctx, room, mapId, {
         sourceKey: def.key,
         sourceId: caster.id,
         mapId,
@@ -855,7 +862,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   const selfEffects = (def.effects ?? []).filter((e) => e.to === 'self');
   if (selfEffects.length) {
     for (const effectDef of selfEffects) {
-      applyEffectTo(ctx, room, {
+      applyEffectLight(ctx, room, mapId, {
         sourceKey: def.key,
         sourceId: caster.id,
         mapId,

@@ -9,6 +9,7 @@ import {
   zoneVisionKind,
   type AutomationDef,
   type AutomationPayload,
+  type EffectInstance,
   type MapInfo,
   type SpellStats,
   type Token,
@@ -174,18 +175,32 @@ function zoneSpellLevel(zone: ZoneInstance): number | undefined {
   return findSpell(zone.sourceKey)?.level;
 }
 
+/** Уровень заклинания-источника эффекта (undefined — не заклинание/неизвестно). */
+function effectSpellLevel(effect: EffectInstance): number | undefined {
+  return effect.sourceKey ? findSpell(effect.sourceKey)?.level : undefined;
+}
+
 /**
- * Диспел-пересечения света и магической тьмы (3c-3): тьма сильнее света **ниже** её
- * уровня — гибнет свет; свет равного или большего уровня — гибнет тьма. Мгла игнорирует свет.
+ * Диспел-пересечения тьмы и света (3c-3): тьма сильнее света **ниже** её уровня — гибнет свет
+ * (зона или эффект на токене); свет равного или большего уровня — гибнет тьма. Мгла игнорирует свет.
  */
-function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): void {
+export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): void {
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
   const grid = gridOfMap(map, room.scene.grid);
-  const cellsOf = (zone: ZoneInstance) => areaCells(zone.area, zone.origin, zone.direction ?? null, grid);
+  const cellsCache = new Map<string, string[]>();
+  const cellsOf = (zone: ZoneInstance) => {
+    let cells = cellsCache.get(zone.id);
+    if (!cells) {
+      cells = areaCells(zone.area, zone.origin, zone.direction ?? null, grid);
+      cellsCache.set(zone.id, cells);
+    }
+    return cells;
+  };
   const lights = map.zones.filter((z) => z.light && zoneSpellLevel(z) !== undefined);
   const darks = map.zones.filter((z) => zoneVisionKind(z) === 'magical' && zoneSpellLevel(z) !== undefined);
   const losers = new Set<ZoneInstance>();
+  const lostEffects: { token: Token; effect: EffectInstance }[] = [];
   for (const light of lights) {
     const lightSet = new Set(cellsOf(light));
     for (const dark of darks) {
@@ -195,6 +210,40 @@ function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): void {
       const darkLevel = zoneSpellLevel(dark)!;
       losers.add(lightLevel >= darkLevel ? dark : light);
     }
+  }
+  // Свет-эффекты на токенах внутри тьмы: ниже уровнем — гаснет эффект, равный/выше — гибнет тьма.
+  for (const dark of darks) {
+    if (losers.has(dark)) continue;
+    const darkLevel = zoneSpellLevel(dark)!;
+    const inside = tokensInArea(map.tokens, dark.area, dark.origin, dark.direction ?? null, grid, 'euclidean', map.walls);
+    let darkDies = false;
+    for (const token of inside) {
+      for (const effect of token.effects) {
+        if (!effect.light) continue;
+        const level = effectSpellLevel(effect);
+        if (level === undefined) continue;
+        if (level >= darkLevel) {
+          losers.add(dark);
+          darkDies = true;
+          break;
+        }
+        lostEffects.push({ token, effect });
+      }
+      if (darkDies) break;
+    }
+  }
+  // Эффекты гаснут первыми: снятие концентрации зоны может задеть те же эффекты.
+  for (const { token, effect } of lostEffects) {
+    if (!token.effects.some((e) => e.id === effect.id)) continue;
+    if (effect.concentration && effect.sourceId) {
+      for (const changed of ctx.manager.clearConcentration(room, effect.sourceId)) {
+        ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+      }
+    } else {
+      ctx.manager.removeEffect(room, token, effect.id);
+    }
+    ctx.emitToken(room, 'token:update', mapId, token);
+    ctx.systemMessage(room, { code: 'automation.dispelled', params: { name: effect.name } });
   }
   for (const zone of losers) {
     // Концентрация источника гибнет вместе с зоной.
@@ -278,6 +327,7 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
   let changed = false;
+  let movedAny = false;
   for (const zone of [...map.zones]) {
     if (zone.concentration && !concentrationAlive(room, zone.sourceId)) {
       removeZone(ctx, room, mapId, zone);
@@ -290,7 +340,10 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
       changed = true;
       continue;
     }
-    if (origin === 'moved') changed = true;
+    if (origin === 'moved') {
+      changed = true;
+      movedAny = true;
+    }
     if (zone.duration.type === 'rounds' && phase === 'start' && zone.sourceId === token.id) {
       zone.duration.rounds -= 1;
       changed = true;
@@ -309,6 +362,7 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
   }
   // Полный снапшот сцены не нужен: изменения токенов уходят патчами, зоны — точечно.
   if (changed) ctx.broadcastZones(room, mapId);
+  if (movedAny) resolveLightDispels(ctx, room, mapId);
 }
 
 /** После перемещения: аура и триггеры enter/exit для зон. */
@@ -332,6 +386,8 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): vo
     syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
   }
   if (changed) ctx.broadcastZones(room, mapId);
+  // Токен со светом мог войти в тьму (или зона-аура сдвинулась за источником).
+  resolveLightDispels(ctx, room, mapId);
 }
 
 /** Перемещает зону-точку: новый центр, пересчёт ауры и триггеров входа/выхода. */

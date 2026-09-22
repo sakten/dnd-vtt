@@ -539,6 +539,102 @@ describe('action:use', () => {
     expect(effect?.light).toEqual({ bright: 20, dim: 20 });
   });
 
+  it('Darkness гасит Light на токене, но Light внутри Darkness сразу гаснет', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '10', hpCurrent: 10, faction: 'ally' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [
+        { key: 'XPHB:Light', className: 'wizard' },
+        { key: 'XPHB:Darkness', className: 'wizard' },
+      ],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Light', targetIds: ['t2'] });
+    expect(room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.sourceKey === 'XPHB:Light')).toBe(true);
+    combatOf(room).turns.e1!.actionUsed = false;
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Darkness',
+      slotLevel: 2,
+      origin: { x: 100, y: 150 },
+    });
+
+    expect(room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.sourceKey === 'XPHB:Light')).toBe(false);
+    expect(room.scene.maps[0]!.zones.some((z) => z.sourceKey === 'XPHB:Darkness')).toBe(true);
+
+    // Повторный Light в той же тьме гаснет сразу (эффект не остаётся).
+    combatOf(room).turns.e1!.actionUsed = false;
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Light', targetIds: ['t2'] });
+    expect(room.scene.maps[0]!.tokens[1]!.effects.some((e) => e.sourceKey === 'XPHB:Light')).toBe(false);
+  });
+
+  it('Flame Blade (равный уровень) гасит Darkness, висящую на карте', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 400, y: 100, hpMax: '10', hpCurrent: 10, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [{ key: 'XPHB:Flame Blade', className: 'druid' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    // Тьма чужака (источник t2) уже на карте; t1 стоит внутри неё.
+    const darknessDef: AutomationDef = {
+      key: 'XPHB:Darkness',
+      name: 'Darkness',
+      resolution: 'effect',
+      concentration: true,
+      zone: {
+        area: { shape: 'sphere', size: 15 },
+        origin: 'point',
+        duration: { type: 'concentration' },
+        flags: { blocksLight: true },
+      },
+    };
+    createZoneFromDef(f.ctx, {
+      caster: room.scene.maps[0]!.tokens[1]!,
+      mapId: 'm1',
+      def: darknessDef,
+      stats: null,
+      origin: { x: 100, y: 100 },
+    });
+    expect(room.scene.maps[0]!.zones).toHaveLength(1);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Flame Blade',
+      slotLevel: 2,
+      targetIds: ['t1'],
+    });
+
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
+    const effect = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'XPHB:Flame Blade');
+    expect(effect?.light).toEqual({ bright: 10, dim: 10 });
+  });
+
   it('Daylight: зона-солнечный свет в точке', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' })], {
       p1: 'lib1',

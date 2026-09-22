@@ -340,4 +340,87 @@ describe('диспел света и тьмы', () => {
     expect(room.scene.maps[0]!.zones.map((z) => z.sourceKey)).toEqual(['XPHB:Hunger of Hadar']);
     expect(hadar).toBeTruthy();
   });
+
+  it('тьма гасит эффект-свет ниже уровнем (Light на токене)', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    target.effects.push({
+      id: 'ef-light',
+      name: 'Light',
+      sourceKey: 'XPHB:Light',
+      sourceId: caster.id,
+      concentration: false,
+      duration: { type: 'permanent' },
+      modifiers: [],
+      light: { bright: 20, dim: 20 },
+    });
+
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: darknessDef, stats: null, origin: { x: 250, y: 100 } });
+
+    expect(target.effects.some((e) => e.id === 'ef-light')).toBe(false);
+    expect(room.scene.maps[0]!.zones.map((z) => z.sourceKey)).toEqual(['XPHB:Darkness']);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.dispelled')).toBe(true);
+  });
+
+  it('эффект-свет равного уровня гасит тьму (Flame Blade L2)', () => {
+    const { room, f } = setup();
+    const bladeCaster = room.scene.maps[0]!.tokens[0]!;
+    const darkCaster = room.scene.maps[0]!.tokens[1]!;
+    bladeCaster.effects.push({
+      id: 'ef-blade',
+      name: 'Flame Blade',
+      sourceKey: 'XPHB:Flame Blade',
+      sourceId: bladeCaster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+      light: { bright: 10, dim: 10 },
+    });
+
+    const zone = createZoneFromDef(f.ctx, {
+      caster: darkCaster,
+      mapId: 'm1',
+      def: darknessDef,
+      stats: null,
+      origin: { x: 100, y: 100 },
+    });
+
+    expect(zone).toBeNull();
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
+    expect(bladeCaster.effects.some((e) => e.id === 'ef-blade')).toBe(true);
+  });
+
+  it('токен со свет-эффектом, вошедший в тьму, теряет свет', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    // Якорь концентрации кастера тьмы — иначе зона сиротеет и снимается на движении.
+    caster.effects.push({
+      id: 'anchor1',
+      name: 'Darkness',
+      sourceKey: 'XPHB:Darkness',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    target.effects.push({
+      id: 'ef-light',
+      name: 'Light',
+      sourceKey: 'XPHB:Light',
+      sourceId: caster.id,
+      concentration: false,
+      duration: { type: 'permanent' },
+      modifiers: [],
+      light: { bright: 20, dim: 20 },
+    });
+    createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: darknessDef, stats: null, origin: { x: 450, y: 100 } });
+    expect(target.effects.some((e) => e.id === 'ef-light')).toBe(true);
+
+    target.x = 400;
+    handleMovementZones(f.ctx, room, 'm1');
+
+    expect(target.effects.some((e) => e.id === 'ef-light')).toBe(false);
+  });
 });
