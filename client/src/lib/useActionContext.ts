@@ -128,10 +128,30 @@ export function useActionContext(): ActionContext | null {
         description: e.name,
       }))
     );
+    // Действия зон (перемещение Moonbeam/Flaming Sphere/Faithful Hound) — от кастера-источника.
+    const zoneActions: ActionDef[] = [];
+    for (const zone of map.zones ?? []) {
+      if (!zone.actions?.length || !zone.sourceId) continue;
+      const source = tokenById(map, zone.sourceId);
+      if (!source) continue;
+      if (!isDm && !canControlTokenWith(control, source, charName)) continue;
+      for (const action of zone.actions) {
+        zoneActions.push({
+          id: `zone:${zone.id}:${action.id}`,
+          name: action.name,
+          source: 'spell' as const,
+          costs: [action.cost],
+          targeting: action.def?.targeting,
+          zoneId: zone.id,
+          description: zone.name,
+        });
+      }
+    }
     const features = [
       ...(isCharacter && sheet ? classFeatures(sheet.classes) : []),
       ...escapeActions,
       ...grantedActions,
+      ...zoneActions,
     ];
     const attacksPer = isCharacter && !inShape
       ? attacksPerAction(sheet?.classes ?? [])

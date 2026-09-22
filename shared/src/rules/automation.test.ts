@@ -293,6 +293,51 @@ describe('automationForSpell', () => {
     expect(daylight.zone?.light).toEqual({ bright: 60, dim: 60, sunlight: true });
   });
 
+  it('зоны с перемещением: Moonbeam, Flaming Sphere, Faithful Hound', () => {
+    const moonbeam = automationForSpell(
+      makeSpell({
+        key: 'XPHB:Moonbeam',
+        name: 'Moonbeam',
+        level: 2,
+        save: ['con'],
+        saveHalf: true,
+        damage: { dice: ['2d10'], types: ['radiant'] },
+        higherLevel: ['The damage increases by 1d10 for each spell slot level above 2.'],
+      }),
+      { castLevel: 3 }
+    );
+    expect(moonbeam.damage).toEqual({ dice: '2d10 + 1d10', types: ['radiant'] });
+    expect(moonbeam.zone?.light).toEqual({ bright: 0, dim: 5 });
+    expect(moonbeam.zone?.triggers?.enter?.damage?.dice).toBe('2d10 + 1d10');
+    expect(moonbeam.zone?.actions?.[0]).toMatchObject({ cost: 'action', def: { utility: { kind: 'moveZone', amount: 60 } } });
+
+    const sphere = automationForSpell(
+      makeSpell({
+        key: 'XPHB:Flaming Sphere',
+        name: 'Flaming Sphere',
+        level: 2,
+        save: ['dex'],
+        saveHalf: true,
+        damage: { dice: ['2d6'], types: ['fire'] },
+      })
+    );
+    expect(sphere.resolution).toBe('effect');
+    expect(sphere.damage).toBeUndefined();
+    expect(sphere.zone?.triggers?.endOfTurn?.damage?.dice).toBe('2d6');
+    expect(sphere.zone?.light).toEqual({ bright: 20, dim: 20 });
+    expect(sphere.zone?.actions?.[0]).toMatchObject({ cost: 'bonus', def: { utility: { kind: 'moveZone', amount: 30 } } });
+
+    const hound = automationForSpell(
+      makeSpell({ key: "XPHB:Mordenkainen's Faithful Hound", name: 'Faithful Hound', level: 4, save: ['dex'] })
+    );
+    expect(hound.side).toBe('hostile');
+    expect(hound.zone?.triggers?.endOfTurn).toMatchObject({
+      save: { ability: 'dex' },
+      damage: { dice: '4d8', types: ['force'] },
+    });
+    expect(hound.zone?.actions?.[0]).toMatchObject({ cost: 'action', def: { utility: { kind: 'moveZone', amount: 30 } } });
+  });
+
   it('эффектные дебаффы несут спас и концентрацию (Hold Person)', () => {
     const def = automationForSpell(makeSpell({ key: 'XPHB:Hold Person', name: 'Hold Person', automation: 'manual' }));
     expect(def.save).toEqual({ ability: 'wis', half: undefined });

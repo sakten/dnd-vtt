@@ -54,6 +54,16 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const targets = input.targets.filter((t) => !!t);
   const hasRoll = !!(def.damage || def.heal);
 
+  // Зона от точки без режима области (Faithful Hound): точка в пределах дистанции и видна кастеру.
+  if (def.zone && def.zone.origin === 'point' && input.origin && !input.area) {
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const gridSize = gridOfMap(map, room.scene.grid).size;
+    const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / gridSize) * 5;
+    const range = effectiveSpellRangeFeet(spell, invocations);
+    if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+    if (map && crossesWalls(caster, input.origin, map.walls, 'sight')) return { code: 'noClearPath' };
+  }
+
   if (def.effects?.some((d) => d.markTarget) && !targets[0]) {
     return { code: 'spellNoTarget' };
   }

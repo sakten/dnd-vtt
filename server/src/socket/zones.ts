@@ -206,6 +206,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     excludeSource: zoneDef.excludeSource,
     side: zoneDef.side,
     light: zoneDef.light ? { ...zoneDef.light } : undefined,
+    actions: zoneDef.actions,
     dc: input.stats?.dc,
     aura: zoneDef.aura,
     triggers: zoneDef.triggers,
@@ -288,6 +289,19 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): vo
     syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
   }
   if (changed) ctx.broadcastZones(room, mapId);
+}
+
+/** Перемещает зону-точку: новый центр, пересчёт ауры и триггеров входа/выхода. */
+export function moveZone(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  zone: ZoneInstance,
+  origin: { x: number; y: number }
+): void {
+  zone.origin = { x: origin.x, y: origin.y };
+  syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
+  ctx.broadcastZones(room, mapId);
 }
 
 /** Снимает все зоны существа-источника (концентрация, выход из боя, удаление). */

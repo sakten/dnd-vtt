@@ -14,6 +14,7 @@ import {
   type TurnContext,
 } from '../lib/actionRules';
 import { useActionContext } from '../lib/useActionContext';
+import { useActiveMap } from '../store/hooks';
 import { spellMechanics } from '../lib/spellText';
 import { t } from '../i18n';
 import { baseActionLabel } from '../i18n/domain';
@@ -86,6 +87,7 @@ export default function ActionPanel() {
   const setRollMode = useGameStore((s) => s.setRollMode);
   const spellByKey = useSpellByKey();
   const info = useActionContext();
+  const activeMap = useActiveMap();
   const [casting, setCasting] = useState<{ spell: Spell; ability?: ActionDef } | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [shapeOpen, setShapeOpen] = useState(false);
@@ -282,6 +284,22 @@ export default function ActionPanel() {
           // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
           const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
           const advantage = isCheck ? rollMode ?? undefined : undefined;
+          // Действие зоны (перемещение): прицел с якорем от текущего центра зоны.
+          if (f.zoneId) {
+            const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
+            if (zone && f.targeting?.kind === 'point') {
+              startAim({
+                tokenId: token.id,
+                actionId: f.id,
+                slot: featureSlot(f, turnCtx),
+                spec: zone.area,
+                originKind: 'point',
+                rangeFeet: f.targeting.range ?? null,
+                anchor: zone.origin,
+              });
+              return;
+            }
+          }
           // Действие-область из эффекта (Dragon's Breath): прицел от носителя эффекта.
           if (f.targeting?.kind === 'area' && f.targeting.area) {
             startAim({

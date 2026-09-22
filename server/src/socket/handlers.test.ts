@@ -562,6 +562,97 @@ describe('action:use', () => {
     expect(room.scene.maps[0]!.zones[0]?.light).toEqual({ bright: 60, dim: 60, sunlight: true });
   });
 
+  it('Moonbeam: перемещение зоны действием и сейв по входу', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 600, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Moonbeam', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Moonbeam',
+      slotLevel: 2,
+      origin: { x: 100, y: 200 },
+    });
+    const zone = room.scene.maps[0]!.zones[0]!;
+    expect(zone).toBeDefined();
+
+    combatOf(room).turns.e1!.actionUsed = false; // перемещение — на следующем ходу
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `zone:${zone.id}:move`,
+      origin: { x: 100, y: 600 },
+    });
+    rand.mockRestore();
+
+    expect(zone.origin.y).toBe(600);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(40);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.zoneMoved')).toBe(true);
+  });
+
+  it('Moonbeam: перемещение дальше лимита и чужим игроком отклоняется', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t3', { libraryItemId: 'lib2', x: 300, y: 300, faction: 'ally' }),
+      ],
+      { p1: 'lib1', p2: 'lib2' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Moonbeam', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Moonbeam',
+      slotLevel: 2,
+      origin: { x: 100, y: 100 },
+    });
+    const zone = room.scene.maps[0]!.zones[0]!;
+    combatOf(room).turns.e1!.actionUsed = false;
+
+    // 70 фт > 60 фт.
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `zone:${zone.id}:move`,
+      origin: { x: 100, y: 800 },
+    });
+    expect((f.selfEvents('chat:error')[0]?.payload as { code?: string })?.code).toBe('outOfRange');
+    expect(zone.origin.y).toBe(100);
+
+    // Чужой игрок: своим токеном пытается двигать чужую зону.
+    const other = makeCtx(room, { playerId: 'p2' });
+    registerActionHandlers(other.ctx);
+    other.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't3',
+      actionId: `zone:${zone.id}:move`,
+      origin: { x: 100, y: 150 },
+    });
+    expect((other.selfEvents('chat:error')[0]?.payload as { code?: string })?.code).toBe('notYourToken');
+  });
+
   it("Dragon's Breath: без точки области Выдох отклоняется", () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.scene.maps[0]!.tokens[0]!.effects.push({

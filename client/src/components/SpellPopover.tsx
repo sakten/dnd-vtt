@@ -86,6 +86,8 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const selfOnlyAtWill =
     !!sheet && sheetCaster && invocationCoversSpell(sheet, spell.key) && invocationAtWillSelfOnly(spell.key);
   const pactChain = hasInvocation(sheet ?? {}, INVOCATION_PACT_KEYS.chain);
+  // Зона заклинания (Moonbeam/Flaming Sphere/Faithful Hound): своя геометрия для прицела.
+  const zoneDef = automationForSpell(spell, { castLevel: info.slotLevel ?? level }).zone;
   const [form, setForm] = useState('');
   const [forms, setForms] = useState<{ key: string; name: string }[] | null>(null);
   const [showCr0, setShowCr0] = useState(false);
@@ -120,7 +122,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         tokenId,
         ...common,
         advantage: mode,
-        spec: spell.areaSpec,
+        spec: zoneDef?.area ?? spell.areaSpec,
         originKind: spellAreaOrigin(spell),
         rangeFeet: spellRangeFeet(spell),
       });
@@ -153,6 +155,16 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         rangeFeet: spellRangeFeet(spell),
         summon: true,
         ...(needForm && form ? { summonKey: form } : {}),
+      });
+    } else if (zoneDef && zoneDef.origin === 'point') {
+      // Зона от точки без режима области (Faithful Hound): прицел от кастера, радиус — зона.
+      startAim({
+        tokenId,
+        ...common,
+        advantage: mode,
+        spec: zoneDef.area,
+        originKind: 'point',
+        rangeFeet: spellRangeFeet(spell),
       });
     } else if (shapeDef) {
       if (needBeast && !form) return;

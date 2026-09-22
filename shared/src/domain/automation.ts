@@ -113,6 +113,8 @@ export interface ZoneDef {
   area: AreaSpec;
   origin: 'self' | 'point';
   duration: EffectDuration;
+  /** Действия владельца зоны, пока она на карте (перемещение Moonbeam/Flaming Sphere). */
+  actions?: GrantedAction[];
   /** Аура привязана к источнику и перемещается с ним (Spirit Guardians). */
   anchor?: 'source' | 'point';
   /** «Полностью внутри» для состояний аурой (Hunger of Hadar). */
@@ -167,6 +169,8 @@ export interface ZoneInstance {
   enterOncePerTurn?: boolean;
   /** Аура и триггеры не действуют на источник зоны. */
   excludeSource?: boolean;
+  /** Действия владельца зоны, пока она на карте (перемещение). */
+  actions?: GrantedAction[];
   /** СЛ спасбросков payload'ов (посчитана при касте). */
   dc?: number;
   aura?: AutomationPayload;
@@ -217,7 +221,8 @@ export interface AutomationUtility {
     | 'healPool'
     | 'tempHp'
     | 'patientDefense'
-    | 'stepOfTheWind';
+    | 'stepOfTheWind'
+    | 'moveZone';
   amount?: number;
   ability?: AbilityKey;
   /** Кость временных HP (tempHp), бросается один раз на всех. */

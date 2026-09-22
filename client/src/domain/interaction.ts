@@ -18,6 +18,8 @@ export interface AimState {
   originKind: 'self' | 'point';
   /** Дистанция накладывания, футы; null — без ограничения (точка не тащится дальше). */
   rangeFeet: number | null;
+  /** Якорь клампа для перемещения зон: центр зоны вместо кастера. */
+  anchor?: Point;
   origin: Point | null;
   direction: Point | null;
   /** Путь до точки перекрыт стеной/закрытой дверью — применять нельзя. */
@@ -156,12 +158,13 @@ export function aimToCursor(
   }
   let origin = cursor;
   if (aim.rangeFeet !== null) {
-    const dx = cursor.x - caster.x;
-    const dy = cursor.y - caster.y;
+    const anchor = aim.anchor ?? { x: caster.x, y: caster.y };
+    const dx = cursor.x - anchor.x;
+    const dy = cursor.y - anchor.y;
     const dist = Math.hypot(dx, dy);
     const maxPx = (aim.rangeFeet / 5) * gridSize;
     if (dist > maxPx && dist > 0) {
-      origin = { x: caster.x + (dx / dist) * maxPx, y: caster.y + (dy / dist) * maxPx };
+      origin = { x: anchor.x + (dx / dist) * maxPx, y: anchor.y + (dy / dist) * maxPx };
     }
   }
   return { mode: 'aim', aim: { ...aim, origin, direction: origin } };

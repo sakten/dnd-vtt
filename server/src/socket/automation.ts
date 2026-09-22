@@ -514,6 +514,8 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     });
     maybeRollAnim(ctx, roll);
   },
+  // Перемещение зоны обрабатывается веткой `zone:` в action:use — до executeAutomation.
+  moveZone: () => void 0,
 };
 
 /** Простые утилиты действий (базовые и классовые): доп. действие/движение, отход, проверка. */

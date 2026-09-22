@@ -36,6 +36,22 @@ function remarkAction(spellKey: string, name: string): GrantedAction {
   };
 }
 
+/** Выданное зоной действие перемещения (Moonbeam 60, Flaming Sphere 30, Faithful Hound 30). */
+function zoneMoveAction(name: string, cost: 'action' | 'bonus', feet: number): GrantedAction {
+  return {
+    id: 'move',
+    name,
+    cost,
+    def: {
+      key: 'zone:move',
+      name,
+      resolution: 'utility',
+      utility: { kind: 'moveZone', amount: feet },
+      targeting: { kind: 'point', range: feet },
+    },
+  };
+}
+
 /**
  * Каталог автоматизации (R8.1). Ключ — `Spell.key` (или id действия для черт).
  * Строка каталога полностью описывает механику; заклинания без строки получают
@@ -337,6 +353,60 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       origin: 'point',
       duration: PERMANENT,
       light: { bright: 60, dim: 60, sunlight: true },
+    },
+  },
+  /** Moonbeam (XPHB 2024): появление/вход/конец хода — спас CON; сумерки; действие — двигать до 60 фт. */
+  'XPHB:Moonbeam': {
+    key: 'XPHB:Moonbeam',
+    name: 'Moonbeam',
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'con', half: true },
+    damage: { dice: '$spell', types: ['radiant'] },
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      light: { bright: 0, dim: 5 },
+      triggers: {
+        enter: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['radiant'] } },
+        endOfTurn: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['radiant'] } },
+      },
+      actions: [zoneMoveAction('Переместить', 'action', 60)],
+    },
+  },
+  /** Flaming Sphere (XPHB 2024): сфера 5 фт; вход/конец хода — спас DEX; свет 20/20; бонус — катить 30 фт. */
+  'XPHB:Flaming Sphere': {
+    key: 'XPHB:Flaming Sphere',
+    name: 'Flaming Sphere',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      light: { bright: 20, dim: 20 },
+      triggers: {
+        enter: { save: { ability: 'dex', half: true }, damage: { dice: '$spell', types: ['fire'] } },
+        endOfTurn: { save: { ability: 'dex', half: true }, damage: { dice: '$spell', types: ['fire'] } },
+      },
+      actions: [zoneMoveAction('Переместить', 'bonus', 30)],
+    },
+  },
+  /** Faithful Hound (XPHB 2024): невидимый пёс; враждебные в области в конце хода — спас DEX, 4d8 force. */
+  "XPHB:Mordenkainen's Faithful Hound": {
+    key: "XPHB:Mordenkainen's Faithful Hound",
+    name: 'Faithful Hound',
+    resolution: 'effect',
+    side: 'hostile',
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: PERMANENT,
+      triggers: {
+        endOfTurn: { save: { ability: 'dex' }, damage: { dice: '4d8', types: ['force'] } },
+      },
+      actions: [zoneMoveAction('Переместить', 'action', 30)],
     },
   },
   /**

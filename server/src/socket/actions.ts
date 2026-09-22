@@ -36,6 +36,7 @@ import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { sheetOfToken } from '../room/helpers';
+import { moveZone } from './zones';
 import { pushRollMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
@@ -221,6 +222,71 @@ function actionTargets(
 }
 
 /**
+ * Действие зоны (`zone:<zoneId>:<actionId>`): перемещение Moonbeam/Flaming Sphere и подобное.
+ * Доступ — контролёр кастера-источника или DM; центр переносится в указанную точку.
+ */
+function useZoneAction(
+  ctx: ConnCtx,
+  room: Scope['room'],
+  mapId: string,
+  actionId: string,
+  opts: { slot?: ActionCost; origin?: { x: number; y: number } }
+): void {
+  const rest = actionId.slice('zone:'.length);
+  const at = rest.indexOf(':');
+  if (at < 0) return;
+  const map = ctx.manager.findMap(room, mapId);
+  const zone = (map?.zones ?? []).find((z) => z.id === rest.slice(0, at));
+  const granted = zone?.actions?.find((a) => a.id === rest.slice(at + 1));
+  if (!zone || !granted) return;
+  const def = granted.def;
+  if (!def || def.utility?.kind !== 'moveZone') return;
+
+  const caster = zone.sourceId ? ctx.manager.findToken(room, mapId, zone.sourceId) : null;
+  if (!caster) return;
+  if (!ctx.isDm() && !ctx.canControlToken(room, mapId, caster)) {
+    fail(ctx, 'notYourToken');
+    return;
+  }
+
+  const origin = opts.origin && Number.isFinite(opts.origin.x) && Number.isFinite(opts.origin.y) ? opts.origin : null;
+  if (!origin) {
+    fail(ctx, 'noAreaPoint');
+    return;
+  }
+  const grid = gridOfMap(map, room.scene.grid);
+  const feet = (Math.hypot(origin.x - zone.origin.x, origin.y - zone.origin.y) / grid.size) * 5;
+  const limit = Math.max(0, def.utility.amount ?? 0);
+  if (feet > limit) {
+    fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+    return;
+  }
+  if (map && crossesWalls(caster, origin, map.walls, 'sight')) {
+    fail(ctx, 'noClearPath');
+    return;
+  }
+
+  const combat = ctx.manager.combatOf(room, mapId);
+  const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, caster.id);
+  if (combat?.active && !isActive && !ctx.isDm()) {
+    fail(ctx, 'notYourTurn');
+    return;
+  }
+  const turn = isActive ? ctx.manager.turnForToken(room, mapId, caster) : null;
+  if (!ctx.manager.spendSlot(room, mapId, caster, chooseSlot(turn, [granted.cost], opts.slot))) {
+    fail(ctx, 'noActions');
+    return;
+  }
+  ctx.syncCombat(room, mapId);
+
+  moveZone(ctx, room, mapId, zone, origin);
+  ctx.systemMessage(room, {
+    code: 'automation.zoneMoved',
+    params: { name: caster.name, feature: zone.name },
+  });
+}
+
+/**
  * Действие, выданное эффектом (`spell:<effectId>:<actionId>`): Рывок от
  * Expeditious Retreat, Выдох от Dragon's Breath и подобные. Слот — по стоимости
  * действия эффекта; спасброски/атаки считаются по характеристикам кастера.
@@ -346,6 +412,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // Действия, выданные эффектами (Expeditious Retreat: Рывок бонусным действием).
       if (actionId.startsWith('spell:')) {
         useGrantedAction(ctx, scope, actionId, { advantage, slot, origin, direction, targetIds });
+        return;
+      }
+
+      // Действия зон (перемещение Moonbeam/Flaming Sphere).
+      if (actionId.startsWith('zone:')) {
+        useZoneAction(ctx, room, mapId, actionId, { slot, origin });
         return;
       }
 
