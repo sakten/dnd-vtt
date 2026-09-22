@@ -161,6 +161,20 @@ app.use(
     res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
     next();
   },
+  // Производные (thumb/token webp) есть не у всех файлов: карты не сжимаются,
+  // у старых загрузок их нет. Отдаём оригинал, чтобы не было 404.
+  async (req, res, next) => {
+    const rel = req.path.replace(/^\/+/, '');
+    const match = /^(.+\.(?:png|jpe?g|webp|gif))\.(?:thumb|token)\.webp$/i.exec(rel);
+    if (!match || match[1]!.includes('..')) return next();
+    const original = path.join(UPLOADS_DIR, match[1]!);
+    try {
+      await fsp.access(original);
+      res.sendFile(original, { maxAge: 300000 });
+    } catch {
+      next();
+    }
+  },
   express.static(UPLOADS_DIR)
 );
 app.use(
