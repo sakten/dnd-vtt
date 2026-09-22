@@ -59,6 +59,10 @@ describe('иконки оружия', () => {
     expect(weaponIconId('Укус')).toBe('bite');
     expect(weaponIconId('Когти')).toBe('claws');
     expect(weaponIconId('Жало')).toBe('sting');
+    expect(weaponIconId('Rend')).toBe('rend');
+    expect(weaponIconId('Claw')).toBe('claws');
+    expect(weaponIconId('Slam')).toBe('slam');
+    expect(weaponIconId('Раздирание')).toBe('rend');
     expect(weaponIconId('Хвост')).toBe('tail');
     expect(weaponIconId('Щупальца')).toBe('tentacle');
     expect(weaponIconId('Разряд')).toBe('default');

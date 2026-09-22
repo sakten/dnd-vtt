@@ -22,6 +22,7 @@ import { featureDisplayName } from '../i18n/names';
 import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
 import ActionIcon from './ActionIcon';
+import ActionGlyph, { hasActionIcon } from './actionIcons';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 import FeatureIcon from './featureIcons';
@@ -323,7 +324,11 @@ export default function ActionPanel() {
           if (advantage) setRollMode(null);
         }}
       >
-        <FeatureIcon id={f.id} fallback={featureIconId(f)} className="ap-icon" />
+        {hasActionIcon(f.iconKey) ? (
+          <ActionGlyph iconKey={f.iconKey} className="ap-icon" />
+        ) : (
+          <FeatureIcon id={f.id} fallback={featureIconId(f)} className="ap-icon" />
+        )}
       </button>
     );
   };

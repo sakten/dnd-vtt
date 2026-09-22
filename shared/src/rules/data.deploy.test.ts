@@ -280,7 +280,9 @@ describe('снимок данных', () => {
     for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
       if (def.key !== key) badCatalog.push(`${key}: ключ def ${def.key}`);
       if (!def.name) badCatalog.push(`${key}: пустое имя`);
-      if (def.resolution === 'effect' && !def.effects?.length) badCatalog.push(`${key}: effect без эффектов`);
+      if (def.resolution === 'effect' && !def.effects?.length && !def.zone) {
+        badCatalog.push(`${key}: effect без эффектов и зоны`);
+      }
       if (def.resolution === 'manual' && (def.damage || def.effects?.length)) {
         badCatalog.push(`${key}: manual с механикой`);
       }

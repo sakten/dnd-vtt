@@ -15,22 +15,28 @@ const grip = (y1: number, y2: number): ReactNode => (
   </g>
 );
 
-const blade = (top: number, bottom: number, halfWidth: number, fuller = true): ReactNode => (
-  <g>
-    <path d={`M12 ${top} L${12 + halfWidth} ${top + 3.2} V${bottom} H${12 - halfWidth} V${top + 3.2} Z`} fill="currentColor" />
-    {fuller && <path d={`M12 ${top + 3}V${bottom - 1.5}`} stroke="rgba(0,0,0,0.35)" strokeWidth={0.9} />}
-  </g>
-);
+/** Ровный ряд зубьев: одинаковый шаг, ширина и направление (пасти, капканы). */
+const teeth = (x0: number, x1: number, count: number, y: number, dir: 1 | -1, h: number, color: string, key: string): ReactNode[] =>
+  Array.from({ length: count }, (_, i) => {
+    const step = (x1 - x0) / count;
+    const w = step * 0.6;
+    const cx = x0 + step * (i + 0.5);
+    return (
+      <path
+        key={`${key}${i}`}
+        d={`M${(cx - w / 2).toFixed(2)} ${y} L${cx.toFixed(2)} ${y + dir * h} L${(cx + w / 2).toFixed(2)} ${y} Z`}
+        fill={color}
+      />
+    );
+  });
 
-const guard = (halfWidth: number, y: number): ReactNode => (
-  <path d={`M${12 - halfWidth} ${y} H${12 + halfWidth}`} stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-);
-
-const pommel = (y: number): ReactNode => (
-  <g>
-    <circle cx={12} cy={y} r={1.4} fill="currentColor" />
-    <circle cx={12} cy={y} r={1.4} fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth={0.7} />
-  </g>
+/** Клык, торчащий из челюсти: треугольник с заданным остриём. */
+const fang = (x: number, y: number, tipX: number, tipY: number, w: number, color: string, stroke?: string): ReactNode => (
+  <path
+    d={`M${x - w / 2} ${y} L${tipX} ${tipY} L${x + w / 2} ${y} Z`}
+    fill={color}
+    {...(stroke ? { stroke, strokeWidth: 0.4 } : {})}
+  />
 );
 
 const staffShaft = (top: number, bottom: number, width = 2): ReactNode => (
@@ -49,55 +55,217 @@ const spearhead = (top: number, height = 6): ReactNode => (
 
 const ICONS: Record<string, ReactNode> = {
   dagger: (
-    <g>
-      {blade(2.5, 12, 1.6)}
-      {guard(3.6, 12.6)}
-      {grip(13.4, 19)}
-      {pommel(20.6)}
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wdS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9aa3ad" />
+          <stop offset="0.42" stopColor="#5c646d" />
+          <stop offset="1" stopColor="#2b3037" />
+        </linearGradient>
+        <linearGradient id="wdM" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wdL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3a2a1c" />
+          <stop offset="1" stopColor="#16100a" />
+        </linearGradient>
+        <linearGradient id="wdG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="0.5" stopColor="#8f959c" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+      </defs>
+      <g transform="translate(0 24) scale(1 -1)">
+        <path d="M12 3 L13.3 6.4 V13.4 H10.7 V6.4 Z" fill="url(#wdS)" stroke="#0a0e13" strokeWidth={0.5} />
+        <path d="M12 6.6 V12.6" stroke="rgba(0,0,0,0.35)" strokeWidth={0.55} />
+        <path d="M11.3 6.6 V12.6" stroke="rgba(220,228,238,0.35)" strokeWidth={0.35} />
+        <rect x={9} y={12.55} width={6} height={1.7} rx={0.85} fill="url(#wdS)" stroke="#0a0e13" strokeWidth={0.4} />
+        <circle cx={12} cy={13.4} r={0.8} fill="#b03a3a" stroke="#0a0e13" strokeWidth={0.3} />
+        <rect x={10.7} y={14.3} width={2.6} height={5.1} rx={1.2} fill="url(#wdL)" stroke="#0a0e13" strokeWidth={0.4} />
+        <rect x={10.7} y={14.3} width={0.8} height={5.1} rx={0.4} fill="rgba(255,235,200,0.14)" />
+        {[0, 1, 2].map((i) => (
+          <path key={i} d={`M10.9 ${15.2 + i * 1.1} L13.1 ${14.8 + i * 1.1}`} stroke="rgba(20,10,4,0.5)" strokeWidth={0.5} />
+        ))}
+        <circle cx={12} cy={20.7} r={1.7} fill="url(#wdG)" stroke="#0a0e13" strokeWidth={0.35} />
+      </g>
     </g>
   ),
   shortsword: (
-    <g>
-      {blade(1.5, 13.5, 1.9)}
-      {guard(4.2, 14.1)}
-      {grip(14.8, 19.4)}
-      {pommel(21)}
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wsS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9aa3ad" />
+          <stop offset="0.42" stopColor="#5c646d" />
+          <stop offset="1" stopColor="#2b3037" />
+        </linearGradient>
+        <linearGradient id="wsM" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wsL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3a2a1c" />
+          <stop offset="1" stopColor="#16100a" />
+        </linearGradient>
+        <linearGradient id="wsG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="0.5" stopColor="#8f959c" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+      </defs>
+      <path d="M10.67 2.8 H13.33 L14.15 5.4 V15 H9.85 V5.4 Z" fill="url(#wsS)" stroke="#0a0e13" strokeWidth={0.5} />
+      <path d="M10.9 3.4 H13.1" stroke="rgba(220,228,238,0.4)" strokeWidth={0.35} />
+      <path d="M12 6.2 V14.2" stroke="rgba(0,0,0,0.28)" strokeWidth={0.5} />
+      <rect x={7.8} y={14.15} width={8.4} height={1.7} rx={0.85} fill="url(#wsS)" stroke="#0a0e13" strokeWidth={0.4} />
+      <circle cx={12} cy={15} r={1.1} fill="url(#wsG)" />
+      <rect x={10.7} y={15.9} width={2.6} height={4.5} rx={1.2} fill="url(#wsL)" stroke="#0a0e13" strokeWidth={0.4} />
+      <rect x={10.7} y={15.9} width={0.8} height={4.5} rx={0.4} fill="rgba(255,235,200,0.14)" />
+      {[0, 1, 2].map((i) => (
+        <path key={i} d={`M10.9 ${16.8 + i * 0.9} L13.1 ${16.4 + i * 0.9}`} stroke="rgba(20,10,4,0.5)" strokeWidth={0.5} />
+      ))}
+      <ellipse cx={12} cy={21.7} rx={1.9} ry={0.9} fill="url(#wsM)" stroke="#0a0e13" strokeWidth={0.35} />
     </g>
   ),
   longsword: (
-    <g>
-      {blade(1, 15, 2.1)}
-      {guard(5.2, 15.6)}
-      {grip(16.4, 21)}
-      {pommel(22.4)}
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wlS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9aa3ad" />
+          <stop offset="0.42" stopColor="#5c646d" />
+          <stop offset="1" stopColor="#2b3037" />
+        </linearGradient>
+        <linearGradient id="wlM" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wlL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3a2a1c" />
+          <stop offset="1" stopColor="#16100a" />
+        </linearGradient>
+      </defs>
+      <path d="M12 0.6 L13.2 5.8 V16.8 H10.8 V5.8 Z" fill="url(#wlS)" stroke="#0a0e13" strokeWidth={0.5} />
+      <path d="M12 6.4 V15.8" stroke="rgba(0,0,0,0.35)" strokeWidth={0.6} />
+      <path d="M11.3 6.4 V15.8" stroke="rgba(220,228,238,0.35)" strokeWidth={0.35} />
+      <rect x={7.4} y={16.3} width={9.2} height={1.8} rx={0.9} fill="url(#wlS)" stroke="#0a0e13" strokeWidth={0.4} />
+      <circle cx={16.6} cy={17.9} r={1.4} fill="none" stroke="url(#wlM)" strokeWidth={0.9} />
+      <rect x={10.7} y={18.1} width={2.6} height={4.3} rx={1.2} fill="url(#wlL)" stroke="#0a0e13" strokeWidth={0.4} />
+      <rect x={10.7} y={18.1} width={0.8} height={4.3} rx={0.4} fill="rgba(255,235,200,0.14)" />
+      <path d="M11.2 18.9 L13.2 20.5 L11.2 22.1" stroke="rgba(150,155,165,0.45)" strokeWidth={0.45} fill="none" />
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <path key={i} d={`M10.9 ${19.1 + i * 0.383} L13.1 ${18.7 + i * 0.383}`} stroke="rgba(20,10,4,0.45)" strokeWidth={0.5} />
+      ))}
+      <ellipse cx={12} cy={23.6} rx={2} ry={0.9} fill="url(#wlM)" stroke="#0a0e13" strokeWidth={0.4} />
+      <circle cx={12} cy={17.6} r={0.8} fill="#b03a3a" stroke="#0a0e13" strokeWidth={0.3} />
     </g>
   ),
   greatsword: (
-    <g>
-      <path d="M12 0.8 L15.1 4.6 V16 H8.9 V4.6 Z" fill="currentColor" />
-      <path d="M12 3V14.5" stroke="rgba(0,0,0,0.35)" strokeWidth={1.1} />
-      <path d="M12 6.5 L14 8 M12 10 L14 11.5" stroke="rgba(255,255,255,0.35)" strokeWidth={0.8} />
-      <path d="M6.4 16.6 H17.6" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" />
-      {grip(17.8, 22.4)}
-      {pommel(23.4)}
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wgS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9aa3ad" />
+          <stop offset="0.42" stopColor="#5c646d" />
+          <stop offset="1" stopColor="#2b3037" />
+        </linearGradient>
+        <linearGradient id="wgM" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wgG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="0.5" stopColor="#8f959c" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wgL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3a2a1c" />
+          <stop offset="1" stopColor="#16100a" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12.00 0.60L13.09 1.42L13.60 2.24L13.62 3.07L13.39 3.89L13.24 4.71L13.29 5.53L13.78 6.36L14.35 7.18L14.60 8.00L14.35 8.82L13.78 9.64L13.29 10.47L13.24 11.29L13.66 12.11L14.25 12.93L14.59 13.76L14.44 14.58L13.90 15.40L10.10 15.40L9.56 14.58L9.41 13.76L9.75 12.93L10.34 12.11L10.76 11.29L10.71 10.47L10.22 9.64L9.65 8.82L9.40 8.00L9.65 7.18L10.22 6.36L10.71 5.53L10.76 4.71L10.61 3.89L10.38 3.07L10.40 2.24L10.91 1.42L12.00 0.60Z"
+        fill="url(#wgS)"
+        stroke="#0a0e13"
+        strokeWidth={0.4}
+      />
+      <path d="M11.2 7.4 C11.9 9 12.1 10.6 11.6 12.2 M13.4 4.2 C13.9 5.6 13.9 6.8 13.5 8" stroke="rgba(220,228,238,0.28)" strokeWidth={0.35} fill="none" />
+      <rect x={4.6} y={14.55} width={14.8} height={1.7} rx={0.85} fill="url(#wgS)" stroke="#0a0e13" strokeWidth={0.4} />
+      <circle cx={12} cy={15.4} r={1.15} fill="url(#wgG)" />
+      <rect x={10.7} y={16.3} width={2.6} height={5.4} rx={1.2} fill="url(#wgL)" stroke="#0a0e13" strokeWidth={0.4} />
+      <rect x={10.7} y={16.3} width={0.8} height={5.4} rx={0.4} fill="rgba(255,235,200,0.14)" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <path key={i} d={`M10.9 ${17.2 + i * 0.92} L13.1 ${16.8 + i * 0.92}`} stroke="rgba(20,10,4,0.5)" strokeWidth={0.5} />
+      ))}
+      <ellipse cx={12} cy={22.7} rx={1.9} ry={0.9} fill="url(#wgM)" stroke="#0a0e13" strokeWidth={0.35} />
     </g>
   ),
   rapier: (
-    <g>
-      <path d="M12 1.6 L13.2 4 V14 H10.8 V4 Z" fill="currentColor" />
-      <path d="M12 3.2V13" stroke="rgba(0,0,0,0.3)" strokeWidth={0.7} />
-      <path d="M8.6 14.4 C10 16.4 14 16.4 15.4 14.4" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
-      <path d="M8.6 15.6 C10 17.4 14 17.4 15.4 15.6" fill="none" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" opacity={0.7} />
-      {grip(16.4, 20.6)}
-      {pommel(21.8)}
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wrS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9aa3ad" />
+          <stop offset="0.42" stopColor="#5c646d" />
+          <stop offset="1" stopColor="#2b3037" />
+        </linearGradient>
+        <linearGradient id="wrM" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wrG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="0.5" stopColor="#8f959c" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wrL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3a2a1c" />
+          <stop offset="1" stopColor="#16100a" />
+        </linearGradient>
+      </defs>
+      <path d="M12 1.4 L12.95 4.6 V15.6 H11.05 V4.6 Z" fill="url(#wrS)" stroke="#0a0e13" strokeWidth={0.45} />
+      <path d="M12 5 V14.8" stroke="rgba(0,0,0,0.32)" strokeWidth={0.5} />
+      <path d="M11.5 5 V14.8" stroke="rgba(220,228,238,0.3)" strokeWidth={0.3} />
+      <ellipse cx={12} cy={16.2} rx={3.5} ry={2.5} fill="url(#wrM)" stroke="#0a0e13" strokeWidth={0.4} />
+      <path d="M7 14.6 H17" stroke="url(#wrS)" strokeWidth={1.3} strokeLinecap="round" />
+      <rect x={10.7} y={16.5} width={2.6} height={3.8} rx={1.2} fill="url(#wrL)" stroke="#0a0e13" strokeWidth={0.4} />
+      <rect x={10.7} y={16.5} width={0.8} height={3.8} rx={0.4} fill="rgba(255,235,200,0.14)" />
+      {[0, 1, 2].map((i) => (
+        <path key={i} d={`M10.9 ${17.3 + i * 0.9} L13.1 ${16.9 + i * 0.9}`} stroke="rgba(20,10,4,0.5)" strokeWidth={0.5} />
+      ))}
+      <path d="M12 19.9 C13.8 22 13.4 23.5 12 23.9 C10.6 23.5 10.2 22 12 19.9 Z" fill="url(#wrG)" />
     </g>
   ),
   scimitar: (
-    <g>
-      <path d="M12.4 1.4 C16.6 4.6 17.4 9.4 15 14.6 C14 16.6 12.6 17.6 11 18.2 L10 16.4 C13.4 14.6 15.4 11 14.6 7 C14.2 5.2 13.4 3.4 12.4 1.4 Z" fill="currentColor" />
-      <path d="M13.4 3.6 C15.4 6.4 15.6 10 13.8 13.4" fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth={0.9} />
-      <path d="M11 18.4 L9.4 19.6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-      {grip(19.6, 23)}
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wcS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9aa3ad" />
+          <stop offset="0.42" stopColor="#5c646d" />
+          <stop offset="1" stopColor="#2b3037" />
+        </linearGradient>
+        <linearGradient id="wcG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#c9ccd1" />
+          <stop offset="0.5" stopColor="#8f959c" />
+          <stop offset="1" stopColor="#565c63" />
+        </linearGradient>
+        <linearGradient id="wcL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3a2a1c" />
+          <stop offset="1" stopColor="#16100a" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M16.60 1.40L15.93 2.17L15.29 2.93L14.82 3.70L14.52 4.47L14.33 5.23L14.10 6.00L14.01 6.77L13.95 7.53L13.89 8.30L13.83 9.07L13.78 9.83L13.73 10.60L13.68 11.37L13.63 12.13L13.59 12.90L13.55 13.67L13.52 14.43L13.50 15.20L10.50 15.20L10.51 14.43L10.54 13.67L10.56 12.90L10.59 12.13L10.62 11.37L10.66 10.60L10.70 9.83L10.73 9.07L10.77 8.30L10.82 7.53L10.86 6.77L10.92 6.00L11.14 5.23L11.74 4.47L12.59 3.70L13.60 2.93L14.79 2.17L16.30 1.40Z"
+        fill="url(#wcS)"
+        stroke="#0a0e13"
+        strokeWidth={0.4}
+      />
+      <path d="M15.4 2.6 C14.8 5 13.6 8 12.6 11 C12.4 12.4 12.3 13.6 12.3 14.6" stroke="rgba(0,0,0,0.32)" strokeWidth={0.6} fill="none" />
+      <path d="M15.9 2.5 C15.3 5 14.1 8 13.1 10.9 C12.9 12.2 12.8 13.4 12.8 14.4" stroke="rgba(220,228,238,0.3)" strokeWidth={0.32} fill="none" />
+      <rect x={8.6} y={14.35} width={6.8} height={1.7} rx={0.85} fill="url(#wcS)" stroke="#0a0e13" strokeWidth={0.4} />
+      <circle cx={12} cy={15.2} r={1.1} fill="url(#wcG)" />
+      <rect x={10.7} y={16.1} width={2.6} height={4.5} rx={1.2} fill="url(#wcL)" stroke="#0a0e13" strokeWidth={0.4} />
+      <rect x={10.7} y={16.1} width={0.8} height={4.5} rx={0.4} fill="rgba(255,235,200,0.14)" />
+      {[0, 1, 2].map((i) => (
+        <path key={i} d={`M10.9 ${17.0 + i * 0.9} L13.1 ${16.6 + i * 0.9}`} stroke="rgba(20,10,4,0.5)" strokeWidth={0.5} />
+      ))}
+      <circle cx={12} cy={21.9} r={1.7} fill="url(#wcG)" stroke="#0a0e13" strokeWidth={0.35} />
     </g>
   ),
   sickle: (
@@ -125,12 +293,60 @@ const ICONS: Record<string, ReactNode> = {
     </g>
   ),
   greataxe: (
-    <g>
-      {staffShaft(1.5, 23.5, 2.6)}
-      <path d="M10.4 2.6 C5.4 1.4 1.8 4.6 1.8 9 C1.8 13.4 5.4 16.2 10.4 14.6 Z" fill="currentColor" />
-      <path d="M13.6 2.6 C18.6 1.4 22.2 4.6 22.2 9 C22.2 13.4 18.6 16.2 13.6 14.6 Z" fill="currentColor" opacity={0.85} />
-      <path d="M4.6 4.4 C7 3 9.2 4 10 6.4" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={1} />
-      <path d="M19.4 4.4 C17 3 14.8 4 14 6.4" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
+    <g stroke="none">
+      <defs>
+        <linearGradient id="gxSteel" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f6fafd" />
+          <stop offset="0.42" stopColor="#cdd9e5" />
+          <stop offset="1" stopColor="#7f92a5" />
+        </linearGradient>
+        <linearGradient id="gxDark" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#8a9aab" />
+          <stop offset="1" stopColor="#46525f" />
+        </linearGradient>
+        <linearGradient id="gxWood" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#a5713a" />
+          <stop offset="0.5" stopColor="#724822" />
+          <stop offset="1" stopColor="#432810" />
+        </linearGradient>
+      </defs>
+      <rect x={10.85} y={3.6} width={2.3} height={19.8} rx={1.15} fill="url(#gxWood)" />
+      <rect x={12.23} y={4.4} width={0.69} height={18.2} rx={0.35} fill="rgba(24,12,4,0.32)" />
+      <rect x={11.08} y={4.4} width={0.46} height={18.2} rx={0.23} fill="rgba(255,238,205,0.22)" />
+      <path d="M11.35 6C12.25 8.6 11.75 11.6 11.45 14.6" stroke="rgba(30,16,6,0.35)" strokeWidth="0.35" fill="none" />
+      <rect x={10.4} y={2.9} width={3.2} height={1.9} rx={0.9} fill="url(#gxDark)" />
+      <rect x={10.4} y={2.9} width={3.2} height={0.7} rx={0.35} fill="rgba(255,255,255,0.25)" />
+      <rect x={10.5} y={15.6} width={3} height={0.8} rx={0.4} fill="rgba(28,14,6,0.75)" />
+      {[0, 1, 2, 3].map((i) => (
+        <g key={i}>
+          <rect
+            x={10.5}
+            y={16.45 + i * 1.55}
+            width={3}
+            height={0.8}
+            rx={0.4}
+            fill="#5d3a1a"
+            stroke="rgba(20,10,4,0.55)"
+            strokeWidth={0.25}
+          />
+          <path
+            d={`M10.65 ${16.75 + i * 1.55}L13.35 ${16.55 + i * 1.55}`}
+            stroke="rgba(255,220,180,0.28)"
+            strokeWidth={0.3}
+          />
+        </g>
+      ))}
+      <rect x={10.35} y={23.4} width={3.3} height={1.5} rx={0.75} fill="url(#gxDark)" />
+      {[0, 1].map((side) => (
+        <g key={side} transform={side ? 'translate(24 0) scale(-1 1)' : undefined}>
+          <path
+            d="M11.5 3.2C6.6 2.4 3.6 4.8 3.4 8 3.3 10.7 5.2 12.5 7.8 12.6 6.7 11.4 6.2 9.9 6.4 8.4 6.7 6.6 8 5.2 10 4.4Z"
+            fill="url(#gxDark)"
+          />
+          <path d="M10.6 4C7.9 4.3 6.1 6 5.6 8.5" stroke="rgba(255,255,255,0.45)" strokeWidth={0.5} fill="none" />
+          <path d="M7 12.4 8.4 9.8 9.8 12.2" fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth={0.4} />
+        </g>
+      ))}
     </g>
   ),
   halberd: (
@@ -338,28 +554,97 @@ const ICONS: Record<string, ReactNode> = {
     </g>
   ),
   bite: (
-    <g>
-      <path d="M3.4 5.2 C8 2.6 16 2.6 20.6 5.2 L19.4 8.4 C16 6.8 8 6.8 4.6 8.4 Z" fill="currentColor" />
-      <path d="M3.4 18.8 C8 21.4 16 21.4 20.6 18.8 L19.4 15.6 C16 17.2 8 17.2 4.6 15.6 Z" fill="currentColor" />
-      <path d="M6.6 6.6 L8.4 11.4 L10.2 6.6 Z" fill="currentColor" />
-      <path d="M13.8 6.6 L15.6 11.4 L17.4 6.6 Z" fill="currentColor" />
-      <path d="M6.6 17.4 L8.4 12.6 L10.2 17.4 Z" fill="currentColor" opacity={0.85} />
-      <path d="M13.8 17.4 L15.6 12.6 L17.4 17.4 Z" fill="currentColor" opacity={0.85} />
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wbJaw" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#4a4542" />
+          <stop offset="1" stopColor="#0f0c0b" />
+        </linearGradient>
+      </defs>
+      <path d="M2.2 4.4 21.8 6.4 21 10.2H2.2Z" fill="url(#wbJaw)" />
+      <path d="M2.2 20.6 21 16.8 21.8 20.6 2.2 21.6Z" fill="url(#wbJaw)" />
+      <path d="M2.4 10.2h18.4v2.4H2.4z" fill="#6e0f14" />
+      <path d="M2.4 14.2h18.4v2.6H2.4z" fill="#3d0508" />
+      {teeth(3.4, 20.4, 8, 10.2, 1, 2.8, '#6b7280', 'wb-u')}
+      {teeth(3.8, 20, 8, 16.8, -1, 2.8, '#5b616b', 'wb-l')}
+      {fang(5.6, 10.2, 4.8, 17.4, 1.8, '#6b7280', '#1c1614')}
+      {fang(18.2, 10.2, 19.2, 17.4, 1.8, '#6b7280', '#1c1614')}
+      <circle cx="11.6" cy="12.6" r="1.6" fill="#ff3d2e" opacity={0.28} />
+      <path d="M3.2 5.8 18.4 7.4" stroke="rgba(255,120,90,0.35)" strokeWidth={0.5} fill="none" />
     </g>
   ),
   claws: (
-    <g>
-      <path d="M6 3.6 C4.4 9.4 5.4 15.4 8.6 21.6 L10.8 20.6 C8 15 7.2 9.6 8.2 4.4 Z" fill="currentColor" />
-      <path d="M10.6 3 C9.4 9.2 10.4 15.6 13.4 21.8 L15.6 20.8 C12.8 15.2 12 9.4 12.8 4 Z" fill="currentColor" />
-      <path d="M15.4 3.6 C14.8 9.6 15.8 15.6 18.6 21.4 L20.6 20.2 C18 14.8 17.2 9.6 17.8 4.6 Z" fill="currentColor" />
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wclSteel" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f6fafd" />
+          <stop offset="0.42" stopColor="#cdd9e5" />
+          <stop offset="1" stopColor="#7f92a5" />
+        </linearGradient>
+      </defs>
+      <path d="M3.6 21.4c1.2-3.8 3.6-6.4 7-7.8-1.8 3.2-4.2 5.8-7 7.8Z" fill="#46525f" />
+      <path d="M6 4c3.4 3.8 5.2 8.4 5.2 13.8C9 13.4 7.2 8.6 6 4Z" fill="url(#wclSteel)" />
+      <path d="M12.4 2.6c3.6 4 5.4 9 5.4 14.8-2.2-5-4-10-5.4-14.8Z" fill="url(#wclSteel)" />
+      <path d="M18.4 4c3.4 3.8 5 8.4 5 13.6-2-4.6-3.6-9.2-5-13.6Z" fill="url(#wclSteel)" />
+      <path d="M7 5.6c1 3.4 1.6 7 1.8 10.6M13.4 4.6c1 3.6 1.6 7.2 1.8 10.8" stroke="rgba(255,255,255,0.75)" strokeWidth={0.5} fill="none" />
+    </g>
+  ),
+  rend: (
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wrBlood" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#e0553c" />
+          <stop offset="1" stopColor="#8c1408" />
+        </linearGradient>
+      </defs>
+      <path d="M3 4.6C7.4 7 11 10.8 13.6 15.6 10 12.6 6.4 9 3 4.6Z" fill="url(#wrBlood)" />
+      <path d="M7 3.6c4.4 2.4 8 6.2 10.6 11-3.6-3-7.2-6.6-10.6-11Z" fill="url(#wrBlood)" />
+      <path d="M11 3.2c4.2 2.6 7.6 6.2 10 10.8-3.4-3-6.8-6.4-10-10.8Z" fill="url(#wrBlood)" />
+      <path d="M15.2 3.6c3.6 2.6 6.4 5.8 8.4 9.8-3-2.8-5.8-6-8.4-9.8Z" fill="url(#wrBlood)" />
+      <path d="M4.4 6.2c2.8 1.8 5.2 4 7.2 6.6" stroke="rgba(255,220,210,0.5)" strokeWidth={0.4} fill="none" />
+      <circle cx="17.4" cy="17.4" r="0.9" fill="#a81f14" />
+      <circle cx="19.6" cy="19.6" r="0.6" fill="#a81f14" opacity={0.8} />
+      <circle cx="15.6" cy="20.4" r="0.5" fill="#a81f14" opacity={0.7} />
+    </g>
+  ),
+  slam: (
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wslPlate" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f6fafd" />
+          <stop offset="0.42" stopColor="#b9c7d6" />
+          <stop offset="1" stopColor="#5c6d7f" />
+        </linearGradient>
+      </defs>
+      <rect x={4.6} y={3.4} width={14.8} height={8.6} rx={1.6} fill="url(#wslPlate)" />
+      <rect x={4.6} y={3.4} width={14.8} height={2.6} rx={1.3} fill="rgba(255,255,255,0.45)" />
+      <rect x={10.6} y={10.4} width={2.8} height={12.4} rx={1.4} fill="url(#wslPlate)" />
+      <rect x={10.6} y={10.4} width={0.9} height={12.4} rx={0.45} fill="rgba(255,255,255,0.4)" />
+      <path
+        d="M2.6 15.6c1.8-.6 3.6-.6 5.4 0M16 15.6c1.8-.6 3.6-.6 5.4 0M2.6 18.6c2.4-.8 4.6-.8 6.8 0M14.6 18.6c2.4-.8 4.6-.8 6.8 0"
+        stroke="#dbe6f0"
+        strokeWidth={0.8}
+        fill="none"
+        opacity={0.8}
+      />
     </g>
   ),
   sting: (
-    <g>
-      <path d="M12 1 L14 5.6 L12 22 L10 5.6 Z" fill="currentColor" />
-      <path d="M10 5.6 H14" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" />
-      <path d="M12 8.6 V18" stroke="rgba(0,0,0,0.3)" strokeWidth={0.9} />
-      <circle cx={12} cy={4.6} r={1.8} fill="currentColor" />
+    <g stroke="none">
+      <defs>
+        <linearGradient id="wstChitin" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#e0b070" />
+          <stop offset="0.5" stopColor="#a5701f" />
+          <stop offset="1" stopColor="#5e3a10" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M2.6 21.4C10.4 20.6 16.6 16.8 19.8 9.8 20.8 7.4 21.4 5 21.6 2.6 19 5 16.6 8.2 14.8 12.2 12.8 16.6 8.6 20 2.6 21.4Z"
+        fill="url(#wstChitin)"
+      />
+      <path d="M5.4 20.2 6.8 21.2M8.8 18.4l1.6 1.2M11.6 15.8l1.8.8M13.8 12.6l2 .4M15.8 9.4l2.2 0" stroke="rgba(60,34,10,0.55)" strokeWidth={0.6} />
+      <path d="M4.4 20.4C9.6 19 14 15.8 16.8 10" stroke="rgba(255,240,210,0.45)" strokeWidth={0.6} fill="none" />
+      <circle cx="21.2" cy="3.4" r="0.6" fill="#a81f14" />
     </g>
   ),
   gore: (
@@ -447,6 +732,7 @@ export function weaponIconId(name: string): string {
   if (n.includes('shortsword') || n.includes('коротк') && n.includes('меч')) return 'shortsword';
   if (n.includes('меч') || n.includes('sword')) return 'longsword';
   if (n.includes('кинжал') || n.includes('нож') || n.includes('dagger') || n.includes('стилет')) return 'dagger';
+  if (n.includes('rend') || n.includes('раздир')) return 'rend';
   if (n.includes('когот') || n.includes('когт') || n.includes('царап') || n.includes('claw')) return 'claws';
   if (n.includes('укус') || n.includes('паст') || n.includes('зуб') || n.includes('bite')) return 'bite';
   if (n.includes('жал') || n.includes('sting')) return 'sting';
@@ -454,7 +740,8 @@ export function weaponIconId(name: string): string {
   if (n.includes('хвост') || n.includes('tail')) return 'tail';
   if (n.includes('щупальц') || n.includes('tentacle')) return 'tentacle';
   if (n.includes('плев') || n.includes('слюн') || n.includes('spit')) return 'spit';
-  if (n.includes('кулак') || n.includes('безоруж') || n.includes('fist') || n.includes('slam') || n.includes('удар') || n.includes('unarmed') || n.includes('strike')) return 'fist';
+  if (n.includes('slam')) return 'slam';
+  if (n.includes('кулак') || n.includes('безоруж') || n.includes('fist') || n.includes('удар') || n.includes('unarmed') || n.includes('strike')) return 'fist';
   return 'default';
 }
 
@@ -486,7 +773,6 @@ const DIAGONAL = new Set([
   'maul',
   'flail',
   'warpick',
-  'sting',
   'default',
 ]);
 

@@ -126,6 +126,7 @@ export function useActionContext(): ActionContext | null {
         costs: [a.cost],
         targeting: a.def?.targeting,
         description: e.name,
+        iconKey: e.sourceKey ? `${e.sourceKey}:${a.id}` : undefined,
       }))
     );
     // Действия зон (перемещение Moonbeam/Flaming Sphere/Faithful Hound) — от кастера-источника.
@@ -144,6 +145,7 @@ export function useActionContext(): ActionContext | null {
           targeting: action.def?.targeting,
           zoneId: zone.id,
           description: zone.name,
+          iconKey: `${zone.sourceKey}:${action.id}`,
         });
       }
     }
