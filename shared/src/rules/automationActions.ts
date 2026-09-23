@@ -48,6 +48,14 @@ export const AUTOMATION_ACTIONS: Record<string, AutomationDef> = {
     resolution: 'utility',
     utility: { kind: 'check', ability: 'wis' },
   },
+  /** Помощь: разбудить союзника/нейтрала в 5 фт (снять сонный эффект). */
+  help: {
+    key: 'help',
+    name: 'Помощь',
+    resolution: 'utility',
+    utility: { kind: 'wake' },
+    targeting: { kind: 'creature', range: 5 },
+  },
   'class:fighter:actionSurge': {
     key: 'class:fighter:actionSurge',
     name: 'Всплеск действия',

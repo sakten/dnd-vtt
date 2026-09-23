@@ -141,6 +141,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.deathWard === true) effect.deathWard = true;
     if (e.magicWeapon === true) effect.magicWeapon = true;
+    if (e.saveMarker === true) effect.saveMarker = true;
     if (e.damageLink && typeof e.damageLink === 'object') {
       const link = e.damageLink as { tokenId?: unknown };
       if (typeof link.tokenId === 'string' && link.tokenId) effect.damageLink = { tokenId: link.tokenId.slice(0, 64) };

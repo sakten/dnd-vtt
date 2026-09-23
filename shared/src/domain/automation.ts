@@ -111,6 +111,8 @@ export interface AutomationEffect {
   magicWeapon?: boolean;
   /** Warding Bond: переносить получаемый урон на источник эффекта. */
   damageLink?: boolean;
+  /** Eyebite: успешный спас цели ставит скрытую метку — повторно её не выбрать до конца каста. */
+  markSaved?: boolean;
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */
@@ -251,6 +253,8 @@ export interface AutomationUtility {
     | 'teleport'
     /** Scatter: до N целей, каждая — в свободную видимую точку в пределах `destinationFeet`. */
     | 'scatter'
+    /** Помощь: разбудить цель — снять «сонные» эффекты (`wakeOnDamage`). */
+    | 'wake'
     /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
     | 'revive'
     /** Spare the Dying: цель на 0 HP становится стабильной. */

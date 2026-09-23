@@ -24,7 +24,7 @@ import { spellDisplayName } from '../i18n/names';
 import { abilityName, damageLabel } from '../i18n/domain';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
-import { t } from '../i18n';
+import { t, type MessageKey } from '../i18n';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -86,6 +86,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const scatterDef = (() => {
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
     return def.utility?.kind === 'scatter' ? def.utility : undefined;
+  })();
+  // Self-заклинание, выбирающее цель-существо (Eyebite): вместо каста «в себя» — клик по цели.
+  const targetCreatureDef = (() => {
+    const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
+    return def.targeting?.kind === 'creature' ? def : undefined;
   })();
   // Polymorph: форма-зверь выбирается в попапе, цель — кликом по токену.
   const shapeDef = (() => {
@@ -171,6 +176,16 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         slotLevel: info.slotLevel,
         advantage: mode,
         maxTargets: scatterDef.targets ?? 5,
+      });
+    } else if (info.self && targetCreatureDef) {
+      startTargeting({
+        kind: 'spell',
+        tokenId,
+        spellKey: spell.key,
+        slotLevel: info.slotLevel,
+        advantage: mode,
+        label: spellDisplayName(spell),
+        ...(variant ? { variant } : {}),
       });
     } else if (info.self || selfOnlyAtWill) {
       if (abilityAction) runAction(tokenId, abilityAction.id, { slot: abilityAction.slot });
@@ -320,12 +335,20 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         {variantDef && (
           <div className="sp-row">
             <span className="sp-label">
-              {variantDef.param === 'ability' ? t('ui.spellPopover.abilityChoice') : t('ui.spellPopover.damageType')}
+              {variantDef.param === 'ability'
+                ? t('ui.spellPopover.abilityChoice')
+                : variantDef.param === 'effect'
+                  ? t('ui.spellPopover.effectChoice')
+                  : t('ui.spellPopover.damageType')}
             </span>
             <select className="sp-select" value={variant} onChange={(e) => setVariant(e.target.value)}>
               {variantDef.options.map((option) => (
                 <option key={option} value={option}>
-                  {variantDef.param === 'ability' ? abilityName(option as AbilityKey) : damageLabel(option)}
+                  {variantDef.param === 'ability'
+                    ? abilityName(option as AbilityKey)
+                    : variantDef.param === 'effect'
+                      ? t(`ui.eyebite.${option}` as MessageKey)
+                      : damageLabel(option)}
                 </option>
               ))}
             </select>

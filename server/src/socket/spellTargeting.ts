@@ -117,7 +117,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
       const found = map?.tokens.find((t) => t.id === placement.targetId);
       if (found && !targets.some((t) => t.id === found.id)) targets.push(found);
     }
-    if (spellIsSelf(spell) && !targets.some((t) => t.id === caster.id)) targets.push(caster);
+    if (spellIsSelf(spell) && !targets.length) targets.push(caster);
   }
   return {
     caster,

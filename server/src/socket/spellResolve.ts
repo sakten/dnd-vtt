@@ -182,6 +182,20 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   }
 
   if (input.area) return undefined;
+
+  // Creature-таргетинг у self-заклинания (Eyebite): дистанция и видимость цели.
+  if (def.targeting?.kind === 'creature') {
+    const range = def.targeting.range ?? 5;
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    for (const target of targets) {
+      if (target.id === caster.id) continue;
+      const feet = gridDistanceFeet(caster, target, grid.size);
+      if (feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+      if (map && !tokenVisibleFrom(caster, target, map.walls, grid)) return { code: 'noClearPath' };
+    }
+    return undefined;
+  }
   const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
   const map = room.scene.maps.find((m) => m.id === input.mapId);

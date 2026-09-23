@@ -332,6 +332,17 @@ export function damageLinks(effects: EffectInstance[] | undefined): string[] {
   return out;
 }
 
+/** Eyebite: цель уже успешно спаслась против этого каста (метка на эффекте). */
+export function savedAgainst(
+  effects: EffectInstance[] | undefined,
+  sourceId: string,
+  key: string
+): boolean {
+  return (effects ?? []).some(
+    (e) => e.saveMarker === true && e.sourceId === sourceId && e.sourceKey === key
+  );
+}
+
 export function effectDefenses(effects: EffectInstance[] | undefined): DamageDefense[] {
   const out: DamageDefense[] = [];
   for (const effect of effects ?? []) {

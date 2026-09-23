@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
 import { automationForAction, automationForSpell, spellAutomated, spellVariantDef } from './automation';
+import { findBaseAction } from './actions';
 import type { Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
@@ -216,6 +217,38 @@ describe('automationForSpell', () => {
     expect(automationForSpell(mw, { castLevel: 4 }).effects?.[0]?.modifiers[0]?.value).toBe(2);
     expect(automationForSpell(mw, { castLevel: 6 }).effects?.[0]?.modifiers[0]?.value).toBe(3);
     expect(spellAutomated(mw)).toBe(true);
+  });
+
+  it('Помощь: разбудить цель в 5 фт (utility wake)', () => {
+    const def = automationForAction(findBaseAction('help')!);
+    expect(def?.utility).toMatchObject({ kind: 'wake' });
+    expect(def?.targeting).toEqual({ kind: 'creature', range: 5 });
+  });
+
+  it('Eyebite — первичный вариант и три действия на ход', () => {
+    const eyebite = makeSpell({
+      key: 'XPHB:Eyebite',
+      name: 'Eyebite',
+      level: 6,
+      automation: 'manual',
+      concentration: true,
+      save: ['wis'],
+    });
+    const def = automationForSpell(eyebite, { variant: 'panicked' });
+    expect(def.resolution).toBe('effect');
+    expect(def.save).toEqual({ ability: 'wis' });
+    expect(def.targeting).toEqual({ kind: 'creature', range: 60 });
+    const carrier = def.effects?.[0];
+    expect(carrier?.to).toBe('self');
+    expect(carrier?.actions?.map((a) => a.id)).toEqual(['eyebite:asleep', 'eyebite:panicked', 'eyebite:sickened']);
+    expect(carrier?.actions?.every((a) => a.cost === 'action' && a.def?.targeting?.kind === 'creature')).toBe(true);
+    const initial = def.effects?.[1];
+    expect(initial?.conditions).toEqual(['frightened']);
+    expect(initial?.markSaved).toBe(true);
+    const defaultDef = automationForSpell(eyebite);
+    expect(defaultDef.effects?.[1]?.conditions).toEqual(['unconscious']);
+    expect(defaultDef.effects?.[1]?.wakeOnDamage).toBe(true);
+    expect(spellAutomated(eyebite)).toBe(true);
   });
 
   it('Scatter — до пяти целей, точки в 120 фт от кастера', () => {

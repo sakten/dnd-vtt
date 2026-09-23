@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  automationForAction,
   automationForSpell,
+  findBaseAction,
   monsterAbilityAutomation,
   monsterStats,
+  savedAgainst,
   type ActionDef,
   type ChatMessage,
 } from 'shared';
@@ -891,5 +894,81 @@ describe('лечение, стабильность и оживление', () =>
     expect(validateSpellCast(room, { ...base, castLevel: 0, spell: spare })).toEqual({
       code: 'stabilizeNotDying',
     });
+  });
+});
+
+describe('Помощь: разбудить союзника', () => {
+  const helpDef = () => {
+    const action = findBaseAction('help')!;
+    return automationForAction(action)!;
+  };
+
+  const sleeper = () => {
+    const token = makeToken('t2', { x: 150, y: 100 });
+    token.effects = [
+      {
+        id: 'sleep1',
+        name: 'Sleep',
+        duration: { type: 'rounds', rounds: 10 },
+        modifiers: [],
+        conditions: ['unconscious'],
+        wakeOnDamage: true,
+      },
+    ];
+    token.conditions = [{ key: 'unconscious', name: 'Без сознания', rounds: null, effectId: 'sleep1' }];
+    return token;
+  };
+
+  it('снимает сонный эффект вместе с состоянием', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = sleeper();
+    map.tokens.push(target);
+
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def: helpDef(), targets: [target], stats: null, author: 'A' });
+
+    expect(target.effects).toEqual([]);
+    expect(target.conditions).toEqual([]);
+  });
+
+  it('нечего будить и враждебная цель — ошибки', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def: helpDef(), targets: [target], stats: null, author: 'A' });
+    expect(f.selfEvents('chat:error')[0]?.payload).toMatchObject({ code: 'nothingToWake' });
+
+    caster.faction = 'ally';
+    target.faction = 'enemy';
+    target.effects = [
+      { id: 'sleep2', name: 'Sleep', duration: { type: 'rounds', rounds: 10 }, modifiers: [], wakeOnDamage: true },
+    ];
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def: helpDef(), targets: [target], stats: null, author: 'A' });
+    expect(f.selfEvents('chat:error').at(-1)?.payload).toMatchObject({ code: 'helpHostile' });
+  });
+});
+
+describe('Eyebite: первичный эффект и метка спасшегося', () => {
+  it('провал сейва — состояние; успех — скрытая метка', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    const def = automationForSpell(findSpell('XPHB:Eyebite')!, { castLevel: 6, variant: 'sickened' });
+
+    const fail = vi.spyOn(Math, 'random').mockReturnValue(0);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target], stats, author: 'DM' });
+    fail.mockRestore();
+    expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(true);
+    expect(savedAgainst(target.effects, caster.id, def.key)).toBe(false);
+
+    const pass = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target], stats, author: 'DM' });
+    pass.mockRestore();
+    expect(savedAgainst(target.effects, caster.id, def.key)).toBe(true);
+    expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(false);
   });
 });

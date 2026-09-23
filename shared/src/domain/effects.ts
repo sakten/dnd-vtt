@@ -200,6 +200,8 @@ export interface EffectInstance {
   magicWeapon?: boolean;
   /** Warding Bond: урон носителя тем же количеством переносится на токен-источник. */
   damageLink?: { tokenId: string };
+  /** Eyebite: скрытая метка «спасся против этого каста» (повторно не цель). */
+  saveMarker?: boolean;
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */

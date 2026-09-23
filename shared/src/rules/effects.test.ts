@@ -22,6 +22,7 @@ import {
   modifiedValue,
   restrictionsFor,
   rollParts,
+  savedAgainst,
   saveRollParts,
   withRollParts,
 } from './effects';
@@ -227,6 +228,11 @@ describe('проверки с эффектами (checkRollParts)', () => {
     const wb = effect({ damageLink: { tokenId: 't2' } });
     expect(damageLinks([wb])).toEqual(['t2']);
     expect(effectSummaryParts(wb)).toEqual([{ key: 'domain.effect.damageLink' }]);
+
+    const marker = effect({ saveMarker: true, sourceId: 'c1', sourceKey: 'XPHB:Eyebite', hidden: true });
+    expect(savedAgainst([marker], 'c1', 'XPHB:Eyebite')).toBe(true);
+    expect(savedAgainst([marker], 'c2', 'XPHB:Eyebite')).toBe(false);
+    expect(savedAgainst([], 'c1', 'XPHB:Eyebite')).toBe(false);
   });
 
   it('Magic Weapon: флаг магического оружия и подмена физтипа', () => {

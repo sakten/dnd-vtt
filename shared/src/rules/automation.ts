@@ -922,15 +922,16 @@ export interface AutomationOptions {
   variant?: string;
 }
 
-/** Вариант заклинания, выбираемый при касте (Dragon's Breath: тип урона; Enhance Ability: характеристика). */
+/** Вариант заклинания, выбираемый при касте (Dragon's Breath: тип урона; Enhance Ability: характеристика; Eyebite: эффект). */
 export interface SpellVariantDef {
-  param: 'damageType' | 'ability';
+  param: 'damageType' | 'ability' | 'effect';
   options: string[];
 }
 
 export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   "XPHB:Dragon's Breath": { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'poison'] },
   'XPHB:Enhance Ability': { param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] },
+  'XPHB:Eyebite': { param: 'effect', options: ['asleep', 'panicked', 'sickened'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -950,6 +951,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Heroism',
   'XPHB:Enhance Ability',
   'XPHB:Magic Weapon',
+  'XPHB:Eyebite',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
 ]);
@@ -1203,6 +1205,59 @@ function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
 
+/** Eyebite: эффект варианта на цель (Сон/Паника/Тошнота). */
+function eyebiteEffect(name: string, variant: string): AutomationEffect {
+  const base = { name, duration: CONCENTRATION, concentration: true, to: 'targets' as const, modifiers: [] };
+  if (variant === 'panicked') return { ...base, conditions: ['frightened'] };
+  if (variant === 'sickened') return { ...base, conditions: ['poisoned'] };
+  return { ...base, conditions: ['unconscious'], wakeOnDamage: true };
+}
+
+/**
+ * Eyebite: первичная цель — выбранный эффект (WIS-спас), плюс на кастере
+ * носитель с тремя действиями на каждый следующий ход. Спасшиеся помечаются
+ * скрытой меткой (`markSaved`) — повторно их не выбрать до конца каста.
+ */
+function eyebiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Eyebite') return undefined;
+  const variants = SPELL_VARIANTS[spell.key];
+  const variant = variants?.options.includes(opts.variant ?? '') ? opts.variant! : variants?.options[0] ?? 'asleep';
+  const action = (id: 'asleep' | 'panicked' | 'sickened', name: string): GrantedAction => ({
+    id: `eyebite:${id}`,
+    name,
+    cost: 'action',
+    def: {
+      key: `XPHB:Eyebite:${id}`,
+      name,
+      resolution: 'save',
+      save: { ability: 'wis' },
+      targeting: { kind: 'creature', range: 60 },
+      effects: [eyebiteEffect(name, id)],
+    },
+  });
+  const carrier: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'self',
+    modifiers: [],
+    actions: [
+      action('asleep', 'Eyebite: Сон'),
+      action('panicked', 'Eyebite: Паника'),
+      action('sickened', 'Eyebite: Тошнота'),
+    ],
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    targeting: { kind: 'creature', range: 60 },
+    effects: [carrier, { ...eyebiteEffect(spell.name, variant), markSaved: true }],
+  };
+}
+
 /** Searing Smite: доп. 1d6 огня при попадании + урон и спас CON в начале каждого хода цели. */
 function searingSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Searing Smite') return undefined;
@@ -1302,6 +1357,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const magicWeapon = magicWeaponDef(spell, opts);
   if (magicWeapon) return magicWeapon;
+
+  const eyebite = eyebiteDef(spell, opts);
+  if (eyebite) return eyebite;
 
   const searing = searingSmiteDef(spell, opts);
   if (searing) return searing;

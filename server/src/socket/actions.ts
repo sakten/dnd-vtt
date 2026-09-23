@@ -18,6 +18,7 @@
   monsterStats,
   restrictionsFor,
   rollDice,
+  savedAgainst,
   slotSpendable,
   tokenVisibleFrom,
   tokensInArea,
@@ -388,6 +389,22 @@ function useGrantedAction(
     return;
   }
 
+  let targets = actionTargets(ctx, room, mapId, token, {
+    area,
+    origin,
+    direction: opts.direction ?? null,
+    targetIds: opts.targetIds,
+    selfWhenEmpty: def.targeting?.kind !== 'creature',
+  });
+  // Eyebite и подобные: спасшиеся против этого каста повторно не выбираются (метка на цели).
+  if (caster && def.effects?.some((e) => e.markSaved)) {
+    targets = targets.filter((t) => !savedAgainst(t.effects, caster.id, def.key));
+    if (!targets.length) {
+      fail(ctx, 'targetSaved');
+      return;
+    }
+  }
+
   const combat = ctx.manager.combatOf(room, mapId);
   const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, token.id);
   if (combat?.active && !isActive && !ctx.isDm()) {
@@ -400,14 +417,6 @@ function useGrantedAction(
     return;
   }
   ctx.syncCombat(room, mapId);
-
-  const targets = actionTargets(ctx, room, mapId, token, {
-    area,
-    origin,
-    direction: opts.direction ?? null,
-    targetIds: opts.targetIds,
-    selfWhenEmpty: def.targeting?.kind !== 'creature',
-  });
 
   const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
   executeAutomation(ctx, {

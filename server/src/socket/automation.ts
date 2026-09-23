@@ -309,7 +309,24 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
 
   const applyAll = () => {
     for (const app of applications) {
-      if (app.save?.success) continue;
+      if (app.save?.success) {
+        // Eyebite: успешный спас помечаем скрытой меткой (до конца каста повторно не выбрать).
+        if (app.effectDef.markSaved) {
+          ctx.manager.applyEffect(room, app.target, {
+            id: randomUUID(),
+            name: def.name,
+            sourceKey: def.key,
+            sourceId: caster.id,
+            concentration: true,
+            duration: { type: 'concentration' },
+            modifiers: [],
+            hidden: true,
+            saveMarker: true,
+          });
+          ctx.emitToken(room, 'token:update', mapId, app.target);
+        }
+        continue;
+      }
       if (app.save && searExpr) {
         if (!searRoll) searRoll = rollDice(searExpr);
         if (!searSent) {
@@ -537,6 +554,33 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       params: { subject: `${input.def.name}: ${input.caster.name}` },
     });
     maybeRollAnim(ctx, roll);
+  },
+  /** Помощь: разбудить союзника/нейтрала в 5 фт — снять «сонные» эффекты с их состояниями. */
+  wake: ({ ctx, room, input }) => {
+    const target = input.targets.find((t) => t.id !== input.caster.id);
+    if (!target) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    if (sideMatches(input.caster, target, 'hostile')) {
+      fail(ctx, 'helpHostile');
+      return;
+    }
+    const map = ctx.manager.findMap(room, input.mapId);
+    if (!map) return;
+    const feet = gridDistanceFeet(input.caster, target, gridSizeOfMap(map));
+    if (feet > 5) {
+      fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+      return;
+    }
+    const asleep = target.effects.filter((e) => e.wakeOnDamage);
+    if (!asleep.length) {
+      fail(ctx, 'nothingToWake');
+      return;
+    }
+    for (const effect of asleep) ctx.manager.removeEffect(room, target, effect.id);
+    ctx.emitToken(room, 'token:update', input.mapId, target);
+    ctx.systemMessage(room, { code: 'actions.wokeUp', params: { name: target.name } });
   },
   /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
   revive: ({ ctx, room, input }) => {
