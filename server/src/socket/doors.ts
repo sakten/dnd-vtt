@@ -1,5 +1,6 @@
-import { abilityMod, d20Check, d20Expr, rollDice, segmentRectDistance, SKILLS, withAdvantage, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
+import { abilityMod, combineRollMode, d20Check, d20Expr, rollDice, segmentRectDistance, SKILLS, withAdvantage, withRollParts, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
+import { checkPartsForToken } from '../room/effects';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -121,9 +122,10 @@ export function registerDoorHandlers(ctx: ConnCtx) {
         fail(ctx, 'doorLockedInCombat');
         return;
       }
-      // Галка Adv/Dis над ROLL: преимущество/помеха на проверку взлома.
-      const mode = advantage === 'a' || advantage === 'd' ? advantage : null;
-      const expression = withAdvantage(pickExpression(room, actor), mode);
+      // Галка Adv/Dis над ROLL: преимущество/помеха на проверку взлома; плюс модификаторы эффектов.
+      const userMode = advantage === 'a' || advantage === 'd' ? advantage : null;
+      const parts = checkPartsForToken(room, actor, { ability: 'dex', skill: 'sleightOfHand' });
+      const expression = withRollParts(withAdvantage(pickExpression(room, actor), combineRollMode(parts, userMode)), parts);
       const applyPick = (roll: DiceRollResult) => {
         const success = roll.total >= dc;
         // Бросок идёт в чат карточкой (как проверки из roll menu), а не системной строкой.

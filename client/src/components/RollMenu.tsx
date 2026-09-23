@@ -3,6 +3,8 @@ import {
   ABILITIES,
   SKILLS,
   attackIsActive,
+  combineRollMode,
+  withRollParts,
   type AbilityKey,
   type AttackEntry,
 } from 'shared';
@@ -10,7 +12,7 @@ import { useGameStore } from '../store/useGameStore';
 import { activeMapOf, characterTokenOf } from '../store/selectors';
 import { canControlWith } from '../lib/control';
 import { advantagedExpression } from '../lib/rollMode';
-import { checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
+import { checkEffectParts, checkExpression, defaultSheet, saveExpression } from '../lib/sheet';
 import { t } from '../i18n';
 import { abilityName, skillName } from '../i18n/domain';
 
@@ -73,6 +75,20 @@ export default function RollMenu() {
 
   const doRoll = (expression: string, rollKind: 'save' | 'check', subject: string) => {
     rollDice(advantagedExpression(expression, rollMode === 'a', rollMode === 'd'), undefined, { rollKind, subject });
+    setRollMode(null);
+    close();
+  };
+
+  /** Проверка с модификаторами эффектов персонажа (Enhance Ability и подобные). */
+  const doCheck = (base: string, subject: string, ctx: { ability?: AbilityKey; skill?: string }) => {
+    const state = useGameStore.getState();
+    const token = characterTokenOf(activeMapOf(state), currentCharacterId);
+    const parts = checkEffectParts(token, sheet, ctx);
+    const mode = combineRollMode(parts, rollMode);
+    rollDice(advantagedExpression(withRollParts(base, parts), mode === 'a', mode === 'd'), undefined, {
+      rollKind: 'check',
+      subject,
+    });
     setRollMode(null);
     close();
   };
@@ -240,7 +256,7 @@ export default function RollMenu() {
                   <button
                     className="roll-menu-item" data-testid="roll-menu-item"
                     key={s.key}
-                    onClick={() => doRoll(checkExpression(sheet, s.key), 'check', skillName(s.key))}
+                    onClick={() => doCheck(checkExpression(sheet, s.key), skillName(s.key), { ability: s.ability, skill: s.key })}
                   >
                     {skillName(s.key)}
                   </button>

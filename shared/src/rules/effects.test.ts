@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   attackRollParts,
+  checkRollParts,
+  combineRollMode,
   combineRollParts,
   concentrationDc,
   concentratingEffects,
@@ -199,6 +201,27 @@ describe('концентрация', () => {
     );
     expect(effectDurationParts({ type: 'concentration' })).toEqual({ key: 'domain.effect.duration.concentration' });
     expect(effectDurationParts({ type: 'permanent' }).key).toBe('domain.effect.duration.permanent');
+  });
+});
+
+describe('проверки с эффектами (checkRollParts)', () => {
+  it('преимущество по характеристике и флэт по навыку — только при совпадении фильтра', () => {
+    const enhance = effect({ modifiers: [mod({ target: 'check', mode: 'advantage', filter: { ability: 'str' } })] });
+    expect(checkRollParts([enhance], { ability: 'str' }).mode).toBe('a');
+    expect(checkRollParts([enhance], { ability: 'dex' }).mode).toBeUndefined();
+
+    const passTrace = effect({
+      modifiers: [mod({ target: 'check', mode: 'add', value: 10, filter: { skill: 'stealth' } })],
+    });
+    expect(checkRollParts([passTrace], { ability: 'dex', skill: 'stealth' })).toMatchObject({ flat: 10 });
+    expect(checkRollParts([passTrace], { ability: 'dex', skill: 'athletics' })).toMatchObject({ flat: 0 });
+  });
+
+  it('combineRollMode: преимущество эффекта гасится помехой игрока', () => {
+    expect(combineRollMode({ flat: 0, dice: [], mode: 'a' }, 'd')).toBeUndefined();
+    expect(combineRollMode({ flat: 0, dice: [], mode: 'a' }, 'a')).toBe('a');
+    expect(combineRollMode({ flat: 0, dice: [] }, 'd')).toBe('d');
+    expect(combineRollMode({ flat: 0, dice: [] }, null)).toBeUndefined();
   });
 });
 

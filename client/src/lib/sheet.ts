@@ -2,11 +2,14 @@ import {
   SKILLS,
   abilityMod,
   bonusPart,
+  checkRollParts,
   d20Check,
   fmtMod,
   normalizeSheet,
   type AbilityKey,
   type CharacterSheet,
+  type RollParts,
+  type Token,
 } from 'shared';
 
 export { bonusPart };
@@ -34,4 +37,13 @@ export function skillPreview(sheet: CharacterSheet, skillKey: string): string {
   const mod = abilityMod(sheet.abilities[skill.ability] ?? 10);
   const level = sheet.skills[skillKey] ?? 0;
   return `${fmtMod(mod)}${bonusPart(sheet.proficiencyBonus, level)}`;
+}
+
+/** Части проверки от эффектов токена персонажа (Enhance Ability и подобные). */
+export function checkEffectParts(
+  token: Token | null | undefined,
+  sheet: CharacterSheet,
+  ctx: { ability?: AbilityKey; skill?: string }
+): RollParts {
+  return checkRollParts(token?.effects, ctx, sheet.abilities);
 }

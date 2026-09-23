@@ -4,6 +4,7 @@
   automationForAction,
   casterStats,
   classFeatures,
+  combineRollMode,
   consumeSlotTurn,
   crossesWalls,
   featureActionAutomation,
@@ -26,6 +27,7 @@
   weaponHasProperty,
   weaponMastery,
   withAdvantage,
+  withRollParts,
   type ActionCost,
   type ActionDef,
   type AreaSpec,
@@ -45,6 +47,7 @@ import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { sheetOfToken } from '../room/helpers';
+import { checkPartsForToken } from '../room/effects';
 import { moveZone } from './zones';
 import { pushRollMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
@@ -80,9 +83,14 @@ function escapeEffect(
     return;
   }
 
-  const expression = withAdvantage(
-    ctx.manager.abilityCheckExprForToken(room, token, escape.ability, escape.skill),
-    advantage === 'a' || advantage === 'd' ? advantage : null
+  const parts = checkPartsForToken(room, token, { ability: escape.ability, skill: escape.skill });
+  const userMode = advantage === 'a' || advantage === 'd' ? advantage : null;
+  const expression = withRollParts(
+    withAdvantage(
+      ctx.manager.abilityCheckExprForToken(room, token, escape.ability, escape.skill),
+      combineRollMode(parts, userMode)
+    ),
+    parts
   );
   const applyCheck = (roll: DiceRollResult) => {
     const success = roll.total >= escape.dc;

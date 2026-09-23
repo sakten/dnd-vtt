@@ -13,6 +13,7 @@ import { executeAutomation } from './automation';
 import { tickEffectTriggers } from './effects';
 import { applyEffectTo } from './effectsApply';
 import { validateSpellCast } from './spellResolve';
+import { checkPartsForToken } from '../room/effects';
 
 const isAttackRoll = (m: ChatMessage): m is Extract<ChatMessage, { kind: 'roll' }> =>
   m.kind === 'roll' && m.rollKind === 'attack';
@@ -503,6 +504,28 @@ describe('иммунитеты к состояниям и триггеры эф�
       effectDef: { name: 'Hold Person', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['paralyzed'] },
     });
     expect(target.conditions.some((c) => c.key === 'paralyzed')).toBe(true);
+  });
+
+  it('checkPartsForToken: преимущество и флэт проверок из эффектов носителя', () => {
+    const { room } = setup();
+    const token = room.scene.maps[0]!.tokens[0]!;
+    token.effects = [
+      {
+        id: 'e1',
+        name: 'Enhance Ability',
+        duration: { type: 'concentration' },
+        modifiers: [{ id: 'm1', target: 'check', mode: 'advantage', filter: { ability: 'str' } }],
+      },
+      {
+        id: 'e2',
+        name: 'Pass without Trace',
+        duration: { type: 'concentration' },
+        modifiers: [{ id: 'm2', target: 'check', mode: 'add', value: 10, filter: { skill: 'stealth' } }],
+      },
+    ];
+    expect(checkPartsForToken(room, token, { ability: 'str' }).mode).toBe('a');
+    expect(checkPartsForToken(room, token, { ability: 'dex' }).mode).toBeUndefined();
+    expect(checkPartsForToken(room, token, { ability: 'dex', skill: 'stealth' })).toMatchObject({ flat: 10 });
   });
 
   it('Searing Smite: доп. урон при касте и повторный урон в начале хода', () => {

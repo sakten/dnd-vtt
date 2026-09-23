@@ -226,6 +226,22 @@ export function saveRollParts(
   return rollParts(collectModifiers(effects, 'save', { ability }), abilities);
 }
 
+/** Слагаемые, кости и режим проверки характеристики/навыка от эффектов (Enhance Ability). */
+export function checkRollParts(
+  effects: EffectInstance[] | undefined,
+  ctx: ModifierContext,
+  abilities?: Partial<Record<AbilityKey, number>>
+): RollParts {
+  return rollParts(collectModifiers(effects, 'check', ctx), abilities);
+}
+
+/** Итоговый режим d20 из частей эффектов и пользовательского выбора Adv/Dis (взаимно гасятся). */
+export function combineRollMode(parts: RollParts, userMode?: 'a' | 'd' | null): 'a' | 'd' | undefined {
+  const adv = (parts.mode === 'a' ? 1 : 0) + (userMode === 'a' ? 1 : 0);
+  const dis = (parts.mode === 'd' ? 1 : 0) + (userMode === 'd' ? 1 : 0);
+  return rollMode(adv, dis);
+}
+
 /** Бонусы к урону от эффектов атакующего. */
 export function damageRollParts(
   effects: EffectInstance[] | undefined,

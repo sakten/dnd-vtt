@@ -1,6 +1,7 @@
 ﻿import {
   abilityMod,
   autoFailSave,
+  checkRollParts,
   concentrationDc,
   concentratingEffects,
   conditionImmunities,
@@ -20,6 +21,7 @@
   type DamageDefense,
   type DiceRollResult,
   type EffectInstance,
+  type ModifierContext,
   type RollParts,
   type Token,
 } from 'shared';
@@ -47,6 +49,11 @@ export function tokenConditionImmunities(room: Room, token: Token): Set<Conditio
   const out = conditionImmunities(token.effects);
   for (const key of actorStats(room, token).statblock?.conditionImmunities ?? []) out.add(key);
   return out;
+}
+
+/** Части броска проверки характеристики/навыка от эффектов носителя (Enhance Ability и подобные). */
+export function checkPartsForToken(room: Room, token: Token, ctx: ModifierContext): RollParts {
+  return checkRollParts(token.effects, ctx, abilitiesForToken(room, token));
 }
 
 /** Бонус спасброска токена: мод. характеристики (+профишенси у персонажа). */

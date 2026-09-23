@@ -6,6 +6,7 @@ import {
   autoFailSave,
   characterLevel,
   collectAttackSources,
+  combineRollMode,
   d20Expr,
   damageRollParts,
   exhaustionRollPenalty,
@@ -35,6 +36,7 @@ import {
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
+import { checkPartsForToken } from '../room/effects';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { attackDamageRoll, attackHitRoll, attackUnseen, type WeaponDamageMods } from './attackResolve';
@@ -520,8 +522,9 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     const ability = utility.ability ?? 'dex';
     const mod = ctx.manager.abilityModForToken(room, input.caster, ability);
     const base = d20Expr(mod);
-    // Галка Adv/Dis над ROLL: преимущество/помеха на проверку (Скрыться, Поиск).
-    const roll = rollDice(withAdvantage(base, input.advantage ?? null));
+    // Галка Adv/Dis над ROLL: преимущество/помеха на проверку (Скрыться, Поиск); плюс эффекты.
+    const parts = checkPartsForToken(room, input.caster, { ability });
+    const roll = rollDice(withRollParts(withAdvantage(base, combineRollMode(parts, input.advantage ?? null)), parts));
     pushRollMessage(ctx, room, {
       author: input.author,
       roll,
