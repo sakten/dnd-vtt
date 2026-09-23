@@ -51,6 +51,14 @@ export interface ActorStats {
   statblock?: TokenStatblock;
 }
 
+/** Тип существа: форма — зверь, иначе статблок; персонаж без статблока — гуманоид. */
+export function creatureTypeOf(room: Room, token: Token | null | undefined): string | undefined {
+  if (!token) return undefined;
+  if (token.shape) return 'beast';
+  if (token.statblock?.creatureType) return token.statblock.creatureType;
+  return controllerIdOfToken(room, token) ? 'humanoid' : undefined;
+}
+
 export function actorStats(room: Room, token: Token): ActorStats {
   const controllerId = controllerIdOfToken(room, token);
   const sheet = controllerId ? room.sheets[controllerId] : undefined;

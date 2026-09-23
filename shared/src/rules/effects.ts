@@ -30,6 +30,8 @@ export interface ModifierContext {
   condition?: ConditionKey;
   /** Спасбросок против заклинаний/магических эффектов (Circle of Power). */
   magical?: boolean;
+  /** Тип существа атакующего (Protection from Evil and Good). */
+  attackerType?: string;
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -88,6 +90,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.condition && f.condition !== ctx.condition) return false;
   if (f.conditions && (!ctx.condition || !f.conditions.includes(ctx.condition))) return false;
   if (f.magical !== undefined && f.magical !== ctx.magical) return false;
+  if (f.creatureTypes && (!ctx.attackerType || !f.creatureTypes.includes(ctx.attackerType))) return false;
   return true;
 }
 
@@ -301,6 +304,20 @@ export function conditionImmunities(effects: EffectInstance[] | undefined): Set<
   return out;
 }
 
+/** Иммунитет к состоянию только от существа указанного типа (Protection from Evil and Good). */
+export function immuneFromSource(
+  effects: EffectInstance[] | undefined,
+  condition: ConditionKey,
+  sourceType: string | undefined
+): boolean {
+  if (!sourceType) return false;
+  return (effects ?? []).some(
+    (e) =>
+      e.conditionImmunitiesFrom?.conditions.includes(condition) === true &&
+      e.conditionImmunitiesFrom.types.includes(sourceType)
+  );
+}
+
 /** Магические эффекты не снижают скорость (Freedom of Movement). */
 export function immuneToSpeedReduction(effects: EffectInstance[] | undefined): boolean {
   return (effects ?? []).some((e) => e.immuneToSpeedReduction === true);
@@ -445,6 +462,15 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   for (const key of effect.conditions ?? []) parts.push({ key: `domain.condition.${key}` });
   for (const key of effect.conditionImmunities ?? []) {
     parts.push({ key: 'domain.effect.immuneTo', params: { condition: key } });
+  }
+  if (effect.conditionImmunitiesFrom) {
+    parts.push({
+      key: 'domain.effect.immuneFrom',
+      params: {
+        conditions: effect.conditionImmunitiesFrom.conditions.join(','),
+        types: effect.conditionImmunitiesFrom.types.join(','),
+      },
+    });
   }
   if (effect.immuneToSpeedReduction) parts.push({ key: 'domain.effect.noSpeedReduction' });
   if (effect.ignoresDifficultTerrain) parts.push({ key: 'domain.effect.ignoreDifficult' });

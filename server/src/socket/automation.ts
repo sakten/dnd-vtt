@@ -40,6 +40,7 @@ import {
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
+import { creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
@@ -846,7 +847,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
     if (!target) return resolveRay(i + 1);
     const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
-    const effectCtx = { rangeType, attackType: rangeType } as const;
+    const effectCtx = { rangeType, attackType: rangeType, attackerType: creatureTypeOf(room, caster) } as const;
     const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
     const unseen = castMap ? attackUnseen(room, caster, target, castMap) : undefined;

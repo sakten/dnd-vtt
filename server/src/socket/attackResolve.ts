@@ -46,7 +46,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
-import { actorStats } from '../room/actor';
+import { actorStats, creatureTypeOf } from '../room/actor';
 import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { removeBrokenEffects } from './effectsApply';
@@ -281,6 +281,7 @@ export function prepareWeaponAttack(
     rangeType: attack.rangeType,
     attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
     weapon: true,
+    attackerType: creatureTypeOf(room, attacker),
   } as const;
   const effectParts = attackRollParts(attacker?.effects, target?.effects, effectCtx, abilities);
   // Источники adv/dis — единый сборщик (тот же, что у клиентского предпросмотра).

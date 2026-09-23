@@ -5,6 +5,7 @@ import type { DamageDefense } from '../domain/damage';
 import type { ConditionKey, EffectDuration } from '../domain/effects';
 import type { Sense } from '../domain/sense';
 import type { AttackEntry, TokenFields, TokenStatblock } from '../domain/token';
+import { CREATURE_TYPES } from '../labels';
 import { CONDITION_KEYS, IMMUNITY_CONDITION_KEYS } from './conditions';
 import { bestiaryTokenPath } from './bestiaryIcon';
 import { buildAppearance } from './appearance';
@@ -102,6 +103,15 @@ export function parseMonsterSize(value: unknown): MonsterSize {
 
 export function cellsForSize(size: MonsterSize): number {
   return SIZE_CELLS[size];
+}
+
+/** Первый известный тип существа из строки каталога («fiend», «humanoid/…»). */
+function entryCreatureType(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  return raw
+    .split('/')
+    .map((part) => part.trim().toLowerCase())
+    .find((part) => CREATURE_TYPES.some((t) => t.key === part));
 }
 
 function parseType(value: unknown): string {
@@ -824,6 +834,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
     statblock: {
       abilities: entry.abilities,
       ...(entry.cr ? { cr: entry.cr } : {}),
+      ...(entryCreatureType(entry.type) ? { creatureType: entryCreatureType(entry.type) } : {}),
       ...(entry.saves ? { saves: entry.saves } : {}),
       ...(entry.conditionImmunities.length ? { conditionImmunities: [...entry.conditionImmunities] } : {}),
       ...(entry.spellcasting ? { spellcasting: entry.spellcasting } : {}),

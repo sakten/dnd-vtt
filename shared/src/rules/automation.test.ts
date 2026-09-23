@@ -960,6 +960,31 @@ describe('automationForSpell', () => {
     expect(upcast.effects?.[0]?.retaliate).toEqual({ damageType: 'cold', amount: 15 });
     expect(spellAutomated({ key: 'XPHB:Armor of Agathys', automation: 'manual' })).toBe(true);
   });
+
+  it('Protection from Evil and Good: помеха шести типам и scoped-иммунитет', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Protection from Evil and Good',
+      name: 'Protection from Evil and Good',
+      level: 1,
+      automation: 'manual',
+    });
+    const def = automationForSpell(spell);
+    expect(def.concentration).toBe(true);
+    const effect = def.effects?.[0];
+    const types = ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'];
+    expect(effect?.modifiers[0]).toEqual({
+      target: 'attack',
+      mode: 'disadvantage',
+      filter: { direction: 'against', creatureTypes: types },
+    });
+    expect(effect?.modifiers[1]).toEqual({
+      target: 'save',
+      mode: 'advantage',
+      filter: { conditions: ['charmed', 'frightened'] },
+    });
+    expect(effect?.conditionImmunitiesFrom).toEqual({ conditions: ['charmed', 'frightened'], types });
+    expect(spellAutomated({ key: 'XPHB:Protection from Evil and Good', automation: 'manual' })).toBe(true);
+  });
 });
 
 describe('automationForAction', () => {

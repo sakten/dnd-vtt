@@ -129,6 +129,21 @@ describe('атака: эффекты атакующего и защитника'
     expect(damageRollParts([hex], { targetId: 't3' }).dice).toEqual([]);
     expect(damageRollParts([hex], {}).dice).toEqual([]);
   });
+
+  it('фильтр по типу атакующего (Protection from Evil and Good)', () => {
+    const prot = effect({
+      modifiers: [
+        mod({
+          target: 'attack',
+          mode: 'disadvantage',
+          filter: { direction: 'against', creatureTypes: ['fiend', 'undead'] },
+        }),
+      ],
+    });
+    expect(attackRollParts(undefined, [prot], { attackerType: 'fiend' }).mode).toBe('d');
+    expect(attackRollParts(undefined, [prot], { attackerType: 'dragon' }).mode).toBeUndefined();
+    expect(attackRollParts(undefined, [prot], {}).mode).toBeUndefined();
+  });
 });
 
 describe('спасброски', () => {

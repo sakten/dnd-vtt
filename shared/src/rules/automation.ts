@@ -122,6 +122,9 @@ function spellEffect(
   };
 }
 
+/** Типы существ, против которых работают Protection from Evil and Good и подобные. */
+const EVIL_GOOD_TYPES = ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'];
+
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
   'XPHB:Polymorph': {
@@ -777,6 +780,31 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         ],
       },
     },
+  },
+  /** Protection from Evil and Good (XPHB): помеха атакам шести типов, иммунитет к charmed/frightened от них. */
+  'XPHB:Protection from Evil and Good': {
+    key: 'XPHB:Protection from Evil and Good',
+    name: 'Protection from Evil and Good',
+    resolution: 'effect',
+    concentration: true,
+    targeting: { kind: 'creature', range: 5 },
+    effects: [
+      {
+        name: 'Protection from Evil and Good',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [
+          {
+            target: 'attack',
+            mode: 'disadvantage',
+            filter: { direction: 'against', creatureTypes: EVIL_GOOD_TYPES },
+          },
+          { target: 'save', mode: 'advantage', filter: { conditions: ['charmed', 'frightened'] } },
+        ],
+        conditionImmunitiesFrom: { conditions: ['charmed', 'frightened'], types: EVIL_GOOD_TYPES },
+      },
+    ],
   },
   /** Circle of Power (XPHB): аура 30 фт — преимущество сейвов против магии, успех = без урона. */
   'XPHB:Circle of Power': {

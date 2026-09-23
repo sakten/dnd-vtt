@@ -58,8 +58,7 @@ export const ABILITIES: { key: AbilityKey }[] = [
   { key: 'cha' },
 ];
 
-export const SKILLS: { key: string; ability: AbilityKey }[] = [
-  { key: 'athletics', ability: 'str' },
+export const SKILLS: { key: string; ability: AbilityKey }[] = [  { key: 'athletics', ability: 'str' },
   { key: 'acrobatics', ability: 'dex' },
   { key: 'sleightOfHand', ability: 'dex' },
   { key: 'stealth', ability: 'dex' },
@@ -77,4 +76,22 @@ export const SKILLS: { key: string; ability: AbilityKey }[] = [
   { key: 'intimidation', ability: 'cha' },
   { key: 'performance', ability: 'cha' },
   { key: 'persuasion', ability: 'cha' },
+];
+
+/** Типы существ (2024): ключи совпадают с `BestiaryEntry.type` (первый из составного). */
+export const CREATURE_TYPES: { key: string }[] = [
+  { key: 'aberration' },
+  { key: 'beast' },
+  { key: 'celestial' },
+  { key: 'construct' },
+  { key: 'dragon' },
+  { key: 'elemental' },
+  { key: 'fey' },
+  { key: 'fiend' },
+  { key: 'giant' },
+  { key: 'humanoid' },
+  { key: 'monstrosity' },
+  { key: 'ooze' },
+  { key: 'plant' },
+  { key: 'undead' },
 ];

@@ -9,6 +9,7 @@
   effectDefenses,
   exhaustionRollPenalty,
   hasConcentrationAdvantage,
+  immuneFromSource,
   modifiedValue,
   rollDice,
   saveRollParts,
@@ -26,7 +27,7 @@
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
-import { actorStats } from './actor';
+import { actorStats, creatureTypeOf } from './actor';
 import { abilitiesForToken, turnStateFor } from './combat';
 import { controllerIdOfToken } from './helpers';
 import { revertShape, shapeGrid } from './shape';
@@ -49,6 +50,16 @@ export function tokenConditionImmunities(room: Room, token: Token): Set<Conditio
   const out = conditionImmunities(token.effects);
   for (const key of actorStats(room, token).statblock?.conditionImmunities ?? []) out.add(key);
   return out;
+}
+
+/** Токен-источник по id на любой карте комнаты (для scoped-иммунитетов по типу). */
+function findSourceToken(room: Room, sourceId: string | undefined): Token | undefined {
+  if (!sourceId) return undefined;
+  for (const map of room.scene.maps) {
+    const found = map.tokens.find((t) => t.id === sourceId);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 /** Части броска проверки характеристики/навыка от эффектов носителя (Enhance Ability и подобные). */
@@ -154,8 +165,12 @@ export function applyEffect(m: EffectsDeps, room: Room, token: Token, effect: Ef
   if (effect.conditions?.length) {
     // Иммунитет к состоянию (Freedom of Movement, Heroism, бестиарий): состояние не накладывается, эффект остаётся.
     const immune = tokenConditionImmunities(room, token);
+    // Protection from Evil and Good: иммунитет только от существ указанных типов.
+    const source = findSourceToken(room, effect.sourceId);
+    const sourceType = creatureTypeOf(room, source);
     for (const key of effect.conditions) {
       if (immune.has(key)) continue;
+      if (immuneFromSource(token.effects, key, sourceType)) continue;
       if (token.conditions.some((c) => c.effectId === effect.id && c.key === key)) continue;
       token.conditions.push({
         key,
@@ -261,7 +276,11 @@ export function tickEffects(
         // Провал повторного спасброска: состояние меняется (Sleep → без сознания).
         // Иммунитет к новому состоянию — эскалация пропускается, эффект остаётся как есть.
         const next = effect.escalate;
-        if (!tokenConditionImmunities(room, token).has(next.condition)) {
+        const sourceType = effect.sourceId ? creatureTypeOf(room, findSourceToken(room, effect.sourceId)) : undefined;
+        if (
+          !tokenConditionImmunities(room, token).has(next.condition) &&
+          !immuneFromSource(token.effects, next.condition, sourceType)
+        ) {
           effect.duration = next.duration ?? effect.duration;
           effect.conditions = [next.condition];
           effect.escalate = undefined;

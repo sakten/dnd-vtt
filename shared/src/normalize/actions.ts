@@ -10,7 +10,7 @@ import type {
 import type { ConditionKey } from '../domain/effects';
 import type { TokenStatblock } from '../domain/token';
 import { parseDiceExpression } from '../dice';
-import { DAMAGE_TYPES } from '../labels';
+import { CREATURE_TYPES, DAMAGE_TYPES } from '../labels';
 import { CONDITION_KEYS } from '../rules/conditions';
 import { normalizeEffectDuration } from './effects';
 import { SPELL_KEY_RE, clampInt, isAbilityKey, newId } from './internal';
@@ -161,6 +161,13 @@ export function normalizeStatblock(raw: unknown): TokenStatblock | undefined {
   }
   const statblock: TokenStatblock = { abilities };
   if (Object.keys(saves).length) statblock.saves = saves;
+  if (typeof s.creatureType === 'string') {
+    const type = s.creatureType
+      .split('/')
+      .map((part) => part.trim().toLowerCase())
+      .find((part) => CREATURE_TYPES.some((t) => t.key === part));
+    if (type) statblock.creatureType = type;
+  }
   if (Array.isArray(s.conditionImmunities)) {
     const immune = [
       ...new Set(

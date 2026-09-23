@@ -55,6 +55,10 @@ export function lightAreaLabel(key: LightAreaKind): string {
   return t(`domain.lightArea.${key}` as MessageKey);
 }
 
+export function creatureTypeLabel(key: string): string {
+  return label(`domain.creatureType.${key}`, key);
+}
+
 export function conditionLabel(key: string, fallback?: string): string {
   if (key === 'custom') return fallback?.trim() ? fallback : label(`domain.condition.${key}`, key);
   return label(`domain.condition.${key}`, key, fallback);
@@ -94,7 +98,14 @@ function effectPartText(part: EffectTextPart): string {
       .split(',')
       .map((key) => conditionLabel(key.trim()))
       .join(', ');
-    return t(part.key as MessageKey, { ...part.params, conditions: list });
+    const types =
+      part.params.types !== undefined
+        ? String(part.params.types)
+            .split(',')
+            .map((key) => creatureTypeLabel(key.trim()))
+            .join(', ')
+        : undefined;
+    return t(part.key as MessageKey, { ...part.params, conditions: list, ...(types !== undefined ? { types } : {}) });
   }
   if (part.params?.type === undefined) return t(part.key as MessageKey, part.params);
   return t(part.key as MessageKey, { ...part.params, type: damageLabel(String(part.params.type)) });

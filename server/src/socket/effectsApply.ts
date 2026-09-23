@@ -95,6 +95,12 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     magicWeapon: effectDef.magicWeapon,
     damageLink: effectDef.damageLink ? { tokenId: sourceId } : undefined,
     conditionImmunities: effectDef.conditionImmunities ? [...effectDef.conditionImmunities] : undefined,
+    conditionImmunitiesFrom: effectDef.conditionImmunitiesFrom
+      ? {
+          conditions: [...effectDef.conditionImmunitiesFrom.conditions],
+          types: [...effectDef.conditionImmunitiesFrom.types],
+        }
+      : undefined,
     triggers: effectDef.triggers
       ? { ...(effectDef.triggers.startOfTurn ? { startOfTurn: { ...effectDef.triggers.startOfTurn } } : {}) }
       : undefined,

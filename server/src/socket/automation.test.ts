@@ -341,6 +341,47 @@ describe('концентрация заклинаний с зонами', () => 
     expect(effect?.actions?.[0]?.def?.utility).toEqual({ kind: 'teleport', amount: 60 });
   });
 
+  it('Protection from Evil and Good: charmed от фиенда не проходит, от гуманоида — проходит', () => {
+    const abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, statblock: { abilities, creatureType: 'fiend' } }),
+        makeToken('t3', { x: 150, y: 150, statblock: { abilities, creatureType: 'humanoid' } }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, fiend, humanoid] = room.scene.maps[0]!.tokens;
+    const charm = (sourceId: string, key: string) => ({
+      sourceKey: key,
+      sourceId,
+      mapId: 'm1',
+      effectDef: { name: 'Charm', duration: { type: 'permanent' } as const, to: 'targets' as const, modifiers: [], conditions: ['charmed' as const] },
+      target: caster!,
+    });
+
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'XPHB:Protection from Evil and Good',
+      sourceId: caster!.id,
+      mapId: 'm1',
+      effectDef: {
+        name: 'Protection from Evil and Good',
+        duration: { type: 'concentration' },
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditionImmunitiesFrom: { conditions: ['charmed', 'frightened'], types: ['fiend', 'undead'] },
+      },
+      target: caster!,
+    });
+
+    applyEffectTo(f.ctx, room, charm(fiend!.id, 'TEST:CharmFiend'));
+    expect(caster!.conditions.some((c) => c.key === 'charmed')).toBe(false);
+    applyEffectTo(f.ctx, room, charm(humanoid!.id, 'TEST:CharmHumanoid'));
+    expect(caster!.conditions.some((c) => c.key === 'charmed')).toBe(true);
+  });
+
   it('Enhance Ability: выбранная характеристика — преимущество проверок цели', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

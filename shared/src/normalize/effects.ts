@@ -14,6 +14,7 @@ import { clampInt, isAbilityKey, newId } from './internal';
 import { normalizeSenses } from './sense';
 import type { LightSource } from '../domain/automation';
 import { CONDITION_KEYS } from '../rules/conditions';
+import { CREATURE_TYPES } from '../labels';
 
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
@@ -63,6 +64,12 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
     if (conditions.length) out.conditions = [...new Set(conditions)];
   }
   if (typeof f.magical === 'boolean') out.magical = f.magical;
+  if (Array.isArray(f.creatureTypes)) {
+    const types = f.creatureTypes.filter(
+      (t): t is string => typeof t === 'string' && CREATURE_TYPES.some((c) => c.key === t)
+    );
+    if (types.length) out.creatureTypes = [...new Set(types)];
+  }
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -178,6 +185,21 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         .filter((k): k is ConditionKey => typeof k === 'string' && (CONDITION_KEYS as string[]).includes(k))
         .slice(0, 10);
       if (immune.length) effect.conditionImmunities = [...new Set(immune)];
+    }
+    if (e.conditionImmunitiesFrom && typeof e.conditionImmunitiesFrom === 'object') {
+      const raw = e.conditionImmunitiesFrom as { conditions?: unknown; types?: unknown };
+      const conditions = Array.isArray(raw.conditions)
+        ? raw.conditions.filter((k): k is ConditionKey => typeof k === 'string' && (CONDITION_KEYS as string[]).includes(k))
+        : [];
+      const types = Array.isArray(raw.types)
+        ? raw.types.filter((t): t is string => typeof t === 'string' && CREATURE_TYPES.some((c) => c.key === t))
+        : [];
+      if (conditions.length && types.length) {
+        effect.conditionImmunitiesFrom = {
+          conditions: [...new Set(conditions)].slice(0, 10),
+          types: [...new Set(types)].slice(0, 14),
+        };
+      }
     }
     const startTrigger = (e.triggers as { startOfTurn?: unknown } | undefined)?.startOfTurn;
     if (startTrigger && typeof startTrigger === 'object') {

@@ -1,5 +1,6 @@
 import {
   ABILITIES,
+  CREATURE_TYPES,
   DEFAULT_ABILITIES,
   abilityMod,
   type AbilityKey,
@@ -8,7 +9,7 @@ import {
 } from 'shared';
 import { useState } from 'react';
 import { t } from '../i18n';
-import { abilityName } from '../i18n/domain';
+import { abilityName, creatureTypeLabel } from '../i18n/domain';
 import { parseSaveBonus } from '../lib/saves';
 import { Field } from './Field';
 import MonsterAbilityEditor from './MonsterAbilityEditor';
@@ -91,6 +92,26 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
           </Field>
         ))}
       </div>
+
+      <div className="sheet-section-title">{t('ui.statblock.creatureType')}</div>
+      <select
+        className="sp-select"
+        value={sb.creatureType ?? ''}
+        disabled={readOnly}
+        onChange={(e) => {
+          const next = { ...sb };
+          if (e.target.value) next.creatureType = e.target.value;
+          else delete next.creatureType;
+          onChange(next);
+        }}
+      >
+        <option value="">{t('ui.statblock.creatureTypeNone')}</option>
+        {CREATURE_TYPES.map((type) => (
+          <option key={type.key} value={type.key}>
+            {creatureTypeLabel(type.key)}
+          </option>
+        ))}
+      </select>
 
       <div className="sheet-section-title">{t('ui.statblock.saves')}</div>
       <div className="saves-grid">

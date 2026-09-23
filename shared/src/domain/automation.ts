@@ -105,6 +105,8 @@ export interface AutomationEffect {
   deathWard?: boolean;
   /** Состояния, к которым носитель получает иммунитет (Freedom of Movement, Heroism). */
   conditionImmunities?: ConditionKey[];
+  /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
+  conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
   /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */

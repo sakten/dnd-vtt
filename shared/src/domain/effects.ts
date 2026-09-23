@@ -87,6 +87,8 @@ export interface ModifierFilter {
   conditions?: ConditionKey[];
   /** Только спасброски против заклинаний и магических эффектов (Circle of Power). */
   magical?: boolean;
+  /** Тип существа атакующего (Protection from Evil and Good: помеха от шести типов). */
+  creatureTypes?: string[];
 }
 
 export interface Modifier {
@@ -204,6 +206,8 @@ export interface EffectInstance {
   deathWard?: boolean;
   /** Состояния, к которым носитель получает иммунитет (Freedom of Movement, Heroism). */
   conditionImmunities?: ConditionKey[];
+  /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
+  conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
   /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
