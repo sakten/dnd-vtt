@@ -201,29 +201,32 @@ function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, inp
 export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInput): { error?: ErrorPayload } {
   const room = ctx.getRoom();
   if (!room) return resolveSpellCast(ctx, input);
-  const offers = counterspellOffers(ctx, room, input);
+  let countered = false;
+  const offers = counterspellOffers(ctx, room, input).map((offer) => ({
+    ...offer,
+    apply: (choice: ReactionChoice): boolean => {
+      const currentRoom = ctx.getRoom();
+      if (!choice.optionId || !currentRoom) return true;
+      if (!applyCounterspell(ctx, currentRoom, choice, input)) return true;
+      countered = true;
+      ctx.systemMessage(currentRoom, {
+        code: 'spells.countered',
+        params: { name: input.caster.name, spell: input.spell.name },
+      });
+      // Отменено — остальным Counterspell не предлагаем.
+      return false;
+    },
+  }));
   if (!offers.length) return resolveSpellCast(ctx, input);
   const opened = openReactionWindow(ctx, room, {
     mapId: input.mapId,
     trigger: 'spellCast',
     sourceName: `${input.caster.name}: накладывает ${input.spell.name}`,
     offers,
-    resume: (choices) => {
+    done: () => {
+      if (countered) return;
       const currentRoom = ctx.getRoom();
-      if (!currentRoom) return;
-      let countered = false;
-      for (const choice of choices) {
-        if (!choice.optionId || countered) continue;
-        countered = applyCounterspell(ctx, currentRoom, choice, input);
-      }
-      if (countered) {
-        ctx.systemMessage(currentRoom, {
-          code: 'spells.countered',
-          params: { name: input.caster.name, spell: input.spell.name },
-        });
-        return;
-      }
-      resolveSpellCast(ctx, input);
+      if (currentRoom) resolveSpellCast(ctx, input);
     },
   });
   return opened ? {} : resolveSpellCast(ctx, input);

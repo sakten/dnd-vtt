@@ -12,7 +12,7 @@ import {
 } from '../attackResolve';
 import { applySmiteChoice, availableSmites } from '../smites';
 import { openReactionWindow } from './queue';
-import { audienceOf } from './internal';
+import { audienceOf, type ReactionChoice } from './internal';
 import { applyAttackRollChoices, openRedirectWindow, preRollOffers } from './features';
 import { offerDamageReactions, openAttackHitWindows, openAttackMissWindows } from './windows';
 
@@ -69,6 +69,8 @@ function continueAfterRoll(
       return;
     }
     const windowMapId = targetMapId ?? plan.attackerMapId;
+    const activated: string[] = [];
+    let smiteDice = '';
     openReactionWindow(ctx, currentRoom, {
       mapId: windowMapId,
       trigger: 'attackHit',
@@ -92,21 +94,24 @@ function continueAfterRoll(
               spellKey: smite.spellKey,
             })),
           ],
+          apply: (choice: ReactionChoice): boolean => {
+            const roomAfter = ctx.getRoom();
+            if (!choice.optionId || !roomAfter) return true;
+            if (choice.optionId.startsWith('rider:')) {
+              activated.push(choice.optionId.slice('rider:'.length));
+              return true;
+            }
+            if (choice.optionId.startsWith('smite:') && plan.attacker && target && targetMapId) {
+              const applied = applySmiteChoice(ctx, roomAfter, targetMapId, plan.attacker, target, choice.optionId);
+              if (applied?.dice) smiteDice = smiteDice ? `${smiteDice} + ${applied.dice}` : applied.dice;
+            }
+            return true;
+          },
         },
       ],
-      resume: (riderChoices) => {
+      done: () => {
         const roomAfter = ctx.getRoom();
         if (!roomAfter) return;
-        const activated = riderChoices
-          .map((choice) => choice.optionId)
-          .filter((id): id is string => !!id && id.startsWith('rider:'))
-          .map((id) => id.slice('rider:'.length));
-        let smiteDice = '';
-        for (const choice of riderChoices) {
-          if (!choice.optionId?.startsWith('smite:') || !plan.attacker || !target || !targetMapId) continue;
-          const applied = applySmiteChoice(ctx, roomAfter, targetMapId, plan.attacker, target, choice.optionId);
-          if (applied?.dice) smiteDice = smiteDice ? `${smiteDice} + ${applied.dice}` : applied.dice;
-        }
         applyDamage({ ...mods, riders: activated, ...(smiteDice ? { smiteDice } : {}) });
         ctx.syncCombat(roomAfter, windowMapId);
       },
@@ -186,14 +191,22 @@ export function resolveWeaponAttackWithReactions(
   if (preOffers.length) {
     const holder: AttackResolveResult = {};
     const mapId = prep.input.targetMapId ?? prep.input.attackerMapId ?? '';
+    let imposed = false;
     openReactionWindow(ctx, room, {
       mapId,
       trigger: 'attackRoll',
       sourceName: prep.input.attacker?.name,
-      offers: preOffers,
-      resume: (choices) => {
-        const currentRoom = ctx.getRoom();
-        const imposed = currentRoom ? applyAttackRollChoices(ctx, currentRoom, prep, choices, mapId) : false;
+      offers: preOffers.map((offer) => ({
+        ...offer,
+        apply: (choice: ReactionChoice): boolean => {
+          const currentRoom = ctx.getRoom();
+          if (currentRoom && choice.optionId) {
+            imposed = applyAttackRollChoices(ctx, currentRoom, prep, [choice], mapId) || imposed;
+          }
+          return true;
+        },
+      })),
+      done: () => {
         Object.assign(holder, rollAndContinue(imposed));
       },
     });

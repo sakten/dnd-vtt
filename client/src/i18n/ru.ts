@@ -531,7 +531,8 @@
   'ui.conditionChoice.title': 'Снять состояние',
   'ui.reaction.triggerFallback': 'триггер',
   'ui.reaction.timer': '{seconds} с',
-  'ui.reaction.skipAll': 'Пропустить все',
+  'ui.reaction.skip': 'Пропустить',
+  'ui.reaction.waiting': '{name} реагирует…',
   'ui.reaction.ignore': 'Игнорировать',
 
   'ui.aim.shape.sphere': 'Сфера',

@@ -19,9 +19,10 @@ import { executeAutomation } from '../automation';
 import { actorStats } from '../../room/actor';
 import { shapeStatblock } from '../../room/shape';
 import { gridSizeOfMap, sheetOfToken } from '../../rooms';
+import { hasHpTracking } from '../damage';
 import { attackUnseen, resolveWeaponAttack } from '../attackResolve';
 import { isReactionPending, openReactionWindow, type ReactionOfferInput } from './queue';
-import { audienceOf, hasPayableSpecial, reactionSlotFree } from './internal';
+import { audienceOf, hasPayableSpecial, reactionSlotFree, type ReactionChoice } from './internal';
 import { applyReactionChoice, reactionSpellOptions } from './spellReactions';
 
 /** Источник атаки по возможности: оружие/атаки текущего облика или melee-способность статблока. */
@@ -167,12 +168,14 @@ export function triggerOpportunityAttacks(
     mapId,
     trigger: 'leaveReach',
     sourceName: mover.name,
-    offers,
-    resume: (choices) => {
-      const currentRoom = ctx.getRoom();
-      if (!currentRoom) return;
-      for (const choice of choices) {
-        if (!choice.optionId) continue;
+    offers: offers.map((offer) => ({
+      ...offer,
+      apply: (choice: ReactionChoice): boolean => {
+        const currentRoom = ctx.getRoom();
+        if (!choice.optionId || !currentRoom) return true;
+        const reactor = ctx.manager.findToken(currentRoom, mapId, choice.tokenId);
+        const target = ctx.manager.findToken(currentRoom, mapId, mover.id);
+        if (!reactor || !target) return true;
         const opportunityIndex =
           choice.optionId === 'opportunity'
             ? 0
@@ -180,16 +183,17 @@ export function triggerOpportunityAttacks(
               ? Number(choice.optionId.slice('opportunity:'.length))
               : null;
         if (opportunityIndex !== null && Number.isInteger(opportunityIndex)) {
-          const reactor = ctx.manager.findToken(currentRoom, mapId, choice.tokenId);
-          const target = ctx.manager.findToken(currentRoom, mapId, mover.id);
-          if (reactor && target) {
-            executeOpportunityAttack(ctx, currentRoom, mapId, reactor, target, opportunityIndex);
-          }
+          executeOpportunityAttack(ctx, currentRoom, mapId, reactor, target, opportunityIndex);
         } else {
           applyReactionChoice(ctx, currentRoom, choice, []);
         }
-      }
-      ctx.syncCombat(currentRoom, mapId);
+        // Двигатель повержен — остальных не спрашиваем.
+        return !(hasHpTracking(currentRoom, target) && target.hpCurrent <= 0);
+      },
+    })),
+    done: () => {
+      const currentRoom = ctx.getRoom();
+      if (currentRoom) ctx.syncCombat(currentRoom, mapId);
     },
   });
 }

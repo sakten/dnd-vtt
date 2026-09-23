@@ -153,16 +153,23 @@ export function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, ta
     mapId,
     trigger: 'damage',
     sourceName: source.name,
-    offers: [{ token: target, audience, options }],
-    resume: (choices) => {
+    offers: [
+      {
+        token: target,
+        audience,
+        options,
+        apply: (choice: ReactionChoice): boolean => {
+          const currentRoom = ctx.getRoom();
+          if (!choice.optionId || !currentRoom) return true;
+          if (choice.optionId.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, source);
+          else applyReactionChoice(ctx, currentRoom, choice, [source]);
+          return true;
+        },
+      },
+    ],
+    done: () => {
       const currentRoom = ctx.getRoom();
-      if (!currentRoom) return;
-      for (const choice of choices) {
-        if (!choice.optionId) continue;
-        if (choice.optionId.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, source);
-        else applyReactionChoice(ctx, currentRoom, choice, [source]);
-      }
-      ctx.syncCombat(currentRoom, mapId);
+      if (currentRoom) ctx.syncCombat(currentRoom, mapId);
     },
   });
 }
@@ -179,14 +186,30 @@ export function openAttackMissWindows(
   const melee = plan.rangeType !== 'ranged';
   const features = availableFeatureReactions(room, target, 'attackMiss').filter((def) => def.kind === 'counterAttack');
   const offers: ReactionOfferInput[] = [];
+  let bonus = 0;
+  let inspiration = 0;
   if (melee && features.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
     offers.push({
       token: target,
       audience: audienceOf(ctx, room, targetMapId, target),
       options: features.map((def) => featureOption(def, room, target)),
+      apply: (choice: ReactionChoice): boolean => {
+        const currentRoom = ctx.getRoom();
+        if (currentRoom && choice.optionId) applyCounterAttack(ctx, currentRoom, choice, plan.attacker);
+        return true;
+      },
     });
   }
-  offers.push(...rollBonusOffers(ctx, room, plan));
+  for (const offer of rollBonusOffers(ctx, room, plan)) {
+    offers.push({
+      ...offer,
+      apply: (choice: ReactionChoice): boolean => {
+        const currentRoom = ctx.getRoom();
+        if (currentRoom) bonus += applyRollBonusChoices(ctx, currentRoom, [choice]);
+        return true;
+      },
+    });
+  }
   // Бардовское вдохновение: кости на самом атакующем (без реакции).
   if (plan.attacker && plan.attackerMapId) {
     const dice = bonusDieOptions(plan.attacker);
@@ -195,6 +218,11 @@ export function openAttackMissWindows(
         token: plan.attacker,
         audience: audienceOf(ctx, room, plan.attackerMapId, plan.attacker),
         options: dice,
+        apply: (choice: ReactionChoice): boolean => {
+          const currentRoom = ctx.getRoom();
+          if (currentRoom) inspiration += applyBonusDieChoices(ctx, currentRoom, plan, [choice]);
+          return true;
+        },
       });
     }
   }
@@ -204,17 +232,12 @@ export function openAttackMissWindows(
     trigger: 'attackMiss',
     sourceName: plan.attacker?.name,
     offers,
-    resume: (choices) => {
+    done: () => {
       const currentRoom = ctx.getRoom();
       if (!currentRoom) {
         onResolved({ bonus: 0, inspiration: 0 });
         return;
       }
-      for (const choice of choices) {
-        if (choice.optionId?.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, plan.attacker);
-      }
-      const bonus = applyRollBonusChoices(ctx, currentRoom, choices);
-      const inspiration = applyBonusDieChoices(ctx, currentRoom, plan, choices);
       ctx.syncCombat(currentRoom, targetMapId);
       onResolved({ bonus, inspiration });
     },
@@ -309,31 +332,45 @@ export function openAttackHitWindows(
       });
     }
   }
+  const mods: WeaponDamageMods = {};
+  const applyChoice = (choice: ReactionChoice): boolean => {
+    const currentRoom = ctx.getRoom();
+    if (!choice.optionId || !currentRoom) return true;
+    const combat = applyCombatInspirationChoices(ctx, currentRoom, plan, target, [choice]);
+    if (combat.extraDamage) mods.extraDamage = (mods.extraDamage ?? 0) + combat.extraDamage;
+    if (combat.extraAc) mods.extraAc = (mods.extraAc ?? 0) + combat.extraAc;
+    const extra = attackWindowMods(ctx, currentRoom, targetMapId, [choice]);
+    if (extra.halveDamage) mods.halveDamage = true;
+    if (extra.flatReduction) mods.flatReduction = (mods.flatReduction ?? 0) + extra.flatReduction;
+    if (extra.extraAc) mods.extraAc = (mods.extraAc ?? 0) + extra.extraAc;
+    if (extra.redirect) mods.redirect = extra.redirect;
+    if (choice.optionId.startsWith('spell:')) {
+      applyReactionChoice(ctx, currentRoom, choice, [target], plan.damageType);
+    }
+    return true;
+  };
   const offers: ReactionOfferInput[] = [];
   if (options.length && reactionSlotFree(ctx.manager, room, targetMapId, target)) {
-    offers.push({ token: target, audience: audienceOf(ctx, room, targetMapId, target), options });
+    offers.push({
+      token: target,
+      audience: audienceOf(ctx, room, targetMapId, target),
+      options,
+      apply: applyChoice,
+    });
   }
-  offers.push(...helperOffers, ...attackerOffers);
+  for (const offer of helperOffers) offers.push({ ...offer, apply: applyChoice });
+  for (const offer of attackerOffers) offers.push({ ...offer, apply: applyChoice });
   if (!offers.length) return false;
   return openReactionWindow(ctx, room, {
     mapId: targetMapId,
     trigger: 'attackHit',
     sourceName: plan.attacker?.name,
     offers,
-    resume: (choices) => {
+    done: () => {
       const currentRoom = ctx.getRoom();
       if (!currentRoom) {
         onResolved({});
         return;
-      }
-      const combat = applyCombatInspirationChoices(ctx, currentRoom, plan, target, choices);
-      const mods = attackWindowMods(ctx, currentRoom, targetMapId, choices);
-      if (combat.extraDamage) mods.extraDamage = (mods.extraDamage ?? 0) + combat.extraDamage;
-      if (combat.extraAc) mods.extraAc = (mods.extraAc ?? 0) + combat.extraAc;
-      for (const choice of choices) {
-        if (choice.optionId?.startsWith('spell:')) {
-          applyReactionChoice(ctx, currentRoom, choice, [target], plan.damageType);
-        }
       }
       ctx.syncCombat(currentRoom, targetMapId);
       onResolved(mods);

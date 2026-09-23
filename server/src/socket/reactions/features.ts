@@ -258,17 +258,18 @@ export function openRedirectWindow(
             resourceAmount: 1,
           },
         ],
+        apply: (choice: ReactionChoice): boolean => {
+          const currentRoom = ctx.getRoom();
+          if (currentRoom && choice.optionId === 'feature:monk:deflectAttacks:redirect') {
+            applyDeflectRedirect(ctx, currentRoom, choice, plan, def);
+          }
+          return true;
+        },
       },
     ],
-    resume: (choices) => {
+    done: () => {
       const currentRoom = ctx.getRoom();
-      if (!currentRoom) return;
-      for (const choice of choices) {
-        if (choice.optionId === 'feature:monk:deflectAttacks:redirect') {
-          applyDeflectRedirect(ctx, currentRoom, choice, plan, def);
-        }
-      }
-      ctx.syncCombat(currentRoom, mapId);
+      if (currentRoom) ctx.syncCombat(currentRoom, mapId);
       opts.onDone?.();
     },
   });

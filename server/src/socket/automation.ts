@@ -49,7 +49,7 @@ import { emitSpellFx } from './fx';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { startMovementTurns } from './moveTurns';
-import { audienceOf } from './reactions/internal';
+import { audienceOf, type ReactionChoice } from './reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { openAttackHitWindows, openAttackMissWindows, offerDamageReactions } from './reactions/windows';
 import { openRedirectWindow } from './reactions/features';
@@ -233,32 +233,29 @@ function openSaveInspiration(
     token: s.target,
     audience: audienceOf(ctx, room, mapId, s.target),
     options: bonusDieOptions(s.target),
+    apply: (choice: ReactionChoice): boolean => {
+      const currentRoom = ctx.getRoom();
+      const id = choice.optionId ?? '';
+      if (!currentRoom || !id.startsWith('bonusdie:')) return true;
+      const target = ctx.manager.findToken(currentRoom, choice.mapId, choice.tokenId);
+      if (!target) return true;
+      const bonus = spendBonusDie(ctx, currentRoom, choice.mapId, target, id.slice('bonusdie:'.length));
+      if (bonus > 0 && !s.autoFail && s.roll.total + bonus >= dc) {
+        s.success = true;
+        ctx.systemMessage(currentRoom, {
+          code: 'automation.bardicSuccess',
+          params: { name: target.name },
+        });
+      }
+      return true;
+    },
   }));
   const opened = openReactionWindow(ctx, room, {
     mapId,
     trigger: 'saveFail',
     sourceName: subject,
     offers,
-    resume: (choices) => {
-      const currentRoom = ctx.getRoom();
-      if (!currentRoom) return;
-      for (const choice of choices) {
-        const id = choice.optionId ?? '';
-        if (!id.startsWith('bonusdie:')) continue;
-        const save = failed.find((s) => s.target.id === choice.tokenId);
-        const target = ctx.manager.findToken(currentRoom, choice.mapId, choice.tokenId);
-        if (!save || !target) continue;
-        const bonus = spendBonusDie(ctx, currentRoom, choice.mapId, target, id.slice('bonusdie:'.length));
-        if (bonus > 0 && !save.autoFail && save.roll.total + bonus >= dc) {
-          save.success = true;
-          ctx.systemMessage(currentRoom, {
-            code: 'automation.bardicSuccess',
-            params: { name: target.name },
-          });
-        }
-      }
-      resume();
-    },
+    done: () => resume(),
   });
   return opened;
 }

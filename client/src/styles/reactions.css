@@ -73,6 +73,14 @@
   gap: 8px;
 }
 
+/* Зрителям окно видно, но без вариантов: кто-то другой решает. */
+.rp-waiting {
+  padding: 12px 6px;
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+}
+
 .rp-option {
   display: flex;
   align-items: center;

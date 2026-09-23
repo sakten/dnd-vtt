@@ -69,6 +69,15 @@ describe('атака по возможности в форме', () => {
     expect(opportunityAttack(f.ctx, room, monster)?.name).toBe(BITE.name);
   });
 
+  it('способности призванного существа скейлятся кругом (плейсхолдеров нет)', () => {
+    const fields = bestiaryTokenFields(SPIRIT, { slotLevel: 4, spellAttackBonus: 7 });
+    const dice = (fields.statblock?.actions ?? [])
+      .flatMap((a) => [a.ability?.damage?.dice, a.ability?.attack?.damage])
+      .filter((d): d is string => !!d);
+    expect(dice.length).toBeGreaterThan(0);
+    expect(dice.every((d) => !d.includes('summonSpellLevel'))).toBe(true);
+  });
+
   it('executeOpportunityAttack в форме бьёт способностью зверя (имя в чате)', () => {
     const { room, token, f } = setup();
     const mover = makeToken('t2', {
@@ -122,6 +131,8 @@ describe('атака по возможности в форме', () => {
 
     expect(room.chat.some((m) => JSON.stringify(m).includes(SPIRIT_MELEE[1]!.name))).toBe(true);
     expect(room.chat.some((m) => JSON.stringify(m).includes(SPIRIT_MELEE[0]!.name))).toBe(false);
+    // Окно закрылось: ошибка применения не должна его подвешивать.
+    expect(pendingOffers(room.code)).toHaveLength(0);
   });
 
   it('сторона OA — фракция: союзный питомец и нейтрал не провоцируют', () => {

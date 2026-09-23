@@ -133,7 +133,7 @@ export interface GameState {
   lightMode: LightMode;
   critHit: CritHit | null;
   /** Активные окна реакций (R1). */
-  reactionOffers: ReactionOffer[];
+  reactionOffer: ReactionOffer | null;
   /** Анимация выпавших d20 (по личному шансу): взятые кубики подсвечены, отброшенные тускнеют. */
   rollAnim: { id: string; dice: DiceRollFace[]; startedAt: number } | null;
   /** Косметический эффект применения в очереди: не стартовать раньше `notBefore` (мс, performance.now). */

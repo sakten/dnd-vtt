@@ -113,7 +113,10 @@ export interface ReactionOffer {
   tokenName: string;
   /** Имя спровоцировавшего (атакующий/движущийся). */
   sourceName?: string;
+  /** Варианты; пусто у зрителей — окно видно всем, отвечает только реактор и DM. */
   options: ReactionOption[];
+  /** true — получатель может отвечать (реактор и DM), false — окно только наблюдается. */
+  active: boolean;
   expiresAt: number;
 }
 

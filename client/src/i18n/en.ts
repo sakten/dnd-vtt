@@ -534,7 +534,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.conditionChoice.title': 'End a condition',
   'ui.reaction.triggerFallback': 'trigger',
   'ui.reaction.timer': '{seconds}s',
-  'ui.reaction.skipAll': 'Skip all',
+  'ui.reaction.skip': 'Skip',
+  'ui.reaction.waiting': '{name} is reacting…',
   'ui.reaction.ignore': 'Ignore',
 
   'ui.aim.shape.sphere': 'Sphere',

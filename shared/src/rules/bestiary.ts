@@ -782,9 +782,25 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
     ...(level !== undefined ? { damage: resolveSummonDamage(attack.damage, level) } : {}),
   }));
   const actions = entry.actions.map((action) => {
-    const attackBonus = action.ability?.attack?.bonus;
-    if (bonusHit === null || attackBonus !== '0') return action;
-    return { ...action, ability: { ...action.ability, attack: { ...action.ability!.attack!, bonus: bonusHit.replace('+', '') } } };
+    const ability = action.ability;
+    if (!ability) return action;
+    let next = ability;
+    // Способности шаблона тоже скейлятся кругом: «1d8+3+summonSpellLevel» → число.
+    if (level !== undefined) {
+      next = {
+        ...next,
+        ...(ability.damage
+          ? { damage: { ...ability.damage, dice: resolveSummonDamage(ability.damage.dice, level) } }
+          : {}),
+        ...(ability.attack?.damage
+          ? { attack: { ...ability.attack, damage: resolveSummonDamage(ability.attack.damage, level) } }
+          : {}),
+      };
+    }
+    if (bonusHit !== null && ability.attack?.bonus === '0') {
+      next = { ...next, attack: { ...next.attack!, bonus: bonusHit.replace('+', '') } };
+    }
+    return next === ability ? action : { ...action, ability: next };
   });
   return {
     name: entry.name,

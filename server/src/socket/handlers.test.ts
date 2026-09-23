@@ -5863,14 +5863,14 @@ describe('очередь окон реакций (R6.5)', () => {
       trigger: 'leaveReach',
       sourceName: 'A',
       offers: [offer(t1, 'OA1')],
-      resume: () => resumed.push('first'),
+      done: () => resumed.push('first'),
     });
     const second = openReactionWindow(f.ctx, room, {
       mapId: 'm1',
       trigger: 'damage',
       sourceName: 'B',
       offers: [offer(t2, 'OA2')],
-      resume: () => resumed.push('second'),
+      done: () => resumed.push('second'),
     });
 
     expect(first).toBe(true);
@@ -5885,6 +5885,150 @@ describe('очередь окон реакций (R6.5)', () => {
 
     f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
     expect(resumed).toEqual(['first', 'second']);
+    expect(pendingOffers('TEST')).toHaveLength(0);
+  });
+
+  it('очередь идёт по инициативе, вне боя — порядок карты', () => {
+    const room = makeRoom([makeToken('t1', { name: 'Низ' }), makeToken('t2', { name: 'Верх' })], { p1: 'lib1' });
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push(
+      { id: 'e1', tokenId: 't1', name: 'Низ', imageUrl: '', initiative: 5, bonus: '' },
+      { id: 'e2', tokenId: 't2', name: 'Верх', imageUrl: '', initiative: 20, bonus: '' }
+    );
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f.ctx);
+    const tokens = room.scene.maps[0]!.tokens;
+    const offer = (token: (typeof tokens)[number], name: string) => ({
+      token,
+      audience: ['p1'],
+      options: [{ id: 'op', name, kind: 'opportunity' as const }],
+    });
+
+    openReactionWindow(f.ctx, room, {
+      mapId: 'm1',
+      trigger: 'leaveReach',
+      sourceName: 'A',
+      offers: [offer(tokens[0]!, 'OA-низ'), offer(tokens[1]!, 'OA-верх')],
+    });
+
+    expect(pendingOffers('TEST')[0]!.tokenName).toBe('Верх');
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
+    expect(pendingOffers('TEST')[0]!.tokenName).toBe('Низ');
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
+    expect(pendingOffers('TEST')).toHaveLength(0);
+  });
+
+  it('зрителям окно приходит неактивным без вариантов, отвечать они не могут', () => {
+    const room = makeRoom([makeToken('t1')], { p1: 'lib1' });
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f.ctx);
+    openReactionWindow(f.ctx, room, {
+      mapId: 'm1',
+      trigger: 'leaveReach',
+      sourceName: 'A',
+      offers: [
+        { token: room.scene.maps[0]!.tokens[0]!, audience: ['p1'], options: [{ id: 'op', name: 'OA', kind: 'opportunity' }] },
+      ],
+    });
+
+    const offers = f.emitted.filter((e) => e.event === 'reaction:offer');
+    const active = offers.find((e) => e.to === 's:self')!.payload as { active: boolean; options: unknown[] };
+    const spectate = offers.find((e) => e.to === 's:p2')!.payload as { active: boolean; options: unknown[] };
+    expect(active.active).toBe(true);
+    expect(active.options).toHaveLength(1);
+    expect(spectate.active).toBe(false);
+    expect(spectate.options).toHaveLength(0);
+
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: 'op' });
+    expect(pendingOffers('TEST')).toHaveLength(1);
+
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: null });
+    expect(pendingOffers('TEST')).toHaveLength(0);
+  });
+
+  it('таймаут оффера спрашивает следующего, в конце закрывает окно', () => {
+    vi.useFakeTimers();
+    try {
+      const room = makeRoom([makeToken('t1', { name: 'Первый' }), makeToken('t2', { name: 'Второй' })], { p1: 'lib1' });
+      const f = makeCtx(room, { playerId: 'p1' });
+      registerReactionHandlers(f.ctx);
+      const tokens = room.scene.maps[0]!.tokens;
+      const offer = (token: (typeof tokens)[number]) => ({
+        token,
+        audience: ['p1'],
+        options: [{ id: 'op', name: 'OA', kind: 'opportunity' as const }],
+      });
+
+      openReactionWindow(f.ctx, room, {
+        mapId: 'm1',
+        trigger: 'leaveReach',
+        sourceName: 'A',
+        offers: [offer(tokens[0]!), offer(tokens[1]!)],
+      });
+      expect(pendingOffers('TEST')[0]!.tokenName).toBe('Первый');
+
+      f.advance(30_000);
+      expect(pendingOffers('TEST')[0]!.tokenName).toBe('Второй');
+
+      f.advance(30_000);
+      expect(pendingOffers('TEST')).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('apply=false прерывает очередь оставшихся офферов', () => {
+    const room = makeRoom([makeToken('t1', { name: 'Первый' }), makeToken('t2', { name: 'Второй' })], { p1: 'lib1' });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f.ctx);
+    const tokens = room.scene.maps[0]!.tokens;
+    const offer = (token: (typeof tokens)[number], apply: () => boolean) => ({
+      token,
+      audience: ['p1'],
+      options: [{ id: 'op', name: 'OA', kind: 'opportunity' as const }],
+      apply,
+    });
+    let done = 0;
+
+    openReactionWindow(f.ctx, room, {
+      mapId: 'm1',
+      trigger: 'leaveReach',
+      sourceName: 'A',
+      offers: [offer(tokens[0]!, () => false), offer(tokens[1]!, () => true)],
+      done: () => {
+        done += 1;
+      },
+    });
+
+    f.invoke('reaction:respond', { id: pendingOffers('TEST')[0]!.id, optionId: 'op' });
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(done).toBe(1);
+  });
+
+  it('дисконнект реактора пропускает его оффер', () => {
+    const room = makeRoom([makeToken('t1', { name: 'Первый' }), makeToken('t2', { name: 'Второй' })], {});
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    const tokens = room.scene.maps[0]!.tokens;
+    const f = makeCtx(room, { dm: true });
+    registerReactionHandlers(f.ctx);
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+
+    openReactionWindow(f.ctx, room, {
+      mapId: 'm1',
+      trigger: 'leaveReach',
+      sourceName: 'A',
+      offers: [
+        { token: tokens[0]!, audience: ['p1'], options: [{ id: 'op', name: 'A', kind: 'opportunity' }] },
+        { token: tokens[1]!, audience: ['p1'], options: [{ id: 'op', name: 'B', kind: 'opportunity' }] },
+      ],
+    });
+    expect(pendingOffers('TEST')[0]!.tokenName).toBe('Первый');
+
+    f2.disconnect();
     expect(pendingOffers('TEST')).toHaveLength(0);
   });
 });

@@ -72,7 +72,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     dragGhost: null,
     dragPath: null,
     critHit: null,
-    reactionOffers: [],
+    reactionOffer: null,
     rollAnim: null,
     rollMode: null,
     fxQueue: [],
