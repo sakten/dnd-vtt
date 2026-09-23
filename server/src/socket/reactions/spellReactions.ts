@@ -25,7 +25,15 @@ import { pushRollMessage } from '../messages';
 import { spellClassFor, spellStatsFor } from '../spellStats';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
-import { audienceOf, featFreeCastKey, knownSpellKeys, reactionSlotFree, spellPayable, type ReactionChoice } from './internal';
+import {
+  audienceOf,
+  featFreeCastKey,
+  knownSpellKeys,
+  reactionCanSee,
+  reactionSlotFree,
+  spellPayable,
+  type ReactionChoice,
+} from './internal';
 
 /** Применимые к триггеру оплачиваемые варианты-заклинания. */
 export function reactionSpellOptions(room: Room, token: Token, trigger: ReactionTriggerKind): ReactionOption[] {
@@ -154,6 +162,8 @@ function counterspellOffers(ctx: ConnCtx, room: Room, input: SpellCastInput): Re
     if (!hostile(reactor, input.caster)) continue;
     if (isIncapacitated(reactor.conditions)) continue;
     if (!withinFeet(room, reactor, input.caster, COUNTERSPELL_RANGE_FEET)) continue;
+    // RAW: Counterspell — по существу, которое видишь.
+    if (!reactionCanSee(ctx, room, map.id, reactor, input.caster)) continue;
     if (!reactionSlotFree(ctx.manager, room, map.id, reactor)) continue;
     if (!knownSpellKeys(room, reactor).includes(COUNTERSPELL_KEY)) continue;
     if (!spellPayable(room, reactor, COUNTERSPELL_LEVEL, COUNTERSPELL_KEY)) continue;

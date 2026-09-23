@@ -2,10 +2,12 @@ import {
   choiceSpellGrants,
   featSpellGrants,
   grantedSpells,
+  hasCondition,
   maxCastableLevel,
   reactionFeatures,
   reactionSpellTrigger,
   restrictionsFor,
+  seesInvisible,
   shapeAllowsSpellcast,
   type Token,
 } from 'shared';
@@ -13,6 +15,7 @@ import type { Room } from '../../roomTypes';
 import { isDmViewer, type ConnCtx } from '../context';
 import { findSpell } from '../../spells';
 import { controllerIdOfToken, hasResourceFor, sheetOfToken } from '../../rooms';
+import { attackUnseen } from '../attackResolve';
 
 export interface ReactionChoice {
   tokenId: string;
@@ -27,6 +30,17 @@ export function audienceOf(ctx: ConnCtx, room: Room, mapId: string, token: Token
     .map((p) => p.id);
   if (byControl.length) return byControl;
   return room.players.filter((p) => isDmViewer(room, p.id)).map((p) => p.id);
+}
+
+/**
+ * Видит ли наблюдатель цель — гейт офферов реакций «по существу, которое видишь»:
+ * стены/тьма/сенсы общим расчётом атак, плюс состояние «невидим» (без See Invisibility).
+ */
+export function reactionCanSee(ctx: ConnCtx, room: Room, mapId: string, viewer: Token, target: Token): boolean {
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map) return false;
+  if (hasCondition(target.conditions, 'invisible') && !seesInvisible(viewer.effects)) return false;
+  return !attackUnseen(room, viewer, target, map).unseenTarget;
 }
 
 export function reactionSlotFree(manager: ConnCtx['manager'], room: Room, mapId: string, token: Token): boolean {

@@ -27,7 +27,7 @@ import { executeAutomation } from '../automation';
 import type { WeaponAttackPrep } from '../attackResolve';
 import { resolveWeaponAttackWithReactions } from './attack';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
-import { audienceOf, choiceToken, classLevelOf, reactionSlotFree, type ReactionChoice } from './internal';
+import { audienceOf, choiceToken, classLevelOf, reactionCanSee, reactionSlotFree, type ReactionChoice } from './internal';
 import { opportunityAttack } from './opportunity';
 
 /** Доступные персонажу реакционные черты под триггер (с оплатой ресурсов). */
@@ -213,15 +213,18 @@ export function applyCounterAttack(
 export function preRollOffers(ctx: ConnCtx, room: Room, prep: WeaponAttackPrep): ReactionOfferInput[] {
   const input = prep.input;
   const target = input.target;
-  if (!target || !input.targetMapId || !input.attacker || target.id === input.attacker.id) return [];
-  if (!input.targetMapId) return [];
-  if (!reactionSlotFree(ctx.manager, room, input.targetMapId, target)) return [];
+  const targetMapId = input.targetMapId;
+  const attacker = input.attacker;
+  if (!target || !targetMapId || !attacker || target.id === attacker.id) return [];
+  if (!reactionSlotFree(ctx.manager, room, targetMapId, target)) return [];
   const features = availableFeatureReactions(room, target, 'attackRoll').filter((def) => {
     if (def.kind !== 'disadvantage') return false;
-    return withinFeet(room, target, input.attacker!, 30);
+    if (!withinFeet(room, target, attacker, 30)) return false;
+    // RAW (Палящая вспышка): существо в 30 футах, которое видишь.
+    return reactionCanSee(ctx, room, targetMapId, target, attacker);
   });
   if (!features.length) return [];
-  return [featureOffer(ctx, room, input.targetMapId, target, features)];
+  return [featureOffer(ctx, room, targetMapId, target, features)];
 }
 
 /** Отражение атак: удар полностью погашен — окно «потратить 1 фокус и перенаправить». */

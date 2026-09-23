@@ -5238,6 +5238,91 @@ describe('реакции (R1)', () => {
     expect(room.resources.p2!.spellSlots[0]!.current).toBe(0);
   });
 
+  it('Counterspell: стена между кастером и реактором — окна нет', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 0, y: 0, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 0, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+        makeToken('t3', { libraryItemId: 'lib3', x: 0, y: 100, faction: 'enemy' }),
+      ],
+      { p1: 'lib1', p2: 'lib3' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    combatOf(room).entries.push({ id: 'e3', tokenId: 't3', name: 'C', imageUrl: '', initiative: 4, bonus: '' });
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: -20, y1: 50, x2: 20, y2: 50, kind: 'wall', open: false }];
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Fireball', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+    room.sheets.p2 = { ...casterSheet(), spells: [{ key: 'XPHB:Counterspell', className: 'wizard' }] };
+    room.resources.p2 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 100, y: 0 },
+    });
+
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(combatOf(room).turns.e3?.reactionUsed ?? false).toBe(false);
+    expect(room.resources.p2!.spellSlots[0]!.current).toBe(1);
+  });
+
+  it('Counterspell: невидимого кастера контрит только видящий (See Invisibility)', () => {
+    const build = (sees: boolean) => {
+      const room = makeRoom(
+        [
+          makeToken('t1', { libraryItemId: 'lib1', x: 0, y: 0, faction: 'ally' }),
+          makeToken('t2', { x: 100, y: 0, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+          makeToken('t3', { libraryItemId: 'lib3', x: 0, y: 100, faction: 'enemy' }),
+        ],
+        { p1: 'lib1', p2: 'lib3' }
+      );
+      room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+      room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+      combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+      combatOf(room).entries.push({ id: 'e3', tokenId: 't3', name: 'C', imageUrl: '', initiative: 4, bonus: '' });
+      room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Fireball', className: 'wizard' }] };
+      room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+      room.sheets.p2 = { ...casterSheet(), spells: [{ key: 'XPHB:Counterspell', className: 'wizard' }] };
+      room.resources.p2 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+      const tokens = room.scene.maps[0]!.tokens;
+      tokens[0]!.conditions = [{ key: 'invisible', name: 'Невидим', rounds: null }];
+      if (sees) {
+        tokens[2]!.effects = [
+          { id: 'see', name: 'See Invisibility', duration: { type: 'permanent' }, modifiers: [], seesInvisible: true },
+        ];
+      }
+      const f = makeCtx(room, { playerId: 'p1' });
+      registerSpellHandlers(f.ctx);
+      registerReactionHandlers(f.ctx);
+      f.invoke('spell:cast', {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Fireball',
+        slotLevel: 3,
+        origin: { x: 100, y: 0 },
+      });
+      return { room, offers: pendingOffers('TEST') };
+    };
+
+    const blind = build(false);
+    expect(blind.offers).toHaveLength(0);
+
+    const seeing = build(true);
+    expect(seeing.offers).toHaveLength(1);
+    expect(seeing.offers[0]!.options.map((o) => o.id)).toContain('spell:XPHB:Counterspell');
+    const dm = makeCtx(seeing.room, { dm: true });
+    registerReactionHandlers(dm.ctx);
+    dm.invoke('reaction:respond', { id: seeing.offers[0]!.id, optionId: null });
+    expect(pendingOffers(seeing.room.code)).toHaveLength(0);
+  });
+
   it('Counterspell: по союзному кастеру не предлагается, по враждебному — да', () => {
     const build = (reactorFaction: 'ally' | 'enemy') => {
       const room = makeRoom(

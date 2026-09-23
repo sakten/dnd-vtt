@@ -26,7 +26,7 @@ import {
   rollBonusOffers,
   spendFeatureCost,
 } from './features';
-import { audienceOf, classLevelOf, diceMax, reactionSlotFree, type ReactionChoice } from './internal';
+import { audienceOf, classLevelOf, diceMax, reactionCanSee, reactionSlotFree, type ReactionChoice } from './internal';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import { acBonusOf, applyReactionChoice, reactionSpellOptions } from './spellReactions';
 
@@ -306,6 +306,7 @@ export function openAttackHitWindows(
       if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {
         if (!plan.attacker || !hostileTokens(helper, plan.attacker)) return false;
         if (def.rangeFeet && !withinFeet(room, helper, plan.attacker, def.rangeFeet)) return false;
+        if (!reactionCanSee(ctx, room, targetMapId, helper, plan.attacker)) return false;
         if (def.kind === 'damagePenalty') return true;
         const expr = reactionDieExpr(def, room, helper);
         return !!expr && total - diceMax(expr) < ac;
@@ -314,6 +315,8 @@ export function openAttackHitWindows(
       // Черты защиты себя (Отражение атак) в цикле защитников-союзников не предлагаем.
       if (def.kind === 'reduceDamage' && def.targets !== 'creature') return false;
       if (def.rangeFeet && !withinFeet(room, helper, target, def.rangeFeet)) return false;
+      // RAW (Щит духов, Защитный манёвр): существо в пределах дистанции, которое видишь.
+      if (!reactionCanSee(ctx, room, targetMapId, helper, target)) return false;
       if (def.kind === 'reduceDamage') return total > 0;
       return total < ac + diceMax(def.dice);
     });
