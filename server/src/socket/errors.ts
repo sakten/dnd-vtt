@@ -52,6 +52,7 @@ export type ErrorCode =
   | 'alreadyStable'
   | 'restoreNoCondition'
   | 'restoreNoChoice'
+  | 'smiteOnHitOnly'
   | 'notYourToken'
   | 'rollEmpty'
   | 'rollNoDice'

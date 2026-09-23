@@ -4,6 +4,7 @@ import { t, type MessageKey } from '../i18n';
 import { reactionLabel } from '../i18n/domain';
 import { useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
+import { spellDisplayName } from '../i18n/names';
 import ActionIcon from './ActionIcon';
 import SpellIcon from './SpellIcon';
 
@@ -56,6 +57,12 @@ export default function ReactionPrompt() {
         <div className="rp-options">
           {offer.options.map((option) => {
             const spell = option.spellKey ? byKey.get(option.spellKey) : undefined;
+            // Смайт в окне: «Searing Smite · круг 2» (круг — из id `smite:<ключ>@<круг>`).
+            const level = Number(option.id.split('@')[1]);
+            const label =
+              spell && Number.isFinite(level) && level > 0
+                ? `${spellDisplayName(spell)} · ${t('ui.reaction.levelShort', { level })}`
+                : reactionLabel(option.id, option.name);
             return (
               <button key={option.id} className="rp-option" onClick={() => respond(offer.id, option.id)}>
                 {spell ? (
@@ -63,7 +70,7 @@ export default function ReactionPrompt() {
                 ) : (
                   <ActionIcon id="sword" className="rp-icon" />
                 )}
-                <span className="rp-name">{reactionLabel(option.id, option.name)}</span>
+                <span className="rp-name">{label}</span>
               </button>
             );
           })}

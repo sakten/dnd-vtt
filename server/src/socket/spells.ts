@@ -6,6 +6,7 @@ import {
   invocationCoversSpell,
   restrictionsFor,
   rollDice,
+  SMITE_SPELLS,
   spellActionCost,
 } from 'shared';
 import type { ConnCtx } from './context';
@@ -40,6 +41,11 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     const spell = findSpell(spellKey);
     if (!spell) return;
+    // Смайты не кастуются напрямую: применяются райдером после попадания оружием.
+    if (SMITE_SPELLS.has(spellKey)) {
+      fail(ctx, 'smiteOnHitOnly');
+      return;
+    }
     const cost = spellActionCost(spell);
 
     const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;

@@ -10,6 +10,7 @@ import {
   type WeaponAttackPlan,
   type WeaponDamageMods,
 } from '../attackResolve';
+import { applySmiteChoice, availableSmites } from '../smites';
 import { openReactionWindow } from './queue';
 import { audienceOf } from './internal';
 import { applyAttackRollChoices, openRedirectWindow, preRollOffers } from './features';
@@ -48,11 +49,22 @@ function continueAfterRoll(
     }
   };
 
-  // Необязательные наездники атакующего (Ошеломляющий удар): окно после попадания.
+  // Необязательные наездники и смайты атакующего (Ошеломляющий удар, Searing/Ensnaring): окно после попадания.
   const applyDamageWithRiders = (mods: WeaponDamageMods = {}) => {
     const currentRoom = ctx.getRoom();
     const riders = currentRoom && plan.attacker ? availableChoiceRiders(ctx, currentRoom, plan.attacker, plan.attack) : [];
-    if (!riders.length || !plan.attacker || !plan.attackerMapId || !currentRoom) {
+    const smites =
+      currentRoom && plan.attacker
+        ? availableSmites(
+            ctx,
+            currentRoom,
+            plan.attackerMapId ?? targetMapId ?? '',
+            plan.attacker,
+            plan.attack,
+            plan.attack.rangeType !== 'ranged'
+          )
+        : [];
+    if ((!riders.length && !smites.length) || !plan.attacker || !plan.attackerMapId || !currentRoom) {
       applyDamage(mods);
       return;
     }
@@ -65,13 +77,21 @@ function continueAfterRoll(
         {
           token: plan.attacker,
           audience: audienceOf(ctx, currentRoom, plan.attackerMapId, plan.attacker),
-          options: riders.map((rider) => ({
-            id: `rider:${rider.id}`,
-            name: rider.name,
-            kind: 'feature',
-            resourceKey: rider.resourceKey,
-            resourceAmount: rider.resourceAmount,
-          })),
+          options: [
+            ...riders.map((rider) => ({
+              id: `rider:${rider.id}`,
+              name: rider.name,
+              kind: 'feature' as const,
+              resourceKey: rider.resourceKey,
+              resourceAmount: rider.resourceAmount,
+            })),
+            ...smites.map((smite) => ({
+              id: smite.id,
+              name: smite.name,
+              kind: 'spell' as const,
+              spellKey: smite.spellKey,
+            })),
+          ],
         },
       ],
       resume: (riderChoices) => {
@@ -81,7 +101,13 @@ function continueAfterRoll(
           .map((choice) => choice.optionId)
           .filter((id): id is string => !!id && id.startsWith('rider:'))
           .map((id) => id.slice('rider:'.length));
-        applyDamage({ ...mods, riders: activated });
+        let smiteDice = '';
+        for (const choice of riderChoices) {
+          if (!choice.optionId?.startsWith('smite:') || !plan.attacker || !target || !targetMapId) continue;
+          const applied = applySmiteChoice(ctx, roomAfter, targetMapId, plan.attacker, target, choice.optionId);
+          if (applied?.dice) smiteDice = smiteDice ? `${smiteDice} + ${applied.dice}` : applied.dice;
+        }
+        applyDamage({ ...mods, riders: activated, ...(smiteDice ? { smiteDice } : {}) });
         ctx.syncCombat(roomAfter, windowMapId);
       },
     });

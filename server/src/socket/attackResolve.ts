@@ -435,6 +435,8 @@ export interface WeaponDamageMods {
   redirect?: { reactorId: string; mapId: string };
   /** Выбранные в окне наездники атакующего (choiceOnHit). */
   riders?: string[];
+  /** Смайт при попадании (Searing/Ensnaring): типизированные кости доп. урона. */
+  smiteDice?: string;
 }
 
 export interface WeaponDamageResult {
@@ -522,7 +524,7 @@ export function applyWeaponAttackDamage(
       ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders, plan.attack)
       : { expr: '', notes: [] };
     for (const note of ride.notes) ctx.systemMessage(room, { code: 'attack.riderNote', params: { note } });
-    const fullDamageExpr = ride.expr ? `${damageExpr} + ${ride.expr}` : damageExpr;
+    const fullDamageExpr = [damageExpr, ride.expr, mods.smiteDice].filter(Boolean).join(' + ');
     const damageRoll = savageAttackerRoll(ctx, room, plan, fullDamageExpr, crit);
     // Составной урон: части броска по типам; реакции (+/-) идут в основной тип.
     const parts = damageRoll.damageParts.map((part) => ({ ...part }));

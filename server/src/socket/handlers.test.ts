@@ -2174,6 +2174,153 @@ describe('action:use', () => {
     expect(target.hpCurrent).toBe(20); // 30 − (8 + Ловкость 2) после окна
   });
 
+  it('Searing Smite: окно после попадания, апкаст-огонь и эффект до спасброска CON', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 5,
+    };
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1', attacks: [sword] }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      attacks: [sword],
+      classes: [{ className: 'paladin', level: 5 }],
+      spells: [{ key: 'XPHB:Searing Smite', className: 'paladin' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [
+        { level: 1, current: 2, max: 2 },
+        { level: 2, current: 1, max: 1 },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 17 — попадание; d8 7; 2d6 — по 5
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id.startsWith('smite:XPHB:Searing Smite'))
+    );
+    expect(offer).toBeDefined();
+    expect(offer!.options.some((op) => op.id === 'smite:XPHB:Searing Smite@9')).toBe(false);
+    expect(offer!.options.some((op) => op.id === 'smite:XPHB:Searing Smite@1')).toBe(true);
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Searing Smite@2' });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.hpCurrent).toBe(10); // 30 − (1d8+3 = 10) − (2d6 огня = 10)
+    expect(room.resources.p1!.spellSlots[1]!.current).toBe(0);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+    const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Searing Smite');
+    expect(effect?.duration).toMatchObject({ type: 'untilSave', ability: 'con' });
+    expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6 + 1d6');
+  });
+
+  it('Ensnaring Strike: спас STR при попадании, провал — опутан', () => {
+    const bow: AttackEntry = {
+      name: 'Лук',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'piercing',
+      rangeType: 'ranged',
+      rangeNormal: 80,
+      rangeLong: 320,
+    };
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1', attacks: [bow], x: 100, y: 100 }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5', x: 150, y: 100 })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      attacks: [bow],
+      classes: [{ className: 'ranger', level: 5 }],
+      spells: [{ key: 'XPHB:Ensnaring Strike', className: 'ranger' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [{ level: 1, current: 2, max: 2 }],
+    };
+    const rand = vi
+      .spyOn(Math, 'random')
+      .mockReturnValueOnce(0.8) // попадание
+      .mockReturnValueOnce(0.1) // провал STR-спасброска
+      .mockReturnValueOnce(0.8); // урон 1d8
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id.startsWith('smite:XPHB:Ensnaring Strike'))
+    );
+    expect(offer).toBeDefined();
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Ensnaring Strike@1' });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.conditions.some((c) => c.key === 'restrained')).toBe(true);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
+    const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Ensnaring Strike');
+    expect(effect?.escape).toEqual({ ability: 'str', skill: 'athletics', dc: 14 });
+  });
+
+  it('Searing Smite не предлагается для дальнего оружия и не кастуется напрямую', () => {
+    const bow: AttackEntry = {
+      name: 'Лук',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'piercing',
+      rangeType: 'ranged',
+      rangeNormal: 80,
+      rangeLong: 320,
+    };
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1', attacks: [bow], x: 100, y: 100 }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5', x: 150, y: 100 })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      attacks: [bow],
+      classes: [{ className: 'paladin', level: 5 }],
+      spells: [{ key: 'XPHB:Searing Smite', className: 'paladin' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [{ level: 1, current: 2, max: 2 }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(pendingOffers('TEST').some((o) => o.options.some((op) => op.id.startsWith('smite:')))).toBe(false);
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f2.ctx);
+    f2.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Searing Smite', targetIds: ['t2'] });
+    expect((f2.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined)?.code).toBe('smiteOnHitOnly');
+  });
+
   it('Отражение атак: снижает урон и открывает окно перенаправления', () => {
     const sword: AttackEntry = {
       name: 'Меч',

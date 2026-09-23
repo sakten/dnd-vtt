@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
@@ -306,6 +306,8 @@ export default function ActionPanel() {
       : undefined;
 
   const spellDisabled = (spell: Spell): boolean => {
+    // Смайты применяются райдером после попадания оружием — из панели не кастуются.
+    if (SMITE_SPELLS.has(spell.key)) return true;
     // Блокируем по экономике действий (действие/бонус/реакция уже потрачены).
     const slot = spellSlotOf(spell);
     if (!canSpendSlot(turnCtx, slot === 'other' ? 'special' : slot, spell.key)) return true;
@@ -324,7 +326,12 @@ export default function ActionPanel() {
 
   const spellButton = (spell: Spell) => {
     const level = spell.level === 0 ? t('ui.action.cantrip') : t('ui.action.level', { n: spell.level });
-    const tip = [`${spellDisplayName(spell)} · ${level}`, ...spellMechanics(spell)].join('\n');
+    const smite = SMITE_SPELLS.has(spell.key);
+    const tip = [
+      `${spellDisplayName(spell)} · ${level}`,
+      ...spellMechanics(spell),
+      ...(smite ? [t('ui.action.smiteOnHit')] : []),
+    ].join('\n');
     return (
       <button
         key={`spell:${spell.key}`}
