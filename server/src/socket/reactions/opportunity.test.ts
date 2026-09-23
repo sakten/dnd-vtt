@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bestiaryTokenFields, type CharacterSheet } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
-import { makeCombatRoom, makeToken } from '../../test/fixtures';
+import { makeCombatRoom, makeResources, makeToken } from '../../test/fixtures';
 import { makeConnCtx } from '../../test/ctx';
 import { beginShape } from '../../room/shape';
 import { pendingOffers, registerReactionHandlers } from './queue';
@@ -230,5 +230,139 @@ describe('видимость для атаки по возможности', () 
     triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
 
     expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(false);
+  });
+});
+
+describe('вложенные окна: реакции на бросок OA', () => {
+  const sword = (name: string) => ({
+    name,
+    hit: 'd20+5',
+    damage: '1d6+3',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+  });
+
+  /** Бойцы (2 атаки — окно с выбором) + военный клирик рядом; двигатель уходит. */
+  function world(moverHp: number) {
+    const t1 = makeToken('t1', {
+      name: 'Боец1',
+      x: 100,
+      y: 100,
+      faction: 'ally',
+      isPlayerToken: true,
+      libraryItemId: 'lib1',
+      attacks: [sword('Скимитар'), sword('Кинжал')],
+    });
+    const t2 = makeToken('t2', {
+      name: 'Боец2',
+      x: 150,
+      y: 150,
+      faction: 'ally',
+      isPlayerToken: true,
+      libraryItemId: 'lib2',
+      attacks: [sword('Скимитар'), sword('Кинжал')],
+    });
+    const cleric = makeToken('t3', {
+      name: 'Клирик',
+      x: 200,
+      y: 100,
+      faction: 'ally',
+      isPlayerToken: true,
+      libraryItemId: 'lib3',
+    });
+    const mover = makeToken('t4', {
+      name: 'Гоблин',
+      x: 150,
+      y: 100,
+      faction: 'enemy',
+      ac: '16',
+      hpMax: String(moverHp),
+      hpCurrent: moverHp,
+    });
+    const room = makeCombatRoom([t1, t2, cleric, mover], { p1: 'lib1', p2: 'lib2', p3: 'lib3' });
+    room.scene.maps[0]!.combat.entries.push(
+      { id: 'e1', tokenId: 't1', name: 'Боец1', imageUrl: '', initiative: 30, bonus: '' },
+      { id: 'e2', tokenId: 't2', name: 'Боец2', imageUrl: '', initiative: 20, bonus: '' },
+      { id: 'e3', tokenId: 't3', name: 'Клирик', imageUrl: '', initiative: 10, bonus: '' }
+    );
+    room.sheets.p3 = {
+      name: 'Клирик',
+      senses: [],
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 },
+      proficiencyBonus: '3',
+      saves: {},
+      skills: {},
+      attacks: [],
+      classes: [{ className: 'cleric', level: 6, subclass: 'war' }],
+      spells: [],
+      hpMax: '30',
+      ac: '18',
+      speed: 30,
+      damageDefenses: [],
+    } as CharacterSheet;
+    room.resources.p3 = makeResources({
+      resources: [
+        { id: 'cd1', key: 'cleric:channelDivinity', name: 'Проведение', current: 1, max: 1, reset: 'short' },
+      ],
+    });
+    const f = makeConnCtx(room, { dm: true, all: true });
+    return { room, f, mover };
+  }
+
+  const pathAway = (mover: { x: number; y: number }) => [
+    { x: mover.x, y: mover.y },
+    { x: mover.x + 300, y: mover.y },
+  ];
+
+  it('промах OA открывает дочернее окно, Guided Strike решает до вопроса второму реактору', () => {
+    const { room, f, mover } = world(20);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 — промах
+    try {
+      triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+
+      const first = pendingOffers(room.code)[0]!;
+      expect(first.tokenName).toBe('Боец1');
+      f.invoke('reaction:respond', { id: first.id, optionId: 'opportunity:0' });
+
+      // Дочернее окно промаха: спрашивают клирика, а не второго бойца.
+      const miss = pendingOffers(room.code)[0]!;
+      expect(miss.trigger).toBe('attackMiss');
+      expect(miss.tokenName).toBe('Клирик');
+      expect(miss.options.map((o) => o.id)).toContain('feature:cleric.war:guidedStrike');
+
+      f.invoke('reaction:respond', { id: miss.id, optionId: 'feature:cleric.war:guidedStrike' });
+
+      // +10 превратил промах в попадание: урон прошёл, и только после этого — второй реактор.
+      expect(mover.hpCurrent).toBeLessThan(20);
+      expect(room.resources.p3!.resources[0]!.current).toBe(0);
+      const second = pendingOffers(room.code)[0]!;
+      expect(second.tokenName).toBe('Боец2');
+      while (pendingOffers(room.code).length) {
+        f.invoke('reaction:respond', { id: pendingOffers(room.code)[0]!.id, optionId: null });
+      }
+      expect(pendingOffers(room.code)).toHaveLength(0);
+    } finally {
+      rand.mockRestore();
+    }
+  });
+
+  it('поверженный двигатель в дочернем уроне — оставшихся не спрашиваем', () => {
+    const { room, f, mover } = world(1);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99); // попадание и смертельный урон
+    try {
+      triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+
+      const first = pendingOffers(room.code)[0]!;
+      expect(first.tokenName).toBe('Боец1');
+      f.invoke('reaction:respond', { id: first.id, optionId: 'opportunity:0' });
+
+      expect(mover.hpCurrent).toBeLessThanOrEqual(0);
+      expect(pendingOffers(room.code)).toHaveLength(0);
+      expect(room.scene.maps[0]!.combat.turns['e2']!.reactionUsed).toBe(false);
+    } finally {
+      rand.mockRestore();
+    }
   });
 });

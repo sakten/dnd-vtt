@@ -44,7 +44,7 @@ function continueAfterRoll(
       openRedirectWindow(ctx, room, targetMapId, plan, mods.redirect);
       return;
     }
-    if (damage.applied > 0 && target && targetMapId && plan.attacker && !input.ignoreRange) {
+    if (damage.applied > 0 && target && targetMapId && plan.attacker) {
       offerDamageReactions(ctx, room, targetMapId, target, plan.attacker);
     }
   };
@@ -118,12 +118,8 @@ function continueAfterRoll(
     });
   };
 
-  // Атака по возможности сама окон не открывает (нет вложенных пауз).
-  if (input.ignoreRange) {
-    applyDamage();
-    return result;
-  }
-
+  // Атака по возможности не проверяет дистанцию, но окна реакций открывает как обычная:
+  // вложенные паузы (промах/попадание) отыгрывают до продолжения очереди реакций.
   const openHitWindows = (): boolean => {
     if (!target || !targetMapId || result.hitSuccess !== true || result.crit) return false;
     const ac = ctx.manager.acForToken(room, target);
@@ -187,7 +183,7 @@ export function resolveWeaponAttackWithReactions(
   };
 
   // Окно до броска (attackRoll): Warding Flare и подобные.
-  const preOffers = input.ignoreRange ? [] : preRollOffers(ctx, room, prep);
+  const preOffers = preRollOffers(ctx, room, prep);
   if (preOffers.length) {
     const holder: AttackResolveResult = {};
     const mapId = prep.input.targetMapId ?? prep.input.attackerMapId ?? '';

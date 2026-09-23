@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import { type ReactionOffer, type ReactionOption, type ReactionTriggerKind, type Token } from 'shared';
 import type { Room } from '../../roomTypes';
 import { isDmViewer, type ConnCtx } from '../context';
@@ -39,10 +39,16 @@ interface Pending {
   offers: PendingOfferState[];
   /** Колбэк после последнего оффера (или досрочного завершения). */
   done?: () => void;
+  /** Прервать окно до следующего оффера (цель уже повержена и подобное). */
+  stop?: () => boolean;
   /** Индекс текущего оффера (-1 до первого). */
   index: number;
   /** Игроки, отключившиеся во время окна: их офферы пропускаем. */
   skipped: Set<string>;
+  /** Ответ на текущий оффер: null — ждём ответа, true/false — продолжать ли. */
+  cont: boolean | null;
+  /** `done` уже вызван; окно снимается со стека после дочерних. */
+  finished: boolean;
 }
 
 /** Параметры открытия окна реакций (офферы + завершение резолва). */
@@ -52,6 +58,7 @@ interface OpenWindowArgs {
   sourceName?: string;
   offers: ReactionOfferInput[];
   done?: () => void;
+  stop?: () => boolean;
 }
 
 /** Офферы по одному токену: у него бывает несколько источников вариантов (черты + кости). */
@@ -99,61 +106,81 @@ function orderByInitiative(room: Room, mapId: string, offers: ReactionOfferInput
 /**
  * Окна реакций: строго по одному офферу, в порядке инициативы, с немедленным
  * применением ответа. Окно видно всем игрокам, но отвечают только реактор и DM.
+ *
+ * Окна образуют стек: если резолв ответа (или `done`) сам порождает реакцию
+ * (например, OA-бросок открывает окно промаха), дочернее окно отыграет первым,
+ * а родительское продолжится после него — порядок как за столом.
  */
 class ReactionQueue {
-  private pending: Pending | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  /** Стек окон: верхнее — активное, ниже — приостановленные родители. */
+  private readonly stack: Pending[] = [];
+  /** Независимые триггеры (вне резолва окна) — откроются после текущего стека. */
   private readonly waiting: { ctx: ConnCtx; room: Room; args: OpenWindowArgs }[] = [];
+  /** Отключившиеся: их офферы в текущей цепочке окон не спрашиваем. */
+  private readonly gone = new Set<string>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private ctx: ConnCtx | null = null;
+  /** Окно, чей `apply`/`done` сейчас исполняется: новые окна — его дети. */
+  private resolving: Pending | null = null;
 
   constructor(readonly roomCode: string) {}
 
   get isPending(): boolean {
-    return this.pending !== null || this.waiting.length > 0;
+    return this.stack.length > 0 || this.waiting.length > 0;
   }
 
   get current(): Pending | null {
-    return this.pending;
+    return this.top;
+  }
+
+  private get top(): Pending | null {
+    return this.stack[this.stack.length - 1] ?? null;
   }
 
   /** Активный оффер комнаты (тесты/диагностика). */
   offers(): ReactionOffer[] {
-    const pending = this.pending;
-    if (!pending) return [];
-    const state = pending.offers[pending.index];
-    if (!state) return [];
-    return [this.toOffer(pending, state, true)];
+    const window = this.top;
+    const state = window?.offers[window.index];
+    if (!window || !state) return [];
+    return [this.toOffer(window, state, true)];
   }
 
   /** Активный оффер по id; ответ принимается только по нему. */
   lookup(offerId: string): { pending: Pending; state: PendingOfferState } | null {
-    const pending = this.pending;
-    if (!pending) return null;
-    const state = pending.offers[pending.index];
+    const window = this.top;
+    if (!window) return null;
+    const state = window.offers[window.index];
     if (!state || state.id !== offerId) return null;
-    return { pending, state };
+    return { pending: window, state };
   }
 
   /**
-   * Открывает окно; false — офферов нет. Если пауза уже идёт, запрос встаёт в
-   * очередь и откроется после неё (вызывающий всё равно ждёт `done`).
+   * Открывает окно; false — офферов нет. Во время резолва другого окна новое
+   * становится дочерним и спрашивается сразу; вне резолва — встаёт в очередь.
    */
   open(ctx: ConnCtx, room: Room, args: OpenWindowArgs): boolean {
     if (!args.offers.length) return false;
-    if (this.pending) {
+    if (this.resolving && this.stack.includes(this.resolving)) {
+      this.start(ctx, room, args, args.offers);
+      this.pump();
+      return true;
+    }
+    if (this.stack.length || this.waiting.length) {
       if (this.waiting.length >= MAX_WAITING) return false;
       this.waiting.push({ ctx, room, args });
       return true;
     }
+    this.gone.clear();
     this.start(ctx, room, args, args.offers);
+    this.pump();
     return true;
   }
 
-  /** Создаёт окно и спрашивает первый оффер. */
+  /** Создаёт окно поверх стека и спрашивает первый оффер. */
   private start(ctx: ConnCtx, room: Room, args: OpenWindowArgs, offers: ReactionOfferInput[]) {
     const id = randomUUID();
     const ordered = orderByInitiative(room, args.mapId, mergeOffers(offers));
-    this.pending = {
+    const window: Pending = {
       id,
       roomCode: room.code,
       mapId: args.mapId,
@@ -168,97 +195,132 @@ class ReactionQueue {
         apply: input.apply,
       })),
       done: args.done,
+      stop: args.stop,
       index: -1,
       skipped: new Set(),
+      cont: null,
+      finished: false,
     };
     this.ctx = ctx;
-    this.askNext();
+    this.stack.push(window);
+    this.advance(window);
   }
 
-  /** Спрашивает следующий оффер; офферы отключившихся пропускает. */
-  private askNext() {
-    const pending = this.pending;
-    const ctx = this.ctx;
-    if (!pending || !ctx) return;
+  /** Двигает очередь: снимает завершённые, продолжает приостановленные, открывает ожидающие. */
+  private pump() {
     for (;;) {
-      pending.index += 1;
-      const state = pending.offers[pending.index];
-      if (!state) {
-        this.finish();
+      let window = this.top;
+      while (window?.finished) {
+        this.stack.pop();
+        window = this.top;
+      }
+      if (!window) {
+        if (this.startNext()) continue;
+        if (!this.isPending) {
+          queues.delete(this.roomCode);
+          this.gone.clear();
+        }
         return;
       }
-      if (state.audience.every((pid) => pending.skipped.has(pid))) continue;
-      const room = ctx.getRoom() ?? ctx.manager.get(pending.roomCode);
-      if (!room) {
-        this.finish();
-        return;
+      if (window.cont !== null) {
+        const cont = window.cont;
+        window.cont = null;
+        if (cont) this.advance(window);
+        else this.complete(window);
+        continue;
       }
-      this.emitOffer(ctx, room, pending, state);
       return;
     }
   }
 
+  /** Следующий оффер окна (или завершение); отключившихся пропускает. */
+  private advance(window: Pending) {
+    if (window.stop?.()) {
+      this.complete(window);
+      return;
+    }
+    window.index += 1;
+    const state = window.offers[window.index];
+    if (!state) {
+      this.complete(window);
+      return;
+    }
+    if (state.audience.every((pid) => window.skipped.has(pid))) {
+      this.advance(window);
+      return;
+    }
+    const room = this.room();
+    if (!room) {
+      this.complete(window);
+      return;
+    }
+    this.emitOffer(room, window, state);
+  }
+
   /** Рассылка оффера: реактору и DM — с вариантами, остальным — только наблюдение. */
-  private emitOffer(ctx: ConnCtx, room: Room, pending: Pending, state: PendingOfferState) {
+  private emitOffer(room: Room, window: Pending, state: PendingOfferState) {
+    const ctx = this.ctx;
+    if (!ctx) return;
     for (const player of room.players) {
       const active = state.audience.includes(player.id) || isDmViewer(room, player.id);
-      ctx.emitTo(room, player.id, 'reaction:offer', this.toOffer(pending, state, active));
+      ctx.emitTo(room, player.id, 'reaction:offer', this.toOffer(window, state, active));
     }
     this.timer = setTimeout(() => this.skipCurrent(), REACTION_TIMEOUT_MS);
     this.timer.unref?.();
   }
 
-  private toOffer(pending: Pending, state: PendingOfferState, active: boolean): ReactionOffer {
+  private toOffer(window: Pending, state: PendingOfferState, active: boolean): ReactionOffer {
     return {
       id: state.id,
-      mapId: pending.mapId,
-      trigger: pending.trigger,
+      mapId: window.mapId,
+      trigger: window.trigger,
       tokenId: state.tokenId,
       tokenName: state.tokenName,
-      sourceName: pending.sourceName,
+      sourceName: window.sourceName,
       options: active ? state.options : [],
       active,
       expiresAt: Date.now() + REACTION_TIMEOUT_MS,
     };
   }
 
-  /** Ответ реактора (провалидирован): применяем и идём дальше. */
+  /** Ответ реактора (провалидирован): применяем; дочерние окна отыграют до продолжения. */
   respond(choice: ReactionChoice) {
-    const pending = this.pending;
-    const ctx = this.ctx;
-    if (!pending || !ctx) return;
-    const state = pending.offers[pending.index];
-    if (!state) return;
+    const window = this.top;
+    const state = window?.offers[window.index];
+    if (!window || !state) return;
     this.clearTimer();
-    this.closeCurrent();
-    let cont = true;
+    this.closeOffer(window, state);
+    const prevResolving = this.resolving;
+    this.resolving = window;
+    let cont: boolean;
     try {
       cont = state.apply?.(choice) ?? true;
     } catch (err) {
       // Ошибка применения не должна подвешивать окно: логируем и спрашиваем дальше.
-      console.error(`reaction apply error (${pending.roomCode}):`, err);
+      console.error(`reaction apply error (${window.roomCode}):`, err);
+      cont = true;
     }
-    if (!cont) {
-      this.finish();
-      return;
-    }
-    this.askNext();
+    this.resolving = prevResolving;
+    window.cont = cont;
+    this.pump();
   }
 
   /** Таймаут/скип/DM: текущий оффер остаётся без ответа. */
   private skipCurrent() {
-    if (!this.pending) return;
+    const window = this.top;
+    const state = window?.offers[window.index];
+    if (!window || !state) return;
     this.clearTimer();
-    this.closeCurrent();
-    this.askNext();
+    this.closeOffer(window, state);
+    window.cont = true;
+    this.pump();
   }
 
   /** Пропускает офферы отключившегося игрока (текущий — сразу, будущие — при подходе). */
   skipPlayer(playerId: string) {
-    const pending = this.pending;
-    if (!pending) return;
-    pending.skipped.add(playerId);
-    const state = pending.offers[pending.index];
+    this.gone.add(playerId);
+    for (const window of this.stack) window.skipped.add(playerId);
+    const state = this.top?.offers[this.top.index];
     if (state?.audience.includes(playerId)) this.skipCurrent();
   }
 
@@ -267,46 +329,46 @@ class ReactionQueue {
     this.skipCurrent();
   }
 
-  /** Закрывает окно, запускает следующее и вызывает `done` (вне try/catch сокет-хендлера). */
-  finish() {
-    const pending = this.pending;
-    if (!pending) return;
+  /** Завершает окно: вызывает `done`; окно снимется после дочерних, порождённых `done`. */
+  private complete(window: Pending) {
+    if (window.finished) return;
+    window.finished = true;
     this.clearTimer();
-    this.pending = null;
-    this.ctx = null;
-
-    // Следующее окно открываем до done: заморозка не прерывается, а новые
-    // триггеры из done встанут в очередь за ним.
-    this.startNext();
-    if (!this.isPending) queues.delete(this.roomCode);
-
+    const prevResolving = this.resolving;
+    this.resolving = window;
     try {
-      pending.done?.();
+      window.done?.();
     } catch (err) {
-      console.error(`reaction done error (${pending.roomCode}):`, err);
+      console.error(`reaction done error (${window.roomCode}):`, err);
     }
+    this.resolving = prevResolving;
   }
 
   /** Открывает следующее окно из очереди; пустые (оплата кончилась) — пропускает. */
-  private startNext() {
+  private startNext(): boolean {
     while (this.waiting.length) {
-      if (this.pending) return;
       const next = this.waiting.shift()!;
       const offers = this.revalidate(next.ctx, next.room, next.args.mapId, next.args.offers);
       if (!offers.length) {
         // Окно стало ненужным — сразу продолжаем резолв, чтобы вызывающий не завис.
-        next.args.done?.();
+        try {
+          next.args.done?.();
+        } catch (err) {
+          console.error(`reaction done error (${next.room.code}):`, err);
+        }
         continue;
       }
       this.start(next.ctx, next.room, next.args, offers);
-      return;
+      return true;
     }
+    return false;
   }
 
   /** Отбрасывает офферы/варианты, которые больше не оплачиваются (слот реакции/ячейка/ресурс). */
   private revalidate(ctx: ConnCtx, room: Room, mapId: string, offers: ReactionOfferInput[]): ReactionOfferInput[] {
     const out: ReactionOfferInput[] = [];
     for (const input of offers) {
+      if (input.audience.every((pid) => this.gone.has(pid))) continue;
       const options = input.options.filter((o) => this.optionPayable(ctx, room, mapId, input.token, o));
       if (options.length) out.push({ ...input, options });
     }
@@ -335,16 +397,18 @@ class ReactionQueue {
     return !!controllerId && hasResourceFor(room, controllerId, option.resourceKey, option.resourceAmount ?? 1);
   }
 
-  /** Закрывает текущий оффер у всех игроков (в т.ч. у зрителей). */
-  private closeCurrent() {
-    const pending = this.pending;
+  /** Закрывает оффер у всех игроков (в т.ч. у зрителей). */
+  private closeOffer(window: Pending, state: PendingOfferState) {
     const ctx = this.ctx;
-    if (!pending || !ctx) return;
-    const state = pending.offers[pending.index];
-    if (!state) return;
-    const room = ctx.getRoom() ?? ctx.manager.get(pending.roomCode);
-    if (!room) return;
+    const room = this.room();
+    if (!ctx || !room) return;
     for (const player of room.players) ctx.emitTo(room, player.id, 'reaction:close', { id: state.id });
+  }
+
+  private room(): Room | null {
+    const ctx = this.ctx;
+    if (!ctx) return null;
+    return ctx.getRoom() ?? ctx.manager.get(this.roomCode) ?? null;
   }
 
   private clearTimer() {

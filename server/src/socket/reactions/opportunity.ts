@@ -18,9 +18,10 @@ import type { ConnCtx } from '../context';
 import { executeAutomation } from '../automation';
 import { actorStats } from '../../room/actor';
 import { shapeStatblock } from '../../room/shape';
-import { gridSizeOfMap, sheetOfToken } from '../../rooms';
+import { controllerIdOfToken, gridSizeOfMap, sheetOfToken } from '../../rooms';
 import { hasHpTracking } from '../damage';
-import { attackUnseen, resolveWeaponAttack } from '../attackResolve';
+import { attackUnseen } from '../attackResolve';
+import { resolveWeaponAttackWithReactions } from './attack';
 import { isReactionPending, openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, hasPayableSpecial, reactionSlotFree, type ReactionChoice } from './internal';
 import { applyReactionChoice, reactionSpellOptions } from './spellReactions';
@@ -83,7 +84,8 @@ export function executeOpportunityAttack(
     params: { name: reactor.name, target: mover.name },
   });
   if (source.weapon) {
-    const result = resolveWeaponAttack(ctx, {
+    // Полный резолв с окнами: промах/попадание OA могут вызвать реакции (Guided Strike, Shield).
+    const result = resolveWeaponAttackWithReactions(ctx, {
       attacker: reactor,
       attackerMapId: mapId,
       target: mover,
@@ -187,10 +189,18 @@ export function triggerOpportunityAttacks(
         } else {
           applyReactionChoice(ctx, currentRoom, choice, []);
         }
-        // Двигатель повержен — остальных не спрашиваем.
-        return !(hasHpTracking(currentRoom, target) && target.hpCurrent <= 0);
+        return true;
       },
     })),
+    // Двигатель повержен (в т.ч. дочерними окнами атаки) — оставшихся не спрашиваем.
+    stop: () => {
+      const currentRoom = ctx.getRoom();
+      const target = currentRoom ? ctx.manager.findToken(currentRoom, mapId, mover.id) : undefined;
+      if (!currentRoom || !target || !hasHpTracking(currentRoom, target)) return false;
+      const cid = controllerIdOfToken(currentRoom, target);
+      const hp = cid ? currentRoom.resources[cid]?.hp.current : target.hpCurrent;
+      return hp !== undefined && hp <= 0;
+    },
     done: () => {
       const currentRoom = ctx.getRoom();
       if (currentRoom) ctx.syncCombat(currentRoom, mapId);
