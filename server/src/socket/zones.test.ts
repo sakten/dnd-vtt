@@ -172,6 +172,32 @@ describe('движок зон', () => {
     expect(target.hpCurrent).toBe(22);
   });
 
+  it('side: hostile — союзный питомец и нейтрал вне зоны, враг получает урон', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally', isPlayerToken: true }),
+        makeToken('t2', { x: 250, y: 100, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+        makeToken('t3', { x: 250, y: 150, hpMax: '30', hpCurrent: 30, faction: 'ally', isPlayerToken: false }),
+        makeToken('t4', { x: 250, y: 200, hpMax: '30', hpCurrent: 30, faction: 'neutral' }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, enemy, ally, neutral] = room.scene.maps[0]!.tokens;
+    const def: AutomationDef = { ...zoneDef, key: 'TEST:Hostile', zone: { ...zoneDef.zone!, side: 'hostile' } };
+    createZoneFromDef(f.ctx, { caster: caster!, mapId: 'm1', def, stats: null, origin: { x: 250, y: 150 } });
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // 2d6 = 8
+    tickZones(f.ctx, room, 'm1', enemy!, 'start');
+    tickZones(f.ctx, room, 'm1', ally!, 'start');
+    tickZones(f.ctx, room, 'm1', neutral!, 'start');
+    rand.mockRestore();
+
+    expect(enemy!.hpCurrent).toBe(22);
+    expect(ally!.hpCurrent).toBe(30);
+    expect(neutral!.hpCurrent).toBe(30);
+  });
+
   it('payload containment: краевой 4×4 бьётся уроном, аура — только полностью внутри', () => {
     const { room, f } = setup();
     const caster = room.scene.maps[0]!.tokens[0]!;

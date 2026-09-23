@@ -32,6 +32,8 @@ describe('classFeatures', () => {
       expect.arrayContaining(['class:monk:focus/flurryOfBlows', 'class:monk:focus/patientDefense', 'class:monk:focus/stepOfTheWind'])
     );
     expect(monk.find((f) => f.id === 'class:monk:focus/flurryOfBlows')?.resourceKey).toBe('monk:focus');
+    // Шквал — запас доп. атак, цели у самой способности нет.
+    expect(monk.find((f) => f.id === 'class:monk:focus/flurryOfBlows')?.targeting).toBeUndefined();
   });
 
   it('пул мастера боевых искусств заменён именованным Манёвром', () => {

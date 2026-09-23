@@ -232,3 +232,21 @@ export function canSee(from: Point, target: Point, senses: Sense[] | undefined, 
   const distance = cellChebyshev(fromCell, targetCell);
   return visionRadiiCells(ctx.darkness, senses, kind).some((r) => r === null || distance <= r);
 }
+
+/**
+ * Взаимная невидимость участников атаки одним расчётом (одна карта):
+ * RAW — не видишь цель → помеха; цель не видит тебя → преимущество.
+ * Общий код оружия, заклинаний и клиентского предпросмотра.
+ */
+export function unseenBetween(
+  attacker: Point,
+  target: Point,
+  attackerSenses: Sense[] | undefined,
+  targetSenses: Sense[] | undefined,
+  sight: SightContext
+): { unseenTarget: boolean; unseenAttacker: boolean } {
+  return {
+    unseenTarget: !canSee(attacker, target, attackerSenses, sight),
+    unseenAttacker: !canSee(target, attacker, targetSenses, sight),
+  };
+}

@@ -35,6 +35,17 @@ const failedAt = new Map<string, number>();
 const pending = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 
+/**
+ * Языки с оверлеями контента (`data/text.<lang>/`). База данных — EN, оверлея
+ * у него нет; для остальных языков без папки загрузка пропускается, и UI
+ * использует базовые (EN) имена. Синхронно с папками — проверяет текст-тест.
+ */
+export const CONTENT_LANGS = ['ru'] as const;
+
+export function hasContentLang(lang: string): boolean {
+  return (CONTENT_LANGS as readonly string[]).includes(lang);
+}
+
 /** Фоновые повторы после сбоя и пауза, после которой провал можно повторить. */
 const CHUNK_RETRIES = 2;
 const CHUNK_RETRY_DELAY_MS = 500;
@@ -111,7 +122,7 @@ export function loadChunk(
 
 /** RU/…-имена контента (список заклинаний, черт, фитов, оружия). */
 export function loadNames(lang: string): Promise<void> {
-  if (namesByLang.has(lang)) return Promise.resolve();
+  if (!hasContentLang(lang) || namesByLang.has(lang)) return Promise.resolve();
   return loadChunk(`names:${lang}`, () => import(`../data/text.${lang}/names.json`), (data) => {
     namesByLang.set(lang, data as NamesData);
   });
@@ -119,7 +130,7 @@ export function loadNames(lang: string): Promise<void> {
 
 /** Ленивые описания заклинаний. */
 export function loadSpellText(lang: string): Promise<void> {
-  if (spellByLang.has(lang)) return Promise.resolve();
+  if (!hasContentLang(lang) || spellByLang.has(lang)) return Promise.resolve();
   return loadChunk(`spells:${lang}`, () => import(`../data/text.${lang}/spells.json`), (data) => {
     spellByLang.set(lang, data as SpellTextData);
   });
@@ -127,7 +138,7 @@ export function loadSpellText(lang: string): Promise<void> {
 
 /** Ленивые описания и требования фитов. */
 export function loadFeatText(lang: string): Promise<void> {
-  if (featByLang.has(lang)) return Promise.resolve();
+  if (!hasContentLang(lang) || featByLang.has(lang)) return Promise.resolve();
   return loadChunk(`feats:${lang}`, () => import(`../data/text.${lang}/feats.json`), (data) => {
     featByLang.set(lang, data as FeatTextData);
   });
@@ -135,7 +146,7 @@ export function loadFeatText(lang: string): Promise<void> {
 
 /** Ленивые описания черт одного класса. */
 export function loadFeatureText(lang: string, className: string): Promise<void> {
-  if (featureByLang.get(lang)?.has(className)) return Promise.resolve();
+  if (!hasContentLang(lang) || featureByLang.get(lang)?.has(className)) return Promise.resolve();
   return loadChunk(`feature:${lang}:${className}`, () => import(`../data/text.${lang}/features/${className}.json`), (data) => {
     if (!featureByLang.has(lang)) featureByLang.set(lang, new Map());
     featureByLang.get(lang)!.set(className, (data as FeatureTextData).featureDescriptions);

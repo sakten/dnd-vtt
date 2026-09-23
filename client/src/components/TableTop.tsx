@@ -1,19 +1,25 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
-import type { AttackRangeType, CharacterSheet, MapInfo, Token, Wall, ZoneInstance } from 'shared';
+import type { AttackEntry, AttackRangeType, AttackSource, CharacterSheet, MapInfo, Token, Wall, ZoneInstance } from 'shared';
 import {
   BASE_ACTIONS,
   areaCellKey,
   areaCells,
-  countAttackAdvantage,
+  attackRange,
+  collectAttackSources,
   gridDistanceFeet,
+  hostileTokens,
+  modifiedValue,
   pointCell,
   reachableCells,
   segmentRectDistance,
   sightContextOf,
   snapToGrid,
+  sourcesMode,
   spreadCells,
+  unseenBetween,
+  weaponHasProperty,
   zoneVisionKind,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -35,6 +41,8 @@ import ZoneLayer from './ZoneLayer';
 import LightLayer from './LightLayer';
 import { useMapLight } from '../lib/light';
 import ConditionsOverlay from './ConditionsOverlay';
+import AttackPreview, { type AttackPreviewData } from './AttackPreview';
+import { useSpellByKey } from '../lib/useSpells';
 import ObjectsLayer from './table/ObjectsLayer';
 import AimLayer from './table/AimLayer';
 import TokenLayer from './table/TokenLayer';
@@ -70,6 +78,22 @@ function attackRangeTypeOf(
     BASE_ACTIONS.find((a) => a.id === targeting.actionId);
   if (action?.ability?.attack) return action.ability.attack.rangeType;
   return action?.id === 'unarmedStrike' ? 'melee' : null;
+}
+
+/** Запись атаки выбранного оружия/способности-атаки (для свойств и дистанции); null — нет. */
+function attackEntryOf(
+  targeting: TargetingState,
+  attacker: Token,
+  sheet: CharacterSheet | null | undefined,
+  currentCharacterId: string | null
+): AttackEntry | null {
+  const index = 'attackIndex' in targeting ? targeting.attackIndex : undefined;
+  if (index === undefined) return null;
+  const attacks =
+    currentCharacterId !== null && attacker.libraryItemId === currentCharacterId && sheet
+      ? sheet.attacks
+      : attacker.attacks;
+  return attacks[index] ?? null;
 }
 
 /** Расстояние от точки до отрезка стены (для удаления правым кликом). */
@@ -239,22 +263,74 @@ export default function TableTop() {
       .filter((t): t is NonNullable<typeof t> => !!t);
   }, [multiTarget, activeMap]);
 
+  const spellByKey = useSpellByKey();
   const measure = useMemo(() => {
     if (!activeMap || !targeting || !hoverTokenId) return null;
     const from = targeting.tokenId ? tokenById(activeMap, targeting.tokenId) : null;
     const to = tokenById(activeMap, hoverTokenId);
     if (!from || !to || from.id === to.id) return null;
-    const feet = gridDistanceFeet(from, to, grid.size || 50);
-    const rangeType = attackRangeTypeOf(targeting, from, sheet, currentCharacterId);
-    const attackMode = rangeType
-      ? countAttackAdvantage({
-          attackerConditions: from.conditions,
-          targetConditions: to.conditions,
-          rangeType,
-        }).mode ?? null
-      : undefined;
-    return { from, to, feet, attackMode };
-  }, [activeMap, targeting, hoverTokenId, grid.size, sheet, currentCharacterId]);
+    const size = grid.size || 50;
+    const feet = gridDistanceFeet(from, to, size);
+    const attack = attackEntryOf(targeting, from, sheet, currentCharacterId);
+    const spell = targeting.kind === 'spell' ? spellByKey.get(targeting.spellKey) : undefined;
+    const rangeType = attackRangeTypeOf(targeting, from, sheet, currentCharacterId) ?? spell?.spellAttack ?? null;
+    if (!rangeType) return { from, to, feet, attackMode: undefined, advantage: [], disadvantage: [] };
+    // Те же входы, что у серверного броска: один сборщик — один результат.
+    const abilities =
+      from.libraryItemId && from.libraryItemId === currentCharacterId && sheet
+        ? sheet.abilities
+        : from.statblock?.abilities;
+    const adjacentEnemy = activeMap.tokens.some(
+      (t) => t.id !== from.id && t.visible !== false && hostileTokens(from, t) && gridDistanceFeet(from, t, size) <= 5
+    );
+    const range = attack ? attackRange(attack, feet, adjacentEnemy, modifiedValue(0, from.effects, 'reach')) : null;
+    const sight = sightContextOf(activeMap, { size, offsetX: grid.offsetX, offsetY: grid.offsetY });
+    const unseen = unseenBetween(from, to, from.senses, to.senses, sight);
+    const heavy =
+      !!attack && weaponHasProperty(attack, 'H') && !!abilities
+        ? (rangeType === 'ranged' ? abilities.dex : abilities.str) < 13
+        : false;
+    const explicit = 'advantage' in targeting ? targeting.advantage : undefined;
+    const sources = collectAttackSources({
+      explicit,
+      attackerConditions: from.conditions,
+      targetConditions: to.conditions,
+      rangeType,
+      forcedDisadvantage: range?.disadvantage,
+      forcedDisadvantageCode: range?.disadvantageCode,
+      heavy,
+      unseenTarget: unseen.unseenTarget,
+      unseenAttacker: unseen.unseenAttacker,
+      attackerEffects: from.effects,
+      targetEffects: to.effects,
+      effectContext: {
+        rangeType,
+        attackType: rangeType === 'melee' || rangeType === 'ranged' ? rangeType : undefined,
+        weapon: !!attack,
+      },
+      abilities,
+    });
+    return {
+      from,
+      to,
+      feet,
+      attackMode: sourcesMode(sources) ?? null,
+      advantage: sources.filter((s) => s.side === 'advantage'),
+      disadvantage: sources.filter((s) => s.side === 'disadvantage'),
+    };
+  }, [activeMap, targeting, hoverTokenId, grid.size, grid.offsetX, grid.offsetY, sheet, currentCharacterId, spellByKey]);
+
+  const attackPreview = useMemo<AttackPreviewData | null>(() => {
+    if (!measure || (!measure.advantage.length && !measure.disadvantage.length)) return null;
+    const { to } = measure;
+    return {
+      x: view.x + (to.x + to.w / 2) * view.scale + 10,
+      y: view.y + (to.y - to.h / 2) * view.scale - 10,
+      mode: measure.attackMode ?? null,
+      advantage: measure.advantage as AttackSource[],
+      disadvantage: measure.disadvantage as AttackSource[],
+    };
+  }, [measure, view.x, view.y, view.scale]);
 
   const fog = activeMap?.fog;
   const fogRects = useMemo(() => (fog ? buildFogRects(fog) : []), [fog]);
@@ -662,6 +738,7 @@ export default function TableTop() {
           </Layer>
         </Stage>
       )}
+      <AttackPreview data={attackPreview} />
       <ConditionsOverlay />
       <Suspense fallback={null}>
         <SpellFxOverlay mask={fxMask} />

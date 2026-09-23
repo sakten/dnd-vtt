@@ -50,4 +50,65 @@
   z-index: var(--z-panel);
 }
 
+/* Предпросмотр атаки при прицеливании: колонки «+»/«−» с источниками. */
+.atk-preview {
+  position: absolute;
+  z-index: var(--z-panel);
+  pointer-events: none;
+  min-width: 130px;
+  max-width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.atk-preview-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.atk-preview-cols.both {
+  grid-template-columns: 1fr 1fr;
+}
+
+.atk-preview-col.adv {
+  color: #4ecb71;
+}
+
+.atk-preview-col.dis {
+  color: #ff6b6b;
+}
+
+.atk-preview-head {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.atk-preview-item {
+  color: var(--text);
+  opacity: 0.92;
+  line-height: 1.35;
+}
+
+.atk-preview-mode {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid var(--panel-border);
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.atk-preview-mode.a {
+  color: #4ecb71;
+}
+
+.atk-preview-mode.d {
+  color: #ff6b6b;
+}
+
 

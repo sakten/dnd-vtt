@@ -9,6 +9,7 @@ import {
   proficiencyBonus,
   reactionFeatures,
   rollDice,
+  sideMatches,
   superiorityDie,
   type AttackEntry,
   type ReactionFeatureDef,
@@ -331,6 +332,9 @@ export function rollBonusOffers(
     const self = helper.id === attacker.id;
     if (!self) {
       if (isIncapacitated(helper.conditions)) continue;
+      // +10 к чужому промаху — только союзникам (та же ненейтральная фракция):
+      // враг и нейтрал бонус не получают.
+      if (!sideMatches(attacker, helper, 'ally')) continue;
       if (!reactionSlotFree(ctx.manager, room, attackerMapId, helper)) continue;
     }
     const defs = availableFeatureReactions(room, helper, 'attackMiss').filter((def) => {

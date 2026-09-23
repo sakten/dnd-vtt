@@ -5,7 +5,7 @@ import {
   autoCrit,
   autoFailSave,
   characterLevel,
-  countAttackAdvantage,
+  collectAttackSources,
   d20Expr,
   damageRollParts,
   exhaustionRollPenalty,
@@ -16,6 +16,7 @@ import {
   resolveAttack,
   rollDice,
   sideMatches,
+  sourcesCounts,
   statNumber,
   withAdvantage,
   withRollParts,
@@ -665,19 +666,25 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
     if (!target) return resolveRay(i + 1);
     const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
-    const effectParts = attackRollParts(caster.effects, target.effects, { rangeType, attackType: rangeType }, abilities);
+    const effectCtx = { rangeType, attackType: rangeType } as const;
+    const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
     const unseen = castMap ? attackUnseen(room, caster, target, castMap) : undefined;
-    const { advantage, disadvantage } = countAttackAdvantage({
+    const sources = collectAttackSources({
       explicit: adv,
       attackerConditions: caster.conditions,
       targetConditions: target.conditions,
       rangeType,
       effectMode: effectParts.mode,
+      attackerEffects: caster.effects,
+      targetEffects: target.effects,
+      effectContext: effectCtx,
+      abilities,
       includeTarget: true,
       unseenTarget: unseen?.unseenTarget,
       unseenAttacker: unseen?.unseenAttacker,
     });
+    const { advantage, disadvantage } = sourcesCounts(sources);
     const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
     const ac = ctx.manager.acForToken(room, target);
     const hit = attackHitRoll({
@@ -693,7 +700,12 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       author,
       roll: hit.hitRoll,
       kind: 'attack',
-      params: { subject: label, hit: hit.hitSuccess ? 'hit' : 'miss', penalty: penalty || undefined },
+      params: {
+        subject: label,
+        hit: hit.hitSuccess ? 'hit' : 'miss',
+        penalty: penalty || undefined,
+        sources: sources.length ? sources : undefined,
+      },
     });
     // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друга.
     if (count === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);

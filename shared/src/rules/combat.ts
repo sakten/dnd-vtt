@@ -3,8 +3,7 @@ import { abilityMod, type AbilityKey } from '../domain/core';
 import type { ConditionInstance } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
 import type { AttackEntry, AttackRangeType, Token } from '../domain/token';
-import { advantageAgainst, attackerAdvantage, attackerDisadvantage, disadvantageAgainst } from './conditions';
-import { rollMode } from './effects';
+import { collectAttackSources, sourcesCounts, sourcesMode } from './attackSources';
 
 /** Помечает нат. d20 преимуществом/помехой: 'd20+5' → 'd20a+5' / 'd20d+5'.
  *  Терпимо к «1d20» и «D20» (иначе режим молча терялся) и к уже стоящей метке. */
@@ -39,21 +38,9 @@ export interface AttackAdvantageResult {
 
 /** Считает преимущества/помехи броска атаки: явный выбор → состояния → цель → эффекты. */
 export function countAttackAdvantage(input: AttackAdvantageInput): AttackAdvantageResult {
-  const rangeType = input.rangeType ?? 'melee';
-  let advantage = input.explicit === 'a' ? 1 : 0;
-  let disadvantage = input.explicit === 'd' ? 1 : 0;
-  if (attackerAdvantage(input.attackerConditions)) advantage += 1;
-  if (attackerDisadvantage(input.attackerConditions)) disadvantage += 1;
-  if (input.includeTarget !== false) {
-    if (advantageAgainst(input.targetConditions, rangeType)) advantage += 1;
-    if (disadvantageAgainst(input.targetConditions, rangeType)) disadvantage += 1;
-  }
-  if (input.forcedDisadvantage) disadvantage += 1;
-  if (input.unseenTarget) disadvantage += 1;
-  if (input.unseenAttacker) advantage += 1;
-  if (input.effectMode === 'a') advantage += 1;
-  if (input.effectMode === 'd') disadvantage += 1;
-  return { advantage, disadvantage, mode: rollMode(advantage, disadvantage) };
+  const sources = collectAttackSources(input);
+  const { advantage, disadvantage } = sourcesCounts(sources);
+  return { advantage, disadvantage, mode: sourcesMode(sources) };
 }
 
 /**
@@ -144,22 +131,22 @@ export function gridDistanceFeet(a: GridBox, b: GridBox, gridSize: number, feetP
  * иначе сравнение суммы с AC. AC <= 0 — проверки нет (считаем попаданием).
  */
 /**
- * Сторона существа: разные `isPlayerToken` — враждебны; нейтралы друг друга
- * не считают врагами; иначе сравниваются фракции (OA, выбор союзников).
+ * Сторона существа — чистая фракция: разные ненейтральные фракции враждебны,
+ * `neutral` — фон (не враг и не союзник, в автофильтрах не участвует).
+ * `isPlayerToken` к стороне не относится (это признак «персонаж игрока»).
  */
 export function hostileTokens(
-  a: Pick<Token, 'isPlayerToken' | 'faction'>,
-  b: Pick<Token, 'isPlayerToken' | 'faction'>
+  a: Pick<Token, 'faction'>,
+  b: Pick<Token, 'faction'>
 ): boolean {
-  if (a.isPlayerToken !== b.isPlayerToken) return true;
   if (a.faction === 'neutral' || b.faction === 'neutral') return false;
   return a.faction !== b.faction;
 }
 
 /** Подходит ли токен фильтру стороны относительно источника (`side`: только враги/союзники). */
 export function sideMatches(
-  source: Pick<Token, 'isPlayerToken' | 'faction'>,
-  token: Pick<Token, 'isPlayerToken' | 'faction'>,
+  source: Pick<Token, 'faction'>,
+  token: Pick<Token, 'faction'>,
   side: 'hostile' | 'ally'
 ): boolean {
   return side === 'hostile'

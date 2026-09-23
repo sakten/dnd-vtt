@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { attackRange, attackRollExpression, countAttackAdvantage, critRangeFor, resolveAbilityMods } from './combat';
+import {
+  attackRange,
+  attackRollExpression,
+  countAttackAdvantage,
+  critRangeFor,
+  hostileTokens,
+  resolveAbilityMods,
+  sideMatches,
+} from './combat';
 import { rollMode } from './effects';
 import type { ConditionInstance } from '../domain/effects';
+import type { Faction } from '../domain/core';
 
 const cond = (key: ConditionInstance['key'], name = key): ConditionInstance => ({ key, name });
 
@@ -112,5 +121,32 @@ describe('critRangeFor (Чемпион)', () => {
     expect(critRangeFor([{ className: 'fighter', subclass: 'champion', level: 3 }])).toBe(19);
     expect(critRangeFor([{ className: 'fighter', subclass: 'champion', level: 15 }])).toBe(18);
     expect(critRangeFor([{ className: 'champion', level: 20 }])).toBe(20);
+  });
+});
+
+describe('hostileTokens и стороны (фракция, не isPlayerToken)', () => {
+  const side = (faction: Faction) => ({ faction });
+
+  it('одна ненейтральная фракция — не враги, даже если isPlayerToken различается', () => {
+    expect(hostileTokens(side('ally'), side('ally'))).toBe(false);
+    expect(hostileTokens(side('enemy'), side('enemy'))).toBe(false);
+  });
+
+  it('разные ненейтральные фракции — враги, даже у однотипных токенов', () => {
+    expect(hostileTokens(side('ally'), side('enemy'))).toBe(true);
+    expect(hostileTokens(side('enemy'), side('ally'))).toBe(true);
+  });
+
+  it('neutral — фон: не враг никому', () => {
+    expect(hostileTokens(side('neutral'), side('ally'))).toBe(false);
+    expect(hostileTokens(side('neutral'), side('enemy'))).toBe(false);
+    expect(hostileTokens(side('neutral'), side('neutral'))).toBe(false);
+  });
+
+  it('sideMatches: союзники — та же ненейтральная фракция', () => {
+    expect(sideMatches(side('ally'), side('ally'), 'ally')).toBe(true);
+    expect(sideMatches(side('ally'), side('neutral'), 'ally')).toBe(false);
+    expect(sideMatches(side('neutral'), side('neutral'), 'ally')).toBe(false);
+    expect(sideMatches(side('ally'), side('enemy'), 'hostile')).toBe(true);
   });
 });

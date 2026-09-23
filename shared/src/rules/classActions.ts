@@ -208,7 +208,7 @@ interface NamedFeature extends ActionDef {
 
 /** Именованные черты, тратящие ресурсы-пулы, а также не привязанные к одному ресурсу. */
 const NAMED_FEATURES: NamedFeature[] = [
-  { id: featureId('monk:focus/flurryOfBlows'), name: 'Шквал ударов', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], targeting: { kind: 'creature' }, resourceKey: 'monk:focus', resourceAmount: 1 },
+  { id: featureId('monk:focus/flurryOfBlows'), name: 'Шквал ударов', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
   { id: featureId('monk:focus/patientDefense'), name: 'Терпеливая оборона (Отход + Уклонение)', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
   { id: featureId('monk:focus/stepOfTheWind'), name: 'Шаг ветра (Отход + Рывок)', source: 'class', className: 'monk', levelReq: 2, costs: ['bonus'], resourceKey: 'monk:focus', resourceAmount: 1 },
   { id: featureId('sorcerer:sorceryPoints/metamagic'), name: 'Метамагия', source: 'class', className: 'sorcerer', levelReq: 2, costs: ['special'], resourceKey: 'sorcerer:sorceryPoints', resourceAmount: 1 },

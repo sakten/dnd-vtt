@@ -524,9 +524,9 @@ describe('action:use', () => {
   it('Eldritch Blast (2 луча): окно реакции на промах, следующий луч — после ответа', () => {
     const room = makeRoom(
       [
-        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
         makeToken('t2', { x: 200, y: 100, hpMax: '30', hpCurrent: 30, ac: '20', showStats: false, faction: 'enemy' }),
-        makeToken('t3', { libraryItemId: 'lib3', x: 150, y: 150, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { libraryItemId: 'lib3', x: 150, y: 150, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
       ],
       { p1: 'lib1', p3: 'lib3' }
     );
@@ -576,6 +576,140 @@ describe('action:use', () => {
 
     expect(pendingOffers('TEST')).toHaveLength(0);
     expect(room.resources.p3!.resources[0]!.current).toBe(1);
+  });
+
+  it('Направленный удар: врагу атакующего +10 не предлагается', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          attacks: [
+            {
+              name: 'Меч',
+              hit: 'd20',
+              damage: '1d8',
+              damageType: 'slashing',
+              rangeType: 'melee',
+              rangeNormal: 5,
+              rangeLong: 0,
+            },
+          ],
+          x: 100,
+          y: 100,
+          faction: 'enemy',
+        }),
+        makeToken('t2', {
+          libraryItemId: 'lib2',
+          isPlayerToken: true,
+          faction: 'ally',
+          x: 150,
+          y: 100,
+          hpMax: '30',
+          hpCurrent: 30,
+          ac: '20',
+        }),
+        makeToken('t3', {
+          libraryItemId: 'lib3',
+          isPlayerToken: true,
+          faction: 'ally',
+          x: 150,
+          y: 150,
+          hpMax: '30',
+          hpCurrent: 30,
+        }),
+      ],
+      { p2: 'lib2', p3: 'lib3' }
+    );
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p3', name: 'P3', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p2 = { ...casterSheet(), ac: '20', spells: [] };
+    room.resources.p2 = casterResources();
+    room.sheets.p3 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 6, subclass: 'war' }],
+      spells: [],
+    };
+    room.resources.p3 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'cd1', key: 'cleric:channelDivinity', name: 'Проведение', current: 2, max: 2, reset: 'short' }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.3); // d20 = 7 — промах врага по AC 20
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    expect(
+      pendingOffers('TEST').some((o) => o.options.some((op) => op.id.startsWith('feature:cleric.war:guidedStrike')))
+    ).toBe(false);
+    expect(room.resources.p3!.resources[0]!.current).toBe(2);
+  });
+
+  it('Направленный удар: союзный питомец (не игрок) +10 получает', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          attacks: [
+            {
+              name: 'Клыки',
+              hit: 'd20',
+              damage: '1d6',
+              damageType: 'piercing',
+              rangeType: 'melee',
+              rangeNormal: 5,
+              rangeLong: 0,
+            },
+          ],
+          isPlayerToken: false,
+          faction: 'ally',
+          x: 100,
+          y: 100,
+          hpMax: '30',
+          hpCurrent: 30,
+        }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '20', faction: 'enemy' }),
+        makeToken('t3', {
+          libraryItemId: 'lib3',
+          isPlayerToken: true,
+          faction: 'ally',
+          x: 150,
+          y: 150,
+          hpMax: '30',
+          hpCurrent: 30,
+        }),
+      ],
+      { p3: 'lib3' }
+    );
+    room.players.push({ id: 'p3', name: 'P3', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p3 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 6, subclass: 'war' }],
+      spells: [],
+    };
+    room.resources.p3 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'cd1', key: 'cleric:channelDivinity', name: 'Проведение', current: 2, max: 2, reset: 'short' }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.3); // d20 = 7 — промах питомца по AC 20
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:cleric.war:guidedStrike')
+    );
+    expect(offer).toBeDefined();
+    const f3 = makeCtx(room, { playerId: 'p3' });
+    registerReactionHandlers(f3.ctx);
+    f3.invoke('reaction:respond', { id: offer!.id, optionId: null });
   });
 
   it("Hex: метка переносится на новую цель после смерти старой", () => {
@@ -2163,6 +2297,88 @@ describe('action:use', () => {
 
     expect(pendingOffers('TEST')).toHaveLength(0);
     expect(room.resources.p1!.hp.current).toBe(23);
+  });
+
+  it('Сбит с ног: дальняя атака по цели идёт с помехой', () => {
+    const bow: AttackEntry = {
+      name: 'Лук',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'piercing',
+      rangeType: 'ranged',
+      rangeNormal: 80,
+      rangeLong: 320,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', attacks: [bow], x: 100, y: 100 }),
+        makeToken('t2', {
+          faction: 'enemy',
+          x: 250,
+          y: 100,
+          hpMax: '30',
+          hpCurrent: 30,
+          ac: '5',
+          conditions: [{ key: 'prone', name: 'Сбит с ног' }],
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), attacks: [bow], spells: [] };
+    room.resources.p1 = casterResources();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerDiceHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    combatOf(room).turns.e1!.actionUsed = false;
+    f.invoke('dice:attack', { tokenId: 't1', targetId: 't2', attackIndex: 0 });
+    rand.mockRestore();
+
+    const attacks = room.chat
+      .filter((m) => m.kind === 'roll' && m.rollKind === 'attack')
+      .map((m) => m as { roll: { dice: { advantage?: 'a' | 'd' | null }[] } });
+    expect(f.emitted.filter((e) => e.event === 'chat:error').map((e) => (e.payload as { code?: string }).code)).toEqual([]);
+    expect(attacks).toHaveLength(2);
+    expect(attacks[0]!.roll.dice[0]?.advantage).toBe('d');
+    expect(attacks[1]!.roll.dice[0]?.advantage).toBe('d');
+    const message = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { labelParams?: { sources?: { kind: string; key?: string }[] } }
+      | undefined;
+    expect(message?.labelParams?.sources?.some((s) => s.kind === 'condition' && s.key === 'prone')).toBe(true);
+  });
+
+  it('Сбит с ног: дальняя атака заклинанием по цели идёт с помехой', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', {
+          faction: 'enemy',
+          x: 250,
+          y: 100,
+          hpMax: '30',
+          hpCurrent: 30,
+          ac: '5',
+          conditions: [{ key: 'prone', name: 'Сбит с ног' }],
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Fire Bolt', className: 'wizard' }] };
+    room.resources.p1 = casterResources();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Fire Bolt', targetIds: ['t2'] });
+    rand.mockRestore();
+
+    const attack = room.chat.find((m) => m.kind === 'roll' && m.rollKind === 'attack') as
+      | { roll: { dice: { advantage?: 'a' | 'd' | null }[] } }
+      | undefined;
+    expect(attack?.roll.dice[0]?.advantage).toBe('d');
   });
 
   it('Щит духов предлагается, когда бьют союзника (reduceDamage: creature)', () => {
@@ -4763,6 +4979,66 @@ describe('реакции (R1)', () => {
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'spells.countered')).toBe(true);
     expect(combatOf(room).turns.e3!.reactionUsed).toBe(true);
     expect(room.resources.p2!.spellSlots[0]!.current).toBe(0);
+  });
+
+  it('Counterspell: по союзному кастеру не предлагается, по враждебному — да', () => {
+    const build = (reactorFaction: 'ally' | 'enemy') => {
+      const room = makeRoom(
+        [
+          makeToken('t1', { libraryItemId: 'lib1', x: 0, y: 0, faction: 'ally', isPlayerToken: false }),
+          makeToken('t2', { x: 100, y: 0, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+          makeToken('t3', { libraryItemId: 'lib3', x: 0, y: 100, faction: reactorFaction, isPlayerToken: true }),
+        ],
+        { p1: 'lib1', p2: 'lib3' }
+      );
+      room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+      room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+      combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+      combatOf(room).entries.push({ id: 'e3', tokenId: 't3', name: 'C', imageUrl: '', initiative: 4, bonus: '' });
+      room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Fireball', className: 'wizard' }] };
+      room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+      room.sheets.p2 = { ...casterSheet(), spells: [{ key: 'XPHB:Counterspell', className: 'wizard' }] };
+      room.resources.p2 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+      return room;
+    };
+
+    const allied = build('ally');
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const f1 = makeCtx(allied, { playerId: 'p1' });
+    registerSpellHandlers(f1.ctx);
+    registerReactionHandlers(f1.ctx);
+    f1.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 100, y: 0 },
+    });
+
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(allied.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30); // союзный каст разрешён
+
+    const hostile = build('enemy');
+    const f2 = makeCtx(hostile, { playerId: 'p1' });
+    registerSpellHandlers(f2.ctx);
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Fireball',
+      slotLevel: 3,
+      origin: { x: 100, y: 0 },
+    });
+    rand.mockRestore();
+
+    const offers = pendingOffers('TEST');
+    expect(offers).toHaveLength(1);
+    expect(offers[0]!.options.map((o) => o.id)).toContain('spell:XPHB:Counterspell');
+    expect(hostile.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30); // каст ждёт ответа
+
+    const f3 = makeCtx(hostile, { playerId: 'p2' });
+    registerReactionHandlers(f3.ctx);
+    f3.invoke('reaction:respond', { id: offers[0]!.id, optionId: null });
   });
 
   it('Палящая вспышка даёт помеху до броска и отменяет попадание', () => {

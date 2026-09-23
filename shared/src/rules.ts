@@ -1,6 +1,7 @@
 export * from './rules/actions';
 export * from './rules/areas';
 export * from './rules/attackRiders';
+export * from './rules/attackSources';
 export * from './rules/automation';
 export * from './rules/bestiary';
 export * from './rules/bestiaryIcon';

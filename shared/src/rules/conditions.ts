@@ -71,32 +71,64 @@ export function hasCondition(conditions: ConditionInstance[] | undefined, key: C
 const has = (c: ConditionInstance[] | undefined, ...keys: ConditionKey[]) =>
   !!c?.some((x) => keys.includes(x.key));
 
+/** Ключи состояний из списка, реально присутствующие у существа (для атрибуции adv/dis). */
+const matchingKeys = (c: ConditionInstance[] | undefined, ...keys: ConditionKey[]): ConditionKey[] =>
+  (c ?? []).filter((x) => keys.includes(x.key)).map((x) => x.key);
+
 /** Атакующий получает преимущество (Невидим, скрыт и т.п.). */
+export function attackerAdvantageReasons(conditions: ConditionInstance[] | undefined): ConditionKey[] {
+  return matchingKeys(conditions, 'invisible');
+}
+
+/** Атакующий получает преимущество (краткая проверка). */
 export function attackerAdvantage(conditions: ConditionInstance[] | undefined): boolean {
-  return has(conditions, 'invisible');
+  return attackerAdvantageReasons(conditions).length > 0;
 }
 
 /** Атакующий получает помеху (Отравлен, Ослеплён, Испуган, Сбит с ног, Схвачен, Обездвижен). */
+export function attackerDisadvantageReasons(conditions: ConditionInstance[] | undefined): ConditionKey[] {
+  return matchingKeys(conditions, 'poisoned', 'blinded', 'frightened', 'prone', 'grappled', 'restrained');
+}
+
+/** Атакующий получает помеху (краткая проверка). */
 export function attackerDisadvantage(conditions: ConditionInstance[] | undefined): boolean {
-  return has(conditions, 'poisoned', 'blinded', 'frightened', 'prone', 'grappled', 'restrained');
+  return attackerDisadvantageReasons(conditions).length > 0;
 }
 
 /** Преимущество по цели (Ослеплён, Схвачен, Парализован, Ошеломлён, Без сознания, Окаменел; Сбит с ног — ближний). */
+export function advantageAgainstReasons(
+  conditions: ConditionInstance[] | undefined,
+  rangeType: AttackRangeType = 'melee'
+): ConditionKey[] {
+  const out = matchingKeys(conditions, 'blinded', 'grappled', 'paralyzed', 'stunned', 'unconscious', 'petrified');
+  if (rangeType === 'melee') out.push(...matchingKeys(conditions, 'prone'));
+  return out;
+}
+
+/** Преимущество по цели (краткая проверка). */
 export function advantageAgainst(
   conditions: ConditionInstance[] | undefined,
   rangeType: AttackRangeType = 'melee'
 ): boolean {
-  if (has(conditions, 'blinded', 'grappled', 'paralyzed', 'stunned', 'unconscious', 'petrified')) return true;
-  return rangeType === 'melee' && has(conditions, 'prone');
+  return advantageAgainstReasons(conditions, rangeType).length > 0;
 }
 
 /** Помеха по цели (Невидим; Сбит с ног — дальний). */
+export function disadvantageAgainstReasons(
+  conditions: ConditionInstance[] | undefined,
+  rangeType: AttackRangeType = 'melee'
+): ConditionKey[] {
+  const out = matchingKeys(conditions, 'invisible');
+  if (rangeType === 'ranged') out.push(...matchingKeys(conditions, 'prone'));
+  return out;
+}
+
+/** Помеха по цели (краткая проверка). */
 export function disadvantageAgainst(
   conditions: ConditionInstance[] | undefined,
   rangeType: AttackRangeType = 'melee'
 ): boolean {
-  if (has(conditions, 'invisible')) return true;
-  return rangeType === 'ranged' && has(conditions, 'prone');
+  return disadvantageAgainstReasons(conditions, rangeType).length > 0;
 }
 
 /** Авто-крит: атака в пределах 5 фт по Парализован/Без сознания. */

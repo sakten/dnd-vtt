@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readdirSync } from 'node:fs';
 import spellsData from '../data/spells.json';
 import featsData from '../data/feats.json';
 import featuresData from '../data/features.json';
@@ -7,11 +8,13 @@ import textNames from '../data/text.ru/names.json';
 import spellText from '../data/text.ru/spells.json';
 import featText from '../data/text.ru/feats.json';
 import {
+  CONTENT_LANGS,
   featDescription,
   featName,
   featPrereq,
   featureDescription,
   featureName,
+  hasContentLang,
   isNamesLoaded,
   loadChunk,
   loadFeatText,
@@ -35,24 +38,31 @@ describe('мультиязычный слой оверлеев', () => {
     expect(spellDescription("XPHB:Hunter's Mark", LANG)).toBeUndefined();
   });
 
-  it('неизвестный (непоставленный) язык: загрузка без падения, геттеры → undefined', async () => {
-    vi.useFakeTimers();
+  it('язык без оверлея: загрузка пропускается без повторов и предупреждений', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => void 0);
     try {
       await loadNames('de');
       await loadSpellText('de');
       await loadFeatText('de');
       await loadFeatureText('de', 'fighter');
-      await vi.advanceTimersByTimeAsync(5000); // дождаться фоновых повторов и кэша провала
-      expect(warn).toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
     } finally {
-      vi.useRealTimers();
       warn.mockRestore();
     }
     expect(spellName('XPHB:Fireball', 'de')).toBeUndefined();
     expect(spellDescription('XPHB:Fireball', 'de')).toBeUndefined();
     expect(featDescription('XPHB:alert', 'de')).toBeUndefined();
     expect(featureDescription('fighter:secondWind', 'de')).toBeUndefined();
+  });
+
+  it('EN — база без оверлея; список языков совпадает с папками data/text.*', () => {
+    expect(hasContentLang('en')).toBe(false);
+    expect(hasContentLang('ru')).toBe(true);
+    const dirs = readdirSync(new URL('../data', import.meta.url))
+      .filter((name) => name.startsWith('text.'))
+      .map((name) => name.slice('text.'.length))
+      .sort();
+    expect([...CONTENT_LANGS].sort()).toEqual(dirs);
   });
 });
 

@@ -13,7 +13,14 @@ const SPIRIT = bestiaryData.entries.find((e) => e.key === 'XPHB:Undead Spirit')!
 const SPIRIT_MELEE = SPIRIT.actions.filter((a) => a.ability?.attack?.rangeType === 'melee');
 
 function setup() {
-  const token = makeToken('t1', { libraryItemId: 'lib1', name: 'Друид', x: 100, y: 100 });
+  const token = makeToken('t1', {
+    libraryItemId: 'lib1',
+    name: 'Друид',
+    x: 100,
+    y: 100,
+    faction: 'ally',
+    isPlayerToken: true,
+  });
   const room = makeCombatRoom([token], { p1: 'lib1' });
   room.sheets['p1'] = {
     name: 'Друид',
@@ -115,5 +122,24 @@ describe('атака по возможности в форме', () => {
 
     expect(room.chat.some((m) => JSON.stringify(m).includes(SPIRIT_MELEE[1]!.name))).toBe(true);
     expect(room.chat.some((m) => JSON.stringify(m).includes(SPIRIT_MELEE[0]!.name))).toBe(false);
+  });
+
+  it('сторона OA — фракция: союзный питомец и нейтрал не провоцируют', () => {
+    const { room, f } = setup();
+    const allyPet = makeToken('t2', { name: 'Волк-питомец', x: 150, y: 100, faction: 'ally', isPlayerToken: false });
+    const neutral = makeToken('t3', { name: 'Горожанин', x: 100, y: 150, faction: 'neutral' });
+    room.scene.maps[0]!.tokens.push(allyPet, neutral);
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', allyPet, [
+      { x: 150, y: 100 },
+      { x: 400, y: 100 },
+    ]);
+    triggerOpportunityAttacks(f.ctx, room, 'm1', neutral, [
+      { x: 100, y: 150 },
+      { x: 400, y: 150 },
+    ]);
+
+    expect(pendingOffers(room.code)).toHaveLength(0);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'reactions.opportunity')).toBe(false);
   });
 });

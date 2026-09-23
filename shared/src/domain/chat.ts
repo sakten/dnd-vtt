@@ -24,12 +24,27 @@ export interface ErrorPayload {
   params?: Record<string, string | number>;
 }
 
+/** Источник преимущества/помехи броска атаки (подсказка и метка броска). */
+export interface AttackSource {
+  side: 'advantage' | 'disadvantage';
+  /** Категория причины: выбор игрока, состояние, эффект, дистанция, невидимость, свойство оружия. */
+  kind: 'explicit' | 'condition' | 'effect' | 'range' | 'unseen' | 'weapon';
+  /** Ключ причины: состояние (`prone`), `adjacent`/`long`, `target`/`attacker`, `heavy`. */
+  key?: string;
+  /** Имя эффекта-источника (для kind `effect`). */
+  name?: string;
+  /** Ключ заклинания-источника (локализация имени эффекта). */
+  sourceKey?: string;
+}
+
 export interface RollLabelParams {
   /** Название атаки/спасброска/проверки (для атак — с префиксом источника). */
   subject?: string;
   distanceFeet?: number;
   hit?: 'hit' | 'miss';
   disadvantage?: 'adjacent' | 'long';
+  /** Источники преимуществ/помех (колонки «+»/«−» в предпросмотре и метке броска). */
+  sources?: AttackSource[];
   /** Спасбросок от смерти. */
   outcome?: 'critSuccess' | 'critFail' | 'success' | 'fail';
   successes?: number;

@@ -4,14 +4,14 @@ import {
   attackRollParts,
   attackSubject,
   autoCrit,
-  canSee,
   characterLevel,
-  countAttackAdvantage,
+  collectAttackSources,
   critRangeFor,
   damageRollParts,
   DiceParseError,
   exhaustionRollPenalty,
   gridDistanceFeet,
+  hostileTokens,
   isCriticalFail,
   isCriticalHit,
   modifiedValue,
@@ -23,7 +23,9 @@ import {
   rollDice,
   rollMode,
   sightContextOf,
+  sourcesCounts,
   tokenVisibleFrom,
+  unseenBetween,
   weaponRolls,
   weaponHasProperty,
   withAdvantage,
@@ -81,10 +83,13 @@ export function attackUnseen(
 ): { unseenTarget: boolean; unseenAttacker: boolean } {
   const size = gridSizeOfMap(map);
   const sight = sightContextOf(map, { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY });
-  return {
-    unseenTarget: !canSee(attacker, target, actorStats(room, attacker).senses, sight),
-    unseenAttacker: !canSee(target, attacker, actorStats(room, target).senses, sight),
-  };
+  return unseenBetween(
+    attacker,
+    target,
+    actorStats(room, attacker).senses,
+    actorStats(room, target).senses,
+    sight
+  );
 }
 
 export interface AttackHitInput {
@@ -212,7 +217,7 @@ export function prepareWeaponAttack(
       distanceFeet = gridDistanceFeet(attacker, target, size);
       if (!input.ignoreRange) {
         const adjacentEnemy = map.tokens.some(
-          (t) => t.id !== attacker.id && t.isPlayerToken === false && gridDistanceFeet(attacker, t, size) <= 5
+          (t) => t.id !== attacker.id && hostileTokens(attacker, t) && gridDistanceFeet(attacker, t, size) <= 5
         );
         const range = attackRange(attack, distanceFeet, adjacentEnemy, reachBonus);
         if (range.outOfRange) {
@@ -248,28 +253,31 @@ export function prepareWeaponAttack(
   // Формулы могут содержать характеристики и бонус владения: d20+str, d20+pb.
   const hit = rawHit ? resolveAbilityMods(rawHit, abilities, proficiency) : '';
   const damage = rawDamage ? resolveAbilityMods(rawDamage, abilities, proficiency) : '';
-  const effectParts = attackRollParts(
-    attacker?.effects,
-    target?.effects,
-    {
-      rangeType: attack.rangeType,
-      attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
-      weapon: true,
-    },
-    abilities
-  );
-  const { advantage: advCount, disadvantage: disCountBase } = countAttackAdvantage({
+  const effectCtx = {
+    rangeType: attack.rangeType,
+    attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
+    weapon: true,
+  } as const;
+  const effectParts = attackRollParts(attacker?.effects, target?.effects, effectCtx, abilities);
+  // Источники adv/dis — единый сборщик (тот же, что у клиентского предпросмотра).
+  const sources = collectAttackSources({
     explicit: input.advantage,
     attackerConditions: attacker?.conditions,
     targetConditions: target?.conditions,
     rangeType: attack.rangeType,
     forcedDisadvantage,
+    forcedDisadvantageCode,
+    heavy: heavyPenalty,
     effectMode: effectParts.mode,
+    attackerEffects: attacker?.effects,
+    targetEffects: target?.effects,
+    effectContext: effectCtx,
+    abilities,
     includeTarget: hasTarget,
     unseenTarget,
     unseenAttacker,
   });
-  const disCount = disCountBase + (heavyPenalty ? 1 : 0);
+  const { advantage: advCount, disadvantage: disCount } = sourcesCounts(sources);
 
   const penalty = exhaustionRollPenalty(attacker?.conditions);
   const baseParams: RollLabelParams = {
@@ -278,6 +286,7 @@ export function prepareWeaponAttack(
     disadvantage: forcedDisadvantageCode,
     damageType: attack.damageType,
     penalty: penalty || undefined,
+    sources: sources.length ? sources : undefined,
   };
 
   const targetAc = target ? manager.acForToken(room, target) : 0;
