@@ -107,7 +107,6 @@ export const SMITE_SPELLS = new Set(['XPHB:Searing Smite', 'XPHB:Ensnaring Strik
 
 /** Цель по умолчанию: self или существо. */
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {
-  if (SMITE_SPELLS.has(spell.key)) return 'creature';
   return spellIsSelf(spell) ? 'self' : 'creature';
 }
 

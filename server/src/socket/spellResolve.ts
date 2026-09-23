@@ -7,7 +7,6 @@ import {
   hasInvocation,
   INVOCATION_PACT_KEYS,
   polymorphFormIssue,
-  SMITE_SPELLS,
   spellCastArea,
   spellIsSelf,
   type ErrorPayload,
@@ -155,18 +154,6 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   if (def.utility?.kind === 'teleport') {
     if (!input.origin) return { code: 'noAreaPoint' };
     return teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
-  }
-
-  // Смайты: цель — существо в пределах ближней досягаемости (5 фт).
-  if (SMITE_SPELLS.has(spell.key)) {
-    if (!targets.length) return { code: 'spellNoTarget' };
-    const map = room.scene.maps.find((m) => m.id === input.mapId);
-    const gridSize = gridOfMap(map, room.scene.grid).size;
-    for (const target of targets) {
-      if (target.id === caster.id) continue;
-      if (gridDistanceFeet(caster, target, gridSize) > 5) return { code: 'attackOutOfReach', params: { feet: 5 } };
-    }
-    return undefined;
   }
 
   if (input.area) return undefined;
