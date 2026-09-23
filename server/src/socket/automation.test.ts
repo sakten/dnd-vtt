@@ -133,6 +133,79 @@ describe('концентрация заклинаний с зонами', () => 
     expect(target.effects.some((e) => e.sourceKey === 'XPHB:Protection from Poison')).toBe(true);
   });
 
+  it('Scatter: союзник без сейва, враг с WIS-спасом, точки — в 120 фт от кастера', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const enemy = map.tokens[1]!;
+    const ally = makeToken('t3', { x: 150, y: 150 });
+    map.tokens.push(ally);
+    caster.faction = 'ally';
+    ally.faction = 'ally';
+    enemy.faction = 'enemy';
+    enemy.x = 150;
+    enemy.y = 100;
+
+    const def = automationForSpell(findSpell('XGE:Scatter')!);
+    const enemyFrom = { x: enemy.x, y: enemy.y };
+    const allyFrom = { x: ally.x, y: ally.y };
+
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0); // враг проваливает сейв
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      targets: [],
+      stats,
+      author: 'DM',
+      placements: [
+        { targetId: enemy.id, x: 300, y: 300 },
+        { targetId: ally.id, x: 350, y: 300 },
+      ],
+    });
+    spy.mockRestore();
+
+    expect(enemy.x).not.toBe(enemyFrom.x);
+    expect(ally.x).not.toBe(allyFrom.x);
+    const saves = room.chat.filter(
+      (m): m is Extract<ChatMessage, { kind: 'roll' }> => m.kind === 'roll' && m.rollKind === 'save'
+    );
+    expect(saves.some((m) => m.labelParams?.subject?.includes(enemy.name))).toBe(true);
+    expect(saves.some((m) => m.labelParams?.subject?.includes(ally.name))).toBe(false);
+  });
+
+  it('Scatter: успешный сейв врага — остаётся на месте', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const enemy = map.tokens[1]!;
+    caster.faction = 'ally';
+    enemy.faction = 'enemy';
+    enemy.x = 150;
+    enemy.y = 100;
+
+    const def = automationForSpell(findSpell('XGE:Scatter')!);
+    const from = { x: enemy.x, y: enemy.y };
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      targets: [],
+      stats,
+      author: 'DM',
+      placements: [{ targetId: enemy.id, x: 300, y: 300 }],
+    });
+    spy.mockRestore();
+
+    expect(enemy.x).toBe(from.x);
+    expect(enemy.y).toBe(from.y);
+    const saves = room.chat.filter(
+      (m): m is Extract<ChatMessage, { kind: 'roll' }> => m.kind === 'roll' && m.rollKind === 'save'
+    );
+    expect(saves.some((m) => m.labelParams?.saveOutcome === 'success')).toBe(true);
+  });
+
   it('новая концентрация снимает прежнюю и с другого токена того же персонажа', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

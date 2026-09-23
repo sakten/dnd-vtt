@@ -154,6 +154,7 @@ export default function TableTop() {
   const wallCandidates = useGameStore((s) => s.wallCandidates);
   const aimToCursor = useGameStore((s) => s.aimToCursor);
   const confirmAim = useGameStore((s) => s.confirmAim);
+  const placeScatterPoint = useGameStore((s) => s.placeScatterPoint);
   const aim = interaction?.mode === 'aim' ? interaction.aim : null;
   // Подсказка при действии зоны: пунктирный радиус от якоря (перемещение/удар).
   const aimRangeCircle = useMemo(() => {
@@ -162,6 +163,7 @@ export default function TableTop() {
   }, [aim, grid.size]);
   const targeting = interaction?.mode === 'target' ? interaction.target : null;
   const multiTarget = interaction?.mode === 'multi' ? interaction.multi : null;
+  const scatter = interaction?.mode === 'scatter' ? interaction.scatter : null;
   const activeMap = useActiveMap();
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
@@ -265,6 +267,18 @@ export default function TableTop() {
       .map((id) => tokenById(activeMap, id))
       .filter((t): t is NonNullable<typeof t> => !!t);
   }, [multiTarget, activeMap]);
+
+  // Scatter: выбранные цели подсвечиваются номерами, поставленные точки — пинами.
+  const scatterTokens = useMemo(() => {
+    if (!scatter || !activeMap) return [];
+    return scatter.targets
+      .map((id) => tokenById(activeMap, id))
+      .filter((t): t is NonNullable<typeof t> => !!t);
+  }, [scatter, activeMap]);
+  const scatterPins = useMemo(
+    () => (scatter ? scatter.placements.map((p) => ({ x: p.x, y: p.y })) : []),
+    [scatter]
+  );
 
   const spellByKey = useSpellByKey();
   // Свет заклинаний: общий с вуалью — учитывается и в предпросмотре атаки (невидимость).
@@ -606,7 +620,7 @@ export default function TableTop() {
       setWallsMode({ start: p });
       return;
     }
-    if (!isDm && activeMap && e.evt.button === 0 && !aim && !targeting && !wallsMode.active && !fogMode.active && !lightMode.active) {
+    if (!isDm && activeMap && e.evt.button === 0 && !aim && !targeting && !scatter && !wallsMode.active && !fogMode.active && !lightMode.active) {
       const st = useGameStore.getState();
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
@@ -614,7 +628,7 @@ export default function TableTop() {
       st.setDoorMenu(door && !door.dmOnly && playerDoorReach(door) ? door.id : null);
       return;
     }
-    if (isDm && activeMap && e.evt.button === 0 && !fogMode.active) {
+    if (isDm && activeMap && e.evt.button === 0 && !scatter && !fogMode.active) {
       // Мини-UI двери: DM открывает/закрывает и настраивает (в режиме «Стены» — как раньше).
       const st = useGameStore.getState();
       const stage = e.target.getStage();
@@ -635,13 +649,20 @@ export default function TableTop() {
       }
       return;
     }
+    if (scatter) {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) placeScatterPoint(toWorld(stage, pointer));
+      return;
+    }
     if (targeting && !fogMode.active) cancelInteraction();
   };
 
   return (
     <div
       ref={containerRef}
-      className={`table-top${aim || targeting || multiTarget ? ' targeting' : ''}${doorHover ? ` door-${doorHover.state}` : ''}`}
+      className={`table-top${aim || targeting || multiTarget || scatter ? ' targeting' : ''}${doorHover ? ` door-${doorHover.state}` : ''}`}
       data-testid="table-top"
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -654,7 +675,7 @@ export default function TableTop() {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable={!fogMode.active && !lightMode.active && !aim && !multiTarget && !targeting}
+          draggable={!fogMode.active && !lightMode.active && !aim && !multiTarget && !targeting && !scatter}
           onWheel={handleWheel}
           onDragMove={handleStageDrag}
           onDragEnd={handleStageDrag}
@@ -729,7 +750,8 @@ export default function TableTop() {
               aim={aim}
               aimCells={aimCells}
               rangeCircle={aimRangeCircle}
-              multiTargetTokens={multiTargetTokens}
+              multiTargetTokens={scatter ? scatterTokens : multiTargetTokens}
+              scatterPins={scatterPins}
               viewScale={view.scale}
             />
             <TokenLayer

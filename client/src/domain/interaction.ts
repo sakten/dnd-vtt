@@ -47,6 +47,19 @@ export interface MultiTargetState {
   distinct?: boolean;
 }
 
+/** Scatter: до N целей, затем точка назначения на каждую (последний клик кастует). */
+export interface ScatterState {
+  tokenId: string;
+  spellKey: string;
+  slotLevel?: number;
+  advantage?: 'a' | 'd';
+  maxTargets: number;
+  /** `targets` — набор целей, `places` — по очереди ставим точки назначения. */
+  phase: 'targets' | 'places';
+  targets: string[];
+  placements: { targetId: string; x: number; y: number }[];
+}
+
 /** Режим выбора цели: после клика по способности ждём клик по токену на карте. */
 export type TargetingState =
   | {
@@ -101,6 +114,7 @@ export type Interaction =
   | { mode: 'target'; target: TargetingState }
   | { mode: 'aim'; aim: AimState }
   | { mode: 'multi'; multi: MultiTargetState }
+  | { mode: 'scatter'; scatter: ScatterState }
   | { mode: 'condition'; condition: ConditionChoiceState };
 
 /** Параметры входа в режим области (без вычисленного origin). */
@@ -121,6 +135,8 @@ export interface SpellCastPayload {
   variant?: string;
   /** Выбор состояния для снятия (Lesser/Greater Restoration). */
   condition?: string;
+  /** Scatter: точка назначения на каждую цель. */
+  placements?: { targetId: string; x: number; y: number }[];
 }
 
 /** Команда, которую стор исполняет после перехода машины. */
@@ -158,6 +174,11 @@ export function startTargeting(target: TargetingState): Interaction {
 
 export function startMulti(payload: Omit<MultiTargetState, 'targets'>): Interaction {
   return { mode: 'multi', multi: { ...payload, targets: [] } };
+}
+
+/** Scatter: вход в режим выбора целей (до `maxTargets` существ). */
+export function startScatter(payload: Omit<ScatterState, 'phase' | 'targets' | 'placements'>): Interaction {
+  return { mode: 'scatter', scatter: { ...payload, phase: 'targets', targets: [], placements: [] } };
 }
 
 /** Область: self — origin от кастера, point — ждём курсор; direction пуст. */
@@ -354,11 +375,66 @@ export function finishMulti(interaction: Interaction | null): InteractionResult 
   return { next: null, command: multiCommand(mt, mt.targets) };
 }
 
+/** Клик по токену в фазе целей Scatter: тумблер; на лимите — сразу фаза точек. */
+export function toggleScatterTarget(interaction: Interaction | null, targetId: string): Interaction | null {
+  if (interaction?.mode !== 'scatter') return interaction;
+  const s = interaction.scatter;
+  if (s.phase !== 'targets') return interaction;
+  const picked = s.targets.includes(targetId)
+    ? s.targets.filter((id) => id !== targetId)
+    : [...s.targets, targetId].slice(0, s.maxTargets);
+  const phase = picked.length >= s.maxTargets ? 'places' : 'targets';
+  return { mode: 'scatter', scatter: { ...s, targets: picked, placements: [], phase } };
+}
+
+/** «Далее»: от выбора целей к расстановке точек (хотя бы одна цель). */
+export function scatterToPlaces(interaction: Interaction | null): Interaction | null {
+  if (interaction?.mode !== 'scatter' || interaction.scatter.phase !== 'targets') return interaction;
+  if (!interaction.scatter.targets.length) return interaction;
+  return { mode: 'scatter', scatter: { ...interaction.scatter, phase: 'places', placements: [] } };
+}
+
+/** «Назад»: возврат к выбору целей, расставленные точки сбрасываются. */
+export function scatterBack(interaction: Interaction | null): Interaction | null {
+  if (interaction?.mode !== 'scatter' || interaction.scatter.phase !== 'places') return interaction;
+  return { mode: 'scatter', scatter: { ...interaction.scatter, phase: 'targets', placements: [] } };
+}
+
+/** Клик по карте в фазе точек: точка текущей цели; после последней — каст. */
+export function placeScatterPoint(interaction: Interaction | null, point: Point): InteractionResult {
+  if (interaction?.mode !== 'scatter' || interaction.scatter.phase !== 'places') return { next: interaction };
+  const s = interaction.scatter;
+  const targetId = s.targets[s.placements.length];
+  if (!targetId) return { next: interaction };
+  const placements = [...s.placements, { targetId, x: point.x, y: point.y }];
+  if (placements.length >= s.targets.length) {
+    return { next: null, command: scatterCommand(s, placements) };
+  }
+  return { next: { mode: 'scatter', scatter: { ...s, placements } } };
+}
+
+function scatterCommand(
+  s: ScatterState,
+  placements: { targetId: string; x: number; y: number }[]
+): InteractionCommand {
+  return {
+    type: 'castSpell',
+    payload: {
+      tokenId: s.tokenId,
+      spellKey: s.spellKey,
+      slotLevel: s.slotLevel,
+      advantage: s.advantage,
+      placements,
+    },
+  };
+}
+
 /** Токен-владелец активного режима (для сброса UI при удалении токена). */
 export function interactionTokenId(interaction: Interaction | null): string | null {
   if (!interaction) return null;
   if (interaction.mode === 'target') return interaction.target.tokenId ?? null;
   if (interaction.mode === 'aim') return interaction.aim.tokenId;
+  if (interaction.mode === 'scatter') return interaction.scatter.tokenId;
   if (interaction.mode === 'condition') return interaction.condition.tokenId;
   return interaction.multi.tokenId;
 }

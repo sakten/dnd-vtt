@@ -34,6 +34,7 @@ function TokenView({ token }: { token: Token }) {
   const setSelected = useGameStore((s) => s.setSelected);
   const targeting = useGameStore((s) => s.interaction?.mode === 'target');
   const multiTarget = useGameStore((s) => s.interaction?.mode === 'multi');
+  const scatter = useGameStore((s) => s.interaction?.mode === 'scatter');
   const aim = useGameStore((s) => s.interaction?.mode === 'aim');
   const moveToken = useGameStore((s) => s.moveToken);
   const startTokenWalk = useGameStore((s) => s.startTokenWalk);
@@ -253,6 +254,11 @@ function TokenView({ token }: { token: Token }) {
       st.addMultiTarget(token.id);
       return;
     }
+    if (it?.mode === 'scatter') {
+      e.cancelBubble = true;
+      if (it.scatter.phase === 'targets') st.toggleScatterTarget(token.id);
+      return;
+    }
     if (it?.mode === 'aim') return; // клик по карте применяет область (обрабатывает Stage)
     e.cancelBubble = true;
     setSelected(token.id);
@@ -282,6 +288,7 @@ function TokenView({ token }: { token: Token }) {
         !targeting &&
         !aim &&
         !multiTarget &&
+        !scatter &&
         canMove &&
         (isDm || !movementBlocked(token.conditions))
       }

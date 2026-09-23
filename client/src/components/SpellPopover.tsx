@@ -46,6 +46,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const startAim = useGameStore((s) => s.startAim);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
   const startTargeting = useGameStore((s) => s.startTargeting);
+  const startScatter = useGameStore((s) => s.startScatter);
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
 
@@ -80,6 +81,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const teleportDef = (() => {
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
     return def.utility?.kind === 'teleport' ? def.utility : undefined;
+  })();
+  // Scatter: до N целей, затем точка назначения на каждую.
+  const scatterDef = (() => {
+    const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
+    return def.utility?.kind === 'scatter' ? def.utility : undefined;
   })();
   // Polymorph: форма-зверь выбирается в попапе, цель — кликом по токену.
   const shapeDef = (() => {
@@ -157,6 +163,14 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         originKind: 'point',
         rangeFeet: teleportDef.amount ?? 30,
         summon: true,
+      });
+    } else if (scatterDef) {
+      startScatter({
+        tokenId,
+        spellKey: spell.key,
+        slotLevel: info.slotLevel,
+        advantage: mode,
+        maxTargets: scatterDef.targets ?? 5,
       });
     } else if (info.self || selfOnlyAtWill) {
       if (abilityAction) runAction(tokenId, abilityAction.id, { slot: abilityAction.slot });

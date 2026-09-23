@@ -9,6 +9,7 @@ import {
   polymorphFormIssue,
   spellCastArea,
   spellIsSelf,
+  tokenVisibleFrom,
   type ErrorPayload,
   type Spell,
   type SpellStats,
@@ -44,6 +45,8 @@ export interface SpellCastInput {
   variant?: string;
   /** Выбор состояния для снятия (Lesser/Greater Restoration). */
   condition?: string;
+  /** Scatter: точки назначения по целям. */
+  placements?: { targetId: string; x: number; y: number }[];
   author: string;
 }
 
@@ -156,6 +159,28 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
   }
 
+  // Scatter: до N целей в 30 фт; каждая — точка назначения в 120 фт от кастера (видна, свободна).
+  if (def.utility?.kind === 'scatter') {
+    const placements = input.placements ?? [];
+    if (!placements.length || placements.length > (def.utility.targets ?? 5)) return { code: 'spellNoTarget' };
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const sourceFeet = effectiveSpellRangeFeet(spell, invocations) ?? 30;
+    const limit = def.utility.destinationFeet ?? 120;
+    for (const placement of placements) {
+      const target = map?.tokens.find((t) => t.id === placement.targetId);
+      if (!target || !map) return { code: 'spellNoTarget' };
+      const toTarget = gridDistanceFeet(caster, target, grid.size);
+      if (toTarget > sourceFeet) return { code: 'outOfRange', params: { feet: Math.round(toTarget) } };
+      if (target.id !== caster.id && !tokenVisibleFrom(caster, target, map.walls, grid)) {
+        return { code: 'noClearPath' };
+      }
+      const issue = teleportIssue(room, input.mapId, target, { x: placement.x, y: placement.y }, limit, caster);
+      if (issue) return issue;
+    }
+    return undefined;
+  }
+
   if (input.area) return undefined;
   const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
@@ -196,6 +221,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     area: spellCastArea(input.spell) ?? null,
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     ...(input.condition ? { choice: input.condition } : {}),
+    ...(input.placements ? { placements: input.placements } : {}),
     manual: {
       description: input.spell.description,
       level: input.spell.level,

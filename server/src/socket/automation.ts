@@ -82,6 +82,8 @@ export interface AutomationInput {
   summonKey?: string;
   /** Выбор состояния для снятия (Lesser/Greater Restoration). */
   choice?: string;
+  /** Scatter: точки назначения по целям. */
+  placements?: { targetId: string; x: number; y: number }[];
 }
 
 /** Единственный тип урона, если он однозначен (иначе защиты не применяются). */
@@ -622,6 +624,36 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       return;
     }
     executeTeleport(ctx, room, input.mapId, input.caster, input.origin);
+  },
+  /** Scatter: не-союзники кидают WIS-спас (успех — остаётся); невалидные точки пропускаем. */
+  scatter: ({ ctx, room, input, utility }) => {
+    const placements = input.placements ?? [];
+    if (!placements.length) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    const limit = utility.destinationFeet ?? 120;
+    const dc = input.stats?.dc ?? 10;
+    for (const placement of placements) {
+      const target = ctx.manager.findToken(room, input.mapId, placement.targetId);
+      if (!target) continue;
+      const issue = teleportIssue(room, input.mapId, target, { x: placement.x, y: placement.y }, limit, input.caster);
+      if (issue) continue;
+      const willing = target.id === input.caster.id || sideMatches(input.caster, target, 'ally');
+      if (!willing) {
+        const { roll, success } = ctx.manager.rollSave(room, target, 'wis', dc, {
+          advantage: input.advantage === 'a' ? true : undefined,
+        });
+        pushSaveMessage(ctx, room, {
+          author: input.author,
+          subject: `${input.def.name} · ${target.name}`,
+          roll,
+          success,
+        });
+        if (success) continue;
+      }
+      executeTeleport(ctx, room, input.mapId, target, { x: placement.x, y: placement.y });
+    }
   },
 };
 

@@ -10,11 +10,13 @@ interface Props {
   /** Радиус досягаемости действия зоны (якорь + лимит): подсказка при прицеле. */
   rangeCircle?: { x: number; y: number; radius: number } | null;
   multiTargetTokens: Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h'>[];
+  /** Scatter: уже поставленные точки назначения (номер = порядок целей). */
+  scatterPins?: { x: number; y: number }[];
   viewScale: number;
 }
 
 /** Подсветка движения, прицеливания области и выбранных целей мультиатаки. */
-export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, multiTargetTokens, viewScale }: Props) {
+export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, multiTargetTokens, scatterPins = [], viewScale }: Props) {
   return (
     <>
       {rangeCircle && (
@@ -61,6 +63,26 @@ export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, mu
           listening={false}
         />
       )}
+      {scatterPins.map((p, i) => (
+        <Fragment key={`pin-${i}-${p.x},${p.y}`}>
+          <Circle
+            x={p.x}
+            y={p.y}
+            radius={14 / viewScale}
+            fill="#4dabf7"
+            opacity={0.85}
+            listening={false}
+          />
+          <Text
+            text={`${i + 1}`}
+            x={p.x - 4 / viewScale}
+            y={p.y - 8 / viewScale}
+            fontSize={18 / viewScale}
+            fill="#ffffff"
+            listening={false}
+          />
+        </Fragment>
+      ))}
       {multiTargetTokens.map((t, i) => (
         <Fragment key={`mt-${i}-${t.id}`}>
           <Rect

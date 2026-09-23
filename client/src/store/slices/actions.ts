@@ -5,9 +5,14 @@ import {
   pickCondition,
   pickMultiTarget,
   pickTarget,
+  placeScatterPoint,
+  scatterBack,
+  scatterToPlaces,
   startAim,
   startMulti,
+  startScatter,
   startTargeting,
+  toggleScatterTarget,
   type InteractionCommand,
 } from '../../domain/interaction';
 import { crossesWalls } from 'shared';
@@ -35,6 +40,11 @@ export const createActionSlice: Slice<
     | 'addMultiTarget'
     | 'finishMultiTarget'
     | 'cancelMultiTarget'
+    | 'startScatter'
+    | 'toggleScatterTarget'
+    | 'scatterToPlaces'
+    | 'scatterBack'
+    | 'placeScatterPoint'
     | 'adjustTokenHp'
   >
 > = (_set, get) => {
@@ -166,5 +176,25 @@ export const createActionSlice: Slice<
     },
 
     cancelMultiTarget: () => _set({ interaction: null }),
+
+    startScatter: (payload) => _set({ interaction: startScatter(payload) }),
+
+    toggleScatterTarget: (targetId) => {
+      _set({ interaction: toggleScatterTarget(get().interaction, targetId) });
+    },
+
+    scatterToPlaces: () => {
+      _set({ interaction: scatterToPlaces(get().interaction) });
+    },
+
+    scatterBack: () => {
+      _set({ interaction: scatterBack(get().interaction) });
+    },
+
+    placeScatterPoint: (point) => {
+      const { next, command } = placeScatterPoint(get().interaction, point);
+      _set({ interaction: next });
+      runCommand(command);
+    },
   };
 };

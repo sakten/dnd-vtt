@@ -545,6 +545,12 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.aim.multiTitle': '{kind} {n}/{count}',
   'ui.aim.multiRemaining': 'Click a target ({n} left) · Esc to cancel',
   'ui.aim.allChosen': 'All targets chosen · Esc to cancel',
+  'ui.aim.next': 'Next',
+  'ui.aim.back': 'Back',
+  'ui.aim.scatterTargets': 'Scatter: targets {n}/{max}',
+  'ui.aim.scatterHintTargets': 'Click creatures within 30 ft to pick/unpick · “Next” for destinations',
+  'ui.aim.scatterPlace': 'Destination for {name} ({i}/{n})',
+  'ui.aim.scatterHintPlace': 'Click the map — a free visible space within 120 ft of the caster · “Back” resets pins',
 
   'ui.action.cantrip': 'cantrip',
   'ui.action.level': 'level {n}',

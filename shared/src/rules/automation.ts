@@ -192,6 +192,14 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     utility: { kind: 'teleport', amount: 30 },
     targeting: { kind: 'point', range: 30 },
   },
+  /** Scatter (XGE): до пяти существ — в свободные видимые точки в 120 фт от кастера; нежелающие сейв WIS. */
+  'XGE:Scatter': {
+    key: 'XGE:Scatter',
+    name: 'Scatter',
+    resolution: 'utility',
+    utility: { kind: 'scatter', targets: 5, destinationFeet: 120 },
+    targeting: { kind: 'point', range: 30 },
+  },
   'XPHB:Blur': spellEffect('XPHB:Blur', 'Blur', [
     {
       name: 'Blur',

@@ -30,6 +30,7 @@ import type { DiceRollFace } from '../components/ThreeD20';
 import type {
   Interaction,
   MultiTargetState,
+  ScatterState,
   SpellCastPayload,
   StartAimPayload,
   TargetingState,
@@ -268,6 +269,13 @@ export interface GameState {
   /** Применить выбранных целей меньше максимума. */
   finishMultiTarget: () => void;
   cancelMultiTarget: () => void;
+  /** Scatter: до N целей, затем точка назначения на каждую (последний клик кастует). */
+  startScatter: (payload: Omit<ScatterState, 'phase' | 'targets' | 'placements'>) => void;
+  toggleScatterTarget: (targetId: string) => void;
+  scatterToPlaces: () => void;
+  /** «Назад»: точки сбрасываются, возврат к выбору целей. */
+  scatterBack: () => void;
+  placeScatterPoint: (point: { x: number; y: number }) => void;
   setHoverToken: (id: string | null) => void;
   fitView: () => void;
   onConnected: () => void;

@@ -218,6 +218,14 @@ describe('automationForSpell', () => {
     expect(spellAutomated(mw)).toBe(true);
   });
 
+  it('Scatter — до пяти целей, точки в 120 фт от кастера', () => {
+    const scatter = makeSpell({ key: 'XGE:Scatter', name: 'Scatter', level: 6, automation: 'manual' });
+    const def = automationForSpell(scatter);
+    expect(def.resolution).toBe('utility');
+    expect(def.utility).toMatchObject({ kind: 'scatter', targets: 5, destinationFeet: 120 });
+    expect(spellAutomated(scatter)).toBe(true);
+  });
+
   it("Pass without Trace — аура +10 к Скрытности, привязана к кастеру", () => {
     const passTrace = makeSpell({
       key: 'XPHB:Pass without Trace',

@@ -542,6 +542,12 @@
   'ui.aim.multiTitle': '{kind} {n}/{count}',
   'ui.aim.multiRemaining': 'Кликните цель (ещё {n}) · Esc — отмена',
   'ui.aim.allChosen': 'Все цели выбраны · Esc — отмена',
+  'ui.aim.next': 'Далее',
+  'ui.aim.back': 'Назад',
+  'ui.aim.scatterTargets': 'Scatter: цели {n}/{max}',
+  'ui.aim.scatterHintTargets': 'Клик по существам в 30 фт — выбрать/снять · «Далее» — точки',
+  'ui.aim.scatterPlace': 'Точка для {name} ({i}/{n})',
+  'ui.aim.scatterHintPlace': 'Клик по карте — свободная видимая клетка до 120 фт от кастера · «Назад» сбросит точки',
 
   'ui.action.cantrip': 'фокус',
   'ui.action.level': '{n} круг',

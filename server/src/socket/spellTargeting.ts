@@ -37,6 +37,8 @@ export interface SpellCastParams {
   variant?: string;
   /** Выбор состояния для снятия (Lesser/Greater Restoration). */
   condition?: string;
+  /** Scatter: точки назначения по целям. */
+  placements?: unknown;
   author: string;
 }
 
@@ -46,6 +48,15 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
   if (!room) return undefined;
   const { caster, mapId, spell } = params;
   const targets: Token[] = [];
+  const placements: { targetId: string; x: number; y: number }[] = [];
+  for (const raw of Array.isArray(params.placements) ? params.placements : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const p = raw as { targetId?: unknown; x?: unknown; y?: unknown };
+    if (typeof p.targetId !== 'string' || !p.targetId) continue;
+    if (typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    placements.push({ targetId: p.targetId, x: p.x, y: p.y });
+  }
   let area = false;
   let areaOrigin: { x: number; y: number } | null = null;
   const castArea = spellCastArea(spell);
@@ -101,6 +112,11 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
       }
       targets.push(found);
     }
+    // Scatter: цели берём из точек назначения (проверки — в validateSpellCast).
+    for (const placement of placements) {
+      const found = map?.tokens.find((t) => t.id === placement.targetId);
+      if (found && !targets.some((t) => t.id === found.id)) targets.push(found);
+    }
     if (spellIsSelf(spell) && !targets.some((t) => t.id === caster.id)) targets.push(caster);
   }
   return {
@@ -118,6 +134,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     summonKey: params.summonKey,
     variant: params.variant,
     condition: params.condition,
+    ...(placements.length ? { placements } : {}),
     author: params.author,
   };
 }

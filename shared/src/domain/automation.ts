@@ -249,6 +249,8 @@ export interface AutomationUtility {
     | 'stepOfTheWind'
     | 'moveZone'
     | 'teleport'
+    /** Scatter: до N целей, каждая — в свободную видимую точку в пределах `destinationFeet`. */
+    | 'scatter'
     /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
     | 'revive'
     /** Spare the Dying: цель на 0 HP становится стабильной. */
@@ -257,6 +259,10 @@ export interface AutomationUtility {
     | 'endCondition';
   amount?: number;
   ability?: AbilityKey;
+  /** Scatter: максимальное число целей (5). */
+  targets?: number;
+  /** Scatter: предел дистанции точки назначения от кастера, футы (120). */
+  destinationFeet?: number;
   /** Кость временных HP (tempHp), бросается один раз на всех. */
   dice?: string;
   /** Множитель брошенной кости (Мантия вдохновения: 2×кость). */

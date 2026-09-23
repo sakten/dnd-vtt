@@ -168,6 +168,8 @@ export interface ClientToServerEvents {
     variant?: string;
     /** Выбор состояния для снятия (Lesser/Greater Restoration). */
     condition?: string;
+    /** Scatter: точка назначения на каждую цель (мировые координаты). */
+    placements?: { targetId: string; x: number; y: number }[];
   }) => void;
   /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
   'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;
