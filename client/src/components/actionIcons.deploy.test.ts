@@ -6,7 +6,10 @@ import { ACTION_ICONS, ACTION_ICON_FALLBACKS } from './actionIcons';
 /** Ключи действий (`<заклинание>:<id>`), которые выдают каталог и деривация. */
 function actionKeys(def: AutomationDef): string[] {
   const keys: string[] = [];
-  for (const effect of def.effects ?? []) for (const action of effect.actions ?? []) keys.push(`${def.key}:${action.id}`);
+  for (const effect of def.effects ?? []) {
+    for (const action of effect.actions ?? []) keys.push(`${def.key}:${action.id}`);
+    if (effect.escape?.iconKey) keys.push(effect.escape.iconKey);
+  }
   for (const action of def.zone?.actions ?? []) keys.push(`${def.key}:${action.id}`);
   return keys;
 }

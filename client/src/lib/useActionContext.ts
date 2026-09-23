@@ -113,9 +113,10 @@ export function useActionContext(): ActionContext | null {
       .filter((e) => e.escape)
       .map((e) => ({
         id: `escape:${e.id}`,
-        name: t('ui.action.escape'),
+        name: e.escape?.label ?? t('ui.action.escape'),
         source: 'basic' as const,
         costs: ['action' as const],
+        ...(e.escape?.iconKey ? { iconKey: e.escape.iconKey } : {}),
         description: e.name,
       }));
     // Действия, выданные эффектами (Expeditious Retreat: Рывок бонусным действием).

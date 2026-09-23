@@ -972,3 +972,28 @@ describe('Eyebite: первичный эффект и метка спасшег�
     expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(false);
   });
 });
+
+describe('Irresistible Dance: успех и провал спасброска', () => {
+  it('провал — Charmed и танец; успех — короткий танец до конца хода', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    const def = automationForSpell(findSpell("XPHB:Otto's Irresistible Dance")!, { castLevel: 6 });
+
+    const fail = vi.spyOn(Math, 'random').mockReturnValue(0);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target], stats, author: 'DM' });
+    fail.mockRestore();
+    const dance = target.effects.find((e) => e.sourceKey === def.key);
+    expect(dance?.conditions).toBeUndefined();
+    expect(dance?.escape).toMatchObject({ kind: 'save', ability: 'wis', label: 'Собраться' });
+    expect(f.ctx.manager.tokenSpeed(room, target)).toBe(0);
+
+    const pass = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target], stats, author: 'DM' });
+    pass.mockRestore();
+    const short = target.effects.find((e) => e.sourceKey === def.key);
+    expect(short?.duration).toEqual({ type: 'endOfTurn', of: 'target' });
+    expect(f.ctx.manager.tokenSpeed(room, target)).toBe(0);
+  });
+});

@@ -641,6 +641,46 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       flags: { difficultTerrain: true },
     },
   },
+  /** Irresistible Dance (XPHB): танец на месте; провал — Charmed и повторный спас действием «Собраться». */
+  "XPHB:Otto's Irresistible Dance": {
+    key: "XPHB:Otto's Irresistible Dance",
+    name: 'Irresistible Dance',
+    resolution: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    targeting: { kind: 'creature', range: 30 },
+    saveSuccess: [
+      {
+        name: 'Irresistible Dance',
+        duration: { type: 'endOfTurn', of: 'target' },
+        to: 'targets',
+        modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
+      },
+    ],
+    effects: [
+      {
+        name: 'Irresistible Dance',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        // Чип `charmed` не ставим: у состояния нет движковой механики (deploy-инвариант),
+        // эффект целиком выражен модификаторами ниже + действие «Собраться».
+        modifiers: [
+          { target: 'speed', mode: 'multiply', value: 0 },
+          { target: 'save', mode: 'disadvantage', filter: { ability: 'dex' } },
+          { target: 'attack', mode: 'disadvantage', filter: { direction: 'self' } },
+          { target: 'attack', mode: 'advantage', filter: { direction: 'against' } },
+        ],
+        escape: {
+          kind: 'save',
+          ability: 'wis',
+          dc: 10,
+          label: 'Собраться',
+          iconKey: "XPHB:Otto's Irresistible Dance:stopDancing",
+        },
+      },
+    ],
+  },
   'XPHB:Pass without Trace': {
     key: 'XPHB:Pass without Trace',
     name: 'Pass without Trace',

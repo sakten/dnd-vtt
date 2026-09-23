@@ -35,7 +35,6 @@
   type AttackEntry,
   type AutomationDef,
   type CharacterSheet,
-  type DiceRollResult,
   type EffectInstance,
   type SpellStats,
   type Token,
@@ -50,7 +49,7 @@ import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { sheetOfToken } from '../room/helpers';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone } from './zones';
-import { pushRollMessage } from './messages';
+import { pushRollMessage, pushSaveMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
 import { findSpell } from '../spells';
@@ -65,7 +64,7 @@ function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: Act
   return order.find((c) => actionSlotAvailable(turn, c)) ?? order[order.length - 1] ?? 'action';
 }
 
-/** Действие «Выпутаться»: проверка характеристики снимает эффект (Web: STR/Athletics). */
+/** Действие «Выпутаться»/«Собраться»: проверка или спасбросок снимает эффект (Web, Dance). */
 function escapeEffect(
   ctx: ConnCtx,
   scope: Scope,
@@ -84,6 +83,30 @@ function escapeEffect(
     return;
   }
 
+  if (!ctx.manager.spendSlot(room, mapId, token, 'action')) {
+    fail(ctx, 'noActions');
+    return;
+  }
+  ctx.syncCombat(room, mapId);
+
+  const finish = () => {
+    ctx.manager.removeEffect(room, token, effect.id);
+    ctx.emitToken(room, 'token:update', mapId, token);
+  };
+
+  // Повторный спасбросок действием («Собраться»): спас с владением и истощением.
+  if (escape.kind === 'save') {
+    const { roll, success } = ctx.manager.rollSave(room, token, escape.ability, escape.dc);
+    pushSaveMessage(ctx, room, { author: token.name, subject: escape.label ?? effect.name, roll, success });
+    if (!success) return;
+    finish();
+    ctx.systemMessage(room, {
+      code: 'actions.recovered',
+      params: { name: token.name, action: escape.label ?? 'Выпутаться', effect: effect.name },
+    });
+    return;
+  }
+
   const parts = checkPartsForToken(room, token, { ability: escape.ability, skill: escape.skill });
   const userMode = advantage === 'a' || advantage === 'd' ? advantage : null;
   const expression = withRollParts(
@@ -93,27 +116,18 @@ function escapeEffect(
     ),
     parts
   );
-  const applyCheck = (roll: DiceRollResult) => {
-    const success = roll.total >= escape.dc;
-    pushRollMessage(ctx, room, {
-      author: token.name,
-      roll,
-      kind: 'check',
-      params: { subject: `Выпутаться: ${effect.name}` },
-    });
-    maybeRollAnim(ctx, roll);
-    if (!success) return;
-    ctx.manager.removeEffect(room, token, effect.id);
-    ctx.emitToken(room, 'token:update', mapId, token);
-    ctx.systemMessage(room, { code: 'actions.escaped', params: { name: token.name, effect: effect.name } });
-  };
-
-  if (!ctx.manager.spendSlot(room, mapId, token, 'action')) {
-    fail(ctx, 'noActions');
-    return;
-  }
-  ctx.syncCombat(room, mapId);
-  applyCheck(rollDice(expression));
+  const roll = rollDice(expression);
+  const success = roll.total >= escape.dc;
+  pushRollMessage(ctx, room, {
+    author: token.name,
+    roll,
+    kind: 'check',
+    params: { subject: escape.label ?? `Выпутаться: ${effect.name}` },
+  });
+  maybeRollAnim(ctx, roll);
+  if (!success) return;
+  finish();
+  ctx.systemMessage(room, { code: 'actions.escaped', params: { name: token.name, effect: effect.name } });
 }
 
 /** Считается ли цель «убитой» для переноса метки: HP ≤ 0 или состояние без сознания/смерти. */

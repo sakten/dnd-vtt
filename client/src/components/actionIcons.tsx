@@ -6,6 +6,22 @@ import type { ReactNode } from 'react';
  * Наполняется вместе с билдерами автоматизации; deploy-тест следит за покрытием.
  */
 export const ACTION_ICONS: Record<string, ReactNode> = {
+  // Irresistible Dance — «Собраться»: танцующая нота под запретом
+  "XPHB:Otto's Irresistible Dance:stopDancing": (
+    <>
+      <defs>
+        <linearGradient id="aiDanceNote" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ffd6f2" />
+          <stop offset="1" stopColor="#b06bd8" />
+        </linearGradient>
+      </defs>
+      <path d="M14.6 4.1l4.4-1.1v2.2l-4.4 1.1z" fill="url(#aiDanceNote)" />
+      <path d="M14.6 4.1v9.3a2.5 2.5 0 1 1-1.5-2.3" fill="none" stroke="url(#aiDanceNote)" strokeWidth="1.7" strokeLinejoin="round" />
+      <circle cx="16.4" cy="16.5" r="5" fill="none" stroke="#ff5470" strokeWidth="1.7" />
+      <path d="M12.9 13l7 7" stroke="#ff5470" strokeWidth="1.7" strokeLinecap="round" />
+    </>
+  ),
+
   // Call Lightning — удар из грозовой тучи
   'XPHB:Call Lightning:strike': (
     <>
@@ -302,6 +318,24 @@ export const ACTION_ICON_FALLBACKS: Record<string, ReactNode> = {
       <path d="M12 2.6c1.2 4.2 4.8 5.6 4.8 10a4.8 4.8 0 0 1-9.6 0c0-1.9.8-3.3 1.8-4.5.4 1.2 1 2 1.9 2.4C10.4 8.2 12 5.6 12 2.6z" fill="#ff7b00" />
       <path d="M12 9.4c.7 2.2 2.4 3 2.4 5.1a2.4 2.4 0 0 1-4.8 0c0-1.1.5-1.9 1.2-2.6.2.7.6 1.2 1.1 1.4-.3-1.4.1-2.7.1-3.9z" fill="#ffe066" />
       <path d="M5 20.6h14" stroke="#b32400" strokeWidth="1.6" strokeLinecap="round" />
+    </>
+  ),
+  asleep: (
+    <>
+      <path d="M15.6 3.4a8.2 8.2 0 1 0 5.8 9.9 6.5 6.5 0 0 1-5.8-9.9z" fill="#8fa8ff" />
+      <path d="M5 8h4l-4 4h4" stroke="#dbe4ff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  panicked: (
+    <>
+      <path d="M12 3l9 16H3z" fill="#ffb703" stroke="#7a4b00" strokeWidth="0.7" strokeLinejoin="round" />
+      <path d="M12 9.4v4.2M12 16.2h.01" stroke="#4a2c00" strokeWidth="1.8" strokeLinecap="round" />
+    </>
+  ),
+  sickened: (
+    <>
+      <path d="M12 3.4s6 6.3 6 10.2a6 6 0 1 1-12 0c0-3.9 6-10.2 6-10.2z" fill="#7cd06a" stroke="#2f6b28" strokeWidth="0.7" />
+      <path d="M9 13.6h6" stroke="#eafff0" strokeWidth="1.5" strokeLinecap="round" />
     </>
   ),
 };

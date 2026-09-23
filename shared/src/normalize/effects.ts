@@ -171,6 +171,19 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       if (payload.tempHp || payload.damage) effect.triggers = { startOfTurn: payload };
     }
     if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
+    if (e.escape && typeof e.escape === 'object') {
+      const esc = e.escape as { kind?: unknown; ability?: unknown; skill?: unknown; dc?: unknown; label?: unknown; iconKey?: unknown };
+      if (isAbilityKey(esc.ability)) {
+        effect.escape = {
+          ability: esc.ability,
+          dc: clampInt(esc.dc, 0, 40, 10),
+          ...(esc.kind === 'save' ? { kind: 'save' as const } : {}),
+          ...(typeof esc.skill === 'string' && esc.skill ? { skill: esc.skill.slice(0, 40) } : {}),
+          ...(typeof esc.label === 'string' && esc.label ? { label: esc.label.slice(0, 40) } : {}),
+          ...(typeof esc.iconKey === 'string' && esc.iconKey ? { iconKey: esc.iconKey.slice(0, 80) } : {}),
+        };
+      }
+    }
     if (e.mark === true) effect.mark = true;
     if (e.light && typeof e.light === 'object') {
       const l = e.light as Partial<LightSource>;

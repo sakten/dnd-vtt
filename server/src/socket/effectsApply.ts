@@ -56,7 +56,9 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     saveOnDamage: effectDef.saveOnDamage,
     restrictions: effectDef.restrictions,
     zoneId,
-    escape: effectDef.escape && escapeDc !== undefined ? { ...effectDef.escape, dc: escapeDc } : undefined,
+    escape: effectDef.escape
+      ? { ...effectDef.escape, dc: escapeDc ?? effectDef.escape.dc ?? 10 }
+      : undefined,
     misdirect: effectDef.misdirect ? { ...effectDef.misdirect } : undefined,
     hidden: effectDef.hidden,
     bonusDie: effectDef.bonusDie,

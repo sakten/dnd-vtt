@@ -116,12 +116,18 @@ export interface EffectEscalation {
   duration?: EffectDuration;
 }
 
-/** Действие «Выпутаться»: проверка характеристики против СЛ эффекта (Web и подобные). */
+/** Действие «Выпутаться»: проверка характеристики или спасбросок против СЛ эффекта (Web, Dance). */
 export interface EffectEscape {
+  /** `check` — проверка характеристики (по умолчанию), `save` — спасбросок. */
+  kind?: 'check' | 'save';
   ability: AbilityKey;
   /** Навык (Athletics и т.п.), даёт владение при броске. */
   skill?: string;
   dc: number;
+  /** Подпись действия (иначе «Выпутаться»). */
+  label?: string;
+  /** Ключ иконки действия (`<источник>:<id>`), иначе запасной глиф. */
+  iconKey?: string;
 }
 
 /**

@@ -89,8 +89,8 @@ export interface AutomationEffect {
   misdirect?: { charges: number; die: string; threshold: number };
   /** Ограничения экономики/действий, пока эффект активен. */
   restrictions?: Restrictions;
-  /** Выпутывание действием: проверка характеристики против СЛ каста (Web). */
-  escape?: { ability: AbilityKey; skill?: string };
+  /** Выпутывание действием: проверка характеристики или спасбросок против СЛ каста (Web, Dance). */
+  escape?: { kind?: 'check' | 'save'; ability: AbilityKey; skill?: string; dc?: number; label?: string; iconKey?: string };
   /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
   senses?: Sense[];
   /** Действия, выдаваемые эффектом на время его действия (Expeditious Retreat, Dragon's Breath). */
@@ -318,5 +318,7 @@ export interface AutomationDef extends AutomationPayload {
   lifesteal?: boolean;
   /** Перенос метки эффекта на новую цель (Hex/Hunter's Mark): обновляет filter.targetId. */
   retarget?: boolean;
+  /** Эффекты при успешном спасброске (Irresistible Dance: короткий танец до конца следующего хода). */
+  saveSuccess?: AutomationEffect[];
   utility?: AutomationUtility;
 }

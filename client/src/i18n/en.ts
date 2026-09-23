@@ -70,6 +70,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.misdirect.hitLeft': '{name}: an image took the hit ({left} left)',
   'system.actions.escaped': '{name}: escaped from “{effect}”',
   'system.actions.wokeUp': '{name}: woken up',
+  'system.actions.recovered': '{name}: {action} — “{effect}” ended',
   'system.actions.used': '{name}: {action}',
   'system.combat.legendaryExhausted': 'Legendary actions exhausted: {name}',
   'system.actions.usedSummary': '{name}: {action} — {summary}',

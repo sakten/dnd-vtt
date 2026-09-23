@@ -67,6 +67,7 @@
   'system.misdirect.hitLeft': '{name}: образ принял удар (осталось {left})',
   'system.actions.escaped': '{name}: выпутался из «{effect}»',
   'system.actions.wokeUp': '{name}: разбужен',
+  'system.actions.recovered': '{name}: {action} — «{effect}» окончено',
   'system.actions.used': '{name}: {action}',
   'system.combat.legendaryExhausted': 'Легендарные действия исчерпаны: {name}',
   'system.actions.usedSummary': '{name}: {action} — {summary}',

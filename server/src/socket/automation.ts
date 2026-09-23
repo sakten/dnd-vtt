@@ -310,6 +310,20 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   const applyAll = () => {
     for (const app of applications) {
       if (app.save?.success) {
+        // Эффекты успешного спасброска (Irresistible Dance: короткий танец) — один раз на цель.
+        if (def.saveSuccess?.length && app.effectDef === effects[0]) {
+          for (const successDef of def.saveSuccess) {
+            applyEffectLight(ctx, room, mapId, {
+              sourceKey: def.key,
+              sourceId: caster.id,
+              mapId,
+              effectDef: successDef,
+              target: app.target,
+              untilSaveDc: stats?.dc,
+              escapeDc: stats?.dc,
+            });
+          }
+        }
         // Eyebite: успешный спас помечаем скрытой меткой (до конца каста повторно не выбрать).
         if (app.effectDef.markSaved) {
           ctx.manager.applyEffect(room, app.target, {

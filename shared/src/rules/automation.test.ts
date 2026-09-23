@@ -251,6 +251,33 @@ describe('automationForSpell', () => {
     expect(spellAutomated(eyebite)).toBe(true);
   });
 
+  it('Irresistible Dance — Charmed, танец и повторный спас «Собраться»', () => {
+    const dance = makeSpell({
+      key: "XPHB:Otto's Irresistible Dance",
+      name: 'Irresistible Dance',
+      level: 6,
+      automation: 'manual',
+      concentration: true,
+      save: ['wis'],
+    });
+    const def = automationForSpell(dance);
+    expect(def.resolution).toBe('effect');
+    expect(def.save).toEqual({ ability: 'wis' });
+    expect(def.targeting).toEqual({ kind: 'creature', range: 30 });
+    const effect = def.effects?.[0];
+    expect(effect?.conditions).toBeUndefined();
+    expect(effect?.modifiers.some((m) => m.target === 'speed' && m.mode === 'multiply' && m.value === 0)).toBe(true);
+    expect(effect?.modifiers.some((m) => m.target === 'save' && m.mode === 'disadvantage' && m.filter?.ability === 'dex')).toBe(
+      true
+    );
+    expect(effect?.modifiers.some((m) => m.target === 'attack' && m.mode === 'advantage' && m.filter?.direction === 'against')).toBe(
+      true
+    );
+    expect(effect?.escape).toMatchObject({ kind: 'save', ability: 'wis', label: 'Собраться' });
+    expect(def.saveSuccess?.[0]?.duration).toEqual({ type: 'endOfTurn', of: 'target' });
+    expect(spellAutomated(dance)).toBe(true);
+  });
+
   it('Scatter — до пяти целей, точки в 120 фт от кастера', () => {
     const scatter = makeSpell({ key: 'XGE:Scatter', name: 'Scatter', level: 6, automation: 'manual' });
     const def = automationForSpell(scatter);
