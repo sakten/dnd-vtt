@@ -733,6 +733,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.spellPopover.summonForm': 'Form',
   'ui.spellPopover.beastForm': 'Beast (Polymorph)',
   'ui.spellPopover.damageType': 'Damage type',
+  'ui.spellPopover.abilityChoice': 'Ability',
   'ui.spellPopover.summonFormPick': 'Choose a form',
   'ui.spellPopover.choosePoint': 'Choose a point',
   'ui.spellPopover.manualNote': 'Effect is not automated: the name and description go to chat, the GM handles the mechanics',

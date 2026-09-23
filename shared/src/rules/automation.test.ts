@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
-import { automationForAction, automationForSpell, spellAutomated } from './automation';
+import { automationForAction, automationForSpell, spellAutomated, spellVariantDef } from './automation';
 import type { Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
@@ -154,6 +154,46 @@ describe('automationForSpell', () => {
     expect(
       automationForSpell(heroism, { castLevel: 1, spellMod: 0 }).effects?.[0]?.triggers
     ).toBeUndefined();
+  });
+
+  it('Enhance Ability — преимущество на проверки выбранной характеристики (вариант каста)', () => {
+    const enhance = makeSpell({ key: 'XPHB:Enhance Ability', name: 'Enhance Ability', level: 2, automation: 'manual' });
+    const def = automationForSpell(enhance, { variant: 'dex' });
+    expect(def.resolution).toBe('effect');
+    expect(def.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'check',
+      mode: 'advantage',
+      filter: { ability: 'dex' },
+    });
+    expect(def.effects?.[0]?.variant).toBe('dex');
+    expect(def.effects?.[0]?.targets).toBe(1);
+    expect(automationForSpell(enhance, { castLevel: 4, variant: 'dex' }).effects?.[0]?.targets).toBe(3);
+    // Без варианта/с чужим значением — первая характеристика списка.
+    expect(automationForSpell(enhance).effects?.[0]?.modifiers[0]?.filter?.ability).toBe('str');
+    expect(automationForSpell(enhance, { variant: 'bogus' }).effects?.[0]?.modifiers[0]?.filter?.ability).toBe('str');
+    expect(spellAutomated(enhance)).toBe(true);
+    expect(spellVariantDef('XPHB:Enhance Ability')).toEqual({ param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] });
+  });
+
+  it("Pass without Trace — аура +10 к Скрытности, привязана к кастеру", () => {
+    const passTrace = makeSpell({
+      key: 'XPHB:Pass without Trace',
+      name: 'Pass without Trace',
+      level: 2,
+      automation: 'manual',
+      concentration: true,
+    });
+    const def = automationForSpell(passTrace);
+    expect(def.resolution).toBe('effect');
+    expect(def.zone?.anchor).toBe('source');
+    expect(def.zone?.area).toEqual({ shape: 'sphere', size: 30 });
+    expect(def.zone?.aura?.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'check',
+      mode: 'add',
+      value: 10,
+      filter: { skill: 'stealth' },
+    });
+    expect(spellAutomated(passTrace)).toBe(true);
   });
 
   it('Searing Smite — урон при попадании и в начале хода, спас CON до успеха', () => {

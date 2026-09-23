@@ -730,6 +730,7 @@
   'ui.spellPopover.summonForm': 'Форма',
   'ui.spellPopover.beastForm': 'Зверь (Polymorph)',
   'ui.spellPopover.damageType': 'Тип урона',
+  'ui.spellPopover.abilityChoice': 'Характеристика',
   'ui.spellPopover.summonFormPick': 'Выберите форму',
   'ui.spellPopover.choosePoint': 'Выбрать точку',
   'ui.spellPopover.manualNote': 'Эффект не автоматизирован: в чат уйдёт название и описание, механику ведёт мастер',

@@ -69,6 +69,49 @@ describe('концентрация заклинаний с зонами', () => 
     expect(target.effects.some((e) => e.sourceKey === 'XPHB:Spirit Guardians')).toBe(false);
   });
 
+  it('Pass without Trace: аура +10 к Скрытности на всех в радиусе', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+
+    const passTrace = findSpell('XPHB:Pass without Trace')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(passTrace, { castLevel: 2 }),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+
+    expect(map.zones?.map((z) => z.sourceKey)).toEqual(['XPHB:Pass without Trace']);
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Pass without Trace' && !!e.zoneId)).toBe(true);
+    expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Pass without Trace' && !!e.zoneId)).toBe(true);
+    expect(checkPartsForToken(room, target, { ability: 'dex', skill: 'stealth' })).toMatchObject({ flat: 10 });
+  });
+
+  it('Enhance Ability: выбранная характеристика — преимущество проверок цели', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+
+    const enhance = findSpell('XPHB:Enhance Ability')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(enhance, { castLevel: 2, variant: 'dex' }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Enhance Ability')).toBe(true);
+    expect(checkPartsForToken(room, target, { ability: 'dex' }).mode).toBe('a');
+    expect(checkPartsForToken(room, target, { ability: 'str' }).mode).toBeUndefined();
+  });
+
   it('новая концентрация снимает прежнюю и с другого токена того же персонажа', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

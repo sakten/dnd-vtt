@@ -1,4 +1,5 @@
 import type { ActionDef } from '../domain/actions';
+import type { AbilityKey } from '../domain/core';
 import type {
   AutomationDice,
   AutomationDef,
@@ -628,6 +629,28 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       flags: { difficultTerrain: true },
     },
   },
+  'XPHB:Pass without Trace': {
+    key: 'XPHB:Pass without Trace',
+    name: 'Pass without Trace',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      aura: {
+        effects: [
+          {
+            name: 'Pass without Trace',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'check', mode: 'add', value: 10, filter: { skill: 'stealth' } }],
+          },
+        ],
+      },
+    },
+  },
   'XPHB:Stinking Cloud': {
     key: 'XPHB:Stinking Cloud',
     name: 'Stinking Cloud',
@@ -847,13 +870,19 @@ export interface AutomationOptions {
   variant?: string;
 }
 
-/** Варианты заклинания, выбираемые при касте (Dragon's Breath: тип урона). */
-export const SPELL_VARIANTS: Record<string, { param: 'damageType'; options: string[] }> = {
+/** Вариант заклинания, выбираемый при касте (Dragon's Breath: тип урона; Enhance Ability: характеристика). */
+export interface SpellVariantDef {
+  param: 'damageType' | 'ability';
+  options: string[];
+}
+
+export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   "XPHB:Dragon's Breath": { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'poison'] },
+  'XPHB:Enhance Ability': { param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
-export function spellVariantDef(spellKey: string): { param: 'damageType'; options: string[] } | undefined {
+export function spellVariantDef(spellKey: string): SpellVariantDef | undefined {
   return SPELL_VARIANTS[spellKey];
 }
 
@@ -867,6 +896,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Call Lightning',
   'XPHB:Heal',
   'XPHB:Heroism',
+  'XPHB:Enhance Ability',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
 ]);
@@ -905,7 +935,7 @@ function actionCarrier(
  */
 function breathSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   const variant = SPELL_VARIANTS[spell.key];
-  if (!variant) return undefined;
+  if (!variant || variant.param !== 'damageType') return undefined;
   const type = variant.options.includes(opts.variant ?? '') ? opts.variant! : variant.options[0]!;
   const dice = spellDice(spell, opts);
   const area = spell.areaSpec ?? { shape: 'cone' as const, size: 15 };
@@ -1083,6 +1113,25 @@ function heroismDef(spell: Spell, opts: AutomationOptions): AutomationDef | unde
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
+/** Enhance Ability: выбранная при касте характеристика — преимущество на её проверки. */
+function enhanceAbilityDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  const variant = SPELL_VARIANTS[spell.key];
+  if (!variant || variant.param !== 'ability') return undefined;
+  const ability = (variant.options.includes(opts.variant ?? '') ? opts.variant! : variant.options[0]!) as AbilityKey;
+  // Апкаст: +1 цель за круг выше 2 (характеристика одна на каст).
+  const targets = Math.max(1, (opts.castLevel ?? Math.max(1, spell.level)) - 1);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    targets,
+    modifiers: [{ target: 'check', mode: 'advantage', filter: { ability } }],
+    variant: ability,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
 /** Searing Smite: доп. 1d6 огня при попадании + урон и спас CON в начале каждого хода цели. */
 function searingSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Searing Smite') return undefined;
@@ -1176,6 +1225,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
+
+  const enhance = enhanceAbilityDef(spell, opts);
+  if (enhance) return enhance;
 
   const searing = searingSmiteDef(spell, opts);
   if (searing) return searing;

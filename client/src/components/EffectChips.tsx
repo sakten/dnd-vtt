@@ -1,6 +1,6 @@
-import { type EffectInstance, type Spell } from 'shared';
+import { spellVariantDef, type AbilityKey, type EffectInstance, type Spell } from 'shared';
 import { t } from '../i18n';
-import { damageLabel, effectDurationText, effectSummaryText } from '../i18n/domain';
+import { abilityName, damageLabel, effectDurationText, effectSummaryText } from '../i18n/domain';
 import ChipRow from './ChipRow';
 import SpellIcon from './SpellIcon';
 
@@ -31,8 +31,14 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
       parts.push(effectDurationText(e.duration));
     }
     const rounds = e.duration.type === 'rounds' ? e.duration.rounds : undefined;
-    // Выбранный вариант (Dragon's Breath: тип урона) — в скобках к имени.
-    const label = e.variant ? `${e.name} (${damageLabel(e.variant)})` : e.name;
+    // Выбранный вариант (Dragon's Breath: тип урона; Enhance Ability: характеристика) — в скобках к имени.
+    const variantParam = e.sourceKey ? spellVariantDef(e.sourceKey)?.param : undefined;
+    const variantLabel = e.variant
+      ? variantParam === 'ability'
+        ? abilityName(e.variant as AbilityKey)
+        : damageLabel(e.variant)
+      : '';
+    const label = variantLabel ? `${e.name} (${variantLabel})` : e.name;
     return {
       key: e.id,
       title: label,

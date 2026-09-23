@@ -14,13 +14,14 @@ import {
   spellCastAreaOverride,
   spellRangeFeet,
   spellVariantDef,
+  type AbilityKey,
   type ActionCost,
   type Spell,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { spellDisplayName } from '../i18n/names';
-import { damageLabel } from '../i18n/domain';
+import { abilityName, damageLabel } from '../i18n/domain';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import { t } from '../i18n';
@@ -136,6 +137,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         spec: spellCastAreaOverride(spell) ?? zoneDef?.area ?? spell.areaSpec,
         originKind: spellAreaOrigin(spell),
         rangeFeet: spellRangeFeet(spell),
+        ...(variant ? { variant } : {}),
       });
     } else if (info.multi) {
       startMultiTarget({
@@ -144,6 +146,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         count: info.multiCount,
         distinct: info.multiKind === 'targets',
+        ...(variant ? { variant } : {}),
       });
     } else if (teleportDef) {
       startAim({
@@ -302,11 +305,13 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
 
         {variantDef && (
           <div className="sp-row">
-            <span className="sp-label">{t('ui.spellPopover.damageType')}</span>
+            <span className="sp-label">
+              {variantDef.param === 'ability' ? t('ui.spellPopover.abilityChoice') : t('ui.spellPopover.damageType')}
+            </span>
             <select className="sp-select" value={variant} onChange={(e) => setVariant(e.target.value)}>
               {variantDef.options.map((option) => (
                 <option key={option} value={option}>
-                  {damageLabel(option)}
+                  {variantDef.param === 'ability' ? abilityName(option as AbilityKey) : damageLabel(option)}
                 </option>
               ))}
             </select>
