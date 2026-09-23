@@ -21,7 +21,7 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { spellDisplayName } from '../i18n/names';
-import { abilityName, damageLabel } from '../i18n/domain';
+import { abilityName, damageLabel, skillName } from '../i18n/domain';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import { t, type MessageKey } from '../i18n';
@@ -157,6 +157,15 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         count: info.multiCount,
         distinct: info.multiKind === 'targets',
+        ...(variant ? { variant } : {}),
+      });
+    } else if (info.autoTargets) {
+      // Цели собирает сервер по радиусу (Beacon of Hope): клик по цели не нужен.
+      castSpell({
+        tokenId,
+        spellKey: spell.key,
+        slotLevel: info.slotLevel,
+        advantage: mode,
         ...(variant ? { variant } : {}),
       });
     } else if (teleportDef) {
@@ -327,7 +336,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
           <div className="sp-row">
             <span className="sp-label">{t('ui.spellPopover.target')}</span>
             <span className="sp-target">
-              {info.self || selfOnlyAtWill ? t('ui.spellPopover.self') : t('ui.spellPopover.clickTarget')}
+              {info.autoTargets
+                ? t('ui.spellPopover.alliesAround')
+                : info.self || selfOnlyAtWill
+                  ? t('ui.spellPopover.self')
+                  : t('ui.spellPopover.clickTarget')}
             </span>
           </div>
         )}
@@ -339,7 +352,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                 ? t('ui.spellPopover.abilityChoice')
                 : variantDef.param === 'effect'
                   ? t('ui.spellPopover.effectChoice')
-                  : t('ui.spellPopover.damageType')}
+                  : variantDef.param === 'skill'
+                    ? t('ui.spellPopover.skillChoice')
+                    : t('ui.spellPopover.damageType')}
             </span>
             <select className="sp-select" value={variant} onChange={(e) => setVariant(e.target.value)}>
               {variantDef.options.map((option) => (
@@ -348,7 +363,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                     ? abilityName(option as AbilityKey)
                     : variantDef.param === 'effect'
                       ? t(`ui.eyebite.${option}` as MessageKey)
-                      : damageLabel(option)}
+                      : variantDef.param === 'skill'
+                        ? skillName(option)
+                        : damageLabel(option)}
                 </option>
               ))}
             </select>
@@ -426,11 +443,13 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
               ? t('ui.spellPopover.chooseArea')
               : info.multi
                 ? t('ui.spellPopover.chooseTargets')
-                : summonDef
-                  ? t('ui.spellPopover.choosePoint')
-                  : info.self
-                    ? t('ui.common.apply')
-                    : t('ui.spellPopover.chooseTarget')}
+                : info.autoTargets
+                  ? t('ui.common.apply')
+                  : summonDef
+                    ? t('ui.spellPopover.choosePoint')
+                    : info.self
+                      ? t('ui.common.apply')
+                      : t('ui.spellPopover.chooseTarget')}
           </button>
         </div>
       </div>

@@ -2,11 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   automationForAction,
   automationForSpell,
+  effectDefenses,
   findBaseAction,
   monsterAbilityAutomation,
   monsterStats,
+  normalizeSheet,
   savedAgainst,
+  saveRollParts,
   type ActionDef,
+  type AutomationDef,
   type ChatMessage,
 } from 'shared';
 import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
@@ -18,6 +22,7 @@ import { applyEffectTo, removeBrokenEffects } from './effectsApply';
 import { pendingOffers } from './reactions';
 import { offerDamageReactions } from './reactions/windows';
 import { validateSpellCast } from './spellResolve';
+import { tickZones } from './zones';
 import { checkPartsForToken } from '../room/effects';
 
 const isAttackRoll = (m: ChatMessage): m is Extract<ChatMessage, { kind: 'roll' }> =>
@@ -43,6 +48,9 @@ describe('концентрация заклинаний с зонами', () => 
     const map = room.scene.maps[0]!;
     const caster = map.tokens[0]!;
     const target = map.tokens[1]!;
+    // Spirit Guardians бьёт только врагов — иначе аура/урон на нейтрала не сработают.
+    caster.faction = 'ally';
+    target.faction = 'enemy';
 
     const sg = findSpell('XPHB:Spirit Guardians')!;
     executeAutomation(f.ctx, {
@@ -94,6 +102,243 @@ describe('концентрация заклинаний с зонами', () => 
     expect(target.effects.some((e) => e.sourceKey === 'XPHB:Pass without Trace' && !!e.zoneId)).toBe(true);
     expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Pass without Trace' && !!e.zoneId)).toBe(true);
     expect(checkPartsForToken(room, target, { ability: 'dex', skill: 'stealth' })).toMatchObject({ flat: 10 });
+  });
+
+  it('Aura of Purity: аура союзникам — сопротивление яду, иммунитет к отравлению, преимущество сейвов', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, target] = room.scene.maps[0]!.tokens;
+    const spell = findSpell('XPHB:Aura of Purity')!;
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(spell),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+
+    const aura = target!.effects.find((e) => e.zoneId);
+    expect(aura?.conditionImmunities).toEqual(['poisoned']);
+    expect(saveRollParts([aura!], 'con', undefined, 'stunned').mode).toBe('a');
+    expect(saveRollParts([aura!], 'con', undefined, 'prone').mode).toBeUndefined();
+    expect(effectDefenses(target!.effects).some((d) => d.type === 'resistance' && d.damageType === 'poison')).toBe(
+      true
+    );
+    // Иммунитет из ауры: состояние «Отравлен» не накладывается.
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'TEST:Poison',
+      sourceId: caster!.id,
+      mapId: 'm1',
+      effectDef: { name: 'Яд', duration: { type: 'permanent' }, to: 'targets', modifiers: [], conditions: ['poisoned'] },
+      target: target!,
+    });
+    expect(target!.conditions.some((c) => c.key === 'poisoned')).toBe(false);
+  });
+
+  it('Aura of Life: сопротивление некротике и подъём союзника с HP ≤ 0 до 1 в начале хода', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: -5, faction: 'ally' }),
+        makeToken('t3', {
+          x: 150,
+          y: 150,
+          hpMax: '30',
+          hpCurrent: 0,
+          faction: 'ally',
+          conditions: [{ key: 'dead', name: 'Мёртв', rounds: null }],
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, ally, dead] = room.scene.maps[0]!.tokens;
+    const spell = findSpell('XPHB:Aura of Life')!;
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(spell),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+
+    expect(effectDefenses(ally!.effects).some((d) => d.type === 'resistance' && d.damageType === 'necrotic')).toBe(
+      true
+    );
+    tickZones(f.ctx, room, 'm1', ally!, 'start');
+    expect(ally!.hpCurrent).toBe(1);
+    // Мёртвого аура не оживляет.
+    tickZones(f.ctx, room, 'm1', dead!, 'start');
+    expect(dead!.conditions.some((c) => c.key === 'dead')).toBe(true);
+    expect(dead!.hpCurrent).toBe(0);
+  });
+
+  it('Beacon of Hope: авто-цели союзников, максимум лечения и death-сейвов', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 10, faction: 'ally' }),
+        makeToken('t3', { x: 150, y: 150, hpMax: '30', hpCurrent: 10, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, ally, enemy] = room.scene.maps[0]!.tokens;
+    const beacon = findSpell('XPHB:Beacon of Hope')!;
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(beacon),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+
+    expect(caster!.effects.some((e) => e.maximizeHealing && e.deathSaveAdvantage)).toBe(true);
+    expect(ally!.effects.some((e) => e.maximizeHealing)).toBe(true);
+    expect(enemy!.effects.some((e) => e.sourceKey === 'XPHB:Beacon of Hope')).toBe(false);
+
+    // Максимум лечения: 2d8 при выпавших единицах — 16, а не 2.
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    const healDef: AutomationDef = { key: 'TEST:Heal', name: 'Лечение', resolution: 'auto', heal: { dice: '2d8' } };
+    executeAutomation(f.ctx, { caster: caster!, mapId: 'm1', def: healDef, targets: [ally!], stats: null, author: 'DM' });
+    rand.mockRestore();
+
+    expect(ally!.hpCurrent).toBe(26);
+  });
+
+  it('Spirit Guardians: союзники не попадают под урон и ауру — только враги', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+        makeToken('t3', { x: 150, y: 150, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, ally, enemy] = room.scene.maps[0]!.tokens;
+    const sg = findSpell('XPHB:Spirit Guardians')!;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11 → спас провален, 3d8 = 15
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(sg, { castLevel: 3, characterLevel: 5 }),
+      targets: [ally!, enemy!],
+      stats,
+      author: 'DM',
+    });
+    rand.mockRestore();
+
+    expect(ally!.hpCurrent).toBe(30);
+    expect(enemy!.hpCurrent).toBe(15);
+    expect(ally!.effects.some((e) => e.sourceKey === 'XPHB:Spirit Guardians')).toBe(false);
+    expect(enemy!.effects.some((e) => e.sourceKey === 'XPHB:Spirit Guardians' && !!e.zoneId)).toBe(true);
+  });
+
+  it('Skill Empowerment: экспертиза навыка (ПБ добавляется), у эксперта не дублируется', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib1', x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = normalizeSheet({
+      abilities: { str: 10, dex: 14, con: 10, int: 10, wis: 10, cha: 10 },
+      proficiencyBonus: '3',
+      skills: { stealth: 1 },
+    });
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, target] = room.scene.maps[0]!.tokens;
+    const spell = findSpell('XGE:Skill Empowerment')!;
+    const cast = () =>
+      executeAutomation(f.ctx, {
+        caster: caster!,
+        mapId: 'm1',
+        def: automationForSpell(spell, { variant: 'stealth' }),
+        targets: [target!],
+        stats,
+        author: 'DM',
+      });
+
+    cast();
+    expect(checkPartsForToken(room, target!, { ability: 'dex', skill: 'stealth' }).flat).toBe(3);
+    expect(checkPartsForToken(room, target!, { ability: 'dex', skill: 'athletics' }).flat).toBe(0);
+
+    // У цели уже экспертиза — повторный каст бонуса не добавляет.
+    room.sheets.p1!.skills.stealth = 2;
+    cast();
+    expect(checkPartsForToken(room, target!, { ability: 'dex', skill: 'stealth' }).flat).toBe(0);
+  });
+
+  it('Circle of Power: преимущество сейвов против магии и полная отмена урона при успехе', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, ally] = room.scene.maps[0]!.tokens;
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Circle of Power')!),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+
+    expect(saveRollParts(ally!.effects, 'dex', undefined, undefined, true).mode).toBe('a');
+    expect(saveRollParts(ally!.effects, 'dex', undefined, undefined, false).mode).toBeUndefined();
+
+    const burst: AutomationDef = {
+      key: 'TEST:Burst',
+      name: 'Вспышка',
+      resolution: 'save',
+      save: { ability: 'dex', half: true },
+      damage: { dice: '2d6', types: ['fire'] },
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.95); // d20 = 20, 2d6 = 12
+    executeAutomation(f.ctx, { caster: caster!, mapId: 'm1', def: burst, targets: [ally!], stats, author: 'DM' });
+    // Успех с Circle of Power — урона нет вовсе (иначе была бы половина).
+    expect(ally!.hpCurrent).toBe(30);
+
+    ally!.effects = ally!.effects.filter((e) => e.sourceKey !== 'XPHB:Circle of Power');
+    executeAutomation(f.ctx, { caster: caster!, mapId: 'm1', def: burst, targets: [ally!], stats, author: 'DM' });
+    rand.mockRestore();
+    expect(ally!.hpCurrent).toBe(24);
+  });
+
+  it('Far Step: телепорт при касте и выданное бонусное действие', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const far = findSpell('XGE:Far Step')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(far),
+      targets: [],
+      stats,
+      author: 'DM',
+      origin: { x: caster.x + 100, y: caster.y },
+    });
+
+    // Телепорт выравнивает токен по центру клетки (200 → 225).
+    expect(caster.x).toBe(225);
+    const effect = caster.effects.find((e) => e.sourceKey === 'XGE:Far Step' && !!e.actions?.length);
+    expect(effect?.actions?.[0]?.cost).toBe('bonus');
+    expect(effect?.actions?.[0]?.def?.utility).toEqual({ kind: 'teleport', amount: 60 });
   });
 
   it('Enhance Ability: выбранная характеристика — преимущество проверок цели', () => {

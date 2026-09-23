@@ -239,7 +239,7 @@ describe('automationForSpell', () => {
     expect(def.resolution).toBe('effect');
     expect(def.endConditions).toEqual(['poisoned']);
     expect(def.effects?.[0]?.modifiers).toEqual([
-      { target: 'save', mode: 'advantage', filter: { condition: 'poisoned' } },
+      { target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } },
       { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
     ]);
     expect(spellAutomated(pp)).toBe(true);
@@ -729,7 +729,9 @@ describe('automationForSpell', () => {
     const def = automationForSpell(spell, { castLevel: 4 });
     expect(def.resolution).toBe('save');
     expect(def.damage).toEqual({ dice: '3d8 + 1d8', types: ['radiant'] });
+    expect(def.side).toBe('hostile');
     expect(def.zone?.anchor).toBe('source');
+    expect(def.zone?.side).toBe('hostile');
     expect(def.zone?.enterOncePerTurn).toBe(true);
     expect(def.zone?.triggers?.startOfTurn?.damage?.dice).toBe('3d8 + 1d8');
     expect(def.zone?.aura?.effects?.[0]?.modifiers[0]).toMatchObject({ target: 'speed', mode: 'multiply', value: 0.5 });
@@ -823,6 +825,140 @@ describe('automationForSpell', () => {
       spellFailureChance: 25,
     });
     expect(effect?.modifiers.map((m) => m.target)).toEqual(['speed', 'ac', 'save']);
+  });
+
+  it('Protection from Energy: выбранный тип — сопротивление, вариант в подписи', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Protection from Energy',
+      name: 'Protection from Energy',
+      level: 3,
+      automation: 'manual',
+    });
+    const fire = automationForSpell(spell, { variant: 'fire' });
+    expect(fire.resolution).toBe('effect');
+    expect(fire.concentration).toBe(true);
+    const effect = fire.effects?.[0];
+    expect(effect?.modifiers).toEqual([
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'fire' } },
+    ]);
+    expect(effect?.variant).toBe('fire');
+    expect(automationForSpell(spell).effects?.[0]?.variant).toBe('acid');
+    expect(spellAutomated({ key: 'XPHB:Protection from Energy', automation: 'manual' })).toBe(true);
+    // Вариант damageType не должен уходить в билдер Dragon's Breath (конус).
+    expect(fire.area).toBeUndefined();
+  });
+
+  it('Beacon of Hope: авто-цели союзников, преимущество WIS/death-сейвов, максимум лечения', () => {
+    const def = automationForSpell(
+      makeSpell({ key: 'XPHB:Beacon of Hope', name: 'Beacon of Hope', level: 3, automation: 'manual' })
+    );
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(def.autoTargets).toEqual({ feet: 30, side: 'ally', includeSelf: true });
+    const effect = def.effects?.[0];
+    expect(effect?.modifiers).toEqual([{ target: 'save', mode: 'advantage', filter: { ability: 'wis' } }]);
+    expect(effect?.maximizeHealing).toBe(true);
+    expect(effect?.deathSaveAdvantage).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Beacon of Hope', automation: 'manual' })).toBe(true);
+  });
+
+  it('Aura of Life: аура союзников — сопротивление некротике и подъём до 1 HP в начале хода', () => {
+    const def = automationForSpell(
+      makeSpell({ key: 'XPHB:Aura of Life', name: 'Aura of Life', level: 4, automation: 'manual' })
+    );
+    expect(def.zone?.side).toBe('ally');
+    expect(def.zone?.anchor).toBe('source');
+    expect(def.zone?.aura?.effects?.[0]?.modifiers).toEqual([
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'necrotic' } },
+    ]);
+    expect(def.zone?.triggers?.startOfTurn?.healTo).toBe(1);
+    expect(spellAutomated({ key: 'XPHB:Aura of Life', automation: 'manual' })).toBe(true);
+  });
+
+  it('Aura of Purity: сопротивление яду, иммунитет к отравлению, преимущество сейвов против состояний', () => {    const def = automationForSpell(
+      makeSpell({ key: 'XPHB:Aura of Purity', name: 'Aura of Purity', level: 4, automation: 'manual' })
+    );
+    const effect = def.zone?.aura?.effects?.[0];
+    expect(def.zone?.side).toBe('ally');
+    expect(effect?.conditionImmunities).toEqual(['poisoned']);
+    expect(effect?.modifiers[0]).toEqual({
+      target: 'damage',
+      mode: 'resistance',
+      value: 0,
+      filter: { damageType: 'poison' },
+    });
+    expect(effect?.modifiers[1]?.filter?.conditions).toEqual([
+      'blinded',
+      'charmed',
+      'deafened',
+      'frightened',
+      'poisoned',
+      'stunned',
+    ]);
+    expect(spellAutomated({ key: 'XPHB:Aura of Purity', automation: 'manual' })).toBe(true);
+  });
+
+  it('Skill Empowerment: выбранный навык — модификатор $proficiency (экспертиза)', () => {
+    const spell = makeSpell({
+      key: 'XGE:Skill Empowerment',
+      name: 'Skill Empowerment',
+      level: 5,
+      automation: 'manual',
+    });
+    const def = automationForSpell(spell, { variant: 'stealth' });
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const effect = def.effects?.[0];
+    expect(effect?.modifiers).toEqual([
+      { target: 'check', mode: 'add', value: '$proficiency', filter: { skill: 'stealth' } },
+    ]);
+    expect(effect?.variant).toBe('stealth');
+    // Без варианта — первый навык списка.
+    expect(automationForSpell(spell).effects?.[0]?.variant).toBeDefined();
+    expect(spellAutomated({ key: 'XGE:Skill Empowerment', automation: 'manual' })).toBe(true);
+  });
+
+  it('Circle of Power: аура союзников — преимущество сейвов против магии, успех без урона', () => {
+    const def = automationForSpell(
+      makeSpell({ key: 'XPHB:Circle of Power', name: 'Circle of Power', level: 5, automation: 'manual' })
+    );
+    expect(def.zone?.side).toBe('ally');
+    expect(def.zone?.anchor).toBe('source');
+    const aura = def.zone?.aura?.effects?.[0];
+    expect(aura?.modifiers).toEqual([{ target: 'save', mode: 'advantage', filter: { magical: true } }]);
+    expect(aura?.saveNoDamage).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Circle of Power', automation: 'manual' })).toBe(true);
+  });
+
+  it('Far Step: телепорт 60 фт при касте + бонусный повтор действием', () => {
+    const spell = makeSpell({ key: 'XGE:Far Step', name: 'Far Step', level: 5, automation: 'manual' });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('utility');
+    expect(def.concentration).toBe(true);
+    expect(def.utility).toEqual({ kind: 'teleport', amount: 60 });
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(action?.cost).toBe('bonus');
+    expect(action?.def?.utility).toEqual({ kind: 'teleport', amount: 60 });
+    expect(action?.def?.targeting).toEqual({ kind: 'point', range: 60 });
+    expect(spellAutomated({ key: 'XGE:Far Step', automation: 'manual' })).toBe(true);
+  });
+
+  it('Armor of Agathys: врем. HP и ответный холод растут с кругом', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Armor of Agathys',
+      name: 'Armor of Agathys',
+      level: 1,
+      automation: 'manual',
+    });
+    const base = automationForSpell(spell);
+    expect(base.resolution).toBe('effect');
+    const effect = base.effects?.[0];
+    expect(effect?.tempHp).toBe(5);
+    expect(effect?.retaliate).toEqual({ damageType: 'cold', amount: 5 });
+    const upcast = automationForSpell(spell, { castLevel: 3 });
+    expect(upcast.effects?.[0]?.tempHp).toBe(15);
+    expect(upcast.effects?.[0]?.retaliate).toEqual({ damageType: 'cold', amount: 15 });
+    expect(spellAutomated({ key: 'XPHB:Armor of Agathys', automation: 'manual' })).toBe(true);
   });
 });
 

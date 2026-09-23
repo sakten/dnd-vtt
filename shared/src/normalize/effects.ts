@@ -56,6 +56,13 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (typeof f.condition === 'string' && (CONDITION_KEYS as string[]).includes(f.condition)) {
     out.condition = f.condition as ConditionKey;
   }
+  if (Array.isArray(f.conditions)) {
+    const conditions = f.conditions.filter(
+      (c): c is ConditionKey => typeof c === 'string' && (CONDITION_KEYS as string[]).includes(c)
+    );
+    if (conditions.length) out.conditions = [...new Set(conditions)];
+  }
+  if (typeof f.magical === 'boolean') out.magical = f.magical;
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -149,6 +156,15 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
     if (e.seesInvisible === true) effect.seesInvisible = true;
+    if (e.maximizeHealing === true) effect.maximizeHealing = true;
+    if (e.deathSaveAdvantage === true) effect.deathSaveAdvantage = true;
+    if (e.saveNoDamage === true) effect.saveNoDamage = true;
+    if (e.retaliate && typeof e.retaliate === 'object') {
+      const r = e.retaliate as { damageType?: unknown; amount?: unknown };
+      if (typeof r.damageType === 'string' && r.damageType) {
+        effect.retaliate = { damageType: r.damageType.slice(0, 40), amount: clampInt(r.amount, 0, 999, 0) };
+      }
+    }
     if (Array.isArray(e.ward)) {
       const types = e.ward.filter((t): t is string => typeof t === 'string' && !!t).slice(0, 12);
       if (types.length) effect.ward = [...new Set(types)];

@@ -123,6 +123,14 @@ export interface AutomationEffect {
   ward?: string[];
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
   breakOn?: ('attack' | 'spell')[];
+  /** Лечение носителя берёт максимум костей (Beacon of Hope). */
+  maximizeHealing?: boolean;
+  /** Преимущество на спасброски от смерти (Beacon of Hope). */
+  deathSaveAdvantage?: boolean;
+  /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
+  saveNoDamage?: boolean;
+  /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
+  retaliate?: { damageType: string; amount: number };
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */
@@ -133,6 +141,12 @@ export interface AutomationPayload {
   effects?: AutomationEffect[];
   /** Состояния, снимаемые с цели (Heal, Lesser/Greater Restoration). */
   endConditions?: ConditionKey[];
+  /**
+   * Поднять цель до N HP, если её текущие HP ≤ 0 (Aura of Life: союзник на 0 HP
+   * в начале хода получает 1 HP; у нас HP уходят в минус — поднимаем до N).
+   * Мёртвых (`dead`) не оживляет.
+   */
+  healTo?: number;
   /**
    * Как считать попадание для этого payload'а: `anyCell` — любое пересечение,
    * `fullyWithin` — токен целиком внутри. Без значения — как у зоны.
@@ -308,7 +322,7 @@ export interface AutomationDef extends AutomationPayload {
   /** Максимум целей = модификатор способности (Мантия вдохновения: Харизма, min 1). */
   targetsAbility?: AbilityKey;
   /** Автосбор целей в радиусе от кастера (черты без мультивыбора): сторона и дистанция. */
-  autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any' };
+  autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any'; includeSelf?: boolean };
   /** Стоимость/цель черты (для классовых действий). */
   costs?: ActionCost[];
   targeting?: ActionTargeting;

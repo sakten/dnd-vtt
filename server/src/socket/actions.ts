@@ -42,7 +42,7 @@
 } from 'shared';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
-import { fail } from './errors';
+import { fail, type ErrorCode } from './errors';
 import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
@@ -56,6 +56,7 @@ import { findSpell } from '../spells';
 import { spellClassFor, spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
+import { teleportIssue } from './teleport';
 
 /** Слот, которым будет оплачено действие: запрошенный, если доступен, иначе первый доступный. */
 function chooseSlot(turn: TurnState | null, costs: ActionCost[], requested?: ActionCost): ActionCost {
@@ -392,6 +393,18 @@ function useGrantedAction(
   if (area && !origin) {
     fail(ctx, 'noAreaPoint');
     return;
+  }
+  // Выданный телепорт (Far Step): точка должна быть в пределах/видима/свободна.
+  if (def.utility?.kind === 'teleport') {
+    if (!origin) {
+      fail(ctx, 'noAreaPoint');
+      return;
+    }
+    const issue = teleportIssue(room, mapId, token, origin, def.utility.amount ?? 30);
+    if (issue) {
+      fail(ctx, issue.code as ErrorCode, issue.params);
+      return;
+    }
   }
 
   // СЛ/атака выданного действия считаются по характеристикам кастера-источника

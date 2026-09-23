@@ -78,8 +78,14 @@ export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey)
 }
 
 /** Слагаемые/кости/режим спасброска токена: базовый бонус, эффекты, истощение. */
-export function savePartsForToken(room: Room, token: Token, ability: AbilityKey, condition?: ConditionKey): RollParts {
-  const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token), condition);
+export function savePartsForToken(
+  room: Room,
+  token: Token,
+  ability: AbilityKey,
+  condition?: ConditionKey,
+  magical?: boolean
+): RollParts {
+  const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token), condition, magical);
   parts.flat += saveBonusForToken(room, token, ability) + exhaustionRollPenalty(token.conditions);
   return parts;
 }
@@ -93,9 +99,9 @@ export function rollSave(
   token: Token,
   ability: AbilityKey,
   dc: number,
-  opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey } = {}
+  opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey; magical?: boolean } = {}
 ): { roll: DiceRollResult; success: boolean } {
-  const parts = savePartsForToken(room, token, ability, opts.condition);
+  const parts = savePartsForToken(room, token, ability, opts.condition, opts.magical);
   const mode = opts.advantage ? (parts.mode === 'd' ? undefined : 'a') : parts.mode;
   const roll = rollDice(withAdvantage(withRollParts('d20', parts), mode));
   const autoFail = opts.conditionsAutoFail === true && autoFailSave(token.conditions, ability);
@@ -245,7 +251,10 @@ export function tickEffects(
     let remove = false;
     const d = effect.duration;
     if (d.type === 'untilSave' && d.timing === phase) {
-      const { roll, success } = rollSave(room, token, d.ability, d.dc, { condition: effect.conditions?.[0] });
+      const { roll, success } = rollSave(room, token, d.ability, d.dc, {
+        condition: effect.conditions?.[0],
+        magical: true,
+      });
       saves.push({ name: effect.name, roll, success });
       if (success) remove = true;
       else if (effect.escalate) {

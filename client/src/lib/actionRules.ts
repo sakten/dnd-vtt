@@ -168,6 +168,8 @@ export interface SpellCastInfo {
   levels: number[];
   area: boolean;
   self: boolean;
+  /** Цели собираются сервером по радиусу от кастера (Beacon of Hope) — выбор не нужен. */
+  autoTargets: boolean;
   projectiles: number;
   effectTargetCount: number;
   multi: boolean;
@@ -194,6 +196,7 @@ export function spellCastInfo(
   const charLevel = caster.classes ? characterLevel(caster.classes) : 1;
   const projectiles = spellAttackCount(spell, level, charLevel);
   const def = automationForSpell(spell, { castLevel: level, characterLevel: charLevel });
+  const autoTargets = !!def.autoTargets;
   const baseTargets = Math.max(
     def.targets ?? 0,
     def.effects?.reduce((max, d) => Math.max(max, d.to === 'targets' ? d.targets ?? 1 : 0), 0) ?? 0
@@ -218,6 +221,7 @@ export function spellCastInfo(
     levels,
     area,
     self,
+    autoTargets,
     projectiles,
     effectTargetCount,
     multi,

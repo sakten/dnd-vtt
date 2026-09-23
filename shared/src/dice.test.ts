@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DiceParseError, isCriticalHit, parseDiceExpression, rollDice } from './dice';
+import { DiceParseError, isCriticalHit, maximizedRollTotal, parseDiceExpression, rollDice } from './dice';
 
 function seq(values: number[]) {
   let i = 0;
@@ -205,5 +205,16 @@ describe('типы урона в формуле', () => {
 
   it('неизвестный суффикс — ошибка формулы', () => {
     expect(() => parseDiceExpression('1d6firee')).toThrowError();
+  });
+});
+
+describe('maximizedRollTotal (Beacon of Hope)', () => {
+  it('каждый удержанный кубик — максимум грани, модификатор сохраняется', () => {
+    expect(maximizedRollTotal(rollDice('2d6+3', seq([0, 0])))).toBe(15);
+    expect(maximizedRollTotal(rollDice('1d8-1', seq([0])))).toBe(7);
+  });
+
+  it('keep highest: максимум по числу удержанных', () => {
+    expect(maximizedRollTotal(rollDice('4d6k3', seq([0, 0, 0, 0])))).toBe(18);
   });
 });

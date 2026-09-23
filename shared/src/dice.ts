@@ -171,6 +171,19 @@ export function isCriticalFail(roll: DiceRollResult): boolean {
   return roll.dice.some((d) => d.sides === 20 && d.sign === 1 && d.values.includes(1));
 }
 
+/**
+ * Максимум выражения броска (Beacon of Hope: «максимум лечения»): каждый
+ * удержанный кубик — на максимуме грани, отброшенные не считаются.
+ */
+export function maximizedRollTotal(roll: DiceRollResult): number {
+  let total = roll.modifier;
+  for (const die of roll.dice) {
+    // `values` уже без отброшенных (keep highest / advantage) — максимум по числу удержанных.
+    total += die.sign * die.values.length * die.sides;
+  }
+  return total;
+}
+
 export function rollDice(
   expression: string,
   rng: () => number = Math.random,

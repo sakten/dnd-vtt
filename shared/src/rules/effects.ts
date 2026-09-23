@@ -28,6 +28,8 @@ export interface ModifierContext {
   weapon?: boolean;
   /** Спасбросок против конкретного состояния (Protection from Poison). */
   condition?: ConditionKey;
+  /** Спасбросок против заклинаний/магических эффектов (Circle of Power). */
+  magical?: boolean;
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -84,6 +86,8 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.direction && f.direction !== ctx.direction) return false;
   if (f.weapon !== undefined && f.weapon !== ctx.weapon) return false;
   if (f.condition && f.condition !== ctx.condition) return false;
+  if (f.conditions && (!ctx.condition || !f.conditions.includes(ctx.condition))) return false;
+  if (f.magical !== undefined && f.magical !== ctx.magical) return false;
   return true;
 }
 
@@ -225,9 +229,10 @@ export function saveRollParts(
   effects: EffectInstance[] | undefined,
   ability: AbilityKey,
   abilities?: Partial<Record<AbilityKey, number>>,
-  condition?: ConditionKey
+  condition?: ConditionKey,
+  magical?: boolean
 ): RollParts {
-  return rollParts(collectModifiers(effects, 'save', { ability, condition }), abilities);
+  return rollParts(collectModifiers(effects, 'save', { ability, condition, magical }), abilities);
 }
 
 /** Слагаемые, кости и режим проверки характеристики/навыка от эффектов (Enhance Ability). */
@@ -325,6 +330,31 @@ export function ignoresDifficultTerrain(effects: EffectInstance[] | undefined): 
 /** Носитель эффектов видит невидимых существ (See Invisibility). */
 export function seesInvisible(effects: EffectInstance[] | undefined): boolean {
   return (effects ?? []).some((e) => e.seesInvisible === true);
+}
+
+/** Лечение носителя берёт максимум костей (Beacon of Hope). */
+export function maximizeHealing(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.maximizeHealing === true);
+}
+
+/** Преимущество на спасброски от смерти (Beacon of Hope). */
+export function deathSaveAdvantage(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.deathSaveAdvantage === true);
+}
+
+/** Успешный спасбросок отменяет урон целиком вместо половины (Circle of Power). */
+export function saveNoDamage(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.saveNoDamage === true);
+}
+
+/** Ответный урон атакующему (Armor of Agathys) из эффектов носителя. */
+export function retaliationOf(
+  effects: EffectInstance[] | undefined
+): { damageType: string; amount: number } | undefined {
+  for (const effect of effects ?? []) {
+    if (effect.retaliate) return effect.retaliate;
+  }
+  return undefined;
 }
 
 /** Warding Bond: токены-источники, на которые переносится урон носителя. */
@@ -432,9 +462,29 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   }
   if (effect.magicWeapon) parts.push({ key: 'domain.effect.magicWeapon' });
   if (effect.damageLink) parts.push({ key: 'domain.effect.damageLink' });
+  if (effect.maximizeHealing) parts.push({ key: 'domain.effect.maxHeal' });
+  if (effect.deathSaveAdvantage) parts.push({ key: 'domain.effect.deathSaveAdv' });
+  if (effect.saveNoDamage) parts.push({ key: 'domain.effect.saveNoDamage' });
+  if (effect.retaliate) {
+    parts.push({
+      key: 'domain.effect.retaliate',
+      params: { damage: effect.retaliate.amount, type: effect.retaliate.damageType },
+    });
+  }
   for (const mod of effect.modifiers) {
     switch (mod.mode) {
       case 'advantage':
+        if (mod.target === 'save' && mod.filter?.magical) {
+          parts.push({ key: 'domain.effect.advSavesMagical' });
+          break;
+        }
+        if (mod.target === 'save' && mod.filter?.conditions?.length) {
+          parts.push({
+            key: 'domain.effect.advSavesConditions',
+            params: { conditions: mod.filter.conditions.join(',') },
+          });
+          break;
+        }
         parts.push({
           key:
             mod.target === 'attack'
@@ -447,6 +497,13 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
         });
         break;
       case 'disadvantage':
+        if (mod.target === 'save' && mod.filter?.conditions?.length) {
+          parts.push({
+            key: 'domain.effect.disSavesConditions',
+            params: { conditions: mod.filter.conditions.join(',') },
+          });
+          break;
+        }
         parts.push({
           key:
             mod.target === 'attack'

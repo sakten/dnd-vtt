@@ -105,9 +105,9 @@ export function spellRangeFeet(spell: Spell): number | null {
  */
 export const SMITE_SPELLS = new Set(['XPHB:Searing Smite', 'XPHB:Ensnaring Strike']);
 
-/** Цель по умолчанию: self или существо. */
+/** Цель по умолчанию: self или существо. Эманация (2024) исходит от кастера — тоже self. */
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {
-  return spellIsSelf(spell) ? 'self' : 'creature';
+  return spellIsSelf(spell) || spell.range.type === 'emanation' ? 'self' : 'creature';
 }
 
 const NUMBER_WORDS: Record<string, number> = {

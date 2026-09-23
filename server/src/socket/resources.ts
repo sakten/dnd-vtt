@@ -1,6 +1,7 @@
 import {
   DEFAULT_ABILITIES,
   applyRest,
+  deathSaveAdvantage,
   effectiveMaxHp,
   isRecord,
   rollDice,
@@ -114,7 +115,13 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         fail(ctx, 'alreadyStable');
         return;
       }
-      const expr = typeof payload?.expression === 'string' ? payload.expression : 'd20';
+      let expr = typeof payload?.expression === 'string' ? payload.expression : 'd20';
+      // Beacon of Hope: преимущество на death-сейвы; помеха игрока гасится по правилам.
+      if (manager.characterTokens(room, playerId).some((c) => deathSaveAdvantage(c.token.effects))) {
+        const disadvantage = /d20d/.test(expr);
+        expr = expr.replace(/d20[ad]/g, 'd20');
+        if (!disadvantage) expr = expr.replace(/d20/, 'd20a');
+      }
       let roll: DiceRollResult;
       try {
         roll = rollDice(expr);

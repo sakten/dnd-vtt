@@ -3,6 +3,7 @@ import {
   areaCells,
   gridOfMap,
   rollDice,
+  saveNoDamage,
   sideMatches,
   tokenFullyInArea,
   tokensInArea,
@@ -21,6 +22,7 @@ import { applyDamage } from './damage';
 import { pushSaveMessage } from './effects';
 import { applyEffectTo, removeZoneEffects } from './effectsApply';
 import { findSpell } from '../spells';
+import { actorStats } from '../room/actor';
 
 /**
  * Зоны на карте (R8.1, движок областей): создание при касте, аура внутри,
@@ -86,14 +88,30 @@ function applyZonePayload(
   if (!payload || !targets.length) return;
   const damageType = singleType(payload);
   for (const target of targets) {
+    // Aura of Life: союзник на 0 HP (у нас HP уходят в минус) в начале хода поднимается до `healTo`.
+    // Мёртвых не оживляет.
+    if (payload.healTo !== undefined && !target.conditions.some((c) => c.key === 'dead')) {
+      const current = actorStats(room, target).hp.current;
+      if (current <= 0 && current < payload.healTo) {
+        applyDamage(ctx, {
+          target,
+          mapId,
+          amount: payload.healTo - current,
+          kind: 'heal',
+          author: zone.name,
+          params: { subject: `${zone.name} · ${target.name}` },
+        });
+      }
+    }
     let success = false;
     if (payload.save) {
       const result = ctx.manager.rollSave(room, target, payload.save.ability, zone.dc ?? 10, {
         condition: payload.effects?.[0]?.conditions?.[0],
+        magical: true,
       });
       success = result.success;
       pushSaveMessage(ctx, room, `${zone.name} · ${target.name}`, result.roll, success);
-      if (success && !payload.save.half) continue;
+      if (success && (!payload.save.half || saveNoDamage(target.effects))) continue;
     }
     if (payload.damage) {
       const roll = rollDice(payload.damage.dice);

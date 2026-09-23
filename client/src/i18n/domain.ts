@@ -89,6 +89,13 @@ function effectPartText(part: EffectTextPart): string {
   if (part.params?.condition !== undefined) {
     return t(part.key as MessageKey, { ...part.params, condition: conditionLabel(String(part.params.condition)) });
   }
+  if (part.params?.conditions !== undefined) {
+    const list = String(part.params.conditions)
+      .split(',')
+      .map((key) => conditionLabel(key.trim()))
+      .join(', ');
+    return t(part.key as MessageKey, { ...part.params, conditions: list });
+  }
   if (part.params?.type === undefined) return t(part.key as MessageKey, part.params);
   return t(part.key as MessageKey, { ...part.params, type: damageLabel(String(part.params.type)) });
 }

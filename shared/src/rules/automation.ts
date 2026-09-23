@@ -12,7 +12,7 @@ import type {
 } from '../domain/automation';
 import type { EffectDuration } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
-import { DAMAGE_TYPES } from '../labels';
+import { DAMAGE_TYPES, SKILLS } from '../labels';
 import { AUTOMATION_ACTIONS } from './automationActions';
 import { eldritchBlastMods } from './invocations';
 import { monsterAbilityAutomation } from './monsterAbility';
@@ -471,6 +471,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       area: { shape: 'sphere', size: 5 },
       origin: 'point',
       duration: PERMANENT,
+      side: 'hostile',
       triggers: {
         endOfTurn: { save: { ability: 'dex' }, damage: { dice: '4d8', types: ['force'] } },
       },
@@ -714,9 +715,110 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         duration: PERMANENT,
         to: 'targets',
         modifiers: [
-          { target: 'save', mode: 'advantage', filter: { condition: 'poisoned' } },
+          { target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } },
           { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
         ],
+      },
+    ],
+  },
+  /** Aura of Life (XPHB): эманация 30 фт — сопротивление некротике; союзник на 0 HP в начале хода — 1 HP. */
+  'XPHB:Aura of Life': {
+    key: 'XPHB:Aura of Life',
+    name: 'Aura of Life',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            name: 'Aura of Life',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'necrotic' } }],
+          },
+        ],
+      },
+      triggers: { startOfTurn: { healTo: 1 } },
+    },
+  },
+  /** Aura of Purity (XPHB): эманация 30 фт — сопротивление/иммунитет к яду, преимущество сейвов против состояний. */
+  'XPHB:Aura of Purity': {
+    key: 'XPHB:Aura of Purity',
+    name: 'Aura of Purity',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            name: 'Aura of Purity',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [
+              { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
+              {
+                target: 'save',
+                mode: 'advantage',
+                filter: { conditions: ['blinded', 'charmed', 'deafened', 'frightened', 'poisoned', 'stunned'] },
+              },
+            ],
+            conditionImmunities: ['poisoned'],
+          },
+        ],
+      },
+    },
+  },
+  /** Circle of Power (XPHB): аура 30 фт — преимущество сейвов против магии, успех = без урона. */
+  'XPHB:Circle of Power': {
+    key: 'XPHB:Circle of Power',
+    name: 'Circle of Power',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            name: 'Circle of Power',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'save', mode: 'advantage', filter: { magical: true } }],
+            saveNoDamage: true,
+          },
+        ],
+      },
+    },
+  },
+  /** Beacon of Hope (XPHB): все союзники в 30 фт — преимущество WIS- и death-сейвов, максимум лечения. */
+  'XPHB:Beacon of Hope': {
+    key: 'XPHB:Beacon of Hope',
+    name: 'Beacon of Hope',
+    resolution: 'effect',
+    concentration: true,
+    autoTargets: { feet: 30, side: 'ally', includeSelf: true },
+    effects: [
+      {
+        name: 'Beacon of Hope',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'save', mode: 'advantage', filter: { ability: 'wis' } }],
+        maximizeHealing: true,
+        deathSaveAdvantage: true,
       },
     ],
   },
@@ -915,6 +1017,8 @@ export interface AutomationAddition {
   damageTypes?: string[];
   /** Массовая цель без области (Mass Healing Word/Prayer of Healing/Mass Cure Wounds). */
   targets?: number;
+  /** Фильтр целей мгновенной части по стороне (Spirit Guardians: только враги). */
+  side?: 'hostile' | 'ally';
 }
 
 export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
@@ -931,6 +1035,7 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
   },
   'XPHB:Spirit Guardians': {
     damageTypes: ['radiant'],
+    side: 'hostile',
     zone: {
       area: { shape: 'sphere', size: 15 },
       origin: 'point',
@@ -938,6 +1043,7 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
       duration: CONCENTRATION,
       enterOncePerTurn: true,
       excludeSource: true,
+      side: 'hostile',
       aura: {
         effects: [
           {
@@ -1002,7 +1108,7 @@ export interface AutomationOptions {
 
 /** Вариант заклинания, выбираемый при касте (Dragon's Breath: тип урона; Enhance Ability: характеристика; Eyebite: эффект). */
 export interface SpellVariantDef {
-  param: 'damageType' | 'ability' | 'effect';
+  param: 'damageType' | 'ability' | 'effect' | 'skill';
   options: string[];
 }
 
@@ -1010,6 +1116,8 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   "XPHB:Dragon's Breath": { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'poison'] },
   'XPHB:Enhance Ability': { param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] },
   'XPHB:Eyebite': { param: 'effect', options: ['asleep', 'panicked', 'sickened'] },
+  'XPHB:Protection from Energy': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+  'XGE:Skill Empowerment': { param: 'skill', options: SKILLS.map((s) => s.key) },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -1028,12 +1136,16 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Heal',
   'XPHB:Heroism',
   'XPHB:Enhance Ability',
+  'XGE:Skill Empowerment',
+  'XGE:Far Step',
+  'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
   'XPHB:Eyebite',
   'XPHB:Invisibility',
   'XPHB:Greater Invisibility',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
+  'XPHB:Protection from Energy',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1069,6 +1181,7 @@ function actionCarrier(
  * тип урона и скейл от круга фиксируются при касте).
  */
 function breathSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== "XPHB:Dragon's Breath") return undefined;
   const variant = SPELL_VARIANTS[spell.key];
   if (!variant || variant.param !== 'damageType') return undefined;
   const type = variant.options.includes(opts.variant ?? '') ? opts.variant! : variant.options[0]!;
@@ -1246,6 +1359,76 @@ function heroismDef(spell: Spell, opts: AutomationOptions): AutomationDef | unde
     ...(mod > 0 ? { triggers: { startOfTurn: { tempHp: mod } } } : {}),
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/** Protection from Energy: выбранный при касте тип — сопротивление ему у цели (концентрация). */
+function protectionFromEnergyDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Protection from Energy') return undefined;
+  const variant = SPELL_VARIANTS[spell.key];
+  if (!variant) return undefined;
+  const type = variant.options.includes(opts.variant ?? '') ? opts.variant! : variant.options[0]!;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: type } }],
+    variant: type,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/** Skill Empowerment: выбранный навык — экспертиза цели (ПБ носителя добавляется ещё раз). */
+function skillEmpowermentDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Skill Empowerment') return undefined;
+  const variant = SPELL_VARIANTS[spell.key];
+  if (!variant || variant.param !== 'skill') return undefined;
+  const skill = variant.options.includes(opts.variant ?? '') ? opts.variant! : variant.options[0]!;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    modifiers: [{ target: 'check', mode: 'add', value: '$proficiency', filter: { skill } }],
+    variant: skill,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/** Armor of Agathys (XPHB): 5 врем. HP и ответный холод атакующему (+5 за круг выше 1). */
+function armorOfAgathysDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Armor of Agathys') return undefined;
+  const castLevel = Math.max(1, opts.castLevel ?? Math.max(1, spell.level));
+  const amount = 5 + 5 * (castLevel - 1);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'self',
+    modifiers: [],
+    tempHp: amount,
+    retaliate: { damageType: 'cold', amount },
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/** Far Step (XGE): телепорт 60 фт при касте; пока концентрация — тем же бонусным действием. */
+function farStepDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Far Step') return undefined;
+  const jump: AutomationDef = {
+    key: spell.key,
+    name: 'Прыжок',
+    resolution: 'utility',
+    utility: { kind: 'teleport', amount: 60 },
+    targeting: { kind: 'point', range: 60 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'utility',
+    concentration: true,
+    utility: { kind: 'teleport', amount: 60 },
+    effects: [actionCarrier(spell, { id: 'farStep', name: 'Прыжок', cost: 'bonus', def: jump })],
+  };
 }
 
 /** Enhance Ability: выбранная при касте характеристика — преимущество на её проверки. */
@@ -1433,6 +1616,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
   const breath = breathSpellDef(spell, opts);
   if (breath) return breath;
 
+  const protectionEnergy = protectionFromEnergyDef(spell, opts);
+  if (protectionEnergy) return protectionEnergy;
+
   const vampiric = vampiricTouchDef(spell, opts);
   if (vampiric) return vampiric;
 
@@ -1456,6 +1642,15 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const enhance = enhanceAbilityDef(spell, opts);
   if (enhance) return enhance;
+
+  const skillEmpowerment = skillEmpowermentDef(spell, opts);
+  if (skillEmpowerment) return skillEmpowerment;
+
+  const farStep = farStepDef(spell);
+  if (farStep) return farStep;
+
+  const armorOfAgathys = armorOfAgathysDef(spell, opts);
+  if (armorOfAgathys) return armorOfAgathys;
 
   const invisibility = invisibilityDef(spell, opts);
   if (invisibility) return invisibility;
@@ -1503,6 +1698,7 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
     if (addition.zone) merged.zone = resolveZoneDice(addition.zone, spellDamage);
     if (addition.damageTypes && merged.damage) merged.damage = { ...merged.damage, types: addition.damageTypes };
     if (addition.targets) merged.targets = addition.targets;
+    if (addition.side) merged.side = addition.side;
     return merged;
   };
 

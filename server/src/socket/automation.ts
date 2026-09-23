@@ -13,10 +13,13 @@ import {
   gridDistanceFeet,
   hostileTokens,
   isSurrounded,
+  maximizeHealing,
+  maximizedRollTotal,
   proficiencyBonus,
   resolveAbilityMods,
   resolveAttack,
   rollDice,
+  saveNoDamage,
   seesInvisible,
   sideMatches,
   sourcesCounts,
@@ -212,6 +215,7 @@ function rollTargetSaveFor(
   const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, {
     conditionsAutoFail: true,
     condition: def.effects?.[0]?.conditions?.[0],
+    magical: true,
   });
   pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
   return { target, roll, autoFail, success };
@@ -793,13 +797,16 @@ function applyResult(
   const result = applyDamage(run.ctx, {
     target,
     mapId: run.mapId,
-    amount: Math.max(0, healValue(run, roll.total) + bonus),
+    // Beacon of Hope: лечение цели берёт максимум костей.
+    amount: Math.max(0, healValue(run, run.healing && maximizeHealing(target.effects) ? maximizedRollTotal(roll) : roll.total) + bonus),
     damageType: run.damageType,
     ...(run.healing ? {} : { parts }),
     ...(opts.silent ? {} : { roll, author: run.author, params: { subject: opts.subject ?? run.subject, damageType: run.damageType } }),
     kind: opts.kind ?? (run.healing ? 'heal' : 'damage'),
     ...(opts.halve !== undefined ? { halve: opts.halve } : mods?.halveDamage ? { halve: true } : {}),
     ...(opts.crit !== undefined && { crit: opts.crit }),
+    // Ближние заклинательные атаки (Shocking Grasp/Vampiric Touch) — триггер ответок цели.
+    ...(run.def.attack ? { attacker: run.caster, melee: run.def.attack.rangeType === 'melee' } : {}),
   });
   // Heal и подобные: состояния снимаются независимо от броска лечения.
   if (run.def.endConditions?.length) {
@@ -1020,8 +1027,8 @@ function runHealOrDamage(run: AutomationRun, stats: SpellStats): void {
     let halve: boolean | undefined;
     if (hostile) {
       const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability);
-      if (save.success && !def.save.half) continue;
-      halve = save.success;
+      if (save.success && (!def.save.half || saveNoDamage(target.effects))) continue;
+      halve = save.success && !saveNoDamage(target.effects);
     }
     applyResult(run, target, roll, { kind: hostile ? 'damage' : 'heal', ...(halve !== undefined && { halve }) });
   }
@@ -1061,7 +1068,7 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
         applyForcedMovement(run.ctx, run.room, run.mapId, run.caster, save.target, run.def.force);
       }
       if (!damageRoll) continue;
-      if (save.success && !half) continue;
+      if (save.success && (!half || saveNoDamage(save.target.effects))) continue;
       applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
     }
     // Форма — не эффект: якорь концентрации на кастере нужен для проверки уроном и снятия.
@@ -1098,13 +1105,23 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   const { caster, def, mapId, stats, author } = input;
   // Черты без выбора целей (Изгнание нежити): цели собираются по радиусу от кастера.
   const rawTargets = def.autoTargets
-    ? tokensAround(ctx, room, mapId, caster, def.autoTargets.feet, def.autoTargets.side)
+    ? tokensAround(
+        ctx,
+        room,
+        mapId,
+        caster,
+        def.autoTargets.feet,
+        def.autoTargets.side,
+        def.autoTargets.includeSelf === true
+      )
     : input.targets;
   // Фильтр по отношению к кастеру (Conjure Woodland Beings: только враги).
   const targets = def.side ? rawTargets.filter((t) => sideMatches(caster, t, def.side!)) : rawTargets;
 
   if (def.resolution === 'utility' && def.utility) {
     applyUtility(ctx, { ...input, targets });
+    // Far Step: телепорт при касте + выданное бонусное действие (эффект на кастера).
+    if (def.effects?.length) applyDefEffects(ctx, { ...input, targets });
     return;
   }
 

@@ -134,3 +134,46 @@ describe('повторный спасбросок от урона (Hideous Laugh
     expect(msg.labelParams?.saveOutcome).toBe('success');
   });
 });
+
+describe('Armor of Agathys: ответный урон', () => {
+  function aoa() {
+    const target = makeToken('t1', { hpMax: '50', hpCurrent: 50, hpTemp: 5 });
+    const attacker = makeToken('t2', { hpMax: '30', hpCurrent: 30 });
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens.push(target, attacker);
+    const f = makeConnCtx(room, { dm: true });
+    target.effects.push({
+      id: 'aoa1',
+      name: 'Armor of Agathys',
+      sourceKey: 'XPHB:Armor of Agathys',
+      sourceId: target.id,
+      duration: { type: 'permanent' },
+      modifiers: [],
+      retaliate: { damageType: 'cold', amount: 5 },
+    });
+    return { target, attacker, f };
+  }
+
+  it('ближняя атака: атакующий получает холод, THP съедаются первыми', () => {
+    const { target, attacker, f } = aoa();
+    applyDamage(f.ctx, {
+      target,
+      mapId: 'm1',
+      amount: 7,
+      damageType: 'slashing',
+      attacker,
+      melee: true,
+    });
+    expect(target.hpCurrent).toBe(48);
+    expect(attacker.hpCurrent).toBe(25);
+  });
+
+  it('дальняя атака и удар без THP не отвечают', () => {
+    const { target, attacker, f } = aoa();
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: false });
+    expect(attacker.hpCurrent).toBe(30);
+    target.hpTemp = 0;
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: true });
+    expect(attacker.hpCurrent).toBe(30);
+  });
+});

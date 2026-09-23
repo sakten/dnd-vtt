@@ -564,6 +564,7 @@ export function applyWeaponAttackDamage(
       author: plan.author,
       params: baseParams,
       crit,
+      ...(plan.attacker ? { attacker: plan.attacker, melee: attack.rangeType === 'melee' } : {}),
     });
     // Vex/Slow: срабатывают при нанесённом уроне.
     if (damage.applied && plan.attacker && plan.attackerMapId && target && targetMapId) {

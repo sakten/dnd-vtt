@@ -83,6 +83,10 @@ export interface ModifierFilter {
   weapon?: boolean;
   /** Спасбросок против конкретного состояния (Protection from Poison: только от отравления). */
   condition?: ConditionKey;
+  /** Спасбросок против набора состояний (Aura of Purity): совпадение с любым из списка. */
+  conditions?: ConditionKey[];
+  /** Только спасброски против заклинаний и магических эффектов (Circle of Power). */
+  magical?: boolean;
 }
 
 export interface Modifier {
@@ -218,4 +222,12 @@ export interface EffectInstance {
   ward?: string[];
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
   breakOn?: ('attack' | 'spell')[];
+  /** Лечение носителя берёт максимум костей (Beacon of Hope). */
+  maximizeHealing?: boolean;
+  /** Преимущество на спасброски от смерти (Beacon of Hope). */
+  deathSaveAdvantage?: boolean;
+  /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
+  saveNoDamage?: boolean;
+  /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
+  retaliate?: { damageType: string; amount: number };
 }

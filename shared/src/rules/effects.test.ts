@@ -9,6 +9,7 @@ import {
   conditionImmunities,
   damageLinks,
   damageRollParts,
+  deathSaveAdvantage,
   effectDefenses,
   effectDurationParts,
   effectSummaryParts,
@@ -19,6 +20,7 @@ import {
   isDiceValue,
   magicalDamageType,
   magicWeaponAttacks,
+  maximizeHealing,
   modifiedValue,
   restrictionsFor,
   rollParts,
@@ -136,6 +138,24 @@ describe('спасброски', () => {
     const dexOnly = effect({ modifiers: [mod({ target: 'save', mode: 'add', value: 2, filter: { ability: 'dex' } })] });
     expect(saveRollParts([dexOnly], 'dex').flat).toBe(2);
     expect(saveRollParts([dexOnly], 'con').flat).toBe(0);
+  });
+
+  it('фильтр по списку состояний (Aura of Purity): совпадение с любым', () => {
+    const aura = effect({
+      modifiers: [mod({ target: 'save', mode: 'advantage', filter: { conditions: ['blinded', 'stunned'] } })],
+    });
+    expect(saveRollParts([aura], 'wis', undefined, 'stunned').mode).toBe('a');
+    expect(saveRollParts([aura], 'wis', undefined, 'blinded').mode).toBe('a');
+    expect(saveRollParts([aura], 'wis', undefined, 'poisoned').mode).toBeUndefined();
+    expect(saveRollParts([aura], 'wis').mode).toBeUndefined();
+  });
+
+  it('флаги Beacon of Hope: максимум лечения и death-сейвы', () => {
+    const beacon = effect({ maximizeHealing: true, deathSaveAdvantage: true });
+    expect(maximizeHealing([beacon])).toBe(true);
+    expect(deathSaveAdvantage([beacon])).toBe(true);
+    expect(maximizeHealing([])).toBe(false);
+    expect(deathSaveAdvantage(undefined)).toBe(false);
   });
 });
 

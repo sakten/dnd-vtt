@@ -403,6 +403,18 @@ export default function ActionPanel() {
             });
             return;
           }
+          // Выданный телепорт (Far Step): прицел точки назначения в пределах дальности.
+          if (f.source === 'spell' && !f.zoneId && f.targeting?.kind === 'point') {
+            startAim({
+              tokenId: token.id,
+              actionId: f.id,
+              slot: featureSlot(f, turnCtx),
+              spec: { shape: 'sphere', size: 0 },
+              originKind: 'point',
+              rangeFeet: f.targeting.range ?? null,
+            });
+            return;
+          }
           if (f.targeting?.kind === 'creature' && maxTargets > 1) {
             startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
           } else if (f.targeting?.kind === 'creature') {

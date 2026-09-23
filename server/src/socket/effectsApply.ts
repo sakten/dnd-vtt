@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   isIncapacitated,
+  sheetProficiencyBonus,
   type AutomationEffect,
   type ConditionKey,
   type EffectInstance,
@@ -38,6 +39,32 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
   const effectId = randomUUID();
   let duration = effectDef.duration;
   if (duration.type === 'untilSave' && untilSaveDc !== undefined) duration = { ...duration, dc: untilSaveDc };
+  // Skill Empowerment: `$proficiency` = ПБ носителя (экспертиза); при уже имеющейся
+  // экспертизе по навыку модификатор не дублируется (RAW).
+  const controllerId = ctx.manager.controllerOfToken(room, target);
+  const sheet = controllerId ? room.sheets[controllerId] : undefined;
+  const modifiers: EffectInstance['modifiers'] = [];
+  effectDef.modifiers.forEach((m, i) => {
+    let value = m.value;
+    if (value === '$proficiency') {
+      if (sheet && m.filter?.skill && sheet.skills[m.filter.skill] === 2) return;
+      // ПБ листа может быть числом или костью (домашнее правило): берём как есть.
+      const raw = sheet?.proficiencyBonus?.trim() ?? '';
+      value = raw
+        ? /^\d+$/.test(raw)
+          ? Number(raw)
+          : raw
+        : sheet
+          ? sheetProficiencyBonus(sheet)
+          : 2;
+    }
+    modifiers.push({
+      ...m,
+      value,
+      id: `${effectId}:m${i}`,
+      ...(markedId ? { filter: { ...m.filter, targetId: markedId } } : {}),
+    });
+  });
   const effect: EffectInstance = {
     id: effectId,
     name: effectDef.name,
@@ -45,11 +72,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     sourceId,
     concentration: effectDef.concentration,
     duration,
-    modifiers: effectDef.modifiers.map((m, i) => ({
-      ...m,
-      id: `${effectId}:m${i}`,
-      ...(markedId ? { filter: { ...m.filter, targetId: markedId } } : {}),
-    })),
+    modifiers,
     conditions: effectDef.conditions,
     escalate: effectDef.escalate,
     wakeOnDamage: effectDef.wakeOnDamage,
@@ -78,6 +101,10 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     immuneToSpeedReduction: effectDef.immuneToSpeedReduction,
     ignoresDifficultTerrain: effectDef.ignoresDifficultTerrain,
     seesInvisible: effectDef.seesInvisible,
+    maximizeHealing: effectDef.maximizeHealing,
+    deathSaveAdvantage: effectDef.deathSaveAdvantage,
+    saveNoDamage: effectDef.saveNoDamage,
+    retaliate: effectDef.retaliate ? { ...effectDef.retaliate } : undefined,
     ward: effectDef.ward ? [...effectDef.ward] : undefined,
     breakOn: effectDef.breakOn ? [...effectDef.breakOn] : undefined,
   };

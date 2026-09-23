@@ -169,6 +169,11 @@ describe('spellTargetKind', () => {
     expect(spellTargetKind(spell)).toBe('self');
     expect(spellRangeFeet(spell)).toBe(0);
   });
+
+  it('эманация 2024 (Aura of Life) — тоже self', () => {
+    const spell = makeSpell({ range: { type: 'emanation', distance: { type: 'feet', amount: 30 } } });
+    expect(spellTargetKind(spell)).toBe('self');
+  });
 });
 
 describe('области (Ф7)', () => {

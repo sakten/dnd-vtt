@@ -313,6 +313,15 @@ export const ACTION_ICON_FALLBACKS: Record<string, ReactNode> = {
       <circle cx="5.6" cy="10.4" r="0.9" fill="#ffe066" />
     </>
   ),
+  farStep: (
+    <>
+      <circle cx="12" cy="12" r="7.4" fill="none" stroke="#a98bff" strokeWidth="1.8" strokeDasharray="3.6 2.8" />
+      <path d="M12 3.6 9.6 7.2h4.8z" fill="#d6c8ff" />
+      <path d="M12 20.4l-2.4-3.6h4.8z" fill="#d6c8ff" />
+      <circle cx="12" cy="12" r="2.6" fill="#6d4bd8" />
+      <circle cx="12" cy="12" r="1.1" fill="#efe9ff" />
+    </>
+  ),
   burn: (
     <>
       <path d="M12 2.6c1.2 4.2 4.8 5.6 4.8 10a4.8 4.8 0 0 1-9.6 0c0-1.9.8-3.3 1.8-4.5.4 1.2 1 2 1.9 2.4C10.4 8.2 12 5.6 12 2.6z" fill="#ff7b00" />

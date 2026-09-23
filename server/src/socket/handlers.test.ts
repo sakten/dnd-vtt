@@ -6644,4 +6644,34 @@ describe('resources:deathSave и стабильность', () => {
     expect(room.resources.p1!.hp.deathSuccesses).toBe(3);
     expect(room.resources.p1!.hp.deathFailures).toBe(0);
   });
+
+  it('Beacon of Hope: эффект даёт преимущество на death-сейв, помеха игрока гасится', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.resources.p1 = makeResources({
+      hp: { current: 0, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    room.scene.maps[0]!.tokens[0]!.effects.push({
+      id: 'beacon1',
+      name: 'Beacon of Hope',
+      sourceKey: 'XPHB:Beacon of Hope',
+      sourceId: 't2',
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+      deathSaveAdvantage: true,
+    });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:deathSave', { expression: 'd20' });
+    f.invoke('resources:deathSave', { expression: 'd20d' });
+    rand.mockRestore();
+
+    const rolls = room.chat.filter((m) => m.kind === 'roll' && m.rollKind === 'death') as {
+      roll: { dice: { advantage: string | null }[] };
+    }[];
+    expect(rolls[0]?.roll.dice[0]?.advantage).toBe('a');
+    expect(rolls[1]?.roll.dice[0]?.advantage).toBeNull();
+  });
 });

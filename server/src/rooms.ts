@@ -334,13 +334,12 @@ export class RoomManager {
   savePartsForToken(room: Room, token: Token, ability: AbilityKey): RollParts {
     return Effects.savePartsForToken(room, token, ability);
   }
-
   rollSave(
     room: Room,
     token: Token,
     ability: AbilityKey,
     dc: number,
-    opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey } = {}
+    opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey; magical?: boolean } = {}
   ): { roll: DiceRollResult; success: boolean } {
     return Effects.rollSave(room, token, ability, dc, opts);
   }
