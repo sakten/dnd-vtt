@@ -1,10 +1,12 @@
 import {
+  hasCondition,
   hostileTokens as hostile,
   isIncapacitated,
   monsterAbilityAutomation,
   monsterStats,
   pathLeavesReach,
   restrictionsFor,
+  seesInvisible,
   unarmedStrikeEntry,
   type ActionDef,
   type AttackEntry,
@@ -17,7 +19,7 @@ import { executeAutomation } from '../automation';
 import { actorStats } from '../../room/actor';
 import { shapeStatblock } from '../../room/shape';
 import { gridSizeOfMap, sheetOfToken } from '../../rooms';
-import { resolveWeaponAttack } from '../attackResolve';
+import { attackUnseen, resolveWeaponAttack } from '../attackResolve';
 import { isReactionPending, openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, hasPayableSpecial, reactionSlotFree } from './internal';
 import { applyReactionChoice, reactionSpellOptions } from './spellReactions';
@@ -134,6 +136,11 @@ export function triggerOpportunityAttacks(
     if (reactor.id === mover.id) continue;
     if (!hostile(reactor, mover)) continue;
     if (isIncapacitated(reactor.conditions)) continue;
+    // RAW: атака по возможности — только по существу, которое реактор видит.
+    // Слепой/невидящий невидимого не реагирует; стены и тьма — общий расчёт видимости.
+    if (hasCondition(reactor.conditions, 'blinded')) continue;
+    if (hasCondition(mover.conditions, 'invisible') && !seesInvisible(reactor.effects)) continue;
+    if (attackUnseen(room, reactor, mover, map).unseenTarget) continue;
     if (restrictionsFor(reactor.conditions, reactor.effects).noOpportunityAttacks) continue;
     if (!reactionSlotFree(ctx.manager, room, mapId, reactor)) continue;
     if (!pathLeavesReach(path, reactor, mover, size)) continue;

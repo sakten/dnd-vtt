@@ -143,3 +143,81 @@ describe('атака по возможности в форме', () => {
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'reactions.opportunity')).toBe(false);
   });
 });
+
+describe('видимость для атаки по возможности', () => {
+  const invisible = { key: 'invisible' as const, name: 'Невидим', rounds: null };
+  const pathAway = (mover: { x: number; y: number }) => [
+    { x: mover.x, y: mover.y },
+    { x: mover.x + 300, y: mover.y },
+  ];
+
+  it('невидимый не провоцирует OA, пока реактор его не видит', () => {
+    const { room, f } = setup();
+    const mover = makeToken('t2', {
+      name: 'Гоблин',
+      x: 150,
+      y: 100,
+      ac: '12',
+      hpMax: '10',
+      hpCurrent: 10,
+      faction: 'enemy',
+      conditions: [invisible],
+    });
+    room.scene.maps[0]!.tokens.push(mover);
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+
+    expect(pendingOffers(room.code)).toHaveLength(0);
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(false);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'reactions.opportunity')).toBe(false);
+  });
+
+  it('с See Invisibility реактор бьёт невидимого', () => {
+    const { room, token, f } = setup();
+    token.effects = [
+      { id: 'see', name: 'See Invisibility', duration: { type: 'permanent' }, modifiers: [], seesInvisible: true },
+    ];
+    const mover = makeToken('t2', {
+      name: 'Гоблин',
+      x: 150,
+      y: 100,
+      ac: '12',
+      hpMax: '10',
+      hpCurrent: 10,
+      faction: 'enemy',
+      conditions: [invisible],
+    });
+    room.scene.maps[0]!.tokens.push(mover);
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'reactions.opportunity')).toBe(true);
+  });
+
+  it('слепой реактор не провоцируется, зрячий — да', () => {
+    const { room, token, f } = setup();
+    const mover = makeToken('t2', { name: 'Гоблин', x: 150, y: 100, ac: '12', hpMax: '10', hpCurrent: 10, faction: 'enemy' });
+    room.scene.maps[0]!.tokens.push(mover);
+    token.conditions = [{ key: 'blinded', name: 'Ослеплён', rounds: null }];
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(false);
+
+    token.conditions = [];
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(true);
+  });
+
+  it('стена между реактором и уходящим блокирует OA', () => {
+    const { room, f } = setup();
+    const mover = makeToken('t2', { name: 'Гоблин', x: 150, y: 100, ac: '12', hpMax: '10', hpCurrent: 10, faction: 'enemy' });
+    room.scene.maps[0]!.tokens.push(mover);
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 125, y1: 0, x2: 125, y2: 200, kind: 'wall', open: false }];
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, pathAway(mover));
+
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(false);
+  });
+});

@@ -3639,6 +3639,38 @@ describe('spell:cast', () => {
     expect(token.conditions.some((c) => c.key === 'invisible')).toBe(true);
   });
 
+  it('Invisibility: ручное снятие концентрации снимает невидимость и рассылает token:update цели', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }), makeToken('t2', { x: 150, y: 100 })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Invisibility', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 2, max: 2 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const target = room.scene.maps[0]!.tokens[1]!;
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Invisibility',
+      slotLevel: 2,
+      targetIds: ['t2'],
+    });
+    expect(target.conditions.some((c) => c.key === 'invisible')).toBe(true);
+
+    f.invoke('spell:endConcentration', { mapId: 'm1', tokenId: 't1' });
+
+    expect(target.conditions.some((c) => c.key === 'invisible')).toBe(false);
+    const updates = f.emitted
+      .filter((e) => e.event === 'token:update')
+      .map((e) => (e.payload as { token: { id: string } }).token.id);
+    expect(updates).toContain('t2');
+  });
+
   it('Ярость запрещает каст заклинаний', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     const tk = room.scene.maps[0]!.tokens[0]!;
