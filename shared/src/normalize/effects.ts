@@ -137,6 +137,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.deathWard === true) effect.deathWard = true;
+    if (e.magicWeapon === true) effect.magicWeapon = true;
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
     if (Array.isArray(e.conditionImmunities)) {

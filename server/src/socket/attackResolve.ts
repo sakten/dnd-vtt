@@ -16,6 +16,8 @@ import {
   isCriticalFail,
   isCriticalHit,
   isSurrounded,
+  magicalDamageType,
+  magicWeaponAttacks,
   mapLightCells,
   modifiedValue,
   parseDiceExpression,
@@ -495,6 +497,9 @@ export function applyWeaponAttackDamage(
   const room = ctx.getRoom();
   if (!room) return undefined;
   const { target, targetMapId, attack, crit, baseParams, damageExpr } = plan;
+  // Magic Weapon: физурон оружейных атак носителя идёт магическими типами (обход «nonmagical» защит).
+  const magicWeapon = magicWeaponAttacks(plan.attacker?.effects);
+  const damageTypeOf = (type: string | undefined) => (magicWeapon ? magicalDamageType(type) : type);
 
   let hitSuccess = plan.hitSuccess;
   if (hitSuccess !== false && plan.hitRoll && target) {
@@ -510,7 +515,7 @@ export function applyWeaponAttackDamage(
           target,
           mapId: targetMapId,
           amount: graze,
-          damageType: attack.damageType,
+          damageType: damageTypeOf(attack.damageType),
           author: plan.author,
           params: baseParams,
         });
@@ -539,12 +544,15 @@ export function applyWeaponAttackDamage(
       const main = parts.find((part) => (part.damageType ?? attack.damageType) === attack.damageType) ?? parts[0]!;
       main.amount += bonus;
     }
+    const typedParts = magicWeapon
+      ? parts.map((part) => (part.damageType ? { ...part, damageType: magicalDamageType(part.damageType)! } : part))
+      : parts;
     const damage = applyDamage(ctx, {
       target,
       mapId: targetMapId,
       amount: Math.max(0, damageRoll.total + (mods.extraDamage ?? 0) - (mods.flatReduction ?? 0)),
-      damageType: attack.damageType,
-      ...(parts.length ? { parts } : {}),
+      damageType: damageTypeOf(attack.damageType),
+      ...(typedParts.length ? { parts: typedParts } : {}),
       halve: mods.halveDamage,
       roll: damageRoll,
       author: plan.author,

@@ -194,6 +194,8 @@ export interface EffectInstance {
   conditionImmunities?: ConditionKey[];
   /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
   triggers?: { startOfTurn?: EffectTurnPayload };
+  /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
+  magicWeapon?: boolean;
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */

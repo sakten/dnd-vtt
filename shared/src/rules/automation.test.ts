@@ -175,6 +175,20 @@ describe('automationForSpell', () => {
     expect(spellVariantDef('XPHB:Enhance Ability')).toEqual({ param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] });
   });
 
+  it('Magic Weapon — +1/+2/+3 к попаданию и урону, атаки магические', () => {
+    const mw = makeSpell({ key: 'XPHB:Magic Weapon', name: 'Magic Weapon', level: 2, automation: 'manual' });
+    const base = automationForSpell(mw, { castLevel: 2 });
+    expect(base.resolution).toBe('effect');
+    expect(base.effects?.[0]?.magicWeapon).toBe(true);
+    expect(base.effects?.[0]?.modifiers).toEqual([
+      { target: 'attack', mode: 'add', value: 1, filter: { weapon: true } },
+      { target: 'damage', mode: 'add', value: 1, filter: { weapon: true } },
+    ]);
+    expect(automationForSpell(mw, { castLevel: 4 }).effects?.[0]?.modifiers[0]?.value).toBe(2);
+    expect(automationForSpell(mw, { castLevel: 6 }).effects?.[0]?.modifiers[0]?.value).toBe(3);
+    expect(spellAutomated(mw)).toBe(true);
+  });
+
   it("Pass without Trace — аура +10 к Скрытности, привязана к кастеру", () => {
     const passTrace = makeSpell({
       key: 'XPHB:Pass without Trace',

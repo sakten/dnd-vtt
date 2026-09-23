@@ -875,6 +875,9 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.skill.persuasion': 'Persuasion',
 
   'domain.damage.slashing': 'Slashing',
+  'domain.damage.magicalSlashing': 'Magical slashing',
+  'domain.damage.magicalPiercing': 'Magical piercing',
+  'domain.damage.magicalBludgeoning': 'Magical bludgeoning',
   'domain.damage.piercing': 'Piercing',
   'domain.damage.bludgeoning': 'Bludgeoning',
   'domain.damage.acid': 'Acid',
@@ -920,6 +923,7 @@ export const en: Partial<Record<MessageKey, string>> = {
 
   'domain.effect.mirrorImages': 'mirror images ({charges})',
   'domain.effect.immuneTo': 'immune: {condition}',
+  'domain.effect.magicWeapon': 'weapon counts as magical',
   'domain.effect.noSpeedReduction': 'speed can’t be reduced by magic',
   'domain.effect.ignoreDifficult': 'difficult terrain doesn’t slow it',
   'domain.effect.startOfTurnDamage': 'at the start of its turn: {dice} damage',

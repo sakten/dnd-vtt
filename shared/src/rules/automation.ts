@@ -223,6 +223,9 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } },
         { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'piercing' } },
         { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'bludgeoning' } },
+        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalSlashing' } },
+        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalPiercing' } },
+        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalBludgeoning' } },
       ],
     },
   ]),
@@ -897,6 +900,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Heal',
   'XPHB:Heroism',
   'XPHB:Enhance Ability',
+  'XPHB:Magic Weapon',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
 ]);
@@ -1132,6 +1136,24 @@ function enhanceAbilityDef(spell: Spell, opts: AutomationOptions): AutomationDef
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
+/** Magic Weapon: оружейные атаки цели — магические, +1/+2/+3 к попаданию и урону (апкаст). */
+function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Magic Weapon') return undefined;
+  const castLevel = opts.castLevel ?? Math.max(1, spell.level);
+  const bonus = castLevel >= 6 ? 3 : castLevel >= 3 ? 2 : 1;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'targets',
+    modifiers: [
+      { target: 'attack', mode: 'add', value: bonus, filter: { weapon: true } },
+      { target: 'damage', mode: 'add', value: bonus, filter: { weapon: true } },
+    ],
+    magicWeapon: true,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
 /** Searing Smite: доп. 1d6 огня при попадании + урон и спас CON в начале каждого хода цели. */
 function searingSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Searing Smite') return undefined;
@@ -1228,6 +1250,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const enhance = enhanceAbilityDef(spell, opts);
   if (enhance) return enhance;
+
+  const magicWeapon = magicWeaponDef(spell, opts);
+  if (magicWeapon) return magicWeapon;
 
   const searing = searingSmiteDef(spell, opts);
   if (searing) return searing;

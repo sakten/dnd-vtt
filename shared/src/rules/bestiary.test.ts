@@ -277,12 +277,21 @@ describe('бестиарий: заклинания и запись целико�
 });
 
 describe('бестиарий: защита и выставление', () => {
-  it('защиты берутся только каноническими типами', () => {
-    expect(parseDamageDefenses(['Poison', 'bludgeoning', { resist: ['cold'], note: 'from nonmagical attacks' }], new Set(['poison', 'bludgeoning']))).toEqual(['poison', 'bludgeoning']);
+  it('защиты берутся только каноническими типами; физурон дублируется магическим', () => {
+    expect(
+      parseDamageDefenses(['Poison', 'bludgeoning', { resist: ['cold'], note: 'from nonmagical attacks' }], new Set(['poison', 'bludgeoning']))
+    ).toEqual(['poison', 'magicalBludgeoning', 'bludgeoning']);
+    // Условная запись «from nonmagical attacks» — только базовые физические типы.
+    expect(
+      parseDamageDefenses(
+        [{ resist: ['slashing', 'fire'], note: 'from nonmagical attacks' }],
+        new Set(['slashing', 'fire'])
+      )
+    ).toEqual(['slashing', 'fire']);
     const entry = bestiaryEntryFromRaw(SKELETON, known)!;
     expect(entry.immunities).toEqual(['poison']);
     expect(entry.resistances).toEqual([]);
-    expect(entry.vulnerabilities).toEqual(['bludgeoning']);
+    expect(entry.vulnerabilities).toEqual(['magicalBludgeoning', 'bludgeoning']);
   });
 
   it('иммунитеты к состояниям — только канонические ключи (специальные — мимо)', () => {

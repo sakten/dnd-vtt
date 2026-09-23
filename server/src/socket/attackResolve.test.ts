@@ -194,3 +194,51 @@ describe('Heavy: помеха по профильной характеристи
     expect(disFor(13, 8)).toBe(0);
   });
 });
+
+describe('Magic Weapon: магический физурон обходит защиту «nonmagical»', () => {
+  const entry = {
+    name: 'Меч',
+    hit: 'd20+5',
+    damage: '1d8',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+  };
+
+  const remainingHp = (magic: boolean): number => {
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+    const target = makeToken('t2', {
+      x: 100,
+      y: 100,
+      ac: '15',
+      hpMax: '30',
+      hpCurrent: 30,
+      damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'slashing' }],
+    });
+    const room = makeCombatRoom([attacker, target]);
+    if (magic) {
+      attacker.effects = [
+        { id: 'mw', name: 'Magic Weapon', duration: { type: 'permanent' }, modifiers: [], magicWeapon: true },
+      ];
+    }
+    const f = makeConnCtx(room, { dm: true });
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    return target.hpCurrent;
+  };
+
+  it('без эффекта сопротивление режет урон вдвое, с эффектом — полный урон', () => {
+    expect(remainingHp(false)).toBe(28);
+    expect(remainingHp(true)).toBe(25);
+  });
+});

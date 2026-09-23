@@ -236,12 +236,38 @@ function parseSaves(value: unknown): Partial<Record<AbilityKey, number>> | undef
   return Object.keys(out).length ? out : undefined;
 }
 
-/** Иммунитеты/сопротивления/уязвимости: только канонические типы урона (условные — мимо). */
-export function parseDamageDefenses(value: unknown, keys: Set<string>): string[] {
+const PHYSICAL_TYPES = new Set(['slashing', 'piercing', 'bludgeoning']);
+const MAGICAL_PHYSICAL: Record<string, string> = {
+  slashing: 'magicalSlashing',
+  piercing: 'magicalPiercing',
+  bludgeoning: 'magicalBludgeoning',
+};
+
+/**
+ * Иммунитеты/сопротивления/уязвимости: только канонические типы урона.
+ * Строка без пометки действует на все виды — физические дублируются магическими;
+ * условные записи «from nonmagical attacks» — только базовые физические.
+ */
+export function parseDamageDefenses(value: unknown, keys: Set<string>, innerKey = 'resist'): string[] {
   const out: string[] = [];
+  const add = (raw: unknown, allKinds: boolean) => {
+    const key = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+    if (!key || !keys.has(key)) return;
+    if (allKinds && PHYSICAL_TYPES.has(key)) {
+      const magic = MAGICAL_PHYSICAL[key]!;
+      if (!out.includes(magic)) out.push(magic);
+    }
+    if (!out.includes(key)) out.push(key);
+  };
   for (const item of Array.isArray(value) ? value : []) {
-    const key = typeof item === 'string' ? item.trim().toLowerCase() : '';
-    if (key && keys.has(key) && !out.includes(key)) out.push(key);
+    if (typeof item === 'string') {
+      add(item, true);
+      continue;
+    }
+    if (!isRecord(item)) continue;
+    const note = typeof item.note === 'string' ? item.note : '';
+    if (!/nonmagical|non-magical/i.test(note)) continue;
+    for (const inner of Array.isArray(item[innerKey]) ? (item[innerKey] as unknown[]) : []) add(inner, false);
   }
   return out;
 }
@@ -699,9 +725,9 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     type: parseType(raw.type),
     cr: parseCr(raw.cr) || '—',
     ...(raw.familiar === true ? { familiar: true } : {}),
-    immunities: parseDamageDefenses(raw.immune, DAMAGE_WORDS),
-    resistances: parseDamageDefenses(raw.resist, DAMAGE_WORDS),
-    vulnerabilities: parseDamageDefenses(raw.vulnerable, DAMAGE_WORDS),
+    immunities: parseDamageDefenses(raw.immune, DAMAGE_WORDS, 'immune'),
+    resistances: parseDamageDefenses(raw.resist, DAMAGE_WORDS, 'resist'),
+    vulnerabilities: parseDamageDefenses(raw.vulnerable, DAMAGE_WORDS, 'vulnerable'),
     conditionImmunities: parseConditionImmunities(raw.conditionImmune),
     ac,
     hpAverage,

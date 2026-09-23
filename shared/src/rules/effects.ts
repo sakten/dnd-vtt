@@ -297,6 +297,22 @@ export function immuneToSpeedReduction(effects: EffectInstance[] | undefined): b
   return (effects ?? []).some((e) => e.immuneToSpeedReduction === true);
 }
 
+/** Оружейные атаки носителя считаются магическими (Magic Weapon). */
+export function magicWeaponAttacks(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.magicWeapon === true);
+}
+
+const MAGICAL_PHYSICAL: Record<string, string> = {
+  slashing: 'magicalSlashing',
+  piercing: 'magicalPiercing',
+  bludgeoning: 'magicalBludgeoning',
+};
+
+/** Тип физического урона магического оружия: `slashing` → `magicalSlashing` (прочие — как есть). */
+export function magicalDamageType(type: string | undefined): string | undefined {
+  return type ? MAGICAL_PHYSICAL[type] ?? type : type;
+}
+
 /** Сложная местность и клетки союзников не замедляют (Freedom of Movement). */
 export function ignoresDifficultTerrain(effects: EffectInstance[] | undefined): boolean {
   return (effects ?? []).some((e) => e.ignoresDifficultTerrain === true);
@@ -384,6 +400,7 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   if (effect.misdirect) {
     parts.push({ key: 'domain.effect.mirrorImages', params: { charges: effect.misdirect.charges } });
   }
+  if (effect.magicWeapon) parts.push({ key: 'domain.effect.magicWeapon' });
   for (const mod of effect.modifiers) {
     switch (mod.mode) {
       case 'advantage':

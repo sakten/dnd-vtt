@@ -872,6 +872,9 @@
   'domain.skill.persuasion': 'Убеждение',
 
   'domain.damage.slashing': 'Режущий',
+  'domain.damage.magicalSlashing': 'Магический режущий',
+  'domain.damage.magicalPiercing': 'Магический колющий',
+  'domain.damage.magicalBludgeoning': 'Магический дробящий',
   'domain.damage.piercing': 'Колющий',
   'domain.damage.bludgeoning': 'Дробящий',
   'domain.damage.acid': 'Кислота',
@@ -917,6 +920,7 @@
 
   'domain.effect.mirrorImages': 'зеркальные образы ({charges})',
   'domain.effect.immuneTo': 'иммунитет: {condition}',
+  'domain.effect.magicWeapon': 'оружие считается магическим',
   'domain.effect.noSpeedReduction': 'скорость не снижается магией',
   'domain.effect.ignoreDifficult': 'сложная местность не замедляет',
   'domain.effect.startOfTurnDamage': 'в начале хода: {dice} урона',

@@ -2597,7 +2597,7 @@ describe('action:use', () => {
     expect(rage).toBeDefined();
     expect(rage!.duration).toEqual({ type: 'rounds', rounds: 10 });
     expect(rage!.modifiers.find((m) => m.target === 'damage' && m.mode === 'add')?.value).toBe(3);
-    expect(rage!.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(3);
+    expect(rage!.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(6);
     expect(room.resources.p1!.resources[0]!.current).toBe(1);
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
   });

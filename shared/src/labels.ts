@@ -10,6 +10,9 @@ export const DAMAGE_TYPES: { key: string }[] = [
   { key: 'slashing' },
   { key: 'piercing' },
   { key: 'bludgeoning' },
+  { key: 'magicalSlashing' },
+  { key: 'magicalPiercing' },
+  { key: 'magicalBludgeoning' },
   { key: 'acid' },
   { key: 'cold' },
   { key: 'fire' },
@@ -37,6 +40,9 @@ export const DAMAGE_TYPE_COLORS: Record<string, string> = {
   bludgeoning: '#c9b8a3',
   piercing: '#d9d9d9',
   slashing: '#e0a0a0',
+  magicalBludgeoning: '#c9b8a3',
+  magicalPiercing: '#d9d9d9',
+  magicalSlashing: '#e0a0a0',
 };
 
 export function damageTypeColor(key: string | undefined): string | undefined {

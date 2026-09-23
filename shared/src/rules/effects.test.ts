@@ -16,6 +16,8 @@ import {
   ignoresDifficultTerrain,
   immuneToSpeedReduction,
   isDiceValue,
+  magicalDamageType,
+  magicWeaponAttacks,
   modifiedValue,
   restrictionsFor,
   rollParts,
@@ -215,6 +217,18 @@ describe('проверки с эффектами (checkRollParts)', () => {
     });
     expect(checkRollParts([passTrace], { ability: 'dex', skill: 'stealth' })).toMatchObject({ flat: 10 });
     expect(checkRollParts([passTrace], { ability: 'dex', skill: 'athletics' })).toMatchObject({ flat: 0 });
+  });
+
+  it('Magic Weapon: флаг магического оружия и подмена физтипа', () => {
+    const mw = effect({ magicWeapon: true });
+    expect(magicWeaponAttacks([mw])).toBe(true);
+    expect(magicWeaponAttacks([])).toBe(false);
+    expect(effectSummaryParts(mw)).toEqual([{ key: 'domain.effect.magicWeapon' }]);
+    expect(magicalDamageType('slashing')).toBe('magicalSlashing');
+    expect(magicalDamageType('piercing')).toBe('magicalPiercing');
+    expect(magicalDamageType('bludgeoning')).toBe('magicalBludgeoning');
+    expect(magicalDamageType('fire')).toBe('fire');
+    expect(magicalDamageType(undefined)).toBeUndefined();
   });
 
   it('combineRollMode: преимущество эффекта гасится помехой игрока', () => {
