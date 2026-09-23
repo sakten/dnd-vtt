@@ -758,6 +758,29 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
+  // Primordial Ward (XGE): сопротивления 5 типам; реакцией на урон типа — иммунитет к нему
+  // (движок `ward` + `offerDamageReactions`, включая спровоцировавший урон).
+  'XGE:Primordial Ward': {
+    key: 'XGE:Primordial Ward',
+    name: 'Primordial Ward',
+    resolution: 'effect',
+    concentration: true,
+    effects: [
+      {
+        name: 'Primordial Ward',
+        duration: PERMANENT,
+        concentration: true,
+        to: 'self',
+        modifiers: ['acid', 'cold', 'fire', 'lightning', 'thunder'].map((type) => ({
+          target: 'damage' as const,
+          mode: 'resistance' as const,
+          value: 0,
+          filter: { damageType: type },
+        })),
+        ward: ['acid', 'cold', 'fire', 'lightning', 'thunder'],
+      },
+    ],
+  },
   'XPHB:Stinking Cloud': {
     key: 'XPHB:Stinking Cloud',
     name: 'Stinking Cloud',

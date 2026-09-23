@@ -81,6 +81,7 @@
   'system.spells.featCast': '{name}: {spell} — каст без ячейки (фит)',
   'system.spells.resistance': '{name}: {spell} — сопротивление ({type})',
   'system.spells.countered': '{name}: {spell} — отменено Counterspell',
+  'system.spells.wardImmunity': '{name}: {spell} — иммунитет ({type})',
   'system.spells.smite': '{name}: {spell} ({level} круг) → {target}',
   'system.spells.smiteResisted': '{name}: {spell} ({level} круг) → {target}: спасбросок пройден, эффекта нет',
   'system.automation.bardicSuccess': '{name}: Бардовское вдохновение — спасбросок успешен',

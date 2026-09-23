@@ -15,6 +15,8 @@ import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
 import { tickEffectTriggers } from './effects';
 import { applyEffectTo, removeBrokenEffects } from './effectsApply';
+import { pendingOffers } from './reactions';
+import { offerDamageReactions } from './reactions/windows';
 import { validateSpellCast } from './spellResolve';
 import { checkPartsForToken } from '../room/effects';
 
@@ -156,6 +158,47 @@ describe('концентрация заклинаний с зонами', () => 
     const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Invisibility');
     expect(effect?.breakOn).toEqual(['attack', 'spell']);
     expect(effect?.concentration).toBe(true);
+  });
+
+  it('Primordial Ward: реакция на урон даёт иммунитет и возвращает спровоцировавший урон', () => {
+    const room = makeCombatRoom([
+      makeToken('m1', { name: 'Маг', hpMax: '40', hpCurrent: 20 }),
+      makeToken('e1', { name: 'Гоблин', faction: 'enemy' }),
+    ]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const map = room.scene.maps[0]!;
+    const target = map.tokens[0]!;
+    const source = map.tokens[1]!;
+    map.combat.entries.push(
+      { id: 'e1', tokenId: 'm1', name: 'Маг', imageUrl: '', initiative: 20, bonus: '' },
+      { id: 'e2', tokenId: 'e1', name: 'Гоблин', imageUrl: '', initiative: 10, bonus: '' }
+    );
+    const ward = findSpell('XGE:Primordial Ward')!;
+    applyEffectTo(f.ctx, room, {
+      sourceKey: ward.key,
+      sourceId: target.id,
+      mapId: 'm1',
+      effectDef: automationForSpell(ward, { castLevel: 6 }).effects![0]!,
+      target,
+    });
+    expect(target.effects[0]?.ward).toEqual(['acid', 'cold', 'fire', 'lightning', 'thunder']);
+
+    // Уже получил 5 урона огнём (сопротивление = половина от 10) — реакция догоняет.
+    offerDamageReactions(f.ctx, room, 'm1', target, source, { amount: 5, damageType: 'fire' });
+    const offer = pendingOffers(room.code)[0]!;
+    const wardOpt = offer.options.find((o) => o.id.startsWith('ward:'))!;
+    expect(wardOpt.kind).toBe('effect');
+    f.invoke('reaction:respond', { id: offer.id, optionId: wardOpt.id });
+
+    expect(target.hpCurrent).toBe(25); // спровоцировавший урон возвращён
+    const effect = target.effects[0]!;
+    expect(effect.concentration).toBe(true);
+    expect(effect.duration).toEqual({ type: 'endOfTurn', of: 'target' });
+    expect(effect.modifiers).toEqual([
+      { id: expect.any(String), target: 'damage', mode: 'immunity', value: 0, filter: { damageType: 'fire' } },
+    ]);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'spells.wardImmunity')).toBe(true);
+    expect(pendingOffers(room.code)).toHaveLength(0);
   });
 
   it('removeBrokenEffects: снимает эффект с breakOn и его состояние, не трогая прочие', () => {

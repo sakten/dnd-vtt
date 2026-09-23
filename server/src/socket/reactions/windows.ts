@@ -35,7 +35,7 @@ import {
   type ReactionChoice,
 } from './internal';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
-import { acBonusOf, applyReactionChoice, reactionSpellOptions } from './spellReactions';
+import { acBonusOf, applyReactionChoice, applyWardReaction, reactionSpellOptions } from './spellReactions';
 
 /**
  * Окна реакций на бросок атаки (R2/R8.8): общий слой для оружия и заклинательных
@@ -140,8 +140,15 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
   return mods;
 }
 
-/** Окно «получен урон»: Hellish Rebuke и подобные (после списания HP). */
-export function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, target: Token, source: Token): void {
+/** Окно «получен урон»: Hellish Rebuke, Возмездие и Primordial Ward (иммунитет реакцией). */
+export function offerDamageReactions(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  target: Token,
+  source: Token,
+  damage: { amount: number; damageType?: string } = { amount: 0 }
+): void {
   if (isIncapacitated(target.conditions)) return;
   if (!reactionSlotFree(ctx.manager, room, mapId, target)) return;
   const features = availableFeatureReactions(room, target, 'damage').filter((def) => {
@@ -149,9 +156,23 @@ export function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, ta
     if (def.rangeFeet && !withinFeet(room, target, source, def.rangeFeet)) return false;
     return true;
   });
+  // Primordial Ward: реакция на урон одного из типов эффекта — иммунитет к нему.
+  const ward = damage.damageType
+    ? target.effects.find((e) => e.ward?.includes(damage.damageType!))
+    : undefined;
   const options: ReactionOption[] = [
     ...reactionSpellOptions(room, target, 'damage'),
     ...features.map((def) => featureOption(def, room, target)),
+    ...(ward
+      ? [
+          {
+            id: `ward:${ward.id}`,
+            name: 'Иммунитет (реакция)',
+            kind: 'effect' as const,
+            spellKey: ward.sourceKey ?? 'XGE:Primordial Ward',
+          },
+        ]
+      : []),
   ];
   if (!options.length) return;
   const audience = audienceOf(ctx, room, mapId, target);
@@ -169,6 +190,7 @@ export function offerDamageReactions(ctx: ConnCtx, room: Room, mapId: string, ta
           const currentRoom = ctx.getRoom();
           if (!choice.optionId || !currentRoom) return true;
           if (choice.optionId.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, source);
+          else if (choice.optionId.startsWith('ward:')) applyWardReaction(ctx, currentRoom, choice, damage);
           else applyReactionChoice(ctx, currentRoom, choice, [source]);
           return true;
         },

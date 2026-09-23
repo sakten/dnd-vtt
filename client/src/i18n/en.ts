@@ -84,6 +84,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.spells.featCast': '{name}: {spell} — cast without a slot (feat)',
   'system.spells.resistance': '{name}: {spell} — resistance ({type})',
   'system.spells.countered': '{name}: {spell} — countered by Counterspell',
+  'system.spells.wardImmunity': '{name}: {spell} — immunity ({type})',
   'system.spells.smite': '{name}: {spell} (level {level}) → {target}',
   'system.spells.smiteResisted': '{name}: {spell} (level {level}) → {target}: save succeeded, no effect',
   'system.automation.bardicSuccess': '{name}: Bardic Inspiration — save succeeded',

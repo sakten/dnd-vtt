@@ -78,6 +78,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     immuneToSpeedReduction: effectDef.immuneToSpeedReduction,
     ignoresDifficultTerrain: effectDef.ignoresDifficultTerrain,
     seesInvisible: effectDef.seesInvisible,
+    ward: effectDef.ward ? [...effectDef.ward] : undefined,
     breakOn: effectDef.breakOn ? [...effectDef.breakOn] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);

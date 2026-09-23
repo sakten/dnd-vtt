@@ -45,7 +45,10 @@ function continueAfterRoll(
       return;
     }
     if (damage.applied > 0 && target && targetMapId && plan.attacker) {
-      offerDamageReactions(ctx, room, targetMapId, target, plan.attacker);
+      offerDamageReactions(ctx, room, targetMapId, target, plan.attacker, {
+        amount: damage.applied,
+        damageType: plan.attack.damageType,
+      });
     }
   };
 

@@ -97,7 +97,7 @@ export type ReactionTriggerKind = 'attackRoll' | 'attackHit' | 'attackMiss' | 'd
 export interface ReactionOption {
   id: string;
   name: string;
-  kind: 'spell' | 'feature' | 'opportunity';
+  kind: 'spell' | 'feature' | 'opportunity' | 'effect';
   spellKey?: string;
   actionId?: string;
   resourceKey?: string;

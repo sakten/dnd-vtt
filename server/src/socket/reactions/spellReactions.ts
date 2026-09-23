@@ -27,6 +27,7 @@ import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spe
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import {
   audienceOf,
+  choiceToken,
   featFreeCastKey,
   knownSpellKeys,
   reactionCanSee,
@@ -149,6 +150,42 @@ export function applyReactionChoice(
   // Реакционные касты (Shield и подобные) тоже могут отменить Counterspell;
   // окно отмены станет дочерним и отыграет до продолжения текущего резолва.
   resolveSpellCastWithReactions(ctx, input);
+  ctx.syncCombat(room, choice.mapId);
+}
+
+/**
+ * Primordial Ward: реакция на урон одного из типов — иммунитет к нему до конца
+ * следующего хода, включая спровоцировавший урон; сопротивления гаснут,
+ * концентрация держится до окончания иммунитета.
+ */
+export function applyWardReaction(
+  ctx: ConnCtx,
+  room: Room,
+  choice: ReactionChoice,
+  damage: { amount: number; damageType?: string }
+): void {
+  const token = choiceToken(ctx, room, choice);
+  const effect = token?.effects.find((e) => e.id === choice.optionId?.slice('ward:'.length));
+  if (!token || !effect || !damage.damageType || !effect.ward?.includes(damage.damageType)) return;
+  if (!ctx.manager.spendSlot(room, choice.mapId, token, 'reaction')) return;
+  // «Включая спровоцировавший урон»: уже ушедший в HP урон возвращаем.
+  if (damage.amount > 0) ctx.applyHp(room, choice.mapId, token, damage.amount);
+  const id = randomUUID();
+  ctx.manager.removeEffect(room, token, effect.id);
+  ctx.manager.applyEffect(room, token, {
+    id,
+    name: `${effect.name} (иммунитет)`,
+    sourceKey: effect.sourceKey,
+    sourceId: effect.sourceId,
+    concentration: effect.concentration,
+    duration: { type: 'endOfTurn', of: 'target' },
+    modifiers: [{ id: `${id}:i`, target: 'damage', mode: 'immunity', value: 0, filter: { damageType: damage.damageType } }],
+  });
+  ctx.emitToken(room, 'token:update', choice.mapId, token);
+  ctx.systemMessage(room, {
+    code: 'spells.wardImmunity',
+    params: { name: token.name, spell: effect.name, type: damage.damageType },
+  });
   ctx.syncCombat(room, choice.mapId);
 }
 

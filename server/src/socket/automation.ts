@@ -926,7 +926,9 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
         );
         return;
       }
-      if (applied?.applied) offerDamageReactions(ctx, room, mapId, target, caster);
+      if (applied?.applied) {
+        offerDamageReactions(ctx, room, mapId, target, caster, { amount: applied.amount, damageType });
+      }
       if (def.save && def.effects?.length) {
         const save = rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability);
         if (save.success) return done();

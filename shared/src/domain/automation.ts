@@ -119,6 +119,8 @@ export interface AutomationEffect {
   ignoresDifficultTerrain?: boolean;
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
+  /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
+  ward?: string[];
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
   breakOn?: ('attack' | 'spell')[];
 }

@@ -216,6 +216,18 @@ describe('automationForSpell', () => {
     expect(spellAutomated(see)).toBe(true);
   });
 
+  it('Primordial Ward — сопротивление 5 типам и ward-типы для реакции', () => {
+    const ward = makeSpell({ key: 'XGE:Primordial Ward', name: 'Primordial Ward', level: 6, automation: 'manual' });
+    const def = automationForSpell(ward, { castLevel: 6 });
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const effect = def.effects?.[0];
+    expect(effect?.to).toBe('self');
+    expect(effect?.ward).toEqual(['acid', 'cold', 'fire', 'lightning', 'thunder']);
+    expect(effect?.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(5);
+    expect(spellAutomated(ward)).toBe(true);
+  });
+
   it('Protection from Poison — снятие яда, преимущество на сейв от него, сопротивление', () => {
     const pp = makeSpell({
       key: 'XPHB:Protection from Poison',
