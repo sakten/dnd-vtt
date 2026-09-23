@@ -5,7 +5,7 @@ import type { DamageDefense } from '../domain/damage';
 import type { ConditionKey, EffectDuration } from '../domain/effects';
 import type { Sense } from '../domain/sense';
 import type { AttackEntry, TokenFields, TokenStatblock } from '../domain/token';
-import { CONDITION_KEYS } from './conditions';
+import { CONDITION_KEYS, IMMUNITY_CONDITION_KEYS } from './conditions';
 import { bestiaryTokenPath } from './bestiaryIcon';
 import { buildAppearance } from './appearance';
 import { collectText, stripTags } from './spells';
@@ -275,7 +275,7 @@ export function parseDamageDefenses(value: unknown, keys: Set<string>, innerKey 
 /** Иммунитеты к состояниям: только канонические ключи (условные записи — мимо). */
 export function parseConditionImmunities(value: unknown): ConditionKey[] {
   const out: ConditionKey[] = [];
-  const keys = new Set<string>(CONDITION_KEYS.filter((k) => k !== 'custom' && k !== 'surrounded' && k !== 'dead'));
+  const keys = new Set<string>(IMMUNITY_CONDITION_KEYS);
   for (const item of Array.isArray(value) ? value : []) {
     const key = typeof item === 'string' ? item.trim().toLowerCase() : '';
     if (key && keys.has(key) && !out.includes(key as ConditionKey)) out.push(key as ConditionKey);

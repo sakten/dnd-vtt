@@ -12,6 +12,7 @@ import { abilityName } from '../i18n/domain';
 import { parseSaveBonus } from '../lib/saves';
 import { Field } from './Field';
 import MonsterAbilityEditor from './MonsterAbilityEditor';
+import ConditionImmunitiesForm from './ConditionImmunitiesForm';
 
 interface Props {
   value: TokenStatblock | undefined;
@@ -105,6 +106,18 @@ export default function StatblockForm({ value, onChange, readOnly }: Props) {
           </Field>
         ))}
       </div>
+
+      <div className="sheet-section-title">{t('ui.statblock.conditionImmunities')}</div>
+      <ConditionImmunitiesForm
+        value={sb.conditionImmunities ?? []}
+        readOnly={readOnly}
+        onChange={(list) => {
+          const next = { ...sb };
+          if (list.length) next.conditionImmunities = list;
+          else delete next.conditionImmunities;
+          onChange(next);
+        }}
+      />
 
       <div className="field-row">
         <Field label={t('ui.statblock.attackBonus')}>

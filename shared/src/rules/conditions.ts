@@ -30,6 +30,11 @@ export const CONDITION_NAMES: Record<ConditionKey, string> = {
 
 export const CONDITION_KEYS = Object.keys(CONDITION_NAMES) as ConditionKey[];
 
+/** Состояния, к которым бывает иммунитет (без служебных custom/surrounded/dead). */
+export const IMMUNITY_CONDITION_KEYS = CONDITION_KEYS.filter(
+  (k) => k !== 'custom' && k !== 'surrounded' && k !== 'dead'
+);
+
 export const CONDITION_DESCRIPTIONS: Record<ConditionKey, string> = {
   blinded: 'Не видит: свои атаки с помехой, по нему — с преимуществом.',
   charmed: 'Не может атаковать очаровавшего; тот имеет преимущество на социальные проверки.',

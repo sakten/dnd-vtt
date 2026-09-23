@@ -400,6 +400,7 @@
   'ui.statblock.cost.legendary': 'Легендарное',
   'ui.statblock.cost.free': 'Свободное',
   'ui.statblock.saves': 'Спасброски (явный бонус; пусто — из характеристик)',
+  'ui.statblock.conditionImmunities': 'Иммунитеты к состояниям',
   'ui.statblock.multiattack': 'Мультиатака (атак за действие)',
   'ui.statblock.legendaryPool': 'Пул легендарных действий',
   'ui.statblock.caster': 'Это кастер — ячейки и список на вкладке «Заклинания»',

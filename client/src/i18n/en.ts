@@ -403,6 +403,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.statblock.cost.legendary': 'Legendary',
   'ui.statblock.cost.free': 'Free',
   'ui.statblock.saves': 'Saving Throws (explicit bonus; empty — from abilities)',
+  'ui.statblock.conditionImmunities': 'Condition immunities',
   'ui.statblock.multiattack': 'Multiattack (attacks per action)',
   'ui.statblock.legendaryPool': 'Legendary Actions pool',
   'ui.statblock.caster': 'This is a caster — slots and list on the Spells tab',
