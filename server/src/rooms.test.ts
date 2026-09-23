@@ -770,6 +770,86 @@ describe('RoomManager стабильность и оживление', () => {
   });
 });
 
+describe('RoomManager иммунитеты к состояниям', () => {
+  it('иммунитет блокирует наложение состояния, эффект остаётся', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1');
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'fom',
+      name: 'Freedom of Movement',
+      duration: { type: 'rounds', rounds: 600 },
+      modifiers: [],
+      conditionImmunities: ['paralyzed', 'restrained'],
+    });
+    manager.applyEffect(room, tk, {
+      id: 'hold',
+      name: 'Hold Person',
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      conditions: ['paralyzed'],
+    });
+
+    expect(tk.conditions.some((c) => c.key === 'paralyzed')).toBe(false);
+    expect(tk.effects.some((e) => e.id === 'hold')).toBe(true);
+  });
+
+  it('эскалация в иммунное состояние пропускается', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      conditions: [{ key: 'incapacitated', name: 'Недееспособен', rounds: null, effectId: 'sleep' }],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+    tk.effects = [
+      {
+        id: 'sleep',
+        name: 'Sleep',
+        duration: { type: 'untilSave', ability: 'wis', dc: 99, timing: 'start' },
+        modifiers: [],
+        conditions: ['incapacitated'],
+        escalate: { condition: 'unconscious' },
+      },
+      {
+        id: 'hero',
+        name: 'Heroism',
+        duration: { type: 'rounds', rounds: 10 },
+        modifiers: [],
+        conditionImmunities: ['unconscious'],
+      },
+    ];
+
+    const res = manager.tickEffects(room, tk, 'start');
+
+    expect(res.escalated).toEqual([]);
+    expect(tk.conditions.some((c) => c.key === 'incapacitated')).toBe(true);
+  });
+
+  it('Freedom of Movement не даёт снизить скорость', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', { speed: 30 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'slow',
+      name: 'Slow',
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [{ id: 'm1', target: 'speed', mode: 'multiply', value: 0.5 }],
+    });
+    expect(manager.tokenSpeed(room, tk)).toBe(15);
+
+    manager.applyEffect(room, tk, {
+      id: 'fom',
+      name: 'Freedom of Movement',
+      duration: { type: 'rounds', rounds: 600 },
+      modifiers: [],
+      immuneToSpeedReduction: true,
+    });
+    expect(manager.tokenSpeed(room, tk)).toBe(30);
+  });
+});
+
 describe('RoomManager эффекты', () => {
   it('applyEffect связывает состояния, removeEffect снимает их вместе', () => {
     const manager = setup();

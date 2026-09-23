@@ -99,6 +99,14 @@ export type EffectDuration =
   | { type: 'concentration' }
   | { type: 'permanent' };
 
+/** Срабатывание эффекта в начале хода носителя (Heroism, Searing Smite, Ensnaring Strike). */
+export interface EffectTurnPayload {
+  /** Временные HP в начале хода (Heroism; значение посчитано при касте). */
+  tempHp?: number;
+  /** Повторный урон (Searing Smite, Ensnaring Strike). */
+  damage?: { dice: string; types?: string[] };
+}
+
 /** Смена состояния при провале повторного спасброска (Sleep: incapacitated → unconscious). */
 export interface EffectEscalation {
   condition: ConditionKey;
@@ -182,4 +190,12 @@ export interface EffectInstance {
   light?: LightSource;
   /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
   deathWard?: boolean;
+  /** Состояния, к которым носитель получает иммунитет (Freedom of Movement, Heroism). */
+  conditionImmunities?: ConditionKey[];
+  /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
+  triggers?: { startOfTurn?: EffectTurnPayload };
+  /** Магические эффекты не снижают скорость (Freedom of Movement). */
+  immuneToSpeedReduction?: boolean;
+  /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */
+  ignoresDifficultTerrain?: boolean;
 }

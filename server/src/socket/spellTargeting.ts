@@ -7,6 +7,7 @@ import {
   spellHasArea,
   spellIsSelf,
   spellRangeFeet,
+  SMITE_SPELLS,
   tokenVisibleFrom,
   tokensInArea,
   type Spell,
@@ -101,7 +102,10 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
       }
       targets.push(found);
     }
-    if (spellIsSelf(spell) && !targets.some((t) => t.id === caster.id)) targets.push(caster);
+    // Смайты: цель — выбранное существо, себя в цели не добавляем.
+    if (spellIsSelf(spell) && !SMITE_SPELLS.has(spell.key) && !targets.some((t) => t.id === caster.id)) {
+      targets.push(caster);
+    }
   }
   return {
     caster,

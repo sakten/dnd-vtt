@@ -4,12 +4,15 @@ import {
   combineRollParts,
   concentrationDc,
   concentratingEffects,
+  conditionImmunities,
   damageRollParts,
   effectDefenses,
   effectDurationParts,
   effectSummaryParts,
   evalModifierValue,
   hasConcentration,
+  ignoresDifficultTerrain,
+  immuneToSpeedReduction,
   isDiceValue,
   modifiedValue,
   restrictionsFor,
@@ -144,6 +147,10 @@ describe('производные значения', () => {
     const longstrider = effect({ modifiers: [mod({ target: 'speed', mode: 'add', value: 10 })] });
     expect(modifiedValue(10, [haste], 'ac')).toBe(12);
     expect(modifiedValue(30, [haste, longstrider], 'speed')).toBe(80);
+
+    // Дробный множитель (Slow/Spirit Guardians): 0.5 не округляется до 1.
+    const slow = effect({ modifiers: [mod({ target: 'speed', mode: 'multiply', value: 0.5 })] });
+    expect(modifiedValue(30, [slow], 'speed')).toBe(15);
   });
 
   it('защиты из эффектов', () => {
@@ -204,6 +211,27 @@ describe('effectSummaryParts (тултипы)', () => {
       modifiers: [mod({ target: 'damage', mode: 'add', value: '1d6', filter: { targetId: 't2' } })],
     });
     expect(effectSummaryParts(hex)).toEqual([{ key: 'domain.effect.addDamageMark', params: { value: '+1d6' } }]);
+  });
+
+  it('иммунитеты, скорость и триггеры (Freedom of Movement, Heroism)', () => {
+    const fom = effect({
+      conditionImmunities: ['paralyzed', 'restrained'],
+      immuneToSpeedReduction: true,
+      ignoresDifficultTerrain: true,
+    });
+    expect(effectSummaryParts(fom)).toEqual([
+      { key: 'domain.effect.immuneTo', params: { condition: 'paralyzed' } },
+      { key: 'domain.effect.immuneTo', params: { condition: 'restrained' } },
+      { key: 'domain.effect.noSpeedReduction' },
+      { key: 'domain.effect.ignoreDifficult' },
+    ]);
+    expect([...conditionImmunities([fom])].sort()).toEqual(['paralyzed', 'restrained']);
+    expect(immuneToSpeedReduction([fom])).toBe(true);
+    expect(ignoresDifficultTerrain([fom])).toBe(true);
+    expect(immuneToSpeedReduction([])).toBe(false);
+
+    const heroism = effect({ triggers: { startOfTurn: { tempHp: 3 } } });
+    expect(effectSummaryParts(heroism)).toEqual([{ key: 'domain.effect.startOfTurnTempHp', params: { amount: 3 } }]);
   });
 
   it('Bless, состояния и сопротивления', () => {

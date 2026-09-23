@@ -1,6 +1,6 @@
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { pushSaveMessage } from './effects';
+import { pushSaveMessage, tickEffectTriggers } from './effects';
 import { tickZones } from './zones';
 
 /**
@@ -13,6 +13,9 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
   if (!entry?.tokenId) return;
   const token = ctx.manager.findToken(room, mapId, entry.tokenId);
   if (!token) return;
+
+  // Триггеры эффектов (Heroism, смайты) — до спасбросков untilSave: урон, затем спас.
+  if (phase === 'start') tickEffectTriggers(ctx, room, mapId, token);
 
   const conditions = ctx.manager.tickConditions(room, token, phase);
   for (const save of conditions.saves) {

@@ -67,6 +67,12 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     mark: effectDef.mark,
     light: effectDef.light ? { ...effectDef.light } : undefined,
     deathWard: effectDef.deathWard,
+    conditionImmunities: effectDef.conditionImmunities ? [...effectDef.conditionImmunities] : undefined,
+    triggers: effectDef.triggers
+      ? { ...(effectDef.triggers.startOfTurn ? { startOfTurn: { ...effectDef.triggers.startOfTurn } } : {}) }
+      : undefined,
+    immuneToSpeedReduction: effectDef.immuneToSpeedReduction,
+    ignoresDifficultTerrain: effectDef.ignoresDifficultTerrain,
   };
   ctx.manager.applyEffect(room, target, effect);
   // Wild Shape/Polymorph оканчиваются от недееспособности (XPHB).

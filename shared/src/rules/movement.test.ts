@@ -216,6 +216,23 @@ describe('planWalk', () => {
     expect(planWalk({ ...base, cells: 2, from, to: { x: 150, y: 100 }, tokens: fresh })).toBeNull();
   });
 
+  it('Freedom of Movement: союзники и сложная местность не удваивают стоимость', () => {
+    const ally = [{ id: 'a1', x: 75, y: 75, w: 50, h: 50, faction: 'ally' }];
+    const zone: ZoneInstance = {
+      id: 'z1',
+      name: 'Grease',
+      sourceKey: 'XPHB:Grease',
+      sourceId: 'src',
+      origin: { x: 75, y: 75 },
+      area: { shape: 'cube', size: 15 },
+      duration: { type: 'rounds', rounds: 10 },
+      flags: { difficultTerrain: true },
+    };
+    const args = { ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: ally, zones: [zone] };
+    expect(planWalk(args)?.feet).toBe(20);
+    expect(planWalk({ ...args, ignoreDifficult: true })?.feet).toBe(10);
+  });
+
   it('2×2 не проходит подошвой через врага', () => {
     const enemy = [{ id: 'e1', x: 175, y: 75, w: 50, h: 50, faction: 'enemy' }];
     const path = planWalk({

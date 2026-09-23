@@ -10,6 +10,8 @@ import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
+import { tickEffectTriggers } from './effects';
+import { applyEffectTo } from './effectsApply';
 import { validateSpellCast } from './spellResolve';
 
 const isAttackRoll = (m: ChatMessage): m is Extract<ChatMessage, { kind: 'roll' }> =>
@@ -395,6 +397,109 @@ describe('способности монстров', () => {
     });
     expect(target.hpCurrent).toBe(27);
     expect(target.conditions.some((c) => c.key === 'prone')).toBe(true);
+  });
+});
+
+describe('иммунитеты к состояниям и триггеры эффектов', () => {
+  const alive = () =>
+    makeResources({ hp: { current: 10, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+
+  it('Heroism: иммунитет к испугу и temp HP в начале хода', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = alive();
+
+    const heroism = findSpell('XPHB:Heroism')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(heroism, { castLevel: 1, characterLevel: 5, spellMod: 3 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+
+    const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Heroism');
+    expect(effect?.triggers?.startOfTurn?.tempHp).toBe(3);
+
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'test:fear',
+      sourceId: 'x',
+      mapId: 'm1',
+      target,
+      effectDef: { name: 'Fear', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['frightened'] },
+    });
+    expect(target.conditions.some((c) => c.key === 'frightened')).toBe(false);
+
+    tickEffectTriggers(f.ctx, room, 'm1', target);
+    expect(room.resources.p1!.hp.temp).toBe(3);
+  });
+
+  it('Freedom of Movement: паралич и опутывание не накладываются', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = alive();
+
+    const fom = findSpell('XPHB:Freedom of Movement')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(fom, { castLevel: 4, characterLevel: 9 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'test:hold',
+      sourceId: 'x',
+      mapId: 'm1',
+      target,
+      effectDef: { name: 'Hold Person', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['paralyzed', 'restrained'] },
+    });
+    expect(target.conditions.map((c) => c.key)).toEqual([]);
+
+    for (const effect of target.effects.filter((e) => e.sourceKey === 'XPHB:Freedom of Movement')) {
+      f.ctx.manager.removeEffect(room, target, effect.id);
+    }
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'test:hold2',
+      sourceId: 'x',
+      mapId: 'm1',
+      target,
+      effectDef: { name: 'Hold Person', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['paralyzed'] },
+    });
+    expect(target.conditions.some((c) => c.key === 'paralyzed')).toBe(true);
+  });
+
+  it('Searing Smite: доп. урон при касте и повторный урон в начале хода', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = alive();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d6 = 4
+
+    const searing = findSpell('XPHB:Searing Smite')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(searing, { castLevel: 1, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+    expect(room.resources.p1!.hp.current).toBe(6);
+    const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Searing Smite');
+    expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 14, timing: 'start' });
+
+    tickEffectTriggers(f.ctx, room, 'm1', target);
+    expect(room.resources.p1!.hp.current).toBe(2);
+    rand.mockRestore();
   });
 });
 

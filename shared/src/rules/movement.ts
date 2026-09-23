@@ -343,6 +343,8 @@ export interface PlanWalkInput {
   visibleAt?: ((cx: number, cy: number) => boolean) | null;
   /** Полная слепота (магическая тьма/мгла без зрения): не больше одной клетки за ход. */
   blind?: boolean;
+  /** Freedom of Movement: сложная местность и клетки союзников не удваивают стоимость. */
+  ignoreDifficult?: boolean;
   diagonalsBefore?: number;
 }
 
@@ -374,14 +376,16 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     for (const key of tokenCells(other, grid)) {
       if (own.has(key)) continue;
       occupied.add(key);
-      if (friendly) difficult.add(key);
-      else blocked.add(key);
+      if (friendly && !input.ignoreDifficult) difficult.add(key);
+      else if (!friendly) blocked.add(key);
     }
   }
-  for (const zone of input.zones) {
-    if (!zone.flags?.difficultTerrain) continue;
-    // Сложная местность зоны тоже не проходит через сплошные стены (огибает углы).
-    for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) difficult.add(key);
+  if (!input.ignoreDifficult) {
+    for (const zone of input.zones) {
+      if (!zone.flags?.difficultTerrain) continue;
+      // Сложная местность зоны тоже не проходит через сплошные стены (огибает углы).
+      for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) difficult.add(key);
+    }
   }
   const bounds = { cols, rows };
   const even = cells % 2 === 0;

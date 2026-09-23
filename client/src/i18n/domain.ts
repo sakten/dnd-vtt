@@ -86,6 +86,9 @@ export function reactionLabel(id: string, fallback?: string): string {
 }
 
 function effectPartText(part: EffectTextPart): string {
+  if (part.params?.condition !== undefined) {
+    return t(part.key as MessageKey, { ...part.params, condition: conditionLabel(String(part.params.condition)) });
+  }
   if (part.params?.type === undefined) return t(part.key as MessageKey, part.params);
   return t(part.key as MessageKey, { ...part.params, type: damageLabel(String(part.params.type)) });
 }

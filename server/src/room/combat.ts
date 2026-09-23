@@ -10,6 +10,7 @@ import {
   emptyCombatState,
   emptyTurnState,
   exhaustionSpeedPenalty,
+  immuneToSpeedReduction,
   minLegendaryCost,
   modifiedValue,
   restrictionsFor,
@@ -314,7 +315,10 @@ export function attacksPerToken(room: Room, token: Token): number {
 /** Эффективная скорость токена: лист/статблок + бонусы и множители эффектов. */
 export function tokenSpeed(room: Room, token: Token): number {
   const stats = actorStats(room, token);
-  return Math.max(0, modifiedValue(stats.speed, token.effects, 'speed', {}, stats.abilities));
+  const value = modifiedValue(stats.speed, token.effects, 'speed', {}, stats.abilities);
+  // Freedom of Movement: магические эффекты не снижают скорость (ускорение сохраняется).
+  const floor = immuneToSpeedReduction(token.effects) ? Math.max(value, stats.speed) : value;
+  return Math.max(0, floor);
 }
 
 /** Характеристики токена: из листа персонажа либо из статблока монстра. */

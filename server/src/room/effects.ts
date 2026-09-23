@@ -3,6 +3,7 @@
   autoFailSave,
   concentrationDc,
   concentratingEffects,
+  conditionImmunities,
   conditionName,
   effectDefenses,
   exhaustionRollPenalty,
@@ -131,7 +132,10 @@ export function applyEffect(m: EffectsDeps, room: Room, token: Token, effect: Ef
   token.effects = [...token.effects.filter((e) => e.id !== effect.id), effect];
   changeMaxHp(m, room, token, effect, 1);
   if (effect.conditions?.length) {
+    // Иммунитет к состоянию (Freedom of Movement, Heroism): состояние не накладывается, эффект остаётся.
+    const immune = conditionImmunities(token.effects);
     for (const key of effect.conditions) {
+      if (immune.has(key)) continue;
       if (token.conditions.some((c) => c.effectId === effect.id && c.key === key)) continue;
       token.conditions.push({
         key,
@@ -232,17 +236,20 @@ export function tickEffects(
       if (success) remove = true;
       else if (effect.escalate) {
         // Провал повторного спасброска: состояние меняется (Sleep → без сознания).
+        // Иммунитет к новому состоянию — эскалация пропускается, эффект остаётся как есть.
         const next = effect.escalate;
-        effect.duration = next.duration ?? effect.duration;
-        effect.conditions = [next.condition];
-        effect.escalate = undefined;
-        for (const cond of token.conditions) {
-          if (cond.effectId !== effect.id) continue;
-          cond.key = next.condition;
-          cond.name = conditionName(next.condition);
+        if (!conditionImmunities(token.effects).has(next.condition)) {
+          effect.duration = next.duration ?? effect.duration;
+          effect.conditions = [next.condition];
+          effect.escalate = undefined;
+          for (const cond of token.conditions) {
+            if (cond.effectId !== effect.id) continue;
+            cond.key = next.condition;
+            cond.name = conditionName(next.condition);
+          }
+          escalated.push({ name: effect.name, condition: next.condition });
+          changed = true;
         }
-        escalated.push({ name: effect.name, condition: next.condition });
-        changed = true;
       }
     }
     if (!remove && d.type === 'rounds' && phase === 'start') {

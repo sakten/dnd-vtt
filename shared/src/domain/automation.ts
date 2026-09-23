@@ -1,7 +1,14 @@
 import type { ActionCost, ActionTargeting, AreaSpec } from './actions';
 import type { Sense } from './sense';
 import type { AbilityKey } from './core';
-import type { ConditionKey, EffectDuration, EffectEscalation, Modifier, Restrictions } from './effects';
+import type {
+  ConditionKey,
+  EffectDuration,
+  EffectEscalation,
+  EffectTurnPayload,
+  Modifier,
+  Restrictions,
+} from './effects';
 
 /**
  * Схема автоматизации (R8.1): единое описание того, что происходит при
@@ -96,6 +103,14 @@ export interface AutomationEffect {
   light?: LightSource;
   /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
   deathWard?: boolean;
+  /** Состояния, к которым носитель получает иммунитет (Freedom of Movement, Heroism). */
+  conditionImmunities?: ConditionKey[];
+  /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
+  triggers?: { startOfTurn?: EffectTurnPayload };
+  /** Магические эффекты не снижают скорость (Freedom of Movement). */
+  immuneToSpeedReduction?: boolean;
+  /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */
+  ignoresDifficultTerrain?: boolean;
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */

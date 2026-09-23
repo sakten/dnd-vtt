@@ -912,6 +912,11 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.lightArea.obscured': 'Obscurement',
 
   'domain.effect.mirrorImages': 'mirror images ({charges})',
+  'domain.effect.immuneTo': 'immune: {condition}',
+  'domain.effect.noSpeedReduction': 'speed can’t be reduced by magic',
+  'domain.effect.ignoreDifficult': 'difficult terrain doesn’t slow it',
+  'domain.effect.startOfTurnDamage': 'at the start of its turn: {dice} damage',
+  'domain.effect.startOfTurnTempHp': 'at the start of its turn: {amount} temp HP',
   'domain.effect.advAttackAgainst': 'attacks against it have advantage',
   'domain.effect.advSaves': 'advantage on saves',
   'domain.effect.advChecks': 'advantage on checks',

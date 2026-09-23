@@ -5,6 +5,7 @@ import { hpBarHeight, hpBarLayout } from '../lib/hpBars';
 import {
   canSee,
   cellCenter,
+  ignoresDifficultTerrain,
   movementBlocked,
   planWalk,
   sightContextOf,
@@ -113,6 +114,8 @@ function TokenView({ token }: { token: Token }) {
       zones: map.zones,
       visibleAt,
       blind,
+      // Freedom of Movement: маршрут не удваивает сложную местность и клетки союзников.
+      ignoreDifficult: ignoresDifficultTerrain(token.effects),
       diagonalsBefore: turn?.diagonalsUsed ?? 0,
     });
   };

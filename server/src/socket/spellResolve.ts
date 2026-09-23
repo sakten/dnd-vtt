@@ -7,6 +7,7 @@ import {
   hasInvocation,
   INVOCATION_PACT_KEYS,
   polymorphFormIssue,
+  SMITE_SPELLS,
   spellCastArea,
   spellIsSelf,
   type ErrorPayload,
@@ -54,6 +55,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const def = automationForSpell(spell, {
     castLevel: input.castLevel,
     characterLevel: input.characterLevel,
+    spellMod: input.stats?.mod,
     invocations,
   });
   const targets = input.targets.filter((t) => !!t);
@@ -155,6 +157,18 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
   }
 
+  // Смайты: цель — существо в пределах ближней досягаемости (5 фт).
+  if (SMITE_SPELLS.has(spell.key)) {
+    if (!targets.length) return { code: 'spellNoTarget' };
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const gridSize = gridOfMap(map, room.scene.grid).size;
+    for (const target of targets) {
+      if (target.id === caster.id) continue;
+      if (gridDistanceFeet(caster, target, gridSize) > 5) return { code: 'attackOutOfReach', params: { feet: 5 } };
+    }
+    return undefined;
+  }
+
   if (input.area) return undefined;
   const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
@@ -178,6 +192,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
   const def = automationForSpell(input.spell, {
     castLevel: input.castLevel,
     characterLevel: input.characterLevel,
+    spellMod: input.stats?.mod,
     invocations: sheetOfToken(room, input.caster).sheet?.invocations,
     variant: input.variant,
   });

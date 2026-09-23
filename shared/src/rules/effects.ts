@@ -2,6 +2,7 @@ import { abilityMod, type AbilityKey } from '../domain/core';
 import type { DamageDefense } from '../domain/damage';
 import type {
   ConditionInstance,
+  ConditionKey,
   EffectDuration,
   EffectInstance,
   Modifier,
@@ -256,12 +257,35 @@ export function modifiedValue(
     }
   }
   for (const mod of mods) {
-    if (mod.mode === 'multiply') value = Math.round(value * evalModifierValue(mod.value ?? 0, abilities));
+    if (mod.mode === 'multiply') {
+      // Дробные множители (Slow/Spirit Guardians — 0.5) не округляются до 1: округляется только итог.
+      const factor = typeof mod.value === 'number' ? mod.value : evalModifierValue(mod.value ?? 0, abilities);
+      value = Math.round(value * factor);
+    }
   }
   return value;
 }
 
 /** Защиты (сопротивления/иммунитеты/уязвимости), наложенные эффектами. */
+/** Состояния, к которым у носителя есть иммунитет от эффектов (Freedom of Movement, Heroism). */
+export function conditionImmunities(effects: EffectInstance[] | undefined): Set<ConditionKey> {
+  const out = new Set<ConditionKey>();
+  for (const effect of effects ?? []) {
+    for (const key of effect.conditionImmunities ?? []) out.add(key);
+  }
+  return out;
+}
+
+/** Магические эффекты не снижают скорость (Freedom of Movement). */
+export function immuneToSpeedReduction(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.immuneToSpeedReduction === true);
+}
+
+/** Сложная местность и клетки союзников не замедляют (Freedom of Movement). */
+export function ignoresDifficultTerrain(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.ignoresDifficultTerrain === true);
+}
+
 export function effectDefenses(effects: EffectInstance[] | undefined): DamageDefense[] {
   const out: DamageDefense[] = [];
   for (const effect of effects ?? []) {
@@ -327,6 +351,20 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   if (effect.hidden) return [];
   const parts: EffectTextPart[] = [];
   for (const key of effect.conditions ?? []) parts.push({ key: `domain.condition.${key}` });
+  for (const key of effect.conditionImmunities ?? []) {
+    parts.push({ key: 'domain.effect.immuneTo', params: { condition: key } });
+  }
+  if (effect.immuneToSpeedReduction) parts.push({ key: 'domain.effect.noSpeedReduction' });
+  if (effect.ignoresDifficultTerrain) parts.push({ key: 'domain.effect.ignoreDifficult' });
+  if (effect.triggers?.startOfTurn?.damage) {
+    parts.push({
+      key: 'domain.effect.startOfTurnDamage',
+      params: { dice: effect.triggers.startOfTurn.damage.dice },
+    });
+  }
+  if (effect.triggers?.startOfTurn?.tempHp) {
+    parts.push({ key: 'domain.effect.startOfTurnTempHp', params: { amount: effect.triggers.startOfTurn.tempHp } });
+  }
   if (effect.misdirect) {
     parts.push({ key: 'domain.effect.mirrorImages', params: { charges: effect.misdirect.charges } });
   }

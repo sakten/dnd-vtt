@@ -4,6 +4,7 @@ import type {
   ConditionKey,
   EffectDuration,
   EffectInstance,
+  EffectTurnPayload,
   Modifier,
   ModifierFilter,
   ModifierMode,
@@ -12,6 +13,7 @@ import type {
 import { clampInt, isAbilityKey, newId } from './internal';
 import { normalizeSenses } from './sense';
 import type { LightSource } from '../domain/automation';
+import { CONDITION_KEYS } from '../rules/conditions';
 
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
@@ -135,6 +137,30 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.deathWard === true) effect.deathWard = true;
+    if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
+    if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
+    if (Array.isArray(e.conditionImmunities)) {
+      const immune = e.conditionImmunities
+        .filter((k): k is ConditionKey => typeof k === 'string' && (CONDITION_KEYS as string[]).includes(k))
+        .slice(0, 10);
+      if (immune.length) effect.conditionImmunities = [...new Set(immune)];
+    }
+    const startTrigger = (e.triggers as { startOfTurn?: unknown } | undefined)?.startOfTurn;
+    if (startTrigger && typeof startTrigger === 'object') {
+      const raw = startTrigger as { tempHp?: unknown; damage?: { dice?: unknown; types?: unknown } };
+      const payload: EffectTurnPayload = {};
+      const tempHp = clampInt(raw.tempHp, 0, 999, 0);
+      if (tempHp > 0) payload.tempHp = tempHp;
+      if (raw.damage && typeof raw.damage === 'object' && typeof raw.damage.dice === 'string' && raw.damage.dice.trim()) {
+        payload.damage = {
+          dice: raw.damage.dice.trim().slice(0, 40),
+          ...(Array.isArray(raw.damage.types)
+            ? { types: raw.damage.types.filter((t): t is string => typeof t === 'string').slice(0, 4) }
+            : {}),
+        };
+      }
+      if (payload.tempHp || payload.damage) effect.triggers = { startOfTurn: payload };
+    }
     if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
     if (e.mark === true) effect.mark = true;
     if (e.light && typeof e.light === 'object') {

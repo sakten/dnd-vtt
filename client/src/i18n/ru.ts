@@ -909,6 +909,11 @@
   'domain.lightArea.obscured': 'Мгла',
 
   'domain.effect.mirrorImages': 'зеркальные образы ({charges})',
+  'domain.effect.immuneTo': 'иммунитет: {condition}',
+  'domain.effect.noSpeedReduction': 'скорость не снижается магией',
+  'domain.effect.ignoreDifficult': 'сложная местность не замедляет',
+  'domain.effect.startOfTurnDamage': 'в начале хода: {dice} урона',
+  'domain.effect.startOfTurnTempHp': 'в начале хода: {amount} врем. HP',
   'domain.effect.advAttackAgainst': 'атаки по цели с преимуществом',
   'domain.effect.advSaves': 'преимущество на спасброски',
   'domain.effect.advChecks': 'преимущество на проверки',

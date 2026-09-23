@@ -99,8 +99,15 @@ export function spellRangeFeet(spell: Spell): number | null {
   }
 }
 
+/**
+ * Смайты (Searing Smite, Ensnaring Strike): кастуются бонусным действием после попадания,
+ * в данных `range: self`, но цель выбирается кликом по существу в досягаемости.
+ */
+export const SMITE_SPELLS = new Set(['XPHB:Searing Smite', 'XPHB:Ensnaring Strike']);
+
 /** Цель по умолчанию: self или существо. */
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {
+  if (SMITE_SPELLS.has(spell.key)) return 'creature';
   return spellIsSelf(spell) ? 'self' : 'creature';
 }
 

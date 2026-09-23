@@ -144,6 +144,71 @@ describe('automationForSpell', () => {
     expect(spellAutomated(lesser)).toBe(true);
   });
 
+  it('Heroism — иммунитет к испугу и temp HP за ход от мода кастера', () => {
+    const heroism = makeSpell({ key: 'XPHB:Heroism', name: 'Heroism', level: 1, automation: 'manual' });
+    const def = automationForSpell(heroism, { castLevel: 1, spellMod: 3 });
+    expect(def.resolution).toBe('effect');
+    expect(def.effects?.[0]?.conditionImmunities).toEqual(['frightened']);
+    expect(def.effects?.[0]?.triggers?.startOfTurn?.tempHp).toBe(3);
+    expect(spellAutomated(heroism)).toBe(true);
+    expect(
+      automationForSpell(heroism, { castLevel: 1, spellMod: 0 }).effects?.[0]?.triggers
+    ).toBeUndefined();
+  });
+
+  it('Searing Smite — урон при попадании и в начале хода, спас CON до успеха', () => {
+    const searing = makeSpell({
+      key: 'XPHB:Searing Smite',
+      name: 'Searing Smite',
+      level: 1,
+      automation: 'manual',
+      damage: { dice: ['1d6'], types: ['fire'] },
+      save: ['con'],
+      higherLevel: ['All the damage increases by 1d6 for each spell slot level above 1.'],
+    });
+    const def = automationForSpell(searing, { castLevel: 2 });
+    expect(def.resolution).toBe('auto');
+    expect(def.damage?.dice).toBe('1d6 + 1d6');
+    const effect = def.effects?.[0];
+    expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'start' });
+    expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6 + 1d6');
+    expect(spellAutomated(searing)).toBe(true);
+  });
+
+  it('Ensnaring Strike — спас STR, опутан и урон в начале хода, выпутывание', () => {
+    const ensnaring = makeSpell({
+      key: 'XPHB:Ensnaring Strike',
+      name: 'Ensnaring Strike',
+      level: 1,
+      automation: 'manual',
+      damage: { dice: ['1d6'], types: ['piercing'] },
+      save: ['str'],
+      concentration: true,
+      higherLevel: ['The damage increases by 1d6 for each spell slot level above 1.'],
+    });
+    const def = automationForSpell(ensnaring, { castLevel: 1 });
+    expect(def.resolution).toBe('save');
+    expect(def.concentration).toBe(true);
+    expect(def.save).toEqual({ ability: 'str' });
+    const effect = def.effects?.[0];
+    expect(effect?.conditions).toEqual(['restrained']);
+    expect(effect?.escape).toEqual({ ability: 'str', skill: 'athletics' });
+    expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6');
+    expect(spellAutomated(ensnaring)).toBe(true);
+  });
+
+  it('Freedom of Movement — каталог: иммунитеты, скорость и местность', () => {
+    const fom = makeSpell({ key: 'XPHB:Freedom of Movement', name: 'Freedom of Movement', level: 4, automation: 'manual' });
+    const def = automationForSpell(fom);
+    const effect = def.effects?.[0];
+    expect(def.resolution).toBe('effect');
+    expect(effect?.conditionImmunities).toEqual(['paralyzed', 'restrained']);
+    expect(effect?.immuneToSpeedReduction).toBe(true);
+    expect(effect?.ignoresDifficultTerrain).toBe(true);
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 600 });
+    expect(spellAutomated(fom)).toBe(true);
+  });
+
   it('без механики — manual', () => {
     const def = automationForSpell(makeSpell({ level: 0, automation: 'manual' }));
     expect(def.resolution).toBe('manual');

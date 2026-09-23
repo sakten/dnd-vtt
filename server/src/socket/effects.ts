@@ -1,6 +1,7 @@
-import type { DiceRollResult, Token } from 'shared';
+import { rollDice, type DiceRollResult, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { applyDamage } from './damage';
 import { pushSaveMessage as pushSaveRoll } from './messages';
 import { removeConcSummonsOf, summonSourceIds } from './summons';
 import { endShapesOf } from './forms';
@@ -16,6 +17,38 @@ export function pushSaveMessage(
   author = 'Система'
 ) {
   return pushSaveRoll(ctx, room, { author, subject, roll, success });
+}
+
+/**
+ * Триггеры эффектов в начале хода носителя (Heroism: врем. HP; смайты: повторный урон).
+ * Вызывается до `tickEffects('start')`: урон ложится, затем идёт спасбросок untilSave.
+ */
+export function tickEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, token: Token) {
+  for (const effect of [...token.effects]) {
+    const trigger = effect.triggers?.startOfTurn;
+    if (!trigger) continue;
+    if (trigger.tempHp && trigger.tempHp > 0) {
+      ctx.manager.grantTempHp(room, token, trigger.tempHp);
+      const cid = ctx.manager.controllerOfToken(room, token);
+      if (cid) ctx.emitResources(room, cid);
+      ctx.emitToken(room, 'token:update', mapId, token);
+    }
+    const damage = trigger.damage;
+    if (!damage?.dice) continue;
+    const roll = rollDice(damage.dice);
+    if (roll.total <= 0) continue;
+    const damageType = (damage.types ?? []).length === 1 ? damage.types![0] : undefined;
+    applyDamage(ctx, {
+      target: token,
+      mapId,
+      amount: roll.total,
+      damageType,
+      roll,
+      author: effect.name,
+      kind: 'damage',
+      params: { subject: `${effect.name} · ${token.name}`, damageType },
+    });
+  }
 }
 
 /**

@@ -260,6 +260,18 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       deathWard: true,
     },
   ]),
+  /** Freedom of Movement: иммунитет к параличу/опутыванию, скорость и местность (1 час). */
+  'XPHB:Freedom of Movement': spellEffect('XPHB:Freedom of Movement', 'Freedom of Movement', [
+    {
+      name: 'Freedom of Movement',
+      duration: { type: 'rounds', rounds: 600 },
+      to: 'targets',
+      modifiers: [],
+      conditionImmunities: ['paralyzed', 'restrained'],
+      immuneToSpeedReduction: true,
+      ignoresDifficultTerrain: true,
+    },
+  ]),
   'XPHB:Bless': spellEffect('XPHB:Bless', 'Bless', [
     {
       name: 'Bless',
@@ -823,6 +835,8 @@ function withSpellDice(def: AutomationDef, spell: Spell, opts: AutomationOptions
 }
 
 export interface AutomationOptions {
+  /** Модификатор заклинательной характеристики кастера (Heroism: временные HP за ход). */
+  spellMod?: number;
   /** Круг ячейки (по умолчанию — базовый круг заклинания). */
   castLevel?: number;
   /** Уровень персонажа для скейла кантрипов. */
@@ -852,6 +866,9 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Heat Metal',
   'XPHB:Call Lightning',
   'XPHB:Heal',
+  'XPHB:Heroism',
+  'XPHB:Searing Smite',
+  'XPHB:Ensnaring Strike',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1050,6 +1067,70 @@ function callLightningDef(spell: Spell, opts: AutomationOptions): AutomationDef 
   };
 }
 
+/** Heroism: иммунитет к испугу + временные HP (мод заклинательной характеристики) в начале хода цели. */
+function heroismDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Heroism') return undefined;
+  const mod = Math.max(0, Math.round(opts.spellMod ?? 0));
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    modifiers: [],
+    conditionImmunities: ['frightened'],
+    ...(mod > 0 ? { triggers: { startOfTurn: { tempHp: mod } } } : {}),
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/** Searing Smite: доп. 1d6 огня при попадании + урон и спас CON в начале каждого хода цели. */
+function searingSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Searing Smite') return undefined;
+  const castLevel = opts.castLevel ?? spell.level;
+  const dice = spellDamageExpression(spell, castLevel, opts.characterLevel ?? 1) ?? '1d6';
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'auto',
+    damage: { dice, types: ['fire'] },
+    effects: [
+      {
+        name: spell.name,
+        duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'start' },
+        to: 'targets',
+        modifiers: [],
+        triggers: { startOfTurn: { damage: { dice, types: ['fire'] } } },
+      },
+    ],
+  };
+}
+
+/** Ensnaring Strike: спас STR или опутан; урон 1d6 в начале хода; выпутывание действием. */
+function ensnaringStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Ensnaring Strike') return undefined;
+  const castLevel = opts.castLevel ?? spell.level;
+  const dice = spellDamageExpression(spell, castLevel, opts.characterLevel ?? 1) ?? '1d6';
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'str' },
+    effects: [
+      {
+        name: spell.name,
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditions: ['restrained'],
+        escape: { ability: 'str', skill: 'athletics' },
+        triggers: { startOfTurn: { damage: { dice, types: ['piercing'] } } },
+      },
+    ],
+  };
+}
+
 /** Heal (XPHB 2024): плоское лечение 70 (+10 за круг выше 6), снимает Blinded/Deafened/Poisoned. */
 function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Heal') return undefined;
@@ -1092,6 +1173,15 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const heal = healSpellDef(spell, opts);
   if (heal) return heal;
+
+  const heroism = heroismDef(spell, opts);
+  if (heroism) return heroism;
+
+  const searing = searingSmiteDef(spell, opts);
+  if (searing) return searing;
+
+  const ensnaring = ensnaringStrikeDef(spell, opts);
+  if (ensnaring) return ensnaring;
 
   const summon = summonSpellDef(spell.key);
   if (summon) {
