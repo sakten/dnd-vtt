@@ -4,6 +4,7 @@ import { useGameStore } from '../store/useGameStore';
 import { useActiveGrid, useActiveMap } from '../store/hooks';
 import { useIsDm } from '../lib/control';
 import { isCellHidden } from '../lib/fog';
+import { useMapLight } from '../lib/light';
 import { useSpellByKey } from '../lib/useSpells';
 import { useVisionViewers } from '../lib/useVision';
 import ConditionChips from './ConditionChips';
@@ -18,10 +19,18 @@ export default function ConditionsOverlay() {
   const grid = useActiveGrid();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
   const viewers = useVisionViewers();
+  // Свет заклинаний (Light, Daylight) — как в вуали TableTop: иначе в «Темноте»
+  // игрок видит освещённый токен, а его чипы скрывались бы.
+  const lightMap = useMapLight();
   const sight = useMemo(
     () =>
-      map ? sightContextOf(map, { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY }) : null,
-    [map, grid]
+      map
+        ? {
+            ...sightContextOf(map, { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY }),
+            light: lightMap,
+          }
+        : null,
+    [map, grid, lightMap]
   );
   const isTokenVisible = (t: Token) =>
     !viewers || (sight !== null && viewers.some((v) => canSee({ x: v.x, y: v.y }, t, v.senses, sight)));
