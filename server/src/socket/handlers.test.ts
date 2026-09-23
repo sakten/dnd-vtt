@@ -5411,6 +5411,73 @@ describe('реакции (R1)', () => {
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack' && m.author === 't2')).toBe(true);
   });
 
+  it('Ответный удар — полная атака: Shield цели отыгрывает до завершения окна промаха', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', {
+          attacks: [melee('Меч', 'd20+1')],
+          hpMax: '30',
+          hpCurrent: 30,
+          ac: '20',
+          statblock: {
+            abilities,
+            spellcasting: { ability: 'int', spells: ['XPHB:Shield'], slots: [{ level: 1, max: 1, current: 1 }] },
+          },
+        }),
+        makeToken('t2', { libraryItemId: 'lib2', ac: '16', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 5, bonus: '' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      ac: '16',
+      classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      spells: [],
+      attacks: [melee('Рапира')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'fighter.battleMaster:superiorityDice',
+          name: 'Кости превосходства',
+          current: 4,
+          max: 4,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // d20 = 3: первый промах, ответный — 23
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const riposte = pendingOffers('TEST')[0]!;
+    expect(riposte.options.map((o) => o.id)).toContain('feature:fighter.battleMaster:riposte');
+
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: riposte.id, optionId: 'feature:fighter.battleMaster:riposte' });
+    rand.mockRestore();
+
+    // Ответный удар (23) попал бы, но цель отвечает Shield — дочернее окно до конца промаха.
+    const shield = pendingOffers('TEST')[0]!;
+    expect(shield.trigger).toBe('attackHit');
+    expect(shield.tokenName).toBe('t1');
+    expect(shield.options.map((o) => o.id)).toContain('spell:XPHB:Shield');
+
+    f.invoke('reaction:respond', { id: shield.id, optionId: 'spell:XPHB:Shield' });
+
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30); // Shield: +5 AC, урона нет
+    expect(pendingOffers('TEST')).toHaveLength(0);
+    expect(combatOf(room).turns.e1!.reactionUsed).toBe(true);
+  });
+
   it('в режиме тестов окно NPC видят все игроки и может ответить любой', () => {
     const room = makeRoom(
       [

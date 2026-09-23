@@ -24,7 +24,8 @@ import { shapeStatblock } from '../../room/shape';
 import { pushSaveMessage } from '../messages';
 import { applyDamage } from '../damage';
 import { executeAutomation } from '../automation';
-import { resolveWeaponAttack, type WeaponAttackPrep } from '../attackResolve';
+import type { WeaponAttackPrep } from '../attackResolve';
+import { resolveWeaponAttackWithReactions } from './attack';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, choiceToken, classLevelOf, reactionSlotFree, type ReactionChoice } from './internal';
 import { opportunityAttack } from './opportunity';
@@ -176,7 +177,9 @@ export function applyCounterAttack(
     const boosted: AttackEntry = dieExpr
       ? { ...source.weapon, damage: source.weapon.damage ? `${source.weapon.damage} + ${dieExpr}` : dieExpr }
       : source.weapon;
-    resolveWeaponAttack(ctx, {
+    // Полный резолв: ответная атака тоже может спровоцировать реакции (Shield/Guided Strike) —
+    // они станут дочерними окнами текущей и отыграют до её продолжения.
+    resolveWeaponAttackWithReactions(ctx, {
       attacker: reactor,
       attackerMapId: choice.mapId,
       target: opponent,
