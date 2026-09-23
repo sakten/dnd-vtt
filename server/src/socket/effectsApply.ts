@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { isIncapacitated, type AutomationEffect, type EffectInstance, type Token } from 'shared';
+import {
+  isIncapacitated,
+  type AutomationEffect,
+  type ConditionKey,
+  type EffectInstance,
+  type Token,
+} from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { endShapeToken } from './forms';
@@ -74,6 +80,39 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
   }
   ctx.emitToken(room, 'token:update', mapId, target);
   return effectId;
+}
+
+/**
+ * Снимает с токена состояния по ключам (Heal/Lesser/Greater Restoration):
+ * состояние снимается вместе с эффектом-источником, у концентрации проверяется якорь.
+ * Возвращает имена снятых состояний.
+ */
+export function removeConditionInstances(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  token: Token,
+  keys: ConditionKey[]
+): string[] {
+  const wanted = new Set(keys);
+  const removed = token.conditions.filter((c) => wanted.has(c.key));
+  if (!removed.length) return [];
+  const effectIds = new Set(removed.map((c) => c.effectId).filter((id): id is string => !!id));
+  const removedEffects: EffectInstance[] = [];
+  for (const id of effectIds) {
+    const effect = token.effects.find((e) => e.id === id);
+    if (effect && ctx.manager.removeEffect(room, token, id)) removedEffects.push(effect);
+  }
+  token.conditions = token.conditions.filter((c) => !wanted.has(c.key));
+  // Снятие эффекта-цели: если это была последняя цель каста — концентрация гаснет.
+  for (const effect of removedEffects) {
+    if (!effect.concentration || !effect.sourceId || !effect.sourceKey) continue;
+    for (const changed of ctx.manager.pruneConcentration(room, effect.sourceId, effect.sourceKey)) {
+      if (changed.token !== token) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+  }
+  ctx.emitToken(room, 'token:update', mapId, token);
+  return removed.map((c) => c.name);
 }
 
 /** Снимает с токена все эффекты, наложенные зоной; true — что-то снято. */

@@ -42,6 +42,8 @@ export interface SpellCastInput {
   summonKey?: string;
   /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
   variant?: string;
+  /** Выбор состояния для снятия (Lesser/Greater Restoration). */
+  condition?: string;
   author: string;
 }
 
@@ -132,6 +134,21 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     }
   }
 
+  // Lesser/Greater Restoration: у цели есть снимаемое состояние; выбор обязателен, если их 2+.
+  if (def.utility?.kind === 'endCondition') {
+    if (!targets.length) return { code: 'spellNoTarget' };
+    const allowed = def.endConditions ?? [];
+    for (const target of targets) {
+      const present = allowed.filter((key) => target.conditions.some((c) => c.key === key));
+      if (!present.length) return { code: 'restoreNoCondition' };
+      if (input.condition) {
+        if (!present.includes(input.condition as (typeof present)[number])) return { code: 'restoreNoCondition' };
+      } else if (present.length > 1) {
+        return { code: 'restoreNoChoice' };
+      }
+    }
+  }
+
   // Телепорт (Misty Step): точка в пределах дистанции, свободна и видна кастеру.
   if (def.utility?.kind === 'teleport') {
     if (!input.origin) return { code: 'noAreaPoint' };
@@ -176,6 +193,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     direction: input.direction ?? null,
     area: spellCastArea(input.spell) ?? null,
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
+    ...(input.condition ? { choice: input.condition } : {}),
     manual: {
       description: input.spell.description,
       level: input.spell.level,

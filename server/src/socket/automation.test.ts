@@ -475,6 +475,93 @@ describe('лечение, стабильность и оживление', () =>
     ).toBe(true);
   });
 
+  it('Heal: лечит 70 и снимает Blinded/Deafened/Poisoned', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = makeResources({ hp: { current: 5, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+    target.conditions = [
+      { key: 'blinded', name: 'Ослеплён', rounds: null },
+      { key: 'poisoned', name: 'Отравлен', rounds: null },
+      { key: 'prone', name: 'Сбит с ног', rounds: null },
+    ];
+
+    const heal = findSpell('XPHB:Heal')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(heal, { castLevel: 6, characterLevel: 11 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+
+    expect(room.resources.p1!.hp.current).toBe(20);
+    expect(target.conditions.map((c) => c.key)).toEqual(['prone']);
+  });
+
+  it('Lesser Restoration: выбор снимает состояние и его эффект-источник', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = makeResources({ hp: { current: 10, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+    target.effects = [
+      { id: 'ef1', name: 'Яд', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['poisoned'] },
+    ];
+    target.conditions = [
+      { key: 'poisoned', name: 'Отравлен', rounds: null, effectId: 'ef1' },
+      { key: 'blinded', name: 'Ослеплён', rounds: null },
+    ];
+
+    const lesser = findSpell('XPHB:Lesser Restoration')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(lesser, { castLevel: 2, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'A',
+      choice: 'poisoned',
+    });
+
+    expect(target.effects.some((e) => e.id === 'ef1')).toBe(false);
+    expect(target.conditions.map((c) => c.key)).toEqual(['blinded']);
+    expect(
+      f.emitted.some((e) => e.event === 'chat:message' && JSON.stringify(e.payload).includes('automation.restore'))
+    ).toBe(true);
+  });
+
+  it('валидация: Lesser Restoration без выбора и без состояний отклоняется', () => {
+    const { room } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = makeResources({ hp: { current: 10, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+    const lesser = findSpell('XPHB:Lesser Restoration')!;
+    const base = {
+      caster,
+      mapId: 'm1',
+      spell: lesser,
+      castLevel: 2,
+      characterLevel: 5,
+      stats,
+      targets: [target],
+      author: 'A',
+    };
+
+    expect(validateSpellCast(room, base)).toEqual({ code: 'restoreNoCondition' });
+
+    target.conditions = [
+      { key: 'poisoned', name: 'Отравлен', rounds: null },
+      { key: 'blinded', name: 'Ослеплён', rounds: null },
+    ];
+    expect(validateSpellCast(room, base)).toEqual({ code: 'restoreNoChoice' });
+    expect(validateSpellCast(room, { ...base, condition: 'blinded' })).toBeUndefined();
+    expect(validateSpellCast(room, { ...base, condition: 'paralyzed' })).toEqual({ code: 'restoreNoCondition' });
+  });
+
   it('валидация: цель Revivify/Spare the Dying проверяется до каста', () => {
     const { room } = setup();
     const map = room.scene.maps[0]!;

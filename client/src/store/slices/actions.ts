@@ -2,6 +2,7 @@ import {
   aimToCursor,
   confirmArea,
   finishMulti,
+  pickCondition,
   pickMultiTarget,
   pickTarget,
   startAim,
@@ -23,6 +24,8 @@ export const createActionSlice: Slice<
     | 'cancelTargeting'
     | 'cancelInteraction'
     | 'resolveTargeting'
+    | 'chooseCondition'
+    | 'cancelCondition'
     | 'startAim'
     | 'aimToCursor'
     | 'cancelAim'
@@ -59,10 +62,54 @@ export const createActionSlice: Slice<
     cancelInteraction: () => _set({ interaction: null }),
 
     resolveTargeting: (targetId) => {
+      const it = get().interaction;
+      // Lesser/Greater Restoration: после клика по цели показываем выбор состояния
+      // (2+ подходящих); с одним кастуем сразу, с нулём — сервер вернёт ошибку.
+      if (it?.mode === 'target' && it.target.kind === 'spell' && it.target.endConditionKeys?.length) {
+        const t = it.target;
+        const keys = t.endConditionKeys ?? [];
+        const token = tokenById(activeMapOf(get()), targetId);
+        const options = keys.filter((key) => token?.conditions.some((c) => c.key === key));
+        if (options.length > 1) {
+          _set({
+            interaction: {
+              mode: 'condition',
+              condition: {
+                tokenId: t.tokenId,
+                targetId,
+                spellKey: t.spellKey,
+                slotLevel: t.slotLevel,
+                advantage: t.advantage,
+                options,
+                label: t.label,
+              },
+            },
+          });
+          return;
+        }
+        emitInMap(get, 'spell:cast', {
+          tokenId: t.tokenId,
+          spellKey: t.spellKey,
+          slotLevel: t.slotLevel,
+          advantage: t.advantage,
+          targetIds: [targetId],
+          ...(options[0] ? { condition: options[0] } : {}),
+        });
+        _set({ interaction: null });
+        return;
+      }
       const { next, command } = pickTarget(get().interaction, targetId);
       _set({ interaction: next });
       runCommand(command);
     },
+
+    chooseCondition: (key) => {
+      const { next, command } = pickCondition(get().interaction, key);
+      _set({ interaction: next });
+      runCommand(command);
+    },
+
+    cancelCondition: () => _set({ interaction: null }),
 
     startAim: (payload) => {
       const token = tokenById(activeMapOf(get()), payload.tokenId);

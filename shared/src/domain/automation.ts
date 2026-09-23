@@ -104,6 +104,8 @@ export interface AutomationPayload {
   damage?: AutomationDice;
   heal?: AutomationDice;
   effects?: AutomationEffect[];
+  /** Состояния, снимаемые с цели (Heal, Lesser/Greater Restoration). */
+  endConditions?: ConditionKey[];
   /**
    * Как считать попадание для этого payload'а: `anyCell` — любое пересечение,
    * `fullyWithin` — токен целиком внутри. Без значения — как у зоны.
@@ -231,7 +233,9 @@ export interface AutomationUtility {
     /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
     | 'revive'
     /** Spare the Dying: цель на 0 HP становится стабильной. */
-    | 'stabilize';
+    | 'stabilize'
+    /** Lesser/Greater Restoration: снять одно состояние из `endConditions` (выбор при касте). */
+    | 'endCondition';
   amount?: number;
   ability?: AbilityKey;
   /** Кость временных HP (tempHp), бросается один раз на всех. */

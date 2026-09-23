@@ -16,6 +16,8 @@ export default function AimPanel() {
   const finish = useGameStore((s) => s.finishMultiTarget);
 
   if (!interaction) return null;
+  // Выбор состояния показывается модалкой ConditionChoicePrompt — панель не нужна.
+  if (interaction.mode === 'condition') return null;
 
   if (interaction.mode === 'target') {
     return (

@@ -101,6 +101,109 @@ describe('actions slice', () => {
     });
   });
 
+  it('Lesser Restoration: выбор состояния после клика по цели', () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.tokens = [
+      makeToken('t1', { x: 100, y: 100 }),
+      makeToken('t2', {
+        x: 150,
+        y: 100,
+        conditions: [
+          { key: 'poisoned', name: 'Отравлен', rounds: null },
+          { key: 'blinded', name: 'Ослеплён', rounds: null },
+        ],
+      }),
+    ];
+    useGameStore.getState().startTargeting({
+      kind: 'spell',
+      tokenId: 't1',
+      spellKey: 'XPHB:Lesser Restoration',
+      slotLevel: 2,
+      label: 'Lesser Restoration',
+      endConditionKeys: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
+    });
+
+    useGameStore.getState().resolveTargeting('t2');
+
+    const it = useGameStore.getState().interaction;
+    expect(it?.mode).toBe('condition');
+    expect(it?.mode === 'condition' ? it.condition.options : []).toEqual(['blinded', 'poisoned']);
+    expect(emitted).toHaveLength(0);
+
+    useGameStore.getState().chooseCondition('blinded');
+    expect(emitted).toContainEqual({
+      event: 'spell:cast',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Lesser Restoration',
+        slotLevel: 2,
+        targetIds: ['t2'],
+        condition: 'blinded',
+      },
+    });
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
+  it('Lesser Restoration: одно подходящее состояние — каст сразу', () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.tokens = [
+      makeToken('t1', { x: 100, y: 100 }),
+      makeToken('t2', { x: 150, y: 100, conditions: [{ key: 'poisoned', name: 'Отравлен', rounds: null }] }),
+    ];
+    useGameStore.getState().startTargeting({
+      kind: 'spell',
+      tokenId: 't1',
+      spellKey: 'XPHB:Lesser Restoration',
+      slotLevel: 2,
+      label: 'Lesser Restoration',
+      endConditionKeys: ['poisoned'],
+    });
+
+    useGameStore.getState().resolveTargeting('t2');
+    expect(emitted).toContainEqual({
+      event: 'spell:cast',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Lesser Restoration',
+        slotLevel: 2,
+        targetIds: ['t2'],
+        condition: 'poisoned',
+      },
+    });
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
+  it('Lesser Restoration: отмена выбора не шлёт каст', () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.tokens = [
+      makeToken('t1', { x: 100, y: 100 }),
+      makeToken('t2', {
+        x: 150,
+        y: 100,
+        conditions: [
+          { key: 'poisoned', name: 'Отравлен', rounds: null },
+          { key: 'deafened', name: 'Оглох', rounds: null },
+        ],
+      }),
+    ];
+    useGameStore.getState().startTargeting({
+      kind: 'spell',
+      tokenId: 't1',
+      spellKey: 'XPHB:Lesser Restoration',
+      slotLevel: 2,
+      label: 'Lesser Restoration',
+      endConditionKeys: ['deafened', 'poisoned'],
+    });
+
+    useGameStore.getState().resolveTargeting('t2');
+    expect(useGameStore.getState().interaction?.mode).toBe('condition');
+    useGameStore.getState().cancelCondition();
+    expect(emitted).toHaveLength(0);
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
   it('cancelTargeting сбрасывает режим без бросков', () => {
     useGameStore.getState().startTargeting({ kind: 'action', tokenId: 't1', actionId: 'grapple', slot: 'action', label: 'Захват' });
     useGameStore.getState().cancelTargeting();

@@ -120,6 +120,30 @@ describe('automationForSpell', () => {
     expect(spellAutomated(ward)).toBe(true);
   });
 
+  it('Heal — плоское лечение 70 (+10/круг выше 6) и снятие состояний', () => {
+    const heal = makeSpell({ key: 'XPHB:Heal', name: 'Heal', level: 6, automation: 'manual' });
+    const base = automationForSpell(heal);
+    expect(base.resolution).toBe('auto');
+    expect(base.heal?.dice).toBe('70');
+    expect(base.endConditions).toEqual(['blinded', 'deafened', 'poisoned']);
+    expect(spellAutomated(heal)).toBe(true);
+    expect(automationForSpell(heal, { castLevel: 8 }).heal?.dice).toBe('90');
+  });
+
+  it('Lesser Restoration — каталог: endCondition и допустимые состояния', () => {
+    const lesser = makeSpell({
+      key: 'XPHB:Lesser Restoration',
+      name: 'Lesser Restoration',
+      level: 2,
+      automation: 'manual',
+    });
+    const def = automationForSpell(lesser);
+    expect(def.resolution).toBe('utility');
+    expect(def.utility).toEqual({ kind: 'endCondition' });
+    expect(def.endConditions).toEqual(['blinded', 'deafened', 'paralyzed', 'poisoned']);
+    expect(spellAutomated(lesser)).toBe(true);
+  });
+
   it('без механики — manual', () => {
     const def = automationForSpell(makeSpell({ level: 0, automation: 'manual' }));
     expect(def.resolution).toBe('manual');

@@ -50,6 +50,8 @@ export type ErrorCode =
   | 'reviveNotDead'
   | 'stabilizeNotDying'
   | 'alreadyStable'
+  | 'restoreNoCondition'
+  | 'restoreNoChoice'
   | 'notYourToken'
   | 'rollEmpty'
   | 'rollNoDice'

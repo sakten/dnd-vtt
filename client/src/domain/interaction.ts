@@ -1,4 +1,4 @@
-import type { ActionCost, AreaSpec, Token } from 'shared';
+import type { ActionCost, AreaSpec, ConditionKey, Token } from 'shared';
 
 /** Точка в мировых координатах карты. */
 export interface Point {
@@ -73,6 +73,8 @@ export type TargetingState =
       summonKey?: string;
       /** Вариант каста (Dragon's Breath: тип урона выдоха). */
       variant?: string;
+      /** Lesser/Greater Restoration: снимаемые состояния — после цели показываем выбор. */
+      endConditionKeys?: ConditionKey[];
     }
   | {
       kind: 'rollAttack';
@@ -82,11 +84,24 @@ export type TargetingState =
       label: string;
     };
 
+/** Выбор одного состояния для снятия (Lesser/Greater Restoration) после клика по цели. */
+export interface ConditionChoiceState {
+  tokenId: string;
+  targetId: string;
+  spellKey: string;
+  slotLevel?: number;
+  advantage?: 'a' | 'd';
+  /** Подходящие состояния цели (из permitted-списка заклинания). */
+  options: ConditionKey[];
+  label: string;
+}
+
 /** Активное взаимодействие с картой: не более одного режима одновременно. */
 export type Interaction =
   | { mode: 'target'; target: TargetingState }
   | { mode: 'aim'; aim: AimState }
-  | { mode: 'multi'; multi: MultiTargetState };
+  | { mode: 'multi'; multi: MultiTargetState }
+  | { mode: 'condition'; condition: ConditionChoiceState };
 
 /** Параметры входа в режим области (без вычисленного origin). */
 export type StartAimPayload = Omit<AimState, 'origin' | 'direction'>;
@@ -104,6 +119,8 @@ export interface SpellCastPayload {
   summonKey?: string;
   /** Вариант каста (Dragon's Breath: тип урона выдоха). */
   variant?: string;
+  /** Выбор состояния для снятия (Lesser/Greater Restoration). */
+  condition?: string;
 }
 
 /** Команда, которую стор исполняет после перехода машины. */
@@ -273,6 +290,27 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
   };
 }
 
+/** Выбор состояния в режиме `condition`: каст с целью и выбранным состоянием. */
+export function pickCondition(interaction: Interaction | null, key: string): InteractionResult {
+  if (interaction?.mode !== 'condition') return { next: interaction };
+  const c = interaction.condition;
+  if (!c.options.includes(key as ConditionKey)) return { next: interaction };
+  return {
+    next: null,
+    command: {
+      type: 'castSpell',
+      payload: {
+        tokenId: c.tokenId,
+        spellKey: c.spellKey,
+        slotLevel: c.slotLevel,
+        advantage: c.advantage,
+        targetIds: [c.targetId],
+        condition: key,
+      },
+    },
+  };
+}
+
 /** Клик по токену в режиме мульти-цели; последний выбор запускает каст. */
 export function pickMultiTarget(interaction: Interaction | null, targetId: string): InteractionResult {
   if (interaction?.mode !== 'multi') return { next: interaction };
@@ -319,5 +357,8 @@ export function finishMulti(interaction: Interaction | null): InteractionResult 
 /** Токен-владелец активного режима (для сброса UI при удалении токена). */
 export function interactionTokenId(interaction: Interaction | null): string | null {
   if (!interaction) return null;
-  return interaction.mode === 'target' ? interaction.target.tokenId ?? null : interaction.mode === 'aim' ? interaction.aim.tokenId : interaction.multi.tokenId;
+  if (interaction.mode === 'target') return interaction.target.tokenId ?? null;
+  if (interaction.mode === 'aim') return interaction.aim.tokenId;
+  if (interaction.mode === 'condition') return interaction.condition.tokenId;
+  return interaction.multi.tokenId;
 }

@@ -211,6 +211,9 @@ export interface GameState {
   cancelInteraction: () => void;
   /** Клик по цели: применяет способность по выбранному токену. */
   resolveTargeting: (targetId: string) => void;
+  /** Выбор состояния для снятия (Lesser/Greater Restoration). */
+  chooseCondition: (key: string) => void;
+  cancelCondition: () => void;
   setDragging: (id: string | null) => void;
   setGridModalOpen: (open: boolean) => void;
   setVisionModalOpen: (open: boolean) => void;

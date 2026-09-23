@@ -35,6 +35,8 @@ export interface SpellCastParams {
   summonKey?: string;
   /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
   variant?: string;
+  /** Выбор состояния для снятия (Lesser/Greater Restoration). */
+  condition?: string;
   author: string;
 }
 
@@ -115,6 +117,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     direction: isPoint(params.direction) ? params.direction : null,
     summonKey: params.summonKey,
     variant: params.variant,
+    condition: params.condition,
     author: params.author,
   };
 }

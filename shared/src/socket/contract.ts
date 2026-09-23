@@ -166,6 +166,8 @@ export interface ClientToServerEvents {
     summonKey?: string;
     /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
     variant?: string;
+    /** Выбор состояния для снятия (Lesser/Greater Restoration). */
+    condition?: string;
   }) => void;
   /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
   'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;

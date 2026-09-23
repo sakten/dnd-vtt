@@ -39,7 +39,7 @@ import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage } from './damage';
 import { attackDamageRoll, attackHitRoll, attackUnseen, type WeaponDamageMods } from './attackResolve';
 import { fail, type ErrorCode } from './errors';
-import { applyEffectTo, type ApplyEffectArgs } from './effectsApply';
+import { applyEffectTo, removeConditionInstances, type ApplyEffectArgs } from './effectsApply';
 import { applyForcedMovement } from './force';
 import { executeTeleport, teleportIssue } from './teleport';
 import { emitSpellFx } from './fx';
@@ -78,6 +78,8 @@ export interface AutomationInput {
   area?: AreaSpec | null;
   /** Выбранная форма призыва (Find Familiar): ключ каталога бестиария. */
   summonKey?: string;
+  /** Выбор состояния для снятия (Lesser/Greater Restoration). */
+  choice?: string;
 }
 
 /** Единственный тип урона, если он однозначен (иначе защиты не применяются). */
@@ -569,6 +571,37 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       params: { name: input.caster.name, feature: input.def.name, targets: stabilized.join(', ') },
     });
   },
+  /** Lesser/Greater Restoration: снять выбранное состояние (или единственное подходящее). */
+  endCondition: ({ ctx, room, input }) => {
+    const target = input.targets[0];
+    if (!target) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    const allowed = input.def.endConditions ?? [];
+    const chosen = input.choice && allowed.includes(input.choice as (typeof allowed)[number]) ? input.choice : undefined;
+    const keys = chosen
+      ? [chosen as (typeof allowed)[number]]
+      : allowed.filter((key) => target.conditions.some((c) => c.key === key));
+    if (!keys.length) {
+      fail(ctx, 'restoreNoCondition');
+      return;
+    }
+    const removed = removeConditionInstances(ctx, room, input.mapId, target, keys);
+    if (!removed.length) {
+      fail(ctx, 'restoreNoCondition');
+      return;
+    }
+    ctx.systemMessage(room, {
+      code: 'automation.restore',
+      params: {
+        name: input.caster.name,
+        feature: input.def.name,
+        target: target.name,
+        conditions: removed.join(', '),
+      },
+    });
+  },
   // Перемещение зоны обрабатывается веткой `zone:` в action:use — до executeAutomation.
   moveZone: () => void 0,
   /** Misty Step: телепорт кастера в выбранную точку в пределах дистанции. */
@@ -674,6 +707,10 @@ function applyResult(
     ...(opts.halve !== undefined ? { halve: opts.halve } : mods?.halveDamage ? { halve: true } : {}),
     ...(opts.crit !== undefined && { crit: opts.crit }),
   });
+  // Heal и подобные: состояния снимаются независимо от броска лечения.
+  if (run.def.endConditions?.length) {
+    removeConditionInstances(run.ctx, run.room, run.mapId, target, run.def.endConditions);
+  }
   healAfter(run, target);
   // Vampiric Touch: лечение кастера на половину фактически нанесённого урона.
   if (run.def.lifesteal && !run.healing && result.applied && result.amount > 0) {

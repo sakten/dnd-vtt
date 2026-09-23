@@ -22,6 +22,7 @@ import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
 import AimPanel from '../components/AimPanel';
 import ReactionPrompt from '../components/ReactionPrompt';
+import ConditionChoicePrompt from '../components/ConditionChoicePrompt';
 import RollOverlay from '../components/RollOverlay';
 import CritOverlay from '../components/CritOverlay';
 import { wallsEscapeStep } from '../lib/wallDraw';
@@ -86,6 +87,7 @@ export default function TableScreen() {
       <AimPanel />
       <ResourcesPanel />
       <ReactionPrompt />
+      <ConditionChoicePrompt />
       {gridModalOpen && <GridSettingsModal />}
       {visionModalOpen && <VisionSettingsModal />}
       {bestiaryOpen && <BestiaryPanel />}

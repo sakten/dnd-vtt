@@ -86,6 +86,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     return def.shape;
   })();
   const needBeast = !!shapeDef;
+  // Lesser/Greater Restoration: допустимые к снятию состояния; выбор — после клика по цели.
+  const endConditionDef = (() => {
+    const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
+    return def.utility?.kind === 'endCondition' ? def.endConditions : undefined;
+  })();
   // Вариант каста (Dragon's Breath: тип урона); значение по умолчанию — первый вариант.
   const variantDef = spellVariantDef(spell.key);
   // At-will инвокация «на себя» (Armor of Shadows): цель не выбирается.
@@ -210,6 +215,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         label: spellDisplayName(spell),
         ...(variant ? { variant } : {}),
+        ...(endConditionDef ? { endConditionKeys: endConditionDef } : {}),
       });
     }
     onClose();

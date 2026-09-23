@@ -241,6 +241,15 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     utility: { kind: 'stabilize' },
     targeting: { kind: 'creature', range: 15 },
   },
+  /** Lesser Restoration: снять одно состояние (Blinded/Deafened/Paralyzed/Poisoned), касание. */
+  'XPHB:Lesser Restoration': {
+    key: 'XPHB:Lesser Restoration',
+    name: 'Lesser Restoration',
+    resolution: 'utility',
+    utility: { kind: 'endCondition' },
+    endConditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
+    targeting: { kind: 'creature', range: 5 },
+  },
   /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет (8 часов). */
   'XPHB:Death Ward': spellEffect('XPHB:Death Ward', 'Death Ward', [
     {
@@ -842,6 +851,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Sunbeam',
   'XPHB:Heat Metal',
   'XPHB:Call Lightning',
+  'XPHB:Heal',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1040,6 +1050,20 @@ function callLightningDef(spell: Spell, opts: AutomationOptions): AutomationDef 
   };
 }
 
+/** Heal (XPHB 2024): плоское лечение 70 (+10 за круг выше 6), снимает Blinded/Deafened/Poisoned. */
+function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Heal') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const amount = 70 + 10 * Math.max(0, castLevel - 6);
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'auto',
+    heal: { dice: String(amount) },
+    endConditions: ['blinded', 'deafened', 'poisoned'],
+  };
+}
+
 /**
  * Определение автоматизации заклинания: строка каталога → деривация из данных
  * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
@@ -1065,6 +1089,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const callLightning = callLightningDef(spell, opts);
   if (callLightning) return callLightning;
+
+  const heal = healSpellDef(spell, opts);
+  if (heal) return heal;
 
   const summon = summonSpellDef(spell.key);
   if (summon) {
