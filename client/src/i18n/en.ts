@@ -586,6 +586,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.action.recharging': 'recharging: {n}',
 
   'ui.initiative.round': 'Round {n}',
+  'ui.initiative.invisible': 'Invisible',
   'ui.initiative.movementOnly': 'movement only',
   'ui.initiative.actionUsed': 'Action used',
   'ui.initiative.actionAvailable': 'Action available',

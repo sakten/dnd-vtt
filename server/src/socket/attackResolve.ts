@@ -27,6 +27,7 @@ import {
   resolveAttack,
   rollDice,
   rollMode,
+  seesInvisible,
   sightContextOf,
   sourcesCounts,
   tokenVisibleFrom,
@@ -48,6 +49,7 @@ import type { Room } from '../roomTypes';
 import { actorStats } from '../room/actor';
 import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
+import { removeBrokenEffects } from './effectsApply';
 import { fail } from './errors';
 import { applyDamageMastery, applyHitMastery, consumeAttackRollEffects, grazeDamage } from './masteries';
 import { pushRollMessage } from './messages';
@@ -299,6 +301,8 @@ export function prepareWeaponAttack(
     unseenTarget,
     unseenAttacker,
     surrounded,
+    attackerSeesInvisible: seesInvisible(attacker?.effects),
+    targetSeesInvisible: seesInvisible(target?.effects),
   });
   const { advantage: advCount, disadvantage: disCount } = sourcesCounts(sources);
 
@@ -385,6 +389,8 @@ export function rollPreparedAttack(
       pushRollMessage(ctx, room, { author, roll: hit.hitRoll, kind: 'attack', params });
       // Sap/Vex: одноразовые мастерства сгорают после броска атаки (даже промаха).
       if (attacker && attackerMapId) consumeAttackRollEffects(ctx, room, attackerMapId, attacker, target);
+      // Invisibility: бросок атаки досрочно обрывает эффект (даже промах).
+      if (attacker && attackerMapId) removeBrokenEffects(ctx, room, attackerMapId, attacker, 'attack');
       result.hitRoll = hit.hitRoll;
       result.hitSuccess = hitSuccess;
       result.crit = crit;

@@ -583,6 +583,7 @@
   'ui.action.recharging': 'перезарядка: {n}',
 
   'ui.initiative.round': 'Раунд {n}',
+  'ui.initiative.invisible': 'Невидим',
   'ui.initiative.movementOnly': 'только движение',
   'ui.initiative.actionUsed': 'Действие израсходовано',
   'ui.initiative.actionAvailable': 'Действие доступно',

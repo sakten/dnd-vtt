@@ -3561,6 +3561,84 @@ describe('spell:cast', () => {
     expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
   });
 
+  it('Invisibility: каст другого заклинания досрочно обрывает невидимость', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [
+        { key: 'XPHB:Invisibility', className: 'wizard' },
+        { key: 'XPHB:See Invisibility', className: 'wizard' },
+      ],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 2, max: 2 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const token = room.scene.maps[0]!.tokens[0]!;
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Invisibility',
+      slotLevel: 2,
+      targetIds: ['t1'],
+    });
+    expect(token.conditions.some((c) => c.key === 'invisible')).toBe(true);
+
+    combatOf(room).turns.e1!.actionUsed = false;
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:See Invisibility',
+      slotLevel: 2,
+      targetIds: ['t1'],
+    });
+    expect(token.conditions.some((c) => c.key === 'invisible')).toBe(false);
+    expect(token.effects.some((e) => e.seesInvisible === true)).toBe(true);
+  });
+
+  it('Greater Invisibility: каст не обрывает невидимость', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      spells: [
+        { key: 'XPHB:Greater Invisibility', className: 'wizard' },
+        { key: 'XPHB:See Invisibility', className: 'wizard' },
+      ],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [
+        { level: 2, current: 1, max: 1 },
+        { level: 4, current: 1, max: 1 },
+      ],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const token = room.scene.maps[0]!.tokens[0]!;
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Greater Invisibility',
+      slotLevel: 4,
+      targetIds: ['t1'],
+    });
+    expect(token.conditions.some((c) => c.key === 'invisible')).toBe(true);
+
+    combatOf(room).turns.e1!.actionUsed = false;
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:See Invisibility',
+      slotLevel: 2,
+      targetIds: ['t1'],
+    });
+    expect(token.conditions.some((c) => c.key === 'invisible')).toBe(true);
+  });
+
   it('Ярость запрещает каст заклинаний', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     const tk = room.scene.maps[0]!.tokens[0]!;

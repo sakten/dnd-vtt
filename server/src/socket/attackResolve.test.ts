@@ -242,3 +242,50 @@ describe('Magic Weapon: магический физурон обходит за�
     expect(remainingHp(true)).toBe(25);
   });
 });
+
+describe('Invisibility: бросок атаки обрывает эффект', () => {
+  it('после атаки снимаются эффект с breakOn и его условие', () => {
+    const entry = {
+      name: 'Меч',
+      hit: 'd20+5',
+      damage: '1d8',
+      rangeType: 'melee' as const,
+      rangeNormal: 5,
+      rangeLong: 0,
+      damageType: 'slashing',
+    };
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+    const target = makeToken('t2', { x: 100, y: 100, ac: '15', hpMax: '30', hpCurrent: 30 });
+    const room = makeCombatRoom([attacker, target]);
+    attacker.effects = [
+      {
+        id: 'inv',
+        name: 'Invisibility',
+        sourceKey: 'XPHB:Invisibility',
+        sourceId: 't1',
+        concentration: true,
+        duration: { type: 'permanent' },
+        modifiers: [],
+        conditions: ['invisible'],
+        breakOn: ['attack', 'spell'],
+      },
+    ];
+    attacker.conditions = [{ key: 'invisible', name: 'Невидим', rounds: null, effectId: 'inv' }];
+    const f = makeConnCtx(room, { dm: true });
+
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+
+    expect(attacker.effects.some((e) => e.breakOn?.includes('attack'))).toBe(false);
+    expect(attacker.conditions.some((c) => c.key === 'invisible')).toBe(false);
+  });
+});

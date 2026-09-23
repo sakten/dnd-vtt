@@ -148,6 +148,11 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     }
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
+    if (e.seesInvisible === true) effect.seesInvisible = true;
+    if (Array.isArray(e.breakOn)) {
+      const events = e.breakOn.filter((k): k is 'attack' | 'spell' => k === 'attack' || k === 'spell');
+      if (events.length) effect.breakOn = [...new Set(events)];
+    }
     if (Array.isArray(e.conditionImmunities)) {
       const immune = e.conditionImmunities
         .filter((k): k is ConditionKey => typeof k === 'string' && (CONDITION_KEYS as string[]).includes(k))

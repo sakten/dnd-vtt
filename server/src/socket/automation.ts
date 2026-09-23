@@ -17,6 +17,7 @@ import {
   resolveAbilityMods,
   resolveAttack,
   rollDice,
+  seesInvisible,
   sideMatches,
   sourcesCounts,
   statNumber,
@@ -873,6 +874,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       unseenTarget: unseen?.unseenTarget,
       unseenAttacker: unseen?.unseenAttacker,
       surrounded,
+      attackerSeesInvisible: seesInvisible(caster.effects),
+      targetSeesInvisible: seesInvisible(target.effects),
     });
     const { advantage, disadvantage } = sourcesCounts(sources);
     const ac = ctx.manager.acForToken(room, target);

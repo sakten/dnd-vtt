@@ -14,7 +14,7 @@ import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
 import { tickEffectTriggers } from './effects';
-import { applyEffectTo } from './effectsApply';
+import { applyEffectTo, removeBrokenEffects } from './effectsApply';
 import { validateSpellCast } from './spellResolve';
 import { checkPartsForToken } from '../room/effects';
 
@@ -134,6 +134,54 @@ describe('концентрация заклинаний с зонами', () => 
 
     expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(false);
     expect(target.effects.some((e) => e.sourceKey === 'XPHB:Protection from Poison')).toBe(true);
+  });
+
+  it('Invisibility: цель получает условие invisible и эффект с обрывом', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+
+    const inv = findSpell('XPHB:Invisibility')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(inv, { castLevel: 2 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+
+    expect(target.conditions.some((c) => c.key === 'invisible')).toBe(true);
+    const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Invisibility');
+    expect(effect?.breakOn).toEqual(['attack', 'spell']);
+    expect(effect?.concentration).toBe(true);
+  });
+
+  it('removeBrokenEffects: снимает эффект с breakOn и его состояние, не трогая прочие', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const token = map.tokens[1]!;
+    token.effects = [
+      { id: 'keep', name: 'Mage Armor', duration: { type: 'permanent' }, modifiers: [] },
+    ];
+
+    const inv = findSpell('XPHB:Invisibility')!;
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'XPHB:Invisibility',
+      sourceId: map.tokens[0]!.id,
+      mapId: 'm1',
+      effectDef: automationForSpell(inv, { castLevel: 2 }).effects![0]!,
+      target: token,
+    });
+    expect(token.conditions.some((c) => c.key === 'invisible')).toBe(true);
+
+    const removed = removeBrokenEffects(f.ctx, room, 'm1', token, 'attack');
+    expect(removed).toHaveLength(1);
+    expect(token.conditions.some((c) => c.key === 'invisible')).toBe(false);
+    expect(token.effects.map((e) => e.id)).toContain('keep');
+    // Повторное событие — снимать больше нечего.
+    expect(removeBrokenEffects(f.ctx, room, 'm1', token, 'attack')).toEqual([]);
   });
 
   it('Scatter: союзник без сейва, враг с WIS-спасом, точки — в 120 фт от кастера', () => {

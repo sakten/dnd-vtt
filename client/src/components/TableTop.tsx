@@ -14,6 +14,7 @@ import {
   modifiedValue,
   pointCell,
   reachableCells,
+  seesInvisible,
   segmentRectDistance,
   sightContextOf,
   snapToGrid,
@@ -34,6 +35,7 @@ import { canControlWith, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
 import { fogRects as buildFogRects, type WorldPoint } from '../lib/fog';
 import { useMapCamera } from '../lib/useMapCamera';
+import { useInvisibilityView } from '../lib/visibility';
 import { useFogBrush } from '../lib/useFogBrush';
 import { useAreaBrush } from '../lib/useAreaBrush';
 import { useTokenDrop } from '../lib/useTokenDrop';
@@ -168,6 +170,8 @@ export default function TableTop() {
   const sheet = useGameStore((s) => s.sheet);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
+  // Невидимость: скрытие от чужих и «?» вместо иконок в трекере инициативы.
+  const invisibility = useInvisibilityView();
 
   const fogBrush = useFogBrush(activeMap);
   const areaBrush = useAreaBrush(activeMap);
@@ -335,6 +339,8 @@ export default function TableTop() {
       unseenTarget: unseen.unseenTarget,
       unseenAttacker: unseen.unseenAttacker,
       surrounded,
+      attackerSeesInvisible: seesInvisible(from.effects),
+      targetSeesInvisible: seesInvisible(to.effects),
       attackerEffects: from.effects,
       targetEffects: to.effects,
       effectContext: {
@@ -758,6 +764,7 @@ export default function TableTop() {
               map={activeMap}
               isDm={isDm}
               hidden={hiddenSet}
+              invisibleHidden={invisibility.hidden}
               dragGhost={dragGhost}
               dragPath={dragPath}
               viewScale={view.scale}

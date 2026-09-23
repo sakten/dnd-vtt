@@ -26,7 +26,7 @@ import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
 
-function TokenView({ token }: { token: Token }) {
+function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) {
   const image = useImage(tokenImageUrl(token.imageUrl), token.imageUrl);
   const selfId = useGameStore((s) => s.selfId);
   const grid = useGameStore(activeGridOf);
@@ -278,7 +278,7 @@ function TokenView({ token }: { token: Token }) {
       scaleX={token.scale}
       scaleY={token.scale}
       rotation={token.rotation}
-      opacity={lockedByOther ? 0.5 : dead ? 0.55 : 1}
+      opacity={ghost ? 0.4 : lockedByOther ? 0.5 : dead ? 0.55 : 1}
       draggable={
         !lockedByOther &&
         !moving &&

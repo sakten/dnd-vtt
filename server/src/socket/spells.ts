@@ -18,6 +18,7 @@ import { spellClassFor, spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
+import { removeBrokenEffects } from './effectsApply';
 import { removeConcSummonsOf, summonSourceIds } from './summons';
 import { endShapesOf, spellsInShapeAllowed } from './forms';
 import { removeZonesOfSource } from './zones';
@@ -170,8 +171,15 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       }
     }
 
+    // Invisibility: применение заклинания досрочно обрывает эффект носителя.
+    // Снимок до каста — чтобы рекаст не снял только что наложенный эффект.
+    const breakIds = new Set(token.effects.filter((e) => e.breakOn?.includes('spell')).map((e) => e.id));
     const result = resolveSpellCastWithReactions(ctx, input);
-    if (result.error) socket.emit('chat:error', result.error);
+    if (result.error) {
+      socket.emit('chat:error', result.error);
+    } else if (breakIds.size) {
+      removeBrokenEffects(ctx, room, mapId, token, 'spell', breakIds);
+    }
   });
 
   ctx.on('spell:endConcentration', ({ mapId, tokenId }) => {

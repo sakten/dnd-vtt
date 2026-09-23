@@ -77,6 +77,8 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
       : undefined,
     immuneToSpeedReduction: effectDef.immuneToSpeedReduction,
     ignoresDifficultTerrain: effectDef.ignoresDifficultTerrain,
+    seesInvisible: effectDef.seesInvisible,
+    breakOn: effectDef.breakOn ? [...effectDef.breakOn] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
   // Wild Shape/Polymorph оканчиваются от недееспособности (XPHB).
@@ -132,4 +134,41 @@ export function removeZoneEffects(ctx: ConnCtx, room: Room, mapId: string, token
   for (const id of ids) ctx.manager.removeEffect(room, token, id);
   ctx.emitToken(room, 'token:update', mapId, token);
   return true;
+}
+
+/**
+ * Досрочный обрыв эффектов по событию (Invisibility: бросок атаки/применение
+ * заклинания носителем). `onlyIds` — снимок до события: эффекты, наложенные
+ * самим событием, не трогаем. Возвращает id снятых эффектов.
+ */
+export function removeBrokenEffects(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  token: Token,
+  event: 'attack' | 'spell',
+  onlyIds?: Set<string>
+): string[] {
+  const broken = token.effects.filter(
+    (e) => e.breakOn?.includes(event) && (!onlyIds || onlyIds.has(e.id))
+  );
+  if (!broken.length) return [];
+  const anchors = new Set<string>();
+  const removed: string[] = [];
+  for (const effect of broken) {
+    if (!ctx.manager.removeEffect(room, token, effect.id)) continue;
+    removed.push(effect.id);
+    if (effect.concentration && effect.sourceId && effect.sourceKey) {
+      anchors.add(`${effect.sourceId}\n${effect.sourceKey}`);
+    }
+  }
+  for (const anchor of anchors) {
+    const [sourceId, sourceKey] = anchor.split('\n');
+    if (!sourceId || !sourceKey) continue;
+    for (const changed of ctx.manager.pruneConcentration(room, sourceId, sourceKey)) {
+      if (changed.token !== token) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+  }
+  if (removed.length) ctx.emitToken(room, 'token:update', mapId, token);
+  return removed;
 }

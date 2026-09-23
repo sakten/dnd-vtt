@@ -743,6 +743,21 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
+  // See Invisibility: носитель видит невидимых (клиентский рендер + снятие adv/dis невидимости).
+  'XPHB:See Invisibility': {
+    key: 'XPHB:See Invisibility',
+    name: 'See Invisibility',
+    resolution: 'effect',
+    effects: [
+      {
+        name: 'See Invisibility',
+        duration: PERMANENT,
+        to: 'self',
+        modifiers: [],
+        seesInvisible: true,
+      },
+    ],
+  },
   'XPHB:Stinking Cloud': {
     key: 'XPHB:Stinking Cloud',
     name: 'Stinking Cloud',
@@ -992,6 +1007,8 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Enhance Ability',
   'XPHB:Magic Weapon',
   'XPHB:Eyebite',
+  'XPHB:Invisibility',
+  'XPHB:Greater Invisibility',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
 ]);
@@ -1227,6 +1244,28 @@ function enhanceAbilityDef(spell: Spell, opts: AutomationOptions): AutomationDef
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
+/**
+ * Invisibility: цель невидима до конца концентрации; бросок атаки или каст
+ * носителя досрочно обрывают эффект. Апкаст: +1 цель за круг выше 2-го.
+ * Greater Invisibility — без обрыва и апкаста.
+ */
+function invisibilityDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Invisibility' && spell.key !== 'XPHB:Greater Invisibility') return undefined;
+  const greater = spell.key === 'XPHB:Greater Invisibility';
+  const targets = greater ? 1 : Math.max(1, (opts.castLevel ?? Math.max(1, spell.level)) - 1);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    concentration: true,
+    to: 'targets',
+    targets,
+    modifiers: [],
+    conditions: ['invisible'],
+    ...(greater ? {} : { breakOn: ['attack', 'spell'] as const }),
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
 /** Magic Weapon: оружейные атаки цели — магические, +1/+2/+3 к попаданию и урону (апкаст). */
 function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Magic Weapon') return undefined;
@@ -1394,6 +1433,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const enhance = enhanceAbilityDef(spell, opts);
   if (enhance) return enhance;
+
+  const invisibility = invisibilityDef(spell, opts);
+  if (invisibility) return invisibility;
 
   const magicWeapon = magicWeaponDef(spell, opts);
   if (magicWeapon) return magicWeapon;

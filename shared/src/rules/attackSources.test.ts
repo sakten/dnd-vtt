@@ -60,4 +60,16 @@ describe('collectAttackSources', () => {
     });
     expect(result).toEqual({ advantage: 0, disadvantage: 2, mode: 'd' });
   });
+
+  it('See Invisibility снимает adv невидимого атакующего и dis по невидимой цели', () => {
+    const invisible = [cond('invisible')];
+    expect(collectAttackSources({ attackerConditions: invisible })).toEqual([
+      { side: 'advantage', kind: 'condition', key: 'invisible' },
+    ]);
+    expect(collectAttackSources({ attackerConditions: invisible, targetSeesInvisible: true })).toEqual([]);
+    expect(collectAttackSources({ targetConditions: invisible })).toEqual([
+      { side: 'disadvantage', kind: 'condition', key: 'invisible' },
+    ]);
+    expect(collectAttackSources({ targetConditions: invisible, attackerSeesInvisible: true })).toEqual([]);
+  });
 });

@@ -212,4 +212,8 @@ export interface EffectInstance {
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */
   ignoresDifficultTerrain?: boolean;
+  /** Носитель видит невидимых (See Invisibility). */
+  seesInvisible?: boolean;
+  /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
+  breakOn?: ('attack' | 'spell')[];
 }

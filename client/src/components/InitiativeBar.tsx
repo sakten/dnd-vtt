@@ -4,6 +4,7 @@ import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { activeMapOf } from '../store/selectors';
 import { useCanEndTurn, useIsDm } from '../lib/control';
+import { useInvisibilityView } from '../lib/visibility';
 import { thumbUrl } from '../lib/imageVariants';
 
 const EMPTY_COMBAT = emptyCombatState();
@@ -21,6 +22,7 @@ export default function InitiativeBar() {
   const endTurn = useGameStore((s) => s.endTurn);
   const setTurn = useGameStore((s) => s.setTurn);
   const canEndTurn = useCanEndTurn();
+  const invisibility = useInvisibilityView();
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -159,14 +161,20 @@ export default function InitiativeBar() {
               setDragOverId(null);
             }}
           >
-            <img
-              src={thumbUrl(entry.imageUrl)}
-              onError={(e) => {
-                if (entry.imageUrl && e.currentTarget.src !== entry.imageUrl) e.currentTarget.src = entry.imageUrl;
-              }}
-              alt={entry.name}
-              draggable={false}
-            />
+            {entry.tokenId && invisibility.masked.has(entry.tokenId) ? (
+              <span className="initiative-mask" title={t('ui.initiative.invisible')}>
+                ?
+              </span>
+            ) : (
+              <img
+                src={thumbUrl(entry.imageUrl)}
+                onError={(e) => {
+                  if (entry.imageUrl && e.currentTarget.src !== entry.imageUrl) e.currentTarget.src = entry.imageUrl;
+                }}
+                alt={entry.name}
+                draggable={false}
+              />
+            )}
             <span className="initiative-value">{entry.initiative}</span>
             {isDm && index !== activeIndex && (
               <button

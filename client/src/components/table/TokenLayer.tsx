@@ -4,6 +4,7 @@ import TokenView from '../TokenView';
 import { useImage } from '../../lib/useImage';
 import { tokenImageUrl } from '../../lib/imageVariants';
 import { isCellHidden, type WorldPoint } from '../../lib/fog';
+import { tokenInvisible } from '../../lib/visibility';
 import { t } from '../../i18n';
 
 /** Бледная копия токена на месте начала перетаскивания. */
@@ -32,17 +33,20 @@ interface Props {
   map: MapInfo | null | undefined;
   isDm: boolean;
   hidden: Set<string>;
+  /** Токены, скрытые невидимостью от текущего зрителя. */
+  invisibleHidden: Set<string>;
   dragGhost: { id: string; x: number; y: number } | null;
   dragPath: { points: WorldPoint[]; feet: number } | null;
   viewScale: number;
   gridSize: number;
 }
 
-/** Токены (с учётом тумана), призрак перетаскивания и маршрут ходьбы с крестиком цели. */
+/** Токены (с учётом тумана и невидимости), призрак перетаскивания и маршрут ходьбы с крестиком цели. */
 export default function TokenLayer({
   map,
   isDm,
   hidden,
+  invisibleHidden,
   dragGhost,
   dragPath,
   viewScale,
@@ -59,9 +63,12 @@ export default function TokenLayer({
           return <TokenGhost token={ghost} x={dragGhost.x} y={dragGhost.y} />;
         })()}
       {map?.tokens
-        .filter((tok) => isDm || !isCellHidden(fog, hidden, tok.x, tok.y))
+        .filter(
+          (tok) =>
+            (isDm || !isCellHidden(fog, hidden, tok.x, tok.y)) && !invisibleHidden.has(tok.id)
+        )
         .map((tok) => (
-          <TokenView key={tok.id} token={tok} />
+          <TokenView key={tok.id} token={tok} ghost={tokenInvisible(tok)} />
         ))}
       {dragPath && dragPath.points.length > 1 && (
         <>

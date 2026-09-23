@@ -29,6 +29,10 @@ export interface AttackSourceInput {
   /** Невидимость обеих сторон. */
   unseenTarget?: boolean;
   unseenAttacker?: boolean;
+  /** Атакующий видит невидимых (See Invisibility): помеха по невидимой цели не действует. */
+  attackerSeesInvisible?: boolean;
+  /** Цель видит невидимых: преимущество невидимого атакующего не действует. */
+  targetSeesInvisible?: boolean;
   /** Опциональное правило «Окружение»: цель окружена смежными врагами. */
   surrounded?: boolean;
   /** Эффекты с контекстом: источники с именами; иначе — обезличенный `effectMode`. */
@@ -49,11 +53,15 @@ export function collectAttackSources(input: AttackSourceInput): AttackSource[] {
 
   if (input.explicit === 'a') out.push({ side: 'advantage', kind: 'explicit' });
   if (input.explicit === 'd') out.push({ side: 'disadvantage', kind: 'explicit' });
-  for (const key of attackerAdvantageReasons(input.attackerConditions)) out.push(condition('advantage', key));
+  for (const key of attackerAdvantageReasons(input.attackerConditions)) {
+    if (key === 'invisible' && input.targetSeesInvisible) continue;
+    out.push(condition('advantage', key));
+  }
   for (const key of attackerDisadvantageReasons(input.attackerConditions)) out.push(condition('disadvantage', key));
   if (input.includeTarget !== false) {
     for (const key of advantageAgainstReasons(input.targetConditions, rangeType)) out.push(condition('advantage', key));
     for (const key of disadvantageAgainstReasons(input.targetConditions, rangeType)) {
+      if (key === 'invisible' && input.attackerSeesInvisible) continue;
       out.push(condition('disadvantage', key));
     }
   }

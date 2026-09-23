@@ -322,6 +322,11 @@ export function ignoresDifficultTerrain(effects: EffectInstance[] | undefined): 
   return (effects ?? []).some((e) => e.ignoresDifficultTerrain === true);
 }
 
+/** Носитель эффектов видит невидимых существ (See Invisibility). */
+export function seesInvisible(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.seesInvisible === true);
+}
+
 /** Warding Bond: токены-источники, на которые переносится урон носителя. */
 export function damageLinks(effects: EffectInstance[] | undefined): string[] {
   const out: string[] = [];

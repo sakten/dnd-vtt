@@ -176,6 +176,46 @@ describe('automationForSpell', () => {
     expect(spellVariantDef('XPHB:Enhance Ability')).toEqual({ param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] });
   });
 
+  it('Invisibility — невидимость до конца концентрации, обрыв атака/каст, апкаст целей', () => {
+    const inv = makeSpell({ key: 'XPHB:Invisibility', name: 'Invisibility', level: 2, automation: 'manual' });
+    const def = automationForSpell(inv, { castLevel: 2 });
+    expect(def.resolution).toBe('effect');
+    expect(def.effects?.[0]?.conditions).toEqual(['invisible']);
+    expect(def.effects?.[0]?.breakOn).toEqual(['attack', 'spell']);
+    expect(def.effects?.[0]?.concentration).toBe(true);
+    expect(def.effects?.[0]?.targets).toBe(1);
+    expect(automationForSpell(inv, { castLevel: 4 }).effects?.[0]?.targets).toBe(3);
+    expect(spellAutomated(inv)).toBe(true);
+  });
+
+  it('Greater Invisibility — невидимость без обрыва', () => {
+    const greater = makeSpell({
+      key: 'XPHB:Greater Invisibility',
+      name: 'Greater Invisibility',
+      level: 4,
+      automation: 'manual',
+    });
+    const effect = automationForSpell(greater, { castLevel: 4 }).effects?.[0];
+    expect(effect?.conditions).toEqual(['invisible']);
+    expect(effect?.breakOn).toBeUndefined();
+    expect(effect?.targets).toBe(1);
+    expect(spellAutomated(greater)).toBe(true);
+  });
+
+  it('See Invisibility — носитель видит невидимых (флаг эффекта)', () => {
+    const see = makeSpell({
+      key: 'XPHB:See Invisibility',
+      name: 'See Invisibility',
+      level: 2,
+      automation: 'manual',
+    });
+    const def = automationForSpell(see);
+    expect(def.resolution).toBe('effect');
+    expect(def.effects?.[0]?.seesInvisible).toBe(true);
+    expect(def.effects?.[0]?.to).toBe('self');
+    expect(spellAutomated(see)).toBe(true);
+  });
+
   it('Protection from Poison — снятие яда, преимущество на сейв от него, сопротивление', () => {
     const pp = makeSpell({
       key: 'XPHB:Protection from Poison',
