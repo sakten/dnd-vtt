@@ -28,7 +28,7 @@ export interface ErrorPayload {
 export interface AttackSource {
   side: 'advantage' | 'disadvantage';
   /** Категория причины: выбор игрока, состояние, эффект, дистанция, невидимость, свойство оружия. */
-  kind: 'explicit' | 'condition' | 'effect' | 'range' | 'unseen' | 'weapon';
+  kind: 'explicit' | 'condition' | 'effect' | 'range' | 'unseen' | 'weapon' | 'rule';
   /** Ключ причины: состояние (`prone`), `adjacent`/`long`, `target`/`attacker`, `heavy`. */
   key?: string;
   /** Имя эффекта-источника (для kind `effect`). */

@@ -2,6 +2,7 @@ import { crossesWalls, sizeAtMost, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { gridSizeOfMap } from '../rooms';
+import { syncSurrounded } from './surrounded';
 
 /**
  * Вынужденное перемещение (push/pull): шаги по клетке строго от/к источнику,
@@ -45,4 +46,5 @@ export function applyForcedMovement(
   }
   if (!moved) return;
   ctx.emitToken(room, 'token:update', mapId, target);
+  syncSurrounded(ctx, room, mapId);
 }

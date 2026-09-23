@@ -76,6 +76,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
     resources: isRecord(p.resources) ? p.resources : {},
     controllers,
     testMode: p.testMode === true,
+    optionalRules: { surrounded: p.optionalRules?.surrounded === true },
   };
   return room;
 }

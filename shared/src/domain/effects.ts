@@ -19,6 +19,7 @@ export type ConditionKey =
   | 'restrained'
   | 'stunned'
   | 'unconscious'
+  | 'surrounded'
   | 'dead'
   | 'custom';
 

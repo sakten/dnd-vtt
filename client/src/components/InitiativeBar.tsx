@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { emptyCombatState } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
@@ -24,6 +24,24 @@ export default function InitiativeBar() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const activeId =
+    combat.active && combat.currentIndex >= 0 ? combat.entries[combat.currentIndex]?.id ?? null : null;
+
+  // Смена хода (и структуры списка) — подматываем полосу к активному чипу.
+  useEffect(() => {
+    const track = scrollRef.current;
+    if (!track || !activeId) return;
+    const index = combat.entries.findIndex((e) => e.id === activeId);
+    const chip = track.children[index] as HTMLElement | undefined;
+    if (index < 0 || !chip) return;
+    const target = chip.offsetLeft + chip.offsetWidth / 2 - track.clientWidth / 2;
+    const max = Math.max(0, track.scrollWidth - track.clientWidth);
+    const behavior: ScrollBehavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      ? 'auto'
+      : 'smooth';
+    track.scrollTo({ left: Math.max(0, Math.min(max, target)), behavior });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- entries читаем на момент смены хода
+  }, [activeId, combat.entries.length]);
 
   if (!combat.active) return null;
   const activeIndex =

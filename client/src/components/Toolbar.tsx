@@ -7,6 +7,7 @@ import DiceMenu from './DiceMenu';
 export default function Toolbar() {
   const setGridModalOpen = useGameStore((s) => s.setGridModalOpen);
   const setRoomSettingsOpen = useGameStore((s) => s.setRoomSettingsOpen);
+  const setOptionalRulesOpen = useGameStore((s) => s.setOptionalRulesOpen);
   const fitView = useGameStore((s) => s.fitView);
   const isRealDm = useIsRealDm();
   const isDm = useIsDm();
@@ -95,6 +96,11 @@ export default function Toolbar() {
       {isRealDm && (
         <button title={t('ui.toolbar.roomTitle')} onClick={() => setRoomSettingsOpen(true)}>
           {t('ui.toolbar.room')}
+        </button>
+      )}
+      {isRealDm && (
+        <button title={t('ui.toolbar.rulesTitle')} onClick={() => setOptionalRulesOpen(true)}>
+          {t('ui.toolbar.rules')}
         </button>
       )}
     </div>

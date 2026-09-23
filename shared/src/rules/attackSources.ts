@@ -26,8 +26,11 @@ export interface AttackSourceInput {
   forcedDisadvantageCode?: 'adjacent' | 'long';
   /** «Тяжёлое» оружие при профильной характеристике ниже 13. */
   heavy?: boolean;
+  /** Невидимость обеих сторон. */
   unseenTarget?: boolean;
   unseenAttacker?: boolean;
+  /** Опциональное правило «Окружение»: цель окружена смежными врагами. */
+  surrounded?: boolean;
   /** Эффекты с контекстом: источники с именами; иначе — обезличенный `effectMode`. */
   attackerEffects?: EffectInstance[];
   targetEffects?: EffectInstance[];
@@ -60,6 +63,7 @@ export function collectAttackSources(input: AttackSourceInput): AttackSource[] {
   if (input.heavy) out.push({ side: 'disadvantage', kind: 'weapon', key: 'heavy' });
   if (input.unseenTarget) out.push({ side: 'disadvantage', kind: 'unseen', key: 'target' });
   if (input.unseenAttacker) out.push({ side: 'advantage', kind: 'unseen', key: 'attacker' });
+  if (input.surrounded) out.push({ side: 'advantage', kind: 'rule', key: 'surrounded' });
 
   if (input.attackerEffects || input.targetEffects) {
     const ctx: ModifierContext = input.effectContext ?? {};

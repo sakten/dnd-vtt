@@ -19,6 +19,7 @@ export * from './rules/invocations';
 export * from './rules/movement';
 export * from './rules/monsterAbility';
 export * from './rules/monsterAbilities';
+export * from './rules/optional';
 export * from './rules/reactions';
 export * from './rules/resources';
 export * from './rules/sheet';

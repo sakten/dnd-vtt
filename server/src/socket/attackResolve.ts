@@ -14,6 +14,7 @@ import {
   hostileTokens,
   isCriticalFail,
   isCriticalHit,
+  isSurrounded,
   modifiedValue,
   parseDiceExpression,
   proficiencyBonus,
@@ -199,6 +200,7 @@ export function prepareWeaponAttack(
   let forcedDisadvantageCode: RollLabelParams['disadvantage'];
   let unseenTarget = false;
   let unseenAttacker = false;
+  let surrounded = false;
 
   // Досягаемость: бонус эффекта учитывается только в свой ход (Battering Roots).
   const reachBonus =
@@ -236,6 +238,18 @@ export function prepareWeaponAttack(
       const unseen = attackUnseen(room, attacker, target, map);
       unseenTarget = unseen.unseenTarget;
       unseenAttacker = unseen.unseenAttacker;
+      // Опциональное правило «Окружение»: преимущество смежным врагам окружённой цели.
+      surrounded =
+        room.optionalRules.surrounded &&
+        distanceFeet <= 5 &&
+        hostileTokens(attacker, target) &&
+        isSurrounded({
+          target,
+          tokens: map.tokens,
+          grid: { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY },
+          walls: map.walls,
+          bounds: { width: map.width, height: map.height },
+        });
     }
   }
 
@@ -276,6 +290,7 @@ export function prepareWeaponAttack(
     includeTarget: hasTarget,
     unseenTarget,
     unseenAttacker,
+    surrounded,
   });
   const { advantage: advCount, disadvantage: disCount } = sourcesCounts(sources);
 

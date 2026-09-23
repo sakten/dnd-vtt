@@ -11,6 +11,7 @@ import {
   exhaustionRollPenalty,
   gridDistanceFeet,
   hostileTokens,
+  isSurrounded,
   proficiencyBonus,
   resolveAbilityMods,
   resolveAttack,
@@ -670,6 +671,20 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
     const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
     const unseen = castMap ? attackUnseen(room, caster, target, castMap) : undefined;
+    const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
+    // Опциональное правило «Окружение»: преимущество смежным врагам окружённой цели.
+    const surrounded =
+      !!castMap &&
+      room.optionalRules.surrounded &&
+      distance <= 5 &&
+      hostileTokens(caster, target) &&
+      isSurrounded({
+        target,
+        tokens: castMap.tokens,
+        grid: { size: gridSize, offsetX: castMap.grid.offsetX, offsetY: castMap.grid.offsetY },
+        walls: castMap.walls,
+        bounds: { width: castMap.width, height: castMap.height },
+      });
     const sources = collectAttackSources({
       explicit: adv,
       attackerConditions: caster.conditions,
@@ -683,9 +698,9 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       includeTarget: true,
       unseenTarget: unseen?.unseenTarget,
       unseenAttacker: unseen?.unseenAttacker,
+      surrounded,
     });
     const { advantage, disadvantage } = sourcesCounts(sources);
-    const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
     const ac = ctx.manager.acForToken(room, target);
     const hit = attackHitRoll({
       attackExpr: withRollParts(d20Expr(stats.attack), { flat: effectParts.flat, dice: effectParts.dice }),

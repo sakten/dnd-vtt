@@ -17,6 +17,7 @@ import { actorStats } from '../room/actor';
 import { removeSummonsOf, summonSourceIds } from './summons';
 import { endShapeToken, endShapesOf } from './forms';
 import { handleMovementZones, removeZonesOfSource } from './zones';
+import { syncSurrounded } from './surrounded';
 
 /** Производные поля персонажа: в токене не хранятся, в патче игнорируются. */
 const CHARACTER_DERIVED_FIELDS = [
@@ -67,6 +68,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const token = manager.addToken(room, payload.mapId, item, x, y, playerId);
       if (!token) return;
       emitToken(room, 'token:add', payload.mapId, token);
+      syncSurrounded(ctx, room, payload.mapId);
       if (manager.combatOf(room, payload.mapId)?.active) {
         manager.addTokenToCombat(room, payload.mapId, token);
         syncCombat(room, payload.mapId);
@@ -88,6 +90,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       emitToken(room, 'token:update', mapId, token);
       // Перетаскивание (в т.ч. в чужой ход): аура и enter/exit зон тоже срабатывают.
       handleMovementZones(ctx, room, mapId);
+      syncSurrounded(ctx, room, mapId);
     });
 
     ctx.on('token:walk', ({ mapId, id, path, moveId }) => {
@@ -113,6 +116,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       token.y = y;
       // Вход/выход зон по ходу движения; позицию фиксирует финальный token:move.
       handleMovementZones(ctx, room, mapId);
+      syncSurrounded(ctx, room, mapId);
     });
 
     ctx.on('token:lock', ({ mapId, id, lock }) => {
@@ -277,6 +281,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       endShapesOf(ctx, room, summonSourceIds(room, token));
       manager.removeToken(room, mapId, id);
       broadcastAll('token:remove', { mapId, id });
+      syncSurrounded(ctx, room, mapId);
       if (manager.combatOf(room, mapId)?.active) {
         manager.removeTokenFromCombat(room, mapId, id);
         syncCombat(room, mapId);

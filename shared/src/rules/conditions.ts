@@ -23,6 +23,7 @@ export const CONDITION_NAMES: Record<ConditionKey, string> = {
   restrained: 'Обездвижен',
   stunned: 'Ошеломлён',
   unconscious: 'Без сознания',
+  surrounded: 'Окружён',
   dead: 'Мёртв',
   custom: 'Состояние',
 };
@@ -45,6 +46,7 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionKey, string> = {
   restrained: 'Скорость 0; помеха атакам и спасброскам Ловкости; по нему — преимущество.',
   stunned: 'Недееспособен, не двигается; авто-провал спасбросков Str/Dex; по нему — преимущество.',
   unconscious: 'Без сознания: недееспособен, не двигается; авто-провал спасбросков Str/Dex; авто-крит в упор.',
+  surrounded: 'Окружён смежными врагами (опц. правило): они атакуют с преимуществом.',
   dead: 'Мёртв.',
   custom: 'Особое состояние.',
 };

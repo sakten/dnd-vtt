@@ -9,6 +9,7 @@ import type {
   LibraryItem,
   LightArea,
   LightAreaKind,
+  OptionalRules,
   Player,
   PlayerResources,
   ReactionOffer,
@@ -97,6 +98,8 @@ export interface GameState {
   lang: Lang;
   /** Режим тестов комнаты: у всех игроков права ведущего. */
   testMode: boolean;
+  /** Опциональные правила комнаты (DM): «Окружение» и т.п. */
+  optionalRules: OptionalRules;
   players: Player[];
   scene: Scene;
   viewMapId: string | null;
@@ -119,6 +122,8 @@ export interface GameState {
   bestiaryOpen: boolean;
   /** Открыта модалка настроек комнаты (только реальный DM). */
   roomSettingsOpen: boolean;
+  /** Открыто окно опциональных правил (только реальный DM). */
+  optionalRulesOpen: boolean;
   tokenMenuId: string | null;
   /** Дверь, у которой открыт мини-UI (id стены). */
   doorMenuId: string | null;
@@ -211,8 +216,11 @@ export interface GameState {
   setVisionModalOpen: (open: boolean) => void;
   setBestiaryOpen: (open: boolean) => void;
   setRoomSettingsOpen: (open: boolean) => void;
+  setOptionalRulesOpen: (open: boolean) => void;
   /** Сменить режим тестов (сервер применяет только от реального DM). */
   setRoomSettings: (testMode: boolean) => void;
+  /** Сменить опциональные правила (сервер применяет только от реального DM). */
+  setOptionalRules: (rules: OptionalRules) => void;
   setTokenMenu: (id: string | null) => void;
   setDoorMenu: (id: string | null) => void;
   setFogMode: (patch: Partial<FogMode>) => void;

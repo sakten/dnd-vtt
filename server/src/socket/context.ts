@@ -22,6 +22,7 @@ import { shapeName } from '../room/shape';
 import { rollConcentrationOnDamage, rollDamageSavesOnDamage } from './effects';
 import { syncFeatureEffects } from './features';
 import { pushTextMessage } from './messages';
+import { syncSurrounded } from './surrounded';
 
 export const LEAVE_GRACE_MS = 8000;
 
@@ -254,6 +255,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       const shapeSource = token.shape?.kind === 'polymorph' ? token.shape.sourceTokenId : undefined;
       const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit });
       for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      // Смерть/недееспособность меняют контроль клеток — пересчёт «Окружён».
+      syncSurrounded(ctx, room, mapId);
       // Форма кончилась от урона: имя в бою — снова своё.
       if (shapeBefore && !token.shape && manager.combatOf(room, mapId)?.active) {
         manager.renameCombatantByToken(room, mapId, token.id, shapeName(token));

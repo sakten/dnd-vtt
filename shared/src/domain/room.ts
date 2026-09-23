@@ -22,6 +22,12 @@ export interface RollAnimPayload {
   roll: DiceRollResult;
 }
 
+/** Опциональные правила комнаты (DM): по умолчанию всё выключено. */
+export interface OptionalRules {
+  /** «Окружение»: смежные враги (2+) атакуют окружённого с преимуществом. */
+  surrounded: boolean;
+}
+
 export interface RoomState {
   code: string;
   name: string;
@@ -32,4 +38,5 @@ export interface RoomState {
   controllers: Record<string, string>;
   /** Режим тестов: все игроки получают права ведущего внутри комнаты. */
   testMode: boolean;
+  optionalRules: OptionalRules;
 }

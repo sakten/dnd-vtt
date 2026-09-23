@@ -110,6 +110,7 @@ export class RoomManager {
       resources: {},
       controllers: {},
       testMode: false,
+      optionalRules: { surrounded: false },
     };
     this.rooms.set(code, room);
     return room;

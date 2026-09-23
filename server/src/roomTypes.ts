@@ -49,5 +49,6 @@ export function toPersistedRoom(room: Room): PersistedRoom {
     resources: room.resources,
     controllers: room.controllers,
     testMode: room.testMode,
+    optionalRules: room.optionalRules,
   });
 }

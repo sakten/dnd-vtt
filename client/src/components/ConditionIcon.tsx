@@ -21,6 +21,7 @@ const PATHS: Record<ConditionKey, string> = {
   restrained: 'M7 11V8a5 5 0 0 1 10 0v3 M5 11h14v9H5z M12 15v2',
   stunned: 'M12 3l2.2 5.3L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.8-.7z',
   unconscious: 'M20 14A8 8 0 1 1 10 4a6.5 6.5 0 0 0 10 10z M13 9h5l-5 5h5',
+  surrounded: 'M12 4v4 M12 16v4 M4 12h4 M16 12h4 M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   dead: 'M12 3a8 8 0 0 0-8 8c0 3 1.5 5 3 6v3h10v-3c1.5-1 3-3 3-6a8 8 0 0 0-8-8z M9 10h.01 M15 10h.01 M10 15h4',
   custom: 'M12 3l2.2 5.3L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.8-.7z',
 };

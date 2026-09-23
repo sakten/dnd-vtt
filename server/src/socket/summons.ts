@@ -17,6 +17,7 @@ import bestiaryData from 'shared/bestiaryData';
 import { findSpell } from '../spells';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { syncSurrounded } from './surrounded';
 
 export interface SummonRequest {
   caster: Token;
@@ -150,6 +151,7 @@ export function removeSummonToken(ctx: ConnCtx, room: Room, mapId: string, token
     ctx.manager.removeTokenFromCombat(room, mapId, token.id);
     ctx.syncCombat(room, mapId);
   }
+  syncSurrounded(ctx, room, mapId);
 }
 
 /** Снимает призывы кастеров (смерть/удаление кастера). */
@@ -261,5 +263,7 @@ export function runSummon(ctx: ConnCtx, request: SummonRequest): Token[] {
     }
   }
   if (combat?.active) ctx.syncCombat(room, request.mapId);
+  // Новый токен меняет окружение на карте — пересчитываем авто-состояния.
+  syncSurrounded(ctx, room, request.mapId);
   return spawned;
 }

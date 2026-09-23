@@ -11,6 +11,7 @@ import GridSettingsModal from '../components/GridSettingsModal';
 import VisionSettingsModal from '../components/VisionSettingsModal';
 import BestiaryPanel from '../components/BestiaryPanel';
 import RoomSettingsModal from '../components/RoomSettingsModal';
+import OptionalRulesModal from '../components/OptionalRulesModal';
 import TokenMenu from '../components/TokenMenu';
 import DoorMenu from '../components/DoorMenu';
 import FogPanel from '../components/FogPanel';
@@ -33,6 +34,7 @@ export default function TableScreen() {
   const visionModalOpen = useGameStore((s) => s.visionModalOpen);
   const bestiaryOpen = useGameStore((s) => s.bestiaryOpen);
   const roomSettingsOpen = useGameStore((s) => s.roomSettingsOpen);
+  const optionalRulesOpen = useGameStore((s) => s.optionalRulesOpen);
   const fogActive = useGameStore((s) => s.fogMode.active);
   const setFogMode = useGameStore((s) => s.setFogMode);
   const wallsActive = useGameStore((s) => s.wallsMode.active);
@@ -88,6 +90,7 @@ export default function TableScreen() {
       {visionModalOpen && <VisionSettingsModal />}
       {bestiaryOpen && <BestiaryPanel />}
       {roomSettingsOpen && <RoomSettingsModal />}
+      {optionalRulesOpen && <OptionalRulesModal />}
       <TokenMenu />
       <DoorMenu />
       <RollOverlay />

@@ -2,7 +2,7 @@ import type { ActionCost, ReactionOffer } from '../domain/actions';
 import type { ChatMessage, ErrorPayload, RollKind } from '../domain/chat';
 import type { SpellFxPayload } from '../domain/fx';
 import type { CombatState } from '../domain/combat';
-import type { Player, RollAnimPayload, RoomState } from '../domain/room';
+import type { Player, RollAnimPayload, RoomState, OptionalRules } from '../domain/room';
 import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
@@ -15,8 +15,8 @@ export interface ServerToClientEvents {
     resources: PlayerResources | null;
   }) => void;
   'room:renamed': (payload: { name: string }) => void;
-  /** Настройки комнаты (режим тестов). */
-  'room:settings': (payload: { testMode: boolean }) => void;
+  /** Настройки комнаты (режим тестов, опциональные правила). */
+  'room:settings': (payload: { testMode: boolean; optionalRules: OptionalRules }) => void;
   'sheet:update': (payload: { sheet: CharacterSheet }) => void;
   'resources:update': (resources: PlayerResources) => void;
   'character:update': (payload: { playerId: string; libraryItemId: string | null }) => void;
@@ -61,8 +61,8 @@ export interface ClientToServerEvents {
     payload: { code: string; name: string; clientId: string },
     cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
-  /** Смена настроек комнаты (режим тестов); сервер проверяет реального DM. */
-  'room:settings': (payload: { testMode: boolean }) => void;
+  /** Смена настроек комнаты (режим тестов, опциональные правила); сервер проверяет реального DM. */
+  'room:settings': (payload: { testMode?: boolean; optionalRules?: OptionalRules }) => void;
   'map:add': (payload: { name: string; url: string; width: number; height: number; grid?: GridSettings }) => void;
   'map:remove': (id: string) => void;
   'map:rename': (payload: { id: string; name: string }) => void;

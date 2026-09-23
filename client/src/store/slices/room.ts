@@ -6,7 +6,7 @@ import { clearOptimistic } from '../optimistic';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings'>> = (set, get) => {
+export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings' | 'setOptionalRules'>> = (set, get) => {
   return {
     init: () => {
       if (get().socket) return;
@@ -42,6 +42,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | '
         selfId,
         role: player?.role ?? 'player',
         testMode: room.testMode === true,
+        optionalRules: room.optionalRules ?? { surrounded: false },
         players: room.players,
         scene: room.scene,
         viewMapId: room.scene.activeMapId,
@@ -56,10 +57,18 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | '
 
     onRoomRenamed: ({ name }) => set({ roomName: name }),
 
-    onRoomSettings: ({ testMode }) => set({ testMode: testMode === true }),
+    onRoomSettings: ({ testMode, optionalRules }) =>
+      set((s) => ({
+        testMode: testMode === true,
+        optionalRules: optionalRules ?? s.optionalRules,
+      })),
 
     setRoomSettings: (testMode) => {
       emit(get, 'room:settings', { testMode });
+    },
+
+    setOptionalRules: (rules) => {
+      emit(get, 'room:settings', { optionalRules: rules });
     },
 
     onRoomClosed: (joinError) => {

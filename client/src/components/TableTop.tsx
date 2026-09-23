@@ -10,6 +10,7 @@ import {
   collectAttackSources,
   gridDistanceFeet,
   hostileTokens,
+  isSurrounded,
   modifiedValue,
   pointCell,
   reachableCells,
@@ -42,6 +43,7 @@ import LightLayer from './LightLayer';
 import { useMapLight } from '../lib/light';
 import ConditionsOverlay from './ConditionsOverlay';
 import AttackPreview, { type AttackPreviewData } from './AttackPreview';
+import TokenNameHint from './TokenNameHint';
 import { useSpellByKey } from '../lib/useSpells';
 import ObjectsLayer from './table/ObjectsLayer';
 import AimLayer from './table/AimLayer';
@@ -139,6 +141,7 @@ export default function TableTop() {
   const interaction = useGameStore((s) => s.interaction);
   const cancelInteraction = useGameStore((s) => s.cancelInteraction);
   const hoverTokenId = useGameStore((s) => s.hoverTokenId);
+  const optionalRules = useGameStore((s) => s.optionalRules);
   const fogMode = useGameStore((s) => s.fogMode);
   const wallsMode = useGameStore((s) => s.wallsMode);
   const setWallsMode = useGameStore((s) => s.setWallsMode);
@@ -291,6 +294,17 @@ export default function TableTop() {
         ? (rangeType === 'ranged' ? abilities.dex : abilities.str) < 13
         : false;
     const explicit = 'advantage' in targeting ? targeting.advantage : undefined;
+    const surrounded =
+      optionalRules.surrounded &&
+      feet <= 5 &&
+      hostileTokens(from, to) &&
+      isSurrounded({
+        target: to,
+        tokens: activeMap.tokens,
+        grid: { size, offsetX: grid.offsetX, offsetY: grid.offsetY },
+        walls: activeMap.walls,
+        bounds: { width: activeMap.width, height: activeMap.height },
+      });
     const sources = collectAttackSources({
       explicit,
       attackerConditions: from.conditions,
@@ -301,6 +315,7 @@ export default function TableTop() {
       heavy,
       unseenTarget: unseen.unseenTarget,
       unseenAttacker: unseen.unseenAttacker,
+      surrounded,
       attackerEffects: from.effects,
       targetEffects: to.effects,
       effectContext: {
@@ -318,7 +333,7 @@ export default function TableTop() {
       advantage: sources.filter((s) => s.side === 'advantage'),
       disadvantage: sources.filter((s) => s.side === 'disadvantage'),
     };
-  }, [activeMap, targeting, hoverTokenId, grid.size, grid.offsetX, grid.offsetY, sheet, currentCharacterId, spellByKey]);
+  }, [activeMap, targeting, hoverTokenId, grid.size, grid.offsetX, grid.offsetY, sheet, currentCharacterId, spellByKey, optionalRules]);
 
   const attackPreview = useMemo<AttackPreviewData | null>(() => {
     if (!measure || (!measure.advantage.length && !measure.disadvantage.length)) return null;
@@ -739,6 +754,7 @@ export default function TableTop() {
         </Stage>
       )}
       <AttackPreview data={attackPreview} />
+      <TokenNameHint />
       <ConditionsOverlay />
       <Suspense fallback={null}>
         <SpellFxOverlay mask={fxMask} />

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { applyForcedMovement } from './force';
+import { syncSurrounded } from './surrounded';
 
 function setup() {
   const source = makeToken('a', { x: 100, y: 100 });
@@ -49,5 +50,24 @@ describe('вынужденное перемещение (push/pull)', () => {
 
     expect(large.x).toBeCloseTo(200 + 50 * Math.SQRT2, 3);
     expect(huge.x).toBe(200);
+  });
+
+  it('толчок разрывает окружение: авто-состояние снимается', () => {
+    const victim = makeToken('v', { x: 125, y: 125, faction: 'ally' });
+    const west = makeToken('e1', { x: 75, y: 125, faction: 'enemy' });
+    const east = makeToken('e2', { x: 175, y: 125, faction: 'enemy' });
+    const room = makeCombatRoom([victim, west, east]);
+    room.scene.maps[0]!.width = 1000;
+    room.scene.maps[0]!.height = 1000;
+    room.optionalRules.surrounded = true;
+    const f = makeConnCtx(room, { dm: true });
+
+    syncSurrounded(f.ctx, room, 'm1');
+    expect(victim.conditions.some((c) => c.key === 'surrounded')).toBe(true);
+
+    applyForcedMovement(f.ctx, room, 'm1', victim, west, { kind: 'push', feet: 10 });
+    expect(west.x).toBe(25);
+    expect(victim.conditions.some((c) => c.key === 'surrounded')).toBe(false);
+    expect(east.conditions.some((c) => c.key === 'surrounded')).toBe(false);
   });
 });

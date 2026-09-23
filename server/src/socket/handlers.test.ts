@@ -5278,6 +5278,66 @@ describe('room:settings (режим тестов)', () => {
     expect(room.testMode).toBe(true);
     expect(room.chat.some((m) => m.kind === 'text')).toBe(true);
   });
+
+  it('опциональное правило «Окружение»: чип, преимущество смежному, снятие', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const bow: AttackEntry = {
+      name: 'Лук',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'piercing',
+      rangeType: 'ranged',
+      rangeNormal: 120,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { faction: 'ally', x: 125, y: 125, hpMax: '30', hpCurrent: 30, ac: '10' }),
+        makeToken('t2', { faction: 'enemy', x: 75, y: 125, hpMax: '30', hpCurrent: 30, attacks: [sword] }),
+        makeToken('t3', { faction: 'enemy', x: 175, y: 125, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t4', { faction: 'enemy', x: 425, y: 125, hpMax: '30', hpCurrent: 30, attacks: [bow] }),
+      ],
+      {}
+    );
+    room.players = [{ id: 'dm', name: 'D', role: 'dm', isConnected: true, socketId: null }];
+    const dm = makeCtx(room, { playerId: 'dm', dm: true });
+    registerRoomHandlers(dm.ctx);
+    registerActionHandlers(dm.ctx);
+
+    dm.invoke('room:settings', { optionalRules: { surrounded: true } });
+    const target = room.scene.maps[0]!.tokens[0]!;
+    expect(room.optionalRules.surrounded).toBe(true);
+    expect(target.conditions.some((c) => c.key === 'surrounded')).toBe(true);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8);
+    dm.invoke('action:use', { mapId: 'm1', tokenId: 't2', actionId: 'attack', attackIndex: 0, targetIds: ['t1'] });
+    dm.invoke('action:use', { mapId: 'm1', tokenId: 't4', actionId: 'attack', attackIndex: 0, targetIds: ['t1'] });
+    rand.mockRestore();
+
+    const attacks = room.chat
+      .filter((m) => m.kind === 'roll' && m.rollKind === 'attack')
+      .map((m) => m as { author: string; roll: { dice: { advantage?: 'a' | 'd' | null }[] }; labelParams?: { sources?: { kind: string; key?: string }[] } });
+    expect(attacks).toHaveLength(2);
+    expect(attacks[0]!.roll.dice[0]?.advantage).toBe('a');
+    expect(attacks[0]!.labelParams?.sources?.some((s) => s.kind === 'rule' && s.key === 'surrounded')).toBe(true);
+    expect(attacks[1]!.roll.dice[0]?.advantage).not.toBe('a');
+
+    // Смерть смежного врага убирает окружение (пересчёт из applyHp).
+    dm.ctx.applyHp(room, 'm1', room.scene.maps[0]!.tokens[1]!, -30);
+    expect(target.conditions.some((c) => c.sourceKey === 'rule:surrounded')).toBe(false);
+
+    dm.invoke('room:settings', { optionalRules: { surrounded: false } });
+    expect(room.optionalRules.surrounded).toBe(false);
+    expect(target.conditions.some((c) => c.sourceKey === 'rule:surrounded')).toBe(false);
+  });
 });
 
 describe('отдых и удаление токена', () => {

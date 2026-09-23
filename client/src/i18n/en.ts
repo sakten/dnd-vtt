@@ -191,6 +191,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.toolbar.visionTitle': 'Vision: sight fog and darkness on the map',
   'ui.toolbar.vision': 'Vision',
   'ui.toolbar.roomTitle': 'Room settings',
+  'ui.toolbar.rules': 'Rules',
+  'ui.toolbar.rulesTitle': 'Optional room rules',
   'ui.toolbar.bestiary': 'Bestiary',
   'ui.toolbar.bestiaryTitle': 'Creature catalog (SRD 5.2)',
   'ui.bestiary.title': 'Bestiary',
@@ -235,6 +237,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.attackSources.unseenAttacker': 'Target cannot see the attacker',
   'ui.attackSources.explicit': 'Player choice',
   'ui.attackSources.effect': 'Effect',
+  'ui.attackSources.surrounded': 'Surrounded (adjacent enemy)',
   'ui.toolbar.dice': 'Dice',
   'ui.toolbar.diceTitle': 'Roll settings',
   'ui.roll.anim': 'D20 animation',
@@ -791,6 +794,10 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.door.pickDcInfo': 'Pick: DC {dc}',
 
   'ui.roomSettings.title': 'Room Settings',
+  'ui.rules.title': 'Optional rules',
+  'ui.rules.surrounded': 'Surrounded',
+  'ui.rules.surroundedHint':
+    'If every free cell around a creature is controlled by adjacent enemies and there is more than one, they attack it with advantage. An adjacent enemy controls its own cell and the cells around it; reach does not extend control; an adjacent ally breaks the surround; walls and map edges are ignored. Applies to both sides.',
   'ui.roomSettings.testMode': 'Test mode',
   'ui.roomSettings.hint': 'All participants get GM rights inside the room: maps, grid, fog, combat, other players’ tokens and their stats. Room management in the admin panel stays with the GM.',
 
@@ -963,7 +970,9 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.condition.stunned': 'Stunned',
   'domain.conditionHint.stunned': 'Incapacitated, cannot move; auto-fail Str/Dex saves; attacks against it have advantage.',
   'domain.condition.unconscious': 'Unconscious',
+  'domain.condition.surrounded': 'Surrounded',
   'domain.conditionHint.unconscious': 'Unconscious: incapacitated, cannot move; auto-fail Str/Dex saves; melee hits are crits.',
+  'domain.conditionHint.surrounded': 'Surrounded by adjacent enemies (optional rule): they attack with advantage.',
   'domain.condition.dead': 'Dead',
   'domain.conditionHint.dead': 'Dead.',
   'domain.condition.custom': 'Condition',

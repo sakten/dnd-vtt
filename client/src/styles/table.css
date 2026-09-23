@@ -111,4 +111,25 @@
   color: #ff6b6b;
 }
 
+/* Подсказка с именем токена у курсора (только когда ничего не происходит). */
+.token-name-hint {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: var(--z-panel);
+  pointer-events: none;
+  max-width: 280px;
+  padding: 3px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.3;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 

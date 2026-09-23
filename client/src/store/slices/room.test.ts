@@ -33,6 +33,7 @@ describe('room slice: подключение и режим тестов', () => 
       chat: [],
       controllers: {},
       testMode: true,
+      optionalRules: { surrounded: false },
     };
 
     useGameStore.getState().onRoomJoined({ room, selfId: 'p1', sheet: null, resources: null });

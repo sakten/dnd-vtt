@@ -188,6 +188,8 @@
   'ui.toolbar.visionTitle': 'Обзор: туман видимости и темнота на карте',
   'ui.toolbar.vision': 'Обзор',
   'ui.toolbar.roomTitle': 'Настройки комнаты',
+  'ui.toolbar.rules': 'Правила',
+  'ui.toolbar.rulesTitle': 'Опциональные правила комнаты',
   'ui.toolbar.bestiary': 'Бестиарий',
   'ui.toolbar.bestiaryTitle': 'Каталог существ (SRD 5.2)',
   'ui.bestiary.title': 'Бестиарий',
@@ -232,6 +234,7 @@
   'ui.attackSources.unseenAttacker': 'Цель не видит атакующего',
   'ui.attackSources.explicit': 'Выбор игрока',
   'ui.attackSources.effect': 'Эффект',
+  'ui.attackSources.surrounded': 'Окружён (смежный враг)',
   'ui.toolbar.dice': 'Кости',
   'ui.toolbar.diceTitle': 'Настройки бросков',
   'ui.roll.anim': 'Анимация d20',
@@ -788,6 +791,10 @@
   'ui.door.pickDcInfo': 'Взлом: Сл {dc}',
 
   'ui.roomSettings.title': 'Настройки комнаты',
+  'ui.rules.title': 'Опциональные правила',
+  'ui.rules.surrounded': 'Окружение',
+  'ui.rules.surroundedHint':
+    'Если все свободные клетки вокруг существа контролируют смежные враги и их больше одного — они атакуют его с преимуществом. Смежный враг контролирует свою клетку и клетки вокруг себя; рич контроль не расширяет; союзник рядом ломает окружение; стены и края карты не учитываются. Работает в обе стороны.',
   'ui.roomSettings.testMode': 'Режим тестов',
   'ui.roomSettings.hint': 'Все участники получают права ведущего внутри комнаты: карты, сетка, туман, бой, чужие токены и их статы. Управление комнатами в админке остаётся у ведущего.',
 
@@ -960,7 +967,9 @@
   'domain.condition.stunned': 'Ошеломлён',
   'domain.conditionHint.stunned': 'Недееспособен, не двигается; авто-провал спасбросков Str/Dex; по нему — преимущество.',
   'domain.condition.unconscious': 'Без сознания',
+  'domain.condition.surrounded': 'Окружён',
   'domain.conditionHint.unconscious': 'Без сознания: недееспособен, не двигается; авто-провал спасбросков Str/Dex; авто-крит в упор.',
+  'domain.conditionHint.surrounded': 'Окружён смежными врагами (опц. правило): они атакуют с преимуществом.',
   'domain.condition.dead': 'Мёртв',
   'domain.conditionHint.dead': 'Мёртв.',
   'domain.condition.custom': 'Состояние',

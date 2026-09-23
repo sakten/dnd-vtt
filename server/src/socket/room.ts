@@ -2,6 +2,7 @@ import type { Token } from 'shared';
 import { LEAVE_GRACE_MS, type ConnCtx } from './context';
 import { adminTokenOk } from './admin';
 import { asBool, asString, asTrimmedString } from './decode';
+import { clearSurrounded, syncSurrounded } from './surrounded';
 
 export function registerRoomHandlers(ctx: ConnCtx) {
   const { socket, io, manager, getRoom, dmRoom, broadcast, broadcastAll, emitToken, broadcastLibrary, systemMessage, emitJoined, cancelPendingLeave, pendingLeaves } = ctx;
@@ -79,21 +80,32 @@ export function registerRoomHandlers(ctx: ConnCtx) {
       broadcast('players:update', manager.toState(room).players);
     });
 
-    ctx.on('room:settings', ({ testMode }) => {
-      const enabled = asBool(testMode);
+    ctx.on('room:settings', ({ testMode, optionalRules }) => {
       const room = getRoom();
-      if (!room || enabled === undefined) return;
+      if (!room) return;
       const me = ctx.playerId ? room.players.find((p) => p.id === ctx.playerId) : undefined;
       if (me?.role !== 'dm') return; // настройку комнаты меняет только реальный ведущий
-      if (room.testMode === enabled) return;
-      manager.setTestMode(room, enabled);
-      // Переслать токены/библиотеку: в режиме тестов статы открываются всем.
-      for (const map of room.scene.maps) {
-        for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
+      let changed = false;
+      const enabled = asBool(testMode);
+      if (enabled !== undefined && enabled !== room.testMode) {
+        manager.setTestMode(room, enabled);
+        changed = true;
+        // Переслать токены/библиотеку: в режиме тестов статы открываются всем.
+        for (const map of room.scene.maps) {
+          for (const token of map.tokens) emitToken(room, 'token:update', map.id, token);
+        }
+        broadcastLibrary(room);
+        systemMessage(room, { code: enabled ? 'room.testModeOn' : 'room.testModeOff' });
       }
-      broadcastLibrary(room);
-      broadcastAll('room:settings', { testMode: enabled });
-      systemMessage(room, { code: enabled ? 'room.testModeOn' : 'room.testModeOff' });
+      const surrounded = optionalRules?.surrounded;
+      if (typeof surrounded === 'boolean' && surrounded !== room.optionalRules.surrounded) {
+        room.optionalRules = { ...room.optionalRules, surrounded };
+        changed = true;
+        if (surrounded) syncSurrounded(ctx, room);
+        else clearSurrounded(ctx, room);
+      }
+      if (!changed) return;
+      broadcastAll('room:settings', { testMode: room.testMode, optionalRules: room.optionalRules });
     });
 
     ctx.on('player:remove', ({ id }) => {

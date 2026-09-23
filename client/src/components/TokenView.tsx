@@ -45,6 +45,11 @@ function TokenView({ token }: { token: Token }) {
   const setDragging = useGameStore((s) => s.setDragging);
   const setHoverToken = useGameStore((s) => s.setHoverToken);
   const hovered = useGameStore((s) => s.hoverTokenId === token.id);
+  const isActiveTurn = useGameStore((s) => {
+    const map = activeMapOf(s);
+    if (!map || !map.combat.active || map.combat.currentIndex < 0) return false;
+    return map.combat.entries[map.combat.currentIndex]?.tokenId === token.id;
+  });
   const fogActive = useGameStore((s) => s.fogMode.active);
   const lightActive = useGameStore((s) => s.lightMode.active);
   const wallsActive = useGameStore((s) => s.wallsMode.active);
@@ -298,6 +303,30 @@ function TokenView({ token }: { token: Token }) {
           <Rect x={-token.w / 2} y={-token.h / 2} width={token.w} height={token.h} fill="#3a4150" />
         )}
       </Group>
+      {isActiveTurn && (
+        <Group listening={false}>
+          <Rect
+            x={-token.w / 2 - 6}
+            y={-token.h / 2 - 6}
+            width={token.w + 12}
+            height={token.h + 12}
+            stroke="#7c9cff"
+            strokeWidth={3 / token.scale}
+            cornerRadius={8}
+            shadowColor="#7c9cff"
+            shadowBlur={10 / token.scale}
+            shadowOpacity={0.8}
+          />
+          <Line
+            points={[-7 / token.scale, -token.h / 2 - 10, 0, -token.h / 2 - 18, 7 / token.scale, -token.h / 2 - 10]}
+            closed
+            fill="#7c9cff"
+            shadowColor="#000000"
+            shadowBlur={4 / token.scale}
+            shadowOpacity={0.5}
+          />
+        </Group>
+      )}
       {selected && (isDm || token.isPlayerToken) && (
         <Rect
           x={-token.w / 2 - 3}

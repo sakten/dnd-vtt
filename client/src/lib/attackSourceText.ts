@@ -15,6 +15,8 @@ export function attackSourceLabel(source: AttackSource): string {
       return t(source.key === 'attacker' ? 'ui.attackSources.unseenAttacker' : 'ui.attackSources.unseenTarget');
     case 'weapon':
       return t('ui.attackSources.heavy');
+    case 'rule':
+      return t('ui.attackSources.surrounded');
     default:
       return t('ui.attackSources.explicit');
   }
