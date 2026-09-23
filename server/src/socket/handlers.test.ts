@@ -5368,6 +5368,93 @@ describe('реакции (R1)', () => {
     expect(pendingOffers(seeing.room.code)).toHaveLength(0);
   });
 
+  it('Цепочка окон: промах → Guided Strike → Shield → Counterspell, атака проходит', () => {
+    const axe: AttackEntry = {
+      name: 'Секира',
+      hit: 'd20+1',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally', attacks: [axe] }),
+        makeToken('t2', { libraryItemId: 'lib2', x: 100, y: 150, faction: 'ally' }),
+        makeToken('t3', { libraryItemId: 'lib3', x: 200, y: 100, faction: 'ally' }),
+        makeToken('t4', {
+          x: 150,
+          y: 100,
+          faction: 'enemy',
+          ac: '20',
+          hpMax: '30',
+          hpCurrent: 30,
+          statblock: {
+            abilities,
+            spellcasting: { ability: 'int', spells: ['XPHB:Shield'], slots: [{ level: 1, max: 1, current: 1 }] },
+          },
+        }),
+      ],
+      { p1: 'lib1', p2: 'lib2', p3: 'lib3' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p3', name: 'P3', role: 'player', isConnected: true, socketId: null });
+    combatOf(room).entries.push(
+      { id: 'e1', tokenId: 't1', name: 'A', imageUrl: '', initiative: 20, bonus: '' },
+      { id: 'e2', tokenId: 't2', name: 'B', imageUrl: '', initiative: 15, bonus: '' },
+      { id: 'e3', tokenId: 't3', name: 'C', imageUrl: '', initiative: 10, bonus: '' },
+      { id: 'e4', tokenId: 't4', name: 'D', imageUrl: '', initiative: 5, bonus: '' }
+    );
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'barbarian', level: 5 }], spells: [], attacks: [axe] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [] };
+    room.sheets.p2 = { ...casterSheet(), classes: [{ className: 'cleric', level: 6, subclass: 'war' }], spells: [] };
+    room.resources.p2 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'cd1', key: 'cleric:channelDivinity', name: 'Проведение', current: 1, max: 1, reset: 'short' }],
+    };
+    room.sheets.p3 = { ...casterSheet(), spells: [{ key: 'XPHB:Counterspell', className: 'wizard' }] };
+    room.resources.p3 = { ...casterResources(), spellSlots: [{ level: 3, current: 1, max: 1 }] };
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.4); // d20 9: промах по 20; после +10 — 20 (попадание); 1d8 = 4
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t4'] });
+
+    // 1. Промах — Направленный удар клирика.
+    const guided = pendingOffers('TEST')[0]!;
+    expect(guided.trigger).toBe('attackMiss');
+    expect(guided.tokenName).toBe('t2');
+    f.invoke('reaction:respond', { id: guided.id, optionId: 'feature:cleric.war:guidedStrike' });
+
+    // 2. +10 превратил промах в попадание — щит монстра.
+    const shield = pendingOffers('TEST')[0]!;
+    expect(shield.trigger).toBe('attackHit');
+    expect(shield.tokenName).toBe('t4');
+    expect(shield.options.map((o) => o.id)).toContain('spell:XPHB:Shield');
+    f.invoke('reaction:respond', { id: shield.id, optionId: 'spell:XPHB:Shield' });
+
+    // 3. Реакционный каст щита отменяют Counterspell'ом визарда.
+    const counter = pendingOffers('TEST')[0]!;
+    expect(counter.trigger).toBe('spellCast');
+    expect(counter.tokenName).toBe('t3');
+    expect(counter.options.map((o) => o.id)).toContain('spell:XPHB:Counterspell');
+    f.invoke('reaction:respond', { id: counter.id, optionId: 'spell:XPHB:Counterspell' });
+    rand.mockRestore();
+
+    // Щит отменён — атака проходит с полным уроном.
+    expect(room.scene.maps[0]!.tokens[3]!.hpCurrent).toBe(26);
+    expect(room.resources.p3!.spellSlots[0]!.current).toBe(0);
+    expect(combatOf(room).turns.e3!.reactionUsed).toBe(true);
+    expect(room.resources.p2!.resources[0]!.current).toBe(0);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'spells.countered')).toBe(true);
+    expect(pendingOffers('TEST')).toHaveLength(0);
+  });
+
   it('Counterspell: по союзному кастеру не предлагается, по враждебному — да', () => {
     const build = (reactorFaction: 'ally' | 'enemy') => {
       const room = makeRoom(

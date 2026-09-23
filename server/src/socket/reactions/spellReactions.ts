@@ -146,7 +146,9 @@ export function applyReactionChoice(
     return;
   }
 
-  resolveSpellCast(ctx, input);
+  // Реакционные касты (Shield и подобные) тоже могут отменить Counterspell;
+  // окно отмены станет дочерним и отыграет до продолжения текущего резолва.
+  resolveSpellCastWithReactions(ctx, input);
   ctx.syncCombat(room, choice.mapId);
 }
 
