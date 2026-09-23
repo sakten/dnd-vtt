@@ -116,6 +116,8 @@ export function applySmiteChoice(
   const def = automationForSpell(spell, { castLevel: level, characterLevel: characterLvl, spellMod: stats?.mod });
   const dc = stats?.dc ?? 10;
   const effectDef = def.effects?.[0];
+  /** Спас при попадании пройден (Ensnaring): RAW — заклинание оканчивается, эффекта нет. */
+  let resisted = false;
   if (effectDef) {
     if (def.save) {
       const save = ctx.manager.rollSave(room, target, def.save.ability, dc, { conditionsAutoFail: true });
@@ -125,6 +127,7 @@ export function applySmiteChoice(
         roll: save.roll,
         success: save.success,
       });
+      if (save.success) resisted = true;
       if (!save.success) {
         applyEffectTo(ctx, room, {
           sourceKey: spellKey,
@@ -152,7 +155,7 @@ export function applySmiteChoice(
   const expression = spellDamageExpression(spell, level, characterLvl);
   const dice = spellKey === 'XPHB:Searing Smite' && expression ? typedDice(expression, 'fire') : '';
   ctx.systemMessage(room, {
-    code: 'spells.smite',
+    code: resisted ? 'spells.smiteResisted' : 'spells.smite',
     params: { name: attacker.name, spell: spell.name, level, target: target.name },
   });
   return { dice, note: `${attacker.name}: ${spell.name} (${level})` };
