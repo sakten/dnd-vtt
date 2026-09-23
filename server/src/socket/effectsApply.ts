@@ -82,6 +82,8 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     escape: effectDef.escape
       ? { ...effectDef.escape, dc: escapeDc ?? effectDef.escape.dc ?? 10 }
       : undefined,
+    // Sanctuary: СЛ спасброска атакующего — СЛ каста (передаётся как untilSaveDc).
+    sanctuary: effectDef.sanctuary ? { dc: untilSaveDc ?? 10 } : undefined,
     misdirect: effectDef.misdirect ? { ...effectDef.misdirect } : undefined,
     hidden: effectDef.hidden,
     bonusDie: effectDef.bonusDie,
@@ -180,7 +182,7 @@ export function removeBrokenEffects(
   room: Room,
   mapId: string,
   token: Token,
-  event: 'attack' | 'spell',
+  event: 'attack' | 'spell' | 'damage',
   onlyIds?: Set<string>
 ): string[] {
   const broken = token.effects.filter(

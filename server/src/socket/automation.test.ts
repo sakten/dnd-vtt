@@ -22,6 +22,7 @@ import { applyEffectTo, removeBrokenEffects } from './effectsApply';
 import { pendingOffers } from './reactions';
 import { offerDamageReactions } from './reactions/windows';
 import { validateSpellCast } from './spellResolve';
+import { sanctuaryBlocks } from './sanctuary';
 import { tickZones } from './zones';
 import { checkPartsForToken } from '../room/effects';
 
@@ -380,6 +381,36 @@ describe('концентрация заклинаний с зонами', () => 
     expect(caster!.conditions.some((c) => c.key === 'charmed')).toBe(false);
     applyEffectTo(f.ctx, room, charm(humanoid!.id, 'TEST:CharmHumanoid'));
     expect(caster!.conditions.some((c) => c.key === 'charmed')).toBe(true);
+  });
+
+  it('Sanctuary: провал спасa Мдр блокирует атаку, успех — нет', () => {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30, statblock: { abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } } }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [attacker, warded] = room.scene.maps[0]!.tokens;
+    warded!.effects.push({
+      id: 'sanc1',
+      name: 'Sanctuary',
+      sourceKey: 'XPHB:Sanctuary',
+      sourceId: 't3',
+      duration: { type: 'permanent' },
+      modifiers: [],
+      sanctuary: { dc: 14 },
+    });
+
+    const fail = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → провал
+    expect(sanctuaryBlocks(f.ctx, room, attacker!, warded!)).toBe(true);
+    fail.mockRestore();
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.sanctuary')).toBe(true);
+
+    const success = vi.spyOn(Math, 'random').mockReturnValue(0.95); // d20 = 20 → успех
+    expect(sanctuaryBlocks(f.ctx, room, attacker!, warded!)).toBe(false);
+    success.mockRestore();
   });
 
   it('Enhance Ability: выбранная характеристика — преимущество проверок цели', () => {

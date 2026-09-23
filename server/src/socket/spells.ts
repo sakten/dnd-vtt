@@ -18,6 +18,7 @@ import { spellClassFor, spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
+import { sanctuaryBlocks } from './sanctuary';
 import { removeBrokenEffects } from './effectsApply';
 import { removeConcSummonsOf, summonSourceIds } from './summons';
 import { endShapesOf, spellsInShapeAllowed } from './forms';
@@ -169,6 +170,12 @@ export function registerSpellHandlers(ctx: ConnCtx) {
         });
         return;
       }
+    }
+
+    // Sanctuary: атака или дамажащий каст по защищённой цели — спас Мдр или потеря заклинания.
+    if (!input.area && (spell.spellAttack || (spell.damage && !spell.healing))) {
+      const blocked = input.targets.filter((t) => sanctuaryBlocks(ctx, room, token, t));
+      if (blocked.length) input.targets = input.targets.filter((t) => !blocked.includes(t));
     }
 
     // Invisibility: применение заклинания досрочно обрывает эффект носителя.

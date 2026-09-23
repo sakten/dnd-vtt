@@ -985,6 +985,16 @@ describe('automationForSpell', () => {
     expect(effect?.conditionImmunitiesFrom).toEqual({ conditions: ['charmed', 'frightened'], types });
     expect(spellAutomated({ key: 'XPHB:Protection from Evil and Good', automation: 'manual' })).toBe(true);
   });
+
+  it('Sanctuary: спас Мдр атакующего или потеря атаки; обрыв на attack/spell/damage', () => {
+    const spell = makeSpell({ key: 'XPHB:Sanctuary', name: 'Sanctuary', level: 1, automation: 'manual' });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    const effect = def.effects?.[0];
+    expect(effect?.sanctuary).toBe(true);
+    expect(effect?.breakOn).toEqual(['attack', 'spell', 'damage']);
+    expect(spellAutomated({ key: 'XPHB:Sanctuary', automation: 'manual' })).toBe(true);
+  });
 });
 
 describe('automationForAction', () => {

@@ -123,8 +123,10 @@ export interface AutomationEffect {
   seesInvisible?: boolean;
   /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
   ward?: string[];
-  /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
-  breakOn?: ('attack' | 'spell')[];
+  /** Досрочный обрыв эффекта: носитель совершил бросок атаки, применил заклинание или нанёс урон. */
+  breakOn?: ('attack' | 'spell' | 'damage')[];
+  /** Sanctuary: атакующие носителя обязаны пройти спас WIS или потерять атаку/заклинание. */
+  sanctuary?: boolean;
   /** Лечение носителя берёт максимум костей (Beacon of Hope). */
   maximizeHealing?: boolean;
   /** Преимущество на спасброски от смерти (Beacon of Hope). */

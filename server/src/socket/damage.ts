@@ -14,6 +14,7 @@ import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { actorStats } from '../room/actor';
 import { runAbilityTriggers } from './abilityTriggers';
+import { removeBrokenEffects } from './effectsApply';
 import { pushRollMessage } from './messages';
 import { checkSummonDeath } from './summons';
 
@@ -127,6 +128,10 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     // Триггеры монстра: «при получении урона» — на каждый урон, «при смерти» — переход HP к 0.
     runAbilityTriggers(ctx, room, mapId, target, 'takeDamage');
     if (hpBefore > 0 && (target.hpCurrent ?? 0) <= 0) runAbilityTriggers(ctx, room, mapId, target, 'death');
+    // Носитель эффекта с `breakOn:'damage'` нанёс урон — эффект обрывается (Sanctuary).
+    if (input.attacker && input.attacker.id !== target.id) {
+      removeBrokenEffects(ctx, room, mapId, input.attacker, 'damage');
+    }
     // Ответный урон атакующему в ближнем бою (Armor of Agathys и подобные).
     const attacker = input.attacker;
     if (input.melee && attacker && attacker.id !== target.id && tempBefore > 0) {
@@ -137,6 +142,8 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
           mapId,
           amount: retaliation.amount,
           damageType: retaliation.damageType,
+          // Ответку наносит носитель — его `breakOn:'damage'` (Sanctuary) срабатывает.
+          attacker: target,
         });
         ctx.systemMessage(room, {
           code: 'automation.retaliate',

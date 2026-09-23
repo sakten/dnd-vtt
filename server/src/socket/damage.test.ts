@@ -176,4 +176,22 @@ describe('Armor of Agathys: ответный урон', () => {
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: true });
     expect(attacker.hpCurrent).toBe(30);
   });
+
+  it('нанесение урона обрывает эффект с breakOn:damage (Sanctuary)', () => {
+    const { target, attacker, f } = aoa();
+    // Защищённый сам наносит урон — Sanctuary спадает.
+    attacker.effects = [
+      {
+        id: 'sanc1',
+        name: 'Sanctuary',
+        sourceKey: 'XPHB:Sanctuary',
+        duration: { type: 'permanent' },
+        modifiers: [],
+        sanctuary: { dc: 14 },
+        breakOn: ['attack', 'spell', 'damage'],
+      },
+    ];
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: true });
+    expect(attacker.effects.some((e) => e.id === 'sanc1')).toBe(false);
+  });
 });

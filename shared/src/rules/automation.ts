@@ -781,6 +781,23 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     },
   },
+  /** Sanctuary (XPHB): атакующие цель обязаны пройти спас WIS или потерять атаку/заклинание. */
+  'XPHB:Sanctuary': {
+    key: 'XPHB:Sanctuary',
+    name: 'Sanctuary',
+    resolution: 'effect',
+    targeting: { kind: 'creature', range: 30 },
+    effects: [
+      {
+        name: 'Sanctuary',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [],
+        sanctuary: true,
+        breakOn: ['attack', 'spell', 'damage'],
+      },
+    ],
+  },
   /** Protection from Evil and Good (XPHB): помеха атакам шести типов, иммунитет к charmed/frightened от них. */
   'XPHB:Protection from Evil and Good': {
     key: 'XPHB:Protection from Evil and Good',

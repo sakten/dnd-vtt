@@ -177,8 +177,14 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       if (types.length) effect.ward = [...new Set(types)];
     }
     if (Array.isArray(e.breakOn)) {
-      const events = e.breakOn.filter((k): k is 'attack' | 'spell' => k === 'attack' || k === 'spell');
+      const events = e.breakOn.filter(
+        (k): k is 'attack' | 'spell' | 'damage' => k === 'attack' || k === 'spell' || k === 'damage'
+      );
       if (events.length) effect.breakOn = [...new Set(events)];
+    }
+    if (e.sanctuary && typeof e.sanctuary === 'object') {
+      const ward = e.sanctuary as { dc?: unknown };
+      effect.sanctuary = { dc: clampInt(ward.dc, 0, 40, 10) };
     }
     if (Array.isArray(e.conditionImmunities)) {
       const immune = e.conditionImmunities
