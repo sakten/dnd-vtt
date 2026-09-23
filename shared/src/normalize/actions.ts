@@ -161,6 +161,16 @@ export function normalizeStatblock(raw: unknown): TokenStatblock | undefined {
   }
   const statblock: TokenStatblock = { abilities };
   if (Object.keys(saves).length) statblock.saves = saves;
+  if (Array.isArray(s.conditionImmunities)) {
+    const immune = [
+      ...new Set(
+        s.conditionImmunities.filter(
+          (key): key is ConditionKey => typeof key === 'string' && CONDITION_KEYS.includes(key as ConditionKey)
+        )
+      ),
+    ].slice(0, 20);
+    if (immune.length) statblock.conditionImmunities = immune;
+  }
   if (typeof s.attackBonus === 'string' && ATTACK_BONUS_RE.test(s.attackBonus.trim())) {
     statblock.attackBonus = s.attackBonus.trim();
   }

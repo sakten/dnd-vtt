@@ -476,6 +476,35 @@ describe('иммунитеты к состояниям и триггеры эф�
     expect(target.conditions.some((c) => c.key === 'paralyzed')).toBe(true);
   });
 
+  it('статблок монстра: иммунитет к состоянию блокирует его, эффект остаётся', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const target = map.tokens[1]!;
+    target.statblock = {
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      conditionImmunities: ['charmed', 'frightened'],
+    };
+
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'test:charm',
+      sourceId: 'x',
+      mapId: 'm1',
+      target,
+      effectDef: { name: 'Charm', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['charmed'] },
+    });
+    expect(target.conditions.some((c) => c.key === 'charmed')).toBe(false);
+    expect(target.effects.some((e) => e.sourceKey === 'test:charm')).toBe(true);
+
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'test:hold',
+      sourceId: 'x',
+      mapId: 'm1',
+      target,
+      effectDef: { name: 'Hold Person', duration: { type: 'rounds', rounds: 10 }, modifiers: [], conditions: ['paralyzed'] },
+    });
+    expect(target.conditions.some((c) => c.key === 'paralyzed')).toBe(true);
+  });
+
   it('Searing Smite: доп. урон при касте и повторный урон в начале хода', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

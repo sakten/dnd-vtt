@@ -23,6 +23,7 @@ const beast = (over: Partial<BestiaryEntry> = {}): BestiaryEntry =>
     immunities: [],
     resistances: [],
     vulnerabilities: [],
+    conditionImmunities: [],
     ac: 13,
     hpAverage: 11,
     hpFormula: '2d8+2',

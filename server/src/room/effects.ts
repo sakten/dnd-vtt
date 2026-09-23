@@ -42,6 +42,13 @@ export function damageDefensesForToken(room: Room, token: Token): DamageDefense[
   return extra.length ? [...base, ...extra] : base;
 }
 
+/** Иммунитеты к состояниям: эффекты носителя + статблок (бестиарий, формы). */
+export function tokenConditionImmunities(room: Room, token: Token): Set<ConditionKey> {
+  const out = conditionImmunities(token.effects);
+  for (const key of actorStats(room, token).statblock?.conditionImmunities ?? []) out.add(key);
+  return out;
+}
+
 /** Бонус спасброска токена: мод. характеристики (+профишенси у персонажа). */
 export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey): number {
   const controllerId = controllerIdOfToken(room, token);
@@ -132,8 +139,8 @@ export function applyEffect(m: EffectsDeps, room: Room, token: Token, effect: Ef
   token.effects = [...token.effects.filter((e) => e.id !== effect.id), effect];
   changeMaxHp(m, room, token, effect, 1);
   if (effect.conditions?.length) {
-    // Иммунитет к состоянию (Freedom of Movement, Heroism): состояние не накладывается, эффект остаётся.
-    const immune = conditionImmunities(token.effects);
+    // Иммунитет к состоянию (Freedom of Movement, Heroism, бестиарий): состояние не накладывается, эффект остаётся.
+    const immune = tokenConditionImmunities(room, token);
     for (const key of effect.conditions) {
       if (immune.has(key)) continue;
       if (token.conditions.some((c) => c.effectId === effect.id && c.key === key)) continue;
@@ -238,7 +245,7 @@ export function tickEffects(
         // Провал повторного спасброска: состояние меняется (Sleep → без сознания).
         // Иммунитет к новому состоянию — эскалация пропускается, эффект остаётся как есть.
         const next = effect.escalate;
-        if (!conditionImmunities(token.effects).has(next.condition)) {
+        if (!tokenConditionImmunities(room, token).has(next.condition)) {
           effect.duration = next.duration ?? effect.duration;
           effect.conditions = [next.condition];
           effect.escalate = undefined;

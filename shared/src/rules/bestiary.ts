@@ -246,6 +246,17 @@ export function parseDamageDefenses(value: unknown, keys: Set<string>): string[]
   return out;
 }
 
+/** Иммунитеты к состояниям: только канонические ключи (условные записи — мимо). */
+export function parseConditionImmunities(value: unknown): ConditionKey[] {
+  const out: ConditionKey[] = [];
+  const keys = new Set<string>(CONDITION_KEYS.filter((k) => k !== 'custom' && k !== 'surrounded' && k !== 'dead'));
+  for (const item of Array.isArray(value) ? value : []) {
+    const key = typeof item === 'string' ? item.trim().toLowerCase() : '';
+    if (key && keys.has(key) && !out.includes(key as ConditionKey)) out.push(key as ConditionKey);
+  }
+  return out;
+}
+
 interface ParsedAttack {
   hit: string;
   /** Бонус атаки берётся у кастера (шаблоны призывов: «your spell attack modifier»). */
@@ -691,6 +702,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     immunities: parseDamageDefenses(raw.immune, DAMAGE_WORDS),
     resistances: parseDamageDefenses(raw.resist, DAMAGE_WORDS),
     vulnerabilities: parseDamageDefenses(raw.vulnerable, DAMAGE_WORDS),
+    conditionImmunities: parseConditionImmunities(raw.conditionImmune),
     ac,
     hpAverage,
     hpFormula,
@@ -771,6 +783,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
       abilities: entry.abilities,
       ...(entry.cr ? { cr: entry.cr } : {}),
       ...(entry.saves ? { saves: entry.saves } : {}),
+      ...(entry.conditionImmunities.length ? { conditionImmunities: [...entry.conditionImmunities] } : {}),
       ...(entry.spellcasting ? { spellcasting: entry.spellcasting } : {}),
       ...(multiattack ? { multiattack } : {}),
       ...(entry.legendaryMax ? { legendary: { max: entry.legendaryMax, actions: [] } } : {}),

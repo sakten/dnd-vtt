@@ -22,6 +22,7 @@ function entry(overrides: Partial<BestiaryEntry> = {}): BestiaryEntry {
     immunities: [],
     resistances: [],
     vulnerabilities: [],
+    conditionImmunities: [],
     attacks: [{ name: 'Bite', hit: '+4', damage: '1d6 + 2', rangeType: 'melee', rangeNormal: 5, rangeLong: 0, damageType: 'piercing' }],
     actions: [],
     description: '',

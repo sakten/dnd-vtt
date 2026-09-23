@@ -218,6 +218,7 @@
   'ui.bestiary.hintPlayer': 'Каталог для просмотра; выставляет существ ведущий.',
   'ui.bestiary.attacks': 'Атаки',
   'ui.bestiary.actions': 'Действия',
+  'ui.bestiary.conditionImmunities': 'Иммунитеты к состояниям',
   'ui.bestiary.size.T': 'Крошечный',
   'ui.bestiary.size.S': 'Маленький',
   'ui.bestiary.size.M': 'Средний',

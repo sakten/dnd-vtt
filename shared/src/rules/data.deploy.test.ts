@@ -32,7 +32,7 @@ const HASHES = {
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: 'f8d310ec0a56a339',
-  bestiary: '469c7ea4c2b6b7c2',
+  bestiary: '5228c2a9235a5530',
   invocations: '7efff7e520cc92ad',
 };
 
@@ -384,6 +384,9 @@ describe('снимок данных', () => {
         for (const damageType of list) {
           if (!DAMAGE_KEYS.has(damageType)) bad.push(`${key}: защита ${damageType}`);
         }
+      }
+      for (const conditionKey of entry.conditionImmunities) {
+        if (!CONDITION_KEYS.includes(conditionKey)) bad.push(`${key}: иммунитет к состоянию ${conditionKey}`);
       }
       const ids = new Set(entry.actions.map((a) => a.id));
       if (ids.size !== entry.actions.length) bad.push(`${key}: id действий`);

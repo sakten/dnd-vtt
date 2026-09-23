@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeActions } from './actions';
+import { normalizeActions, normalizeStatblock } from './actions';
 
 describe('normalizeActions: таргетинг', () => {
   it('action.targeting сохраняется', () => {
@@ -12,5 +12,16 @@ describe('normalizeActions: таргетинг', () => {
       },
     ]);
     expect(action?.targeting).toEqual({ kind: 'creature', range: 5 });
+  });
+});
+
+describe('normalizeStatblock: иммунитеты к состояниям', () => {
+  it('канонические ключи сохраняются, чужие — отбрасываются', () => {
+    const sb = normalizeStatblock({
+      abilities: { str: 10 },
+      conditionImmunities: ['charmed', 'bogus', 'charmed', 'poisoned'],
+    });
+    expect(sb?.conditionImmunities).toEqual(['charmed', 'poisoned']);
+    expect(normalizeStatblock({ abilities: { str: 10 }, conditionImmunities: [] })?.conditionImmunities).toBeUndefined();
   });
 });

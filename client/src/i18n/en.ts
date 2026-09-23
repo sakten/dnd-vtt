@@ -221,6 +221,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.bestiary.hintPlayer': 'Catalog is view-only; the DM places creatures.',
   'ui.bestiary.attacks': 'Attacks',
   'ui.bestiary.actions': 'Actions',
+  'ui.bestiary.conditionImmunities': 'Condition immunities',
   'ui.bestiary.size.T': 'Tiny',
   'ui.bestiary.size.S': 'Small',
   'ui.bestiary.size.M': 'Medium',

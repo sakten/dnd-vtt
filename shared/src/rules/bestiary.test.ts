@@ -4,6 +4,7 @@ import {
   bestiaryEntryFromRaw,
   bestiaryTokenFields,
   parseAttackText,
+  parseConditionImmunities,
   parseDamageDefenses,
   parseMultiattack,
   parseSaveText,
@@ -156,6 +157,7 @@ const SKELETON: RawBestiaryMonster = {
   immune: ['poison'],
   resist: [],
   vulnerable: ['bludgeoning'],
+  conditionImmune: ['charmed', 'exhaustion', 'poisoned', { special: 'poisoned while in sunlight' }],
   action: [
     {
       name: 'Shortsword',
@@ -281,6 +283,16 @@ describe('бестиарий: защита и выставление', () => {
     expect(entry.immunities).toEqual(['poison']);
     expect(entry.resistances).toEqual([]);
     expect(entry.vulnerabilities).toEqual(['bludgeoning']);
+  });
+
+  it('иммунитеты к состояниям — только канонические ключи (специальные — мимо)', () => {
+    expect(parseConditionImmunities(['Charmed', 'poisoned', { special: 'poisoned while in sunlight' }, 'dead'])).toEqual([
+      'charmed',
+      'poisoned',
+    ]);
+    const entry = bestiaryEntryFromRaw(SKELETON, known)!;
+    expect(entry.conditionImmunities).toEqual(['charmed', 'exhaustion', 'poisoned']);
+    expect(bestiaryTokenFields(entry).statblock?.conditionImmunities).toEqual(['charmed', 'exhaustion', 'poisoned']);
   });
 
   it('поля токена: HP/AC строками, инициатива от Ловкости, защиты и статблок', () => {

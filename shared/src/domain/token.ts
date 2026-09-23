@@ -1,7 +1,7 @@
 import type { ActionDef } from './actions';
 import type { AbilityKey, Faction } from './core';
 import type { DamageDefense } from './damage';
-import type { ConditionInstance, EffectInstance } from './effects';
+import type { ConditionInstance, ConditionKey, EffectInstance } from './effects';
 import type { Sense } from './sense';
 
 export interface TokenFields {
@@ -97,6 +97,8 @@ export interface TokenStatblock {
   abilities: Record<AbilityKey, number>;
   /** Явные бонусы спасбросков; пусто — считаются из характеристик. */
   saves?: Partial<Record<AbilityKey, number>>;
+  /** Иммунитеты к состояниям (бестиарий: конструкты и т.п.). */
+  conditionImmunities?: ConditionKey[];
   spellcasting?: {
     ability: AbilityKey;
     dc?: number;

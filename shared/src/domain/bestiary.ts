@@ -1,5 +1,6 @@
 import type { ActionDef } from './actions';
 import type { AbilityKey } from './core';
+import type { ConditionKey } from './effects';
 import type { Sense } from './sense';
 import type { AttackEntry, TokenStatblock } from './token';
 
@@ -44,6 +45,8 @@ export interface BestiaryEntry {
   resistances: string[];
   /** Уязвимости к типам урона (ключи). */
   vulnerabilities: string[];
+  /** Иммунитеты к состояниям (charmed, exhaustion, poisoned, …). */
+  conditionImmunities: ConditionKey[];
   ac: number;
   hpAverage: number;
   hpFormula: string;
@@ -84,6 +87,7 @@ export interface RawBestiaryMonster {
   type?: unknown;
   cr?: unknown;
   familiar?: unknown;
+  conditionImmune?: unknown;
   ac?: unknown;
   hp?: unknown;
   speed?: unknown;

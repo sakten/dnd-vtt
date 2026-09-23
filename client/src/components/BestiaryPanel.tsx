@@ -5,6 +5,7 @@ import { loadBestiary } from '../lib/bestiary';
 import { useIsDm } from '../lib/control';
 import { useGameStore } from '../store/useGameStore';
 import { t, type MessageKey } from '../i18n';
+import { conditionLabel } from '../i18n/domain';
 
 const SIZES: MonsterSize[] = ['T', 'S', 'M', 'L', 'H', 'G'];
 const SIZE_KEYS: Record<MonsterSize, MessageKey> = {
@@ -173,6 +174,16 @@ export default function BestiaryPanel() {
                           {action.recharge ? ` (${action.recharge})` : ''}
                           {action.legendaryCost ? ` · L${action.legendaryCost}` : ''}
                         </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {entry.conditionImmunities.length > 0 && (
+                  <div className="bestiary-block">
+                    <b>{t('ui.bestiary.conditionImmunities')}</b>
+                    <ul>
+                      {entry.conditionImmunities.map((key) => (
+                        <li key={key}>{conditionLabel(key)}</li>
                       ))}
                     </ul>
                   </div>
