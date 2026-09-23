@@ -75,8 +75,6 @@
   'system.reactions.disadvantage': '{name}: {feature} — помеха на атаку',
   'system.reactions.counterAttack': '{name}: {feature} по {target}',
   'system.reactions.counterAttackDie': '{name}: {feature} (+{die}) по {target}',
-  'system.reactions.deflectDodged': '{name}: Отражение атак — {attacker} увернулся',
-  'system.reactions.deflectRedirected': '{name}: Отражение атак → {attacker}',
   'system.reactions.opportunity': '{name}: атака по возможности по {target}',
   'system.reactions.opportunityError': '{name}: {error}',
   'system.reactions.rollBonus': '{name}: {feature} (+{amount} к броску)',

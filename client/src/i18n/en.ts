@@ -78,8 +78,6 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.reactions.disadvantage': '{name}: {feature} — disadvantage on the attack',
   'system.reactions.counterAttack': '{name}: {feature} against {target}',
   'system.reactions.counterAttackDie': '{name}: {feature} (+{die}) against {target}',
-  'system.reactions.deflectDodged': '{name}: Deflect Attacks — {attacker} dodged',
-  'system.reactions.deflectRedirected': '{name}: Deflect Attacks → {attacker}',
   'system.reactions.opportunity': '{name}: opportunity attack against {target}',
   'system.reactions.opportunityError': '{name}: {error}',
   'system.reactions.rollBonus': '{name}: {feature} (+{amount} to the roll)',

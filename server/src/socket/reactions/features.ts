@@ -8,10 +8,10 @@ import {
   monsterStats,
   proficiencyBonus,
   reactionFeatures,
-  rollDice,
   sideMatches,
   superiorityDie,
   type AttackEntry,
+  type AutomationDef,
   type ReactionFeatureDef,
   type ReactionOption,
   type ReactionTriggerKind,
@@ -21,13 +21,18 @@ import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
 import { controllerIdOfToken, hasResourceFor, sheetOfToken, withinFeet } from '../../rooms';
 import { shapeStatblock } from '../../room/shape';
-import { pushSaveMessage } from '../messages';
-import { applyDamage } from '../damage';
 import { executeAutomation } from '../automation';
 import type { WeaponAttackPrep } from '../attackResolve';
 import { resolveWeaponAttackWithReactions } from './attack';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
-import { audienceOf, choiceToken, classLevelOf, reactionCanSee, reactionSlotFree, type ReactionChoice } from './internal';
+import {
+  audienceOf,
+  choiceToken,
+  classLevelOf,
+  reactionOfferAllowed,
+  reactionSlotFree,
+  type ReactionChoice,
+} from './internal';
 import { opportunityAttack } from './opportunity';
 
 /** Доступные персонажу реакционные черты под триггер (с оплатой ресурсов). */
@@ -217,12 +222,10 @@ export function preRollOffers(ctx: ConnCtx, room: Room, prep: WeaponAttackPrep):
   const attacker = input.attacker;
   if (!target || !targetMapId || !attacker || target.id === attacker.id) return [];
   if (!reactionSlotFree(ctx.manager, room, targetMapId, target)) return [];
-  const features = availableFeatureReactions(room, target, 'attackRoll').filter((def) => {
-    if (def.kind !== 'disadvantage') return false;
-    if (!withinFeet(room, target, attacker, 30)) return false;
+  const features = availableFeatureReactions(room, target, 'attackRoll').filter(
     // RAW (Палящая вспышка): существо в 30 футах, которое видишь.
-    return reactionCanSee(ctx, room, targetMapId, target, attacker);
-  });
+    (def) => def.kind === 'disadvantage' && reactionOfferAllowed(ctx, room, targetMapId, target, attacker, 30)
+  );
   if (!features.length) return [];
   return [featureOffer(ctx, room, targetMapId, target, features)];
 }
@@ -301,27 +304,23 @@ export function applyDeflectRedirect(
   const die = martialArtsDie(level);
   const abilities = (ctx.manager.abilitiesForToken(room, monk) ?? {}) as Partial<Record<string, number>>;
   const dexMod = abilityMod(abilities.dex ?? 10);
-  const totalLevel = characterLevel(sheet?.classes ?? []);
-  const dc = 8 + proficiencyBonus(totalLevel) + abilityMod(abilities.wis ?? 10);
-
-  const { roll, success } = ctx.manager.rollSave(room, attacker, def.redirect.save, dc, { conditionsAutoFail: true });
-  pushSaveMessage(ctx, room, { author: monk.name, subject: `Отражение атак · ${attacker.name}`, roll, success });
-  if (!success) {
-    const expr = `${def.redirect.martialArtsDice}d${die}${dexMod ? (dexMod > 0 ? `+${dexMod}` : `${dexMod}`) : ''}`;
-    const damageRoll = rollDice(expr);
-    applyDamage(ctx, {
-      target: attacker,
-      mapId: choice.mapId,
-      amount: damageRoll.total,
-      damageType: plan.attack.damageType,
-      roll: damageRoll,
-      author: monk.name,
-      params: { subject: 'Отражение атак' },
-    });
-  }
-  ctx.systemMessage(room, {
-    code: success ? 'reactions.deflectDodged' : 'reactions.deflectRedirected',
-    params: { name: monk.name, attacker: attacker.name },
+  const dc = 8 + proficiencyBonus(characterLevel(sheet?.classes ?? [])) + abilityMod(abilities.wis ?? 10);
+  const expr = `${def.redirect.martialArtsDice}d${die}${dexMod ? (dexMod > 0 ? `+${dexMod}` : `${dexMod}`) : ''}`;
+  // Спас и урон — общим движком: сообщения, урон с триггерами (Hellish Rebuke) и смерти.
+  const redirectDef: AutomationDef = {
+    key: 'monk:deflectAttacks:redirect',
+    name: 'Отражение атак',
+    resolution: 'save',
+    save: { ability: def.redirect.save },
+    damage: { dice: expr, ...(plan.attack.damageType ? { types: [plan.attack.damageType] } : {}) },
+  };
+  executeAutomation(ctx, {
+    caster: monk,
+    mapId: choice.mapId,
+    def: redirectDef,
+    targets: [attacker],
+    stats: { ability: 'wis', mod: dexMod, dc, attack: 0 },
+    author: monk.name,
   });
 }
 

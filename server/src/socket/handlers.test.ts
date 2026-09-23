@@ -2370,6 +2370,51 @@ describe('action:use', () => {
     f2.invoke('reaction:respond', { id: redirect!.id, optionId: null });
   });
 
+  it('Отражение атак: перенаправление бьёт атакующего спасом Ловкости', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20',
+      damage: '1d8',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { attacks: [sword], x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { libraryItemId: 'lib2', x: 150, y: 100, hpMax: '30', hpCurrent: 30, ac: '5' }),
+      ],
+      { p1: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = { ...casterSheet(), classes: [{ className: 'monk', level: 3 }], spells: [] };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current: 2, max: 2, reset: 'short' }],
+    };
+    combatOf(room).entries.push({ id: 'e2', tokenId: 't2', name: 'T2', imageUrl: '', initiative: 5, bonus: '' });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 17, 1d8 7, 1d10 9
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const deflect = pendingOffers('TEST')[0]!;
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: deflect.id, optionId: 'feature:monk:deflectAttacks' });
+
+    const redirect = pendingOffers('TEST')[0]!;
+    rand.mockReturnValue(0.1); // спас 3 против СЛ 10 — провал, урон 2d6 = 2
+    f2.invoke('reaction:respond', { id: redirect.id, optionId: 'feature:monk:deflectAttacks:redirect' });
+    rand.mockRestore();
+
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(28);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+  });
+
   it('Отражение атак не предлагается, когда бьют не монаха', () => {
     const sword: AttackEntry = {
       name: 'Меч',

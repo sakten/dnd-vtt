@@ -14,7 +14,7 @@ import {
 import type { Room } from '../../roomTypes';
 import { isDmViewer, type ConnCtx } from '../context';
 import { findSpell } from '../../spells';
-import { controllerIdOfToken, hasResourceFor, sheetOfToken } from '../../rooms';
+import { controllerIdOfToken, hasResourceFor, sheetOfToken, withinFeet } from '../../rooms';
 import { attackUnseen } from '../attackResolve';
 
 export interface ReactionChoice {
@@ -41,6 +41,19 @@ export function reactionCanSee(ctx: ConnCtx, room: Room, mapId: string, viewer: 
   if (!map) return false;
   if (hasCondition(target.conditions, 'invisible') && !seesInvisible(viewer.effects)) return false;
   return !attackUnseen(room, viewer, target, map).unseenTarget;
+}
+
+/** Гейт оффера реакции: в пределах `feet` (если задано) и цель видна наблюдателю. */
+export function reactionOfferAllowed(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  viewer: Token,
+  target: Token,
+  feet?: number
+): boolean {
+  if (feet !== undefined && !withinFeet(room, viewer, target, feet)) return false;
+  return reactionCanSee(ctx, room, mapId, viewer, target);
 }
 
 export function reactionSlotFree(manager: ConnCtx['manager'], room: Room, mapId: string, token: Token): boolean {
