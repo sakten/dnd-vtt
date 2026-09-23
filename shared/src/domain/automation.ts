@@ -109,6 +109,8 @@ export interface AutomationEffect {
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
+  /** Warding Bond: переносить получаемый урон на источник эффекта. */
+  damageLink?: boolean;
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */

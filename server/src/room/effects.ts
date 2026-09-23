@@ -78,8 +78,8 @@ export function saveBonusForToken(room: Room, token: Token, ability: AbilityKey)
 }
 
 /** Слагаемые/кости/режим спасброска токена: базовый бонус, эффекты, истощение. */
-export function savePartsForToken(room: Room, token: Token, ability: AbilityKey): RollParts {
-  const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token));
+export function savePartsForToken(room: Room, token: Token, ability: AbilityKey, condition?: ConditionKey): RollParts {
+  const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token), condition);
   parts.flat += saveBonusForToken(room, token, ability) + exhaustionRollPenalty(token.conditions);
   return parts;
 }
@@ -93,9 +93,9 @@ export function rollSave(
   token: Token,
   ability: AbilityKey,
   dc: number,
-  opts: { conditionsAutoFail?: boolean; advantage?: boolean } = {}
+  opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey } = {}
 ): { roll: DiceRollResult; success: boolean } {
-  const parts = savePartsForToken(room, token, ability);
+  const parts = savePartsForToken(room, token, ability, opts.condition);
   const mode = opts.advantage ? (parts.mode === 'd' ? undefined : 'a') : parts.mode;
   const roll = rollDice(withAdvantage(withRollParts('d20', parts), mode));
   const autoFail = opts.conditionsAutoFail === true && autoFailSave(token.conditions, ability);
@@ -122,7 +122,7 @@ export function tickConditions(
   const kept = token.conditions.filter((cond) => {
     let remove = false;
     if (cond.save && cond.save.timing === phase) {
-      const { roll, success } = rollSave(room, token, cond.save.ability, cond.save.dc);
+      const { roll, success } = rollSave(room, token, cond.save.ability, cond.save.dc, { condition: cond.key });
       saves.push({ name: cond.name, roll, success });
       if (success) remove = true;
     }
@@ -245,7 +245,7 @@ export function tickEffects(
     let remove = false;
     const d = effect.duration;
     if (d.type === 'untilSave' && d.timing === phase) {
-      const { roll, success } = rollSave(room, token, d.ability, d.dc);
+      const { roll, success } = rollSave(room, token, d.ability, d.dc, { condition: effect.conditions?.[0] });
       saves.push({ name: effect.name, roll, success });
       if (success) remove = true;
       else if (effect.escalate) {

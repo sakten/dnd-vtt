@@ -1,12 +1,14 @@
 import {
   applyDamageToParts,
+  damageLinks,
+  gridDistanceFeet,
   statNumber,
   type DamagePartAmount,
   type DiceRollResult,
   type RollLabelParams,
   type Token,
 } from 'shared';
-import { controllerIdOfToken } from '../rooms';
+import { controllerIdOfToken, gridSizeOfMap } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { runAbilityTriggers } from './abilityTriggers';
@@ -43,6 +45,41 @@ export function hasHpTracking(room: Room, token: Token): boolean {
   return statNumber(token.hpMax) > 0 || controllerIdOfToken(room, token) !== undefined;
 }
 
+/** Снимает все связи Warding Bond, ведущие на павшего/исчезнувшего источника. */
+function dropDamageLinks(ctx: ConnCtx, room: Room, sourceId: string): void {
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      for (const effect of [...token.effects]) {
+        if (effect.damageLink?.tokenId !== sourceId) continue;
+        if (ctx.manager.removeEffect(room, token, effect.id)) ctx.emitToken(room, 'token:update', map.id, token);
+      }
+    }
+  }
+}
+
+/** Warding Bond: урон носителя переносится на источник тем же количеством (без защит, ≤60 фт). */
+function transferLinkedDamage(ctx: ConnCtx, room: Room, mapId: string, target: Token, amount: number): void {
+  const sourceIds = damageLinks(target.effects);
+  if (!sourceIds.length) return;
+  const mapInfo = ctx.manager.findMap(room, mapId);
+  if (!mapInfo) return;
+  const grid = gridSizeOfMap(mapInfo);
+  for (const sourceId of sourceIds) {
+    const effect = target.effects.find((e) => e.damageLink?.tokenId === sourceId);
+    if (!effect) continue;
+    const drop = (): void => {
+      if (ctx.manager.removeEffect(room, target, effect.id)) ctx.emitToken(room, 'token:update', mapId, target);
+    };
+    const located = ctx.manager.locateToken(room, sourceId);
+    if (!located || located.mapId !== mapId || gridDistanceFeet(target, located.token, grid) > 60) {
+      drop();
+      continue;
+    }
+    ctx.applyHp(room, located.mapId, located.token, -amount);
+    if ((located.token.hpCurrent ?? 0) <= 0) dropDamageLinks(ctx, room, sourceId);
+  }
+}
+
 /**
  * Единая точка урона/лечения: защиты → половина → сообщение → HP по гейту учёта.
  * Заменяет четыре копии «roll → defenses → applyHp» в атаках и заклинаниях.
@@ -77,6 +114,8 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   ctx.applyHp(room, mapId, target, input.kind === 'heal' ? amount : -amount, { crit: input.crit });
   checkSummonDeath(ctx, room, mapId, target);
   if (input.kind !== 'heal') {
+    // Warding Bond: цель получила урон — источник получает столько же.
+    transferLinkedDamage(ctx, room, mapId, target, amount);
     // Триггеры монстра: «при получении урона» — на каждый урон, «при смерти» — переход HP к 0.
     runAbilityTriggers(ctx, room, mapId, target, 'takeDamage');
     if (hpBefore > 0 && (target.hpCurrent ?? 0) <= 0) runAbilityTriggers(ctx, room, mapId, target, 'death');

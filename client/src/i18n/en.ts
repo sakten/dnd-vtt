@@ -924,6 +924,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.effect.mirrorImages': 'mirror images ({charges})',
   'domain.effect.immuneTo': 'immune: {condition}',
   'domain.effect.magicWeapon': 'weapon counts as magical',
+  'domain.effect.damageLink': 'damage taken is transferred to the caster',
   'domain.effect.noSpeedReduction': 'speed can’t be reduced by magic',
   'domain.effect.ignoreDifficult': 'difficult terrain doesn’t slow it',
   'domain.effect.startOfTurnDamage': 'at the start of its turn: {dice} damage',

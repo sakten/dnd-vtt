@@ -157,7 +157,10 @@ function applyRiderSave(
 ): void {
   const save = rider.save;
   if (!save) return;
-  const { roll, success } = ctx.manager.rollSave(room, target, save.ability, dc, { conditionsAutoFail: true });
+  const { roll, success } = ctx.manager.rollSave(room, target, save.ability, dc, {
+    conditionsAutoFail: true,
+    condition: save.condition,
+  });
   pushSaveMessage(ctx, room, { author: attacker.name, subject: `${rider.name} · ${target.name}`, roll, success });
   const id = randomUUID();
   const effect: EffectInstance = success

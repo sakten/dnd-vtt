@@ -26,6 +26,8 @@ export interface ModifierContext {
   direction?: 'self' | 'against';
   /** Бросок атаки оружием (true) или заклинанием (false/undefined). */
   weapon?: boolean;
+  /** Спасбросок против конкретного состояния (Protection from Poison). */
+  condition?: ConditionKey;
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -81,6 +83,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.targetId && f.targetId !== ctx.targetId) return false;
   if (f.direction && f.direction !== ctx.direction) return false;
   if (f.weapon !== undefined && f.weapon !== ctx.weapon) return false;
+  if (f.condition && f.condition !== ctx.condition) return false;
   return true;
 }
 
@@ -221,9 +224,10 @@ export function restrictionsFor(
 export function saveRollParts(
   effects: EffectInstance[] | undefined,
   ability: AbilityKey,
-  abilities?: Partial<Record<AbilityKey, number>>
+  abilities?: Partial<Record<AbilityKey, number>>,
+  condition?: ConditionKey
 ): RollParts {
-  return rollParts(collectModifiers(effects, 'save', { ability }), abilities);
+  return rollParts(collectModifiers(effects, 'save', { ability, condition }), abilities);
 }
 
 /** Слагаемые, кости и режим проверки характеристики/навыка от эффектов (Enhance Ability). */
@@ -318,6 +322,16 @@ export function ignoresDifficultTerrain(effects: EffectInstance[] | undefined): 
   return (effects ?? []).some((e) => e.ignoresDifficultTerrain === true);
 }
 
+/** Warding Bond: токены-источники, на которые переносится урон носителя. */
+export function damageLinks(effects: EffectInstance[] | undefined): string[] {
+  const out: string[] = [];
+  for (const effect of effects ?? []) {
+    const id = effect.damageLink?.tokenId;
+    if (id && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
 export function effectDefenses(effects: EffectInstance[] | undefined): DamageDefense[] {
   const out: DamageDefense[] = [];
   for (const effect of effects ?? []) {
@@ -401,6 +415,7 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
     parts.push({ key: 'domain.effect.mirrorImages', params: { charges: effect.misdirect.charges } });
   }
   if (effect.magicWeapon) parts.push({ key: 'domain.effect.magicWeapon' });
+  if (effect.damageLink) parts.push({ key: 'domain.effect.damageLink' });
   for (const mod of effect.modifiers) {
     switch (mod.mode) {
       case 'advantage':

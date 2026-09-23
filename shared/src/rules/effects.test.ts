@@ -7,6 +7,7 @@ import {
   concentrationDc,
   concentratingEffects,
   conditionImmunities,
+  damageLinks,
   damageRollParts,
   effectDefenses,
   effectDurationParts,
@@ -217,6 +218,15 @@ describe('проверки с эффектами (checkRollParts)', () => {
     });
     expect(checkRollParts([passTrace], { ability: 'dex', skill: 'stealth' })).toMatchObject({ flat: 10 });
     expect(checkRollParts([passTrace], { ability: 'dex', skill: 'athletics' })).toMatchObject({ flat: 0 });
+  });
+
+  it('фильтр спасброска по состоянию (Protection from Poison) и связи урона (Warding Bond)', () => {
+    const pp = effect({ modifiers: [mod({ target: 'save', mode: 'advantage', filter: { condition: 'poisoned' } })] });
+    expect(saveRollParts([pp], 'con', undefined, 'poisoned').mode).toBe('a');
+    expect(saveRollParts([pp], 'con', undefined, 'frightened').mode).toBeUndefined();
+    const wb = effect({ damageLink: { tokenId: 't2' } });
+    expect(damageLinks([wb])).toEqual(['t2']);
+    expect(effectSummaryParts(wb)).toEqual([{ key: 'domain.effect.damageLink' }]);
   });
 
   it('Magic Weapon: флаг магического оружия и подмена физтипа', () => {

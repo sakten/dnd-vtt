@@ -112,6 +112,27 @@ describe('концентрация заклинаний с зонами', () => 
     expect(checkPartsForToken(room, target, { ability: 'str' }).mode).toBeUndefined();
   });
 
+  it('Protection from Poison: снимает «Отравлен» и вешает эффект', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.conditions.push({ key: 'poisoned', name: 'Отравлен', rounds: null });
+
+    const pp = findSpell('XPHB:Protection from Poison')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(pp, { castLevel: 2 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+
+    expect(target.conditions.some((c) => c.key === 'poisoned')).toBe(false);
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Protection from Poison')).toBe(true);
+  });
+
   it('новая концентрация снимает прежнюю и с другого токена того же персонажа', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

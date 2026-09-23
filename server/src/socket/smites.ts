@@ -120,7 +120,10 @@ export function applySmiteChoice(
   let resisted = false;
   if (effectDef) {
     if (def.save) {
-      const save = ctx.manager.rollSave(room, target, def.save.ability, dc, { conditionsAutoFail: true });
+      const save = ctx.manager.rollSave(room, target, def.save.ability, dc, {
+        conditionsAutoFail: true,
+        condition: def.effects?.[0]?.conditions?.[0],
+      });
       pushSaveMessage(ctx, room, {
         author: attacker.name,
         subject: `${spell.name} · ${target.name}`,

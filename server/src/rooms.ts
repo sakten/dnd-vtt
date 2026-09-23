@@ -340,7 +340,7 @@ export class RoomManager {
     token: Token,
     ability: AbilityKey,
     dc: number,
-    opts: { conditionsAutoFail?: boolean; advantage?: boolean } = {}
+    opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey } = {}
   ): { roll: DiceRollResult; success: boolean } {
     return Effects.rollSave(room, token, ability, dc, opts);
   }

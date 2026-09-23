@@ -12,6 +12,7 @@ import type {
 } from '../domain/automation';
 import type { EffectDuration } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
+import { DAMAGE_TYPES } from '../labels';
 import { AUTOMATION_ACTIONS } from './automationActions';
 import { eldritchBlastMods } from './invocations';
 import { monsterAbilityAutomation } from './monsterAbility';
@@ -653,6 +654,46 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         ],
       },
     },
+  },
+  'XPHB:Protection from Poison': {
+    key: 'XPHB:Protection from Poison',
+    name: 'Protection from Poison',
+    resolution: 'effect',
+    endConditions: ['poisoned'],
+    effects: [
+      {
+        name: 'Protection from Poison',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [
+          { target: 'save', mode: 'advantage', filter: { condition: 'poisoned' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
+        ],
+      },
+    ],
+  },
+  'XPHB:Warding Bond': {
+    key: 'XPHB:Warding Bond',
+    name: 'Warding Bond',
+    resolution: 'effect',
+    effects: [
+      {
+        name: 'Warding Bond',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [
+          { target: 'ac', mode: 'add', value: 1 },
+          { target: 'save', mode: 'add', value: 1 },
+          ...DAMAGE_TYPES.map((type) => ({
+            target: 'damage' as const,
+            mode: 'resistance' as const,
+            value: 0,
+            filter: { damageType: type.key },
+          })),
+        ],
+        damageLink: true,
+      },
+    ],
   },
   'XPHB:Stinking Cloud': {
     key: 'XPHB:Stinking Cloud',

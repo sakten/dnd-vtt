@@ -170,7 +170,10 @@ export function applyMasteryChoice(
   if (mastery === 'Topple') {
     const pb = proficiencyBonus(characterLevel(classes ?? []) || 1);
     const dc = 8 + pb + weaponAbilityMod(weapon, { abilities, classes: classes ?? [] });
-    const { roll, success } = ctx.manager.rollSave(room, target, 'con', dc, { conditionsAutoFail: true });
+    const { roll, success } = ctx.manager.rollSave(room, target, 'con', dc, {
+      conditionsAutoFail: true,
+      condition: 'prone',
+    });
     pushSaveMessage(ctx, room, {
       author: attacker.name,
       subject: `${MASTERY_RU.Topple ?? 'Topple'} · ${target.name}`,

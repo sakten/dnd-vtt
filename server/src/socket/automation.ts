@@ -206,7 +206,10 @@ function rollTargetSaveFor(
   ability: AbilityKey
 ): TargetSave {
   const autoFail = autoFailSave(target.conditions, ability);
-  const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, { conditionsAutoFail: true });
+  const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, {
+    conditionsAutoFail: true,
+    condition: def.effects?.[0]?.conditions?.[0],
+  });
   pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
   return { target, roll, autoFail, success };
 }
@@ -1061,6 +1064,10 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
 
   if (def.resolution === 'effect' && def.effects?.length) {
     applyDefEffects(ctx, { ...input, targets });
+    // Снятие состояний при касте (Protection from Poison): независимо от эффекта.
+    if (def.endConditions?.length) {
+      for (const target of targets) removeConditionInstances(ctx, room, mapId, target, def.endConditions);
+    }
     return;
   }
 

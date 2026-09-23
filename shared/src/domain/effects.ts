@@ -81,6 +81,8 @@ export interface ModifierFilter {
   direction?: 'self' | 'against';
   /** Только броски атак оружием (не заклинаниями). */
   weapon?: boolean;
+  /** Спасбросок против конкретного состояния (Protection from Poison: только от отравления). */
+  condition?: ConditionKey;
 }
 
 export interface Modifier {
@@ -196,6 +198,8 @@ export interface EffectInstance {
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
+  /** Warding Bond: урон носителя тем же количеством переносится на токен-источник. */
+  damageLink?: { tokenId: string };
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */

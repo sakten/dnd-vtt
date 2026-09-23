@@ -53,6 +53,9 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (typeof f.targetId === 'string' && f.targetId) out.targetId = f.targetId.slice(0, 80);
   if (f.direction === 'self' || f.direction === 'against') out.direction = f.direction;
   if (typeof f.weapon === 'boolean') out.weapon = f.weapon;
+  if (typeof f.condition === 'string' && (CONDITION_KEYS as string[]).includes(f.condition)) {
+    out.condition = f.condition as ConditionKey;
+  }
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -138,6 +141,10 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.deathWard === true) effect.deathWard = true;
     if (e.magicWeapon === true) effect.magicWeapon = true;
+    if (e.damageLink && typeof e.damageLink === 'object') {
+      const link = e.damageLink as { tokenId?: unknown };
+      if (typeof link.tokenId === 'string' && link.tokenId) effect.damageLink = { tokenId: link.tokenId.slice(0, 64) };
+    }
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
     if (Array.isArray(e.conditionImmunities)) {

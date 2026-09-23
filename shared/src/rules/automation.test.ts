@@ -175,6 +175,35 @@ describe('automationForSpell', () => {
     expect(spellVariantDef('XPHB:Enhance Ability')).toEqual({ param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] });
   });
 
+  it('Protection from Poison — снятие яда, преимущество на сейв от него, сопротивление', () => {
+    const pp = makeSpell({
+      key: 'XPHB:Protection from Poison',
+      name: 'Protection from Poison',
+      level: 2,
+      automation: 'manual',
+    });
+    const def = automationForSpell(pp);
+    expect(def.resolution).toBe('effect');
+    expect(def.endConditions).toEqual(['poisoned']);
+    expect(def.effects?.[0]?.modifiers).toEqual([
+      { target: 'save', mode: 'advantage', filter: { condition: 'poisoned' } },
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
+    ]);
+    expect(spellAutomated(pp)).toBe(true);
+  });
+
+  it('Warding Bond — +1 AC/спас, сопротивление всем типам, перенос урона', () => {
+    const wb = makeSpell({ key: 'XPHB:Warding Bond', name: 'Warding Bond', level: 2, automation: 'manual' });
+    const def = automationForSpell(wb);
+    expect(def.resolution).toBe('effect');
+    const effect = def.effects?.[0];
+    expect(effect?.damageLink).toBe(true);
+    expect(effect?.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(16);
+    expect(effect?.modifiers.filter((m) => m.target === 'ac' || m.target === 'save')).toHaveLength(2);
+    expect(effect?.modifiers.some((m) => m.filter?.damageType === 'magicalSlashing')).toBe(true);
+    expect(spellAutomated(wb)).toBe(true);
+  });
+
   it('Magic Weapon — +1/+2/+3 к попаданию и урону, атаки магические', () => {
     const mw = makeSpell({ key: 'XPHB:Magic Weapon', name: 'Magic Weapon', level: 2, automation: 'manual' });
     const base = automationForSpell(mw, { castLevel: 2 });

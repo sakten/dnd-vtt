@@ -67,6 +67,50 @@ describe('applyDamage: составной урон', () => {
   });
 });
 
+describe('Warding Bond: перенос урона', () => {
+  function bonding() {
+    const target = makeToken('t1', { x: 100, y: 100, hpMax: '50', hpCurrent: 50 });
+    const caster = makeToken('t2', {
+      x: 150,
+      y: 100,
+      hpMax: '30',
+      hpCurrent: 30,
+      damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'slashing' }],
+    });
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens.push(target, caster);
+    const f = makeConnCtx(room, { dm: true });
+    target.effects = [
+      { id: 'wb', name: 'Warding Bond', duration: { type: 'permanent' }, modifiers: [], damageLink: { tokenId: 't2' } },
+    ];
+    return { target, caster, f };
+  }
+
+  it('урон цели переносится источнику без его защит', () => {
+    const { target, caster, f } = bonding();
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'slashing' });
+    expect(target.hpCurrent).toBe(40);
+    expect(caster.hpCurrent).toBe(20);
+  });
+
+  it('разрыв >60 фт снимает связь, урон не переносится', () => {
+    const { target, caster, f } = bonding();
+    caster.x = 1000;
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'slashing' });
+    expect(target.hpCurrent).toBe(40);
+    expect(caster.hpCurrent).toBe(30);
+    expect(target.effects.some((e) => e.damageLink)).toBe(false);
+  });
+
+  it('падение источника до 0 снимает связь', () => {
+    const { target, caster, f } = bonding();
+    caster.hpCurrent = 5;
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'slashing' });
+    expect(caster.hpCurrent).toBeLessThanOrEqual(0);
+    expect(target.effects.some((e) => e.damageLink)).toBe(false);
+  });
+});
+
 describe('повторный спасбросок от урона (Hideous Laughter)', () => {
   it('провал сейва оставляет эффект, бросок идёт с преимуществом', () => {
     const { target, f, ctx } = setup([]);

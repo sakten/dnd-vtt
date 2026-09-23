@@ -88,7 +88,9 @@ function applyZonePayload(
   for (const target of targets) {
     let success = false;
     if (payload.save) {
-      const result = ctx.manager.rollSave(room, target, payload.save.ability, zone.dc ?? 10);
+      const result = ctx.manager.rollSave(room, target, payload.save.ability, zone.dc ?? 10, {
+        condition: payload.effects?.[0]?.conditions?.[0],
+      });
       success = result.success;
       pushSaveMessage(ctx, room, `${zone.name} · ${target.name}`, result.roll, success);
       if (success && !payload.save.half) continue;
