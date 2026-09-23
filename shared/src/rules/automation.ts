@@ -225,6 +225,32 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       ],
     },
   ]),
+  /** Revivify: возвращает мёртвую цель к жизни с 1 HP (касание, без проверки «≤1 мин» — DM). */
+  'XPHB:Revivify': {
+    key: 'XPHB:Revivify',
+    name: 'Revivify',
+    resolution: 'utility',
+    utility: { kind: 'revive' },
+    targeting: { kind: 'creature', range: 5 },
+  },
+  /** Spare the Dying: цель на 0 HP (не мёртвая) становится стабильной. */
+  'XPHB:Spare the Dying': {
+    key: 'XPHB:Spare the Dying',
+    name: 'Spare the Dying',
+    resolution: 'utility',
+    utility: { kind: 'stabilize' },
+    targeting: { kind: 'creature', range: 15 },
+  },
+  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет (8 часов). */
+  'XPHB:Death Ward': spellEffect('XPHB:Death Ward', 'Death Ward', [
+    {
+      name: 'Death Ward',
+      duration: { type: 'rounds', rounds: 4800 },
+      to: 'targets',
+      modifiers: [],
+      deathWard: true,
+    },
+  ]),
   'XPHB:Bless': spellEffect('XPHB:Bless', 'Bless', [
     {
       name: 'Bless',

@@ -6,10 +6,11 @@ import {
   type ActionDef,
   type ChatMessage,
 } from 'shared';
-import { makeCombatRoom, makeToken } from '../test/fixtures';
+import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
+import { validateSpellCast } from './spellResolve';
 
 const isAttackRoll = (m: ChatMessage): m is Extract<ChatMessage, { kind: 'roll' }> =>
   m.kind === 'roll' && m.rollKind === 'attack';
@@ -394,5 +395,120 @@ describe('способности монстров', () => {
     });
     expect(target.hpCurrent).toBe(27);
     expect(target.conditions.some((c) => c.key === 'prone')).toBe(true);
+  });
+});
+
+describe('лечение, стабильность и оживление', () => {
+  const deadResources = () =>
+    makeResources({ hp: { current: -5, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 3 } });
+
+  it('Revivify: мёртвый персонаж оживает с 1 HP, «Мёртв» снят', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = deadResources();
+    target.conditions = [{ key: 'dead', name: 'Мёртв', rounds: null }];
+
+    const revivify = findSpell('XPHB:Revivify')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(revivify, { castLevel: 3, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+
+    expect(room.resources.p1!.hp.current).toBe(1);
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
+    expect(target.conditions.some((c) => c.key === 'dead')).toBe(false);
+    expect(f.emitted.some((e) => e.event === 'chat:message')).toBe(true);
+  });
+
+  it('Spare the Dying: цель на 0 HP становится стабильной', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = makeResources({ hp: { current: 0, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 2 } });
+    target.conditions = [{ key: 'unconscious', name: 'Без сознания', rounds: null }];
+
+    const spare = findSpell('XPHB:Spare the Dying')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(spare),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+
+    expect(room.resources.p1!.hp.stable).toBe(true);
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
+  });
+
+  it('Death Ward: урон, роняющий до 0, оставляет 1 HP и снимает эффект', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = makeResources({ hp: { current: 10, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+
+    const ward = findSpell('XPHB:Death Ward')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(ward, { castLevel: 4, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+    expect(target.effects.some((e) => e.deathWard)).toBe(true);
+
+    f.ctx.applyHp(room, 'm1', target, -99);
+
+    expect(room.resources.p1!.hp.current).toBe(1);
+    expect(target.effects.some((e) => e.deathWard)).toBe(false);
+    expect(
+      f.emitted.some((e) => e.event === 'chat:message' && JSON.stringify(e.payload).includes('automation.deathWard'))
+    ).toBe(true);
+  });
+
+  it('валидация: цель Revivify/Spare the Dying проверяется до каста', () => {
+    const { room } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    const base = {
+      caster,
+      mapId: 'm1',
+      castLevel: 3,
+      characterLevel: 5,
+      stats,
+      targets: [target],
+      author: 'A',
+    };
+    room.resources.p1 = makeResources({ hp: { current: 10, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+    target.hpCurrent = 10;
+
+    const revivify = findSpell('XPHB:Revivify')!;
+    const spare = findSpell('XPHB:Spare the Dying')!;
+    expect(validateSpellCast(room, { ...base, spell: revivify })).toEqual({ code: 'reviveNotDead' });
+    expect(validateSpellCast(room, { ...base, castLevel: 0, spell: spare })).toEqual({
+      code: 'stabilizeNotDying',
+    });
+
+    room.resources.p1!.hp.current = 0;
+    target.hpCurrent = 0;
+    expect(validateSpellCast(room, { ...base, castLevel: 0, spell: spare })).toBeUndefined();
+
+    room.resources.p1!.hp.deathFailures = 3;
+    target.hpCurrent = -5;
+    target.conditions = [{ key: 'dead', name: 'Мёртв', rounds: null }];
+    expect(validateSpellCast(room, { ...base, spell: revivify })).toBeUndefined();
+    expect(validateSpellCast(room, { ...base, castLevel: 0, spell: spare })).toEqual({
+      code: 'stabilizeNotDying',
+    });
   });
 });

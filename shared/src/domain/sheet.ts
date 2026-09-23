@@ -29,6 +29,8 @@ export interface PlayerResources {
     temp: number;
     deathSuccesses: number;
     deathFailures: number;
+    /** Стабилен (Spare the Dying/3 успеха): death-сейвы не бросаются, пока не получит урон. */
+    stable?: boolean;
   };
   hitDice: { die: number; current: number; max: number }[];
   spellSlots: { level: number; current: number; max: number }[];

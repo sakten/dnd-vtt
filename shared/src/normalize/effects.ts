@@ -134,6 +134,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.concentration === true) effect.concentration = true;
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
+    if (e.deathWard === true) effect.deathWard = true;
     if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
     if (e.mark === true) effect.mark = true;
     if (e.light && typeof e.light === 'object') {

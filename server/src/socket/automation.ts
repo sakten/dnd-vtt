@@ -528,6 +528,47 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     });
     maybeRollAnim(ctx, roll);
   },
+  /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
+  revive: ({ ctx, room, input }) => {
+    const revived: string[] = [];
+    for (const target of input.targets) {
+      const changed = ctx.manager.reviveToken(room, input.mapId, target);
+      if (!changed.length) continue;
+      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      const cid = ctx.manager.controllerOfToken(room, target);
+      if (cid) ctx.emitResources(room, cid);
+      revived.push(target.name);
+    }
+    if (!revived.length) {
+      fail(ctx, 'reviveNotDead');
+      return;
+    }
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, {
+      code: 'automation.revive',
+      params: { name: input.caster.name, feature: input.def.name, targets: revived.join(', ') },
+    });
+  },
+  /** Spare the Dying: цель на 0 HP становится стабильной (death-сейвы не бросаются). */
+  stabilize: ({ ctx, room, input }) => {
+    const stabilized: string[] = [];
+    for (const target of input.targets) {
+      const changed = ctx.manager.stabilizeToken(room, target);
+      if (!changed.length) continue;
+      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      const cid = ctx.manager.controllerOfToken(room, target);
+      if (cid) ctx.emitResources(room, cid);
+      stabilized.push(target.name);
+    }
+    if (!stabilized.length) {
+      fail(ctx, 'stabilizeNotDying');
+      return;
+    }
+    ctx.systemMessage(room, {
+      code: 'automation.stabilize',
+      params: { name: input.caster.name, feature: input.def.name, targets: stabilized.join(', ') },
+    });
+  },
   // Перемещение зоны обрабатывается веткой `zone:` в action:use — до executeAutomation.
   moveZone: () => void 0,
   /** Misty Step: телепорт кастера в выбранную точку в пределах дистанции. */

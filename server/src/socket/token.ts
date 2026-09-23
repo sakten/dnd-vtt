@@ -166,6 +166,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
             if (res.hp.current > 0) {
               res.hp.deathSuccesses = 0;
               res.hp.deathFailures = 0;
+              delete res.hp.stable;
             }
           }
           if (typeof patch.hpTemp === 'number' && Number.isFinite(patch.hpTemp)) {
@@ -187,9 +188,17 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         if (maxHp > 0 && token.hpCurrent > maxHp) token.hpCurrent = maxHp;
       }
       if (Array.isArray(patch.conditions)) {
+        const hadDead = token.conditions.some((c) => c.key === 'dead');
         token.conditions = normalizeConditions(patch.conditions);
         // Недееспособность с панели условий снимает форму так же, как через эффекты (XPHB).
         if (token.shape && isIncapacitated(token.conditions)) endShapeToken(ctx, room, mapId, token);
+        // Ручное снятие «Мёртв» = оживление: death-сейвы сбрасываются, лежачий — «Без сознания».
+        if (hadDead && !token.conditions.some((c) => c.key === 'dead') && stats.controllerId) {
+          for (const c of manager.clearDeadState(room, stats.controllerId)) {
+            emitToken(room, 'token:update', c.mapId, c.token);
+          }
+          ctx.emitResources(room, stats.controllerId);
+        }
       }
       if (Array.isArray(patch.effects)) {
         const next = normalizeEffects(patch.effects);

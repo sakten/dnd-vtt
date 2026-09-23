@@ -666,6 +666,110 @@ describe('RoomManager состояния', () => {
   });
 });
 
+describe('RoomManager стабильность и оживление', () => {
+  it('урон по лежачему снимает стабильность и начинает death-сейвы заново', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 0) } });
+    room.resources.p1!.hp.stable = true;
+    const tk = token('t1', { libraryItemId: 'lib1' });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, -3);
+
+    expect(room.resources.p1!.hp.stable).toBeUndefined();
+    expect(room.resources.p1!.hp.deathFailures).toBe(1);
+  });
+
+  it('лечение не оживляет персонажа: счётчики и «Мёртв» сохраняются', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, -5) } });
+    room.resources.p1!.hp.deathFailures = 3;
+    const tk = token('t1', { libraryItemId: 'lib1', conditions: [{ key: 'dead', name: 'Мёртв', rounds: null }] });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, 20);
+
+    expect(room.resources.p1!.hp.current).toBe(10);
+    expect(room.resources.p1!.hp.deathFailures).toBe(3);
+    expect(tk.conditions.some((c) => c.key === 'dead')).toBe(true);
+  });
+
+  it('лечение не оживляет монстра', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const monster = token('t1', {
+      hpMax: '10',
+      hpCurrent: -5,
+      conditions: [{ key: 'dead', name: 'Мёртв', rounds: null }],
+    });
+    room.scene.maps[0]!.tokens = [monster];
+
+    manager.adjustTokenHp(room, 'm1', monster, 12);
+
+    expect(monster.hpCurrent).toBe(7);
+    expect(monster.conditions.some((c) => c.key === 'dead')).toBe(true);
+  });
+
+  it('reviveToken: 1 HP, сейвы сброшены, «Мёртв»/«Без сознания» сняты', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, -5) } });
+    room.resources.p1!.hp.deathFailures = 3;
+    const tk = token('t1', { libraryItemId: 'lib1', conditions: [{ key: 'dead', name: 'Мёртв', rounds: null }] });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.reviveToken(room, 'm1', tk);
+
+    expect(room.resources.p1!.hp.current).toBe(1);
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
+    expect(tk.conditions).toEqual([]);
+  });
+
+  it('stabilizeToken: стабильность и сброс провалов', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, 0) } });
+    room.resources.p1!.hp.deathFailures = 2;
+    const tk = token('t1', { libraryItemId: 'lib1' });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.stabilizeToken(room, tk);
+
+    expect(room.resources.p1!.hp.stable).toBe(true);
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
+  });
+
+  it('clearDeadState: снятие «Мёртв» сбрасывает сейвы, лежачий — «Без сознания»', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(10, -2) } });
+    room.resources.p1!.hp.deathFailures = 3;
+    const tk = token('t1', { libraryItemId: 'lib1', conditions: [{ key: 'dead', name: 'Мёртв', rounds: null }] });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.clearDeadState(room, 'p1');
+
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
+    expect(tk.conditions.some((c) => c.key === 'dead')).toBe(false);
+    expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(true);
+  });
+
+  it('Death Ward: падение до 0 от урона → 1 HP, эффект снят', () => {
+    const manager = setup();
+    const room = makeRoom({ controllers: { p1: 'lib1' }, resources: { p1: resources(20, 10) } });
+    const tk = token('t1', {
+      libraryItemId: 'lib1',
+      effects: [
+        { id: 'wd', name: 'Death Ward', duration: { type: 'rounds', rounds: 4800 }, modifiers: [], deathWard: true },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, -30);
+
+    expect(room.resources.p1!.hp.current).toBe(1);
+    expect(tk.effects.some((e) => e.deathWard)).toBe(false);
+    expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(false);
+  });
+});
+
 describe('RoomManager эффекты', () => {
   it('applyEffect связывает состояния, removeEffect снимает их вместе', () => {
     const manager = setup();

@@ -5927,3 +5927,36 @@ describe('анимация броска игрока (шанс)', () => {
     expect(roll?.roll.dice[0]?.advantage).toBe('a');
   });
 });
+
+describe('resources:deathSave и стабильность', () => {
+  it('стабильный не бросает death-сейв', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.resources.p1 = makeResources({
+      hp: { current: 0, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0, stable: true },
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:deathSave', { expression: 'd20' });
+
+    expect((f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined)?.code).toBe('alreadyStable');
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'death')).toBe(false);
+  });
+
+  it('три успеха делают стабильным и сбрасывают провалы', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.resources.p1 = makeResources({
+      hp: { current: 0, max: 30, temp: 0, deathSuccesses: 2, deathFailures: 1 },
+    });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11 → успех
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerResourceHandlers(f.ctx);
+
+    f.invoke('resources:deathSave', { expression: 'd20' });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.hp.stable).toBe(true);
+    expect(room.resources.p1!.hp.deathSuccesses).toBe(3);
+    expect(room.resources.p1!.hp.deathFailures).toBe(0);
+  });
+});

@@ -493,6 +493,14 @@ function wakeOnDamage(m: EffectsDeps, room: Room, token: Token): { mapId: string
   return [...pruned.values()];
 }
 
+/** Снимает Death Ward при падении до 0 HP; true — защита сработала (HP вместо этого = 1). */
+function consumeDeathWard(m: EffectsDeps, room: Room, token: Token): boolean {
+  const ward = token.effects.find((e) => e.deathWard);
+  if (!ward) return false;
+  removeEffect(m, room, token, ward.id);
+  return true;
+}
+
 /** Склеивает списки изменённых токенов без дублей (по id токена). */
 function mergeChanges(
   base: { mapId: string; token: Token }[],
@@ -532,11 +540,19 @@ export function adjustTokenHp(
     const before = res.hp.current;
     let next = before + delta;
     next = Math.min(res.hp.max, next);
+    if (delta < 0 && before > 0 && next <= 0 && consumeDeathWard(m, room, token)) next = 1;
     res.hp.current = next;
     if (delta > 0) {
-      res.hp.deathSuccesses = 0;
-      res.hp.deathFailures = 0;
+      // Лечение не оживляет: у мёртвого счётчики и «Мёртв» не сбрасываются (оживляет Revivify/ДМ).
+      if (res.hp.deathFailures < 3) {
+        res.hp.deathSuccesses = 0;
+        res.hp.deathFailures = 0;
+        if (next > 0) delete res.hp.stable;
+      }
     } else if (delta < 0 && before <= 0) {
+      // Урон по лежачему снимает стабильность и начинает death-сейвы заново.
+      delete res.hp.stable;
+      res.hp.deathSuccesses = 0;
       res.hp.deathFailures = Math.min(3, res.hp.deathFailures + (opts.crit ? 2 : 1));
     }
     m.saveSoon(room);
@@ -554,9 +570,62 @@ export function adjustTokenHp(
   }
   let next = token.hpCurrent + delta;
   if (max > 0) next = Math.min(max, next);
+  if (delta < 0 && token.hpCurrent > 0 && next <= 0 && consumeDeathWard(m, room, token)) next = 1;
+  const wasDead = token.conditions.some((c) => c.key === 'dead');
   token.hpCurrent = next;
-  applyDownState(token, next <= 0, next <= 0);
+  // Монстр мёртв при HP ≤ 0; лечение не оживляет (оживляет Revivify или снятие «Мёртв» ДМом).
+  applyDownState(token, !wasDead && next <= 0, wasDead || next <= 0);
   m.saveSoon(room);
   return mergeChanges([{ mapId, token }], woken);
+}
+
+/** Оживляет мёртвого (Revivify): HP = 1, death-сейвы и стабильность сброшены. */
+export function reviveToken(
+  m: EffectsDeps,
+  room: Room,
+  mapId: string,
+  token: Token
+): { mapId: string; token: Token }[] {
+  const controllerId = controllerIdOfToken(room, token);
+  const res = controllerId ? room.resources[controllerId] : undefined;
+  if (controllerId && res && res.hp.max > 0) {
+    res.hp.current = Math.min(res.hp.max, 1);
+    res.hp.deathSuccesses = 0;
+    res.hp.deathFailures = 0;
+    delete res.hp.stable;
+    m.saveSoon(room);
+    const changed = m.characterTokens(room, controllerId);
+    for (const c of changed) applyDownState(c.token, false, false);
+    return changed;
+  }
+  const max = statNumber(token.hpMax);
+  token.hpCurrent = max > 0 ? Math.min(max, 1) : 1;
+  applyDownState(token, false, false);
+  m.saveSoon(room);
+  return [{ mapId, token }];
+}
+
+/** Стабилизирует существо на 0 HP (Spare the Dying): death-сейвы больше не бросаются. */
+export function stabilizeToken(m: EffectsDeps, room: Room, token: Token): { mapId: string; token: Token }[] {
+  const controllerId = controllerIdOfToken(room, token);
+  const res = controllerId ? room.resources[controllerId] : undefined;
+  if (!controllerId || !res || res.hp.max <= 0) return [];
+  res.hp.stable = true;
+  res.hp.deathFailures = 0;
+  m.saveSoon(room);
+  return m.characterTokens(room, controllerId);
+}
+
+/** Ручное снятие «Мёртв» (ДМ): сбрасывает death-сейвы и стабильность, лежачих — в «Без сознания». */
+export function clearDeadState(m: EffectsDeps, room: Room, playerId: string): { mapId: string; token: Token }[] {
+  const res = room.resources[playerId];
+  if (!res) return [];
+  res.hp.deathSuccesses = 0;
+  res.hp.deathFailures = 0;
+  delete res.hp.stable;
+  m.saveSoon(room);
+  const changed = m.characterTokens(room, playerId);
+  for (const c of changed) applyDownState(c.token, res.hp.current <= 0, false);
+  return changed;
 }
 

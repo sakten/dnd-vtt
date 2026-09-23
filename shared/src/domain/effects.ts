@@ -180,4 +180,6 @@ export interface EffectInstance {
   consumeOnAttackRoll?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
   light?: LightSource;
+  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
+  deathWard?: boolean;
 }

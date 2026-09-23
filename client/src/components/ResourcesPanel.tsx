@@ -140,7 +140,14 @@ export default function ResourcesPanel() {
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 
   const setHp = (patch: Partial<PlayerResources['hp']>) =>
-    change((res) => ({ ...res, hp: { ...res.hp, ...patch } }));
+    change((res) => {
+      const hp = { ...res.hp, ...patch };
+      // Ручная правка сейвов/подъём HP снимает стабильность.
+      if (patch.deathSuccesses !== undefined || patch.deathFailures !== undefined || (patch.current ?? 0) > 0) {
+        delete hp.stable;
+      }
+      return { ...res, hp };
+    });
 
   const addResource = () => {
     const name = newName.trim();
@@ -226,6 +233,15 @@ export default function ResourcesPanel() {
                 ))}
                 <SkullIcon />
               </div>
+              {r.hp.stable && (
+                <button
+                  className="death-stable"
+                  title={t('ui.resources.stableClear')}
+                  onClick={() => setHp({ stable: false })}
+                >
+                  {t('ui.resources.stable')}
+                </button>
+              )}
             </div>
           </div>
 

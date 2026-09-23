@@ -101,6 +101,25 @@ describe('automationForSpell', () => {
     expect(automationForSpell(massCure).targets).toBe(6);
   });
 
+  it('Revivify/Spare the Dying/Death Ward — каталог, маркер «не автоматизировано» снят', () => {
+    const revivify = makeSpell({ key: 'XPHB:Revivify', name: 'Revivify', level: 3, automation: 'manual' });
+    const reviveDef = automationForSpell(revivify);
+    expect(reviveDef.resolution).toBe('utility');
+    expect(reviveDef.utility).toEqual({ kind: 'revive' });
+    expect(spellAutomated(revivify)).toBe(true);
+
+    const spare = makeSpell({ key: 'XPHB:Spare the Dying', name: 'Spare the Dying', level: 0, automation: 'manual' });
+    expect(automationForSpell(spare).utility).toEqual({ kind: 'stabilize' });
+    expect(spellAutomated(spare)).toBe(true);
+
+    const ward = makeSpell({ key: 'XPHB:Death Ward', name: 'Death Ward', level: 4, automation: 'manual' });
+    const wardDef = automationForSpell(ward);
+    expect(wardDef.resolution).toBe('effect');
+    expect(wardDef.effects?.[0]?.deathWard).toBe(true);
+    expect(wardDef.effects?.[0]?.duration).toEqual({ type: 'rounds', rounds: 4800 });
+    expect(spellAutomated(ward)).toBe(true);
+  });
+
   it('без механики — manual', () => {
     const def = automationForSpell(makeSpell({ level: 0, automation: 'manual' }));
     expect(def.resolution).toBe('manual');

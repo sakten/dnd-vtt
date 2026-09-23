@@ -198,6 +198,7 @@ export function sanitizeResources(
     temp: Math.max(0, finiteInt(input.hp?.temp)),
     deathSuccesses: Math.min(3, Math.max(0, finiteInt(input.hp?.deathSuccesses))),
     deathFailures: Math.min(3, Math.max(0, finiteInt(input.hp?.deathFailures))),
+    ...(input.hp?.stable === true ? { stable: true as const } : {}),
   };
 
   return {
@@ -220,10 +221,11 @@ export function applyRest(res: PlayerResources, type: 'short' | 'long'): PlayerR
     }
     return restore(r) ? { ...r, current: r.max } : r;
   };
+  const { stable: _stable, ...hpRest } = res.hp;
   return {
     hp:
       type === 'long'
-        ? { ...res.hp, current: res.hp.max, temp: 0, deathSuccesses: 0, deathFailures: 0 }
+        ? { ...hpRest, current: res.hp.max, temp: 0, deathSuccesses: 0, deathFailures: 0 }
         : res.hp,
     hitDice: type === 'long' ? res.hitDice.map((h) => ({ ...h, current: h.max })) : res.hitDice,
     spellSlots: type === 'long' ? res.spellSlots.map((s) => ({ ...s, current: s.max })) : res.spellSlots,

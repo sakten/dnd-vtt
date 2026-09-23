@@ -94,6 +94,8 @@ export interface AutomationEffect {
   mark?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
   light?: LightSource;
+  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
+  deathWard?: boolean;
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */
@@ -225,7 +227,11 @@ export interface AutomationUtility {
     | 'patientDefense'
     | 'stepOfTheWind'
     | 'moveZone'
-    | 'teleport';
+    | 'teleport'
+    /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
+    | 'revive'
+    /** Spare the Dying: цель на 0 HP становится стабильной. */
+    | 'stabilize';
   amount?: number;
   ability?: AbilityKey;
   /** Кость временных HP (tempHp), бросается один раз на всех. */

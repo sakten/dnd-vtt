@@ -15,6 +15,7 @@ import {
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
+import { actorStats } from '../room/actor';
 import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
@@ -114,6 +115,21 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (map && crossesWalls(caster, input.origin, map.walls, 'sight')) return { code: 'noClearPath' };
     if (!hasFreeSummonSpot(room, input.mapId, entry.cells, input.origin)) return { code: 'summonNoSpace' };
     return undefined;
+  }
+
+  // Revivify: цель должна быть мертва; Spare the Dying: цель на 0 HP, не мёртвая и не стабильная.
+  if (def.utility?.kind === 'revive' || def.utility?.kind === 'stabilize') {
+    if (!targets.length) return { code: 'spellNoTarget' };
+    for (const target of targets) {
+      const stats = actorStats(room, target);
+      const dead = target.conditions.some((c) => c.key === 'dead');
+      if (def.utility.kind === 'revive') {
+        if (!dead) return { code: 'reviveNotDead' };
+        continue;
+      }
+      if (dead || stats.hp.current > 0) return { code: 'stabilizeNotDying' };
+      if (stats.controllerId && room.resources[stats.controllerId]?.hp.stable) return { code: 'alreadyStable' };
+    }
   }
 
   // Телепорт (Misty Step): точка в пределах дистанции, свободна и видна кастеру.

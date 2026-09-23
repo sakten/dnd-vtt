@@ -34,6 +34,7 @@ export default function RollMenu() {
   const rollDice = useGameStore((s) => s.rollDice);
   const startTargeting = useGameStore((s) => s.startTargeting);
   const rollDeathSave = useGameStore((s) => s.rollDeathSave);
+  const resources = useGameStore((s) => s.resources);
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<MenuLevel>('root');
   const rollMode = useGameStore((s) => s.rollMode);
@@ -195,16 +196,18 @@ export default function RollMenu() {
                 <button className="roll-menu-item back" onClick={back('root')}>
                   {t('ui.roll.back')}
                 </button>
-                <button
-                  className="roll-menu-item" data-testid="roll-menu-item"
-                  onClick={() => {
-                    rollDeathSave(advantagedExpression('d20', rollMode === 'a', rollMode === 'd'));
-                    setRollMode(null);
-                    close();
-                  }}
-                >
-                  Death Save
-                </button>
+                {!resources?.hp.stable && (
+                  <button
+                    className="roll-menu-item" data-testid="roll-menu-item"
+                    onClick={() => {
+                      rollDeathSave(advantagedExpression('d20', rollMode === 'a', rollMode === 'd'));
+                      setRollMode(null);
+                      close();
+                    }}
+                  >
+                    Death Save
+                  </button>
+                )}
                 {ABILITIES.map((a) => (
                   <button
                     className="roll-menu-item" data-testid="roll-menu-item"

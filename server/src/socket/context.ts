@@ -253,7 +253,12 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!amount) return;
       const shapeBefore = token.shape?.key;
       const shapeSource = token.shape?.kind === 'polymorph' ? token.shape.sourceTokenId : undefined;
+      const hadWard = amount < 0 && token.effects.some((e) => e.deathWard);
       const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit });
+      // Death Ward сработал и рассеялся — сообщаем в чат (HP уже 1).
+      if (hadWard && !token.effects.some((e) => e.deathWard)) {
+        ctx.systemMessage(room, { code: 'automation.deathWard', params: { name: token.name } });
+      }
       for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
       // Смерть/недееспособность меняют контроль клеток — пересчёт «Окружён».
       syncSurrounded(ctx, room, mapId);

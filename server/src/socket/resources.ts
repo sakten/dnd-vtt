@@ -11,6 +11,7 @@ import {
   type RollLabelParams,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { endShapeToken, endShapesOf } from './forms';
 import { removeZonesOfSource } from './zones';
 import { playerScope, rejectIfReaction } from './guards';
@@ -54,6 +55,12 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const heal = Math.max(0, roll.total);
       entry.current -= 1;
       res.hp.current = Math.min(res.hp.max, res.hp.current + heal);
+      // Хит-дайс — тоже лечение: стабильность снимается, но мёртвых не оживляет.
+      if (res.hp.current > 0 && res.hp.deathFailures < 3) {
+        res.hp.deathSuccesses = 0;
+        res.hp.deathFailures = 0;
+        delete res.hp.stable;
+      }
       const changed = manager.characterTokens(room, playerId);
       const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
       pushRollMessage(ctx, room, {
@@ -102,6 +109,11 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const { room, playerId } = scope;
       const res = room.resources[playerId];
       if (!res) return;
+      // Стабильный (Spare the Dying/3 успеха) death-сейвы не бросает.
+      if (res.hp.stable) {
+        fail(ctx, 'alreadyStable');
+        return;
+      }
       const expr = typeof payload?.expression === 'string' ? payload.expression : 'd20';
       let roll: DiceRollResult;
       try {
@@ -126,9 +138,14 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         outcome = 'fail';
       }
       if (res.hp.deathFailures >= 3) {
+        delete res.hp.stable;
         for (const c of manager.markControlledTokensDead(room, playerId, true)) {
           emitToken(room, 'token:update', c.mapId, c.token);
         }
+      } else if (res.hp.deathSuccesses >= 3) {
+        // Три успеха = стабилен: death-сейвы больше не бросаются до получения урона.
+        res.hp.stable = true;
+        res.hp.deathFailures = 0;
       }
       const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
       const params: RollLabelParams = {

@@ -502,8 +502,8 @@ export class RoomManager {
   /**
    * Изменяет HP токена с учётом канона: у персонажа HP живёт в PlayerResources
    * и зеркалится в токены, у монстров — прямо в токене. HP может уходить в минус.
-   * Лечение сбрасывает death-сейвы; урон лежачему добавляет провал (крит — 2);
-   * HP ≤ 0 → «Без сознания»/«Мёртв». Возвращает изменившиеся токены для рассылки.
+   * Лечение сбрасывает death-сейвы (но не оживляет мёртвых); урон лежачему добавляет
+   * провал (крит — 2); HP ≤ 0 → «Без сознания»/«Мёртв». Возвращает изменившиеся токены.
    */
   adjustTokenHp(
     room: Room,
@@ -513,6 +513,21 @@ export class RoomManager {
     opts: { crit?: boolean } = {}
   ): { mapId: string; token: Token }[] {
     return Effects.adjustTokenHp(this, room, mapId, token, delta, opts);
+  }
+
+  /** Revivify: вернуть мёртвого к жизни с 1 HP. */
+  reviveToken(room: Room, mapId: string, token: Token): { mapId: string; token: Token }[] {
+    return Effects.reviveToken(this, room, mapId, token);
+  }
+
+  /** Spare the Dying: цель на 0 HP становится стабильной. */
+  stabilizeToken(room: Room, token: Token): { mapId: string; token: Token }[] {
+    return Effects.stabilizeToken(this, room, token);
+  }
+
+  /** Ручное снятие «Мёртв» ДМом: сброс death-сейвов, лежачие — «Без сознания». */
+  clearDeadState(room: Room, playerId: string): { mapId: string; token: Token }[] {
+    return Effects.clearDeadState(this, room, playerId);
   }
 
   saveSoon(room: Room) {
