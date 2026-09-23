@@ -338,6 +338,8 @@ export interface AutomationDef extends AutomationPayload {
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   /** Фильтр целей по отношению к кастеру (Conjure Woodland Beings: только враги). */
   side?: 'hostile' | 'ally';
+  /** Типы существ, на которых заклинание не действует (Command: нежить) — цели пропускаются. */
+  excludeCreatureTypes?: string[];
   /** Лечение на половину фактически нанесённого урона (Vampiric Touch). */
   lifesteal?: boolean;
   /** Перенос метки эффекта на новую цель (Hex/Hunter's Mark): обновляет filter.targetId. */

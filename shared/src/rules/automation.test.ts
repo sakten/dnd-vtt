@@ -995,6 +995,28 @@ describe('automationForSpell', () => {
     expect(effect?.breakOn).toEqual(['attack', 'spell', 'damage']);
     expect(spellAutomated({ key: 'XPHB:Sanctuary', automation: 'manual' })).toBe(true);
   });
+
+  it('Command: вариант-приказ (halt/grovel/flee), апкаст и исключение нежити', () => {
+    const spell = makeSpell({ key: 'XPHB:Command', name: 'Command', level: 1, automation: 'manual' });
+    const halt = automationForSpell(spell, { variant: 'halt' });
+    expect(halt.resolution).toBe('effect');
+    expect(halt.save).toEqual({ ability: 'wis' });
+    expect(halt.excludeCreatureTypes).toEqual(['undead']);
+    const effect = halt.effects?.[0];
+    expect(effect?.modifiers).toEqual([{ target: 'speed', mode: 'multiply', value: 0 }]);
+    expect(effect?.restrictions).toEqual({ noActions: true, noBonus: true });
+    expect(effect?.variant).toBe('halt');
+    expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'target' });
+
+    const grovel = automationForSpell(spell, { variant: 'grovel' });
+    expect(grovel.effects?.[0]?.conditions).toEqual(['prone']);
+    expect(grovel.effects?.[0]?.modifiers).toEqual([{ target: 'speed', mode: 'multiply', value: 0 }]);
+
+    const flee = automationForSpell(spell, { variant: 'flee' });
+    expect(flee.effects?.[0]?.modifiers).toEqual([]);
+    expect(flee.effects?.[0]?.conditions).toBeUndefined();
+    expect(spellAutomated({ key: 'XPHB:Command', automation: 'manual' })).toBe(true);
+  });
 });
 
 describe('automationForAction', () => {

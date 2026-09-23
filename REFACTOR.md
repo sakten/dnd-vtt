@@ -2,7 +2,7 @@
 
 > **Временное к релизу** (совместимость, костыли, лицензии) — `ISSUES_RELEASE.md`.
 > **Назначение:** открытая очередь технических работ (R6–R9). Продукт, фазы и очередь контента классов — `PLAN.md`; карта кода — `ARCHITECTURE.md`; деплой — `DEPLOY.md`.
-> **Очередь:** R7.7, R7.10, R9.1–R9.4, R10, R11, R12 (карточки ниже — единственный источник деталей).
+> **Очередь:** R7.7, R7.10, R9.1–R9.4, R10, R11, R12, R14 (карточки ниже — единственный источник деталей).
 > **Сделано (в истории git):** R6.1–R6.9, R7.1–R7.5, R7.6, R7.8, R7.9, R7.11, R8.1–R8.8 (фундамент черт + лог партий 1–22), R8.6 (метки бросков) — `git log -p -- REFACTOR.md`.
 > **Проверки:** в цикле — `npm run check:quiet`; перед деплоем — полный `npm run verify` (обязателен).
 > **Порядок дальше:** движок restrictions → зоны → призывы (сделаны; хвосты — в карточках).
@@ -47,3 +47,9 @@
 ## R12. Якорь концентрации — явный флаг вместо эвристики. P3, S (из сессии 23.09.2026).
 `pruneConcentration` (`server/src/room/effects.ts`) отличает служебный якорь от эффекта-цели эвристикой `isConcentrationAnchor`: пустой concentration-эффект без условий/модификаторов/mark/wakeOnDamage. Сегодня безопасно (под неё попадают только self-эффекты Expeditious Retreat и Conjure Woodland Beings, прикрытые типом/зоной), но новый спелл с такой формой эффекта-цели сломает снятие концентрации по «последней цели».
 **Что сделать:** помечать якорь при создании (`anchor: true` в `applyDefEffects`/`anchorConcentration`), сохранять флаг в `normalizeEffect`; в `isConcentrationAnchor` проверять флаг. **Не делать счётчик эффектов вместо производной проверки:** второй источник истины, дрейфует на всех путях удаления (wake, tick×2, clearConcentration, отдых, удаление токена, dispel, `patch.effects`), требует нормализации/миграции JSON.
+
+## R14. Реактивные триггеры эффектов — единый диспетчер. P3, S/M (отложено: ждём 2+ реактивных спелла в очереди).
+Сейчас каждый реактивный спелл сам вклинивается в резолверы: `sanctuary` — входы оружейной атаки (`resolveWeaponAttackWithReactions`, `resolveWeaponAttack`) и `spells.ts`; `retaliate` — `applyDamage` + проброс `attacker/melee` из `attackResolve`/`automation.applyResult`; `breakOn` — три хука (attack/spell/damage); `ward`/Absorb Elements — окна реакций; `damageLink`/`saveOnDamage`/`wakeOnDamage`/`deathWard` — внутри `applyDamage`/`adjustTokenHp` (порядок критичен).
+**Что сделать:** `server/src/socket/effectTriggers.ts` — `gateAttackOnTarget(ctx, room, attacker, target, source)` (Sanctuary и будущие «нельзя выбрать целью»; вызов из двух входов атаки и каста) и `afterDamage(ctx, room, mapId, target, attacker, { melee, damageType, amount })` (retaliate, `breakOn:'damage'`, позже Fire Shield). Мигрировать sanctuary/retaliate/breakOn, порядок зафиксировать тестами: Sanctuary — до окна реакций, ответка — после урона.
+**Не трогать:** окна реакций (ward/Absorb Elements остаются в `reactions/*`) и `damageLink`/temp HP/`deathWard` (порядок в `adjustTokenHp`).
+**Условие старта:** 2+ новых реактивных спелла в очереди; для двух уже сделанных выигрыша нет, а риск смены порядка ненулевой.

@@ -220,6 +220,7 @@ export function restrictionsFor(
     for (const key of BOOLEAN_RESTRICTIONS) {
       if (added[key]) out[key] = true;
     }
+    if (added.noActions) out.noActionsFromEffect = true;
     if (added.spellFailureChance) {
       out.spellFailureChance = Math.max(out.spellFailureChance ?? 0, added.spellFailureChance);
     }

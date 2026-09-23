@@ -1,5 +1,6 @@
 import {
   DiceParseError,
+  restrictionsFor,
   rollDice,
   weaponHasProperty,
   type AttackEntry,
@@ -83,7 +84,15 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           fail(ctx, 'notYourTurn');
           return false;
         }
-        if (!isDm() && !manager.canAttack(room, combatant.mapId, combatant.token, { unarmed: entry.kind === 'unarmed' })) {
+        const blocked = !manager.canAttack(room, combatant.mapId, combatant.token, {
+          unarmed: entry.kind === 'unarmed',
+        });
+        // Запрет действий от эффекта (Command/Slow) не обходит даже DM.
+        const effectBlock = restrictionsFor(
+          combatant.token.conditions,
+          combatant.token.effects
+        ).noActionsFromEffect === true;
+        if (blocked && (!isDm() || effectBlock)) {
           fail(ctx, 'actionSpent');
           return false;
         }

@@ -1232,6 +1232,38 @@ describe('action:use', () => {
     expect(attack?.roll?.dice?.[0]?.advantage).toBe('a');
   });
 
+  it('Command на монстре: запрет действия от эффекта действует и для DM', () => {
+    const sword: AttackEntry = {
+      name: 'Клинок',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+    };
+    const room = makeRoom([
+      makeToken('t1', { attacks: [sword], x: 100, y: 100 }),
+      makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ]);
+    room.scene.maps[0]!.tokens[0]!.effects.push({
+      id: 'cmd1',
+      name: 'Command',
+      sourceKey: 'XPHB:Command',
+      duration: { type: 'endOfTurn', of: 'target' },
+      modifiers: [{ id: 'cmd1:m0', target: 'speed', mode: 'multiply', value: 0 }],
+      restrictions: { noActions: true, noBonus: true },
+      variant: 'halt',
+    });
+    const f = makeCtx(room, { dm: true });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    expect((f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined)?.code).toBe('incapacitated');
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'attack')).toBe(false);
+  });
+
   it('способность босса: вне дистанции и без точки области действие не тратится', () => {
     const statblock: TokenStatblock = {
       abilities: { ...DEFAULT_ABILITIES },

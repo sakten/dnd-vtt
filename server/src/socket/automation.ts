@@ -1117,7 +1117,11 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
       )
     : input.targets;
   // Фильтр по отношению к кастеру (Conjure Woodland Beings: только враги).
-  const targets = def.side ? rawTargets.filter((t) => sideMatches(caster, t, def.side!)) : rawTargets;
+  const sided = def.side ? rawTargets.filter((t) => sideMatches(caster, t, def.side!)) : rawTargets;
+  // Типы-исключения (Command: нежить) — такие цели пропускаются, каст может уйти впустую.
+  const targets = def.excludeCreatureTypes?.length
+    ? sided.filter((t) => !def.excludeCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''))
+    : sided;
 
   if (def.resolution === 'utility' && def.utility) {
     applyUtility(ctx, { ...input, targets });

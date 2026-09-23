@@ -34,6 +34,8 @@ export function attackAvailable(
   restrictions: Restrictions,
   opts: { unarmed?: boolean } = {}
 ): boolean {
+  // Запрет действий от эффекта (Command/Slow) обходит даже DM: атака недоступна.
+  if (restrictions.noActionsFromEffect) return false;
   if (restrictions.oneAttackOnly && turn.actionUsed) return false;
   const flurry = opts.unarmed === true && turn.flurryAttacks > 0;
   return turn.attacksRemaining > 0 || flurry || !turn.actionUsed || turn.extraActions > 0;

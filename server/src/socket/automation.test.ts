@@ -413,6 +413,35 @@ describe('концентрация заклинаний с зонами', () => 
     success.mockRestore();
   });
 
+  it('Command: нежить получает каст впустую, остальные — приказ', () => {
+    const abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 150, y: 100, statblock: { abilities, creatureType: 'humanoid' } }),
+        makeToken('t3', { x: 150, y: 150, statblock: { abilities, creatureType: 'undead' } }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, humanoid, undead] = room.scene.maps[0]!.tokens;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11 → спас провален
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Command')!, { variant: 'halt' }),
+      targets: [humanoid!, undead!],
+      stats,
+      author: 'DM',
+    });
+    rand.mockRestore();
+
+    expect(undead!.effects.some((e) => e.sourceKey === 'XPHB:Command')).toBe(false);
+    const order = humanoid!.effects.find((e) => e.sourceKey === 'XPHB:Command');
+    expect(order?.restrictions?.noActions).toBe(true);
+    expect(order?.variant).toBe('halt');
+  });
+
   it('Enhance Ability: выбранная характеристика — преимущество проверок цели', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

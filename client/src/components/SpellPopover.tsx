@@ -354,7 +354,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                   ? t('ui.spellPopover.effectChoice')
                   : variantDef.param === 'skill'
                     ? t('ui.spellPopover.skillChoice')
-                    : t('ui.spellPopover.damageType')}
+                    : variantDef.param === 'command'
+                      ? t('ui.spellPopover.commandChoice')
+                      : t('ui.spellPopover.damageType')}
             </span>
             <select className="sp-select" value={variant} onChange={(e) => setVariant(e.target.value)}>
               {variantDef.options.map((option) => (
@@ -365,7 +367,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                       ? t(`ui.eyebite.${option}` as MessageKey)
                       : variantDef.param === 'skill'
                         ? skillName(option)
-                        : damageLabel(option)}
+                        : variantDef.param === 'command'
+                          ? t(`ui.command.${option}` as MessageKey)
+                          : damageLabel(option)}
                 </option>
               ))}
             </select>

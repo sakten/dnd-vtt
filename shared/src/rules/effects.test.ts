@@ -165,8 +165,7 @@ describe('спасброски', () => {
     expect(saveRollParts([aura], 'wis').mode).toBeUndefined();
   });
 
-  it('флаги Beacon of Hope: максимум лечения и death-сейвы', () => {
-    const beacon = effect({ maximizeHealing: true, deathSaveAdvantage: true });
+  it('флаги Beacon of Hope: максимум лечения и death-сейвы', () => {    const beacon = effect({ maximizeHealing: true, deathSaveAdvantage: true });
     expect(maximizeHealing([beacon])).toBe(true);
     expect(deathSaveAdvantage([beacon])).toBe(true);
     expect(maximizeHealing([])).toBe(false);
@@ -427,5 +426,15 @@ describe('restrictionsFor', () => {
   it('эффект может запрещать заклинания (Ярость)', () => {
     const r = restrictionsFor(undefined, [effect({ restrictions: { noSpells: true } })]);
     expect(r.noSpells).toBe(true);
+  });
+
+  it('noActions от эффекта помечается — его не обходит даже DM (Command/Slow)', () => {
+    const fromEffect = restrictionsFor(undefined, [effect({ restrictions: { noActions: true } })]);
+    expect(fromEffect.noActions).toBe(true);
+    expect(fromEffect.noActionsFromEffect).toBe(true);
+
+    const fromCondition = restrictionsFor([{ key: 'stunned', name: 'Ошеломлён', rounds: null }], []);
+    expect(fromCondition.noActions).toBe(true);
+    expect(fromCondition.noActionsFromEffect).toBeUndefined();
   });
 });

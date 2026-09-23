@@ -105,6 +105,14 @@ describe('attackAvailable / consumeAttackTurn', () => {
     expect(consumeAttackTurn(turn, 3, { oneAttackOnly: true })).toBe(false);
   });
 
+  it('Command/Slow: запрет действий от эффекта блокирует атаку (даже с запасом)', () => {
+    const turn = { ...emptyTurnState(), attacksRemaining: 3 };
+    expect(attackAvailable(turn, { noActions: true, noActionsFromEffect: true })).toBe(false);
+    expect(consumeAttackTurn(turn, 3, { noActions: true, noActionsFromEffect: true })).toBe(false);
+    // Состояние (без пометки) атаку здесь не блокирует — им управляет гейт недееспособности.
+    expect(attackAvailable(turn, { noActions: true })).toBe(true);
+  });
+
   it('Шквал ударов: безоружный запас, оружием его не потратить', () => {
     const turn = { ...emptyTurnState(), actionUsed: true, flurryAttacks: 1 };
     expect(attackAvailable(turn, {})).toBe(false);

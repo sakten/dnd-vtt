@@ -1,5 +1,5 @@
 import { spellVariantDef, type AbilityKey, type EffectInstance, type Spell } from 'shared';
-import { t } from '../i18n';
+import { t, type MessageKey } from '../i18n';
 import { abilityName, damageLabel, effectDurationText, effectSummaryText, skillName } from '../i18n/domain';
 import ChipRow from './ChipRow';
 import SpellIcon from './SpellIcon';
@@ -38,7 +38,9 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
         ? abilityName(e.variant as AbilityKey)
         : variantParam === 'skill'
           ? skillName(e.variant)
-          : damageLabel(e.variant)
+          : variantParam === 'command'
+            ? t(`ui.command.${e.variant}` as MessageKey)
+            : damageLabel(e.variant)
       : '';
     const label = variantLabel ? `${e.name} (${variantLabel})` : e.name;
     return {

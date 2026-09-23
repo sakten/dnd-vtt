@@ -143,6 +143,8 @@ export interface EffectEscape {
 export interface Restrictions {
   noActions?: boolean;
   noBonus?: boolean;
+  /** `noActions` пришёл от эффекта, а не от состояния (эффекты не обходит даже DM). */
+  noActionsFromEffect?: boolean;
   noReactions?: boolean;
   /** Нельзя атаковать по возможности (Shocking Grasp). */
   noOpportunityAttacks?: boolean;

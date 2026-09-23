@@ -56,7 +56,10 @@ export function rejectIfReaction(ctx: ConnCtx, silent = false): boolean {
 
 /** true — действия запрещены (недееспособность или ограничения эффекта): отклонено. */
 export function rejectIfIncapacitated(ctx: ConnCtx, token: Token): boolean {
-  if (ctx.isDm() || !restrictionsFor(token.conditions, token.effects).noActions) return false;
+  const all = restrictionsFor(token.conditions, token.effects);
+  if (!all.noActions) return false;
+  // DM обходит только состояния; запрет действия от эффекта (Command/Slow) действует и для него.
+  if (ctx.isDm() && !all.noActionsFromEffect) return false;
   fail(ctx, 'incapacitated');
   return true;
 }

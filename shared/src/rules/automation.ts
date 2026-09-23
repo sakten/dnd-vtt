@@ -10,7 +10,7 @@ import type {
   LightSource,
   ZoneDef,
 } from '../domain/automation';
-import type { EffectDuration } from '../domain/effects';
+import type { ConditionKey, EffectDuration, Modifier } from '../domain/effects';
 import type { ClassLevel } from '../domain/sheet';
 import { DAMAGE_TYPES, SKILLS } from '../labels';
 import { AUTOMATION_ACTIONS } from './automationActions';
@@ -1153,7 +1153,7 @@ export interface AutomationOptions {
 
 /** Вариант заклинания, выбираемый при касте (Dragon's Breath: тип урона; Enhance Ability: характеристика; Eyebite: эффект). */
 export interface SpellVariantDef {
-  param: 'damageType' | 'ability' | 'effect' | 'skill';
+  param: 'damageType' | 'ability' | 'effect' | 'skill' | 'command';
   options: string[];
 }
 
@@ -1163,6 +1163,7 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Eyebite': { param: 'effect', options: ['asleep', 'panicked', 'sickened'] },
   'XPHB:Protection from Energy': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
   'XGE:Skill Empowerment': { param: 'skill', options: SKILLS.map((s) => s.key) },
+  'XPHB:Command': { param: 'command', options: ['approach', 'drop', 'flee', 'grovel', 'halt'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -1182,6 +1183,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Heroism',
   'XPHB:Enhance Ability',
   'XGE:Skill Empowerment',
+  'XPHB:Command',
   'XGE:Far Step',
   'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
@@ -1456,6 +1458,36 @@ function armorOfAgathysDef(spell: Spell, opts: AutomationOptions): AutomationDef
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
 
+/** Command (XPHB): выбранный приказ действует до конца следующего хода цели; Approach/Drop/Flee — ручные. */
+function commandDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Command') return undefined;
+  const variants = SPELL_VARIANTS[spell.key];
+  const variant = variants?.options.includes(opts.variant ?? '') ? opts.variant! : 'halt';
+  const modifiers: Omit<Modifier, 'id'>[] = [];
+  const conditions: ConditionKey[] = [];
+  if (variant === 'halt' || variant === 'grovel') modifiers.push({ target: 'speed', mode: 'multiply', value: 0 });
+  if (variant === 'grovel') conditions.push('prone');
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: { type: 'endOfTurn', of: 'target' },
+    to: 'targets',
+    targets: 1,
+    modifiers,
+    ...(conditions.length ? { conditions } : {}),
+    // Обычное и бонусное действие теряется у всех вариантов приказа.
+    restrictions: { noActions: true, noBonus: true },
+    variant,
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    save: { ability: 'wis' },
+    excludeCreatureTypes: ['undead'],
+    effects: [effect],
+  };
+}
+
 /** Far Step (XGE): телепорт 60 фт при касте; пока концентрация — тем же бонусным действием. */
 function farStepDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XGE:Far Step') return undefined;
@@ -1705,6 +1737,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const eyebite = eyebiteDef(spell, opts);
   if (eyebite) return eyebite;
+
+  const command = commandDef(spell, opts);
+  if (command) return command;
 
   const searing = searingSmiteDef(spell, opts);
   if (searing) return searing;
