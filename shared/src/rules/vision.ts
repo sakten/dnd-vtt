@@ -53,6 +53,49 @@ export function lightCells(
   return out;
 }
 
+export interface MapLightSource {
+  key: string;
+  x: number;
+  y: number;
+  light: LightSource;
+}
+
+/** Свет ярче: bright > dim, при равенстве — больший суммарный радиус. */
+function brighterLight(a: LightSource, b: LightSource): boolean {
+  const rank = (l: LightSource) => (l.bright > 0 ? 2 : 1);
+  if (rank(a) !== rank(b)) return rank(a) > rank(b);
+  return a.bright + a.dim > b.bright + b.dim;
+}
+
+/** Источники света карты: сильнейший видимый свет эффекта на токен + светящиеся зоны. */
+export function mapLights(tokens: Token[], zones: ZoneInstance[]): MapLightSource[] {
+  const items: MapLightSource[] = [];
+  for (const token of tokens) {
+    let best: LightSource | undefined;
+    for (const effect of token.effects) {
+      if (!effect.light || effect.hidden) continue;
+      if (!best || brighterLight(effect.light, best)) best = effect.light;
+    }
+    if (best) items.push({ key: `t:${token.id}`, x: token.x, y: token.y, light: best });
+  }
+  for (const zone of zones) {
+    if (!zone.light || !zone.origin) continue;
+    items.push({ key: `z:${zone.id}`, x: zone.origin.x, y: zone.origin.y, light: zone.light });
+  }
+  return items;
+}
+
+/** Клетки света карты с тенями от стен (общий расчёт для клиента и серверных проверок обзора). */
+export function mapLightCells(
+  tokens: Token[],
+  zones: ZoneInstance[],
+  grid: AreaGrid,
+  walls: Wall[] = []
+): Map<string, LightLevel> {
+  const emitters: LightEmitter[] = mapLights(tokens, zones).map((l) => ({ x: l.x, y: l.y, light: l.light }));
+  return lightCells(emitters, grid, walls);
+}
+
 export interface SightContext {
   walls: Wall[];
   /** Карта в «Темноте»: дальность ограничена восприятием. */

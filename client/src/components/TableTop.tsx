@@ -267,6 +267,8 @@ export default function TableTop() {
   }, [multiTarget, activeMap]);
 
   const spellByKey = useSpellByKey();
+  // Свет заклинаний: общий с вуалью — учитывается и в предпросмотре атаки (невидимость).
+  const lightMap = useMapLight();
   const measure = useMemo(() => {
     if (!activeMap || !targeting || !hoverTokenId) return null;
     const from = targeting.tokenId ? tokenById(activeMap, targeting.tokenId) : null;
@@ -287,7 +289,10 @@ export default function TableTop() {
       (t) => t.id !== from.id && t.visible !== false && hostileTokens(from, t) && gridDistanceFeet(from, t, size) <= 5
     );
     const range = attack ? attackRange(attack, feet, adjacentEnemy, modifiedValue(0, from.effects, 'reach')) : null;
-    const sight = sightContextOf(activeMap, { size, offsetX: grid.offsetX, offsetY: grid.offsetY });
+    const sight = {
+      ...sightContextOf(activeMap, { size, offsetX: grid.offsetX, offsetY: grid.offsetY }),
+      light: lightMap,
+    };
     const unseen = unseenBetween(from, to, from.senses, to.senses, sight);
     const heavy =
       !!attack && weaponHasProperty(attack, 'H') && !!abilities
@@ -333,7 +338,7 @@ export default function TableTop() {
       advantage: sources.filter((s) => s.side === 'advantage'),
       disadvantage: sources.filter((s) => s.side === 'disadvantage'),
     };
-  }, [activeMap, targeting, hoverTokenId, grid.size, grid.offsetX, grid.offsetY, sheet, currentCharacterId, spellByKey, optionalRules]);
+  }, [activeMap, targeting, hoverTokenId, grid.size, grid.offsetX, grid.offsetY, sheet, currentCharacterId, spellByKey, optionalRules, lightMap]);
 
   const attackPreview = useMemo<AttackPreviewData | null>(() => {
     if (!measure || (!measure.advantage.length && !measure.disadvantage.length)) return null;
@@ -359,9 +364,6 @@ export default function TableTop() {
   const veilZones = activeMap?.zones;
   const veilWidth = activeMap?.width ?? 0;
   const veilHeight = activeMap?.height ?? 0;
-  // Свет заклинаний: клетки с ярким/сумеречным светом (с тенями от стен) — для вуали и ходьбы.
-  const lightMap = useMapLight();
-
   const visionView = useMemo(() => {
     if (!veilActive || isDm) return null;
     const cell = grid.size || 50;

@@ -28,6 +28,27 @@ describe('attackUnseen', () => {
     map.walls = [];
     expect(attackUnseen(room, attacker, target, map)).toEqual({ unseenTarget: false, unseenAttacker: false });
   });
+
+  it('«Темнота»: свет заклинания (Daylight) снимает невидимость', () => {
+    const attacker = makeToken('a', { x: 50, y: 100 });
+    const target = makeToken('t', { x: 150, y: 100 });
+    const room = makeCombatRoom([attacker, target]);
+    const map = room.scene.maps[0]!;
+    map.vision = { los: false, darkness: true };
+
+    expect(attackUnseen(room, attacker, target, map)).toEqual({ unseenTarget: true, unseenAttacker: true });
+
+    target.effects = [
+      {
+        id: 'l1',
+        name: 'Daylight',
+        duration: { type: 'rounds', rounds: 600 },
+        modifiers: [],
+        light: { bright: 60, dim: 60 },
+      },
+    ];
+    expect(attackUnseen(room, attacker, target, map)).toEqual({ unseenTarget: false, unseenAttacker: false });
+  });
 });
 
 describe('attackHitRoll', () => {

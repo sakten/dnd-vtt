@@ -11,10 +11,12 @@ import {
   DiceParseError,
   exhaustionRollPenalty,
   gridDistanceFeet,
+  gridOfMap,
   hostileTokens,
   isCriticalFail,
   isCriticalHit,
   isSurrounded,
+  mapLightCells,
   modifiedValue,
   parseDiceExpression,
   proficiencyBonus,
@@ -82,8 +84,12 @@ export function attackUnseen(
   target: Token,
   map: MapInfo
 ): { unseenTarget: boolean; unseenAttacker: boolean } {
-  const size = gridSizeOfMap(map);
-  const sight = sightContextOf(map, { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY });
+  const grid = gridOfMap(map, room.scene.grid);
+  // Свет заклинаний (Light, Daylight, факелы-эффекты) — как в вуали: в «Темноте» он снимает невидимость.
+  const sight = {
+    ...sightContextOf(map, grid),
+    light: mapLightCells(map.tokens, map.zones ?? [], grid, map.walls),
+  };
   return unseenBetween(
     attacker,
     target,
