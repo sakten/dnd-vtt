@@ -33,13 +33,13 @@
 
 ## B. Баффы оружия/себя — `effect`-модификаторы — 21
 
-> Порядок: B1 ✅ → B2 → B3 → B5; **B4 (трансформации: Guardian of Nature, Tenser's, Alter Self, Enlarge/Reduce, Investitures) отложено владельцем**.
+> Порядок: B1 ✅ → B2 ✅ → B3 → B5; **B4 (трансформации: Guardian of Nature, Tenser's, Alter Self, Enlarge/Reduce, Investitures) отложено владельцем**.
 
 | Группа | Механизм |
 |---|---|
 | ✅ B1: `XPHB:Divine Favor` (свои атаки +1d4), `XPHB:Crusader's Mantle` (аура 30 фт союзникам), `XGE:Holy Weapon` (+2d8, свет, «Разряд» бонус-действием с завершением) | `damage:add` c `weapon:true`; аура зоны; `actionCarrier`+`endsEffect` |
-| ⚠️ B2: `XPHB:Elemental Weapon`, `XGE:Flame Arrows`, `TCE:Spirit Shroud`, `XPHB:Conjure Minor Elementals` | `damage:add`/`attack:add` c `weapon:true` (как Magic Weapon), выбор типа — `variant` |
-| `XPHB:Fire Shield`, `XGE:Shadow of Moil` | ✅ `retaliate` (как Armor of Agathys) |
+| ✅ B2: `XPHB:Elemental Weapon` (ступени +1/+2/+3 и 1d4/2d4/3d4), `TCE:Spirit Shroud` (аура 10 фт: −10 футов и доп. урон от атак кастера по цели-метке), `XGE:Flame Arrows` (+1d6 огнём дальнему оружию, счётчик 12 зарядов) | `damage:add`/`attack:add`, зона-аура, `takesExtraDamage`, `charges` |
+| `XPHB:Fire Shield`, `XGE:Shadow of Moil` | ✅ `retaliate` костями (2d8), сопротивление; Moil — помеха атакам по носителю (`direction: against`) |
 | `XGE:Shadow Blade` | ⚠️ создание оружия: грантованный attack-action (как Flame Blade), метание/возврат бонусным действием |
 | `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind`, `XPHB:Fount of Moonlight` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
 | `XPHB:Shillelagh` | ⚠️ замена кости оружия и характеристики атаки — отдельного модификатора нет |
