@@ -40,6 +40,35 @@ export function tickEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, toke
 }
 
 /**
+ * Триггеры эффектов в конце хода носителя: отложенный урон (Vitriolic Sphere).
+ * Одноразовые — после срабатывания эффект снимается целиком.
+ */
+export function tickEndTurnEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, token: Token) {
+  for (const effect of [...token.effects]) {
+    const trigger = effect.triggers?.endOfTurn;
+    if (!trigger) continue;
+    const damage = trigger.damage;
+    if (damage?.dice) {
+      const roll = rollDice(damage.dice);
+      if (roll.total > 0) {
+        const damageType = singleDamageType(damage.types);
+        applyDamage(ctx, {
+          target: token,
+          mapId,
+          amount: roll.total,
+          damageType,
+          roll,
+          author: effect.name,
+          kind: 'damage',
+          params: { subject: `${effect.name} · ${token.name}`, damageType },
+        });
+      }
+    }
+    if (ctx.manager.removeEffect(room, token, effect.id)) ctx.emitToken(room, 'token:update', mapId, token);
+  }
+}
+
+/**
  * Повторные спасброски эффектов «от урона» (Hideous Laughter): успех снимает
  * эффект вместе с состояниями; преимущество — флаг эффекта (XPHB).
  */

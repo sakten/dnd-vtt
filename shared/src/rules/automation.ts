@@ -1358,6 +1358,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Destructive Wave',
   'XPHB:Wall of Thorns',
   'XPHB:Ice Knife',
+  'XPHB:Vitriolic Sphere',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -2281,6 +2282,33 @@ function iceKnifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | und
   };
 }
 
+/**
+ * Vitriolic Sphere (XPHB 2024): спас DEX (успех — половина первичного урона),
+ * 10к4 кислотой (+2к4 за круг выше 4); провал — в конце следующего хода
+ * носителя ещё 5к4 кислотой (одноразовый `triggers.endOfTurn`).
+ */
+function vitriolicSphereDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Vitriolic Sphere') return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const primary = scaledDice('10d4', spell.upcast?.dice, upcastSteps(spell, level));
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${primary}acid`, types: ['acid'] },
+    effects: [
+      {
+        name: spell.name,
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [],
+        triggers: { endOfTurn: { damage: { dice: '5d4acid', types: ['acid'] } } },
+      },
+    ],
+  };
+}
+
 /** Часть составного урона: кость и тип (Flame Strike: 5d6 огнём + 5d6 излучением). */
 interface CompositePart {
   dice: string;
@@ -2577,6 +2605,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const iceKnife = iceKnifeDef(spell, opts);
   if (iceKnife) return iceKnife;
+
+  const vitriolic = vitriolicSphereDef(spell, opts);
+  if (vitriolic) return vitriolic;
 
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;

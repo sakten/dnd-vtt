@@ -1,7 +1,7 @@
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushSaveMessage } from './messages';
-import { tickEffectTriggers } from './effects';
+import { tickEffectTriggers, tickEndTurnEffectTriggers } from './effects';
 import { removeTokenCompletely } from './tokenRemove';
 import { tickZones } from './zones';
 
@@ -18,6 +18,8 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
 
   // Триггеры эффектов (Heroism, смайты) — до спасбросков untilSave: урон, затем спас.
   if (phase === 'start') tickEffectTriggers(ctx, room, mapId, token);
+  // Отложенный урон в конце хода носителя (Vitriolic Sphere) — до тика эффектов.
+  if (phase === 'end') tickEndTurnEffectTriggers(ctx, room, mapId, token);
 
   const conditions = ctx.manager.tickConditions(room, token, phase);
   for (const save of conditions.saves) {

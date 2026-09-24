@@ -216,8 +216,12 @@ export interface EffectInstance {
   conditionImmunities?: ConditionKey[];
   /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
   conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
-  /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
-  triggers?: { startOfTurn?: EffectTurnPayload };
+  /**
+   * Срабатывания эффекта: `startOfTurn` — начало хода носителя (Heroism,
+   * смайты), `endOfTurn` — конец его хода, одноразово (Vitriolic Sphere):
+   * отложенный урон, после срабатывания эффект снимается.
+   */
+  triggers?: { startOfTurn?: EffectTurnPayload; endOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
   /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */

@@ -474,7 +474,10 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       deathWard: true,
       conditionImmunities: ['charmed'],
       conditionImmunitiesFrom: { conditions: ['charmed'], types: ['fiend'] },
-      triggers: { startOfTurn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } } },
+      triggers: {
+        startOfTurn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } },
+        endOfTurn: { damage: { dice: '5d4', types: ['acid'] } },
+      },
       magicWeapon: true,
       weaponOverride: { weapons: ['XPHB:Club'], dice: '1d10', damageType: 'force', abilityMod: 4 },
       shadowBlade: { dice: '3d8', inHand: false },

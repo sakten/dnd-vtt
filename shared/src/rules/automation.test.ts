@@ -1777,4 +1777,24 @@ describe('Составной урон (D)', () => {
       { dice: '2d6', types: ['cold'] },
     ]);
   });
+
+  it('Vitriolic Sphere: 10к4 кислотой (+2к4/круг), провал — 5к4 в конце следующего хода', () => {
+    const sphere = () =>
+      makeSpell({
+        key: 'XPHB:Vitriolic Sphere',
+        name: 'Vitriolic Sphere',
+        level: 4,
+        save: ['dex'],
+        saveHalf: true,
+        damage: { dice: ['10d4', '5d4'], types: ['acid'] },
+        upcast: { above: 4, every: 1, dice: '2d4' },
+      });
+    const base = automationForSpell(sphere());
+    expect(base.resolution).toBe('save');
+    expect(base.save).toEqual({ ability: 'dex', half: true });
+    expect(base.damage).toEqual({ dice: '10d4acid', types: ['acid'] });
+    expect(base.effects?.[0]?.triggers?.endOfTurn?.damage).toEqual({ dice: '5d4acid', types: ['acid'] });
+    expect(automationForSpell(sphere(), { castLevel: 6 }).damage?.dice).toBe('14d4acid');
+    expect(spellAutomated(sphere())).toBe(true);
+  });
 });

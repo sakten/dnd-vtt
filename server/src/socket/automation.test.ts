@@ -17,7 +17,7 @@ import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
-import { tickEffectTriggers } from './effects';
+import { tickEffectTriggers, tickEndTurnEffectTriggers } from './effects';
 import { applyEffectTo, removeBrokenEffects } from './effectsApply';
 import { pendingOffers } from './reactions';
 import { offerDamageReactions } from './reactions/windows';
@@ -890,6 +890,44 @@ describe('Ice Knife (D)', () => {
     const { target, neighbor } = cast(f, room, 0); // d20 → 6 (промах), кости → 1
     expect(target.hpCurrent).toBe(28);
     expect(neighbor.hpCurrent).toBe(28);
+  });
+});
+
+describe('Vitriolic Sphere (D)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const cast = (f: ReturnType<typeof setup>['f'], room: ReturnType<typeof setup>['room'], random: number) => {
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    vi.spyOn(Math, 'random').mockReturnValue(random);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Vitriolic Sphere')!, { castLevel: 4, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+    return target;
+  };
+
+  it('провал: 10к4 кислотой сразу и 5к4 в конце хода (эффект гаснет)', () => {
+    const { room, f } = setup();
+    const target = cast(f, room, 0); // спас провален, все кости — 1
+    expect(target.hpCurrent).toBe(20); // 10к4 = 10
+    expect(target.effects.some((e) => e.triggers?.endOfTurn)).toBe(true);
+
+    tickEndTurnEffectTriggers(f.ctx, room, 'm1', target); // 5к4 = 5
+    expect(target.hpCurrent).toBe(15);
+    expect(target.effects.some((e) => e.triggers?.endOfTurn)).toBe(false);
+  });
+
+  it('успех: половина первичного урона, отложенного эффекта нет', () => {
+    const { room, f } = setup();
+    const target = cast(f, room, 0.99); // спас успешен, кости — максимум
+    expect(target.hpCurrent).toBe(10); // 10к4 = 40, половина 20
+    expect(target.effects.some((e) => e.triggers?.endOfTurn)).toBe(false);
   });
 });
 

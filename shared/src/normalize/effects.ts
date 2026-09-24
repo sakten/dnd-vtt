@@ -313,9 +313,9 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         };
       }
     }
-    const startTrigger = (e.triggers as { startOfTurn?: unknown } | undefined)?.startOfTurn;
-    if (startTrigger && typeof startTrigger === 'object') {
-      const raw = startTrigger as { tempHp?: unknown; damage?: { dice?: unknown; types?: unknown } };
+    const parseTurnTrigger = (value: unknown): EffectTurnPayload | undefined => {
+      if (!value || typeof value !== 'object') return undefined;
+      const raw = value as { tempHp?: unknown; damage?: { dice?: unknown; types?: unknown } };
       const payload: EffectTurnPayload = {};
       const tempHp = clampInt(raw.tempHp, 0, 999, 0);
       if (tempHp > 0) payload.tempHp = tempHp;
@@ -327,7 +327,16 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
             : {}),
         };
       }
-      if (payload.tempHp || payload.damage) effect.triggers = { startOfTurn: payload };
+      return payload.tempHp || payload.damage ? payload : undefined;
+    };
+    const rawTriggers = (e.triggers ?? {}) as { startOfTurn?: unknown; endOfTurn?: unknown };
+    const startTrigger = parseTurnTrigger(rawTriggers.startOfTurn);
+    const endTrigger = parseTurnTrigger(rawTriggers.endOfTurn);
+    if (startTrigger || endTrigger) {
+      effect.triggers = {
+        ...(startTrigger ? { startOfTurn: startTrigger } : {}),
+        ...(endTrigger ? { endOfTurn: endTrigger } : {}),
+      };
     }
     if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
     if (e.escape && typeof e.escape === 'object') {

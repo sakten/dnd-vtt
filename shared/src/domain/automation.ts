@@ -136,8 +136,11 @@ export interface AutomationEffect {
   conditionImmunities?: ConditionKey[];
   /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
   conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
-  /** Срабатывание в начале хода носителя (Heroism: temp HP; смайты: повторный урон). */
-  triggers?: { startOfTurn?: EffectTurnPayload };
+  /**
+   * Срабатывание в начале/конце хода носителя (Heroism: temp HP; смайты:
+   * повторный урон; Vitriolic Sphere: отложенный урон в конце хода).
+   */
+  triggers?: { startOfTurn?: EffectTurnPayload; endOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
   /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
@@ -233,7 +236,12 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     conditionImmunitiesFrom: def.conditionImmunitiesFrom
       ? { conditions: [...def.conditionImmunitiesFrom.conditions], types: [...def.conditionImmunitiesFrom.types] }
       : undefined,
-    triggers: def.triggers?.startOfTurn ? { startOfTurn: { ...def.triggers.startOfTurn } } : undefined,
+    triggers: def.triggers
+      ? {
+          ...(def.triggers.startOfTurn ? { startOfTurn: { ...def.triggers.startOfTurn } } : {}),
+          ...(def.triggers.endOfTurn ? { endOfTurn: { ...def.triggers.endOfTurn } } : {}),
+        }
+      : undefined,
     magicWeapon: def.magicWeapon,
     weaponOverride: def.weaponOverride
       ? { ...def.weaponOverride, weapons: [...def.weaponOverride.weapons] }
