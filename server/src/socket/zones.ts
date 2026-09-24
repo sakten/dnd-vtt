@@ -319,6 +319,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     direction: input.direction ?? null,
     area: zoneDef.area,
     duration: zoneDef.duration,
+    maxRounds: input.def.maxRounds,
     concentration: input.def.concentration,
     anchor: zoneDef.anchor,
     movable: zoneDef.movable,
@@ -379,6 +380,15 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
       zone.duration.rounds -= 1;
       changed = true;
       if (zone.duration.rounds <= 0) {
+        removeZone(ctx, room, mapId, zone);
+        continue;
+      }
+    }
+    // Лимит «1 минута» = 10 раундов (зоны: Moonbeam, Flaming Sphere и подобные).
+    if (zone.maxRounds != null && phase === 'start' && zone.sourceId === token.id) {
+      zone.maxRounds -= 1;
+      changed = true;
+      if (zone.maxRounds <= 0) {
         removeZone(ctx, room, mapId, zone);
         continue;
       }

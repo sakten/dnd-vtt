@@ -452,6 +452,35 @@ describe('automationForSpell', () => {
     expect(banish.effects?.[0]?.conditions).toEqual(['incapacitated']);
   });
 
+  it('лимит «1 минута» = 10 раундов; больше минуты и instant — без лимита', () => {
+    const bless = makeSpell({
+      key: 'XPHB:Bless',
+      name: 'Bless',
+      level: 1,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
+    });
+    expect(automationForSpell(bless).maxRounds).toBe(10);
+
+    const hex = makeSpell({
+      key: 'XPHB:Hex',
+      name: 'Hex',
+      level: 1,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'hour', amount: 1 } }],
+    });
+    expect(automationForSpell(hex).maxRounds).toBeUndefined();
+
+    const guardians = makeSpell({
+      key: 'XPHB:Spirit Guardians',
+      name: 'Spirit Guardians',
+      level: 3,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 10 } }],
+    });
+    expect(automationForSpell(guardians).maxRounds).toBeUndefined();
+
+    const thunderous = makeSpell({ key: 'XPHB:Thunderous Smite', name: 'Thunderous Smite', level: 1 });
+    expect(automationForSpell(thunderous).maxRounds).toBeUndefined();
+  });
+
   it('Freedom of Movement — каталог: иммунитеты, скорость и местность', () => {
     const fom = makeSpell({ key: 'XPHB:Freedom of Movement', name: 'Freedom of Movement', level: 4, automation: 'manual' });
     const def = automationForSpell(fom);

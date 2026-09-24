@@ -420,6 +420,16 @@ export function tickEffects(
         if (!effect.banish) removed.push(effect.name);
       }
     }
+    // Лимит «1 минута» = 10 раундов: гаснет на 10-м ходу носителя, даже если
+    // не снят спасом/концентрацией (спас при untilSave обрабатывается выше).
+    if (!remove && effect.maxRounds != null && phase === 'start') {
+      effect.maxRounds -= 1;
+      changed = true;
+      if (effect.maxRounds <= 0) {
+        remove = true;
+        if (!effect.banish) removed.push(effect.name);
+      }
+    }
     if (!remove && d.type === 'endOfTurn' && phase === 'start') {
       if (d.of === 'target' || effect.sourceId === token.id) {
         remove = true;

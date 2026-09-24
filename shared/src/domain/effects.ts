@@ -169,6 +169,12 @@ export interface EffectInstance {
   sourceId?: string;
   concentration?: boolean;
   duration: EffectDuration;
+  /**
+   * Лимит «1 минута» = 10 раундов: эффект гаснет на 10-м ходу носителя, даже если
+   * его не сняли спас/концентрация. Ставится спеллам длительностью ровно 1 минута
+   * (`spellMaxRounds`); длительности больше минуты не лимитируются.
+   */
+  maxRounds?: number;
   modifiers: Modifier[];
   /** Ключи накладываемых состояний. */
   conditions?: ConditionKey[];

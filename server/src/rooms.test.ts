@@ -1150,6 +1150,34 @@ describe('RoomManager эффекты', () => {
     expect(tk.effects).toHaveLength(0);
   });
 
+  it('tickEffects: лимит «1 минута» гасит эффект на 10-м ходу носителя', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Bless',
+          duration: { type: 'concentration' },
+          concentration: true,
+          sourceId: 't1',
+          maxRounds: 10,
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    for (let round = 1; round <= 9; round++) {
+      const res = manager.tickEffects(room, tk, 'start');
+      expect(res.removed).not.toContain('Bless');
+      expect(tk.effects).toHaveLength(1);
+    }
+    const last = manager.tickEffects(room, tk, 'start');
+    expect(last.removed).toContain('Bless');
+    expect(tk.effects).toHaveLength(0);
+  });
+
   it('«до конца хода» источника снимается с чужих токенов', () => {
     const manager = setup();
     const room = makeRoom();

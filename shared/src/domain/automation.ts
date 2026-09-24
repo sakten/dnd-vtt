@@ -216,6 +216,8 @@ export interface ZoneInstance {
   area: AreaSpec;
   duration: EffectDuration;
   concentration?: boolean;
+  /** Лимит длительности «1 минута» = 10 раундов (см. `EffectInstance.maxRounds`). */
+  maxRounds?: number;
   anchor?: 'source' | 'point';
   movable?: boolean;
   containment?: 'anyCell' | 'fullyWithin';
@@ -323,6 +325,8 @@ export interface AutomationDef extends AutomationPayload {
   name: string;
   resolution: AutomationResolution;
   concentration?: boolean;
+  /** Лимит длительности «1 минута» = 10 раундов (см. `EffectInstance.maxRounds`). */
+  maxRounds?: number;
   attack?: AutomationAttack;
   /** Число атак/снарядов/повторов; скейл (апкаст/уровень персонажа) уже учтён. */
   count?: number;

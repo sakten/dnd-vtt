@@ -325,6 +325,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
               mapId,
               effectDef: successDef,
               target: app.target,
+              maxRounds: def.maxRounds,
               untilSaveDc: stats?.dc,
               escapeDc: stats?.dc,
             });
@@ -367,6 +368,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
         effectDef: app.effectDef,
         target: app.target,
         markedId: app.effectDef.markTarget ? targets[0]?.id : undefined,
+        maxRounds: def.maxRounds,
         untilSaveDc: stats?.dc,
         escapeDc: stats?.dc,
       });
@@ -1001,6 +1003,7 @@ function applyTargetEffects(run: AutomationRun, target: Token, stats: SpellStats
         effectDef,
         target: recipient,
         markedId: effectDef.markTarget ? target.id : undefined,
+        maxRounds: def.maxRounds,
         untilSaveDc: stats?.dc,
         escapeDc: stats?.dc,
       });
@@ -1199,6 +1202,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
         mapId,
         effectDef,
         target: caster,
+        maxRounds: def.maxRounds,
         untilSaveDc: stats?.dc,
         escapeDc: stats?.dc,
       });

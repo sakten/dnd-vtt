@@ -2258,6 +2258,7 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
     const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Searing Smite');
     expect(effect?.duration).toMatchObject({ type: 'untilSave', ability: 'con' });
+    expect(effect?.maxRounds).toBe(10); // спелл на 1 минуту
     expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6 + 1d6');
   });
 

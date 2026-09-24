@@ -128,6 +128,16 @@ export const SMITE_RANGE: Record<string, 'melee' | 'ranged'> = {
   'XPHB:Banishing Smite': 'melee',
 };
 
+/**
+ * Лимит «1 минута» = 10 раундов (решение владельца): заклинания с длительностью
+ * ровно 1 минута гаснут через 10 раундов, даже если эффект не снят спасом или
+ * концентрацией. Длительности больше минуты (10 минут/час/сутки) не лимитируются.
+ */
+export function spellMaxRounds(spell: Spell): number | undefined {
+  const timed = spell.duration.find((d) => d.type === 'timed' && d.duration?.type === 'minute');
+  return timed?.duration?.amount === 1 ? 10 : undefined;
+}
+
 /** Цель по умолчанию: self или существо. Эманация (2024) исходит от кастера — тоже self. */
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {
   return spellIsSelf(spell) || spell.range.type === 'emanation' ? 'self' : 'creature';

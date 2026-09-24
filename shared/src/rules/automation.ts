@@ -17,7 +17,7 @@ import { AUTOMATION_ACTIONS } from './automationActions';
 import { eldritchBlastMods } from './invocations';
 import { monsterAbilityAutomation } from './monsterAbility';
 import { summonSpellDef } from './summons';
-import { isHealingSpell, spellAttackCount, spellDamageExpression } from './spellCast';
+import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from './spellCast';
 import type { Spell } from './spells';
 
 export { AUTOMATION_ACTIONS };
@@ -1852,8 +1852,15 @@ function greenFlameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDe
 /**
  * Определение автоматизации заклинания: строка каталога → деривация из данных
  * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
+ * Заклинаниям длительностью ровно 1 минута проставляется лимит 10 раундов.
  */
 export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
+  const def = buildSpellAutomation(spell, opts);
+  const maxRounds = spellMaxRounds(spell);
+  return maxRounds ? { ...def, maxRounds } : def;
+}
+
+function buildSpellAutomation(spell: Spell, opts: AutomationOptions): AutomationDef {
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);
 

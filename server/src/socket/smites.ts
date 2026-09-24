@@ -172,6 +172,7 @@ export function applySmiteChoice(
         mapId,
         effectDef,
         target,
+        maxRounds: def.maxRounds,
         untilSaveDc: dc,
         escapeDc: dc,
       });
@@ -214,6 +215,7 @@ function applyBanishing(
     mapId,
     effectDef,
     target,
+    maxRounds: def.maxRounds,
     untilSaveDc: dc,
     escapeDc: dc,
   });

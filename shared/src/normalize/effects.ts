@@ -151,6 +151,9 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (typeof e.sourceKey === 'string' && e.sourceKey) effect.sourceKey = e.sourceKey;
     if (typeof e.sourceId === 'string' && e.sourceId) effect.sourceId = e.sourceId;
     if (e.concentration === true) effect.concentration = true;
+    if (typeof e.maxRounds === 'number' && Number.isFinite(e.maxRounds)) {
+      effect.maxRounds = clampInt(e.maxRounds, 1, 9999, 10);
+    }
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.deathWard === true) effect.deathWard = true;

@@ -24,6 +24,8 @@ export interface ApplyEffectArgs {
   escapeDc?: number;
   /** Зона-источник (аура): эффект снимается при выходе и окончании зоны. */
   zoneId?: string;
+  /** Лимит «1 минута» = 10 раундов (из `def.maxRounds`). */
+  maxRounds?: number;
 }
 
 /** Накладывает один эффект на токен (заменяя прошлый каст того же источника). */
@@ -72,6 +74,7 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     sourceId,
     concentration: effectDef.concentration,
     duration,
+    ...(args.maxRounds ? { maxRounds: args.maxRounds } : {}),
     modifiers,
     conditions: effectDef.conditions,
     escalate: effectDef.escalate,
