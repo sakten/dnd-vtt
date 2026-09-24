@@ -72,6 +72,11 @@ const RapierLab = lazyLab('./lab/RapierLab.tsx');
 const ScimitarLab = lazyLab('./lab/ScimitarLab.tsx');
 const GreatswordLab = lazyLab('./lab/GreatswordLab.tsx');
 
+// Клинок тени (Shadow Blade): 10 теневых силуэтов — маршрут `?shadow-lab`.
+const shadowLabLoaders = import.meta.glob('./lab/ShadowBladeLab.tsx');
+const shadowLabLoader = shadowLabLoaders['./lab/ShadowBladeLab.tsx'];
+const ShadowBladeLab = shadowLabLoader ? lazy(shadowLabLoader as () => Promise<{ default: React.ComponentType }>) : null;
+
 applyBranding();
 
 const params = new URLSearchParams(window.location.search);
@@ -89,6 +94,7 @@ const isShortSwordLab = params.has('shortsword-lab');
 const isRapierLab = params.has('rapier-lab');
 const isScimitarLab = params.has('scimitar-lab');
 const isGreatswordLab = params.has('greatsword-lab');
+const isShadowLab = params.has('shadow-lab');
 
 // В dev при полной перезагрузке модулей снимаем сокет и его слушатели (HMR-утечка).
 if (import.meta.hot) import.meta.hot.dispose(() => useGameStore.getState().disposeSocket());
@@ -153,6 +159,10 @@ void loadNames(getLocale()).finally(() => {
         ) : isGreatswordLab && GreatswordLab ? (
           <Suspense fallback={null}>
             <GreatswordLab />
+          </Suspense>
+        ) : isShadowLab && ShadowBladeLab ? (
+          <Suspense fallback={null}>
+            <ShadowBladeLab />
           </Suspense>
         ) : (
           <App />
