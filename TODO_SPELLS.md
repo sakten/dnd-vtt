@@ -43,7 +43,7 @@
 | `XGE:Shadow Blade` | ⚠️ создание оружия: грантованный attack-action (как Flame Blade), метание/возврат бонусным действием |
 | `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
 | `XPHB:Fount of Moonlight` | ✅ B3: свет 20/20, сопротивление излучению, +2d6 ближним атакам (`attackType` в контексте заклинательных атак), реакция `damageReaction` (CON-спас ≤60 фт, слепота) |
-| `XPHB:Shillelagh` | ✅ B3: `weaponOverride` в лоадауте — кость кантрипа (d8/d10/d12/2d6), заклинательная характеристика, силовой тип; только клуб/посох |
+| `XPHB:Shillelagh` | ✅ B3: `weaponOverride` в лоадауте — кость кантрипа (d8/d10/d12/2d6), заклинательная характеристика, силовой тип; только дубинка/посох |
 | `XGE:Magic Stone` | ⚠️ «три камня» как расходуемый ресурс; +мод к урону |
 | `XGE:Absorb Elements` | ✅ сопротивление (реакция) + заряд +1d6 типом на следующее попадание оружием (`consumeOnAttackRoll`) |
 

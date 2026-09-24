@@ -416,10 +416,10 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
   });
 
-  it('Shillelagh: клуб бьёт костью кантрипа и заклинательной характеристикой', () => {
+  it('Shillelagh: дубинка бьёт костью кантрипа и заклинательной характеристикой', () => {
     const club: AttackEntry = {
       id: 'club',
-      name: 'Палица',
+      name: 'Дубинка',
       hit: 'd20+2',
       damage: '1d4',
       damageType: 'bludgeoning',
@@ -462,14 +462,14 @@ describe('action:use', () => {
     });
     expect(effect?.maxRounds).toBe(10);
 
-    // Атака клубом: попадание d20+6 (ПБ 2 + Мдр 4), урон 1d8+4 силовым → 40 − 9.
+    // Атака дубинкой: попадание d20+6 (ПБ 2 + Мдр 4), урон 1d8+4 силовым → 40 − 9.
     const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
     rand.mockRestore();
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(31);
   });
 
-  it('Shillelagh: без клуба/посоха в руке — noClubOrStaff', () => {
+  it('Shillelagh: без дубинки/посоха в руке — noClubOrStaff', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 })], { p1: 'lib1' });
     room.sheets.p1 = {
       ...casterSheet(),

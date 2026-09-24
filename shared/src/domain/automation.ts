@@ -128,7 +128,7 @@ export interface AutomationEffect {
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
-  /** Shillelagh: клуб/посох в руке бьёт новой костью, типом и характеристикой. */
+  /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
   weaponOverride?: WeaponOverride;
   /** Warding Bond: переносить получаемый урон на источник эффекта. */
   damageLink?: boolean;

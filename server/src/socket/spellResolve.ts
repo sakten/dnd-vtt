@@ -108,7 +108,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return undefined;
   }
 
-  // Бафф оружия (Shillelagh): в руке (или хотя бы в листе) должен быть клуб/посох.
+  // Бафф оружия (Shillelagh): в руке (или хотя бы в листе) должна быть дубинка/посох.
   const weaponOverride = def.effects?.find((d) => d.weaponOverride)?.weaponOverride;
   if (weaponOverride) {
     const sheet = sheetOfToken(room, caster).sheet;

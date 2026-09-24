@@ -21,7 +21,8 @@ const druidItem = await addLibrary(S, 'Друид-Тест', {
   initiativeBonus: '',
   isPlayerToken: true,
 });
-await setCharacter(S, druidItem, p3);
+const setChar = await setCharacter(S, druidItem, p3);
+check('ok' in setChar, 'друид назначен текущим персонажем');
 const druid = (await spawnToken(S, { libraryItemId: druidItem, x: 200, y: 200, by: 'dm', observe: 'dm' })).token;
 
 const dummyItem = await addLibrary(S, 'Манекен-Шиллела', {
@@ -48,7 +49,7 @@ const sheet = (attacks, hands) => ({
   spells: [{ key: 'XPHB:Shillelagh', className: 'druid' }],
 });
 
-// Без клуба/посоха (в руке скимитар) каст отклоняется с понятной ошибкой.
+// Без дубинки/посоха (в руке скимитар) каст отклоняется с понятной ошибкой.
 await setSheet(
   S,
   sheet(
@@ -72,7 +73,7 @@ await setSheet(
 const clubErrP = eventOnce(p3, 'chat:error');
 p3.emit('spell:cast', { mapId: S.map1.id, tokenId: druid.id, spellKey: 'XPHB:Shillelagh' });
 const clubErr = await clubErrP;
-check(clubErr?.code === 'noClubOrStaff', 'без клуба/посоха каст отклонён (noClubOrStaff)');
+check(clubErr?.code === 'noClubOrStaff', 'без дубинки/посоха каст отклонён (noClubOrStaff)');
 
 await setSheet(
   S,
@@ -80,7 +81,7 @@ await setSheet(
     [
       {
         id: 'club',
-        name: 'Палица',
+        name: 'Дубинка',
         hit: 'd20+2',
         damage: '1d4',
         damageType: 'bludgeoning',
@@ -103,7 +104,7 @@ const effect = withEffect.effects.find((e) => e.sourceKey === 'XPHB:Shillelagh')
 check(
   JSON.stringify(effect?.weaponOverride) ===
     JSON.stringify({ weapons: ['XPHB:Club', 'XPHB:Quarterstaff'], dice: 'd8', damageType: 'force', abilityMod: 4 }),
-  `Shillelagh: weaponOverride клуба d8 + Мдр 4 силовым (${JSON.stringify(effect?.weaponOverride)})`
+  `Shillelagh: weaponOverride дубинки d8 + Мдр 4 силовым (${JSON.stringify(effect?.weaponOverride)})`
 );
 check(effect?.maxRounds === 10, 'Shillelagh ограничен 10 раундами (1 минута)');
 
@@ -119,10 +120,10 @@ p3.emit('action:use', {
   targetIds: [dummy.id],
 });
 const hitMsg = await hitMsgP;
-check(hitMsg.roll.expression === 'd20+6', `попадание клубом — ПБ 2 + Мдр 4 (${hitMsg.roll.expression})`);
-check(hitMsg.labelParams?.damageType === 'force', 'атака клубом помечена силовым типом');
+check(hitMsg.roll.expression === 'd20+6', `попадание дубинкой — ПБ 2 + Мдр 4 (${hitMsg.roll.expression})`);
+check(hitMsg.labelParams?.damageType === 'force', 'атака дубинкой помечена силовым типом');
 const dmgMsg = await dmgMsgP;
-check(dmgMsg.roll.expression === 'd8+4', `урон клуба после Shillelagh — d8+4 (${dmgMsg.roll.expression})`);
+check(dmgMsg.roll.expression === 'd8+4', `урон дубинки после Shillelagh — d8+4 (${dmgMsg.roll.expression})`);
 const hitDummy = await hitDummyP;
 check(30 - hitDummy.hpCurrent === dmgMsg.roll.total, 'HP манекена уменьшились ровно на бросок урона');
 

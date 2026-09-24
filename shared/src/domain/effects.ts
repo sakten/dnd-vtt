@@ -220,7 +220,7 @@ export interface EffectInstance {
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
-  /** Shillelagh: клуб/посох в руке бьёт новой костью, типом и характеристикой. */
+  /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
   weaponOverride?: WeaponOverride;
   /** Warding Bond: урон носителя тем же количеством переносится на токен-источник. */
   damageLink?: { tokenId: string };

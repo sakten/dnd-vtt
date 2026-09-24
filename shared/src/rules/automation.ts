@@ -1719,7 +1719,7 @@ function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
 }
 
 /**
- * Shillelagh (XPHB): клуб или посох в руке — кость кантрипа (d8/d10/d12/2d6 по
+ * Shillelagh (XPHB): дубинка или посох в руке — кость кантрипа (d8/d10/d12/2d6 по
  * уровню персонажа), заклинательная характеристика и силовой тип урона. Число
  * характеристики фиксируется при касте в `weaponOverride` (см. `loadoutOf`).
  */
