@@ -37,9 +37,14 @@ function continueAfterRoll(
   };
 
   const applyDamage = (mods: WeaponDamageMods = {}) => {
-    const damage = applyWeaponAttackDamage(ctx, plan, mods);
+    // Наездник заклинания (Green-Flame Blade) суммируется со смайтом из окна.
+    const combined: WeaponDamageMods = input.riderDice
+      ? { ...mods, smiteDice: [mods.smiteDice, input.riderDice].filter(Boolean).join(' + ') }
+      : mods;
+    const damage = applyWeaponAttackDamage(ctx, plan, combined);
     if (!damage) return;
     result.damageRoll = damage.roll;
+    input.afterHit?.(damage);
     // Отражение атак: полностью погашен удар — окно «перенаправить» (1 фокус).
     if (mods.redirect && damage.roll.total <= (mods.flatReduction ?? 0) && plan.attacker && targetMapId) {
       openRedirectWindow(ctx, room, targetMapId, plan, mods.redirect);

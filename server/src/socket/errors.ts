@@ -11,6 +11,7 @@ export type ErrorCode =
   | 'actionSpent'
   | 'noActions'
   | 'noWeapon'
+  | 'noHeldWeapon'
   | 'legendaryOnly'
   | 'legendarySlotOnly'
   | 'noLegendary'

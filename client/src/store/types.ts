@@ -121,6 +121,8 @@ export interface GameState {
   gridModalOpen: boolean;
   visionModalOpen: boolean;
   bestiaryOpen: boolean;
+  /** Открыта карточка персонажа (клик по портрету в панели действий / кнопка в чате). */
+  sheetOpen: boolean;
   /** Открыта модалка настроек комнаты (только реальный DM). */
   roomSettingsOpen: boolean;
   /** Открыто окно опциональных правил (только реальный DM). */
@@ -219,6 +221,7 @@ export interface GameState {
   setGridModalOpen: (open: boolean) => void;
   setVisionModalOpen: (open: boolean) => void;
   setBestiaryOpen: (open: boolean) => void;
+  setSheetOpen: (open: boolean) => void;
   setRoomSettingsOpen: (open: boolean) => void;
   setOptionalRulesOpen: (open: boolean) => void;
   /** Сменить режим тестов (сервер применяет только от реального DM). */

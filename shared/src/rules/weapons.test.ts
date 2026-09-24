@@ -11,6 +11,7 @@ import {
   weaponHasProperty,
   weaponMastery,
 } from './weapons';
+import { HANDS_SHIELD, gripAdjustedDamage, normalizeHands, primaryHandAttack, rightGrip } from './hands';
 
 const abilities = { str: 16, dex: 14, con: 12, int: 10, wis: 12, cha: 8 };
 
@@ -135,3 +136,59 @@ describe('weaponAttackEntry', () => {
     expect(plain.damage).toBe('1+3');
   });
 });
+
+describe('руки персонажа (hands)', () => {
+  const ctx = { abilities, classes: [{ className: 'fighter', level: 5 }] };
+  const longsword = WEAPONS.find((w) => w.name === 'Longsword')!;
+  const greataxe = WEAPONS.find((w) => w.name === 'Greataxe')!;
+  const dagger = WEAPONS.find((w) => w.name === 'Dagger')!;
+  const sword = { ...weaponAttackEntry(longsword, ctx), id: 'sword' };
+  const axe = { ...weaponAttackEntry(greataxe, ctx), id: 'axe' };
+  const knife = { ...weaponAttackEntry(dagger, ctx), id: 'knife' };
+  const attacks = [sword, axe, knife];
+
+  it('хват универсального: 1h/2h и offhand — одноручная кость', () => {
+    expect(weaponAttackEntry(longsword, ctx, { grip: '1h' }).damage).toBe('1d8+3');
+    expect(weaponAttackEntry(longsword, ctx, { grip: '2h' }).damage).toBe('1d10+3');
+    expect(weaponAttackEntry(longsword, ctx, { offhand: true }).damage).toBe('1d8');
+    expect(weaponAttackEntry(longsword, ctx).damage).toBe('1d10+3');
+  });
+
+  it('rightGrip: левая свободна — 2h, занята — 1h', () => {
+    expect(rightGrip(attacks, undefined)).toBe('1h');
+    expect(rightGrip(attacks, { right: 'sword' })).toBe('2h');
+    expect(rightGrip(attacks, { right: 'sword', left: 'knife' })).toBe('1h');
+    expect(rightGrip(attacks, { right: 'sword', left: HANDS_SHIELD })).toBe('1h');
+    expect(rightGrip(attacks, { right: 'axe' })).toBe('2h');
+  });
+
+  it('gripAdjustedDamage меняет только кость, модификаторы сохраняются', () => {
+    expect(gripAdjustedDamage('1d10+3', longsword, '1h')).toBe('1d8+3');
+    expect(gripAdjustedDamage('1d8+1+str', longsword, '2h')).toBe('1d10+1+str');
+    expect(gripAdjustedDamage('1d10+3', longsword, '2h')).toBe('1d10+3');
+    expect(gripAdjustedDamage('2d6+3', greataxe, '1h')).toBe('2d6+3');
+  });
+
+  it('normalizeHands: невалидные id и дубли сбрасываются', () => {
+    expect(normalizeHands({ right: 'sword', left: 'sword' }, attacks)).toEqual({ right: 'sword' });
+    expect(normalizeHands({ right: 'nope', left: 'knife' }, attacks)).toEqual({ left: 'knife' });
+    expect(normalizeHands({ right: HANDS_SHIELD, left: HANDS_SHIELD }, attacks)).toEqual({ right: HANDS_SHIELD });
+    expect(normalizeHands({}, attacks)).toBeUndefined();
+  });
+
+  it('normalizeHands: двуручное только в правой', () => {
+    expect(normalizeHands({ left: 'axe' }, attacks)).toEqual({ right: 'axe' });
+    expect(normalizeHands({ right: 'axe', left: 'knife' }, attacks)).toEqual({ right: 'axe' });
+    expect(normalizeHands({ left: 'axe', right: 'sword' }, attacks)).toEqual({ right: 'sword' });
+  });
+
+  it('primaryHandAttack: оружие правой или безоружный — по большей кости', () => {
+    expect(primaryHandAttack(attacks, { right: 'sword' }, ctx)).toMatchObject({ kind: 'weapon' });
+    expect(primaryHandAttack(attacks, undefined, ctx).kind).toBe('unarmed');
+    // Монах с кинжалом: безоружный 1d8 против 1d4 — основная безоружная.
+    const monkCtx = { abilities, classes: [{ className: 'monk', level: 5 }] };
+    expect(primaryHandAttack(attacks, { right: 'knife' }, monkCtx).kind).toBe('unarmed');
+    expect(primaryHandAttack(attacks, { right: 'sword' }, monkCtx).kind).toBe('weapon');
+  });
+});
+

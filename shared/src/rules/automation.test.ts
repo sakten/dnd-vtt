@@ -1057,3 +1057,28 @@ describe('automationForAction', () => {
     expect(automationForAction(makeAction({ id: 'class:wizard:portent', source: 'class' }))).toBeUndefined();
   });
 });
+
+describe('Green-Flame Blade (клинок-кантрип)', () => {
+  const spell = () => makeSpell({ key: 'TCE:Green-Flame Blade', name: 'Green-Flame Blade', level: 0 });
+
+  it('билдер: оружейная атака правой рукой, райдер и вторичный урон по уровням', () => {
+    const l1 = automationForSpell(spell(), { characterLevel: 1 });
+    expect(l1.resolution).toBe('attack');
+    expect(l1.attack).toEqual({ rangeType: 'melee' });
+    expect(l1.weaponAttack?.riderDice).toBeUndefined();
+    expect(l1.weaponAttack?.secondary).toEqual({ rangeFeet: 5, damageType: 'fire' });
+
+    const l5 = automationForSpell(spell(), { characterLevel: 5 });
+    expect(l5.weaponAttack?.riderDice).toBe('1d8fire');
+    expect(l5.weaponAttack?.secondary?.dice).toBe('1d8');
+
+    const l11 = automationForSpell(spell(), { characterLevel: 11 });
+    expect(l11.weaponAttack?.riderDice).toBe('2d8fire');
+    expect(l11.weaponAttack?.secondary?.dice).toBe('2d8');
+
+    const l17 = automationForSpell(spell(), { characterLevel: 17 });
+    expect(l17.weaponAttack?.riderDice).toBe('3d8fire');
+    expect(l17.weaponAttack?.secondary?.dice).toBe('3d8');
+    expect(spellAutomated(spell())).toBe(true);
+  });
+});

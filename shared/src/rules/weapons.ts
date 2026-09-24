@@ -160,7 +160,7 @@ export function weaponAbilityMod(weapon: WeaponDef, ctx: WeaponContext): number 
 export function weaponAttackEntry(
   weapon: WeaponDef,
   ctx: WeaponContext,
-  opts: { offhand?: boolean } = {}
+  opts: { offhand?: boolean; grip?: '1h' | '2h' } = {}
 ): AttackEntry {
   const totalLevel = ctx.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
   const pb = proficiencyBonus(totalLevel || 1);
@@ -183,9 +183,10 @@ export function weaponAttackEntry(
   }
 
   const mod = weaponAbilityMod(weapon, ctx);
-  // Универсальное оружие: пока всегда двуручный хват (решение владельца;
-  // позже — ячейки рук в панели и явный учёт хвата).
-  const dice = weapon.properties.includes('V') && weapon.versatileDamage ? weapon.versatileDamage : weapon.damage;
+  // Универсальное оружие: кость по хвату (`grip`), по умолчанию двуручная;
+  // атака второй рукой всегда одноручная.
+  const versatile = weapon.properties.includes('V') && !!weapon.versatileDamage;
+  const dice = versatile && !opts.offhand && opts.grip !== '1h' ? weapon.versatileDamage! : weapon.damage;
   return {
     name: weapon.name,
     hit: hitExpression(pb + mod),

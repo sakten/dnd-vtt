@@ -343,6 +343,16 @@ export interface AutomationDef extends AutomationPayload {
   shape?: ShapeDef;
   /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
+  /**
+   * Клинки-кантрипы (Green-Flame Blade): вместо заклинательной атаки — атака
+   * оружием из правой руки с райдером на попадании и вторичным уроном.
+   */
+  weaponAttack?: {
+    /** Доп. кости урона на попадании с типом (`1d8fire`); нет — без добавки. */
+    riderDice?: string;
+    /** Вторичная цель в `rangeFeet` от основной: урон = мод заклинательной + `dice`. */
+    secondary?: { rangeFeet: number; dice?: string; damageType: string };
+  };
   /** Фильтр целей по отношению к кастеру (Conjure Woodland Beings: только враги). */
   side?: 'hostile' | 'ally';
   /** Типы существ, на которых заклинание не действует (Command: нежить) — цели пропускаются. */

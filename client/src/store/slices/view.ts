@@ -1,7 +1,7 @@
 import { activeMapOf } from '../selectors';
 import type { GameState, Slice } from '../types';
 
-export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setVisionModalOpen' | 'setBestiaryOpen' | 'setRoomSettingsOpen' | 'setOptionalRulesOpen' | 'setFogMode' | 'setWallsMode' | 'setLightMode' | 'setWallCandidates' | 'fitView'>> = (set, get) => {
+export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setVisionModalOpen' | 'setBestiaryOpen' | 'setSheetOpen' | 'setRoomSettingsOpen' | 'setOptionalRulesOpen' | 'setFogMode' | 'setWallsMode' | 'setLightMode' | 'setWallCandidates' | 'fitView'>> = (set, get) => {
   return {
     setView: (view) => set({ view }),
     setViewport: (viewport) => set({ viewport }),
@@ -11,6 +11,8 @@ export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 
     setVisionModalOpen: (visionModalOpen) => set({ visionModalOpen }),
 
     setBestiaryOpen: (bestiaryOpen) => set({ bestiaryOpen }),
+
+    setSheetOpen: (sheetOpen) => set({ sheetOpen }),
 
     setRoomSettingsOpen: (roomSettingsOpen) => set({ roomSettingsOpen }),
 

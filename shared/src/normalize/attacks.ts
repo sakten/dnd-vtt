@@ -5,7 +5,7 @@ import type { AttackEntry } from '../domain/token';
 import { newId } from './internal';
 
 export function emptyAttack(): AttackEntry {
-  return { name: '', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 };
+  return { id: newId(), name: '', hit: '', damage: '', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 };
 }
 
 export function emptyAttacks(): AttackEntry[] {
@@ -16,6 +16,7 @@ function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry
   const rangeNormal = Number(raw?.rangeNormal);
   const rangeLong = Number(raw?.rangeLong);
   return {
+    id: typeof raw?.id === 'string' && raw.id ? raw.id.slice(0, 40) : newId(),
     name: typeof raw?.name === 'string' ? raw.name : '',
     hit: typeof raw?.hit === 'string' ? raw.hit : '',
     damage: typeof raw?.damage === 'string' ? raw.damage : '',
@@ -44,6 +45,12 @@ export function attackIsActive(a: AttackEntry): boolean {
 export function normalizeAttacks(attacks: unknown): AttackEntry[] {
   const list = Array.isArray(attacks) ? attacks : [];
   const result = list.slice(0, MAX_ATTACKS).map((a) => coerceAttack(a as Partial<AttackEntry> | undefined));
+  const seen = new Set<string>();
+  for (const attack of result) {
+    if (!attack.id || seen.has(attack.id)) attack.id = newId();
+    const id = attack.id;
+    if (id) seen.add(id);
+  }
   while (result.length > 1 && attackIsEmpty(result[result.length - 1]!)) result.pop();
   if (result.length === 0) result.push(emptyAttack());
   return result;

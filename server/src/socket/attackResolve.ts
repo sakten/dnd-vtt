@@ -71,6 +71,10 @@ export interface AttackResolveInput {
   author: string;
   /** Атака по возможности: цель уже вышла из досягаемости, дистанцию не проверяем. */
   ignoreRange?: boolean;
+  /** Типизированные кости урона от заклинания-наездника (`1d8fire`) — на попадании. */
+  riderDice?: string;
+  /** Хук после нанесения урона попаданием (Green-Flame Blade: вторичная цель). */
+  afterHit?: (damage: WeaponDamageResult) => void;
 }
 
 export interface AttackResolveResult {

@@ -196,7 +196,8 @@ export default function ChatPanel() {
   const [caret, setCaret] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const damageHint = damageTypeHint(text, caret);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetOpen = useGameStore((s) => s.sheetOpen);
+  const setSheetOpen = useGameStore((s) => s.setSheetOpen);
   const [playersOpen, setPlayersOpen] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);

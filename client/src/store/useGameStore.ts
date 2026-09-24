@@ -60,6 +60,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     gridModalOpen: false,
     visionModalOpen: false,
     bestiaryOpen: false,
+    sheetOpen: false,
     roomSettingsOpen: false,
     optionalRulesOpen: false,
     tokenMenuId: null,

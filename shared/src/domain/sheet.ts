@@ -39,6 +39,12 @@ export interface PlayerResources {
   notes: string;
 }
 
+/** Оружие в руках: id записи атаки или `HANDS_SHIELD`. */
+export interface SheetHands {
+  right?: string;
+  left?: string;
+}
+
 export interface CharacterSheet {
   name: string;
   abilities: Record<AbilityKey, number>;
@@ -46,6 +52,8 @@ export interface CharacterSheet {
   saves: Partial<Record<AbilityKey, boolean>>;
   skills: Partial<Record<string, SkillLevel>>;
   attacks: AttackEntry[];
+  /** Оружие в руках: id атаки из `attacks` или `HANDS_SHIELD` (щит). Правая — основная. */
+  hands?: SheetHands;
   classes: ClassLevel[];
   /** Выбранные заклинания: ключ `источник:имя` и класс, из чьего списка взято. */
   spells: SheetSpell[];

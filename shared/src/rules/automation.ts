@@ -1192,6 +1192,7 @@ const BUILTIN_AUTOMATION = new Set([
   "XPHB:Dragon's Breath",
   'XPHB:Vampiric Touch',
   'XPHB:Flame Blade',
+  'TCE:Green-Flame Blade',
   'XPHB:Sunbeam',
   'XPHB:Heat Metal',
   'XPHB:Call Lightning',
@@ -1699,12 +1700,37 @@ function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
 }
 
 /**
+ * Green-Flame Blade (TCE 2024): атака оружием правой руки; на попадании —
+ * райдер огнём (0/1к8/2к8/3к8 на 1/5/11/17) и вторичная цель в 5 фт:
+ * урон огнём = мод заклинательной характеристики + те же кости. Скейл
+ * захардкожен: у не-SRD заклинаний нет `higherLevel` (системный HI-долг).
+ */
+function greenFlameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'TCE:Green-Flame Blade') return undefined;
+  const level = opts.characterLevel ?? 1;
+  const dice = level >= 17 ? '3d8' : level >= 11 ? '2d8' : level >= 5 ? '1d8' : undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    attack: { rangeType: 'melee' },
+    weaponAttack: {
+      ...(dice ? { riderDice: `${dice}fire` } : {}),
+      secondary: { rangeFeet: 5, ...(dice ? { dice } : {}), damageType: 'fire' },
+    },
+  };
+}
+
+/**
  * Определение автоматизации заклинания: строка каталога → деривация из данных
  * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
  */
 export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);
+
+  const greenFlame = greenFlameBladeDef(spell, opts);
+  if (greenFlame) return greenFlame;
 
   const breath = breathSpellDef(spell, opts);
   if (breath) return breath;

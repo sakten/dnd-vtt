@@ -144,6 +144,8 @@ export function sizeAtMost(cells: number, max: CreatureSize): boolean {
 }
 
 export interface AttackEntry {
+  /** Стабильный id записи: на него ссылаются руки персонажа (`CharacterSheet.hands`). */
+  id?: string;
   name: string;
   hit: string;
   damage: string;

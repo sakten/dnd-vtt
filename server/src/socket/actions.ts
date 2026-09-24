@@ -13,11 +13,14 @@
   firstSentence,
   gridDistanceFeet,
   gridOfMap,
+  gripAdjustedDamage,
+  handAttackOf,
   isBanished,
   legendaryOnly,
   masteryAccessible,
   monsterStats,
   restrictionsFor,
+  rightGrip,
   rollDice,
   savedAgainst,
   slotSpendable,
@@ -659,6 +662,14 @@ export function registerActionHandlers(ctx: ConnCtx) {
             fail(ctx, 'actionSpent');
             return;
           }
+          // Оффхенд бьёт оружием левой руки (S1): индекс должен совпадать с рукой.
+          if (sheet) {
+            const leftAttack = handAttackOf(sheet.attacks, sheet.hands, 'left');
+            if (!leftAttack || leftAttack.id !== entry.id) {
+              fail(ctx, 'actionSpent');
+              return;
+            }
+          }
           offhandNick = weapon.mastery.includes('Nick') && masteryAccessible(sheet?.classes);
           if (offTurn) {
             const last = offTurn.lastWeaponKey ? weaponByKey(offTurn.lastWeaponKey) : undefined;
@@ -679,6 +690,15 @@ export function registerActionHandlers(ctx: ConnCtx) {
         } else if (!manager.canAttack(room, mapId, token, { unarmed })) {
           fail(ctx, 'actionSpent');
           return;
+        } else if (sheet && !unarmed && entry.weaponKey) {
+          // Универсальное оружие: кость по хвату (левая свободна — двуручная).
+          const weapon = weaponByKey(entry.weaponKey);
+          if (weapon?.properties.includes('V') && weapon.versatileDamage) {
+            attackEntry = {
+              ...entry,
+              damage: gripAdjustedDamage(entry.damage, weapon, rightGrip(sheet.attacks, sheet.hands)),
+            };
+          }
         }
 
         const targetId = targetIds?.[0];

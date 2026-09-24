@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, handAttackOf, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
@@ -27,6 +27,7 @@ import ActionGlyph, { hasActionIcon } from './actionIcons';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 import FeatureIcon from './featureIcons';
+import LoadoutPanel from './LoadoutPanel';
 import SpellIcon from './SpellIcon';
 import ShapePicker from './ShapePicker';
 import SpellPopover from './SpellPopover';
@@ -87,6 +88,8 @@ function Dots({ total, remaining, tone }: { total: number; remaining: number; to
 export default function ActionPanel() {
   const resources = useGameStore((s) => s.resources);
   const sheet = useGameStore((s) => s.sheet);
+  const setSheet = useGameStore((s) => s.setSheet);
+  const setSheetOpen = useGameStore((s) => s.setSheetOpen);
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
@@ -285,9 +288,13 @@ export default function ActionPanel() {
   const spellsBonus = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'bonus'));
   const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'other'));
 
-  // Атака второй рукой (Light): нужно второе лёгкое оружие; триггер — прошлая атака другим лёгким.
+  // Атака второй рукой (Light): бьёт оружие из левой руки; триггер — прошлая атака другим лёгким.
   // Оружие с Nick и доступом к мастерствам — в «Свободных и прочих» (не тратит бонусное действие).
-  const lightWeapons = weapons.filter(({ entry }) => weaponHasProperty(entry, 'L'));
+  const leftHandAttack = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'left') : undefined;
+  const lightWeapons = weapons.filter(
+    ({ entry }) =>
+      !!leftHandAttack && entry.id === leftHandAttack.id && weaponHasProperty(entry, 'L')
+  );
   const lastWeapon = turn?.lastWeaponKey ? weaponByKey(turn.lastWeaponKey) : undefined;
   const lastIsLight = !!lastWeapon?.properties.includes('L');
   const hasMastery = masteryAccessible(sheet?.classes);
@@ -295,7 +302,7 @@ export default function ActionPanel() {
     hasMastery && !!entry.weaponKey && !!weaponByKey(entry.weaponKey)?.mastery.includes('Nick');
   const nickWeapons = lightWeapons.filter(({ entry }) => isNickWeapon(entry));
   const bonusOffhand = lightWeapons.filter(({ entry }) => !isNickWeapon(entry));
-  const canOffhand = controlled && !incap && lightWeapons.length >= 2;
+  const canOffhand = controlled && !incap && lightWeapons.length >= 1;
   const offhandReady = (entry: AttackEntry) =>
     !combatActive || (lastIsLight && entry.weaponKey !== turn?.lastWeaponKey);
   // Cleave: после попадания оружием с «Прорубающим» сервер помечает цель (раз в ход).
@@ -742,6 +749,21 @@ export default function ActionPanel() {
         </div>
       )}
       <div className="ap-body" ref={bodyRef}>
+        {isCharacter && sheet && (
+          <LoadoutPanel
+            token={token}
+            sheet={sheet}
+            resources={resources ?? undefined}
+            readOnly={!controlled}
+            onOpenSheet={() => setSheetOpen(true)}
+            onChange={(hands) => {
+              const next = { ...sheet };
+              if (hands) next.hands = hands;
+              else delete next.hands;
+              setSheet(next);
+            }}
+          />
+        )}
         {legendarySlot ? (
           <section className="ap-panel legendary">
             <div className="ap-panel-head">

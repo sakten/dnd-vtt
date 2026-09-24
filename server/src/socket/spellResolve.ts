@@ -4,6 +4,7 @@ import {
   effectiveSpellRangeFeet,
   gridDistanceFeet,
   gridOfMap,
+  handAttackOf,
   hasInvocation,
   INVOCATION_PACT_KEYS,
   polymorphFormIssue,
@@ -20,6 +21,7 @@ import { actorStats } from '../room/actor';
 import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
+import { runBladeCantrip } from './bladeCantrips';
 import { summonEntry, summonFormIssue, hasFreeSummonSpot } from './summons';
 import { polymorphMaxCr, shapePlacementIssue } from './forms';
 import { teleportIssue } from './teleport';
@@ -75,6 +77,22 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
 
   if (def.effects?.some((d) => d.markTarget) && !targets[0]) {
     return { code: 'spellNoTarget' };
+  }
+
+  // Клинок-кантрип (Green-Flame Blade): оружие в правой руке, цель в досягаемости.
+  if (def.weaponAttack) {
+    const sheet = sheetOfToken(room, caster).sheet;
+    const held = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'right') : undefined;
+    if (!held || held.rangeType !== 'melee') return { code: 'noHeldWeapon' };
+    if (!targets[0]) return { code: 'spellNoTarget' };
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const feet = gridDistanceFeet(caster, targets[0], grid.size);
+    if (feet > (held.rangeNormal || 5)) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+    if (map && targets[0].id !== caster.id && !tokenVisibleFrom(caster, targets[0], map.walls, grid)) {
+      return { code: 'noClearPath' };
+    }
+    return undefined;
   }
 
   if (def.attack && hasRoll) {
@@ -222,6 +240,11 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     invocations: sheetOfToken(room, input.caster).sheet?.invocations,
     variant: input.variant,
   });
+  // Клинки-кантрипы: атака оружием правой руки, а не заклинательный резолв.
+  if (def.weaponAttack) {
+    runBladeCantrip(ctx, room, input, def);
+    return {};
+  }
   executeAutomation(ctx, {
     caster: input.caster,
     mapId: input.mapId,

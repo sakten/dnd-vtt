@@ -630,3 +630,191 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Колонка «в руках»: портрет с виталами поверх, слоты рук. */
+.ap-panel.loadout {
+  flex: 0 0 168px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ap-loadout-portrait {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 132px;
+  padding: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid var(--panel-border);
+  background: #0f1216;
+  cursor: pointer;
+}
+
+.ap-loadout-portrait:disabled {
+  cursor: default;
+}
+
+.ap-loadout-portrait:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+.ap-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ap-portrait.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.ap-vitals {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ap-vital {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.ap-vital.ac {
+  font-size: 17px;
+  padding: 2px 10px;
+}
+
+.ap-vital-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.ap-hp {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.ap-hands {
+  display: flex;
+  gap: 8px;
+}
+
+.ap-hand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid #8a6238;
+  background: linear-gradient(150deg, #7a5230, #52351c);
+  box-shadow: inset 0 1px 0 rgba(255, 226, 178, 0.18);
+  color: #f4e6cf;
+}
+
+.ap-hand:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.ap-hand:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.ap-hand.locked {
+  border-style: dashed;
+}
+
+.ap-hand .ap-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.ap-hand-empty {
+  font-size: 26px;
+  color: #e8d9c2;
+}
+
+.ap-hand-mark {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.ap-hand-picker {
+  position: absolute;
+  bottom: 12px;
+  left: 8px;
+  z-index: var(--z-aim, 30);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.ap-hand-picker-title {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 6px 4px;
+}
+
+.ap-hand-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.ap-hand-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ap-hand-option .ap-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.ap-hand-option.dim {
+  color: var(--text-dim);
+}
+

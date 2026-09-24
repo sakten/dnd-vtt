@@ -4,7 +4,12 @@ import { checkEffectParts, defaultSheet } from './sheet';
 
 describe('defaultSheet', () => {
   it('собирается normalizeSheet({}) — один источник дефолтов', () => {
-    expect(defaultSheet()).toEqual(normalizeSheet({}));
+    // id записей атак генерируются случайно — при сравнении игнорируем.
+    const withoutIds = (sheet: ReturnType<typeof defaultSheet>) => ({
+      ...sheet,
+      attacks: sheet.attacks.map((attack) => ({ ...attack, id: undefined })),
+    });
+    expect(withoutIds(defaultSheet())).toEqual(withoutIds(normalizeSheet({})));
   });
 
   it('новые поля листа на месте, строка атаки пустая (плейсхолдеры формы)', () => {

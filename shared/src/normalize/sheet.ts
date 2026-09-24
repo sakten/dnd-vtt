@@ -3,6 +3,7 @@ import { normalizeSenses } from './sense';
 import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
 import { normalizeAttacks, normalizeDamageDefenses } from './attacks';
+import { normalizeHands } from '../rules/hands';
 import { SPELL_KEY_RE, clampInt } from './internal';
 
 export function normalizeClasses(raw: unknown): ClassLevel[] {
@@ -131,13 +132,16 @@ export function normalizeSheet(raw: Partial<CharacterSheet>): CharacterSheet {
   }
   const invocations = normalizeInvocations((raw as { invocations?: unknown }).invocations);
   const wildShape = normalizeWildShape((raw as { wildShape?: unknown }).wildShape);
+  const attacks = normalizeAttacks(raw.attacks);
+  const hands = normalizeHands((raw as { hands?: unknown }).hands, attacks);
   return {
     name: typeof raw.name === 'string' ? raw.name.slice(0, 40) : '',
     abilities,
     proficiencyBonus: typeof raw.proficiencyBonus === 'string' ? raw.proficiencyBonus.slice(0, 10) : '2',
     saves: raw.saves ?? {},
     skills: raw.skills ?? {},
-    attacks: normalizeAttacks(raw.attacks),
+    attacks,
+    ...(hands ? { hands } : {}),
     classes: normalizeClasses(raw.classes),
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
     choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
