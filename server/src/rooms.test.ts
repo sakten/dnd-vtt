@@ -924,6 +924,101 @@ describe('RoomManager эффекты', () => {
     expect({ x: tk.x, y: tk.y }).toEqual({ x: 25, y: 75 });
   });
 
+  it('Banishment: стену внутри подошвы (2×2) обходит при возврате', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 400;
+    room.scene.maps[0]!.height = 400;
+    room.scene.maps[0]!.walls = [{ id: 'w1', x1: 100, y1: 50, x2: 100, y2: 150, kind: 'wall' }];
+    const tk = token('t1', { cells: 2, w: 100, h: 100, x: 100, y: 100 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'ban1',
+      name: 'Banishment',
+      sourceKey: 'XPHB:Banishment',
+      sourceId: 't9',
+      concentration: true,
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      banish: { x: 100, y: 100 },
+    });
+
+    manager.removeEffect(room, tk, 'ban1');
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 50, y: 50 });
+  });
+
+  it('Banishment: закрытая дверь внутри подошвы блокирует возврат', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 400;
+    room.scene.maps[0]!.height = 400;
+    room.scene.maps[0]!.walls = [{ id: 'd1', x1: 100, y1: 50, x2: 100, y2: 150, kind: 'door' }];
+    const tk = token('t1', { cells: 2, w: 100, h: 100, x: 100, y: 100 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'ban1',
+      name: 'Banishment',
+      sourceKey: 'XPHB:Banishment',
+      sourceId: 't9',
+      concentration: true,
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      banish: { x: 100, y: 100 },
+    });
+
+    manager.removeEffect(room, tk, 'ban1');
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 50, y: 50 });
+  });
+
+  it('Banishment: открытая дверь внутри подошвы возврату не мешает', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 400;
+    room.scene.maps[0]!.height = 400;
+    room.scene.maps[0]!.walls = [{ id: 'd1', x1: 100, y1: 50, x2: 100, y2: 150, kind: 'door', open: true }];
+    const tk = token('t1', { cells: 2, w: 100, h: 100, x: 100, y: 100 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'ban1',
+      name: 'Banishment',
+      sourceKey: 'XPHB:Banishment',
+      sourceId: 't9',
+      concentration: true,
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      banish: { x: 100, y: 100 },
+    });
+
+    manager.removeEffect(room, tk, 'ban1');
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 100, y: 100 });
+  });
+
+  it('Banishment: стена/дверь по краю клетки токен не выталкивают', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 400;
+    room.scene.maps[0]!.height = 400;
+    room.scene.maps[0]!.walls = [
+      { id: 'w1', x1: 50, y1: 0, x2: 50, y2: 50, kind: 'wall' },
+      { id: 'd1', x1: 25, y1: 50, x2: 75, y2: 50, kind: 'door' },
+    ];
+    const tk = token('t1', { x: 25, y: 25 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'ban1',
+      name: 'Banishment',
+      sourceKey: 'XPHB:Banishment',
+      sourceId: 't9',
+      concentration: true,
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      banish: { x: 25, y: 25 },
+    });
+
+    manager.removeEffect(room, tk, 'ban1');
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 25, y: 25 });
+  });
+
   it('Banishment: экстрапланетный по истечении срока не возвращается (vanished)', () => {
     const manager = setup();
     const room = makeRoom();

@@ -13,6 +13,7 @@
   immuneFromSource,
   isBanished,
   modifiedValue,
+  rectCrossesWalls,
   rollDice,
   saveRollParts,
   sheetProficiencyBonus,
@@ -21,6 +22,7 @@
   withAdvantage,
   withRollParts,
   type AbilityKey,
+  type AreaGrid,
   type ConditionKey,
   type DamageDefense,
   type DiceRollResult,
@@ -50,6 +52,36 @@ function mapOfToken(room: Room, token: Token): MapInfo | undefined {
   return room.scene.maps.find((map) => map.tokens.some((t) => t.id === token.id));
 }
 
+/** Подошва свободна для возврата: в границах карты, без чужих токенов и без стен/закрытых дверей внутри. */
+function spotFree(
+  spot: { x: number; y: number },
+  token: Token,
+  map: MapInfo,
+  grid: AreaGrid,
+  occupied: Set<string>
+): boolean {
+  const size = grid.size;
+  const cols = Math.max(1, Math.floor(map.width / size));
+  const rows = Math.max(1, Math.floor(map.height / size));
+  if (spot.x - token.w / 2 < grid.offsetX || spot.y - token.h / 2 < grid.offsetY) return false;
+  if (spot.x + token.w / 2 > grid.offsetX + cols * size) return false;
+  if (spot.y + token.h / 2 > grid.offsetY + rows * size) return false;
+  const cells = tokenCells({ x: spot.x, y: spot.y, w: token.w, h: token.h }, grid);
+  if (cells.some((key) => occupied.has(key))) return false;
+  // Стена/закрытая дверь внутри подошвы не даёт встать; касание краем не мешает (сжатие как в формах).
+  const inset = Math.min(4, size * 0.1);
+  return !rectCrossesWalls(
+    {
+      x: spot.x - token.w / 2 + inset,
+      y: spot.y - token.h / 2 + inset,
+      w: token.w - inset * 2,
+      h: token.h - inset * 2,
+    },
+    map.walls ?? [],
+    'move'
+  );
+}
+
 /** Ближайшая свободная позиция для подошвы токена (спираль по клеткам от точки). */
 function nearestFreeSpot(
   room: Room,
@@ -60,19 +92,12 @@ function nearestFreeSpot(
 ): { x: number; y: number } | null {
   const grid = gridOfMap(map, room.scene.grid);
   const size = grid.size;
-  const cols = Math.max(1, Math.floor(map.width / size));
-  const rows = Math.max(1, Math.floor(map.height / size));
-  for (let ring = 1; ring <= 8; ring++) {
+  for (let ring = 1; ring <= 16; ring++) {
     for (let dx = -ring; dx <= ring; dx++) {
       for (let dy = -ring; dy <= ring; dy++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
         const spot = { x: center.x + dx * size, y: center.y + dy * size };
-        if (spot.x - token.w / 2 < grid.offsetX || spot.y - token.h / 2 < grid.offsetY) continue;
-        if (spot.x + token.w / 2 > grid.offsetX + cols * size) continue;
-        if (spot.y + token.h / 2 > grid.offsetY + rows * size) continue;
-        const cells = tokenCells({ x: spot.x, y: spot.y, w: token.w, h: token.h }, grid);
-        if (cells.some((key) => occupied.has(key))) continue;
-        return spot;
+        if (spotFree(spot, token, map, grid, occupied)) return spot;
       }
     }
   }
@@ -81,7 +106,7 @@ function nearestFreeSpot(
 
 /**
  * Возврат изгнанного (Banishment): исходная точка или ближайшая свободная
- * позиция, если её заняли, пока носитель был скрыт.
+ * позиция, если её заняли или перекрыли стеной/закрытой дверью, пока носитель был скрыт.
  */
 function placeReturningToken(room: Room, token: Token, at: { x: number; y: number }): void {
   const map = mapOfToken(room, token);
@@ -92,14 +117,11 @@ function placeReturningToken(room: Room, token: Token, at: { x: number; y: numbe
     if (other.id === token.id || isBanished(other)) continue;
     for (const key of tokenCells(other, grid)) occupied.add(key);
   }
-  const own = tokenCells({ x: at.x, y: at.y, w: token.w, h: token.h }, grid);
-  if (own.some((key) => occupied.has(key))) {
-    const spot = nearestFreeSpot(room, map, token, at, occupied);
-    if (spot) {
-      token.x = spot.x;
-      token.y = spot.y;
-      return;
-    }
+  const spot = spotFree(at, token, map, grid, occupied) ? at : nearestFreeSpot(room, map, token, at, occupied);
+  if (spot) {
+    token.x = spot.x;
+    token.y = spot.y;
+    return;
   }
   token.x = at.x;
   token.y = at.y;
