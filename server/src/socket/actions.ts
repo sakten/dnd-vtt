@@ -399,7 +399,6 @@ function useGrantedAction(
       return;
     }
     effect.shadowBlade = { ...blade, inHand: true };
-    effect.actions = [];
     ctx.emitToken(room, 'token:update', mapId, token);
     ctx.syncCombat(room, mapId);
     ctx.systemMessage(room, { code: 'automation.shadowBladeReturn', params: { name: token.name } });

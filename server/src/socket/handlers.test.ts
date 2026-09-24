@@ -533,6 +533,8 @@ describe('action:use', () => {
     const caster = room.scene.maps[0]!.tokens[0]!;
     const effect = caster.effects.find((e) => e.sourceKey === 'XGE:Shadow Blade');
     expect(effect?.shadowBlade).toEqual({ dice: '2d8', inHand: true });
+    // Действие возврата объявлено сразу (клиент показывает его только пока клинок брошен).
+    expect(effect?.actions?.[0]?.id).toBe('return');
 
     // Ближний удар клинком (лист пуст — клинок первый в лоадауте): d20+7, 2d8+4 психическим.
     // Карта в «Темноте»: клинок тени даёт преимущество (источник rule:shadowBlade).
@@ -581,7 +583,6 @@ describe('action:use', () => {
     combatOf(room).turns.e1!.bonusActionUsed = false;
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `spell:${effect!.id}:return` });
     expect(effect?.shadowBlade?.inHand).toBe(true);
-    expect(effect?.actions ?? []).toHaveLength(0);
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.shadowBladeReturn')).toBe(true);
   });
 

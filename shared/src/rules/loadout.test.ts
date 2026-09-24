@@ -91,26 +91,37 @@ describe('Shadow Blade (shadowBlade)', () => {
   const ctx = { abilities: { str: 10, dex: 18 }, classes: [{ className: 'wizard', level: 5 }] };
 
   it('в руке — синтетические атаки: ближняя 5 фт и метание 20/60, психический', () => {
-    const loadout = loadoutOf({ attacks: [sword], effects: [blade], ...ctx });
+    const loadout = loadoutOf({ attacks: [sword], hands: { right: 'sw', left: 'kn' }, effects: [blade], ...ctx });
     expect(loadout.attacks).toHaveLength(3);
     const melee = loadout.attacks[1]!;
     expect(melee).toMatchObject({
       id: 'shadow:sb',
+      name: 'Клинок тени',
       hit: 'd20+7',
       damage: '3d8+4',
       damageType: 'psychic',
       rangeType: 'melee',
       rangeNormal: 5,
     });
-    expect(loadout.attacks[2]).toMatchObject({ id: 'shadow:sb:thrown', rangeType: 'ranged', rangeNormal: 20, rangeLong: 60 });
+    expect(loadout.attacks[2]).toMatchObject({
+      id: 'shadow:sb:thrown',
+      name: 'Клинок тени (метание)',
+      rangeType: 'ranged',
+      rangeNormal: 20,
+      rangeLong: 60,
+    });
     expect(loadout.attacks[0]).toBe(sword);
+    // Клинок занимает правую руку; левая рука (кинжал) остаётся.
+    expect(loadout.hands).toEqual({ right: 'shadow:sb', left: 'kn' });
   });
 
-  it('брошен (inHand: false) — атак нет', () => {
+  it('брошен (inHand: false) — атак нет, руки возвращаются', () => {
     const thrown: EffectInstance = { ...blade, shadowBlade: { dice: '3d8', inHand: false } };
     const attacks = [sword];
-    const loadout = loadoutOf({ attacks, effects: [thrown], ...ctx });
+    const hands = { right: 'sw', left: 'kn' };
+    const loadout = loadoutOf({ attacks, hands, effects: [thrown], ...ctx });
     expect(loadout.attacks).toBe(attacks);
+    expect(loadout.hands).toBe(hands);
   });
 });
 

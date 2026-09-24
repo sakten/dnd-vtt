@@ -2,26 +2,10 @@ import {
   isShadowBladeThrown,
   shadowBladeEffectIdOf,
   type AttackEntry,
-  type GrantedAction,
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-
-/** Действие «Вернуть клинок» — бонусным, возвращает брошенный клинок тени в руку. */
-export function shadowBladeReturnAction(): GrantedAction {
-  return {
-    id: 'return',
-    name: 'Вернуть клинок',
-    cost: 'bonus',
-    def: {
-      key: 'XGE:Shadow Blade:return',
-      name: 'Вернуть клинок',
-      resolution: 'utility',
-      utility: { kind: 'recallWeapon' },
-    },
-  };
-}
 
 /**
  * Синтетическая запись (`shadow:`) допустима только пока у токена жив
@@ -46,6 +30,5 @@ export function markShadowBladeThrown(
   const effect = token.effects.find((e) => e.id === effectId);
   if (!effect?.shadowBlade?.inHand) return;
   effect.shadowBlade = { ...effect.shadowBlade, inHand: false };
-  effect.actions = [shadowBladeReturnAction()];
   ctx.emitToken(room, 'token:update', mapId, token);
 }

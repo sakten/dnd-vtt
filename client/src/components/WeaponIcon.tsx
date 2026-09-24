@@ -742,6 +742,10 @@ export function weaponIconId(name: string): string {
   if (n.includes('плев') || n.includes('слюн') || n.includes('spit')) return 'spit';
   if (n.includes('slam')) return 'slam';
   if (n.includes('кулак') || n.includes('безоруж') || n.includes('fist') || n.includes('удар') || n.includes('unarmed') || n.includes('strike')) return 'fist';
+  // Shadow Blade: метание клинка тени — иконка метательного снаряда.
+  if ((n.includes('клинок тени') || n.includes('shadow blade')) && (n.includes('метание') || n.includes('thrown'))) {
+    return 'dart';
+  }
   return 'default';
 }
 

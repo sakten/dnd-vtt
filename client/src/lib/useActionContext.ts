@@ -133,16 +133,19 @@ export function useActionContext(): ActionContext | null {
         description: e.name,
       }));
     // Действия, выданные эффектами (Expeditious Retreat: Рывок бонусным действием).
+    // «Вернуть клинок» показываем только пока клинок тени брошен.
     const grantedActions: ActionDef[] = token.effects.flatMap((e) =>
-      (e.actions ?? []).map((a) => ({
-        id: `spell:${e.id}:${a.id}`,
-        name: a.name,
-        source: 'spell' as const,
-        costs: [a.cost],
-        targeting: a.def?.targeting,
-        description: e.name,
-        iconKey: e.sourceKey ? `${e.sourceKey}:${a.id}` : undefined,
-      }))
+      (e.actions ?? [])
+        .filter((a) => a.def?.utility?.kind !== 'recallWeapon' || !e.shadowBlade?.inHand)
+        .map((a) => ({
+          id: `spell:${e.id}:${a.id}`,
+          name: a.name,
+          source: 'spell' as const,
+          costs: [a.cost],
+          targeting: a.def?.targeting,
+          description: e.name,
+          iconKey: e.sourceKey ? `${e.sourceKey}:${a.id}` : undefined,
+        }))
     );
     // Действия зон (перемещение Moonbeam/Flaming Sphere/Faithful Hound) — от кастера-источника.
     const zoneActions: ActionDef[] = [];

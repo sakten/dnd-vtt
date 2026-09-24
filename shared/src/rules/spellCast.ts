@@ -93,6 +93,8 @@ export function spellDamageExpression(spell: Spell, castLevel: number, character
   if (!base) return null;
   if (spell.level === 0) return spellCantripDice(spell, characterLvl) ?? base;
   if (castLevel > spell.level) {
+    // Ступени (Shadow Blade/Elemental Weapon): кость ступени заменяет базовую, а не добавляется.
+    if (spell.upcast?.tiers?.length) return spellUpcastAt(spell, castLevel).dice ?? base;
     const extra = spellUpcastDice(spell, castLevel);
     if (extra) return `${base} + ${extra}`;
   }

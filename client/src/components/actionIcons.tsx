@@ -257,6 +257,29 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
       <circle cx="12" cy="12" r="2.2" fill="#fffdf0" />
     </>
   ),
+
+  // Shadow Blade — «Вернуть клинок»: клинок тени возвращается в руку (стрелка вниз)
+  'XGE:Shadow Blade:return': (
+    <>
+      <defs>
+        <linearGradient id="aiShadowBlade" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ded1ff" />
+          <stop offset="1" stopColor="#3b2a5e" />
+        </linearGradient>
+      </defs>
+      <path d="M12 2.2 13.8 6v7.4h-3.6V6z" fill="url(#aiShadowBlade)" />
+      <path d="M8.2 13.4h7.6" stroke="#b9a4ff" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M12 15v3.2" stroke="#b9a4ff" strokeWidth="1.6" strokeLinecap="round" />
+      <path
+        d="M9.4 16.2 12 18.8l2.6-2.6"
+        fill="none"
+        stroke="#e7dcff"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </>
+  ),
 };
 
 /** Запасные глифы действий по id (когда точного ключа «заклинание:действие» нет). */

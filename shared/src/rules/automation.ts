@@ -1742,10 +1742,28 @@ function shillelaghDef(spell: Spell, opts: AutomationOptions): AutomationDef | u
 }
 
 /**
+ * Shadow Blade: выданное действие «Вернуть клинок» (живёт в эффекте всегда;
+ * клиент показывает его, только пока клинок брошен — `shadowBlade.inHand`).
+ */
+export function shadowBladeReturnAction(): GrantedAction {
+  return {
+    id: 'return',
+    name: 'Вернуть клинок',
+    cost: 'bonus',
+    def: {
+      key: 'XGE:Shadow Blade:return',
+      name: 'Вернуть клинок',
+      resolution: 'utility',
+      utility: { kind: 'recallWeapon' },
+    },
+  };
+}
+
+/**
  * Shadow Blade (XGE): бонусным действием — синтетический клинок тени в руке
  * (кость по кругу 2d8…5d8, психический, ловкость/сила). Клинок появляется в
- * лоадауте отдельными атаками (ближняя и метание 20/60); брошенный исчезает и
- * возвращается бонусным действием (`shadowBlade.inHand`).
+ * лоадауте отдельными атаками (ближняя и метание 20/60) и занимает правую руку;
+ * брошенный исчезает и возвращается бонусным действием (`shadowBlade.inHand`).
  */
 function shadowBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XGE:Shadow Blade') return undefined;
@@ -1757,6 +1775,7 @@ function shadowBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
     to: 'self',
     modifiers: [],
     shadowBlade: { dice: spellUpcastAt(spell, castLevel).dice ?? spell.damage?.dice?.[0] ?? '2d8', inHand: true },
+    actions: [shadowBladeReturnAction()],
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }

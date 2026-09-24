@@ -67,7 +67,17 @@ function shadowBladeEntries(effect: EffectInstance, context: WeaponContext): Att
     rangeNormal: 5,
     rangeLong: 0,
   };
-  return [melee, { ...melee, id: `${melee.id}:thrown`, rangeType: 'ranged', rangeNormal: 20, rangeLong: 60 }];
+  return [
+    melee,
+    {
+      ...melee,
+      id: `${melee.id}:thrown`,
+      name: 'Клинок тени (метание)',
+      rangeType: 'ranged',
+      rangeNormal: 20,
+      rangeLong: 60,
+    },
+  ];
 }
 
 /**
@@ -90,7 +100,10 @@ export function loadoutOf(input: LoadoutInput): ActorLoadout {
   if (!hasOverrides && !blades.length) return { attacks, hands: input.hands, context };
   const mapped = hasOverrides ? attacks.map((attack) => applyWeaponOverrides(attack, effects, context)) : attacks;
   const extra = blades.flatMap((effect) => shadowBladeEntries(effect, context));
-  return { attacks: extra.length ? [...mapped, ...extra] : mapped, hands: input.hands, context };
+  // Клинок тени занимает правую руку вместо оружия; после конца эффекта руки возвращаются.
+  const activeBlade = blades.find((e) => e.shadowBlade?.inHand);
+  const hands = activeBlade ? { ...input.hands, right: `${SHADOW_BLADE_PREFIX}${activeBlade.id}` } : input.hands;
+  return { attacks: extra.length ? [...mapped, ...extra] : mapped, hands, context };
 }
 
 /**

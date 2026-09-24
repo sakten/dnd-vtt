@@ -96,6 +96,25 @@ describe('spellDamageExpression', () => {
     expect(spellDamageExpression(spell, 2, 5)).toBe('2d8 + 2d8');
   });
 
+  it('ступени апкаста заменяют кость (Shadow Blade), а не суммируются', () => {
+    const spell = makeSpell({
+      level: 2,
+      damage: { dice: ['2d8'], types: ['psychic'] },
+      upcast: {
+        tiers: [
+          { level: 3, dice: '3d8' },
+          { level: 5, dice: '4d8' },
+          { level: 7, dice: '5d8' },
+        ],
+      },
+    });
+    expect(spellDamageExpression(spell, 2, 5)).toBe('2d8');
+    expect(spellDamageExpression(spell, 3, 5)).toBe('3d8');
+    expect(spellDamageExpression(spell, 4, 5)).toBe('3d8');
+    expect(spellDamageExpression(spell, 6, 5)).toBe('4d8');
+    expect(spellDamageExpression(spell, 9, 5)).toBe('5d8');
+  });
+
   it('кантрип масштабируется по уровню персонажа', () => {
     const spell = makeSpell({
       level: 0,
