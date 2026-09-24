@@ -550,6 +550,8 @@ describe('action:use', () => {
     expect(attackMsg?.labelParams?.sources).toContainEqual({ side: 'advantage', kind: 'rule', key: 'shadowBlade' });
 
     // Метание (индекс 1): клинок исчезает, эффект выдаёт «Вернуть клинок».
+    // Легаси-эффекты старых кастов могли быть без статичного действия — метание достраивает его.
+    (effect as { actions?: unknown }).actions = undefined;
     combatOf(room).turns.e1!.actionUsed = false;
     const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0.5);
     f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 1, targetIds: ['t2'] });

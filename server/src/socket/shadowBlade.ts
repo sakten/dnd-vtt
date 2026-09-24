@@ -1,6 +1,7 @@
 import {
   isShadowBladeThrown,
   shadowBladeEffectIdOf,
+  shadowBladeReturnAction,
   type AttackEntry,
   type Token,
 } from 'shared';
@@ -30,5 +31,9 @@ export function markShadowBladeThrown(
   const effect = token.effects.find((e) => e.id === effectId);
   if (!effect?.shadowBlade?.inHand) return;
   effect.shadowBlade = { ...effect.shadowBlade, inHand: false };
+  // Эффекты старых кастов могли не иметь статичного действия возврата — достраиваем.
+  if (!effect.actions?.some((a) => a.id === 'return')) {
+    effect.actions = [shadowBladeReturnAction(), ...(effect.actions ?? [])];
+  }
   ctx.emitToken(room, 'token:update', mapId, token);
 }
