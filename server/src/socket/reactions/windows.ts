@@ -208,7 +208,8 @@ export function openAttackMissWindows(
   ctx: ConnCtx,
   room: Room,
   plan: Pick<AttackWindowPlan, 'attacker' | 'attackerMapId' | 'target' | 'targetMapId' | 'rangeType'>,
-  onResolved: (outcome: { bonus: number; inspiration: number }) => void
+  onResolved: (outcome: { bonus: number; inspiration: number }) => void,
+  extraOffers: ReactionOfferInput[] = []
 ): boolean {
   const { target, targetMapId } = plan;
   if (!target || !targetMapId) return false;
@@ -255,12 +256,12 @@ export function openAttackMissWindows(
       });
     }
   }
-  if (!offers.length) return false;
+  if (!offers.length && !extraOffers.length) return false;
   return openReactionWindow(ctx, room, {
     mapId: targetMapId,
     trigger: 'attackMiss',
     sourceName: plan.attacker?.name,
-    offers,
+    offers: [...offers, ...extraOffers],
     done: () => {
       const currentRoom = ctx.getRoom();
       if (!currentRoom) {

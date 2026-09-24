@@ -1,3 +1,4 @@
+import type { ReactionOption } from 'shared';
 import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
 import { availableChoiceRiders } from '../attackRiders';
@@ -10,12 +11,23 @@ import {
   type WeaponAttackPlan,
   type WeaponDamageMods,
 } from '../attackResolve';
-import { applySmiteChoice, availableSmites } from '../smites';
+import { applySmiteChoice, availableSmites, type SmiteOption } from '../smites';
 import { sanctuaryBlocks } from '../sanctuary';
-import { openReactionWindow } from './queue';
+import { openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, type ReactionChoice } from './internal';
 import { applyAttackRollChoices, openRedirectWindow, preRollOffers } from './features';
 import { offerDamageReactions, openAttackHitWindows, openAttackMissWindows } from './windows';
+
+/** Опции смайтов для окон реакций (общие для попадания и промаха). */
+function smiteReactionOptions(smites: SmiteOption[]): ReactionOption[] {
+  return smites.map((smite) => ({
+    id: smite.id,
+    name: smite.name,
+    kind: 'spell' as const,
+    spellKey: smite.spellKey,
+    levels: smite.levels,
+  }));
+}
 
 /** Фазы после броска: промах → attackMiss, попадание → attackHit, затем урон. */
 function continueAfterRoll(
@@ -38,12 +50,22 @@ function continueAfterRoll(
 
   // Отложенные после урона эффекты смайтов (Banishing: изгнание при остатке ≤ 50 HP).
   const smiteAfterDamage: (() => void)[] = [];
+  // Lightning Arrow: урон оружия заменяется костями (промах — половина).
+  let hitReplacement: { expr: string; damageType: string; half: boolean } | undefined;
   const applyDamage = (mods: WeaponDamageMods = {}) => {
     // Наездник заклинания (Green-Flame Blade) суммируется со смайтом из окна.
     const combined: WeaponDamageMods = input.riderDice
       ? { ...mods, smiteDice: [mods.smiteDice, input.riderDice].filter(Boolean).join(' + ') }
       : mods;
-    const damage = applyWeaponAttackDamage(ctx, plan, combined);
+    const withReplace: WeaponDamageMods = hitReplacement
+      ? {
+          ...combined,
+          replaceExpr: hitReplacement.expr,
+          replaceDamageType: hitReplacement.damageType,
+          halveDamage: hitReplacement.half || combined.halveDamage,
+        }
+      : combined;
+    const damage = applyWeaponAttackDamage(ctx, plan, withReplace);
     if (!damage) return;
     result.damageRoll = damage.roll;
     input.afterHit?.(damage);
@@ -56,7 +78,7 @@ function continueAfterRoll(
     if (damage.applied > 0 && target && targetMapId && plan.attacker) {
       offerDamageReactions(ctx, room, targetMapId, target, plan.attacker, {
         amount: damage.applied,
-        damageType: plan.attack.damageType,
+        damageType: hitReplacement?.damageType ?? plan.attack.damageType,
       });
     }
   };
@@ -99,12 +121,7 @@ function continueAfterRoll(
               resourceKey: rider.resourceKey,
               resourceAmount: rider.resourceAmount,
             })),
-            ...smites.map((smite) => ({
-              id: smite.id,
-              name: smite.name,
-              kind: 'spell' as const,
-              spellKey: smite.spellKey,
-            })),
+            ...smiteReactionOptions(smites),
           ],
           apply: (choice: ReactionChoice): boolean => {
             const roomAfter = ctx.getRoom();
@@ -116,6 +133,7 @@ function continueAfterRoll(
             if (choice.optionId.startsWith('smite:') && plan.attacker && target && targetMapId) {
               const applied = applySmiteChoice(ctx, roomAfter, targetMapId, plan.attacker, target, choice.optionId);
               if (applied?.dice) smiteDice = smiteDice ? `${smiteDice} + ${applied.dice}` : applied.dice;
+              if (applied?.replaceDamage) hitReplacement = applied.replaceDamage;
               if (applied?.afterDamage) smiteAfterDamage.push(applied.afterDamage);
             }
             return true;
@@ -146,24 +164,57 @@ function continueAfterRoll(
     );
   };
 
-  // Промах: Ответный удар цели (реакция), Направленный удар (+10) и кости вдохновения.
+  // Промах: Ответный удар цели (реакция), Направленный удар (+10) и кости вдохновения;
+  // Lightning Arrow («после попадания или промаха») — отдельный оффер атакующего.
   if (result.hitSuccess === false && target && targetMapId) {
-    const opened = openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
-      const currentRoom = ctx.getRoom();
-      if (!currentRoom) {
-        applyDamage();
-        return;
-      }
-      if (bonus + inspiration > 0) {
-        plan.penalty += bonus + inspiration;
-        plan.hitSuccess = true;
-        result.hitSuccess = true;
-        if (!openHitWindows()) applyDamageWithRiders();
-      } else {
-        // Graze: промах оружием с мастерством — урон по модификатору характеристики.
-        applyWeaponAttackDamage(ctx, plan);
-      }
-    });
+    let missSmiteChoice: string | undefined;
+    const missSmites =
+      plan.attacker && plan.attackerMapId
+        ? availableSmites(ctx, room, plan.attackerMapId, plan.attacker, plan.attack, false, { onMiss: true })
+        : [];
+    const smiteOffers: ReactionOfferInput[] =
+      missSmites.length && plan.attacker && plan.attackerMapId
+        ? [
+            {
+              token: plan.attacker,
+              audience: audienceOf(ctx, room, plan.attackerMapId, plan.attacker),
+              options: smiteReactionOptions(missSmites),
+              apply: (choice: ReactionChoice): boolean => {
+                if (choice.optionId) missSmiteChoice = choice.optionId;
+                return true;
+              },
+            },
+          ]
+        : [];
+    const opened = openAttackMissWindows(
+      ctx,
+      room,
+      windowPlan,
+      ({ bonus, inspiration }) => {
+        const currentRoom = ctx.getRoom();
+        if (!currentRoom) {
+          applyDamage();
+          return;
+        }
+        if (bonus + inspiration > 0) {
+          plan.penalty += bonus + inspiration;
+          plan.hitSuccess = true;
+          result.hitSuccess = true;
+          if (!openHitWindows()) applyDamageWithRiders();
+        } else if (missSmiteChoice && plan.attacker) {
+          const applied = applySmiteChoice(ctx, currentRoom, targetMapId, plan.attacker, target, missSmiteChoice, {
+            onMiss: true,
+          });
+          if (applied?.replaceDamage) hitReplacement = applied.replaceDamage;
+          if (applied?.afterDamage) smiteAfterDamage.push(applied.afterDamage);
+          applyDamage();
+        } else {
+          // Graze: промах оружием с мастерством — урон по модификатору характеристики.
+          applyWeaponAttackDamage(ctx, plan);
+        }
+      },
+      smiteOffers
+    );
     if (opened) return result;
     // Graze без окна реакций.
     applyWeaponAttackDamage(ctx, plan);

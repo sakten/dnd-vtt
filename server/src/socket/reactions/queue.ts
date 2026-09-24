@@ -455,6 +455,16 @@ export function openReactionWindow(ctx: ConnCtx, room: Room, args: OpenWindowArg
   return queueFor(room.code).open(ctx, room, args);
 }
 
+/** Ответ принят: точное совпадение id или круг смайта из предложенных (`levels`). */
+function optionAccepted(options: ReactionOption[], optionId: string): boolean {
+  if (options.some((o) => o.id === optionId)) return true;
+  const at = optionId.lastIndexOf('@');
+  if (!optionId.startsWith('smite:') || at <= 'smite:'.length) return false;
+  const spellKey = optionId.slice('smite:'.length, at);
+  const level = Number(optionId.slice(at + 1));
+  return options.some((o) => o.spellKey === spellKey && o.levels?.includes(level));
+}
+
 export function registerReactionHandlers(ctx: ConnCtx) {
   const { getRoom, isDm } = ctx;
 
@@ -467,7 +477,9 @@ export function registerReactionHandlers(ctx: ConnCtx) {
     const { pending, state } = found;
     // Отвечают только реактор (его аудитория) и DM; зрительское окно неактивно.
     if (!state.audience.includes(ctx.playerId) && !isDmViewer(room, ctx.playerId)) return;
-    if (optionId !== null && !state.options.some((o) => o.id === optionId)) return;
+    // Ответ принимается по точному id опции; для смайтов — любой круг из `levels`
+    // (в окне один пункт на заклинание, круг выбирается в клиенте: `smite:<ключ>@<круг>`).
+    if (optionId !== null && !optionAccepted(state.options, optionId)) return;
     queue.respond({ tokenId: state.tokenId, mapId: pending.mapId, optionId: optionId ?? null });
   });
 

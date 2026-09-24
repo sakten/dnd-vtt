@@ -99,6 +99,8 @@ export interface ReactionOption {
   name: string;
   kind: 'spell' | 'feature' | 'opportunity' | 'effect';
   spellKey?: string;
+  /** Смайты: один пункт на заклинание, доступные круги ячейки (`smite:<ключ>@<круг>`). */
+  levels?: number[];
   actionId?: string;
   resourceKey?: string;
   resourceAmount?: number;

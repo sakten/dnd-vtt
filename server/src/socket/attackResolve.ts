@@ -457,6 +457,10 @@ export interface WeaponDamageMods {
   riders?: string[];
   /** Смайт при попадании (Searing/Ensnaring): типизированные кости доп. урона. */
   smiteDice?: string;
+  /** Замена урона оружия (Lightning Arrow): типизированные кости вместо формулы. */
+  replaceExpr?: string;
+  /** Тип урона замены (Lightning Arrow: электричество) — для метки и защит. */
+  replaceDamageType?: string;
 }
 
 export interface WeaponDamageResult {
@@ -518,8 +522,10 @@ export function applyWeaponAttackDamage(
     const ac = manager.acForToken(room, target) + (mods.extraAc ?? 0);
     if (ac > 0) hitSuccess = resolveAttack(plan.hitRoll.total + plan.penalty, crit, false, ac);
   }
-  if (hitSuccess === false) {
-    // Graze: промах оружием с мастерством — урон, равный модификатору (0 — не наносим).
+  const hit = hitSuccess !== false;
+  // Graze: промах оружием с мастерством — урон, равный модификатору (0 — не наносим).
+  // Замена урона (Lightning Arrow) действует и по промаху — Graze её не перекрывает.
+  if (!hit && !mods.replaceExpr) {
     if (plan.attacker && plan.attackerMapId && target && targetMapId) {
       const graze = grazeDamage(ctx, room, plan.attacker, attack);
       if (graze > 0) {
@@ -536,18 +542,19 @@ export function applyWeaponAttackDamage(
     return undefined;
   }
   // Mirror Image: попадание может принять образ вместо цели (урона нет).
-  if (target && targetMapId && misdirectCheck(ctx, room, targetMapId, target, plan.attacker)) return undefined;
+  if (hit && target && targetMapId && misdirectCheck(ctx, room, targetMapId, target, plan.attacker)) return undefined;
   // Sap: попадание достаточно, урон не требуется.
-  if (plan.attacker && plan.attackerMapId && target && targetMapId) {
+  if (hit && plan.attacker && plan.attackerMapId && target && targetMapId) {
     applyHitMastery(ctx, room, targetMapId, plan.attacker, target, attack);
   }
 
   try {
-    const ride = plan.attacker && plan.attackerMapId
-      ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders, plan.attack)
-      : { expr: '', notes: [] };
+    const ride =
+      hit && plan.attacker && plan.attackerMapId
+        ? applyAttackRiders(ctx, room, plan.attacker, plan.attackerMapId, plan.target, mods.riders, plan.attack)
+        : { expr: '', notes: [] };
     for (const note of ride.notes) ctx.systemMessage(room, { code: 'attack.riderNote', params: { note } });
-    const fullDamageExpr = [damageExpr, ride.expr, mods.smiteDice].filter(Boolean).join(' + ');
+    const fullDamageExpr = [mods.replaceExpr ?? damageExpr, ride.expr, mods.smiteDice].filter(Boolean).join(' + ');
     const damageRoll = savageAttackerRoll(ctx, room, plan, fullDamageExpr, crit);
     // Составной урон: части броска по типам; реакции (+/-) идут в основной тип.
     const parts = damageRoll.damageParts.map((part) => ({ ...part }));
@@ -559,21 +566,22 @@ export function applyWeaponAttackDamage(
     const typedParts = magicWeapon
       ? parts.map((part) => (part.damageType ? { ...part, damageType: magicalDamageType(part.damageType)! } : part))
       : parts;
+    const mainType = mods.replaceDamageType ?? attack.damageType;
     const damage = applyDamage(ctx, {
       target,
       mapId: targetMapId,
       amount: Math.max(0, damageRoll.total + (mods.extraDamage ?? 0) - (mods.flatReduction ?? 0)),
-      damageType: damageTypeOf(attack.damageType),
+      damageType: damageTypeOf(mainType),
       ...(typedParts.length ? { parts: typedParts } : {}),
       halve: mods.halveDamage,
       roll: damageRoll,
       author: plan.author,
-      params: baseParams,
+      params: mods.replaceDamageType ? { ...baseParams, damageType: mods.replaceDamageType } : baseParams,
       crit,
       ...(plan.attacker ? { attacker: plan.attacker, melee: attack.rangeType === 'melee' } : {}),
     });
-    // Vex/Slow: срабатывают при нанесённом уроне.
-    if (damage.applied && plan.attacker && plan.attackerMapId && target && targetMapId) {
+    // Vex/Slow: срабатывают при нанесённом попаданием уроне.
+    if (damage.applied && hit && plan.attacker && plan.attackerMapId && target && targetMapId) {
       applyDamageMastery(ctx, room, targetMapId, plan.attacker, target, attack);
     }
     return { roll: damageRoll, applied: damage.applied ? damage.amount : 0 };

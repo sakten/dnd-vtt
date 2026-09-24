@@ -452,6 +452,34 @@ describe('automationForSpell', () => {
     expect(banish.effects?.[0]?.conditions).toEqual(['incapacitated']);
   });
 
+  it('Hail of Thorns и Lightning Arrow — ranged-смайты со спасом вокруг цели', () => {
+    const hail = makeSpell({ key: 'XPHB:Hail of Thorns', name: 'Hail of Thorns', level: 1 });
+    const h = automationForSpell(hail, { castLevel: 2 });
+    expect(h.damage).toEqual({ dice: '1d10 + 1d10', types: ['piercing'] });
+    expect(h.weaponAttack?.replace).toBeUndefined();
+    expect(h.weaponAttack?.secondary).toMatchObject({
+      rangeFeet: 5,
+      dice: '1d10 + 1d10',
+      damageType: 'piercing',
+      save: { ability: 'dex', half: true },
+      includePrimary: true,
+    });
+    expect(spellAutomated(hail)).toBe(true);
+
+    const arrow = makeSpell({ key: 'XPHB:Lightning Arrow', name: 'Lightning Arrow', level: 3 });
+    const a = automationForSpell(arrow, { castLevel: 4 });
+    expect(a.damage).toEqual({ dice: '4d8 + 1d8', types: ['lightning'] });
+    expect(a.weaponAttack?.replace).toBe(true);
+    expect(a.weaponAttack?.secondary).toMatchObject({
+      rangeFeet: 10,
+      dice: '2d8 + 1d8',
+      damageType: 'lightning',
+      save: { ability: 'dex', half: true },
+    });
+    expect(a.weaponAttack?.secondary?.includePrimary).toBeUndefined();
+    expect(spellAutomated(arrow)).toBe(true);
+  });
+
   it('лимит «1 минута» = 10 раундов; больше минуты и instant — без лимита', () => {
     const bless = makeSpell({
       key: 'XPHB:Bless',

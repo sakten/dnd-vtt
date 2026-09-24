@@ -7,6 +7,7 @@ import {
   hostileTokens,
   resolveAbilityMods,
   sideMatches,
+  tokensNearFeet,
 } from './combat';
 import { rollMode } from './effects';
 import type { ConditionInstance } from '../domain/effects';
@@ -148,5 +149,26 @@ describe('hostileTokens и стороны (фракция, не isPlayerToken)',
     expect(sideMatches(side('ally'), side('neutral'), 'ally')).toBe(false);
     expect(sideMatches(side('neutral'), side('neutral'), 'ally')).toBe(false);
     expect(sideMatches(side('ally'), side('enemy'), 'hostile')).toBe(true);
+  });
+});
+
+describe('tokensNearFeet (дистанция по подошвам)', () => {
+  const box = (x: number, w = 50, y = 100, h = 50) => ({ x, y, w, h });
+
+  it('большой токен вплотную — 5 фт, через пустую клетку — 10 фт', () => {
+    const center = box(100, 100, 100, 100); // [50..150]
+    const adjacent = box(200, 100, 100, 100); // [150..250] — касается
+    const near = box(150); // [125..175] — вплотную к большому
+    const oneCellAway = box(225, 50, 100, 50); // [200..250] — пустая клетка от большого
+    expect(tokensNearFeet([center, adjacent, near], center, 5, 50)).toEqual([center, adjacent, near]);
+    expect(tokensNearFeet([oneCellAway], center, 5, 50)).toEqual([]);
+    expect(tokensNearFeet([oneCellAway], center, 10, 50)).toEqual([oneCellAway]);
+  });
+
+  it('сортирует от ближних к дальним', () => {
+    const center = box(100);
+    const far = box(400);
+    const near = box(200);
+    expect(tokensNearFeet([far, center, near], center, 30, 50)).toEqual([center, near, far]);
   });
 });

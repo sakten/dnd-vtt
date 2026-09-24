@@ -1,5 +1,4 @@
 import {
-  gridDistanceFeet,
   gridOfMap,
   gripAdjustedDamage,
   handAttackOf,
@@ -9,6 +8,7 @@ import {
   rollDice,
   seesInvisible,
   tokenVisibleFrom,
+  tokensNearFeet,
   weaponByKey,
   type AutomationDef,
   type SpellStats,
@@ -68,17 +68,14 @@ function applySecondary(
   if (!map) return;
   const grid = gridOfMap(map, room.scene.grid);
   const seesHidden = seesInvisible(input.caster.effects);
-  const victim = map.tokens
-    .filter(
-      (t) =>
-        t.id !== primary.id &&
-        !isBanished(t) &&
-        hostileTokens(input.caster, t) &&
-        gridDistanceFeet(primary, t, grid.size) <= spec.rangeFeet &&
-        tokenVisibleFrom(input.caster, t, map.walls, grid) &&
-        (seesHidden || !t.conditions.some((c) => c.key === 'invisible'))
-    )
-    .sort((a, b) => gridDistanceFeet(primary, a, grid.size) - gridDistanceFeet(primary, b, grid.size))[0];
+  const victim = tokensNearFeet(map.tokens, primary, spec.rangeFeet, grid.size).find(
+    (t) =>
+      t.id !== primary.id &&
+      !isBanished(t) &&
+      hostileTokens(input.caster, t) &&
+      tokenVisibleFrom(input.caster, t, map.walls, grid) &&
+      (seesHidden || !t.conditions.some((c) => c.key === 'invisible'))
+  );
   if (!victim) return;
   const mod = stats ? Math.round(stats.mod) : 0;
   const expr = [mod > 0 ? String(mod) : '', spec.dice ?? ''].filter(Boolean).join('+');

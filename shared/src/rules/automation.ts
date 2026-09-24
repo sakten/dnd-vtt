@@ -1216,6 +1216,8 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Shining Smite',
   'XPHB:Staggering Smite',
   'XPHB:Banishing Smite',
+  'XPHB:Hail of Thorns',
+  'XPHB:Lightning Arrow',
   'XPHB:Protection from Energy',
 ]);
 
@@ -1706,6 +1708,25 @@ interface SmiteConfig {
   concentration?: boolean;
   /** Вынужденный сдвиг при провале спаса (Thunderous: толчок на 10 фт). */
   forceFeet?: number;
+  /** Кости заменяют урон оружия, а не добавляются (Lightning Arrow). */
+  replace?: boolean;
+  /** Вторичный спас вокруг цели (Hail — 5 фт, Lightning — 10 фт). */
+  burst?: {
+    rangeFeet: number;
+    /** Кости/тип всплеска; без них наследуются кости основного урона (Hail). */
+    base?: string;
+    per?: string;
+    above?: number;
+    type?: string;
+    save: AbilityKey;
+    includePrimary?: boolean;
+  };
+}
+
+/** Кости смайта/всплеска с апкастом: база + `per` за каждый круг выше `above`. */
+function smiteDiceExpr(base: string, per: string | undefined, above: number | undefined, level: number): string {
+  const extra = per && above ? Math.max(0, level - above) : 0;
+  return [base, ...Array.from({ length: extra }, () => per!)].join(' + ');
 }
 
 /**
@@ -1792,6 +1813,21 @@ const SMITE_CONFIGS: Record<string, SmiteConfig> = {
       banish: true,
     },
   },
+  'XPHB:Hail of Thorns': {
+    base: '1d10',
+    per: '1d10',
+    above: 1,
+    type: 'piercing',
+    burst: { rangeFeet: 5, save: 'dex', includePrimary: true },
+  },
+  'XPHB:Lightning Arrow': {
+    base: '4d8',
+    per: '1d8',
+    above: 3,
+    type: 'lightning',
+    replace: true,
+    burst: { rangeFeet: 10, base: '2d8', per: '1d8', above: 3, type: 'lightning', save: 'dex' },
+  },
 };
 
 /** Билдер XPHB-смайта: доп. кости урона (апкаст), спас и эффект при провале. */
@@ -1799,8 +1835,21 @@ function xphbSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
   const cfg = SMITE_CONFIGS[spell.key];
   if (!cfg) return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const extra = cfg.per && cfg.above ? Math.max(0, level - cfg.above) : 0;
-  const dice = [cfg.base, ...Array.from({ length: extra }, () => cfg.per!)].join(' + ');
+  const dice = smiteDiceExpr(cfg.base, cfg.per, cfg.above, level);
+  const secondary = cfg.burst
+    ? {
+        rangeFeet: cfg.burst.rangeFeet,
+        dice: smiteDiceExpr(
+          cfg.burst.base ?? cfg.base,
+          cfg.burst.per ?? cfg.per,
+          cfg.burst.above ?? cfg.above,
+          level
+        ),
+        damageType: cfg.burst.type ?? cfg.type,
+        save: { ability: cfg.burst.save, half: true },
+        ...(cfg.burst.includePrimary ? { includePrimary: true } : {}),
+      }
+    : undefined;
   return {
     key: spell.key,
     name: spell.name,
@@ -1810,6 +1859,9 @@ function xphbSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
     ...(cfg.save ? { save: { ability: cfg.save } } : {}),
     ...(cfg.forceFeet ? { force: { kind: 'push' as const, feet: cfg.forceFeet } } : {}),
     ...(cfg.effect ? { effects: [{ name: spell.name, ...cfg.effect }] } : {}),
+    ...(secondary || cfg.replace
+      ? { weaponAttack: { ...(cfg.replace ? { replace: true } : {}), ...(secondary ? { secondary } : {}) } }
+      : {}),
   };
 }
 

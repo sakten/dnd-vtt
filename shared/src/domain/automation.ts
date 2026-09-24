@@ -348,14 +348,26 @@ export interface AutomationDef extends AutomationPayload {
   /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   /**
-   * Клинки-кантрипы (Green-Flame Blade): вместо заклинательной атаки — атака
-   * оружием из правой руки с райдером на попадании и вторичным уроном.
+   * Райдер оружия/смайта: клинки-кантрипы (Green-Flame Blade) и ranged-смайты
+   * (Hail of Thorns, Lightning Arrow): кости на попадании и вторичный урон.
    */
   weaponAttack?: {
     /** Доп. кости урона на попадании с типом (`1d8fire`); нет — без добавки. */
     riderDice?: string;
-    /** Вторичная цель в `rangeFeet` от основной: урон = мод заклинательной + `dice`. */
-    secondary?: { rangeFeet: number; dice?: string; damageType: string };
+    /** Кости заменяют урон оружия, а не добавляются (Lightning Arrow). */
+    replace?: boolean;
+    /**
+     * Вторичная цель в `rangeFeet` от основной: урон = мод заклинательной + `dice`.
+     * `save` — вторичный урон по спасброску всех в радиусе (Lightning); без него — GFB-режим.
+     */
+    secondary?: {
+      rangeFeet: number;
+      dice?: string;
+      damageType: string;
+      save?: { ability: AbilityKey; half?: boolean };
+      /** Радиус бьёт и по основной цели (Hail of Thorns: «цель и существа вокруг»). */
+      includePrimary?: boolean;
+    };
   };
   /** Фильтр целей по отношению к кастеру (Conjure Woodland Beings: только враги). */
   side?: 'hostile' | 'ally';

@@ -64,21 +64,34 @@ export default function ReactionPrompt() {
           <div className="rp-options">
             {offer.options.map((option) => {
               const spell = option.spellKey ? byKey.get(option.spellKey) : undefined;
-              // Смайт в окне: «Searing Smite · круг 2» (круг — из id `smite:<ключ>@<круг>`).
-              const level = Number(option.id.split('@')[1]);
-              const label =
-                spell && Number.isFinite(level) && level > 0
-                  ? `${spellDisplayName(spell)} · ${t('ui.reaction.levelShort', { level })}`
-                  : reactionLabel(option.id, option.name);
+              // Смайт: один пункт на заклинание, круги — рядом (`levels`), клик по кругу кастует им.
+              const levels = option.levels ?? [];
+              const label = spell ? spellDisplayName(spell) : reactionLabel(option.id, option.name);
               return (
-                <button key={option.id} className="rp-option" onClick={() => respond(offer.id, option.id)}>
-                  {spell ? (
-                    <SpellIcon spell={spell} className="rp-icon" />
-                  ) : (
-                    <ActionIcon id="sword" className="rp-icon" />
+                <div key={option.id} className="rp-option-row">
+                  <button className="rp-option" onClick={() => respond(offer.id, option.id)}>
+                    {spell ? (
+                      <SpellIcon spell={spell} className="rp-icon" />
+                    ) : (
+                      <ActionIcon id="sword" className="rp-icon" />
+                    )}
+                    <span className="rp-name">{label}</span>
+                  </button>
+                  {levels.length > 1 && option.spellKey && (
+                    <div className="rp-levels">
+                      {levels.map((level) => (
+                        <button
+                          key={level}
+                          className="rp-level"
+                          title={t('ui.reaction.levelShort', { level })}
+                          onClick={() => respond(offer.id, `smite:${option.spellKey}@${level}`)}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <span className="rp-name">{label}</span>
-                </button>
+                </div>
               );
             })}
             <button className="rp-option rp-ignore" onClick={() => respond(offer.id, null)}>

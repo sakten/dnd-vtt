@@ -113,6 +113,8 @@ export const SMITE_SPELLS = new Set([
   'XPHB:Shining Smite',
   'XPHB:Staggering Smite',
   'XPHB:Banishing Smite',
+  'XPHB:Hail of Thorns',
+  'XPHB:Lightning Arrow',
 ]);
 
 /** Вид оружия, после попадания которым доступен смайт (по описанию заклинания). */
@@ -126,7 +128,12 @@ export const SMITE_RANGE: Record<string, 'melee' | 'ranged'> = {
   'XPHB:Shining Smite': 'melee',
   'XPHB:Staggering Smite': 'melee',
   'XPHB:Banishing Smite': 'melee',
+  'XPHB:Hail of Thorns': 'ranged',
+  'XPHB:Lightning Arrow': 'ranged',
 };
+
+/** Смайты, применяемые и после промаха (Lightning Arrow: «после попадания или промаха»). */
+export const SMITE_ON_MISS = new Set(['XPHB:Lightning Arrow']);
 
 /**
  * Лимит «1 минута» = 10 раундов (решение владельца): заклинания с длительностью

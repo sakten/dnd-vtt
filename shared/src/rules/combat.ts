@@ -127,6 +127,19 @@ export function gridDistanceFeet(a: GridBox, b: GridBox, gridSize: number, feetP
 }
 
 /**
+ * Токены в радиусе `feet` от подошвы `center` (сам `center` — с дистанцией 1 клетка),
+ * от ближних к дальним. Дистанция — по подошвам (`gridDistanceFeet`), поэтому
+ * большие токены вплотную дают 5 фт и не «удлиняют» радиус.
+ */
+export function tokensNearFeet<T extends GridBox>(tokens: T[], center: GridBox, feet: number, gridSize: number): T[] {
+  return tokens
+    .map((token) => ({ token, distance: gridDistanceFeet(center, token, gridSize) }))
+    .filter((entry) => entry.distance <= feet)
+    .sort((a, b) => a.distance - b.distance)
+    .map((entry) => entry.token);
+}
+
+/**
  * Попадание атаки по AC: нат. 20 — всегда попадание, нат. 1 — промах,
  * иначе сравнение суммы с AC. AC <= 0 — проверки нет (считаем попаданием).
  */

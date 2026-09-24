@@ -2,13 +2,18 @@ import {
   actionSlotAvailable,
   automationForSpell,
   characterLevel,
+  gridOfMap,
+  isBanished,
   maxCastableLevel,
+  SMITE_ON_MISS,
   SMITE_RANGE,
   SMITE_SPELLS,
+  tokensNearFeet,
   type AttackEntry,
   type AutomationDef,
   type AutomationEffect,
   type Spell,
+  type SpellStats,
   type Token,
 } from 'shared';
 import { controllerIdOfToken } from '../rooms';
@@ -16,18 +21,20 @@ import { creatureTypeOf } from '../room/actor';
 import type { Room } from '../roomTypes';
 import { findSpell } from '../spells';
 import type { ConnCtx } from './context';
-import { anchorConcentration, dropConcentration } from './automation';
+import { anchorConcentration, dropConcentration, executeAutomation } from './automation';
 import { applyEffectTo } from './effectsApply';
 import { applyForcedMovement } from './force';
 import { pushSaveMessage } from './messages';
 import { spellClassFor, spellStatsFor } from './spellStats';
 
 export interface SmiteOption {
-  /** `smite:<ключ>@<круг ячейки>`. */
+  /** `smite:<ключ>@<круг ячейки>` — базовый круг; выше — по `levels`. */
   id: string;
   spellKey: string;
   name: string;
   level: number;
+  /** Все доступные круги ячейки (в окне — один пункт с выбором круга). */
+  levels: number[];
 }
 
 /** Divine Smite: доп. 1d8 излучением против этих типов существ (XPHB 2024). */
@@ -70,7 +77,8 @@ export function availableSmites(
   mapId: string,
   attacker: Token,
   attack: AttackEntry | undefined,
-  melee: boolean
+  melee: boolean,
+  opts: { onMiss?: boolean } = {}
 ): SmiteOption[] {
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
@@ -82,13 +90,16 @@ export function availableSmites(
   const out: SmiteOption[] = [];
   for (const key of SMITE_SPELLS) {
     if (SMITE_RANGE[key] !== wanted) continue;
+    // После промаха доступны только смайты «после попадания или промаха» (Lightning Arrow).
+    if (opts.onMiss && !SMITE_ON_MISS.has(key)) continue;
     if (!sheet.spells.some((s) => s.key === key)) continue;
     const spell = findSpell(key);
     if (!spell) continue;
     const max = maxCastableLevel(spell, resources, undefined);
-    for (let level = spell.level; level <= max; level++) {
-      out.push({ id: `smite:${key}@${level}`, spellKey: key, name: spell.name, level });
-    }
+    const levels: number[] = [];
+    for (let level = spell.level; level <= max; level++) levels.push(level);
+    if (!levels.length) continue;
+    out.push({ id: `smite:${key}@${levels[0]}`, spellKey: key, name: spell.name, level: levels[0]!, levels });
   }
   return out;
 }
@@ -99,12 +110,15 @@ export interface SmiteResult {
   note: string;
   /** Отложенное после урона атаки (Banishing: изгнание при остатке ≤ 50 HP). */
   afterDamage?: () => void;
+  /** Lightning Arrow: урон оружия заменяется этими костями (промах — половина). */
+  replaceDamage?: { expr: string; damageType: string; half: boolean };
 }
 
 /**
- * Применяет смайт при попадании: бонусное действие + ячейка, доп. кости и эффект.
- * Спас при попадании (Ensnaring/Wrathful/…): успех — эффекта нет (ячейка тратится).
- * Затяжные смайты (Wrathful/Blinding/Shining/Banishing) ведут концентрацию кастера.
+ * Применяет смайт при попадании (Lightning Arrow — и при промахе): бонусное действие +
+ * ячейка, доп. кости и эффект. Спас при попадании (Ensnaring/Wrathful/…): успех — эффекта
+ * нет (ячейка тратится). Затяжные смайты ведут концентрацию кастера; Hail of Thorns и
+ * Lightning Arrow бьют спасом по области вокруг цели.
  */
 export function applySmiteChoice(
   ctx: ConnCtx,
@@ -112,7 +126,8 @@ export function applySmiteChoice(
   mapId: string,
   attacker: Token,
   target: Token,
-  optionId: string
+  optionId: string,
+  opts: { onMiss?: boolean } = {}
 ): SmiteResult | undefined {
   const parsed = parseSmiteOption(optionId);
   if (!parsed) return undefined;
@@ -133,14 +148,37 @@ export function applySmiteChoice(
   const def = automationForSpell(spell, { castLevel: level, characterLevel: characterLvl, spellMod: stats?.mod });
   const dc = stats?.dc ?? 10;
   const effectDef = def.effects?.[0];
+  const author = room.players.find((p) => p.id === cid)?.name ?? attacker.name;
+  const result: SmiteResult = { dice: '', note: `${attacker.name}: ${spell.name} (${level})` };
+
+  const finish = (resisted: boolean): SmiteResult => {
+    ctx.systemMessage(room, {
+      code: resisted ? 'spells.smiteResisted' : 'spells.smite',
+      params: { name: attacker.name, spell: spell.name, level, target: target.name },
+    });
+    return result;
+  };
+
+  // Hail of Thorns / Lightning Arrow: спас всех существ вокруг цели после урона атаки.
+  const secondary = def.weaponAttack?.secondary;
+  if (secondary?.save) {
+    result.afterDamage = () =>
+      runBurst(ctx, room, mapId, attacker, target, spell, secondary, stats, author);
+    // Lightning Arrow: кости заменяют урон оружия; при промахе — половина.
+    if (def.weaponAttack?.replace && def.damage) {
+      const type = def.damage.types?.[0] ?? 'lightning';
+      result.replaceDamage = { expr: typedDice(def.damage.dice, type), damageType: type, half: opts.onMiss === true };
+    }
+    return finish(false);
+  }
+
+  if (def.concentration) dropConcentration(ctx, room, attacker);
 
   let dice = def.damage ? typedDice(def.damage.dice, def.damage.types?.[0] ?? '') : '';
   if (spellKey === 'XPHB:Divine Smite' && DIVINE_EXTRA_TYPES.has(creatureTypeOf(room, target) ?? '')) {
     dice = dice ? `${dice} + 1d8radiant` : '1d8radiant';
   }
-
-  const result: SmiteResult = { dice, note: `${attacker.name}: ${spell.name} (${level})` };
-  if (def.concentration) dropConcentration(ctx, room, attacker);
+  result.dice = dice;
 
   let failed = true;
   let resisted = false;
@@ -181,11 +219,38 @@ export function applySmiteChoice(
   }
   if (def.force && failed) applyForcedMovement(ctx, room, mapId, attacker, target, def.force);
 
-  ctx.systemMessage(room, {
-    code: resisted ? 'spells.smiteResisted' : 'spells.smite',
-    params: { name: attacker.name, spell: spell.name, level, target: target.name },
-  });
-  return result;
+  return finish(resisted);
+}
+
+/** Вторичный спас смайта вокруг цели (Hail of Thorns — 5 фт, Lightning Arrow — 10 фт). */
+function runBurst(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  center: Token,
+  spell: Spell,
+  secondary: NonNullable<NonNullable<AutomationDef['weaponAttack']>['secondary']>,
+  stats: SpellStats | null,
+  author: string
+): void {
+  const save = secondary.save;
+  if (!save) return;
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const targets = tokensNearFeet(map.tokens, center, secondary.rangeFeet, grid.size).filter(
+    (t) => (secondary.includePrimary === true || t.id !== center.id) && !isBanished(t)
+  );
+  if (!targets.length) return;
+  const burst: AutomationDef = {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    save: { ability: save.ability, half: save.half !== false },
+    ...(secondary.dice ? { damage: { dice: secondary.dice, types: [secondary.damageType] } } : {}),
+  };
+  executeAutomation(ctx, { caster: attacker, mapId, def: burst, targets, stats, author });
 }
 
 /** Banishing Smite: после урона атаки — спас CHA цели при остатке ≤ 50 HP; провал — изгнание. */

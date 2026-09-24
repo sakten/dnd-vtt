@@ -2244,8 +2244,11 @@ describe('action:use', () => {
       o.options.some((op) => op.id.startsWith('smite:XPHB:Searing Smite'))
     );
     expect(offer).toBeDefined();
+    // Один пункт на заклинание, круги — выбором рядом; девятых кругов не предлагаем.
+    const smiteOptions = offer!.options.filter((op) => op.spellKey === 'XPHB:Searing Smite');
+    expect(smiteOptions).toHaveLength(1);
+    expect(smiteOptions[0]!.levels).toEqual([1, 2]);
     expect(offer!.options.some((op) => op.id === 'smite:XPHB:Searing Smite@9')).toBe(false);
-    expect(offer!.options.some((op) => op.id === 'smite:XPHB:Searing Smite@1')).toBe(true);
 
     const f2 = makeCtx(room, { playerId: 'p1' });
     registerReactionHandlers(f2.ctx);
@@ -2474,6 +2477,113 @@ describe('action:use', () => {
     expect(smite('undead').hpCurrent).toBe(23); // 30 − (1d8+3 = 4) − (2d8+1d8 = 3)
     expect(smite('fiend').hpCurrent).toBe(23);
     expect(smite().hpCurrent).toBe(24); // 30 − 4 − (2d8 = 2)
+  });
+
+  it('Hail of Thorns: спас DEX цели и всех существ в 5 фт', () => {
+    const bow: AttackEntry = {
+      name: 'Лук',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'piercing',
+      rangeType: 'ranged',
+      rangeNormal: 80,
+      rangeLong: 320,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [bow], x: 0, y: 100 }),
+        makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5', x: 150, y: 100 }),
+        makeToken('t3', { hpMax: '30', hpCurrent: 30, ac: '5', x: 200, y: 100 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      attacks: [bow],
+      classes: [{ className: 'ranger', level: 5 }],
+      spells: [{ key: 'XPHB:Hail of Thorns', className: 'ranger' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [{ level: 1, current: 2, max: 2 }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // попадание, провал спасов, минимум костей
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id.startsWith('smite:XPHB:Hail of Thorns'))
+    );
+    expect(offer).toBeDefined();
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Hail of Thorns@1' });
+    rand.mockRestore();
+
+    const [, t2, t3] = room.scene.maps[0]!.tokens;
+    expect(t2!.hpCurrent).toBe(24); // 30 − (1d8+3 = 4) − (1d10 = 2)
+    expect(t3!.hpCurrent).toBe(28); // 30 − (1d10 = 2)
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
+  });
+
+  it('Lightning Arrow: замена урона оружия (промах — половина) и всплеск в 10 фт', () => {
+    const bow: AttackEntry = {
+      name: 'Лук',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'piercing',
+      rangeType: 'ranged',
+      rangeNormal: 80,
+      rangeLong: 320,
+    };
+    const setup = (ac: string, roll: number) => {
+      const room = makeRoom(
+        [
+          makeToken('t1', { libraryItemId: 'lib1', attacks: [bow], x: 0, y: 100 }),
+          makeToken('t2', { hpMax: '30', hpCurrent: 30, ac, x: 150, y: 100 }),
+          makeToken('t3', { hpMax: '30', hpCurrent: 30, ac: '5', x: 250, y: 100 }),
+        ],
+        { p1: 'lib1' }
+      );
+      room.sheets.p1 = {
+        ...casterSheet(),
+        attacks: [bow],
+        classes: [{ className: 'ranger', level: 9 }],
+        spells: [{ key: 'XPHB:Lightning Arrow', className: 'ranger' }],
+      };
+      room.resources.p1 = {
+        ...casterResources(),
+        spellSlots: [{ level: 3, current: 2, max: 2 }],
+      };
+      const rand = vi.spyOn(Math, 'random').mockReturnValue(roll);
+      const f = makeCtx(room, { playerId: 'p1' });
+      registerActionHandlers(f.ctx);
+      registerReactionHandlers(f.ctx);
+      f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+      const offer = pendingOffers('TEST').find((o) =>
+        o.options.some((op) => op.id.startsWith('smite:XPHB:Lightning Arrow'))
+      );
+      expect(offer).toBeDefined();
+      const f2 = makeCtx(room, { playerId: 'p1' });
+      registerReactionHandlers(f2.ctx);
+      f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Lightning Arrow@3' });
+      rand.mockRestore();
+      return room;
+    };
+
+    // Промах (AC 20, d20 3+5): замена 4d8 = 4 → половина 2; t3 в 10 фт: 2d8 = 2.
+    const miss = setup('20', 0.1);
+    const [, missTarget, missNear] = miss.scene.maps[0]!.tokens;
+    expect(missTarget!.hpCurrent).toBe(28);
+    expect(missNear!.hpCurrent).toBe(28);
+
+    // Попадание (AC 5, d20 20 — крит): замена удваивается, 8d8 = 64; урон оружия не идёт.
+    const hit = setup('5', 0.99);
+    const [, hitTarget, hitNear] = hit.scene.maps[0]!.tokens;
+    expect(hitTarget!.hpCurrent).toBe(-34); // 30 − 64
+    expect(hitNear!.hpCurrent).toBe(22); // 30 − (2d8 = 16, спас пройден — половина 8)
   });
 
   it('Searing Smite не предлагается для дальнего оружия и не кастуется напрямую', () => {
