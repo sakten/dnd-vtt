@@ -60,6 +60,29 @@ export function rollDamageSavesOnDamage(ctx: ConnCtx, room: Room, mapId: string,
 }
 
 /**
+ * Прекращает концентрацию кастера (и его двойников-персонажей на других картах):
+ * эффекты, зоны концентрации, концентрационные призывы и формы. Рассылает
+ * изменённые токены; возвращает их список.
+ */
+export function endConcentrationOf(
+  ctx: ConnCtx,
+  room: Room,
+  caster: Token,
+  opts: { zones?: 'concentration' | 'all' } = {}
+): { mapId: string; token: Token }[] {
+  const changed: { mapId: string; token: Token }[] = [];
+  const sourceIds = summonSourceIds(room, caster);
+  for (const sourceId of sourceIds) {
+    for (const c of ctx.manager.clearConcentration(room, sourceId)) changed.push(c);
+    removeZonesOfSource(ctx, room, sourceId, opts.zones === 'all' ? {} : { onlyConcentration: true });
+  }
+  removeConcSummonsOf(ctx, room, sourceIds);
+  endShapesOf(ctx, room, sourceIds);
+  for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+  return changed;
+}
+
+/**
  * Проверка концентрации при получении урона (СЛ 10 или половина урона).
  * Провал — эффекты концентрации снимаются, в чат уходит бросок и системка.
  */
@@ -70,9 +93,7 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
   pushSaveMessage(ctx, room, { subject: `Концентрация: ${result.names.join(', ')}`, roll: result.roll, success: result.success });
   if (!result.success) {
     for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    removeZonesOfSource(ctx, room, token.id, { onlyConcentration: true });
-    removeConcSummonsOf(ctx, room, summonSourceIds(room, token));
-    endShapesOf(ctx, room, summonSourceIds(room, token));
+    endConcentrationOf(ctx, room, token);
     ctx.systemMessage(room, {
       code: 'concentration.broken',
       params: { name: token.name, effects: result.names.join(', ') },

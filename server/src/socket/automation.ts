@@ -59,9 +59,10 @@ import { openReactionWindow, type ReactionOfferInput } from './reactions/queue';
 import { openAttackHitWindows, openAttackMissWindows, offerDamageReactions } from './reactions/windows';
 import { openRedirectWindow } from './reactions/features';
 import { maybeRollAnim } from './rollAnim';
-import { runSummon, removeConcSummonsOf, familiarCannotAttack } from './summons';
-import { applyPolymorphForm, endShapesOf } from './forms';
-import { createZoneFromDef, removeZonesOfSource, resolveLightDispels } from './zones';
+import { runSummon, familiarCannotAttack } from './summons';
+import { applyPolymorphForm } from './forms';
+import { createZoneFromDef, resolveLightDispels } from './zones';
+import { endConcentrationOf } from './effects';
 
 /**
  * Generic-executor автоматизации (R8.1): выполняет `AutomationDef` — атаку,
@@ -154,23 +155,7 @@ function tokensAround(
 
 /** Снимает прежнюю концентрацию кастера: эффекты на всех токенах и его зоны. */
 export function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
-  // Концентрация принадлежит персонажу, а не токену: у персонажа бывают токены на разных картах.
-  const sourceIds = new Set<string>([caster.id]);
-  if (caster.libraryItemId) {
-    for (const map of room.scene.maps) {
-      for (const token of map.tokens) {
-        if (token.libraryItemId === caster.libraryItemId) sourceIds.add(token.id);
-      }
-    }
-  }
-  for (const sourceId of sourceIds) {
-    for (const changed of ctx.manager.clearConcentration(room, sourceId)) {
-      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
-    removeZonesOfSource(ctx, room, sourceId, { onlyConcentration: true });
-  }
-  removeConcSummonsOf(ctx, room, sourceIds);
-  endShapesOf(ctx, room, sourceIds);
+  endConcentrationOf(ctx, room, caster);
 }
 
 /** Якорь концентрации на кастере для зон без целевых эффектов (HoH, Spirit Guardians). */

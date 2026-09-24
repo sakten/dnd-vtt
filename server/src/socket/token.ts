@@ -15,7 +15,8 @@ import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
 import { endShapeToken } from './forms';
-import { handleMovementZones, removeZonesOfSource } from './zones';
+import { endConcentrationOf } from './effects';
+import { handleMovementZones } from './zones';
 import { handleWillingMoveEffects } from './willingMove';
 import { syncSurrounded } from './surrounded';
 import { removeTokenCompletely } from './tokenRemove';
@@ -219,10 +220,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         token.effects = next;
         // Ручное снятие якоря концентрации (меню токена): гасим связанные эффекты и зоны.
         if (removed.some((e) => e.concentration && e.sourceId === token.id)) {
-          for (const changed of manager.clearConcentration(room, token.id)) {
-            if (changed.token !== token) emitToken(room, 'token:update', changed.mapId, changed.token);
-          }
-          removeZonesOfSource(ctx, room, token.id);
+          endConcentrationOf(ctx, room, token, { zones: 'all' });
           ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });
         } else {
           // Снятие эффекта-цели: если это была последняя цель каста — концентрация гаснет.

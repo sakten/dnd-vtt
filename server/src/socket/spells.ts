@@ -20,9 +20,8 @@ import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { sanctuaryBlocks } from './sanctuary';
 import { removeBrokenEffects } from './effectsApply';
-import { removeConcSummonsOf, summonSourceIds } from './summons';
-import { endShapesOf, spellsInShapeAllowed } from './forms';
-import { removeZonesOfSource } from './zones';
+import { endConcentrationOf } from './effects';
+import { spellsInShapeAllowed } from './forms';
 
 export function registerSpellHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, emitToken } = ctx;
@@ -193,12 +192,8 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const scope = scopedToken(ctx, mapId, tokenId);
     if (!scope) return;
     const { room, token } = scope;
-    const changed = manager.clearConcentration(room, token.id);
-    removeZonesOfSource(ctx, room, token.id);
-    removeConcSummonsOf(ctx, room, summonSourceIds(room, token));
-    endShapesOf(ctx, room, summonSourceIds(room, token));
+    const changed = endConcentrationOf(ctx, room, token, { zones: 'all' });
     if (!changed.length) return;
-    for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
     ctx.systemMessage(room, { code: 'concentration.ended', params: { name: token.name } });
     syncCombat(room, mapId);
   });
