@@ -25,7 +25,6 @@
   savedAgainst,
   slotSpendable,
   tokenVisibleFrom,
-  tokensInArea,
   unarmedStrikeEntry as computedUnarmedStrike,
   weaponAttackEntry,
   weaponByKey,
@@ -40,17 +39,16 @@
   type AutomationDef,
   type CharacterSheet,
   type EffectInstance,
-  type SpellStats,
   type Token,
   type TurnState,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { areaTokens } from './areaTokens';
 import { executeAutomation } from './automation';
 import { fail, type ErrorCode } from './errors';
 import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
-import { sheetOfToken } from '../room/helpers';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone } from './zones';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -244,15 +242,10 @@ function actionTargets(
 ): Token[] {
   const targets: Token[] = [];
   if (opts.area && opts.origin) {
-    const map = ctx.manager.findMap(room, mapId);
-    const grid = gridOfMap(map, room.scene.grid);
-    const affected = map
-      ? tokensInArea(map.tokens, opts.area, opts.origin, opts.direction ?? null, grid, 'euclidean', map.walls)
-      : [];
-    for (const found of affected) {
-      if (found.id !== token.id && !isBanished(found)) targets.push(found);
-    }
-    return targets;
+    return areaTokens(ctx, room, mapId, opts.area, opts.origin, {
+      direction: opts.direction ?? null,
+      excludeId: token.id,
+    });
   }
   for (const id of Array.isArray(opts.targetIds) ? opts.targetIds : []) {
     if (typeof id !== 'string') continue;

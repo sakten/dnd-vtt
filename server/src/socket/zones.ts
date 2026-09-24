@@ -5,8 +5,6 @@ import {
   isBanished,
   rollDice,
   saveNoDamage,
-  sideMatches,
-  tokenFullyInArea,
   tokensInArea,
   zoneVisionKind,
   type AutomationDef,
@@ -20,6 +18,7 @@ import {
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { applyDamage, singleDamageType } from './damage';
+import { areaTokens } from './areaTokens';
 import { pushSaveMessage } from './messages';
 import { applyEffectTo, removeZoneEffects } from './effectsApply';
 import { findSpell } from '../spells';
@@ -58,20 +57,14 @@ function insideTokens(
   containment: ZoneInstance['containment'] = zone.containment
 ): Token[] {
   const map = ctx.manager.findMap(room, mapId);
-  if (!map) return [];
-  const grid = gridOfMap(map);
-  const inside =
-    containment === 'fullyWithin'
-      ? map.tokens.filter((t) =>
-          tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls)
-        )
-      : tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls);
-  // Изгнанные (Banishment) вне поля: зона их не видит и эффектов им не накладывает.
-  const present = inside.filter((t) => !isBanished(t));
-  // Фильтр по отношению к источнику (Conjure Woodland Beings: только враги).
-  const source = zone.side ? map.tokens.find((t) => t.id === zone.sourceId) : undefined;
-  const sided = zone.side && source ? present.filter((t) => sideMatches(source, t, zone.side!)) : present;
-  return zone.excludeSource ? sided.filter((t) => t.id !== zone.sourceId) : sided;
+  const source = map?.tokens.find((t) => t.id === zone.sourceId);
+  return areaTokens(ctx, room, mapId, zone.area, zone.origin, {
+    direction: zone.direction ?? null,
+    containment,
+    side: zone.side,
+    source,
+    excludeSource: zone.excludeSource,
+  });
 }
 
 /** Применяет payload зоны к целям: спас → урон (half) → эффекты (с zoneId). */

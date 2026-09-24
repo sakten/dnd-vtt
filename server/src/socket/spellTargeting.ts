@@ -9,12 +9,12 @@ import {
   spellIsSelf,
   spellRangeFeet,
   tokenVisibleFrom,
-  tokensInArea,
   type Spell,
   type SpellStats,
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
+import { areaTokens } from './areaTokens';
 import { fail } from './errors';
 import type { SpellCastInput } from './spellResolve';
 
@@ -83,20 +83,11 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         return undefined;
       }
     }
-    const affected = map
-      ? tokensInArea(
-          map.tokens,
-          castArea,
-          originPt,
-          isPoint(params.direction) ? params.direction : null,
-          grid,
-          'euclidean',
-          map.walls
-        )
-      : [];
-    for (const t of affected) {
-      if (t.id !== caster.id && !isBanished(t)) targets.push(t);
-    }
+    const affected = areaTokens(ctx, room, mapId, castArea, originPt, {
+      direction: isPoint(params.direction) ? params.direction : null,
+      excludeId: caster.id,
+    });
+    for (const t of affected) targets.push(t);
     area = true;
     areaOrigin = originPt;
   } else {
