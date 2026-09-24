@@ -21,7 +21,7 @@ import { findSpell } from '../../spells';
 import { controllerIdOfToken, sheetOfToken, withinFeet } from '../../rooms';
 import { fail } from '../errors';
 import { pushRollMessage } from '../messages';
-import { spellClassFor, spellStatsFor } from '../spellStats';
+import { casterStatsFor } from '../spellStats';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import {
@@ -48,12 +48,6 @@ export function reactionSpellOptions(room: Room, token: Token, trigger: Reaction
     out.push({ id: `spell:${key}`, name: spell.name, kind: 'spell', spellKey: key });
   }
   return out;
-}
-
-/** Боевые характеристики кастера для эффектов реакции. */
-function statsForCaster(room: Room, token: Token, spellKey: string) {
-  const { sheet } = sheetOfToken(room, token);
-  return spellStatsFor(room, token, sheet ? spellClassFor(sheet, spellKey) : undefined);
 }
 
 /** Бонус к AC от эффектов варианта (Shield +5); 0 — если неизвестно. */
@@ -89,7 +83,7 @@ export function applyReactionChoice(
     fail(ctx, 'shapeInForm');
     return;
   }
-  const stats = spellStatsFor(room, token, sheet ? spellClassFor(sheet, key) : undefined);
+  const stats = casterStatsFor(room, token, key);
   const input: SpellCastInput = {
     caster: token,
     mapId: choice.mapId,
@@ -246,7 +240,7 @@ function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, inp
   const targetLevel = Math.max(1, input.spell.level);
   let success = COUNTERSPELL_LEVEL >= targetLevel;
   if (!success) {
-    const mod = statsForCaster(room, reactor, COUNTERSPELL_KEY)?.mod ?? 0;
+    const mod = casterStatsFor(room, reactor, COUNTERSPELL_KEY)?.mod ?? 0;
     const roll = rollDice(d20Expr(mod));
     const dc = 10 + targetLevel;
     success = roll.total >= dc;

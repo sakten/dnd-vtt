@@ -35,3 +35,9 @@ export function spellStatsFor(room: Room, token: Token, className?: string): Spe
   }
   return null;
 }
+
+/** Боевые характеристики кастера для конкретного заклинания (класс из листа/выдач, иначе статблок). */
+export function casterStatsFor(room: Room, token: Token, spellKey: string): SpellStats | null {
+  const { sheet } = sheetOfToken(room, token);
+  return spellStatsFor(room, token, sheet ? spellClassFor(sheet, spellKey) : undefined);
+}

@@ -57,7 +57,7 @@ import { pushRollMessage, pushSaveMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
 import { findSpell } from '../spells';
-import { spellClassFor, spellStatsFor } from './spellStats';
+import { casterStatsFor, spellStatsFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { teleportIssue } from './teleport';
@@ -263,13 +263,6 @@ function actionTargets(
   return targets;
 }
 
-/** Боевые характеристики кастера-источника: лист с классом заклинания или статблок. */
-function casterStatsFor(ctx: ConnCtx, room: Scope['room'], caster: Token, spellKey: string): SpellStats | null {
-  const sheet = sheetOfToken(room, caster).sheet;
-  const className = sheet ? spellClassFor(sheet, spellKey) : undefined;
-  return spellStatsFor(room, caster, className);
-}
-
 /**
  * Действие зоны (`zone:<zoneId>:<actionId>`): перемещение Moonbeam/Flaming Sphere
  * или удар/эффект зоны (Call Lightning). Доступ — контролёр кастера-источника или DM.
@@ -317,7 +310,7 @@ function useZoneAction(
   }
 
   // Удар/эффект зоны требует характеристик кастера — проверяем до списания слота.
-  const stats = moving ? null : casterStatsFor(ctx, room, caster, zone.sourceKey);
+  const stats = moving ? null : casterStatsFor(room, caster, zone.sourceKey);
   if (!moving && (def.save || def.attack) && !stats) {
     fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
     return;
@@ -421,7 +414,7 @@ function useGrantedAction(
   // Ключ для поиска класса — родительское заклинание эффекта: у под-действий
   // (Eyebite: Сон, Holy Weapon: Разряд) своего класса в листе нет.
   const caster = effect.sourceId ? ctx.manager.findToken(room, mapId, effect.sourceId) ?? undefined : undefined;
-  const stats = caster ? casterStatsFor(ctx, room, caster, effect.sourceKey ?? def.key) : null;
+  const stats = caster ? casterStatsFor(room, caster, effect.sourceKey ?? def.key) : null;
   if ((def.save || def.attack) && !stats) {
     fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
     return;

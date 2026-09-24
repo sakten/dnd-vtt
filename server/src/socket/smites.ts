@@ -25,7 +25,7 @@ import { anchorConcentration, dropConcentration, executeAutomation } from './aut
 import { applyEffectTo } from './effectsApply';
 import { applyForcedMovement } from './force';
 import { pushSaveMessage } from './messages';
-import { spellClassFor, spellStatsFor } from './spellStats';
+import { casterStatsFor } from './spellStats';
 
 export interface SmiteOption {
   /** `smite:<ключ>@<круг ячейки>` — базовый круг; выше — по `levels`. */
@@ -143,7 +143,7 @@ export function applySmiteChoice(
   ctx.manager.spendSlot(room, mapId, attacker, 'bonus');
   ctx.syncCombat(room, mapId);
 
-  const stats = spellStatsFor(room, attacker, spellClassFor(sheet, spellKey));
+  const stats = casterStatsFor(room, attacker, spellKey);
   const characterLvl = characterLevel(sheet.classes);
   const def = automationForSpell(spell, { castLevel: level, characterLevel: characterLvl, spellMod: stats?.mod });
   const dc = stats?.dc ?? 10;

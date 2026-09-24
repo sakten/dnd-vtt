@@ -14,7 +14,7 @@ import { fail } from './errors';
 import { findSpell } from '../spells';
 import { pushRollMessage } from './messages';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
-import { spellClassFor, spellStatsFor } from './spellStats';
+import { casterStatsFor, spellClassFor } from './spellStats';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
@@ -77,7 +77,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     }
 
     // Боевые характеристики: лист персонажа (класс) или статблок монстра.
-    const stats = spellStatsFor(room, token, sheet && className ? className : undefined);
+    const stats = casterStatsFor(room, token, spellKey);
 
     const combat = manager.combatOf(room, mapId);
     const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
