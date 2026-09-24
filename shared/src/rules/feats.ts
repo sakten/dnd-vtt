@@ -1,5 +1,5 @@
 import type { AbilityKey } from '../domain/core';
-import type { AutomationEffect } from '../domain/automation';
+import { permanentEffect, type AutomationEffect } from '../domain/automation';
 import type { FeatureChoice } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import raw from '../data/feats.json';
@@ -42,10 +42,6 @@ export interface ChoiceFeature {
   effects: AutomationEffect[];
 }
 
-function permanent(name: string, modifiers: AutomationEffect['modifiers']): AutomationEffect {
-  return { name, duration: { type: 'permanent' }, modifiers };
-}
-
 function totalLevel(classes: ClassLevel[]): number {
   return classes.reduce((acc, entry) => acc + clampLevel(entry.level), 0) || 1;
 }
@@ -57,14 +53,14 @@ const FEAT_MECHANICS: Record<string, FeatMechanicsSource> = {
   'XPHB:tough': (classes) => ({
     key: 'XPHB:tough',
     name: 'Стойкий',
-    effects: [permanent('Стойкий', [{ target: 'maxHp', mode: 'add', value: 2 * totalLevel(classes) }])],
+    effects: [permanentEffect('Стойкий', [{ target: 'maxHp', mode: 'add', value: 2 * totalLevel(classes) }])],
   }),
   // Бдительный: +бонус владения к инициативе.
   'XPHB:alert': (classes) => ({
     key: 'XPHB:alert',
     name: 'Бдительный',
     effects: [
-      permanent('Бдительный', [{ target: 'initiative', mode: 'add', value: proficiencyBonus(totalLevel(classes)) }]),
+      permanentEffect('Бдительный', [{ target: 'initiative', mode: 'add', value: proficiencyBonus(totalLevel(classes)) }]),
     ],
   }),
 };

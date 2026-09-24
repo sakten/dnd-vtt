@@ -1,4 +1,5 @@
 export * from './guards';
+export { newId } from './internal';
 export * from './attacks';
 export * from './sheet';
 export * from './effects';

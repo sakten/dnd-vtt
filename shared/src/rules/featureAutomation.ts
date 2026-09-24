@@ -1,5 +1,4 @@
-import type { AutomationDef, AutomationEffect } from '../domain/automation';
-import type { Modifier } from '../domain/effects';
+import { permanentEffect, type AutomationDef } from '../domain/automation';
 import type { FeatureMechanics } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import { bardicDie, clampLevel, proficiencyBonus } from './classes';
@@ -78,19 +77,19 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   },
   'barbarian:unarmoredDefense': {
     trait: 'passive',
-    effects: [permanent('Защита без доспехов', [{ target: 'ac', mode: 'set', value: '10+dex+con' }])],
+    effects: [permanentEffect('Защита без доспехов', [{ target: 'ac', mode: 'set', value: '10+dex+con' }])],
   },
   'barbarian:fastMovement': {
     trait: 'passive',
-    effects: [permanent('Быстрое передвижение', [{ target: 'speed', mode: 'add', value: 10 }])],
+    effects: [permanentEffect('Быстрое передвижение', [{ target: 'speed', mode: 'add', value: 10 }])],
   },
   'barbarian:dangerSense': {
     trait: 'passive',
-    effects: [permanent('Чувство опасности', [{ target: 'save', mode: 'advantage', filter: { ability: 'dex' } }])],
+    effects: [permanentEffect('Чувство опасности', [{ target: 'save', mode: 'advantage', filter: { ability: 'dex' } }])],
   },
   'barbarian:feralInstinct': {
     trait: 'passive',
-    effects: [permanent('Звериный инстинкт', [{ target: 'initiative', mode: 'advantage' }])],
+    effects: [permanentEffect('Звериный инстинкт', [{ target: 'initiative', mode: 'advantage' }])],
   },
   'barbarian:extraAttack': { trait: 'passive', native: true },
 
@@ -123,7 +122,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   'barbarian.worldTree:vitalityOfTheTree': { trait: 'passive', native: true },
   'barbarian.worldTree:batteringRoots': {
     trait: 'passive',
-    effects: [permanent('Досягаемость мирового древа', [{ target: 'reach', mode: 'add', value: 10 }])],
+    effects: [permanentEffect('Досягаемость мирового древа', [{ target: 'reach', mode: 'add', value: 10 }])],
   },
   'barbarian.zealot:zealousPresence': {
     trait: 'active',
@@ -148,12 +147,12 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   },
   'fighter.psiWarrior:guardedMind': {
     trait: 'passive',
-    effects: [permanent('Защищённый разум', [{ target: 'damage', mode: 'resistance', filter: { damageType: 'psychic' } }])],
+    effects: [permanentEffect('Защищённый разум', [{ target: 'damage', mode: 'resistance', filter: { damageType: 'psychic' } }])],
   },
   'fighter.champion:remarkableAthlete': {
     trait: 'passive',
     effects: [
-      permanent('Выдающийся атлет', [
+      permanentEffect('Выдающийся атлет', [
         { target: 'initiative', mode: 'advantage' },
         { target: 'check', mode: 'advantage', filter: { skill: 'athletics' } },
       ]),
@@ -163,12 +162,12 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   // Монах — ядро
   'monk:unarmoredDefense': {
     trait: 'passive',
-    effects: [permanent('Защита без доспехов', [{ target: 'ac', mode: 'set', value: '10+dex+wis' }])],
+    effects: [permanentEffect('Защита без доспехов', [{ target: 'ac', mode: 'set', value: '10+dex+wis' }])],
   },
   'monk:unarmoredMovement': (classes) => ({
     trait: 'passive',
     effects: [
-      permanent('Движение без доспехов', [
+      permanentEffect('Движение без доспехов', [
         { target: 'speed', mode: 'add', value: monkLevel(classes) >= 9 ? 15 : 10 },
       ]),
     ],
@@ -400,7 +399,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     const half = Math.max(1, Math.floor(proficiencyBonus(total) / 2));
     return {
       trait: 'passive',
-      effects: [permanent('Всезнайка', [{ target: 'check', mode: 'add', value: half }])],
+      effects: [permanentEffect('Всезнайка', [{ target: 'check', mode: 'add', value: half }])],
     };
   },
 };
@@ -415,10 +414,6 @@ function monkLevel(classes: ClassLevel[]): number {
 
 function clericLevel(classes: ClassLevel[]): number {
   return clampLevel(classes.find((c) => c.className === 'cleric')?.level ?? 0);
-}
-
-function permanent(name: string, modifiers: Omit<Modifier, 'id'>[]): AutomationEffect {
-  return { name, duration: { type: 'permanent' }, modifiers };
 }
 
 /** Механика черты: статичная запись или вычисленная по классам персонажа. */

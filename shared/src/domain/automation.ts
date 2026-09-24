@@ -151,6 +151,13 @@ export interface AutomationEffect {
 }
 
 /**
+ * Постоянный (до снятия) эффект с модификаторами — пассивные черты/фиты и баффы.
+ */
+export function permanentEffect(name: string, modifiers: Omit<Modifier, 'id'>[]): AutomationEffect {
+  return { name, duration: { type: 'permanent' }, modifiers };
+}
+
+/**
  * Поля `AutomationEffect`, переносимые в `EffectInstance` без изменений (с копированием
  * объектов/массивов). Единый список для сервера (`applyEffectTo`) и нормализатора:
  * новое поле схемы добавляется сюда — иначе оно потеряется при перезагрузке комнаты.
