@@ -588,6 +588,47 @@ describe('action:use', () => {
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.shadowBladeReturn')).toBe(true);
   });
 
+  it('Magic Stone: три камня — заряд тратится броском, на нуле эффект гаснет', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 150, y: 100, ac: '10', hpMax: '60', hpCurrent: 60, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'druid', level: 5 }],
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+      attacks: [],
+      spells: [{ key: 'XGE:Magic Stone', className: 'druid' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XGE:Magic Stone' });
+
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const effect = caster.effects.find((e) => e.sourceKey === 'XGE:Magic Stone');
+    expect(effect?.charges?.remaining).toBe(3);
+    expect(effect?.actions?.[0]?.id).toBe('throw');
+
+    // Три броска (действием) по 1d6+4 (Мдр 4) при random 0.5 → 8 каждый, 60 − 24 = 36.
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    for (let i = 0; i < 3; i++) {
+      if (i > 0) combatOf(room).turns.e1!.actionUsed = false;
+      f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `spell:${effect!.id}:throw`, targetIds: ['t2'] });
+    }
+    rand.mockRestore();
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(36);
+    expect(caster.effects.some((e) => e.sourceKey === 'XGE:Magic Stone')).toBe(false);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.chargesSpent')).toBe(true);
+  });
+
   it('Heat Metal: авто-урон с помехой и повтор бонусным действием', () => {
     const room = makeRoom(
       [

@@ -381,8 +381,20 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     }
   }
   if (!input.ignoreDifficult) {
+    const mover = input.tokens.find((t) => t.id === input.moverId);
     for (const zone of input.zones) {
       if (!zone.flags?.difficultTerrain) continue;
+      // Сложная местность «для врагов» (Conjure Minor Elementals): только враждебные источнику.
+      if (zone.side === 'hostile') {
+        const source = input.tokens.find((t) => t.id === zone.sourceId);
+        const hostile =
+          !!source &&
+          !!mover &&
+          source.faction !== 'neutral' &&
+          mover.faction !== 'neutral' &&
+          source.faction !== mover.faction;
+        if (!hostile) continue;
+      }
       // Сложная местность зоны тоже не проходит через сплошные стены (огибает углы).
       for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) difficult.add(key);
     }

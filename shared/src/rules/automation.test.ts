@@ -483,6 +483,58 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('B5: Magic Stone — действие «Бросок камня» (дальняя заклинательная атака) и 3 заряда', () => {
+    const spell = makeSpell({
+      key: 'XGE:Magic Stone',
+      name: 'Magic Stone',
+      level: 0,
+      automation: 'manual',
+      time: [{ number: 1, unit: 'bonus' }],
+      damage: { dice: ['1d6'], types: ['bludgeoning'] },
+      duration: [{ type: 'timed', duration: { type: 'minute', amount: 1 } }],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.maxRounds).toBe(10);
+    const effect = def.effects?.[0];
+    expect(effect?.to).toBe('self');
+    expect(effect?.charges).toEqual({ count: 3 });
+    const throwAction = effect?.actions?.[0];
+    expect(throwAction?.id).toBe('throw');
+    expect(throwAction?.cost).toBe('action');
+    expect(throwAction?.def?.resolution).toBe('attack');
+    expect(throwAction?.def?.attack).toEqual({ rangeType: 'ranged' });
+    expect(throwAction?.def?.targeting).toEqual({ kind: 'creature', range: 60 });
+    expect(throwAction?.def?.damage).toEqual({ dice: '1d6', types: ['bludgeoning'], abilityMod: true });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('B5: Conjure Minor Elementals — эманация 15 фт, +2d8 типом варианта, сложная местность', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Conjure Minor Elementals',
+      name: 'Conjure Minor Elementals',
+      level: 4,
+      automation: 'manual',
+      concentration: true,
+      damage: { dice: ['2d8'], types: ['acid', 'cold', 'fire', 'lightning'] },
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 10 } }],
+      upcast: { above: 4, dice: '1d8' },
+    });
+    const def = automationForSpell(spell, { castLevel: 4, variant: 'cold' });
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(def.maxRounds).toBeUndefined();
+    expect(def.zone?.area).toEqual({ shape: 'sphere', size: 15 });
+    expect(def.zone?.anchor).toBe('source');
+    expect(def.zone?.side).toBe('hostile');
+    expect(def.zone?.flags).toEqual({ difficultTerrain: true });
+    const aura = def.zone?.aura?.effects?.[0];
+    expect(aura?.takesExtraDamage).toEqual({ dice: '2d8', damageType: 'cold' });
+    expect(aura?.variant).toBe('cold');
+    expect(automationForSpell(spell, { castLevel: 6 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('4d8');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('B2: Spirit Shroud — аура 10 фт: −10 футов и доп. урон от атак кастера', () => {
     const spell = makeSpell({
       key: 'TCE:Spirit Shroud',

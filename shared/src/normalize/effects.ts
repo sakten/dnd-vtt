@@ -235,8 +235,11 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     }
     if (e.charges && typeof e.charges === 'object') {
       const charges = e.charges as { remaining?: unknown; on?: unknown };
-      if (charges.on === 'rangedWeaponAttack') {
-        effect.charges = { remaining: clampInt(charges.remaining, 0, 99, 0), on: 'rangedWeaponAttack' };
+      if (charges.on === undefined || charges.on === 'rangedWeaponAttack') {
+        effect.charges = {
+          remaining: clampInt(charges.remaining, 0, 99, 0),
+          ...(charges.on === 'rangedWeaponAttack' ? { on: 'rangedWeaponAttack' as const } : {}),
+        };
       }
     }
     if (e.onWillingMove && typeof e.onWillingMove === 'object') {

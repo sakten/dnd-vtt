@@ -252,8 +252,8 @@ export interface EffectInstance {
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
   retaliate?: { damageType: string; amount?: number; dice?: string };
-  /** Расходуемый счётчик (Flame Arrows: 12 боеприпасов, тратится на броске атаки). */
-  charges?: { remaining: number; on: 'rangedWeaponAttack' };
+  /** Расходуемый счётчик (Flame Arrows: 12 боеприпасов; Magic Stone: 3 камня). */
+  charges?: { remaining: number; on?: 'rangedWeaponAttack' };
   /**
    * Spirit Shroud: носитель получает доп. урон от атак источника эффекта
    * (`sourceId`), пока эффект активен — аура-метка на цели.

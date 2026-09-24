@@ -44,7 +44,8 @@
 | `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
 | `XPHB:Fount of Moonlight` | ✅ B3: свет 20/20, сопротивление излучению, +2d6 ближним атакам (`attackType` в контексте заклинательных атак), реакция `damageReaction` (CON-спас ≤60 фт, слепота) |
 | `XPHB:Shillelagh` | ✅ B3: `weaponOverride` в лоадауте — кость кантрипа (d8/d10/d12/2d6), заклинательная характеристика, силовой тип; только дубинка/посох |
-| `XGE:Magic Stone` | ⚠️ «три камня» как расходуемый ресурс; +мод к урону |
+| `XGE:Magic Stone` | ✅ B5: грантованное действие «Бросок камня» (дальняя заклинательная атака 60 фт, 1d6+закл. мод дробящим), 3 заряда — тратится на бросок (hit or miss), на нуле эффект гаснет (`charges` без `on`) |
+| `XPHB:Conjure Minor Elementals` | ✅ B5: эманация 15 фт — любая атака кастера по цели в эманации +2d8 (тип при касте, апкаст +1d8/круг); сложная местность в эманации только для врагов (`planWalk` по `side: hostile`) |
 | `XGE:Absorb Elements` | ✅ сопротивление (реакция) + заряд +1d6 типом на следующее попадание оружием (`consumeOnAttackRoll`) |
 
 ## C. Зоны / ловушки / повтор — `zone` + триггеры (✅ есть; точечные доработки) — 28

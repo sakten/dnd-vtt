@@ -233,6 +233,29 @@ describe('planWalk', () => {
     expect(planWalk({ ...args, ignoreDifficult: true })?.feet).toBe(10);
   });
 
+  it('сложная местность «для врагов» не замедляет союзников (Conjure Minor Elementals)', () => {
+    const caster = { id: 'c1', x: 25, y: 75, w: 50, h: 50, faction: 'ally' };
+    const zone: ZoneInstance = {
+      id: 'z1',
+      name: 'Conjure Minor Elementals',
+      sourceKey: 'XPHB:Conjure Minor Elementals',
+      sourceId: 'c1',
+      origin: { x: 75, y: 75 },
+      area: { shape: 'sphere', size: 15 },
+      duration: { type: 'concentration' },
+      side: 'hostile',
+      flags: { difficultTerrain: true },
+    };
+    const runner = (faction: string) => [{ ...caster }, { id: 't1', x: 25, y: 75, w: 50, h: 50, faction }];
+    // Эманация 15 фт накрывает и клетку входа, и цель: обе стоят 10 футов.
+    expect(
+      planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: runner('enemy'), zones: [zone] })?.feet
+    ).toBe(20);
+    expect(
+      planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: runner('ally'), zones: [zone] })?.feet
+    ).toBe(10);
+  });
+
   it('2×2 не проходит подошвой через врага', () => {
     const enemy = [{ id: 'e1', x: 175, y: 75, w: 50, h: 50, faction: 'enemy' }];
     const path = planWalk({

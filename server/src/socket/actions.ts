@@ -484,6 +484,15 @@ function useGrantedAction(
     direction: opts.direction ?? null,
     area: area ?? null,
   });
+  // Заряды эффекта, выдавшего действие (Magic Stone: бросок тратит камень, hit or miss).
+  if (effect.charges && !effect.charges.on) {
+    effect.charges.remaining -= 1;
+    if (effect.charges.remaining <= 0) {
+      ctx.manager.removeEffect(room, token, effect.id);
+      ctx.systemMessage(room, { code: 'automation.chargesSpent', params: { name: effect.name } });
+    }
+    ctx.emitToken(room, 'token:update', mapId, token);
+  }
   // Holy Weapon: «Разряд» завершает эффект-носитель (и концентрацию кастера).
   if (granted.endsEffect && effect.concentration && effect.sourceId) {
     for (const changed of ctx.manager.clearConcentration(room, effect.sourceId)) {

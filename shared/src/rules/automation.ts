@@ -1296,6 +1296,8 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'TCE:Spirit Shroud': { param: 'damageType', options: ['cold', 'necrotic', 'radiant'] },
   // Fire Shield: warm — сопротивление холоду и ответ огнём, chill — наоборот.
   'XPHB:Fire Shield': { param: 'effect', options: ['warm', 'chill'] },
+  // Conjure Minor Elementals: тип доп. урона фиксируется при касте.
+  'XPHB:Conjure Minor Elementals': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -1325,6 +1327,8 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Magic Weapon',
   'XPHB:Shillelagh',
   'XGE:Shadow Blade',
+  'XGE:Magic Stone',
+  'XPHB:Conjure Minor Elementals',
   'XPHB:Elemental Weapon',
   'TCE:Spirit Shroud',
   'XGE:Flame Arrows',
@@ -1778,6 +1782,71 @@ function shadowBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
     actions: [shadowBladeReturnAction()],
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/**
+ * Magic Stone (XGE): бонусным действием — до трёх камней. Бросок камня — дальняя
+ * заклинательная атака (60 фт): 1d6 + заклинательная характеристика дробящим.
+ * Каждый бросок (попал или нет) тратит камень; на нуле эффект гаснет.
+ */
+function magicStoneDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Magic Stone') return undefined;
+  const throwStone: AutomationDef = {
+    key: spell.key,
+    name: 'Бросок камня',
+    resolution: 'attack',
+    attack: { rangeType: 'ranged' },
+    damage: { dice: spell.damage?.dice?.[0] ?? '1d6', types: ['bludgeoning'], abilityMod: true },
+    targeting: { kind: 'creature', range: 60 },
+  };
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'self',
+    modifiers: [],
+    charges: { count: 3 },
+    actions: [{ id: 'throw', name: 'Бросок камня', cost: 'action', def: throwStone }],
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/**
+ * Conjure Minor Elementals (XPHB 2024): эманация 15 фт вокруг кастера — любая его
+ * атака по существу в эманации наносит +2d8 (тип выбран при касте); земля в
+ * эманации — сложная местность для врагов.
+ */
+function conjureMinorElementalsDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Conjure Minor Elementals') return undefined;
+  const variants = SPELL_VARIANTS[spell.key];
+  const type = variants?.options.includes(opts.variant ?? '') ? opts.variant! : variants?.options[0] ?? 'fire';
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const dice = addDiceExpression(spell.damage?.dice?.[0] ?? '2d8', spellUpcastDice(spell, castLevel));
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'hostile',
+      flags: { difficultTerrain: true },
+      aura: {
+        effects: [
+          {
+            name: spell.name,
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [],
+            takesExtraDamage: { dice, damageType: type },
+            variant: type,
+          },
+        ],
+      },
+    },
+  };
 }
 
 /**
@@ -2353,6 +2422,12 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const shadowBlade = shadowBladeDef(spell, opts);
   if (shadowBlade) return shadowBlade;
+
+  const magicStone = magicStoneDef(spell);
+  if (magicStone) return magicStone;
+
+  const minorElementals = conjureMinorElementalsDef(spell, opts);
+  if (minorElementals) return minorElementals;
 
   const elementalWeapon = elementalWeaponDef(spell, opts);
   if (elementalWeapon) return elementalWeapon;

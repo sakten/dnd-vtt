@@ -173,8 +173,11 @@ export interface AutomationEffect {
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
   retaliate?: { damageType: string; amount?: number; dice?: string };
-  /** Расходуемый счётчик эффекта (Flame Arrows: 12 боеприпасов). */
-  charges?: { count: number; on: 'rangedWeaponAttack' };
+  /**
+   * Расходуемый счётчик эффекта: Flame Arrows (12 боеприпасов, `on` — триггер
+   * траты) и Magic Stone (3 камня — тратится при использовании выданного действия).
+   */
+  charges?: { count: number; on?: 'rangedWeaponAttack' };
   /** Spirit Shroud: носитель получает доп. урон от атак источника эффекта (аура-метка). */
   takesExtraDamage?: { dice: string; damageType: string };
   /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */

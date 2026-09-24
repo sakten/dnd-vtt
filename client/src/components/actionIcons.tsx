@@ -280,6 +280,27 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
       />
     </>
   ),
+
+  // Magic Stone — «Бросок камня»: светящийся камень в полёте
+  'XGE:Magic Stone:throw': (
+    <>
+      <defs>
+        <radialGradient id="aiStoneGlow" cx="0.5" cy="0.45" r="0.6">
+          <stop offset="0" stopColor="#cfd8ff" stopOpacity="0.85" />
+          <stop offset="1" stopColor="#6b7bd8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="12" cy="11.4" r="9" fill="url(#aiStoneGlow)" />
+      <path
+        d="M12 5.2c2.5 0 4.4 1.9 4.4 4.4 0 3.1-1.7 6.2-4.4 8.3-2.7-2.1-4.4-5.2-4.4-8.3 0-2.5 1.9-4.4 4.4-4.4z"
+        fill="#8d94a8"
+        stroke="#3a3f52"
+        strokeWidth="0.6"
+      />
+      <path d="M10.3 8.2c.8-1 2-1.4 3.3-1" stroke="rgba(255,255,255,0.5)" strokeWidth="0.8" fill="none" strokeLinecap="round" />
+      <path d="M5.6 5.6l2.2 1.6M18.4 5.6l-2.2 1.6" stroke="#b9c3ff" strokeWidth="1.2" strokeLinecap="round" />
+    </>
+  ),
 };
 
 /** Запасные глифы действий по id (когда точного ключа «заклинание:действие» нет). */
