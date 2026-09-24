@@ -114,6 +114,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.automation.deathWard': '{name}: Death Ward prevented the fall — 1 HP, the effect ends',
   'system.automation.shadowBladeReturn': '{name}: the shadow blade returns to hand',
   'system.automation.tempHp': '{name}: {feature} → {targets}',
+  'system.automation.zombieRises': '{name}: rises as a Zombie',
   'system.automation.patientDefense': '{name}: {feature} (Disengage + Dodge)',
   'system.automation.stepOfTheWind': '{name}: {feature} (Disengage + Dash)',
   'system.automation.manual': '{name}: {feature}{detail}',
@@ -806,6 +807,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.spellMech.ranged': 'ranged spell',
   'ui.spellMech.save': 'Save',
   'ui.spellMech.damage': 'Damage',
+  'ui.spellMech.tempHp': 'Temporary HP',
   'ui.spellMech.condition': 'Condition',
   'ui.spellMech.components': 'Components',
   'ui.spellMech.halfOnSuccess': '(half on success)',
@@ -885,6 +887,7 @@ export const en: Partial<Record<MessageKey, string>> = {
 
   'ui.actionRules.damage': 'Damage',
   'ui.actionRules.healing': 'Healing',
+  'ui.actionRules.tempHp': 'Temporary HP',
 
   'ui.api.loadImageError': 'Failed to upload the image',
   'ui.api.readImageError': 'Failed to read the image',

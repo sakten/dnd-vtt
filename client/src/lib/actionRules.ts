@@ -210,10 +210,13 @@ export function spellCastInfo(
   const multiCount = effectTargetCount > 1 ? effectTargetCount : projectiles;
   const attacky = !!spell.spellAttack || !!spell.save;
   const expression = weaponBuff ? null : spellDamageExpression(spell, level, charLevel);
+  // False Life: временные хиты вместо лечения/урона.
+  const tempHp = def.utility?.kind === 'tempHp' ? def.utility.dice : undefined;
   // Составной урон/атака+всплеск (Flame Strike, Ice Knife): части из каталога.
   const parts = spellDamageParts(spell);
-  const damageText =
-    parts?.length
+  const damageText = tempHp
+    ? `${t('ui.actionRules.tempHp')}: ${tempHp}`
+    : parts?.length
       ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${parts
           .map((part) => `${part.dice}${part.types.length ? ` (${part.types.join(', ')})` : ''}`)
           .join(' + ')}`

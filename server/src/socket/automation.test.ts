@@ -931,6 +931,83 @@ describe('Vitriolic Sphere (D)', () => {
   });
 });
 
+describe('временные хиты (E)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('False Life: 2к4+4 врем. хитов, апкаст +5 за круг (не складываются)', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // 2к4 = 6
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:False Life')!, { castLevel: 1, characterLevel: 1 }),
+      targets: [caster],
+      stats,
+      author: 'DM',
+    });
+    expect(caster.hpTemp).toBe(10);
+
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:False Life')!, { castLevel: 3, characterLevel: 1 }),
+      targets: [caster],
+      stats,
+      author: 'DM',
+    });
+    expect(caster.hpTemp).toBe(20); // 6 + 4 + 10, большее значение
+  });
+
+  it('Negative Energy Flood: живой получает урон, нежить — половину броска врем. хитами', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const living = room.scene.maps[0]!.tokens[1]!;
+    const undead = makeToken('t3', {
+      x: 200,
+      y: 100,
+      hpMax: '30',
+      hpCurrent: 30,
+      statblock: { creatureType: 'undead', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
+    });
+    room.scene.maps[0]!.tokens.push(undead);
+    vi.spyOn(Math, 'random').mockReturnValue(0); // спас провален, 5d12 = 5
+    const def = automationForSpell(findSpell('XGE:Negative Energy Flood')!, { castLevel: 5, characterLevel: 5 });
+
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [living], stats, author: 'DM' });
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [undead], stats, author: 'DM' });
+
+    expect(living.hpCurrent).toBe(25);
+    expect(living.hpTemp).toBe(0);
+    expect(undead.hpCurrent).toBe(30);
+    expect(undead.hpTemp).toBe(2); // floor(5/2)
+    expect(room.scene.maps[0]!.tokens.some((t) => t.name === 'Zombie')).toBe(false);
+  });
+
+  it('Negative Energy Flood: убитый поднимается зомби (враждебный NPC)', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.hpMax = '30';
+    target.hpCurrent = 3;
+    vi.spyOn(Math, 'random').mockReturnValue(0); // 5d12 = 5 → цель умирает
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XGE:Negative Energy Flood')!, { castLevel: 5, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+
+    const zombie = map.tokens.find((t) => t.name === 'Zombie');
+    expect(zombie).toBeTruthy();
+    expect(zombie!.faction).toBe('enemy');
+    expect(zombie!.hpCurrent).toBe(15);
+  });
+});
+
 
 describe('Polymorph: якорь концентрации', () => {
   afterEach(() => vi.restoreAllMocks());

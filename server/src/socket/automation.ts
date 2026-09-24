@@ -4,6 +4,7 @@ import {
   attackRollParts,
   autoCrit,
   autoFailSave,
+  bestiaryTokenFields,
   characterLevel,
   collectAttackSources,
   combineRollMode,
@@ -39,10 +40,12 @@ import {
   type AutomationEffect,
   type AutomationUtility,
   type DiceRollResult,
+  type LibraryItem,
   type SpellStats,
   type Token,
   type TurnState,
 } from 'shared';
+import bestiaryData from 'shared/bestiaryData';
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
@@ -762,6 +765,23 @@ function withSpellAbilityMod(expression: string | null, def: AutomationDef, stat
   return `${expression}${mod > 0 ? '+' : ''}${mod}`;
 }
 
+/** Negative Energy Flood: убитый поднимается зомби (XMM:Zombie) в своей клетке; ведёт DM. */
+function spawnZombie(run: AutomationRun, at: Token): void {
+  const { ctx, room, mapId } = run;
+  const entry = bestiaryData.entries.find((e) => e.key === 'XMM:Zombie');
+  if (!entry) return;
+  const item: LibraryItem = { id: randomUUID(), ...bestiaryTokenFields(entry), owner: '' };
+  const token = ctx.manager.addToken(room, mapId, item, at.x, at.y, '');
+  if (!token) return;
+  token.faction = 'enemy';
+  ctx.emitToken(room, 'token:add', mapId, token);
+  if (ctx.manager.combatOf(room, mapId)?.active) {
+    ctx.manager.addTokenToCombat(room, mapId, token);
+    ctx.syncCombat(room, mapId);
+  }
+  ctx.systemMessage(room, { code: 'automation.zombieRises', params: { name: at.name } });
+}
+
 /** Единая точка урона/лечения прогона: бонус Ученика жизни, сообщение, самолечение Целителя. */
 function applyResult(
   run: AutomationRun,
@@ -778,6 +798,7 @@ function applyResult(
   } = {}
 ): ReturnType<typeof applyDamage> {
   const mods = run.healing ? undefined : opts.mods;
+  const aliveBefore = (target.hpCurrent ?? 0) > 0;
   const parts = roll.damageParts.map((part) => ({ ...part }));
   const bonus = (mods?.extraDamage ?? 0) - (mods?.flatReduction ?? 0);
   if (bonus && parts.length) {
@@ -798,6 +819,10 @@ function applyResult(
     // Ближние заклинательные атаки (Shocking Grasp/Vampiric Touch) — триггер ответок цели.
     ...(run.def.attack ? { attacker: run.caster, melee: run.def.attack.rangeType === 'melee' } : {}),
   });
+  // Negative Energy Flood: убитый этим уроном сразу поднимается зомби.
+  if (!run.healing && aliveBefore && (target.hpCurrent ?? 0) <= 0 && run.def.key === 'XGE:Negative Energy Flood') {
+    spawnZombie(run, target);
+  }
   // Heal и подобные: состояния снимаются независимо от броска лечения.
   if (run.def.endConditions?.length) {
     removeConditionInstances(run.ctx, run.room, run.mapId, target, run.def.endConditions);
@@ -1084,14 +1109,34 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
       params: { subject: run.subject, damageType: run.damageType },
     });
   }
+  // Negative Energy Flood: нежить спас не бросает — вместо урона получает половину броска врем. хитами.
+  const undeadIds = def.undeadTempHp
+    ? new Set(targets.filter((t) => creatureTypeOf(room, t) === 'undead').map((t) => t.id))
+    : new Set<string>();
   const saves: TargetSave[] = [];
   const half = def.save.half;
   for (const target of targets) {
+    if (undeadIds.has(target.id)) continue;
     const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability);
     saves.push(save);
   }
   const applyAll = () => {
     let shaped = false;
+    if (damageRoll && undeadIds.size) {
+      for (const target of targets) {
+        if (!undeadIds.has(target.id)) continue;
+        const amount = Math.floor(damageRoll.total / 2);
+        if (amount <= 0) continue;
+        run.ctx.manager.grantTempHp(run.room, target, amount);
+        const cid = run.ctx.manager.controllerOfToken(run.room, target);
+        if (cid) run.ctx.emitResources(run.room, cid);
+        run.ctx.emitToken(run.room, 'token:update', run.mapId, target);
+        run.ctx.systemMessage(run.room, {
+          code: 'automation.tempHp',
+          params: { name: run.caster.name, feature: def.name, targets: `${target.name} +${amount} врем. HP` },
+        });
+      }
+    }
     for (const save of saves) {
       if (!save.success) applyTargetEffects(run, save.target, stats);
       // Polymorph: провалившийся сейв превращается в выбранного зверя (концентрация — до конца).

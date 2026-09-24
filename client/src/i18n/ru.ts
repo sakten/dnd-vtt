@@ -111,6 +111,7 @@
   'system.automation.deathWard': '{name}: Death Ward спас от падения — 1 HP, эффект рассеялся',
   'system.automation.shadowBladeReturn': '{name}: клинок тени возвращается в руку',
   'system.automation.tempHp': '{name}: {feature} → {targets}',
+  'system.automation.zombieRises': '{name}: из тела поднимается зомби',
   'system.automation.patientDefense': '{name}: {feature} (Отход + Уклонение)',
   'system.automation.stepOfTheWind': '{name}: {feature} (Отход + Рывок)',
   'system.automation.manual': '{name}: {feature}{detail}',
@@ -803,6 +804,7 @@
   'ui.spellMech.ranged': 'дальняя заклинанием',
   'ui.spellMech.save': 'Спасбросок',
   'ui.spellMech.damage': 'Урон',
+  'ui.spellMech.tempHp': 'Временные хиты',
   'ui.spellMech.condition': 'Состояние',
   'ui.spellMech.components': 'Компоненты',
   'ui.spellMech.halfOnSuccess': '(при успехе — половина)',
@@ -882,6 +884,7 @@
 
   'ui.actionRules.damage': 'Урон',
   'ui.actionRules.healing': 'Лечение',
+  'ui.actionRules.tempHp': 'Временные хиты',
 
   'ui.api.loadImageError': 'Не удалось загрузить изображение',
   'ui.api.readImageError': 'Не удалось прочитать изображение',

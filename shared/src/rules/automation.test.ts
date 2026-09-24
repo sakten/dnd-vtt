@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
-import { automationForAction, automationForSpell, spellAutomated, spellDamageParts, spellVariantDef } from './automation';
+import { automationForAction, automationForSpell, spellAutomated, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
 import { findBaseAction } from './actions';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 
@@ -1796,5 +1796,40 @@ describe('Составной урон (D)', () => {
     expect(base.effects?.[0]?.triggers?.endOfTurn?.damage).toEqual({ dice: '5d4acid', types: ['acid'] });
     expect(automationForSpell(sphere(), { castLevel: 6 }).damage?.dice).toBe('14d4acid');
     expect(spellAutomated(sphere())).toBe(true);
+  });
+
+  it('False Life: временные хиты 2к4 + 4, апкаст +5 за круг', () => {
+    const falseLife = () =>
+      makeSpell({
+        key: 'XPHB:False Life',
+        name: 'False Life',
+        level: 1,
+        healing: true,
+        damage: { dice: ['2d4 + 4'], types: [] },
+      });
+    const base = automationForSpell(falseLife());
+    expect(base.resolution).toBe('utility');
+    expect(base.utility).toEqual({ kind: 'tempHp', dice: '2d4 + 4' });
+    expect(automationForSpell(falseLife(), { castLevel: 3 }).utility?.dice).toBe('2d4 + 4 + 10');
+    expect(spellTempHp(falseLife())).toBe('2d4 + 4');
+    expect(spellTempHp(falseLife(), 2)).toBe('2d4 + 4 + 5');
+    expect(spellAutomated(falseLife())).toBe(true);
+  });
+
+  it('Negative Energy Flood: спас CON, 5d12 некротикой; нежить — врем. хиты половиной', () => {
+    const spell = makeSpell({
+      key: 'XGE:Negative Energy Flood',
+      name: 'Negative Energy Flood',
+      level: 5,
+      save: ['con'],
+      saveHalf: true,
+      damage: { dice: ['5d12'], types: ['necrotic'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'con', half: true });
+    expect(def.damage).toEqual({ dice: '5d12necrotic', types: ['necrotic'] });
+    expect(def.undeadTempHp).toBe(true);
+    expect(spellAutomated(spell)).toBe(true);
   });
 });

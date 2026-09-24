@@ -1,4 +1,4 @@
-import { spellCastArea, spellDamageParts, spellWeaponOverride, type Spell } from 'shared';
+import { spellCastArea, spellDamageParts, spellTempHp, spellWeaponOverride, type Spell } from 'shared';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 
@@ -116,8 +116,13 @@ export function spellMechanics(spell: Spell): string[] {
     lines.push(`${t('ui.spellMech.attack')}: ${t(spell.spellAttack === 'ranged' ? 'ui.spellMech.ranged' : 'ui.spellMech.melee')}`);
   }
   if (spell.save?.length) lines.push(`${t('ui.spellMech.save')}: ${saveText(spell)}`);
-  const damage = damageText(spell, raw);
-  if (damage) lines.push(`${t('ui.spellMech.damage')}: ${damage}`);
+  const tempHp = spellTempHp(spell);
+  if (tempHp) {
+    lines.push(`${t('ui.spellMech.tempHp')}: ${diceText([tempHp])}`);
+  } else {
+    const damage = damageText(spell, raw);
+    if (damage) lines.push(`${t('ui.spellMech.damage')}: ${damage}`);
+  }
   if (spell.conditions?.length) lines.push(`${t('ui.spellMech.condition')}: ${conditionText(spell)}`);
   const comps = componentsText(spell);
   if (comps) lines.push(`${t('ui.spellMech.components')}: ${comps}`);

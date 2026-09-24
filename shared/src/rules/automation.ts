@@ -1359,6 +1359,8 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Wall of Thorns',
   'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
+  'XPHB:False Life',
+  'XGE:Negative Energy Flood',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -2309,6 +2311,39 @@ function vitriolicSphereDef(spell: Spell, opts: AutomationOptions): AutomationDe
   };
 }
 
+/**
+ * False Life (XPHB 2024): временные хиты 2к4 + 4 (+5 за круг выше 1) —
+ * утилита `tempHp`: кость бросается один раз и выдаётся кастеру.
+ */
+function falseLifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:False Life') return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const bonus = 5 * Math.max(0, level - 1);
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'utility',
+    utility: { kind: 'tempHp', dice: `2d4 + 4${bonus ? ` + ${bonus}` : ''}` },
+  };
+}
+
+/**
+ * Negative Energy Flood (XGE): спас CON (успех — половина), 5d12 некротикой;
+ * нежить спас не бросает — вместо урона получает половину броска врем. хитами.
+ * Убитый этим уроном поднимается зомби (ветка в исполнителе).
+ */
+function negativeEnergyFloodDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Negative Energy Flood') return undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    save: { ability: 'con', half: true },
+    damage: { dice: '5d12necrotic', types: ['necrotic'] },
+    undeadTempHp: true,
+  };
+}
+
 /** Часть составного урона: кость и тип (Flame Strike: 5d6 огнём + 5d6 излучением). */
 interface CompositePart {
   dice: string;
@@ -2609,6 +2644,12 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const vitriolic = vitriolicSphereDef(spell, opts);
   if (vitriolic) return vitriolic;
 
+  const falseLife = falseLifeDef(spell, opts);
+  if (falseLife) return falseLife;
+
+  const negativeEnergyFlood = negativeEnergyFloodDef(spell);
+  if (negativeEnergyFlood) return negativeEnergyFlood;
+
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
 
@@ -2790,6 +2831,15 @@ export function automationForAction(action: ActionDef, opts: ActionAutomationOpt
 /** Определения эффектов заклинания из каталога (undefined — эффектов нет). */
 export function spellEffectDefs(spellKey: string): AutomationEffect[] | undefined {
   return AUTOMATION_SPELLS[spellKey]?.effects;
+}
+
+/**
+ * Временные хиты заклинания (False Life): выражение костей со скейлом
+ * (2к4 + 4 + 5/круг); undefined — заклинание не даёт врем. хитов.
+ */
+export function spellTempHp(spell: Spell, castLevel?: number, characterLevel?: number): string | undefined {
+  const def = automationForSpell(spell, { castLevel, characterLevel });
+  return def.utility?.kind === 'tempHp' ? def.utility.dice : undefined;
 }
 
 /**

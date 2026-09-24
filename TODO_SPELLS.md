@@ -1,14 +1,15 @@
 # TODO_SPELLS.md
 
-Аудит автоматизации заклинаний (сессия 24.09.2026). **Только анализ и классификация — код не менялся.**
+Аудит автоматизации заклинаний (сессия 24.09.2026; сверка и пересчёт — 25.09.2026, сессия 11). Первичный аудит — анализ без правок кода; статусы разделов обновляются по мере закрытия срезов.
 Источники: снимок `shared/src/data/spells.json`, RU-тексты `shared/src/data/text.ru/spells.json`.
-Метод проверки: прямые вызовы `automationForSpell` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation.ts`, `shared/src/rules/automation.ts`, `shared/src/rules/spellCast.ts`).
+Метод проверки: прямые вызовы `automationForSpell` / `spellAutomated` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation.ts`, `shared/src/rules/automation.ts`, `shared/src/rules/spellCast.ts`).
 
-## Сводка
+## Сводка (пересчитано 25.09.2026)
 
-- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **255**: каталог 64, билдеры 20, призывы 12, деривация из данных 159.
-- **94 деривативных — ложно-полные**: стоят с `automation: 'full'` (зелёная иконка), но generic-деривация делает не ту механику.
-- Остальные деривативные (65) в основном корректны как урон/спас/атака; ~30 из них частичные (§7).
+- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **255**: каталог 68, билдеры 50, призывы 12, деривация из данных 125. Красных (`manual`) — **165**.
+- Категории ниже — аудит проблемных мест (94 записи в таблице «Инвентарь»). Закрыто в сессиях 10–11: **A** (13), **B1/B2/B3/B5** (16), **D** (6: Flame Strike, Ice Storm, Destructive Wave, Wall of Thorns, Ice Knife, Vitriolic Sphere), **E** (2).
+- Открыто: **B4** (Guardian of Nature, Tenser's, Alter Self, Enlarge/Reduce, Investitures — 5), **C-доработки** (Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere), **D-мультицель** (Jallarzi, Spiritual Weapon, Steel Wind Strike, Chain Lightning — 4), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door/Thunder Step — 2), **H** (16) и частичные §7.
+- Составной урон решён типизированными костями в `dice` (`5d6fire + 5d6radiant` + `applyDamageToParts`), без отдельного поля `parts`; всплеск атаки — `AutomationDef.burst` (Ice Knife); отложенный урон — `EffectInstance.triggers.endOfTurn` (Vitriolic).
 
 ## Проверено — НЕ дефекты (не переоткрывать)
 
@@ -52,10 +53,11 @@
 
 - **Зоны с триггерами:** `XGE:Create Bonfire`, `XPHB:Cloud of Daggers`, `XPHB:Spike Growth`, `TCE:Tasha's Caustic Brew` (урон в начале хода), `XGE:Sickening Radiance` (истощение), `XPHB:Wind Wall`, `XPHB:Evard's Black Tentacles` (опутан), `XGE:Maelstrom` (pull), `XGE:Dawn`, `XPHB:Insect Plague`, `XPHB:Conjure Animals`, `XGE:Storm Sphere` (⚡ + бонус-действие), `XPHB:Wall of Fire`, `XGE:Wall of Light`, `XPHB:Wall of Ice`, `XPHB:Blade Barrier` (стены), `XGE:Wrath of Nature`, `XPHB:Yolande's Regal Presence` (push), `XGE:Dust Devil` (push), `XGE:Maximilian's Earthen Grasp` (опутан), `XGE:Healing Spirit` (лимит лечений ⚠️), `XPHB:Cordon of Arrows`, `XPHB:Glyph of Warding` (ловушки/заряды ⚠️).
 - **Повтор на цели (эффект-триггеры/грантованные действия):** `XPHB:Witch Bolt`, `XPHB:Melf's Acid Arrow`, `XGE:Immolation`, `XGE:Enervation` (leech + 4d8 на провале вместо текущих 2d8), `XGE:Melf's Minute Meteors` (6 зарядов).
+- **Осталось (сверено 25.09.2026):** `Healing Spirit` (лимит лечений), `Cordon of Arrows`, `Glyph of Warding` (ловушки/заряды), `Storm Sphere` (бонус-действие), стены — `Wall of Fire`/`Wall of Ice`/`Blade Barrier`/`Wall of Light` идут generic-спасом без геометрии стены (Wall of Thorns сделан в D).
 
-## D. Составной урон и несколько целей — ✅ составной урон, ⚠️ мультицель — 10
+## D. Составной урон и несколько целей — ✅ 6/10, ⚠️ мультицель — 4
 
-> Составной урон сделан (сессия 11): части одним броском — типизированные кости (`5d6fire + 5d6radiant`), защиты по каждой части (`applyDamageToParts`); билдер `COMPOSITE_CONFIGS`/`compositeDamageDef` (`rules/automation.ts`). Wall of Thorns — зона-линия (HoH-паттерн). Мультицель и отложенный урон — следующие срезы.
+> Составной урон и часть механик сделаны (сессии 11): части одним броском — типизированные кости (`5d6fire + 5d6radiant`), защиты по каждой части (`applyDamageToParts`); билдеры `COMPOSITE_CONFIGS`/`compositeDamageDef`, `iceKnifeDef` (всплеск `AutomationDef.burst`), `vitriolicSphereDef` (отложенный урон `triggers.endOfTurn`), `wallOfThornsDef` (зона-линия/кольцо). Осталась мультицель.
 
 | Заклинание | Статус |
 |---|---|
@@ -70,10 +72,12 @@
 | `XPHB:Steel Wind Strike` | ⚠️ до 5 целей + телепорт |
 | `XPHB:Chain Lightning` | ⚠️ 3 перескока |
 
-## E. Временные хиты — ✅ `effect.tempHp` — 2
+## E. Временные хиты — ✅ сделано — 2
 
-- `XPHB:False Life` — сейчас обычное лечение `2d4 + 4` вместо Временных хитов; апкаст +5/круг.
-- `XGE:Negative Energy Flood` — ветка нежити (5d12 половиной временными хитами) отсутствует.
+| Заклинание | Статус |
+|---|---|
+| `XPHB:False Life` | ✅ 2к4 + 4 врем. хитов (+5 за круг выше 1) — утилита `tempHp` (кость бросается один раз, не складывается) |
+| `XGE:Negative Energy Flood` | ✅ спас CON (успех — половина), 5d12 некротикой; нежить спас не бросает — половина броска врем. хитами (`AutomationDef.undeadTempHp`); убитый поднимается враждебным `XMM:Zombie` |
 
 ## F. Духи-атаки — ⚠️ грантованный attack-action (как Flame Blade/Spiritual Weapon) — 2
 
@@ -122,7 +126,7 @@
 
 1. **Апкаст — ✅ сделано единообразно (без разбора текста в рантайме):** при сборке из HI-текста выводятся только числа — `Spell.upcast` (111: кости, «за каждые два круга», ступени Elemental Weapon/Magic Weapon/Shadow Blade, доп. цели, плоские +N у Armor of Agathys (`flat`), доп. снаряды у Magic Missile/Scorching Ray (`attacks`)), `Spell.cantrip` (27 кантрипов: кости 5/11/17 у GFB/BB/TS, лучи Eldritch Blast (`count`)) и базовое `Spell.attacks` (Scorching Ray/Magic Missile). Рантайм читает только числа (`spellUpcastAt`/`spellUpcastDice`/`spellCantripDice`/`spellAttackCount`); текстовые `higherLevel` хранятся только у SRD (лицензия) и в логике не парсятся. Галка `Spell.srd` (286) — для фильтрации контента. Не моделируются (и не парсились): апкасты длительности/радиуса (Dominate, Fog Cloud) — вне среза автоматизации.
 2. **Скейл кантрипов** зависит от `higherLevel` → не растут: Mind Sliver, Toll the Dead, Thorn Whip, Thunderclap, Word of Radiance (и XGE/TCE-кантрипы).
-3. **Мульти-кости:** `spellDamageExpression` берёт `dice[0]` → теряются части урона и связь кость↔тип (см. D); в схеме `AutomationDice` только одна строка.
+3. **Мульти-кости:** `spellDamageExpression` берёт `dice[0]` → теряются части урона и связь кость↔тип (см. D). ✅ Решено для конкретных заклинаний типизированными костями в `dice` (`COMPOSITE_CONFIGS`); в схеме `AutomationDice` по-прежнему одна строка — отдельное поле parts не понадобилось.
 4. **Лечение без +мода:** Cure Wounds, Healing Word, Mass Healing Word, Mass Cure Wounds. Флаг `abilityMod` в схеме есть, деривация не ставит; `withSpellAbilityMod` смотрит только `def.damage?.abilityMod`.
 5. **Каталог:** `XPHB:Resistance` (`save+1d4` вместо −1d4 к урону раз в ход), `XPHB:Guidance` (все проверки вместо выбранного навыка), `XPHB:Aid` (+5/круг), `XPHB:Cloudkill` (зона 5d8 без апкаста).
 6. **Лимит «1 минута» — ✅ реализовано:** спеллы длительностью ровно 1 минута получают `maxRounds: 10` (`spellMaxRounds`), эффекты и зоны гаснут на 10-м ходу носителя/источника, даже если не сняты спасом/концентрацией; больше минуты (10 минут/час) не лимитируется, instant не затрагивается. Счётчик — `EffectInstance.maxRounds`/`ZoneInstance.maxRounds`, тик — `tickEffects`/`tickZones`.
@@ -132,11 +136,11 @@
 | Тип | Кол-во | Статус механизма |
 |---|---|---|
 | attackRiders (наездники) | 13 | ✅ есть, нужен вход от «после попадания» |
-| effect-баффы | 21 | ✅/⚠️ (weapon:true, retaliate, actions, variant) |
-| zone/повтор | 28 | ✅ есть, ⚠️ стены/заряды/push |
+| effect-баффы | 21 | ✅ 16, ⚠️ 5 (B4-трансформации) |
+| zone/повтор | 28 | ✅ есть, ⚠️ Healing Spirit/Cordon/Glyph/стены/Storm Sphere |
 | составной урон/мультицель | 10 | ✅ 6 (составной, Ice Knife, Vitriolic), ⚠️ 4 (Jallarzi, Spiritual Weapon, Steel Wind Strike, Chain Lightning) |
-| temp HP | 2 | ✅ есть |
+| temp HP | 2 | ✅ реализовано (2) |
 | духи-атаки | 2 | ⚠️ granted actions |
-| перемещение | 2 | ✅ есть, ⚠️ пассажир/совмещение с уроном |
+| перемещение | 2 | ✅ `utility.teleport`; ⚠️ Dimension Door (пассажир), Thunder Step (урон в точке выхода) |
 | особая логика / нет типа | 16 | ❌ 13 без типа, 3 почти выразимы |
-| **Итого** | **94** | |
+| **Итого в аудите** | **94** | закрыто 37 (A 13, B 16, D 6, E 2); открыто — остальное |

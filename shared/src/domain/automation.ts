@@ -450,6 +450,11 @@ export interface AutomationDef extends AutomationPayload {
   key: string;
   name: string;
   resolution: AutomationResolution;
+  /**
+   * Negative Energy Flood: нежить спас не бросает — вместо урона получает
+   * половину броска временными хитами.
+   */
+  undeadTempHp?: boolean;
   concentration?: boolean;
   /** Лимит длительности «1 минута» = 10 раундов (см. `EffectInstance.maxRounds`). */
   maxRounds?: number;
