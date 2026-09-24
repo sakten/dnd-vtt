@@ -173,6 +173,26 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.deathWard === true) effect.deathWard = true;
     if (e.magicWeapon === true) effect.magicWeapon = true;
+    if (e.weaponOverride && typeof e.weaponOverride === 'object') {
+      const o = e.weaponOverride as { weapons?: unknown; dice?: unknown; damageType?: unknown; abilityMod?: unknown };
+      const weapons = Array.isArray(o.weapons)
+        ? o.weapons.filter((w): w is string => typeof w === 'string' && !!w).slice(0, 8)
+        : [];
+      if (
+        weapons.length &&
+        typeof o.dice === 'string' &&
+        o.dice.trim() &&
+        typeof o.damageType === 'string' &&
+        o.damageType
+      ) {
+        effect.weaponOverride = {
+          weapons: [...new Set(weapons)],
+          dice: o.dice.trim().slice(0, 40),
+          damageType: o.damageType.slice(0, 40),
+          abilityMod: clampInt(o.abilityMod, -30, 30, 0),
+        };
+      }
+    }
     if (e.saveMarker === true) effect.saveMarker = true;
     if (e.damageLink && typeof e.damageLink === 'object') {
       const link = e.damageLink as { tokenId?: unknown };

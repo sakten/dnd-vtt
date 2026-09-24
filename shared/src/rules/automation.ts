@@ -1298,6 +1298,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XGE:Far Step',
   'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
+  'XPHB:Shillelagh',
   'XPHB:Elemental Weapon',
   'TCE:Spirit Shroud',
   'XGE:Flame Arrows',
@@ -1688,6 +1689,28 @@ function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
       { target: 'damage', mode: 'add', value: bonus, filter: { weapon: true, unarmed: false } },
     ],
     magicWeapon: true,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/**
+ * Shillelagh (XPHB): клуб или посох в руке — кость кантрипа (d8/d10/d12/2d6 по
+ * уровню персонажа), заклинательная характеристика и силовой тип урона. Число
+ * характеристики фиксируется при касте в `weaponOverride` (см. `loadoutOf`).
+ */
+function shillelaghDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Shillelagh') return undefined;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'self',
+    modifiers: [],
+    weaponOverride: {
+      weapons: ['XPHB:Club', 'XPHB:Quarterstaff'],
+      dice: spellCantripDice(spell, opts.characterLevel ?? 1) ?? spell.damage?.dice?.[0] ?? '1d8',
+      damageType: spell.damage?.types?.[0] ?? 'force',
+      abilityMod: opts.spellMod ?? 0,
+    },
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
@@ -2259,6 +2282,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const magicWeapon = magicWeaponDef(spell, opts);
   if (magicWeapon) return magicWeapon;
+
+  const shillelagh = shillelaghDef(spell, opts);
+  if (shillelagh) return shillelagh;
 
   const elementalWeapon = elementalWeaponDef(spell, opts);
   if (elementalWeapon) return elementalWeapon;

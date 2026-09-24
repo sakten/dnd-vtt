@@ -1,4 +1,4 @@
-import type { GrantedAction, LightSource } from './automation';
+import type { GrantedAction, LightSource, WeaponOverride } from './automation';
 import type { AbilityKey } from './core';
 import type { Sense } from './sense';
 import type { AttackRangeType } from './token';
@@ -220,6 +220,8 @@ export interface EffectInstance {
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
+  /** Shillelagh: клуб/посох в руке бьёт новой костью, типом и характеристикой. */
+  weaponOverride?: WeaponOverride;
   /** Warding Bond: урон носителя тем же количеством переносится на токен-источник. */
   damageLink?: { tokenId: string };
   /** Eyebite: скрытая метка «спасся против этого каста» (повторно не цель). */

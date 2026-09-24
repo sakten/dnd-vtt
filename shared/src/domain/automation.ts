@@ -44,6 +44,21 @@ export interface AutomationDice {
   abilityMod?: boolean;
 }
 
+/**
+ * Shillelagh: подмена атаки оружия на время эффекта — кость урона, тип и
+ * характеристика атаки. Применяется в `loadoutOf` к атакам указанных оружий
+ * (характеристика фиксируется числом при касте).
+ */
+export interface WeaponOverride {
+  /** Ключи оружия справочника (`attack.weaponKey`), к которым применяется подмена. */
+  weapons: string[];
+  /** Новая кость урона (со скейлом кантрипа: d8/d10/d12/2d6). */
+  dice: string;
+  damageType: string;
+  /** Модификатор характеристики атаки и урона (заклинательная кастера на касте). */
+  abilityMod: number;
+}
+
 /** Источник света эффекта/зоны: яркий радиус + сумеречное кольцо за ним. */
 export interface LightSource {
   /** Радиус яркого света, футы. */
@@ -113,6 +128,8 @@ export interface AutomationEffect {
   triggers?: { startOfTurn?: EffectTurnPayload };
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
+  /** Shillelagh: клуб/посох в руке бьёт новой костью, типом и характеристикой. */
+  weaponOverride?: WeaponOverride;
   /** Warding Bond: переносить получаемый урон на источник эффекта. */
   damageLink?: boolean;
   /** Eyebite: успешный спас цели ставит скрытую метку — повторно её не выбрать до конца каста. */
@@ -191,6 +208,9 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
       : undefined,
     triggers: def.triggers?.startOfTurn ? { startOfTurn: { ...def.triggers.startOfTurn } } : undefined,
     magicWeapon: def.magicWeapon,
+    weaponOverride: def.weaponOverride
+      ? { ...def.weaponOverride, weapons: [...def.weaponOverride.weapons] }
+      : undefined,
     immuneToSpeedReduction: def.immuneToSpeedReduction,
     ignoresDifficultTerrain: def.ignoresDifficultTerrain,
     seesInvisible: def.seesInvisible,

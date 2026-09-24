@@ -42,7 +42,7 @@
 | `XPHB:Fire Shield`, `XGE:Shadow of Moil` | ✅ `retaliate` костями (2d8), сопротивление; Moil — помеха атакам по носителю (`direction: against`) |
 | `XGE:Shadow Blade` | ⚠️ создание оружия: грантованный attack-action (как Flame Blade), метание/возврат бонусным действием |
 | `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind`, `XPHB:Fount of Moonlight` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
-| `XPHB:Shillelagh` | ⚠️ замена кости оружия и характеристики атаки — отдельного модификатора нет |
+| `XPHB:Shillelagh` | ✅ B3: `weaponOverride` в лоадауте — кость кантрипа (d8/d10/d12/2d6), заклинательная характеристика, силовой тип; только клуб/посох |
 | `XGE:Magic Stone` | ⚠️ «три камня» как расходуемый ресурс; +мод к урону |
 | `XGE:Absorb Elements` | ✅ сопротивление (реакция) + заряд +1d6 типом на следующее попадание оружием (`consumeOnAttackRoll`) |
 

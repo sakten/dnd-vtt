@@ -135,7 +135,7 @@ function hitExpression(bonus: number): string {
   return d20Expr(bonus);
 }
 
-function damageExpression(dice: string, mod: number): string {
+export function damageExpression(dice: string, mod: number): string {
   if (!mod) return dice;
   return `${dice}${mod > 0 ? `+${mod}` : `${mod}`}`;
 }

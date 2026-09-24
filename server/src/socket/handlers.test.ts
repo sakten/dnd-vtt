@@ -416,6 +416,59 @@ describe('action:use', () => {
     expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
   });
 
+  it('Shillelagh: клуб бьёт костью кантрипа и заклинательной характеристикой', () => {
+    const club: AttackEntry = {
+      id: 'club',
+      name: 'Палица',
+      hit: 'd20+2',
+      damage: '1d4',
+      damageType: 'bludgeoning',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 0,
+      weaponKey: 'XPHB:Club',
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, ac: '10', hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'druid', level: 1 }],
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+      attacks: [club],
+      hands: { right: 'club' },
+      spells: [{ key: 'XPHB:Shillelagh', className: 'druid' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shillelagh' });
+
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const effect = caster.effects.find((e) => e.sourceKey === 'XPHB:Shillelagh');
+    expect(effect?.weaponOverride).toEqual({
+      weapons: ['XPHB:Club', 'XPHB:Quarterstaff'],
+      dice: 'd8',
+      damageType: 'force',
+      abilityMod: 4,
+    });
+    expect(effect?.maxRounds).toBe(10);
+
+    // Атака клубом: попадание d20+6 (ПБ 2 + Мдр 4), урон 1d8+4 силовым → 40 − 9.
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(31);
+  });
+
   it('Heat Metal: авто-урон с помехой и повтор бонусным действием', () => {
     const room = makeRoom(
       [

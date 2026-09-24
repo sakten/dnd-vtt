@@ -476,6 +476,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       conditionImmunitiesFrom: { conditions: ['charmed'], types: ['fiend'] },
       triggers: { startOfTurn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } } },
       magicWeapon: true,
+      weaponOverride: { weapons: ['XPHB:Club'], dice: '1d10', damageType: 'force', abilityMod: 4 },
       immuneToSpeedReduction: true,
       ignoresDifficultTerrain: true,
       seesInvisible: true,

@@ -1,6 +1,7 @@
 ﻿import {
   actionSlotAvailable,
   actionTargeting,
+  applyWeaponOverrides,
   automationForAction,
   casterStats,
   classFeatures,
@@ -654,7 +655,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
           }
           const abilities = manager.abilitiesForToken(room, token) ?? {};
           attackEntry = {
-            ...weaponAttackEntry(weapon, { abilities, classes: sheet?.classes ?? [] }, { offhand: true }),
+            ...applyWeaponOverrides(
+              weaponAttackEntry(weapon, { abilities, classes: sheet?.classes ?? [] }, { offhand: true }),
+              token.effects,
+              { abilities, classes: sheet?.classes ?? [] },
+              { offhand: true }
+            ),
             name: entry.name || weapon.name,
           };
         } else if (offhand) {
@@ -687,7 +693,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
           }
           const abilities = manager.abilitiesForToken(room, token) ?? {};
           attackEntry = {
-            ...weaponAttackEntry(weapon, { abilities, classes: sheet?.classes ?? [] }, { offhand: true }),
+            ...applyWeaponOverrides(
+              weaponAttackEntry(weapon, { abilities, classes: sheet?.classes ?? [] }, { offhand: true }),
+              token.effects,
+              { abilities, classes: sheet?.classes ?? [] },
+              { offhand: true }
+            ),
             name: entry.name || weapon.name,
           };
         } else if (!manager.canAttack(room, mapId, token, { unarmed })) {

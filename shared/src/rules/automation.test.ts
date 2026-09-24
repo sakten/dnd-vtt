@@ -394,6 +394,36 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('B3: Shillelagh — кость кантрипа, заклинательная характеристика и силовой тип', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Shillelagh',
+      name: 'Shillelagh',
+      level: 0,
+      automation: 'manual',
+      damage: { dice: ['d8', 'd10', 'd12', '2d6'], types: ['force'] },
+      duration: [{ type: 'timed', duration: { type: 'minute', amount: 1 } }],
+      cantrip: [
+        { level: 5, dice: 'd10' },
+        { level: 11, dice: 'd12' },
+        { level: 17, dice: '2d6' },
+      ],
+    });
+    const base = automationForSpell(spell, { spellMod: 3 });
+    expect(base.resolution).toBe('effect');
+    expect(base.effects?.[0]?.to).toBe('self');
+    expect(base.effects?.[0]?.weaponOverride).toEqual({
+      weapons: ['XPHB:Club', 'XPHB:Quarterstaff'],
+      dice: 'd8',
+      damageType: 'force',
+      abilityMod: 3,
+    });
+    expect(base.maxRounds).toBe(10);
+    expect(automationForSpell(spell, { characterLevel: 5, spellMod: 3 }).effects?.[0]?.weaponOverride?.dice).toBe('d10');
+    expect(automationForSpell(spell, { characterLevel: 11 }).effects?.[0]?.weaponOverride?.dice).toBe('d12');
+    expect(automationForSpell(spell, { characterLevel: 17 }).effects?.[0]?.weaponOverride?.dice).toBe('2d6');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('B2: Spirit Shroud — аура 10 фт: −10 футов и доп. урон от атак кастера', () => {
     const spell = makeSpell({
       key: 'TCE:Spirit Shroud',
