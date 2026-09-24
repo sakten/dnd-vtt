@@ -83,9 +83,7 @@ export interface ModifierFilter {
   weapon?: boolean;
   /** Безоружный удар (Divine Favor/Magic Weapon: `false` — только оружие в руках). */
   unarmed?: boolean;
-  /** Спасбросок против конкретного состояния (Protection from Poison: только от отравления). */
-  condition?: ConditionKey;
-  /** Спасбросок против набора состояний (Aura of Purity): совпадение с любым из списка. */
+  /** Спасбросок против набора состояний: совпадение с любым из списка (Protection from Poison, Aura of Purity). */
   conditions?: ConditionKey[];
   /** Только спасброски против заклинаний и магических эффектов (Circle of Power). */
   magical?: boolean;

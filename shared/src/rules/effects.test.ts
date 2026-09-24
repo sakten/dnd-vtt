@@ -257,7 +257,7 @@ describe('проверки с эффектами (checkRollParts)', () => {
   });
 
   it('фильтр спасброска по состоянию (Protection from Poison) и связи урона (Warding Bond)', () => {
-    const pp = effect({ modifiers: [mod({ target: 'save', mode: 'advantage', filter: { condition: 'poisoned' } })] });
+    const pp = effect({ modifiers: [mod({ target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } })] });
     expect(saveRollParts([pp], 'con', undefined, 'poisoned').mode).toBe('a');
     expect(saveRollParts([pp], 'con', undefined, 'frightened').mode).toBeUndefined();
     const wb = effect({ damageLink: { tokenId: 't2' } });

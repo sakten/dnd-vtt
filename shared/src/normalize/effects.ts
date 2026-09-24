@@ -54,15 +54,16 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (typeof f.targetId === 'string' && f.targetId) out.targetId = f.targetId.slice(0, 80);
   if (f.direction === 'self' || f.direction === 'against') out.direction = f.direction;
   if (typeof f.weapon === 'boolean') out.weapon = f.weapon;
-  if (typeof f.condition === 'string' && (CONDITION_KEYS as string[]).includes(f.condition)) {
-    out.condition = f.condition as ConditionKey;
-  }
-  if (Array.isArray(f.conditions)) {
-    const conditions = f.conditions.filter(
-      (c): c is ConditionKey => typeof c === 'string' && (CONDITION_KEYS as string[]).includes(c)
-    );
-    if (conditions.length) out.conditions = [...new Set(conditions)];
-  }
+  if (typeof f.unarmed === 'boolean') out.unarmed = f.unarmed;
+  // Легаси `condition` (одиночный) приводим к `conditions`: оба — «совпадение с любым».
+  const rawConditions = [
+    ...(typeof f.condition === 'string' ? [f.condition] : []),
+    ...(Array.isArray(f.conditions) ? f.conditions : []),
+  ];
+  const conditions = rawConditions.filter(
+    (c): c is ConditionKey => typeof c === 'string' && (CONDITION_KEYS as string[]).includes(c)
+  );
+  if (conditions.length) out.conditions = [...new Set(conditions)];
   if (typeof f.magical === 'boolean') out.magical = f.magical;
   if (Array.isArray(f.creatureTypes)) {
     const types = f.creatureTypes.filter(
