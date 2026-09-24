@@ -5,6 +5,7 @@ import type {
   ConditionKey,
   EffectDuration,
   EffectEscalation,
+  EffectInstance,
   EffectTurnPayload,
   Modifier,
   Restrictions,
@@ -147,6 +148,50 @@ export interface AutomationEffect {
   onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
+}
+
+/**
+ * Поля `AutomationEffect`, переносимые в `EffectInstance` без изменений (с копированием
+ * объектов/массивов). Единый список для сервера (`applyEffectTo`) и нормализатора:
+ * новое поле схемы добавляется сюда — иначе оно потеряется при перезагрузке комнаты.
+ */
+export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstance> {
+  return {
+    concentration: def.concentration,
+    conditions: def.conditions ? [...def.conditions] : undefined,
+    escalate: def.escalate ? { ...def.escalate } : undefined,
+    wakeOnDamage: def.wakeOnDamage,
+    saveOnDamage: def.saveOnDamage ? { ...def.saveOnDamage } : undefined,
+    restrictions: def.restrictions ? { ...def.restrictions } : undefined,
+    misdirect: def.misdirect ? { ...def.misdirect } : undefined,
+    bonusDie: def.bonusDie,
+    bonusDieUses: def.bonusDieUses ? [...def.bonusDieUses] : undefined,
+    hidden: def.hidden,
+    senses: def.senses ? [...def.senses] : undefined,
+    actions: def.actions,
+    variant: def.variant,
+    mark: def.mark,
+    consumeOnAttackRoll: def.consumeOnAttackRoll,
+    light: def.light ? { ...def.light } : undefined,
+    deathWard: def.deathWard,
+    conditionImmunities: def.conditionImmunities ? [...def.conditionImmunities] : undefined,
+    conditionImmunitiesFrom: def.conditionImmunitiesFrom
+      ? { conditions: [...def.conditionImmunitiesFrom.conditions], types: [...def.conditionImmunitiesFrom.types] }
+      : undefined,
+    triggers: def.triggers?.startOfTurn ? { startOfTurn: { ...def.triggers.startOfTurn } } : undefined,
+    magicWeapon: def.magicWeapon,
+    immuneToSpeedReduction: def.immuneToSpeedReduction,
+    ignoresDifficultTerrain: def.ignoresDifficultTerrain,
+    seesInvisible: def.seesInvisible,
+    ward: def.ward ? [...def.ward] : undefined,
+    breakOn: def.breakOn ? [...def.breakOn] : undefined,
+    maximizeHealing: def.maximizeHealing,
+    deathSaveAdvantage: def.deathSaveAdvantage,
+    saveNoDamage: def.saveNoDamage,
+    retaliate: def.retaliate ? { ...def.retaliate } : undefined,
+    onWillingMove: def.onWillingMove ? { ...def.onWillingMove } : undefined,
+    zephyrStrike: def.zephyrStrike ? { ...def.zephyrStrike } : undefined,
+  };
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */

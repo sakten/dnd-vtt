@@ -30,6 +30,8 @@ import {
   withRollParts,
 } from './effects';
 import { spellAutomated, spellEffectDefs } from './automation';
+import { normalizeEffects } from '../normalize/effects';
+import { effectFieldsFromDef, type AutomationEffect } from '../domain/automation';
 import type { EffectInstance, Modifier } from '../domain/effects';
 
 let seq = 0;
@@ -444,5 +446,60 @@ describe('restrictionsFor', () => {
     const fromCondition = restrictionsFor([{ key: 'stunned', name: 'Ошеломлён', rounds: null }], []);
     expect(fromCondition.noActions).toBe(true);
     expect(fromCondition.noActionsFromEffect).toBeUndefined();
+  });
+});
+
+describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери полей)', () => {
+  it('все поля, переносимые в инстанс, переживают нормализацию', () => {
+    const def: AutomationEffect = {
+      name: 'Тест',
+      duration: { type: 'permanent' },
+      concentration: true,
+      modifiers: [],
+      conditions: ['blinded'],
+      escalate: { condition: 'unconscious' },
+      wakeOnDamage: true,
+      saveOnDamage: { advantage: true },
+      restrictions: { noActions: true, spellFailureChance: 25 },
+      misdirect: { charges: 3, die: 'd6', threshold: 3 },
+      bonusDie: '1d6',
+      bonusDieUses: ['damage', 'ac'],
+      hidden: true,
+      senses: [{ type: 'darkvision', range: 60 }],
+      actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
+      variant: 'fire',
+      mark: true,
+      consumeOnAttackRoll: true,
+      light: { bright: 30, dim: 30 },
+      deathWard: true,
+      conditionImmunities: ['charmed'],
+      conditionImmunitiesFrom: { conditions: ['charmed'], types: ['fiend'] },
+      triggers: { startOfTurn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } } },
+      magicWeapon: true,
+      immuneToSpeedReduction: true,
+      ignoresDifficultTerrain: true,
+      seesInvisible: true,
+      ward: ['fire', 'cold'],
+      breakOn: ['attack'],
+      maximizeHealing: true,
+      deathSaveAdvantage: true,
+      saveNoDamage: true,
+      retaliate: { damageType: 'cold', amount: 5 },
+      onWillingMove: { dice: '1d8', damageType: 'thunder', feet: 5 },
+      zephyrStrike: { dice: '1d8', damageType: 'force', speedFeet: 30 },
+    };
+    const fields = effectFieldsFromDef(def) as Record<string, unknown>;
+    const instance: EffectInstance = {
+      id: 'e1',
+      name: 'Тест',
+      duration: { type: 'permanent' },
+      modifiers: [],
+      ...(fields as Partial<EffectInstance>),
+    };
+    const [out] = normalizeEffects(JSON.parse(JSON.stringify([instance])));
+    expect(out).toBeTruthy();
+    for (const key of Object.keys(fields)) {
+      expect(out![key as keyof EffectInstance], key).toEqual(JSON.parse(JSON.stringify(fields[key])));
+    }
   });
 });

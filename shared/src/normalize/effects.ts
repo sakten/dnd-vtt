@@ -9,10 +9,11 @@ import type {
   ModifierFilter,
   ModifierMode,
   ModifierTarget,
+  Restrictions,
 } from '../domain/effects';
 import { clampInt, isAbilityKey, newId } from './internal';
 import { normalizeSenses } from './sense';
-import type { LightSource } from '../domain/automation';
+import type { GrantedAction, LightSource } from '../domain/automation';
 import { CONDITION_KEYS } from '../rules/conditions';
 import { CREATURE_TYPES } from '../labels';
 
@@ -41,6 +42,19 @@ const MODIFIER_MODES: ModifierMode[] = [
   'immunity',
   'vulnerability',
 ];
+
+/** Булевы ограничения экономики, переносимые из `restrictions` как есть. */
+const RESTRICTION_KEYS = [
+  'noActions',
+  'noBonus',
+  'noActionsFromEffect',
+  'noReactions',
+  'noOpportunityAttacks',
+  'ignoresOpportunityAttacks',
+  'oneAttackOnly',
+  'actionOrBonusOnly',
+  'noSpells',
+] as const;
 
 function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
@@ -283,6 +297,57 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (Array.isArray(e.senses)) {
       const senses = normalizeSenses(e.senses);
       if (senses.length) effect.senses = senses;
+    }
+    // Поля, которые исторически терялись при перезагрузке: эскалация, пробуждение,
+    // ограничения, кости, образы и выданные действия (см. effectFieldsFromDef).
+    if (e.escalate && typeof e.escalate === 'object') {
+      const esc = e.escalate as { condition?: unknown; duration?: unknown };
+      if (typeof esc.condition === 'string' && (CONDITION_KEYS as string[]).includes(esc.condition)) {
+        const duration = normalizeEffectDuration(esc.duration);
+        effect.escalate = { condition: esc.condition as ConditionKey, ...(duration ? { duration } : {}) };
+      }
+    }
+    if (e.wakeOnDamage === true) effect.wakeOnDamage = true;
+    if (e.saveOnDamage && typeof e.saveOnDamage === 'object') {
+      const sod = e.saveOnDamage as { advantage?: unknown };
+      effect.saveOnDamage = sod.advantage === true ? { advantage: true } : {};
+    }
+    if (e.restrictions && typeof e.restrictions === 'object') {
+      const raw = e.restrictions as Record<string, unknown>;
+      const restrictions: Restrictions = {};
+      for (const key of RESTRICTION_KEYS) {
+        if (raw[key] === true) restrictions[key] = true;
+      }
+      if (typeof raw.spellFailureChance === 'number' && Number.isFinite(raw.spellFailureChance)) {
+        restrictions.spellFailureChance = clampInt(raw.spellFailureChance, 0, 100, 0);
+      }
+      if (Object.keys(restrictions).length) effect.restrictions = restrictions;
+    }
+    if (typeof e.bonusDie === 'string' && e.bonusDie.trim()) effect.bonusDie = e.bonusDie.trim().slice(0, 40);
+    if (Array.isArray(e.bonusDieUses)) {
+      const uses = e.bonusDieUses.filter((u): u is 'damage' | 'ac' => u === 'damage' || u === 'ac');
+      if (uses.length) effect.bonusDieUses = [...new Set(uses)];
+    }
+    if (e.misdirect && typeof e.misdirect === 'object') {
+      const m = e.misdirect as { charges?: unknown; die?: unknown; threshold?: unknown };
+      if (typeof m.die === 'string' && m.die.trim()) {
+        effect.misdirect = {
+          charges: clampInt(m.charges, 0, 20, 0),
+          die: m.die.trim().slice(0, 10),
+          threshold: clampInt(m.threshold, 2, 20, 3),
+        };
+      }
+    }
+    if (Array.isArray(e.actions)) {
+      const actions = e.actions.filter(
+        (a): a is GrantedAction =>
+          !!a &&
+          typeof a === 'object' &&
+          typeof (a as GrantedAction).id === 'string' &&
+          typeof (a as GrantedAction).name === 'string' &&
+          ((a as GrantedAction).cost === 'action' || (a as GrantedAction).cost === 'bonus')
+      );
+      if (actions.length) effect.actions = actions.slice(0, 8);
     }
     out.push(effect);
   }

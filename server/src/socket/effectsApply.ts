@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  effectFieldsFromDef,
   isIncapacitated,
   sheetProficiencyBonus,
   type AutomationEffect,
@@ -68,60 +69,22 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     });
   });
   const effect: EffectInstance = {
+    ...effectFieldsFromDef(effectDef),
     id: effectId,
     name: effectDef.name,
     sourceKey,
     sourceId,
-    concentration: effectDef.concentration,
     duration,
     ...(args.maxRounds ? { maxRounds: args.maxRounds } : {}),
     modifiers,
-    conditions: effectDef.conditions,
-    escalate: effectDef.escalate,
-    wakeOnDamage: effectDef.wakeOnDamage,
-    saveOnDamage: effectDef.saveOnDamage,
-    restrictions: effectDef.restrictions,
     zoneId,
     escape: effectDef.escape
       ? { ...effectDef.escape, dc: escapeDc ?? effectDef.escape.dc ?? 10 }
       : undefined,
     // Sanctuary: СЛ спасброска атакующего — СЛ каста (передаётся как untilSaveDc).
     sanctuary: effectDef.sanctuary ? { dc: untilSaveDc ?? 10 } : undefined,
-    misdirect: effectDef.misdirect ? { ...effectDef.misdirect } : undefined,
-    hidden: effectDef.hidden,
-    consumeOnAttackRoll: effectDef.consumeOnAttackRoll,
-    bonusDie: effectDef.bonusDie,
-    bonusDieUses: effectDef.bonusDieUses ? [...effectDef.bonusDieUses] : undefined,
-    senses: effectDef.senses ? [...effectDef.senses] : undefined,
-    actions: effectDef.actions,
-    variant: effectDef.variant,
-    mark: effectDef.mark,
-    light: effectDef.light ? { ...effectDef.light } : undefined,
-    deathWard: effectDef.deathWard,
-    magicWeapon: effectDef.magicWeapon,
     damageLink: effectDef.damageLink ? { tokenId: sourceId } : undefined,
-    conditionImmunities: effectDef.conditionImmunities ? [...effectDef.conditionImmunities] : undefined,
-    conditionImmunitiesFrom: effectDef.conditionImmunitiesFrom
-      ? {
-          conditions: [...effectDef.conditionImmunitiesFrom.conditions],
-          types: [...effectDef.conditionImmunitiesFrom.types],
-        }
-      : undefined,
-    triggers: effectDef.triggers
-      ? { ...(effectDef.triggers.startOfTurn ? { startOfTurn: { ...effectDef.triggers.startOfTurn } } : {}) }
-      : undefined,
-    immuneToSpeedReduction: effectDef.immuneToSpeedReduction,
-    ignoresDifficultTerrain: effectDef.ignoresDifficultTerrain,
-    seesInvisible: effectDef.seesInvisible,
-    maximizeHealing: effectDef.maximizeHealing,
-    deathSaveAdvantage: effectDef.deathSaveAdvantage,
-    saveNoDamage: effectDef.saveNoDamage,
-    retaliate: effectDef.retaliate ? { ...effectDef.retaliate } : undefined,
-    onWillingMove: effectDef.onWillingMove ? { ...effectDef.onWillingMove } : undefined,
-    zephyrStrike: effectDef.zephyrStrike ? { ...effectDef.zephyrStrike } : undefined,
-    ward: effectDef.ward ? [...effectDef.ward] : undefined,
     banish: effectDef.banish ? { x: target.x, y: target.y } : undefined,
-    breakOn: effectDef.breakOn ? [...effectDef.breakOn] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
   // Banishment: носитель покидает поле — аура-эффекты зон на нём прекращаются.
