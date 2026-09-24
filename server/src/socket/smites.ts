@@ -3,16 +3,22 @@ import {
   automationForSpell,
   characterLevel,
   maxCastableLevel,
+  SMITE_RANGE,
   SMITE_SPELLS,
-  spellDamageExpression,
   type AttackEntry,
+  type AutomationDef,
+  type AutomationEffect,
+  type Spell,
   type Token,
 } from 'shared';
 import { controllerIdOfToken } from '../rooms';
+import { creatureTypeOf } from '../room/actor';
 import type { Room } from '../roomTypes';
 import { findSpell } from '../spells';
 import type { ConnCtx } from './context';
+import { anchorConcentration, dropConcentration } from './automation';
 import { applyEffectTo } from './effectsApply';
+import { applyForcedMovement } from './force';
 import { pushSaveMessage } from './messages';
 import { spellClassFor, spellStatsFor } from './spellStats';
 
@@ -23,6 +29,12 @@ export interface SmiteOption {
   name: string;
   level: number;
 }
+
+/** Divine Smite: доп. 1d8 излучением против этих типов существ (XPHB 2024). */
+const DIVINE_EXTRA_TYPES = new Set(['fiend', 'undead']);
+
+/** Banishing Smite: изгнание — только если после урона осталось не больше HP. */
+const BANISH_HP = 50;
 
 /** Разбор id опции смайта; undefined — не смайт/битый id. */
 export function parseSmiteOption(id: string): { spellKey: string; level: number } | undefined {
@@ -49,7 +61,8 @@ export function typedDice(expr: string, type: string): string {
 
 /**
  * Смайты, доступные атакующему после попадания: заклинание подготовлено, свободно
- * бонусное действие, есть ячейка; Searing — только по оружию ближнего боя/безоружному удару.
+ * бонусное действие, есть ячейка; вид оружия — по `SMITE_RANGE` (Searing/Divine/…
+ * только ближний бой, Ensnaring — только дальний).
  */
 export function availableSmites(
   ctx: ConnCtx,
@@ -65,9 +78,10 @@ export function availableSmites(
   const turn = ctx.manager.turnForToken(room, mapId, attacker);
   if (turn && !actionSlotAvailable(turn, 'bonus')) return [];
   const resources = room.resources[cid] ?? null;
+  const wanted = melee ? 'melee' : 'ranged';
   const out: SmiteOption[] = [];
   for (const key of SMITE_SPELLS) {
-    if (key === 'XPHB:Searing Smite' && !melee) continue;
+    if (SMITE_RANGE[key] !== wanted) continue;
     if (!sheet.spells.some((s) => s.key === key)) continue;
     const spell = findSpell(key);
     if (!spell) continue;
@@ -83,11 +97,14 @@ export interface SmiteResult {
   /** Доп. кости урона с типом (`1d6fire + 1d6fire`); '' — у смайта нет мгновенного урона. */
   dice: string;
   note: string;
+  /** Отложенное после урона атаки (Banishing: изгнание при остатке ≤ 50 HP). */
+  afterDamage?: () => void;
 }
 
 /**
- * Применяет смайт при попадании: бонусное действие + ячейка, эффект на цель.
- * Ensnaring Strike: спас STR при попадании, успех — эффекта нет (ячейка всё равно тратится).
+ * Применяет смайт при попадании: бонусное действие + ячейка, доп. кости и эффект.
+ * Спас при попадании (Ensnaring/Wrathful/…): успех — эффекта нет (ячейка тратится).
+ * Затяжные смайты (Wrathful/Blinding/Shining/Banishing) ведут концентрацию кастера.
  */
 export function applySmiteChoice(
   ctx: ConnCtx,
@@ -116,32 +133,38 @@ export function applySmiteChoice(
   const def = automationForSpell(spell, { castLevel: level, characterLevel: characterLvl, spellMod: stats?.mod });
   const dc = stats?.dc ?? 10;
   const effectDef = def.effects?.[0];
-  /** Спас при попадании пройден (Ensnaring): RAW — заклинание оканчивается, эффекта нет. */
+
+  let dice = def.damage ? typedDice(def.damage.dice, def.damage.types?.[0] ?? '') : '';
+  if (spellKey === 'XPHB:Divine Smite' && DIVINE_EXTRA_TYPES.has(creatureTypeOf(room, target) ?? '')) {
+    dice = dice ? `${dice} + 1d8radiant` : '1d8radiant';
+  }
+
+  const result: SmiteResult = { dice, note: `${attacker.name}: ${spell.name} (${level})` };
+  if (def.concentration) dropConcentration(ctx, room, attacker);
+
+  let failed = true;
   let resisted = false;
-  if (effectDef) {
-    if (def.save) {
-      const save = ctx.manager.rollSave(room, target, def.save.ability, dc, {
-        conditionsAutoFail: true,
-        condition: def.effects?.[0]?.conditions?.[0],
-      });
-      pushSaveMessage(ctx, room, {
-        author: attacker.name,
-        subject: `${spell.name} · ${target.name}`,
-        roll: save.roll,
-        success: save.success,
-      });
-      if (save.success) resisted = true;
-      if (!save.success) {
-        applyEffectTo(ctx, room, {
-          sourceKey: spellKey,
-          sourceId: attacker.id,
-          mapId,
-          effectDef,
-          target,
-          untilSaveDc: dc,
-          escapeDc: dc,
-        });
-      }
+  if (effectDef && def.save) {
+    const save = ctx.manager.rollSave(room, target, def.save.ability, dc, {
+      conditionsAutoFail: true,
+      condition: effectDef.conditions?.[0],
+      // Ensnaring Strike: Large или больше имеет преимущество на спас Силы (XPHB 2024).
+      ...(spellKey === 'XPHB:Ensnaring Strike' && target.cells > 1 ? { advantage: true } : {}),
+    });
+    pushSaveMessage(ctx, room, {
+      author: attacker.name,
+      subject: `${spell.name} · ${target.name}`,
+      roll: save.roll,
+      success: save.success,
+    });
+    failed = !save.success;
+    if (save.success) resisted = true;
+  }
+
+  if (effectDef && failed) {
+    if (effectDef.banish) {
+      // Banishing Smite: спас CHA и изгнание — только если после урона осталось ≤ 50 HP.
+      result.afterDamage = () => applyBanishing(ctx, room, mapId, attacker, target, spell, effectDef, def, dc);
     } else {
       applyEffectTo(ctx, room, {
         sourceKey: spellKey,
@@ -152,14 +175,47 @@ export function applySmiteChoice(
         untilSaveDc: dc,
         escapeDc: dc,
       });
+      if (def.concentration) anchorConcentration(ctx, room, attacker, mapId, def);
     }
   }
+  if (def.force && failed) applyForcedMovement(ctx, room, mapId, attacker, target, def.force);
 
-  const expression = spellDamageExpression(spell, level, characterLvl);
-  const dice = spellKey === 'XPHB:Searing Smite' && expression ? typedDice(expression, 'fire') : '';
   ctx.systemMessage(room, {
     code: resisted ? 'spells.smiteResisted' : 'spells.smite',
     params: { name: attacker.name, spell: spell.name, level, target: target.name },
   });
-  return { dice, note: `${attacker.name}: ${spell.name} (${level})` };
+  return result;
+}
+
+/** Banishing Smite: после урона атаки — спас CHA цели при остатке ≤ 50 HP; провал — изгнание. */
+function applyBanishing(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  target: Token,
+  spell: Spell,
+  effectDef: AutomationEffect,
+  def: AutomationDef,
+  dc: number
+): void {
+  if (target.hpCurrent > BANISH_HP) return;
+  const save = ctx.manager.rollSave(room, target, 'cha', dc);
+  pushSaveMessage(ctx, room, {
+    author: attacker.name,
+    subject: `${spell.name} · ${target.name}`,
+    roll: save.roll,
+    success: save.success,
+  });
+  if (save.success) return;
+  applyEffectTo(ctx, room, {
+    sourceKey: spell.key,
+    sourceId: attacker.id,
+    mapId,
+    effectDef,
+    target,
+    untilSaveDc: dc,
+    escapeDc: dc,
+  });
+  anchorConcentration(ctx, room, attacker, mapId, def);
 }

@@ -100,10 +100,33 @@ export function spellRangeFeet(spell: Spell): number | null {
 }
 
 /**
- * Смайты (Searing Smite, Ensnaring Strike): кастуются бонусным действием после попадания,
+ * Смайты (XPHB 2024): кастуются бонусным действием после попадания оружием,
  * в данных `range: self`, но цель выбирается кликом по существу в досягаемости.
  */
-export const SMITE_SPELLS = new Set(['XPHB:Searing Smite', 'XPHB:Ensnaring Strike']);
+export const SMITE_SPELLS = new Set([
+  'XPHB:Searing Smite',
+  'XPHB:Ensnaring Strike',
+  'XPHB:Divine Smite',
+  'XPHB:Thunderous Smite',
+  'XPHB:Wrathful Smite',
+  'XPHB:Blinding Smite',
+  'XPHB:Shining Smite',
+  'XPHB:Staggering Smite',
+  'XPHB:Banishing Smite',
+]);
+
+/** Вид оружия, после попадания которым доступен смайт (по описанию заклинания). */
+export const SMITE_RANGE: Record<string, 'melee' | 'ranged'> = {
+  'XPHB:Searing Smite': 'melee',
+  'XPHB:Ensnaring Strike': 'ranged',
+  'XPHB:Divine Smite': 'melee',
+  'XPHB:Thunderous Smite': 'melee',
+  'XPHB:Wrathful Smite': 'melee',
+  'XPHB:Blinding Smite': 'melee',
+  'XPHB:Shining Smite': 'melee',
+  'XPHB:Staggering Smite': 'melee',
+  'XPHB:Banishing Smite': 'melee',
+};
 
 /** Цель по умолчанию: self или существо. Эманация (2024) исходит от кастера — тоже self. */
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {

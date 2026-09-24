@@ -36,6 +36,8 @@ function continueAfterRoll(
     rangeType: plan.attack.rangeType,
   };
 
+  // Отложенные после урона эффекты смайтов (Banishing: изгнание при остатке ≤ 50 HP).
+  const smiteAfterDamage: (() => void)[] = [];
   const applyDamage = (mods: WeaponDamageMods = {}) => {
     // Наездник заклинания (Green-Flame Blade) суммируется со смайтом из окна.
     const combined: WeaponDamageMods = input.riderDice
@@ -45,6 +47,7 @@ function continueAfterRoll(
     if (!damage) return;
     result.damageRoll = damage.roll;
     input.afterHit?.(damage);
+    for (const hook of smiteAfterDamage) hook();
     // Отражение атак: полностью погашен удар — окно «перенаправить» (1 фокус).
     if (mods.redirect && damage.roll.total <= (mods.flatReduction ?? 0) && plan.attacker && targetMapId) {
       openRedirectWindow(ctx, room, targetMapId, plan, mods.redirect);
@@ -113,6 +116,7 @@ function continueAfterRoll(
             if (choice.optionId.startsWith('smite:') && plan.attacker && target && targetMapId) {
               const applied = applySmiteChoice(ctx, roomAfter, targetMapId, plan.attacker, target, choice.optionId);
               if (applied?.dice) smiteDice = smiteDice ? `${smiteDice} + ${applied.dice}` : applied.dice;
+              if (applied?.afterDamage) smiteAfterDamage.push(applied.afterDamage);
             }
             return true;
           },

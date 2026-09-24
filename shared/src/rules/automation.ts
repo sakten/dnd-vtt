@@ -1209,6 +1209,13 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Greater Invisibility',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
+  'XPHB:Divine Smite',
+  'XPHB:Thunderous Smite',
+  'XPHB:Wrathful Smite',
+  'XPHB:Blinding Smite',
+  'XPHB:Shining Smite',
+  'XPHB:Staggering Smite',
+  'XPHB:Banishing Smite',
   'XPHB:Protection from Energy',
 ]);
 
@@ -1685,6 +1692,127 @@ function ensnaringStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDe
   };
 }
 
+/** Конфигурация XPHB-смайта (2024): кости урона при попадании, спас и эффект при провале. */
+interface SmiteConfig {
+  /** Базовая кость на минимальном круге. */
+  base: string;
+  /** Добавка за каждый круг ячейки выше `above`. */
+  per?: string;
+  above?: number;
+  /** Тип добавочного урона. */
+  type: string;
+  save?: AbilityKey;
+  effect?: Omit<AutomationEffect, 'name'>;
+  concentration?: boolean;
+  /** Вынужденный сдвиг при провале спаса (Thunderous: толчок на 10 фт). */
+  forceFeet?: number;
+}
+
+/**
+ * Смайты XPHB (2024): бонусным действием сразу после попадания — доп. кости
+ * урона и, при провале спаса, эффект/сдвиг. Скейл апкаста захардкожен: у не-SRD
+ * заклинаний нет `higherLevel` (системный HI-долг, как у Green-Flame Blade).
+ */
+const SMITE_CONFIGS: Record<string, SmiteConfig> = {
+  'XPHB:Divine Smite': { base: '2d8', per: '1d8', above: 1, type: 'radiant' },
+  'XPHB:Thunderous Smite': {
+    base: '2d6',
+    per: '1d6',
+    above: 1,
+    type: 'thunder',
+    save: 'str',
+    forceFeet: 10,
+    effect: { duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
+  },
+  'XPHB:Wrathful Smite': {
+    base: '1d6',
+    per: '1d6',
+    above: 1,
+    type: 'necrotic',
+    save: 'wis',
+    concentration: true,
+    effect: {
+      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'start' },
+      concentration: true,
+      to: 'targets',
+      modifiers: [],
+      conditions: ['frightened'],
+    },
+  },
+  'XPHB:Blinding Smite': {
+    base: '3d8',
+    per: '1d8',
+    above: 3,
+    type: 'radiant',
+    save: 'con',
+    concentration: true,
+    effect: {
+      duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'start' },
+      concentration: true,
+      to: 'targets',
+      modifiers: [],
+      conditions: ['blinded'],
+    },
+  },
+  'XPHB:Shining Smite': {
+    base: '2d6',
+    per: '1d6',
+    above: 2,
+    type: 'radiant',
+    concentration: true,
+    effect: {
+      duration: CONCENTRATION,
+      concentration: true,
+      to: 'targets',
+      modifiers: [{ target: 'attack', mode: 'advantage', filter: { direction: 'against' } }],
+      conditions: [],
+      conditionImmunities: ['invisible'],
+      light: { bright: 0, dim: 5 },
+    },
+  },
+  'XPHB:Staggering Smite': {
+    base: '4d6',
+    per: '1d6',
+    above: 4,
+    type: 'psychic',
+    save: 'wis',
+    effect: { duration: UNTIL_NEXT_TURN, to: 'targets', modifiers: [], conditions: ['stunned'] },
+  },
+  'XPHB:Banishing Smite': {
+    base: '5d10',
+    type: 'force',
+    save: 'cha',
+    concentration: true,
+    effect: {
+      duration: { type: 'rounds', rounds: 10 },
+      concentration: true,
+      to: 'targets',
+      modifiers: [],
+      conditions: ['incapacitated'],
+      banish: true,
+    },
+  },
+};
+
+/** Билдер XPHB-смайта: доп. кости урона (апкаст), спас и эффект при провале. */
+function xphbSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  const cfg = SMITE_CONFIGS[spell.key];
+  if (!cfg) return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const extra = cfg.per && cfg.above ? Math.max(0, level - cfg.above) : 0;
+  const dice = [cfg.base, ...Array.from({ length: extra }, () => cfg.per!)].join(' + ');
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'auto',
+    ...(cfg.concentration ? { concentration: true } : {}),
+    damage: { dice, types: [cfg.type] },
+    ...(cfg.save ? { save: { ability: cfg.save } } : {}),
+    ...(cfg.forceFeet ? { force: { kind: 'push' as const, feet: cfg.forceFeet } } : {}),
+    ...(cfg.effect ? { effects: [{ name: spell.name, ...cfg.effect }] } : {}),
+  };
+}
+
 /** Heal (XPHB 2024): плоское лечение 70 (+10 за круг выше 6), снимает Blinded/Deafened/Poisoned. */
 function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Heal') return undefined;
@@ -1782,6 +1910,9 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
   const command = commandDef(spell, opts);
   if (command) return command;
+
+  const smite = xphbSmiteDef(spell, opts);
+  if (smite) return smite;
 
   const searing = searingSmiteDef(spell, opts);
   if (searing) return searing;

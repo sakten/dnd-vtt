@@ -400,6 +400,58 @@ describe('automationForSpell', () => {
     expect(spellAutomated(ensnaring)).toBe(true);
   });
 
+  it('XPHB-смайты — доп. кости с апкастом, спас и эффекты при провале', () => {
+    const divine = makeSpell({ key: 'XPHB:Divine Smite', name: 'Divine Smite', level: 1 });
+    expect(automationForSpell(divine, { castLevel: 3 }).damage).toEqual({ dice: '2d8 + 1d8 + 1d8', types: ['radiant'] });
+    expect(spellAutomated(divine)).toBe(true);
+
+    const thunderous = makeSpell({ key: 'XPHB:Thunderous Smite', name: 'Thunderous Smite', level: 1 });
+    const thunder = automationForSpell(thunderous, { castLevel: 2 });
+    expect(thunder.damage?.dice).toBe('2d6 + 1d6');
+    expect(thunder.save).toEqual({ ability: 'str' });
+    expect(thunder.force).toEqual({ kind: 'push', feet: 10 });
+    expect(thunder.effects?.[0]?.conditions).toEqual(['prone']);
+
+    const wrathful = makeSpell({ key: 'XPHB:Wrathful Smite', name: 'Wrathful Smite', level: 1 });
+    const wrath = automationForSpell(wrathful, { castLevel: 2 });
+    expect(wrath.damage?.dice).toBe('1d6 + 1d6');
+    expect(wrath.concentration).toBe(true);
+    expect(wrath.effects?.[0]?.conditions).toEqual(['frightened']);
+    expect(wrath.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'start' });
+
+    const blinding = makeSpell({ key: 'XPHB:Blinding Smite', name: 'Blinding Smite', level: 3 });
+    const blind = automationForSpell(blinding, { castLevel: 4 });
+    expect(blind.damage?.dice).toBe('3d8 + 1d8');
+    expect(blind.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(blind.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'start' });
+
+    const shining = makeSpell({ key: 'XPHB:Shining Smite', name: 'Shining Smite', level: 2 });
+    const shine = automationForSpell(shining, { castLevel: 3 });
+    expect(shine.damage?.dice).toBe('2d6 + 1d6');
+    expect(shine.effects?.[0]?.light).toEqual({ bright: 0, dim: 5 });
+    expect(shine.effects?.[0]?.conditionImmunities).toEqual(['invisible']);
+    expect(shine.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'attack',
+      mode: 'advantage',
+      filter: { direction: 'against' },
+    });
+
+    const staggering = makeSpell({ key: 'XPHB:Staggering Smite', name: 'Staggering Smite', level: 4 });
+    const stagger = automationForSpell(staggering);
+    expect(stagger.damage?.dice).toBe('4d6');
+    expect(stagger.effects?.[0]?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    expect(stagger.effects?.[0]?.conditions).toEqual(['stunned']);
+
+    const banishing = makeSpell({ key: 'XPHB:Banishing Smite', name: 'Banishing Smite', level: 5 });
+    const banish = automationForSpell(banishing, { castLevel: 7 });
+    expect(banish.damage?.dice).toBe('5d10');
+    expect(banish.save).toEqual({ ability: 'cha' });
+    expect(banish.concentration).toBe(true);
+    expect(banish.effects?.[0]?.banish).toBe(true);
+    expect(banish.effects?.[0]?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(banish.effects?.[0]?.conditions).toEqual(['incapacitated']);
+  });
+
   it('Freedom of Movement — каталог: иммунитеты, скорость и местность', () => {
     const fom = makeSpell({ key: 'XPHB:Freedom of Movement', name: 'Freedom of Movement', level: 4, automation: 'manual' });
     const def = automationForSpell(fom);

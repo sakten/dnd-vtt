@@ -161,7 +161,7 @@ function tokensAround(
 }
 
 /** Снимает прежнюю концентрацию кастера: эффекты на всех токенах и его зоны. */
-function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
+export function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
   // Концентрация принадлежит персонажу, а не токену: у персонажа бывают токены на разных картах.
   const sourceIds = new Set<string>([caster.id]);
   if (caster.libraryItemId) {
@@ -182,7 +182,7 @@ function dropConcentration(ctx: ConnCtx, room: Room, caster: Token): void {
 }
 
 /** Якорь концентрации на кастере для зон без целевых эффектов (HoH, Spirit Guardians). */
-function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, mapId: string, def: AutomationDef): void {
+export function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, mapId: string, def: AutomationDef): void {
   const anchorId = randomUUID();
   ctx.manager.applyEffect(room, caster, {
     id: anchorId,

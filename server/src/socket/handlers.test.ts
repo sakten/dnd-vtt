@@ -2313,6 +2313,168 @@ describe('action:use', () => {
     expect(effect?.escape).toEqual({ ability: 'str', skill: 'athletics', dc: 14 });
   });
 
+  it('Thunderous Smite: спас STR, толчок на 10 фт и ничком', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 5,
+    };
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', attacks: [sword], x: 100, y: 100 }),
+        makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5', x: 150, y: 100 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.scene.maps[0]!.width = 1000;
+    room.scene.maps[0]!.height = 1000;
+    room.sheets.p1 = {
+      ...casterSheet(),
+      attacks: [sword],
+      classes: [{ className: 'paladin', level: 5 }],
+      spells: [{ key: 'XPHB:Thunderous Smite', className: 'paladin' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [{ level: 1, current: 2, max: 2 }],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // попадание 8, провал спаса 3, минимум костей
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id.startsWith('smite:XPHB:Thunderous Smite'))
+    );
+    expect(offer).toBeDefined();
+    const f2 = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Thunderous Smite@1' });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens[1]!;
+    expect(target.conditions.some((c) => c.key === 'prone')).toBe(true);
+    expect({ x: target.x, y: target.y }).toEqual({ x: 250, y: 100 }); // толчок 10 фт = 2 клетки
+    expect(target.hpCurrent).toBe(24); // 30 − (1d8+3 = 4) − (2d6 звуком = 2)
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+  });
+
+  it('Banishing Smite: изгнание только при остатке ≤ 50 HP', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 5,
+    };
+    const setup = (hpCurrent: number) => {
+      const room = makeRoom(
+        [makeToken('t1', { libraryItemId: 'lib1', attacks: [sword] }), makeToken('t2', { hpMax: '200', hpCurrent, ac: '5' })],
+        { p1: 'lib1' }
+      );
+      room.sheets.p1 = {
+        ...casterSheet(),
+        attacks: [sword],
+        classes: [{ className: 'paladin', level: 9 }],
+        spells: [{ key: 'XPHB:Banishing Smite', className: 'paladin' }],
+      };
+      room.resources.p1 = {
+        ...casterResources(),
+        spellSlots: [{ level: 5, current: 2, max: 2 }],
+      };
+      const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // попадание, провал CHA-спаса, минимум костей
+      const f = makeCtx(room, { playerId: 'p1' });
+      registerActionHandlers(f.ctx);
+      registerReactionHandlers(f.ctx);
+      f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+      const offer = pendingOffers('TEST').find((o) =>
+        o.options.some((op) => op.id.startsWith('smite:XPHB:Banishing Smite'))
+      );
+      expect(offer).toBeDefined();
+      const f2 = makeCtx(room, { playerId: 'p1' });
+      registerReactionHandlers(f2.ctx);
+      f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Banishing Smite@5' });
+      rand.mockRestore();
+      return room;
+    };
+
+    // Урон 4 + 5 = 9: у цели с 200 HP остаётся 191 — спаса нет, изгнания нет.
+    const high = setup(200);
+    expect(high.scene.maps[0]!.tokens[1]!.effects.some((e) => e.banish)).toBe(false);
+
+    // У цели с 40 HP остаётся 31 — спас CHA провален, изгнание и концентрация.
+    const low = setup(40);
+    const target = low.scene.maps[0]!.tokens[1]!;
+    const effect = target.effects.find((e) => e.banish);
+    expect(effect?.sourceKey).toBe('XPHB:Banishing Smite');
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(target.conditions.some((c) => c.key === 'incapacitated')).toBe(true);
+    expect(combatOf(low).turns.e1!.concentrationId).toBeTruthy();
+  });
+
+  it('Divine Smite: +1d8 против нежити и исчадий', () => {
+    const sword: AttackEntry = {
+      name: 'Меч',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      damageType: 'slashing',
+      rangeType: 'melee',
+      rangeNormal: 5,
+      rangeLong: 5,
+    };
+    const smite = (creatureType?: string) => {
+      const room = makeRoom(
+        [
+          makeToken('t1', { libraryItemId: 'lib1', attacks: [sword] }),
+          makeToken('t2', {
+            hpMax: '30',
+            hpCurrent: 30,
+            ac: '5',
+            ...(creatureType ? { statblock: { abilities: DEFAULT_ABILITIES, creatureType } } : {}),
+          }),
+        ],
+        { p1: 'lib1' }
+      );
+      room.sheets.p1 = {
+        ...casterSheet(),
+        attacks: [sword],
+        classes: [{ className: 'paladin', level: 5 }],
+        spells: [{ key: 'XPHB:Divine Smite', className: 'paladin' }],
+      };
+      room.resources.p1 = {
+        ...casterResources(),
+        spellSlots: [{ level: 1, current: 2, max: 2 }],
+      };
+      const rand = vi.spyOn(Math, 'random').mockReturnValue(0.1); // попадание, минимум костей
+      const f = makeCtx(room, { playerId: 'p1' });
+      registerActionHandlers(f.ctx);
+      registerReactionHandlers(f.ctx);
+      f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+      const offer = pendingOffers('TEST').find((o) =>
+        o.options.some((op) => op.id.startsWith('smite:XPHB:Divine Smite'))
+      );
+      expect(offer).toBeDefined();
+      const f2 = makeCtx(room, { playerId: 'p1' });
+      registerReactionHandlers(f2.ctx);
+      f2.invoke('reaction:respond', { id: offer!.id, optionId: 'smite:XPHB:Divine Smite@1' });
+      rand.mockRestore();
+      return room.scene.maps[0]!.tokens[1]!;
+    };
+
+    expect(smite('undead').hpCurrent).toBe(23); // 30 − (1d8+3 = 4) − (2d8+1d8 = 3)
+    expect(smite('fiend').hpCurrent).toBe(23);
+    expect(smite().hpCurrent).toBe(24); // 30 − 4 − (2d8 = 2)
+  });
+
   it('Searing Smite не предлагается для дальнего оружия и не кастуется напрямую', () => {
     const bow: AttackEntry = {
       name: 'Лук',
