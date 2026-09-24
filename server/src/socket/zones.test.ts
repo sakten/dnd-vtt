@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AutomationDef } from 'shared';
+import { automationForSpell, type AutomationDef } from 'shared';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
+import { findSpell } from '../spells';
 import { createZoneFromDef, handleMovementZones, removeZonesOfSource, tickZones } from './zones';
 
 /** Синтетическая зона: аура-слепота внутри + урон в начале хода (аналог HoH). */
@@ -170,6 +171,50 @@ describe('движок зон', () => {
     rand.mockRestore();
 
     expect(target.hpCurrent).toBe(22);
+  });
+
+  it('Wall of Thorns: вход и конец хода — один сейв за ход, на новом ходу снова', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.hpMax = '200';
+    target.hpCurrent = 200;
+    // Якорь концентрации кастера — как его ставит anchorConcentration.
+    caster.effects.push({
+      id: 'anchor1',
+      name: 'Wall of Thorns',
+      sourceKey: 'XPHB:Wall of Thorns',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    const def = automationForSpell(findSpell('XPHB:Wall of Thorns')!, { castLevel: 6 });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats: { ability: 'dex', mod: 3, dc: 20, attack: 5 },
+      origin: { x: 100, y: 100 },
+      direction: { x: 100, y: 200 },
+    });
+    expect(zone).toBeTruthy();
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // сейв провален, 7d8 = 7
+    // Вход в стену: урон рубящим.
+    target.x = 100;
+    target.y = 150;
+    handleMovementZones(f.ctx, room, 'm1');
+    expect(target.hpCurrent).toBe(193);
+    // Конец того же хода — «раз за ход», второго урона нет.
+    tickZones(f.ctx, room, 'm1', target, 'end');
+    expect(target.hpCurrent).toBe(193);
+    // Новый ход (другой ключ) — триггер снова срабатывает.
+    map.combat!.round = 2;
+    tickZones(f.ctx, room, 'm1', target, 'end');
+    rand.mockRestore();
+    expect(target.hpCurrent).toBe(186);
   });
 
   it('side: hostile — союзный питомец и нейтрал вне зоны, враг получает урон', () => {

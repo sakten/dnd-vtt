@@ -5,6 +5,7 @@ import {
   cellChebyshev,
   crossesWalls,
   pointCell,
+  sightCrossingKind,
   strongestKind,
   tokenSenses,
   visionKindAt,
@@ -41,10 +42,11 @@ export function visionViewers(tokens: Token[], merge: boolean, isOwn: (token: To
 /**
  * Можно ли войти в клетку (по её центру): видна любому зрителю **или** лежит во
  * тьме/мгле — туда заходят вслепую (ты внутри области видишь только свою клетку).
+ * Обзор сквозь мглу не мешает входу: за стену шипов заходят вслепую.
  */
 export function enterableCell(sight: SightContext, viewers: Viewer[], center: { x: number; y: number }): boolean {
   if (visionKindAt(sight, center) !== null) return true;
-  return viewers.some((v) => canSee({ x: v.x, y: v.y }, center, v.senses, sight));
+  return viewers.some((v) => canSee({ x: v.x, y: v.y }, center, v.senses, sight, { ignoreAreas: true }));
 }
 
 /**
@@ -65,7 +67,7 @@ export function visibleCells(input: VisionInput): Set<string> | null {
   const cy1 = Math.min(rows - 1, bounds?.cy1 ?? rows - 1);
   const grid = { size: cellSize, offsetX, offsetY };
   const zoneCells = zoneVisionCells(zones, grid, walls);
-  const sight = { areas, zones, zoneCells, cellSize, offsetX, offsetY, walls };
+  const sight = { areas, zones, zoneCells, cellSize, offsetX, offsetY, walls, darkness };
   const visible = new Set<string>();
   for (const viewer of viewers) {
     const vc = pointCell({ x: viewer.x, y: viewer.y }, grid);
@@ -87,13 +89,16 @@ export function visibleCells(input: VisionInput): Set<string> | null {
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
         const lit = light?.get(key);
         const cellKind = visionKindAt(sight, center);
-        // Мгла и магическая тьма свет игнорируют; обычная тьма (в т.ч. глобальная) — перекрывается.
-        const blocked =
+        const atEnds =
           viewerKind === 'magical' ||
           viewerKind === 'obscured' ||
           cellKind === 'magical' ||
           cellKind === 'obscured';
-        const kind = lit && !blocked ? null : strongestKind(viewerKind, cellKind);
+        // Мгла/магическая тьма блокируют и обзор сквозь: луч до клетки не проходит их клетки.
+        const rayKind = atEnds ? null : sightCrossingKind({ x: viewer.x, y: viewer.y }, center, sight, grid);
+        // Мгла и магическая тьма свет игнорируют; обычная тьма (в т.ч. глобальная) — перекрывается.
+        const blocked = atEnds || rayKind !== null;
+        const kind = lit && !blocked ? null : strongestKind(strongestKind(viewerKind, cellKind), rayKind);
         if (!kind && (!darkness || lit)) {
           visible.add(key);
           continue;

@@ -12,11 +12,13 @@ export type ActionCost =
   | 'special';
 
 export interface AreaSpec {
-  shape: 'sphere' | 'cone' | 'cube' | 'line' | 'cylinder';
-  /** Размер в футах. */
+  shape: 'sphere' | 'cone' | 'cube' | 'line' | 'cylinder' | 'ring';
+  /** Размер в футах (для кольца — внешний радиус). */
   size: number;
   /** Ширина линии, футы. */
   width?: number;
+  /** Кольцо: внутренний радиус безопасной зоны, футы (Wall of Thorns — круг). */
+  inner?: number;
 }
 
 export interface ActionTargeting {

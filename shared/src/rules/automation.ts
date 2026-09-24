@@ -17,7 +17,7 @@ import { AUTOMATION_ACTIONS } from './automationActions';
 import { eldritchBlastMods } from './invocations';
 import { monsterAbilityAutomation } from './monsterAbility';
 import { summonSpellDef } from './summons';
-import { isHealingSpell, spellAttackCount, spellCantripDice, spellDamageExpression, spellMaxRounds, spellUpcastAt, spellUpcastDice } from './spellCast';
+import { isHealingSpell, spellAttackCount, spellCantripDice, spellDamageExpression, spellMaxRounds, spellUpcastAt, spellUpcastDice, wallOfThornsArea } from './spellCast';
 import type { Spell } from './spells';
 
 export { AUTOMATION_ACTIONS };
@@ -1298,6 +1298,10 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Fire Shield': { param: 'effect', options: ['warm', 'chill'] },
   // Conjure Minor Elementals: тип доп. урона фиксируется при касте.
   'XPHB:Conjure Minor Elementals': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning'] },
+  // Destructive Wave: вторая часть урона — излучение или некротика (выбор при касте).
+  'XPHB:Destructive Wave': { param: 'damageType', options: ['radiant', 'necrotic'] },
+  // Wall of Thorns: форма стены шипов (вертикальная/горизонтальная) или круг радиусом 10 фт.
+  'XPHB:Wall of Thorns': { param: 'effect', options: ['vertical', 'horizontal', 'ring'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -1349,6 +1353,10 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Hail of Thorns',
   'XPHB:Lightning Arrow',
   'XPHB:Protection from Energy',
+  'XPHB:Flame Strike',
+  'XPHB:Ice Storm',
+  'XPHB:Destructive Wave',
+  'XPHB:Wall of Thorns',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -2246,6 +2254,144 @@ function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
   };
 }
 
+/** Часть составного урона: кость и тип (Flame Strike: 5d6 огнём + 5d6 излучением). */
+interface CompositePart {
+  dice: string;
+  type: string;
+}
+
+/** Составной урон одним броском: части, апкаст, выбор типа, спас и эффекты при провале. */
+interface CompositeConfig {
+  parts: CompositePart[];
+  /** Какие части растут апкастом: `all` — обе (Flame Strike), `first` — только первая (Ice Storm). */
+  upcast?: 'all' | 'first';
+  /** Индекс части, тип которой выбирается при касте (Destructive Wave: изл./некр.). */
+  variantPart?: number;
+  save: AutomationSave;
+  /** Эффекты при провале спаса (Destructive Wave: ничком). */
+  onFail?: Omit<AutomationEffect, 'name'>[];
+  /** Зона после каста (Ice Storm: град — труднопроходимость до конца следующего хода). */
+  zone?: ZoneDef;
+}
+
+const COMPOSITE_CONFIGS: Record<string, CompositeConfig> = {
+  'XPHB:Flame Strike': {
+    parts: [
+      { dice: '5d6', type: 'fire' },
+      { dice: '5d6', type: 'radiant' },
+    ],
+    upcast: 'all',
+    save: { ability: 'dex', half: true },
+  },
+  'XPHB:Ice Storm': {
+    parts: [
+      { dice: '2d10', type: 'bludgeoning' },
+      { dice: '4d6', type: 'cold' },
+    ],
+    upcast: 'first',
+    save: { ability: 'dex', half: true },
+    // Град: труднопроходимость «до конца вашего следующего хода» — круги тикают
+    // в начале хода источника, поэтому два.
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: { type: 'rounds', rounds: 2 },
+      flags: { difficultTerrain: true },
+    },
+  },
+  'XPHB:Destructive Wave': {
+    parts: [
+      { dice: '5d6', type: 'thunder' },
+      { dice: '5d6', type: 'radiant' },
+    ],
+    variantPart: 1,
+    save: { ability: 'con', half: true },
+    onFail: [{ duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] }],
+  },
+};
+
+/** Число шагов апкаста выше базового круга (`upcast.above/every`); 0 — не растёт. */
+function upcastSteps(spell: Spell, castLevel: number): number {
+  const up = spell.upcast;
+  if (!up?.dice || up.above === undefined || castLevel <= up.above) return 0;
+  return Math.floor((castLevel - up.above) / Math.max(1, up.every ?? 1));
+}
+
+/** Кость части со скейлом: `base` + `steps` × `extra` (одинаковые кости суммируются). */
+function scaledDice(base: string, extra: string | undefined, steps: number): string {
+  let out = base;
+  for (let i = 0; i < steps && extra; i++) out = addDice(out, extra);
+  return out;
+}
+
+/**
+ * Составной урон (Flame Strike, Ice Storm, Destructive Wave): части одним броском
+ * с типизированными костями (`5d6fire + 5d6radiant`) — защиты цели считаются
+ * по каждой части отдельно (`applyDamageToParts`).
+ */
+function compositeDamageDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  const cfg = COMPOSITE_CONFIGS[spell.key];
+  if (!cfg) return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, castLevel);
+  const parts = cfg.parts.map((part, i) => {
+    const scaled =
+      cfg.upcast === 'all' || (cfg.upcast === 'first' && i === 0)
+        ? scaledDice(part.dice, spell.upcast?.dice, steps)
+        : part.dice;
+    return { dice: scaled, type: cfg.variantPart === i && opts.variant ? opts.variant : part.type };
+  });
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: spell.concentration === true || undefined,
+    save: cfg.save,
+    damage: {
+      dice: parts.map((p) => `${p.dice}${p.type}`).join(' + '),
+      types: [...new Set(parts.map((p) => p.type))],
+    },
+    ...(cfg.onFail ? { effects: cfg.onFail.map((e) => ({ ...e, name: spell.name })) } : {}),
+    ...(cfg.zone ? { zone: cfg.zone } : {}),
+  };
+}
+
+/**
+ * Wall of Thorns (XPHB 2024): стена шипов — при появлении сейв DEX (7d8 колющим),
+ * вход/конец хода — сейв DEX (7d8 рубящим, раз за ход); движение сквозь стену ×4,
+ * обзор — мгла (`obscured: heavy`; LOS-флаг зон движком пока не читается).
+ * Форма — вариант каста: вертикальная/горизонтальная стена или кольцо
+ * (внутри свободно 10 фт, стена 5 фт наружу).
+ */
+function wallOfThornsDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Wall of Thorns') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, castLevel);
+  const piercing = scaledDice('7d8', spell.upcast?.dice, steps);
+  const slashing = scaledDice('7d8', spell.upcast?.dice, steps);
+  const thornPayload: AutomationPayload = {
+    containment: 'anyCell',
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${slashing}slashing`, types: ['slashing'] },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${piercing}piercing`, types: ['piercing'] },
+    zone: {
+      area: wallOfThornsArea(opts.variant),
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      triggers: { enter: thornPayload, endOfTurn: thornPayload },
+      flags: { difficultTerrain: true, obscured: 'heavy', movementCost: 4 },
+    },
+  };
+}
+
 /**
  * Green-Flame Blade (TCE 2024): атака оружием правой руки; на попадании —
  * райдер огнём (0/1к8/2к8/3к8 на 1/5/11/17) и вторичная цель в 5 фт:
@@ -2395,6 +2541,12 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const heal = healSpellDef(spell, opts);
   if (heal) return heal;
+
+  const composite = compositeDamageDef(spell, opts);
+  if (composite) return composite;
+
+  const wallOfThorns = wallOfThornsDef(spell, opts);
+  if (wallOfThorns) return wallOfThorns;
 
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
@@ -2577,6 +2729,28 @@ export function automationForAction(action: ActionDef, opts: ActionAutomationOpt
 /** Определения эффектов заклинания из каталога (undefined — эффектов нет). */
 export function spellEffectDefs(spellKey: string): AutomationEffect[] | undefined {
   return AUTOMATION_SPELLS[spellKey]?.effects;
+}
+
+/**
+ * Части составного урона заклинания для карточек/тултипов (Wall of Thorns — обе
+ * порции: появление и вход/конец хода). undefined — у заклинания обычная строка данных.
+ */
+export function spellDamageParts(spell: Spell): { dice: string; types: string[] }[] | undefined {
+  const cfg = COMPOSITE_CONFIGS[spell.key];
+  if (cfg) {
+    const variant = spellVariantDef(spell.key);
+    return cfg.parts.map((part, i) => ({
+      dice: part.dice,
+      types: cfg.variantPart === i && variant ? [...variant.options] : [part.type],
+    }));
+  }
+  if (spell.key === 'XPHB:Wall of Thorns') {
+    return [
+      { dice: '7d8', types: ['piercing'] },
+      { dice: '7d8', types: ['slashing'] },
+    ];
+  }
+  return undefined;
 }
 
 /**

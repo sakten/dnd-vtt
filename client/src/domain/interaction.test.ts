@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aimOriginKind,
   aimToCursor,
+  confirmArea,
   placeScatterPoint,
   scatterBack,
   scatterToPlaces,
@@ -43,22 +44,49 @@ describe('области прицеливания', () => {
     expect(away?.mode === 'aim' ? away.aim.direction : null).toEqual({ x: 100, y: 300 });
   });
 
-  it('конус от точки (легаси): направление всё равно смотрит на курсор', () => {
+  it('стена от точки (Wall of Thorns): ось задаёт вариант, каст одним кликом', () => {
     const caster = makeToken('t1', { x: 100, y: 100 });
     const aim = startAim(
       {
         tokenId: 't1',
-        actionId: 'ability:cone',
-        spec: { shape: 'cone', size: 30 },
+        spellKey: 'XPHB:Wall of Thorns',
+        spec: { shape: 'line', size: 60, width: 5 },
         originKind: 'point',
-        rangeFeet: 30,
+        rangeFeet: 120,
+        variant: 'horizontal',
       },
       caster
     );
 
     const moved = aimToCursor(aim, { x: 200, y: 100 }, caster, 50);
-    expect(moved?.mode === 'aim' ? moved.aim.direction : null).toEqual({ x: 200, y: 100 });
     expect(moved?.mode === 'aim' ? moved.aim.origin : null).toEqual({ x: 200, y: 100 });
+    expect(moved?.mode === 'aim' ? moved.aim.direction : null).toEqual({ x: 300, y: 100 });
+
+    const cast = confirmArea(moved);
+    expect(cast.command).toMatchObject({
+      type: 'castSpell',
+      payload: { spellKey: 'XPHB:Wall of Thorns', origin: { x: 200, y: 100 }, direction: { x: 300, y: 100 } },
+    });
+  });
+
+  it('кольцо (Wall of Thorns, круг): сфера не тянет направление', () => {
+    const caster = makeToken('t1', { x: 100, y: 100 });
+    const aim = startAim(
+      {
+        tokenId: 't1',
+        spellKey: 'XPHB:Wall of Thorns',
+        spec: { shape: 'ring', size: 10, inner: 5 },
+        originKind: 'point',
+        rangeFeet: 120,
+        variant: 'ring',
+      },
+      caster
+    );
+
+    const moved = aimToCursor(aim, { x: 200, y: 100 }, caster, 50);
+    expect(moved?.mode === 'aim' ? moved.aim.origin : null).toEqual({ x: 200, y: 100 });
+    // Кольцо — не направленная область: direction остаётся точкой (как у сфер).
+    expect(moved?.mode === 'aim' ? moved.aim.direction : null).toEqual({ x: 200, y: 100 });
   });
 });
 

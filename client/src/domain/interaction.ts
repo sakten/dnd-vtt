@@ -1,4 +1,4 @@
-import type { ActionCost, AreaSpec, ConditionKey, Token } from 'shared';
+import { spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type Token } from 'shared';
 
 /** Точка в мировых координатах карты. */
 export interface Point {
@@ -205,6 +205,7 @@ export function aimToCursor(
     if (Math.hypot(cursor.x - origin.x, cursor.y - origin.y) < gridSize) return { mode: 'aim', aim };
     return { mode: 'aim', aim: { ...aim, direction: cursor } };
   }
+  // Линия от точки (Wall of Thorns): ось стены задаёт вариант каста.
   let origin = cursor;
   if (aim.rangeFeet !== null) {
     const anchor = aim.anchor ?? { x: caster.x, y: caster.y };
@@ -216,7 +217,9 @@ export function aimToCursor(
       origin = { x: anchor.x + (dx / dist) * maxPx, y: anchor.y + (dy / dist) * maxPx };
     }
   }
-  return { mode: 'aim', aim: { ...aim, origin, direction: directional ? cursor : origin } };
+  // Линия/конус от точки: направление-заготовка от варианта (стена), иначе — как раньше.
+  const fixed = directional && aim.spellKey ? spellCastDirection(aim.spellKey, aim.variant, origin) : null;
+  return { mode: 'aim', aim: { ...aim, origin, direction: directional ? fixed : origin } };
 }
 
 /** Область-конус/линия всегда исходит от кастера; остальные — от выбранной точки. */

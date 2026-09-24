@@ -811,6 +811,53 @@ describe('AoE-урон в чат', () => {
   });
 });
 
+describe('составной урон (D)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('Flame Strike: защиты применяются к каждой части броска', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.damageDefenses = [{ id: 'd1', type: 'resistance', damageType: 'fire' }];
+    vi.spyOn(Math, 'random').mockReturnValue(0); // спас провален, все кости — 1
+
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Flame Strike')!, { castLevel: 5, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+
+    // 5d6 огнём + 5d6 излучением: сопротивление огню → floor(5/2)=2 + 5 = 7.
+    expect(target.hpCurrent).toBe(23);
+  });
+
+  it('Destructive Wave: тип второй части из варианта и ничком при провале', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    vi.spyOn(Math, 'random').mockReturnValue(0); // спас провален, все кости — 1
+
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Destructive Wave')!, { variant: 'necrotic' }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+
+    // 5d6 звуком + 5d6 некротикой = 10; провал — ещё и сбит с ног.
+    expect(target.hpCurrent).toBe(20);
+    expect(target.conditions.map((c) => c.key)).toContain('prone');
+  });
+});
+
+
 describe('Polymorph: якорь концентрации', () => {
   afterEach(() => vi.restoreAllMocks());
 

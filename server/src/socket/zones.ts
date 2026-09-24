@@ -111,6 +111,8 @@ function applyZonePayload(
         mapId,
         amount: roll.total,
         damageType,
+        // Составной урон: части типизированного выражения — каждая со своими защитами.
+        ...(roll.damageParts.length ? { parts: roll.damageParts } : {}),
         halve: payload.save ? success : false,
         roll,
         author: zone.name,
@@ -386,7 +388,17 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
     if (payload) {
       // Триггер бьёт по своему `containment` (payload), а не по правилу ауры.
       const targets = insideTokens(ctx, room, mapId, zone, payload.containment);
-      if (targets.some((t) => t.id === token.id)) applyZonePayload(ctx, room, mapId, zone, payload, [token]);
+      if (targets.some((t) => t.id === token.id)) {
+        // «Раз за ход» (Wall of Thorns, CWB): вход и конец хода — не больше одного раза за ход.
+        const key = turnKey(ctx.manager.findMap(room, mapId)!);
+        const already = zone.enterOncePerTurn && key !== null && zone.enteredThisTurn?.[token.id] === key;
+        if (!already) {
+          if (zone.enterOncePerTurn && key !== null) {
+            zone.enteredThisTurn = { ...(zone.enteredThisTurn ?? {}), [token.id]: key };
+          }
+          applyZonePayload(ctx, room, mapId, zone, payload, [token]);
+        }
+      }
     }
   }
   // Полный снапшот сцены не нужен: изменения токенов уходят патчами, зоны — точечно.

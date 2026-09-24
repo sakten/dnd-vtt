@@ -255,6 +255,27 @@ describe('visibleCells', () => {
     expect(cells?.has('4,2')).toBe(true);
     expect(cells?.has('2,1')).toBe(false);
   });
+
+  it('стена шипов: мгла блокирует обзор сквозь — середина кольца скрыта', () => {
+    const ring: ZoneInstance = {
+      id: 'z1',
+      name: 'Wall of Thorns',
+      sourceKey: 'XPHB:Wall of Thorns',
+      sourceId: 's1',
+      origin: { x: 125, y: 75 },
+      area: { shape: 'ring', size: 15, inner: 10 },
+      duration: { type: 'concentration' },
+      flags: { obscured: 'heavy' },
+    };
+    const cells = visibleCells({
+      ...VISION_BASE,
+      width: 400,
+      zones: [ring],
+      viewers: [viewer(325, 75)],
+    });
+    expect(cells?.has('6,1')).toBe(true); // сам зритель
+    expect(cells?.has('2,1')).toBe(false); // середина за стеной
+  });
 });
 
 describe('enterableCell', () => {
@@ -291,5 +312,22 @@ describe('enterableCell', () => {
   it('вне областей невидимая клетка (за стеной) недоступна', () => {
     const walled = { ...VISION_BASE, walls: [wall(100, 0, 100, 150)] };
     expect(enterableCell(walled, viewers, inside)).toBe(false);
+  });
+
+  it('за мглой клетка входима вслепую: обзор сквозь не блокирует маршрут', () => {
+    const fog: ZoneInstance = {
+      id: 'z1',
+      name: 'Fog Cloud',
+      sourceKey: 'XPHB:Fog Cloud',
+      sourceId: 's1',
+      origin: { x: 125, y: 75 },
+      area: { shape: 'sphere', size: 15 },
+      duration: { type: 'concentration' },
+      flags: { obscured: 'heavy' },
+    };
+    const sight = { ...VISION_BASE, zones: [fog] };
+    const beyond = cellCenter(5, 1, grid);
+    expect(canSee({ x: 25, y: 75 }, beyond, senses, sight)).toBe(false);
+    expect(enterableCell(sight, viewers, beyond)).toBe(true);
   });
 });

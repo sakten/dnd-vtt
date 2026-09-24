@@ -53,20 +53,22 @@
 - **Зоны с триггерами:** `XGE:Create Bonfire`, `XPHB:Cloud of Daggers`, `XPHB:Spike Growth`, `TCE:Tasha's Caustic Brew` (урон в начале хода), `XGE:Sickening Radiance` (истощение), `XPHB:Wind Wall`, `XPHB:Evard's Black Tentacles` (опутан), `XGE:Maelstrom` (pull), `XGE:Dawn`, `XPHB:Insect Plague`, `XPHB:Conjure Animals`, `XGE:Storm Sphere` (⚡ + бонус-действие), `XPHB:Wall of Fire`, `XGE:Wall of Light`, `XPHB:Wall of Ice`, `XPHB:Blade Barrier` (стены), `XGE:Wrath of Nature`, `XPHB:Yolande's Regal Presence` (push), `XGE:Dust Devil` (push), `XGE:Maximilian's Earthen Grasp` (опутан), `XGE:Healing Spirit` (лимит лечений ⚠️), `XPHB:Cordon of Arrows`, `XPHB:Glyph of Warding` (ловушки/заряды ⚠️).
 - **Повтор на цели (эффект-триггеры/грантованные действия):** `XPHB:Witch Bolt`, `XPHB:Melf's Acid Arrow`, `XGE:Immolation`, `XGE:Enervation` (leech + 4d8 на провале вместо текущих 2d8), `XGE:Melf's Minute Meteors` (6 зарядов).
 
-## D. Составной урон и несколько целей — ⚠️ нужна схема частей/мультицели — 10
+## D. Составной урон и несколько целей — ✅ составной урон, ⚠️ мультицель — 10
 
-| Заклинание | Дефект |
+> Составной урон сделан (сессия 11): части одним броском — типизированные кости (`5d6fire + 5d6radiant`), защиты по каждой части (`applyDamageToParts`); билдер `COMPOSITE_CONFIGS`/`compositeDamageDef` (`rules/automation.ts`). Wall of Thorns — зона-линия (HoH-паттерн). Мультицель и отложенный урон — следующие срезы.
+
+| Заклинание | Статус |
 |---|---|
-| `XPHB:Flame Strike` | смешанный тип одним броском: 5d6 вместо 5d6 огнём + 5d6 излучением |
-| `XPHB:Destructive Wave` | 5d6 вместо 5d6 звуком + 5d6 излучением/некротикой |
-| `XPHB:Wall of Thorns` | 7d8 вместо 7d8 колющим + 7d8 рубящим |
-| `XPHB:Jallarzi's Storm of Radiance` | 2d10 вместо 2d10 излучением + 2d10 звуком |
-| `XPHB:Ice Storm` | 2d10 вместо 2d10 дробящего + 4d6 холодом |
-| `XPHB:Ice Knife` | только 1d10 атакой; нет 2d6 холодом спасом |
-| `XPHB:Vitriolic Sphere` | 10d4, нет второй порции 5d4 |
-| `XPHB:Spiritual Weapon` | 1d8 без +модификатора, урон не от позиции оружия |
-| `XPHB:Steel Wind Strike` | 6d10 в одну цель вместо до 5 целей + телепорт |
-| `XPHB:Chain Lightning` | 10d8 в одну цель, без 3 перескоков |
+| `XPHB:Flame Strike` | ✅ 5к6 огнём + 5к6 излучением (апкаст +1к6 каждой части) |
+| `XPHB:Destructive Wave` | ✅ 5к6 звуком + 5к6 изл./некр. (вариант при касте), ничком при провале |
+| `XPHB:Ice Storm` | ✅ 2к10 дробящим + 4к6 холодом (апкаст только дробящей) + град-труднопроходимость |
+| `XPHB:Wall of Thorns` | ✅ каст 7к8 колющим; зона: 3 формы (вертикальная/горизонтальная стена 60×5 или кольцо: внутри свободно 10 фт, стена 5 фт), вход/конец хода 7к8 рубящим (раз за ход), движение ×4, мгла |
+| `XPHB:Jallarzi's Storm of Radiance` | ⚠️ отложено: нужна зона + запрет вербальных компонентов («сайленс») |
+| `XPHB:Ice Knife` | ⚠️ атака 1к10 колющим + взрыв 2к6 холодом (спас DEX, 5 фт, и при промахе) — переиспользовать `weaponAttack.secondary` (Hail of Thorns) |
+| `XPHB:Vitriolic Sphere` | ⚠️ отложенные 5d4 кислотой в конце следующего хода |
+| `XPHB:Spiritual Weapon` | ⚠️ грантованная атака + мод заклинательной характеристики |
+| `XPHB:Steel Wind Strike` | ⚠️ до 5 целей + телепорт |
+| `XPHB:Chain Lightning` | ⚠️ 3 перескока |
 
 ## E. Временные хиты — ✅ `effect.tempHp` — 2
 
@@ -132,7 +134,7 @@
 | attackRiders (наездники) | 13 | ✅ есть, нужен вход от «после попадания» |
 | effect-баффы | 21 | ✅/⚠️ (weapon:true, retaliate, actions, variant) |
 | zone/повтор | 28 | ✅ есть, ⚠️ стены/заряды/push |
-| составной урон/мультицель | 10 | ⚠️ схема частей, есть лучи/`targets` |
+| составной урон/мультицель | 10 | ✅ составной (4), ⚠️ мультицель/отложенный урон (6) |
 | temp HP | 2 | ✅ есть |
 | духи-атаки | 2 | ⚠️ granted actions |
 | перемещение | 2 | ✅ есть, ⚠️ пассажир/совмещение с уроном |

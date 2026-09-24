@@ -285,7 +285,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     advantage: input.advantage,
     origin: input.origin ?? null,
     direction: input.direction ?? null,
-    area: spellCastArea(input.spell) ?? null,
+    area: spellCastArea(input.spell, input.variant) ?? null,
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     ...(input.condition ? { choice: input.condition } : {}),
     ...(input.placements ? { placements: input.placements } : {}),

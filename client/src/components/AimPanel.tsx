@@ -9,6 +9,7 @@ const SHAPE_RU: Record<string, MessageKey> = {
   line: 'ui.aim.shape.line',
   cube: 'ui.aim.shape.cube',
   cylinder: 'ui.aim.shape.cylinder',
+  ring: 'ui.aim.shape.ring',
 };
 
 /** Подсказка активного режима взаимодействия: клик по карте/цели применяет, Esc — отмена. */

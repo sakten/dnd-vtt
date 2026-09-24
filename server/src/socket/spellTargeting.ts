@@ -5,6 +5,7 @@ import {
   isRecord,
   spellAreaOrigin,
   spellCastArea,
+  spellCastDirection,
   spellHasArea,
   spellIsSelf,
   spellRangeFeet,
@@ -60,7 +61,8 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
   }
   let area = false;
   let areaOrigin: { x: number; y: number } | null = null;
-  const castArea = spellCastArea(spell);
+  let areaDirection: { x: number; y: number } | null = null;
+  const castArea = spellCastArea(spell, params.variant);
   if (spellHasArea(spell) && castArea) {
     const map = ctx.manager.findMap(room, mapId);
     const grid = gridOfMap(map, room.scene.grid);
@@ -83,8 +85,11 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         return undefined;
       }
     }
+    // Ось стены (Wall of Thorns) задаёт вариант каста, а не направление клика.
+    areaDirection =
+      spellCastDirection(spell.key, params.variant, originPt) ?? (isPoint(params.direction) ? params.direction : null);
     const affected = areaTokens(ctx, room, mapId, castArea, originPt, {
-      direction: isPoint(params.direction) ? params.direction : null,
+      direction: areaDirection,
       excludeId: caster.id,
     });
     for (const t of affected) targets.push(t);
@@ -127,7 +132,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     advantage: params.advantage,
     area,
     origin: areaOrigin ?? (isPoint(params.origin) ? params.origin : null),
-    direction: isPoint(params.direction) ? params.direction : null,
+    direction: areaDirection ?? (isPoint(params.direction) ? params.direction : null),
     summonKey: params.summonKey,
     variant: params.variant,
     condition: params.condition,

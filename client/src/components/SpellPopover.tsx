@@ -14,6 +14,7 @@ import {
   spellCastAreaOverride,
   spellRangeFeet,
   spellVariantDef,
+  wallOfThornsArea,
   type AbilityKey,
   type ActionCost,
   type Spell,
@@ -115,6 +116,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const [forms, setForms] = useState<{ key: string; name: string }[] | null>(null);
   const [showCr0, setShowCr0] = useState(false);
   const [variant, setVariant] = useState(() => variantDef?.options[0] ?? '');
+  // Геометрия каста: вариант формы (Wall of Thorns) / оверрайд (Call Lightning) / зона / данные.
+  const castArea =
+    spell.key === 'XPHB:Wall of Thorns'
+      ? wallOfThornsArea(variant)
+      : (spellCastAreaOverride(spell) ?? zoneDef?.area ?? spell.areaSpec);
   useEffect(() => {
     if (!needForm && !needBeast) return;
     let alive = true;
@@ -140,12 +146,12 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     const common = abilityAction
       ? { actionId: abilityAction.id, slot: abilityAction.slot }
       : { spellKey: spell.key, slotLevel: info.slotLevel };
-    if (info.area && spell.areaSpec) {
+    if (info.area && castArea) {
       startAim({
         tokenId,
         ...common,
         advantage: mode,
-        spec: spellCastAreaOverride(spell) ?? zoneDef?.area ?? spell.areaSpec,
+        spec: castArea,
         originKind: spellAreaOrigin(spell),
         rangeFeet: spellRangeFeet(spell),
         ...(variant ? { variant } : {}),
@@ -305,14 +311,14 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
             <span className="sp-target">
               {t('ui.spellPopover.areaInfo', {
                 shape:
-                  spell.areaSpec?.shape === 'cone'
+                  castArea?.shape === 'cone'
                     ? t('ui.spellPopover.shape.cone')
-                    : spell.areaSpec?.shape === 'line'
+                    : castArea?.shape === 'line'
                       ? t('ui.spellPopover.shape.line')
-                      : spell.areaSpec?.shape === 'cube'
+                      : castArea?.shape === 'cube'
                         ? t('ui.spellPopover.shape.cube')
                         : t('ui.spellPopover.shape.sphere'),
-                size: spell.areaSpec?.size ?? 0,
+                size: castArea?.size ?? 0,
               })}
             </span>
           </div>

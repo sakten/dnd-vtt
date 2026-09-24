@@ -220,18 +220,39 @@ const GRANTED_ACTION_AREA = new Set(["XPHB:Dragon's Breath"]);
 /** Заклинания-зоны без спасброска: прицел нужен для точки (Daylight). */
 const POINT_ZONE_SPELLS = new Set(['XPHB:Daylight']);
 
+/**
+ * Wall of Thorns (XPHB): варианты формы стены — вертикальная/горизонтальная
+ * линия 60×5 или круг: внутри свободно 10 фт от центра, стена 5 фт наружу
+ * (кольцо `inner` 10, внешний радиус 15).
+ */
+export function wallOfThornsArea(variant?: string): AreaSpec {
+  if (variant === 'ring') return { shape: 'ring', size: 15, inner: 10 };
+  return { shape: 'line', size: 60, width: 5 };
+}
+
+/** Направление-заготовка линии стены (вертикальная/горизонтальная ось); null — не стена/круг. */
+export function spellCastDirection(
+  spellKey: string,
+  variant: string | undefined,
+  origin: { x: number; y: number }
+): { x: number; y: number } | null {
+  if (spellKey !== 'XPHB:Wall of Thorns' || variant === 'ring') return null;
+  return variant === 'horizontal' ? { x: origin.x + 100, y: origin.y } : { x: origin.x, y: origin.y + 100 };
+}
+
 /** Область применения каста, отличная от данных (Call Lightning: удар 5 фт, туча — отдельно). */
 const CAST_AREA_OVERRIDES: Record<string, AreaSpec> = {
   'XPHB:Call Lightning': { shape: 'sphere', size: 5 },
 };
 
-/** Только явный оверрайд области каста (клиентский прицел предпочитает геометрию зоны). */
+/** Только явный оверрайд области каста (Call Lightning); прицел клиента предпочитает геометрию зоны. */
 export function spellCastAreaOverride(spell: Spell): AreaSpec | undefined {
   return CAST_AREA_OVERRIDES[spell.key];
 }
 
-/** Область применения каста: оверрайд, иначе данные заклинания. */
-export function spellCastArea(spell: Spell): AreaSpec | undefined {
+/** Область применения каста: вариант (Wall of Thorns), оверрайд, иначе данные заклинания. */
+export function spellCastArea(spell: Spell, variant?: string): AreaSpec | undefined {
+  if (spell.key === 'XPHB:Wall of Thorns') return wallOfThornsArea(variant);
   return CAST_AREA_OVERRIDES[spell.key] ?? spell.areaSpec;
 }
 
@@ -239,6 +260,8 @@ export function spellCastArea(spell: Spell): AreaSpec | undefined {
 export function spellHasArea(spell: Spell): boolean {
   if (GRANTED_ACTION_AREA.has(spell.key)) return false;
   if (CAST_AREA_OVERRIDES[spell.key]) return true;
+  // Wall of Thorns: геометрия приходит из варианта формы (`spellCastArea`).
+  if (spell.key === 'XPHB:Wall of Thorns') return true;
   if (!spell.areaSpec) return false;
   if (POINT_ZONE_SPELLS.has(spell.key)) return true;
   if ((spell.save?.length ?? 0) === 0) return false;

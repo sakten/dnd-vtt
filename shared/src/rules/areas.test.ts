@@ -92,6 +92,16 @@ describe('areaCells', () => {
     expect(areaCells({ shape: 'cone', size: 15 }, origin, null, grid)).toEqual(['0,0']);
     expect(areaCells({ shape: 'line', size: 30, width: 5 }, origin, null, grid)).toEqual(['0,0']);
   });
+
+  it('кольцо: центр — свободная зона, стена по окружности', () => {
+    const cells = new Set(areaCells({ shape: 'ring', size: 10, inner: 5 }, origin, null, grid));
+    expect(cells.has('0,0')).toBe(false);
+    // Ровно на границе свободной зоны (5 фт) — ещё свободно.
+    expect(cells.has('1,0')).toBe(false);
+    expect(cells.has('1,1')).toBe(true);
+    expect(cells.has('2,0')).toBe(true);
+    expect(cells.has('3,0')).toBe(false);
+  });
 });
 
 describe('tokenCells / tokensInArea', () => {

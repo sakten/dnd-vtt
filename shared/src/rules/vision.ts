@@ -271,19 +271,115 @@ export function visionRadiiCells(
 }
 
 /**
- * Видит ли зритель точку: стены и закрытые двери блокируют всегда,
- * тьма (глобальная «Темнота» или область у зрителя/цели) — ограничивает радиусом.
+ * Обход клеток луча (DDA, суперпокрытие): при проходе ровно через угол
+ * добавляются обе боковые клетки — «протиснуться» в нулевую щель нельзя.
+ * Возвращает вид первой/сильнейшей мглы или магической тьмы; `null` — луч чист.
+ * Обход прекращается, как только найдена мгла (сильнее не бывает).
  */
-export function canSee(from: Point, target: Point, senses: Sense[] | undefined, ctx: SightContext): boolean {
+function zoneCrossingKind(
+  from: Point,
+  target: Point,
+  zoneCells: Map<string, LightAreaKind>,
+  grid: AreaGrid
+): LightAreaKind | null {
+  const size = grid.size;
+  if (!(size > 0) || zoneCells.size === 0) return null;
+  const start = pointCell(from, grid);
+  const end = pointCell(target, grid);
+  const dx = target.x - from.x;
+  const dy = target.y - from.y;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return null;
+  const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+  const stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+  let tMaxX =
+    stepX === 0 ? Infinity : (grid.offsetX + (start.cx + (stepX > 0 ? 1 : 0)) * size - from.x) / dx;
+  let tMaxY =
+    stepY === 0 ? Infinity : (grid.offsetY + (start.cy + (stepY > 0 ? 1 : 0)) * size - from.y) / dy;
+  const tDeltaX = stepX === 0 ? Infinity : size / Math.abs(dx);
+  const tDeltaY = stepY === 0 ? Infinity : size / Math.abs(dy);
+  let cx = start.cx;
+  let cy = start.cy;
+  let kind: LightAreaKind | null = null;
+  const blockedHere = (x: number, y: number): boolean => {
+    const k = zoneCells.get(areaCellKey(x, y));
+    if (k !== 'magical' && k !== 'obscured') return false;
+    kind = strongestKind(kind, k);
+    return kind === 'obscured';
+  };
+  for (let guard = 0; guard < 4096; guard++) {
+    if (blockedHere(cx, cy)) return kind;
+    if (cx === end.cx && cy === end.cy) break;
+    if (tMaxX < tMaxY - 1e-9) {
+      cx += stepX;
+      tMaxX += tDeltaX;
+    } else if (tMaxY < tMaxX - 1e-9) {
+      cy += stepY;
+      tMaxY += tDeltaY;
+    } else {
+      // Луч прошёл угол: обе соседние клетки тоже задеты.
+      if (blockedHere(cx + stepX, cy) || blockedHere(cx, cy + stepY)) return kind;
+      cx += stepX;
+      cy += stepY;
+      tMaxX += tDeltaX;
+      tMaxY += tDeltaY;
+    }
+  }
+  return kind;
+}
+
+/**
+ * Вид мглы/магической тьмы, блокирующей отрезок (концы не считаются): такие
+ * области блокируют обзор сквозь (Wall of Thorns, Fog Cloud, Darkness). Клетки
+ * зон обходятся DDA-суперпокрытием (угловые стыки не просматриваются),
+ * непрерывные `LightArea` дополнительно проверяются точками вдоль луча.
+ */
+export function sightCrossingKind(from: Point, target: Point, ctx: SightContext, grid?: AreaGrid): LightAreaKind | null {
+  const size = ctx.cellSize || 50;
+  const g = grid ?? { size, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
+  const distance = Math.hypot(target.x - from.x, target.y - from.y);
+  if (distance <= 1e-6) return null;
+  const zoneCells =
+    ctx.zoneCells ?? (ctx.zones?.length ? zoneVisionCells(ctx.zones, g, ctx.walls ?? []) : undefined);
+  const hasAreas = !!ctx.areas?.length;
+  if (!zoneCells?.size && !hasAreas) return null;
+  let kind = zoneCells?.size ? zoneCrossingKind(from, target, zoneCells, g) : null;
+  if (kind === 'obscured') return kind;
+  // Непрерывные области могли лечь между центрами клеток — проверяем и точки луча.
+  if (hasAreas) {
+    const steps = Math.max(2, Math.ceil(distance / (size / 4)));
+    for (let i = 1; i < steps; i++) {
+      const k = areaKindAt(ctx.areas!, { x: from.x + ((target.x - from.x) * i) / steps, y: from.y + ((target.y - from.y) * i) / steps });
+      if (k === 'magical' || k === 'obscured') kind = strongestKind(kind, k);
+    }
+  }
+  return kind;
+}
+
+/**
+ * Видит ли зритель точку: стены и закрытые двери блокируют всегда,
+ * тьма (глобальная «Темнота» или область у зрителя/цели) — ограничивает радиусом,
+ * мгла и магическая тьма блокируют и обзор сквозь (луч не проходит их клетки).
+ * `ignoreAreas` — проверка «входимости»: области/зоны тьмы не мешают (идём вслепую).
+ */
+export function canSee(
+  from: Point,
+  target: Point,
+  senses: Sense[] | undefined,
+  ctx: SightContext,
+  opts: { ignoreAreas?: boolean } = {}
+): boolean {
   if (crossesWalls(from, target, ctx.walls, 'sight')) return false;
   const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
+  const sight: SightContext = opts.ignoreAreas ? { ...ctx, areas: [], zones: [], zoneCells: undefined } : ctx;
   const targetCell = pointCell(target, grid);
-  const lit = ctx.light?.get(areaCellKey(targetCell.cx, targetCell.cy));
-  const fromKind = visionKindAt(ctx, from);
-  const toKind = visionKindAt(ctx, target);
+  const lit = sight.light?.get(areaCellKey(targetCell.cx, targetCell.cy));
+  const fromKind = visionKindAt(sight, from);
+  const toKind = visionKindAt(sight, target);
+  const rayKind = opts.ignoreAreas ? null : sightCrossingKind(from, target, sight, grid);
   // Мгла и магическая тьма свет игнорируют; обычная тьма у цели — перекрывается светом.
-  const blocked = fromKind === 'magical' || fromKind === 'obscured' || toKind === 'magical' || toKind === 'obscured';
-  const kind = lit && !blocked ? null : strongestKind(fromKind, toKind);
+  const blocked =
+    fromKind === 'magical' || fromKind === 'obscured' || toKind === 'magical' || toKind === 'obscured' || rayKind !== null;
+  const kind = lit && !blocked ? null : strongestKind(strongestKind(fromKind, toKind), rayKind);
   if (!kind && (!ctx.darkness || lit)) return true;
   const fromCell = pointCell(from, grid);
   const distance = cellChebyshev(fromCell, targetCell);

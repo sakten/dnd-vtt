@@ -103,6 +103,13 @@ function pointInShape(
       const d = metric === 'chebyshev' ? Math.max(Math.abs(vx), Math.abs(vy)) : Math.hypot(vx, vy);
       return (d / grid.size) * FEET_PER_CELL <= spec.size + 1e-6;
     }
+    case 'ring': {
+      // Кольцо: стена от `inner` до внешнего `size`; внутри `inner` — свободная зона.
+      const d = metric === 'chebyshev' ? Math.max(Math.abs(vx), Math.abs(vy)) : Math.hypot(vx, vy);
+      const outer = (spec.size / FEET_PER_CELL) * grid.size;
+      const inner = ((spec.inner ?? 0) / FEET_PER_CELL) * grid.size;
+      return d <= outer + 1e-6 && d > inner + 1e-6;
+    }
     case 'cube': {
       const half = (spec.size / 2 / FEET_PER_CELL) * grid.size;
       return Math.abs(vx) <= half + 1e-6 && Math.abs(vy) <= half + 1e-6;
@@ -165,8 +172,8 @@ export function areaCells(
     }
   }
 
-  if (!keys.includes(areaCellKey(originCell.cx, originCell.cy))) {
-    // Вершина всегда часть шаблона.
+  // Вершина всегда часть шаблона (кроме кольца: центр — безопасная зона).
+  if (spec.shape !== 'ring' && !keys.includes(areaCellKey(originCell.cx, originCell.cy))) {
     keys.push(areaCellKey(originCell.cx, originCell.cy));
   }
   return keys;

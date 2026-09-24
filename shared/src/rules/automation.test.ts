@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
-import { automationForAction, automationForSpell, spellAutomated, spellVariantDef } from './automation';
+import { automationForAction, automationForSpell, spellAutomated, spellDamageParts, spellVariantDef } from './automation';
 import { findBaseAction } from './actions';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 
@@ -1646,5 +1646,104 @@ describe('Green-Flame Blade (клинок-кантрип)', () => {
     expect(l17.weaponAttack?.riderDice).toBe('3d8fire');
     expect(l17.weaponAttack?.secondary?.dice).toBe('3d8');
     expect(spellAutomated(spell())).toBe(true);
+  });
+});
+
+describe('Составной урон (D)', () => {
+  const flameStrike = () =>
+    makeSpell({
+      key: 'XPHB:Flame Strike',
+      name: 'Flame Strike',
+      level: 5,
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['5d6'], types: ['fire', 'radiant'] },
+      upcast: { above: 5, every: 1, dice: '1d6' },
+    });
+
+  it('Flame Strike: две части одним броском, апкаст +1к6 каждой', () => {
+    const base = automationForSpell(flameStrike());
+    expect(base.resolution).toBe('save');
+    expect(base.save).toEqual({ ability: 'dex', half: true });
+    expect(base.damage).toEqual({ dice: '5d6fire + 5d6radiant', types: ['fire', 'radiant'] });
+    expect(automationForSpell(flameStrike(), { castLevel: 7 }).damage?.dice).toBe('7d6fire + 7d6radiant');
+    expect(spellAutomated(flameStrike())).toBe(true);
+  });
+
+  it('Ice Storm: 2к10 дробящим + 4к6 холодом; апкаст — только дробящая; зона града', () => {
+    const storm = () =>
+      makeSpell({
+        key: 'XPHB:Ice Storm',
+        name: 'Ice Storm',
+        level: 4,
+        save: ['dex'],
+        saveHalf: true,
+        damage: { dice: ['2d10', '4d6', '2d8'], types: ['bludgeoning', 'cold'] },
+        upcast: { above: 4, every: 1, dice: '1d10' },
+      });
+    const base = automationForSpell(storm());
+    expect(base.damage).toEqual({ dice: '2d10bludgeoning + 4d6cold', types: ['bludgeoning', 'cold'] });
+    expect(automationForSpell(storm(), { castLevel: 6 }).damage?.dice).toBe('4d10bludgeoning + 4d6cold');
+    expect(base.zone?.flags).toEqual({ difficultTerrain: true });
+    expect(base.zone?.duration).toEqual({ type: 'rounds', rounds: 2 });
+  });
+
+  it('Destructive Wave: тип второй части из варианта, ничком при провале', () => {
+    const wave = () =>
+      makeSpell({
+        key: 'XPHB:Destructive Wave',
+        name: 'Destructive Wave',
+        level: 5,
+        save: ['con'],
+        saveHalf: true,
+        damage: { dice: ['5d6'], types: ['necrotic', 'radiant', 'thunder'] },
+      });
+    const radiant = automationForSpell(wave(), { variant: 'radiant' });
+    expect(radiant.damage).toEqual({ dice: '5d6thunder + 5d6radiant', types: ['thunder', 'radiant'] });
+    expect(radiant.effects?.[0]?.conditions).toEqual(['prone']);
+    expect(radiant.effects?.[0]?.to).toBe('targets');
+    expect(automationForSpell(wave(), { variant: 'necrotic' }).damage?.types).toEqual(['thunder', 'necrotic']);
+    expect(spellVariantDef('XPHB:Destructive Wave')?.options).toEqual(['radiant', 'necrotic']);
+  });
+
+  it('Wall of Thorns: каст колющим, зона-линия с рубящим входом/концом хода, ×4 и мгла', () => {
+    const wall = () =>
+      makeSpell({
+        key: 'XPHB:Wall of Thorns',
+        name: 'Wall of Thorns',
+        level: 6,
+        concentration: true,
+        save: ['dex'],
+        saveHalf: true,
+        damage: { dice: ['7d8'], types: ['piercing', 'slashing'] },
+        upcast: { above: 6, every: 1, dice: '1d8' },
+      });
+    const base = automationForSpell(wall());
+    expect(base.damage).toEqual({ dice: '7d8piercing', types: ['piercing'] });
+    expect(base.zone?.area).toEqual({ shape: 'line', size: 60, width: 5 });
+    expect(base.zone?.flags).toEqual({ difficultTerrain: true, obscured: 'heavy', movementCost: 4 });
+    expect(base.zone?.enterOncePerTurn).toBe(true);
+    expect(base.zone?.triggers?.enter?.damage).toEqual({ dice: '7d8slashing', types: ['slashing'] });
+    expect(base.zone?.triggers?.endOfTurn?.save).toEqual({ ability: 'dex', half: true });
+    const up = automationForSpell(wall(), { castLevel: 8 });
+    expect(up.damage?.dice).toBe('9d8piercing');
+    expect(up.zone?.triggers?.enter?.damage?.dice).toBe('9d8slashing');
+    // Круг: внутри свободно 10 фт от центра, стена 5 фт наружу (внешний радиус 15).
+    expect(automationForSpell(wall(), { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 15, inner: 10 });
+    expect(spellVariantDef('XPHB:Wall of Thorns')?.options).toEqual(['vertical', 'horizontal', 'ring']);
+    expect(spellAutomated(wall())).toBe(true);
+  });
+
+  it('spellDamageParts: части для карточек (Destructive Wave — оба типа варианта)', () => {
+    expect(spellDamageParts(flameStrike())).toEqual([
+      { dice: '5d6', types: ['fire'] },
+      { dice: '5d6', types: ['radiant'] },
+    ]);
+    const wave = makeSpell({ key: 'XPHB:Destructive Wave', name: 'Destructive Wave', level: 5 });
+    expect(spellDamageParts(wave)).toEqual([
+      { dice: '5d6', types: ['thunder'] },
+      { dice: '5d6', types: ['radiant', 'necrotic'] },
+    ]);
+    expect(spellDamageParts(makeSpell({}))).toBeUndefined();
   });
 });

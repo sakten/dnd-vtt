@@ -1,4 +1,4 @@
-import { spellWeaponOverride, type Spell } from 'shared';
+import { spellCastArea, spellDamageParts, spellWeaponOverride, type Spell } from 'shared';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 
@@ -37,6 +37,12 @@ function rangeText(spell: Spell): string {
 }
 
 function areaText(spell: Spell, raw: string): string | undefined {
+  // Геометрия каста из кода (Wall of Thorns): данные тегов не описывают размер.
+  const castArea = spellCastArea(spell);
+  if (castArea && castArea !== spell.areaSpec) {
+    const shape = catalogText(`ui.aim.shape.${castArea.shape}`) ?? castArea.shape;
+    return `${shape} (${t('ui.spellArea.size', { n: castArea.size })})`;
+  }
   if (!spell.area?.length) return undefined;
   const shape = spell.area.map((a) => catalogText(`ui.spellArea.${a}`) ?? a).join('/');
   const size = raw.match(/(\d+)[- ]foot(?:\s+radius)?/i)?.[1];
@@ -75,11 +81,21 @@ function diceText(dice: string[]): string {
 function damageText(spell: Spell, raw: string): string | undefined {
   // Shillelagh: кости данных — кость оружия по тирам, а не урон заклинания.
   if (spellWeaponOverride(spell)) return undefined;
-  const dice = spell.damage?.dice ?? [];
-  const types = spell.damage?.types ?? [];
-  if (!dice.length && !types.length) return undefined;
-  let text = [diceText(dice), types.map((type) => damageLabel(type).toLowerCase()).join(', ')].filter(Boolean).join(' ');
-  if (spell.save?.length && /half as much/i.test(raw)) text += ` ${t('ui.spellMech.halfOnSuccess')}`;
+  let text: string | undefined;
+  const parts = spellDamageParts(spell);
+  if (parts?.length) {
+    // Составной урон: каждая часть со своим типом (Wall of Thorns — появление + стена).
+    text = parts
+      .map((part) => `${diceText([part.dice])} ${part.types.map((type) => damageLabel(type).toLowerCase()).join(', ')}`)
+      .join(' + ');
+  } else {
+    const dice = spell.damage?.dice ?? [];
+    const types = spell.damage?.types ?? [];
+    if (dice.length || types.length) {
+      text = [diceText(dice), types.map((type) => damageLabel(type).toLowerCase()).join(', ')].filter(Boolean).join(' ');
+    }
+  }
+  if (text && spell.save?.length && /half as much/i.test(raw)) text += ` ${t('ui.spellMech.halfOnSuccess')}`;
   return text;
 }
 

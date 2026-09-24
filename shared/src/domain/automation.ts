@@ -294,6 +294,8 @@ export interface ZoneDef {
   /** Немеханизируемые/будущие свойства (сложная местность, обскурация). */
   flags?: {
     difficultTerrain?: boolean;
+    /** Стоимость перемещения, футов за 1 фут (Wall of Thorns: 4); иначе сложная местность = ×2. */
+    movementCost?: number;
     obscured?: 'light' | 'heavy';
     blocksLight?: boolean;
     blocksMovement?: boolean;

@@ -175,6 +175,45 @@ describe('вижн-зоны заклинаний', () => {
     expect(zoneVisionKindAt(zones, { x: 175, y: 75 }, grid, [wall])).toBeNull();
     expect(zoneVisionKindAt(zones, { x: 175, y: 75 }, grid)).toBe('magical');
   });
+
+  it('мгла и магическая тьма блокируют обзор сквозь, а не только свою клетку', () => {
+    const fog = [zone({ obscured: 'heavy' }, 15)];
+    // Цель вне зоны (20 фт от центра), луч проходит сквозь мглу.
+    expect(canSee({ x: 25, y: 75 }, { x: 325, y: 75 }, [], { ...SIGHT, zones: fog })).toBe(false);
+    // Слепое зрение видит сквозь мглу в пределах радиуса.
+    expect(
+      canSee({ x: 25, y: 75 }, { x: 275, y: 75 }, [{ type: 'blindsight', range: 60 }], { ...SIGHT, zones: fog })
+    ).toBe(true);
+    const dark = [zone({ blocksLight: true }, 15)];
+    // Тёмное зрение сквозь магическую тьму не работает, дьявольское — работает.
+    expect(
+      canSee({ x: 25, y: 75 }, { x: 325, y: 75 }, [{ type: 'darkvision', range: 120 }], { ...SIGHT, zones: dark })
+    ).toBe(false);
+    expect(
+      canSee({ x: 25, y: 75 }, { x: 325, y: 75 }, [{ type: 'devilsight', range: 120 }], { ...SIGHT, zones: dark })
+    ).toBe(true);
+  });
+
+  it('кольцо Wall of Thorns: середина не видна снаружи, изнутри — только свободная зона', () => {
+    const ring: ZoneInstance = { ...zone({ obscured: 'heavy' }, 10), area: { shape: 'ring', size: 15, inner: 10 } };
+    const center = { x: 125, y: 75 };
+    // Снаружи (20 фт) луч до середины проходит стену (15 фт) — не видно.
+    expect(canSee({ x: 325, y: 75 }, center, [], { ...SIGHT, zones: [ring] })).toBe(false);
+    // Изнутри видна ближняя клетка свободной зоны (5 фт), сквозь стену — нет.
+    expect(canSee(center, { x: 75, y: 75 }, [], { ...SIGHT, zones: [ring] })).toBe(true);
+    expect(canSee(center, { x: 325, y: 75 }, [], { ...SIGHT, zones: [ring] })).toBe(false);
+  });
+
+  it('луч сквозь угловой стык двух клеток мглы не проходит', () => {
+    // Клетки (2,1) и (1,2) касаются углом в (100,100) — ровно на луче y=x.
+    const corner = [
+      { ...zone({ obscured: 'heavy' }, 1), id: 'z1', origin: { x: 125, y: 75 } },
+      { ...zone({ obscured: 'heavy' }, 1), id: 'z2', origin: { x: 75, y: 125 } },
+    ];
+    expect(canSee({ x: 25, y: 25 }, { x: 175, y: 175 }, [], { ...SIGHT, zones: corner })).toBe(false);
+    // Вдоль свободной стороны угол не мешает.
+    expect(canSee({ x: 25, y: 25 }, { x: 175, y: 25 }, [], { ...SIGHT, zones: corner })).toBe(true);
+  });
 });
 
 describe('countAttackAdvantage: невидимость (RAW)', () => {
