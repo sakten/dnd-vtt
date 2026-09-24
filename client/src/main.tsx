@@ -79,6 +79,17 @@ const ShadowBladeLab = shadowLabLoader ? lazy(shadowLabLoader as () => Promise<{
 
 applyBranding();
 
+// Пересборка клиента меняет хэши чанков: старая вкладка может догрузить
+// несуществующий файл (например, 3D-d20 при крите). Один раз перезагружаем —
+// новая страница берёт актуальный index и чанки. Флаг снимаем после старта.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  if (sessionStorage.getItem('vtt:preloadErrorReload')) return;
+  sessionStorage.setItem('vtt:preloadErrorReload', '1');
+  window.location.reload();
+});
+sessionStorage.removeItem('vtt:preloadErrorReload');
+
 const params = new URLSearchParams(window.location.search);
 const isDiceLab = params.has('dice-lab');
 const isFxLab = params.has('fx-lab');
