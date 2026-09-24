@@ -138,7 +138,7 @@
 | attackRiders (наездники) | 13 | ✅ есть, нужен вход от «после попадания» |
 | effect-баффы | 21 | ✅ 16, ⚠️ 5 (B4-трансформации) |
 | zone/повтор | 28 | ✅ есть, ⚠️ Healing Spirit/Cordon/Glyph/стены/Storm Sphere |
-| составной урон/мультицель | 10 | ✅ 6 (составной, Ice Knife, Vitriolic), ⚠️ 4 (Jallarzi, Spiritual Weapon, Steel Wind Strike, Chain Lightning) |
+| составной урон/мультицель | 10 | ✅ 6 (Flame Strike, Ice Storm, Destructive Wave, Wall of Thorns, Ice Knife, Vitriolic), ⚠️ 4 (Jallarzi, Spiritual Weapon, Steel Wind Strike, Chain Lightning) |
 | temp HP | 2 | ✅ реализовано (2) |
 | духи-атаки | 2 | ⚠️ granted actions |
 | перемещение | 2 | ✅ `utility.teleport`; ⚠️ Dimension Door (пассажир), Thunder Step (урон в точке выхода) |
