@@ -424,6 +424,38 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('B3: Fount of Moonlight — сияние, сопротивление, +2d6 ближним и реакция-вспышка', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Fount of Moonlight',
+      name: 'Fount of Moonlight',
+      level: 4,
+      automation: 'manual',
+      concentration: true,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 10 } }],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(def.maxRounds).toBeUndefined();
+    const effect = def.effects?.[0];
+    expect(effect?.to).toBe('self');
+    expect(effect?.light).toEqual({ bright: 20, dim: 20 });
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '2d6radiant',
+      filter: { attackType: 'melee' },
+    });
+    expect(effect?.modifiers[1]).toMatchObject({
+      target: 'damage',
+      mode: 'resistance',
+      value: 0,
+      filter: { damageType: 'radiant' },
+    });
+    expect(effect?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('B2: Spirit Shroud — аура 10 фт: −10 футов и доп. урон от атак кастера', () => {
     const spell = makeSpell({
       key: 'TCE:Spirit Shroud',

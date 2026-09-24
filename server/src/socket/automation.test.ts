@@ -547,6 +547,110 @@ describe('концентрация заклинаний с зонами', () => 
     expect(pendingOffers(room.code)).toHaveLength(0);
   });
 
+  it('Fount of Moonlight: реакция на урон ослепляет нанёсшего (CON-спас)', () => {
+    const room = makeCombatRoom([
+      makeToken('t1', { name: 'Маг', hpMax: '40', hpCurrent: 20 }),
+      makeToken('t2', { name: 'Гоблин', faction: 'enemy', x: 150, y: 100 }),
+    ]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const source = map.tokens[1]!;
+
+    const fount = findSpell('XPHB:Fount of Moonlight')!;
+    applyEffectTo(f.ctx, room, {
+      sourceKey: fount.key,
+      sourceId: caster.id,
+      mapId: 'm1',
+      effectDef: automationForSpell(fount).effects![0]!,
+      target: caster,
+    });
+    expect(caster.effects[0]?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
+    expect(caster.effects[0]?.light).toEqual({ bright: 20, dim: 20 });
+    expect(effectDefenses(caster.effects).some((d) => d.type === 'resistance' && d.damageType === 'radiant')).toBe(true);
+
+    offerDamageReactions(f.ctx, room, 'm1', caster, source, { amount: 5, damageType: 'slashing' });
+    const offer = pendingOffers(room.code)[0]!;
+    const opt = offer.options.find((o) => o.id.startsWith('fount:'))!;
+    expect(opt.kind).toBe('effect');
+    expect(opt.spellKey).toBe('XPHB:Fount of Moonlight');
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // CON-спас 1 — провал
+    f.invoke('reaction:respond', { id: offer.id, optionId: opt.id });
+    rand.mockRestore();
+
+    expect(source.conditions.some((c) => c.key === 'blinded')).toBe(true);
+    const blind = source.effects.find((e) => e.conditions?.includes('blinded'))!;
+    expect(blind.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    expect(blind.sourceId).toBe(caster.id);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
+    expect(pendingOffers(room.code)).toHaveLength(0);
+  });
+
+  it('Fount of Moonlight: реакция не предлагается за пределами 60 фт', () => {
+    const room = makeCombatRoom([
+      makeToken('t1', { name: 'Маг', hpMax: '40', hpCurrent: 20 }),
+      makeToken('t2', { name: 'Гоблин', faction: 'enemy', x: 800, y: 100 }),
+    ]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const source = map.tokens[1]!;
+
+    const fount = findSpell('XPHB:Fount of Moonlight')!;
+    applyEffectTo(f.ctx, room, {
+      sourceKey: fount.key,
+      sourceId: caster.id,
+      mapId: 'm1',
+      effectDef: automationForSpell(fount).effects![0]!,
+      target: caster,
+    });
+
+    offerDamageReactions(f.ctx, room, 'm1', caster, source, { amount: 5, damageType: 'slashing' });
+    expect(pendingOffers(room.code)).toHaveLength(0);
+  });
+
+  it('Fount of Moonlight: +2d6 излучением ближним заклинательным атакам, но не дальним', () => {
+    const damageDelta = (spellKey: string, withFount: boolean): number => {
+      const room = makeCombatRoom(
+        [
+          makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+          makeToken('t2', { x: 150, y: 100, hpMax: '100', hpCurrent: 100 }),
+        ],
+        { p1: 'lib1' }
+      );
+      const f = makeConnCtx(room, { dm: true, all: true });
+      const [caster, target] = room.scene.maps[0]!.tokens;
+      if (withFount) {
+        const fount = findSpell('XPHB:Fount of Moonlight')!;
+        applyEffectTo(f.ctx, room, {
+          sourceKey: fount.key,
+          sourceId: caster!.id,
+          mapId: 'm1',
+          effectDef: automationForSpell(fount).effects![0]!,
+          target: caster!,
+        });
+      }
+      const spell = findSpell(spellKey)!;
+      const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+      executeAutomation(f.ctx, {
+        caster: caster!,
+        mapId: 'm1',
+        def: automationForSpell(spell, { castLevel: spell.level, characterLevel: 1 }),
+        targets: [target!],
+        stats,
+        author: 'DM',
+      });
+      rand.mockRestore();
+      return 100 - target!.hpCurrent;
+    };
+
+    // Shocking Grasp — ближняя заклинательная атака: разница ровно 2d6 (при 0.5 — 8).
+    expect(damageDelta('XPHB:Shocking Grasp', true) - damageDelta('XPHB:Shocking Grasp', false)).toBe(8);
+    // Eldritch Blast — дальняя: добавки нет.
+    expect(damageDelta('XPHB:Eldritch Blast', true) - damageDelta('XPHB:Eldritch Blast', false)).toBe(0);
+  });
+
   it('removeBrokenEffects: снимает эффект с breakOn и его состояние, не трогая прочие', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

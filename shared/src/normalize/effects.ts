@@ -263,6 +263,16 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       const types = e.ward.filter((t): t is string => typeof t === 'string' && !!t).slice(0, 12);
       if (types.length) effect.ward = [...new Set(types)];
     }
+    if (e.damageReaction && typeof e.damageReaction === 'object') {
+      const r = e.damageReaction as { ability?: unknown; feet?: unknown; condition?: unknown };
+      if (isAbilityKey(r.ability) && typeof r.condition === 'string' && (CONDITION_KEYS as string[]).includes(r.condition)) {
+        effect.damageReaction = {
+          ability: r.ability,
+          feet: clampInt(r.feet, 5, 600, 60),
+          condition: r.condition as ConditionKey,
+        };
+      }
+    }
     if (Array.isArray(e.breakOn)) {
       const events = e.breakOn.filter(
         (k): k is 'attack' | 'spell' | 'damage' => k === 'attack' || k === 'spell' || k === 'damage'

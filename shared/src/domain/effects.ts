@@ -234,6 +234,8 @@ export interface EffectInstance {
   seesInvisible?: boolean;
   /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
   ward?: string[];
+  /** Fount of Moonlight: реакция на урон — спасброск нанёсшего и состояние при провале. */
+  damageReaction?: { ability: AbilityKey; feet: number; condition: ConditionKey };
   /** Banishment: точка возврата изгнанного существа после снятия эффекта. */
   banish?: { x: number; y: number };
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */

@@ -481,6 +481,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       ignoresDifficultTerrain: true,
       seesInvisible: true,
       ward: ['fire', 'cold'],
+      damageReaction: { ability: 'con', feet: 60, condition: 'blinded' },
       breakOn: ['attack'],
       maximizeHealing: true,
       deathSaveAdvantage: true,

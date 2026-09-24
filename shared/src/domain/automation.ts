@@ -143,6 +143,12 @@ export interface AutomationEffect {
   /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
   ward?: string[];
   /**
+   * Fount of Moonlight: реакция носителя на урон от видимого существа в `feet` —
+   * нанёсший урон проходит спасбросок `ability` против СЛ источника, при провале
+   * получает `condition` до начала следующего хода источника. Стоит реакцию.
+   */
+  damageReaction?: { ability: AbilityKey; feet: number; condition: ConditionKey };
+  /**
    * Banishment: носитель изгнан на полуплоскость — скрыт с карты и не является
    * целью/помехой, пока эффект активен. При снятии возвращается в исходную
    * клетку (или ближайшую свободную); при естественном истечении срока
@@ -215,6 +221,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     ignoresDifficultTerrain: def.ignoresDifficultTerrain,
     seesInvisible: def.seesInvisible,
     ward: def.ward ? [...def.ward] : undefined,
+    damageReaction: def.damageReaction ? { ...def.damageReaction } : undefined,
     breakOn: def.breakOn ? [...def.breakOn] : undefined,
     maximizeHealing: def.maximizeHealing,
     deathSaveAdvantage: def.deathSaveAdvantage,

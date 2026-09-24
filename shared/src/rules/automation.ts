@@ -1141,6 +1141,31 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
+  /**
+   * Fount of Moonlight (XPHB): сияние 20/20, сопротивление излучению, +2d6 излучением
+   * ближним атакам (в т.ч. заклинательным — контекст урона с `attackType`) и реакция
+   * «вспышка» на урон от видимого существа в 60 фт (CON-спас, слепота до след. хода).
+   */
+  'XPHB:Fount of Moonlight': {
+    key: 'XPHB:Fount of Moonlight',
+    name: 'Fount of Moonlight',
+    resolution: 'effect',
+    concentration: true,
+    effects: [
+      {
+        name: 'Fount of Moonlight',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [
+          { target: 'damage', mode: 'add', value: '2d6radiant', filter: { attackType: 'melee' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
+        ],
+        light: { bright: 20, dim: 20 },
+        damageReaction: { ability: 'con', feet: 60, condition: 'blinded' },
+      },
+    ],
+  },
   // Animate Objects: до 10 предметов со своими статблоками — механика отдельным
   // срезом. Без записи деривация из данных давала ложный авто-урон 1d4 по цели.
   'XPHB:Animate Objects': {

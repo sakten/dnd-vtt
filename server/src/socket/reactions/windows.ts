@@ -35,7 +35,7 @@ import {
   type ReactionChoice,
 } from './internal';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
-import { acBonusOf, applyReactionChoice, applyWardReaction, reactionSpellOptions } from './spellReactions';
+import { acBonusOf, applyFountReaction, applyReactionChoice, applyWardReaction, reactionSpellOptions } from './spellReactions';
 
 /**
  * Окна реакций на бросок атаки (R2/R8.8): общий слой для оружия и заклинательных
@@ -160,6 +160,10 @@ export function offerDamageReactions(
   const ward = damage.damageType
     ? target.effects.find((e) => e.ward?.includes(damage.damageType!))
     : undefined;
+  // Fount of Moonlight: вспышка по видимому существу в 60 фт, нанёсшему урон.
+  const fount = target.effects.find(
+    (e) => e.damageReaction && reactionOfferAllowed(ctx, room, mapId, target, source, e.damageReaction.feet)
+  );
   const options: ReactionOption[] = [
     ...reactionSpellOptions(room, target, 'damage'),
     ...features.map((def) => featureOption(def, room, target)),
@@ -170,6 +174,16 @@ export function offerDamageReactions(
             name: 'Иммунитет (реакция)',
             kind: 'effect' as const,
             spellKey: ward.sourceKey ?? 'XGE:Primordial Ward',
+          },
+        ]
+      : []),
+    ...(fount
+      ? [
+          {
+            id: `fount:${fount.id}`,
+            name: 'Ослепляющая вспышка (реакция)',
+            kind: 'effect' as const,
+            spellKey: fount.sourceKey ?? 'XPHB:Fount of Moonlight',
           },
         ]
       : []),
@@ -191,6 +205,7 @@ export function offerDamageReactions(
           if (!choice.optionId || !currentRoom) return true;
           if (choice.optionId.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, source);
           else if (choice.optionId.startsWith('ward:')) applyWardReaction(ctx, currentRoom, choice, damage);
+          else if (choice.optionId.startsWith('fount:')) applyFountReaction(ctx, currentRoom, choice, source);
           else applyReactionChoice(ctx, currentRoom, choice, [source]);
           return true;
         },

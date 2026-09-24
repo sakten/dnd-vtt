@@ -41,7 +41,8 @@
 | ✅ B2: `XPHB:Elemental Weapon` (ступени +1/+2/+3 и 1d4/2d4/3d4), `TCE:Spirit Shroud` (аура 10 фт: −10 футов и доп. урон от атак кастера по цели-метке), `XGE:Flame Arrows` (+1d6 огнём дальнему оружию, счётчик 12 зарядов) | `damage:add`/`attack:add`, зона-аура, `takesExtraDamage`, `charges` |
 | `XPHB:Fire Shield`, `XGE:Shadow of Moil` | ✅ `retaliate` костями (2d8), сопротивление; Moil — помеха атакам по носителю (`direction: against`) |
 | `XGE:Shadow Blade` | ⚠️ создание оружия: грантованный attack-action (как Flame Blade), метание/возврат бонусным действием |
-| `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind`, `XPHB:Fount of Moonlight` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
+| `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
+| `XPHB:Fount of Moonlight` | ✅ B3: свет 20/20, сопротивление излучению, +2d6 ближним атакам (`attackType` в контексте заклинательных атак), реакция `damageReaction` (CON-спас ≤60 фт, слепота) |
 | `XPHB:Shillelagh` | ✅ B3: `weaponOverride` в лоадауте — кость кантрипа (d8/d10/d12/2d6), заклинательная характеристика, силовой тип; только клуб/посох |
 | `XGE:Magic Stone` | ⚠️ «три камня» как расходуемый ресурс; +мод к урону |
 | `XGE:Absorb Elements` | ✅ сопротивление (реакция) + заряд +1d6 типом на следующее попадание оружием (`consumeOnAttackRoll`) |

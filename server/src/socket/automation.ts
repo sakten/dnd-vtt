@@ -901,7 +901,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       let damageRoll: DiceRollResult | undefined;
       if (expression) {
         const damageParts = combineRollParts([
-          damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities),
+          damageRollParts(caster.effects, { rangeType, attackType: rangeType, damageType, targetId: target.id }, abilities),
           // Доп. урон по цели от атак кастера (Spirit Shroud: цель под аурой).
           takenDamageParts(target.effects, caster.id),
         ]);

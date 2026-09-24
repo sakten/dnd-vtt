@@ -20,7 +20,7 @@ import type { ConnCtx } from '../context';
 import { findSpell } from '../../spells';
 import { controllerIdOfToken, sheetOfToken, withinFeet } from '../../rooms';
 import { fail } from '../errors';
-import { pushRollMessage } from '../messages';
+import { pushRollMessage, pushSaveMessage } from '../messages';
 import { casterStatsFor } from '../spellStats';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
@@ -195,6 +195,35 @@ export function applyWardReaction(
     code: 'spells.wardImmunity',
     params: { name: token.name, spell: effect.name, type: damage.damageType },
   });
+  ctx.syncCombat(room, choice.mapId);
+}
+
+/**
+ * Fount of Moonlight: ослепляющая вспышка — реакция носителя на урон от видимого
+ * существа в 60 фт: CON-спас против СЛ кастера, при провале слепота до начала
+ * следующего хода кастера (`endOfTurn`, `of: 'source'`).
+ */
+export function applyFountReaction(ctx: ConnCtx, room: Room, choice: ReactionChoice, source: Token): void {
+  const token = choiceToken(ctx, room, choice);
+  const effect = token?.effects.find((e) => e.id === choice.optionId?.slice('fount:'.length));
+  if (!token || !effect?.damageReaction) return;
+  if (!ctx.manager.spendSlot(room, choice.mapId, token, 'reaction')) return;
+  const dc = casterStatsFor(room, token, effect.sourceKey ?? 'XPHB:Fount of Moonlight')?.dc ?? 10;
+  const { roll, success } = ctx.manager.rollSave(room, source, effect.damageReaction.ability, dc, { magical: true });
+  pushSaveMessage(ctx, room, { author: token.name, subject: `${effect.name} · ${source.name}`, roll, success });
+  if (!success) {
+    const id = randomUUID();
+    ctx.manager.applyEffect(room, source, {
+      id,
+      name: effect.name,
+      sourceKey: effect.sourceKey,
+      sourceId: token.id,
+      duration: { type: 'endOfTurn', of: 'source' },
+      modifiers: [],
+      conditions: [effect.damageReaction.condition],
+    });
+    ctx.emitToken(room, 'token:update', choice.mapId, source);
+  }
   ctx.syncCombat(room, choice.mapId);
 }
 
