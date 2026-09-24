@@ -26,7 +26,7 @@ import type { Spell } from './spells';
  * обновить hash ниже — иначе тест падает и сигналит, какой файл изменился.
  */
 const HASHES = {
-  spells: 'a0d8040304235bd5',
+  spells: '81a0ce0c9833d470',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',
@@ -264,6 +264,18 @@ describe('снимок данных', () => {
         if (!(className in CLASSES)) bad.push(`${s.key}: класс ${className}`);
       }
       if (!s.description.length || s.description.some((p) => !p)) bad.push(`${s.key}: описание`);
+      // Лицензия: текст правил `higherLevel` — только у SRD; галка `srd` для фильтра.
+      if (!s.srd && s.higherLevel) bad.push(`${s.key}: не-SRD хранит higherLevel`);
+      if (s.upcast && s.upcast.above === undefined && !s.upcast.tiers?.length) {
+        bad.push(`${s.key}: upcast без above/tiers`);
+      }
+      for (const tier of s.cantrip ?? []) {
+        const okDice = typeof tier.dice === 'string' && /^\d*d\d+$/i.test(tier.dice);
+        const okCount = Number.isInteger(tier.count) && (tier.count ?? 0) > 1;
+        if (!Number.isInteger(tier.level) || (!okDice && !okCount)) {
+          bad.push(`${s.key}: cantrip ${JSON.stringify(tier)}`);
+        }
+      }
     }
     expect(bad).toEqual([]);
     expect(new Set(SPELLS.map((s) => s.key)).size).toBe(SPELLS.length);

@@ -33,32 +33,55 @@ export function characterLevel(classes: ClassLevel[]): number {
   return classes.reduce((acc, c) => acc + clampLevel(c.level), 0);
 }
 
-/** Дополнительные кости апкаста: сколько раз повторить кость из описания. */
-function upcastDice(spell: Spell, castLevel: number): string | null {
-  const text = (spell.higherLevel ?? []).join(' ');
-  const match = text.match(/increases? by ([0-9][0-9d+\s]*) for each (?:spell )?slot level above (\d+)/i);
-  if (!match) return null;
-  const per = match[1]?.trim().split(';')[0]?.trim();
-  const above = Number(match[2]);
-  if (!per || !Number.isFinite(above)) return null;
-  const extra = castLevel - above;
-  if (extra <= 0) return null;
-  return Array.from({ length: extra }, () => per).join(' + ');
+/** Скейл апкаста на круге: ступени (`tiers`) либо линейный (шаг `every`). */
+export interface SpellUpcastAt {
+  dice?: string;
+  attack?: number;
+  flat?: number;
+  targets?: number;
 }
 
-/** Кость кантрипа по уровню персонажа: 5/11/17 (из текста higherLevel). */
-function cantripDice(spell: Spell, base: string, level: number): string {
-  if (level < 5) return base;
-  const text = (spell.higherLevel ?? []).join(' ');
-  const match = text.match(
-    /\b5\b[^()\d]*\(([^)]+)\)[^()\d]*\b11\b[^()\d]*\(([^)]+)\)(?:[^()\d]*\b17\b[^()\d]*\(([^)]+)\))?/i
-  );
-  if (!match) return base;
-  const at11 = match[2]?.trim();
-  const at17 = match[3]?.trim();
-  if (level >= 17) return at17 || at11 || base;
-  if (level >= 11) return at11 || base;
-  return match[1]?.trim() || base;
+/**
+ * Числовой апкаст заклинания (данные, без разбора текста в рантайме):
+ * линейный — `dice`/`attack`/`targets` за каждые `every` кругов выше `above`,
+ * ступени — значения с ближайшего достигнутого круга.
+ */
+export function spellUpcastAt(spell: Spell, castLevel: number): SpellUpcastAt {
+  const up = spell.upcast;
+  if (!up) return {};
+  if (up.tiers?.length) {
+    const tier = [...up.tiers].filter((t) => castLevel >= t.level).pop();
+    if (!tier) return {};
+    return {
+      ...(tier.dice ? { dice: tier.dice } : {}),
+      ...(tier.attack !== undefined ? { attack: tier.attack } : {}),
+    };
+  }
+  if (up.above === undefined || castLevel <= up.above) return {};
+  const steps = Math.floor((castLevel - up.above) / Math.max(1, up.every ?? 1));
+  if (steps <= 0) return {};
+  return {
+    ...(up.dice ? { dice: Array.from({ length: steps }, () => up.dice!).join(' + ') } : {}),
+    ...(up.attack ? { attack: up.attack * steps } : {}),
+    ...(up.flat ? { flat: up.flat * steps } : {}),
+    ...(up.targets ? { targets: up.targets * steps } : {}),
+  };
+}
+
+/** Кость кантрипа по уровню персонажа (5/11/17) — из данных `cantrip`. */
+export function spellCantripDice(spell: Spell, characterLvl: number): string | undefined {
+  const tiers = spell.cantrip;
+  if (!tiers?.length) return undefined;
+  let dice: string | undefined;
+  for (const tier of tiers) {
+    if (characterLvl >= tier.level) dice = tier.dice;
+  }
+  return dice;
+}
+
+/** Доп. кости апкаста: числа из `upcast` (выражение добавки `1d6` / `1d6 + 1d6`). */
+export function spellUpcastDice(spell: Spell, castLevel: number): string | undefined {
+  return spell.upcast ? spellUpcastAt(spell, castLevel).dice : undefined;
 }
 
 /**
@@ -68,9 +91,9 @@ function cantripDice(spell: Spell, base: string, level: number): string {
 export function spellDamageExpression(spell: Spell, castLevel: number, characterLvl: number): string | null {
   const base = spell.damage?.dice?.[0]?.trim();
   if (!base) return null;
-  if (spell.level === 0) return cantripDice(spell, base, characterLvl);
+  if (spell.level === 0) return spellCantripDice(spell, characterLvl) ?? base;
   if (castLevel > spell.level) {
-    const extra = upcastDice(spell, castLevel);
+    const extra = spellUpcastDice(spell, castLevel);
     if (extra) return `${base} + ${extra}`;
   }
   return base;
@@ -152,69 +175,34 @@ export function spellTargetKind(spell: Spell): 'self' | 'creature' {
   return spellIsSelf(spell) || spell.range.type === 'emanation' ? 'self' : 'creature';
 }
 
-const NUMBER_WORDS: Record<string, number> = {
-  one: 1,
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8,
-  nine: 9,
-  ten: 10,
-};
-
-function parseCount(token: string): number {
-  const n = Number(token);
-  return Number.isFinite(n) ? n : NUMBER_WORDS[token.toLowerCase()] ?? 0;
-}
-
 /**
- * Число атак/снарядов заклинания (Scorching Ray, Eldritch Blast, Magic Missile).
- * База — из текста («three rays»), апкаст/уровень персонажа — из `higherLevel`.
+ * Число атак/снарядов заклинания (Scorching Ray, Eldritch Blast, Magic Missile):
+ * база — `attacks`, апкаст — `upcast.attacks`, уровни персонажа — тиры `cantrip.count`.
+ * Только числа из данных, без разбора текста.
  */
 export function spellAttackCount(spell: Spell, castLevel: number, characterLvl: number): number {
-  const text = (spell.description ?? []).join(' ');
-  const higher = (spell.higherLevel ?? []).join(' ');
-  let count = 1;
-
-  const base = text.match(
-    /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b\s+(?:fiery\s+|glowing\s+|magical\s+)?(?:rays?|beams?|darts?|bolts?|projectiles?)/i
-  );
-  if (base) count = Math.max(count, parseCount(base[1] ?? ''));
-
-  const upcast = higher.match(
-    /creates?\s+(?:one|1|\d+)\s+(?:additional|more)\s+(?:fiery\s+|glowing\s+|magical\s+)?(?:ray|beam|dart|bolt|projectile)\s+for each\s+(?:spell\s+)?slot level above\s+(\d+)/i
-  );
-  if (upcast) count += Math.max(0, castLevel - Number(upcast[1]));
-
+  const base = spell.attacks ?? 1;
   if (spell.level === 0) {
-    for (const tier of higher.matchAll(
-      /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:beams?|rays?|darts?|bolts?|projectiles?)\s+(?:at\s+)?level\s+(\d+)/gi
-    )) {
-      if (characterLvl >= Number(tier[2])) count = Math.max(count, parseCount(tier[1] ?? ''));
+    let count = base;
+    for (const tier of spell.cantrip ?? []) {
+      if (tier.count && characterLvl >= tier.level) count = tier.count;
     }
+    return Math.max(1, count);
   }
-
-  return Math.max(1, count);
+  const up = spell.upcast;
+  if (up?.attacks && up.above !== undefined) {
+    const steps = Math.floor((castLevel - up.above) / Math.max(1, up.every ?? 1));
+    if (steps > 0) return Math.max(1, base + up.attacks * steps);
+  }
+  return Math.max(1, base);
 }
 
 /**
- * Дополнительные цели за круг выше базового: «one additional creature/Humanoid/
- * Beast/Undead for each spell slot level above N» (Hold Person, Bless, Bane).
+ * Дополнительные цели за круг выше базового: из `upcast.targets` (числа в данных).
  * 0 — заклинание не расширяет число целей апкастом.
  */
 export function spellExtraTargets(spell: Spell, castLevel: number): number {
-  const text = [...(spell.higherLevel ?? []), ...(spell.description ?? [])].join(' ');
-  const match = text.match(
-    /(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+additional\s+(?:willing\s+)?(?:creatures?|humanoids?|beasts?|undead)\s+for\s+each\s+(?:spell\s+)?slot level above\s+(\d+)/i
-  );
-  if (!match) return 0;
-  const per = parseCount(match[1] ?? '');
-  const above = Number(match[2]);
-  if (!per || !Number.isFinite(above)) return 0;
-  return Math.max(0, castLevel - above) * per;
+  return spell.upcast?.targets ? spellUpcastAt(spell, castLevel).targets ?? 0 : 0;
 }
 
 const AOE_TAGS = new Set(['S', 'C', 'L', 'N', 'Q', 'R', 'Y']);

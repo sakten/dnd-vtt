@@ -113,7 +113,7 @@
 
 ## 8. Системные (не per-spell)
 
-1. **Апкаст не-SRD:** `higherLevel` пишется только для `srd52` (`shared/src/rules/spells.ts:405`) → нет апкаста XGE/TCE и XPHB без srd52 (Arms of Hadar, Hail of Thorns, смайты, Cloud of Daggers, Conjure Barrage, Lightning Arrow, Hunger of Hadar, Snilloc's, Chaos Bolt…). Regex `upcastDice` не знает «for every» (Spiritual Weapon).
+1. **Апкаст — ✅ сделано единообразно (без разбора текста в рантайме):** при сборке из HI-текста выводятся только числа — `Spell.upcast` (111: кости, «за каждые два круга», ступени Elemental Weapon/Magic Weapon/Shadow Blade, доп. цели, плоские +N у Armor of Agathys (`flat`), доп. снаряды у Magic Missile/Scorching Ray (`attacks`)), `Spell.cantrip` (27 кантрипов: кости 5/11/17 у GFB/BB/TS, лучи Eldritch Blast (`count`)) и базовое `Spell.attacks` (Scorching Ray/Magic Missile). Рантайм читает только числа (`spellUpcastAt`/`spellUpcastDice`/`spellCantripDice`/`spellAttackCount`); текстовые `higherLevel` хранятся только у SRD (лицензия) и в логике не парсятся. Галка `Spell.srd` (286) — для фильтрации контента. Не моделируются (и не парсились): апкасты длительности/радиуса (Dominate, Fog Cloud) — вне среза автоматизации.
 2. **Скейл кантрипов** зависит от `higherLevel` → не растут: Mind Sliver, Toll the Dead, Thorn Whip, Thunderclap, Word of Radiance (и XGE/TCE-кантрипы).
 3. **Мульти-кости:** `spellDamageExpression` берёт `dice[0]` → теряются части урона и связь кость↔тип (см. D); в схеме `AutomationDice` только одна строка.
 4. **Лечение без +мода:** Cure Wounds, Healing Word, Mass Healing Word, Mass Cure Wounds. Флаг `abilityMod` в схеме есть, деривация не ставит; `withSpellAbilityMod` смотрит только `def.damage?.abilityMod`.

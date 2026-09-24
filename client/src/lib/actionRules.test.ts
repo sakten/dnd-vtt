@@ -171,6 +171,7 @@ describe('spellCastInfo: мульти-цели', () => {
       level: 2,
       description: ['You create three rays of fire.'],
       damage: { dice: ['2d6'], types: ['fire'] },
+      attacks: 3,
     });
     const info = spellCastInfo(spell, 2, caster);
     expect(info.multi).toBe(true);
@@ -184,7 +185,7 @@ describe('spellCastInfo: мульти-цели', () => {
       name: 'Hold Person',
       level: 2,
       spellAttack: undefined,
-      higherLevel: ['You can target one additional Humanoid for each spell slot level above 2.'],
+      upcast: { above: 2, targets: 1 },
     });
     const upcast = spellCastInfo(spell, 3, caster);
     expect(upcast.multi).toBe(true);

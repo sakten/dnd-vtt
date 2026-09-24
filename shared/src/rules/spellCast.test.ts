@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerResources } from '../domain/sheet';
 import { normalizeSheet } from '../normalize';
-import type { Spell } from './spells';
+import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 import {
   casterStats,
   castableLevels,
@@ -16,10 +16,12 @@ import {
   spellIsSelf,
   spellRangeFeet,
   spellTargetKind,
+  spellUpcastAt,
+  spellUpcastDice,
 } from './spellCast';
 
 function makeSpell(partial: Partial<Spell>): Spell {
-  return {
+  const spell: Spell = {
     key: 'XPHB:Test',
     name: 'Test',
     source: 'XPHB',
@@ -34,6 +36,14 @@ function makeSpell(partial: Partial<Spell>): Spell {
     description: [],
     ...partial,
   };
+  // Фикстуры: числа скейла выводим так же, как сборщик данных (npm run spells).
+  const hi = spell.higherLevel;
+  if (!spell.upcast && hi?.length) spell.upcast = deriveUpcast(hi);
+  if (!spell.cantrip && spell.level === 0 && hi?.length) {
+    spell.cantrip = deriveCantripTiers(hi, spell.description ?? []);
+  }
+  if (!spell.attacks) spell.attacks = deriveAttackCount(spell.description ?? []);
+  return spell;
 }
 
 function resources(partial: Partial<PlayerResources>): PlayerResources {
@@ -152,6 +162,44 @@ describe('spellRangeFeet', () => {
     expect(spellRangeFeet(makeSpell({ range: { type: 'point', distance: { type: 'touch' } } }))).toBe(5);
     expect(spellRangeFeet(makeSpell({ range: { type: 'self' } }))).toBe(0);
     expect(spellRangeFeet(makeSpell({ range: { type: 'special' } }))).toBeNull();
+  });
+});
+
+describe('spellUpcastAt (числовой апкаст)', () => {
+  it('линейный: кости/атака/цели за круги выше', () => {
+    const spell = makeSpell({ level: 1, upcast: { above: 1, dice: '1d6', attack: 1, targets: 1 } });
+    expect(spellUpcastAt(spell, 1)).toEqual({});
+    expect(spellUpcastAt(spell, 3)).toEqual({ dice: '1d6 + 1d6', attack: 2, targets: 2 });
+    expect(spellUpcastDice(spell, 4)).toBe('1d6 + 1d6 + 1d6');
+  });
+
+  it('шаг «за каждые два круга»', () => {
+    const spell = makeSpell({ level: 3, upcast: { above: 3, every: 2, dice: '1d8' } });
+    expect(spellUpcastAt(spell, 4)).toEqual({});
+    expect(spellUpcastAt(spell, 5)).toEqual({ dice: '1d8' });
+    expect(spellUpcastAt(spell, 7)).toEqual({ dice: '1d8 + 1d8' });
+  });
+
+  it('ступени: значения с ближайшего достигнутого круга', () => {
+    const spell = makeSpell({
+      level: 3,
+      upcast: {
+        tiers: [
+          { level: 5, attack: 2, dice: '2d4' },
+          { level: 7, attack: 3, dice: '3d4' },
+        ],
+      },
+    });
+    expect(spellUpcastAt(spell, 4)).toEqual({});
+    expect(spellUpcastAt(spell, 6)).toEqual({ attack: 2, dice: '2d4' });
+    expect(spellUpcastAt(spell, 9)).toEqual({ attack: 3, dice: '3d4' });
+  });
+
+  it('интеграция: spellDamageExpression и spellExtraTargets из upcast', () => {
+    const damage = makeSpell({ level: 1, damage: { dice: ['2d6'], types: ['fire'] }, upcast: { above: 1, dice: '1d6' } });
+    expect(spellDamageExpression(damage, 3, 1)).toBe('2d6 + 1d6 + 1d6');
+    const targets = makeSpell({ level: 1, upcast: { above: 1, targets: 1 } });
+    expect(spellExtraTargets(targets, 4)).toBe(3);
   });
 });
 

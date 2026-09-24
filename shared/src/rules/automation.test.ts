@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
 import { automationForAction, automationForSpell, spellAutomated, spellVariantDef } from './automation';
 import { findBaseAction } from './actions';
-import type { Spell } from './spells';
+import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
   return { id: 'test', name: 'Test', source: 'basic', costs: ['action'], ...partial };
 }
 
 function makeSpell(partial: Partial<Spell>): Spell {
-  return {
+  const spell: Spell = {
     key: 'XPHB:Test',
     name: 'Test',
     source: 'XPHB',
@@ -24,6 +24,14 @@ function makeSpell(partial: Partial<Spell>): Spell {
     description: [],
     ...partial,
   };
+  // Фикстуры: числа скейла выводим так же, как сборщик данных (npm run spells).
+  const hi = spell.higherLevel;
+  if (!spell.upcast && hi?.length) spell.upcast = deriveUpcast(hi);
+  if (!spell.cantrip && spell.level === 0 && hi?.length) {
+    spell.cantrip = deriveCantripTiers(hi, spell.description ?? []);
+  }
+  if (!spell.attacks) spell.attacks = deriveAttackCount(spell.description ?? []);
+  return spell;
 }
 
 describe('automationForSpell', () => {
@@ -401,31 +409,61 @@ describe('automationForSpell', () => {
   });
 
   it('XPHB-смайты — доп. кости с апкастом, спас и эффекты при провале', () => {
-    const divine = makeSpell({ key: 'XPHB:Divine Smite', name: 'Divine Smite', level: 1 });
+    const divine = makeSpell({
+      key: 'XPHB:Divine Smite',
+      name: 'Divine Smite',
+      level: 1,
+      damage: { dice: ['2d8'], types: ['radiant'] },
+      upcast: { above: 1, dice: '1d8' },
+    });
     expect(automationForSpell(divine, { castLevel: 3 }).damage).toEqual({ dice: '2d8 + 1d8 + 1d8', types: ['radiant'] });
     expect(spellAutomated(divine)).toBe(true);
 
-    const thunderous = makeSpell({ key: 'XPHB:Thunderous Smite', name: 'Thunderous Smite', level: 1 });
+    const thunderous = makeSpell({
+      key: 'XPHB:Thunderous Smite',
+      name: 'Thunderous Smite',
+      level: 1,
+      damage: { dice: ['2d6'], types: ['thunder'] },
+      upcast: { above: 1, dice: '1d6' },
+    });
     const thunder = automationForSpell(thunderous, { castLevel: 2 });
     expect(thunder.damage?.dice).toBe('2d6 + 1d6');
     expect(thunder.save).toEqual({ ability: 'str' });
     expect(thunder.force).toEqual({ kind: 'push', feet: 10 });
     expect(thunder.effects?.[0]?.conditions).toEqual(['prone']);
 
-    const wrathful = makeSpell({ key: 'XPHB:Wrathful Smite', name: 'Wrathful Smite', level: 1 });
+    const wrathful = makeSpell({
+      key: 'XPHB:Wrathful Smite',
+      name: 'Wrathful Smite',
+      level: 1,
+      damage: { dice: ['1d6'], types: ['necrotic'] },
+      upcast: { above: 1, dice: '1d6' },
+    });
     const wrath = automationForSpell(wrathful, { castLevel: 2 });
     expect(wrath.damage?.dice).toBe('1d6 + 1d6');
     expect(wrath.concentration).toBe(true);
     expect(wrath.effects?.[0]?.conditions).toEqual(['frightened']);
     expect(wrath.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'start' });
 
-    const blinding = makeSpell({ key: 'XPHB:Blinding Smite', name: 'Blinding Smite', level: 3 });
+    const blinding = makeSpell({
+      key: 'XPHB:Blinding Smite',
+      name: 'Blinding Smite',
+      level: 3,
+      damage: { dice: ['3d8'], types: ['radiant'] },
+      upcast: { above: 3, dice: '1d8' },
+    });
     const blind = automationForSpell(blinding, { castLevel: 4 });
     expect(blind.damage?.dice).toBe('3d8 + 1d8');
     expect(blind.effects?.[0]?.conditions).toEqual(['blinded']);
     expect(blind.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'start' });
 
-    const shining = makeSpell({ key: 'XPHB:Shining Smite', name: 'Shining Smite', level: 2 });
+    const shining = makeSpell({
+      key: 'XPHB:Shining Smite',
+      name: 'Shining Smite',
+      level: 2,
+      damage: { dice: ['2d6'], types: ['radiant'] },
+      upcast: { above: 2, dice: '1d6' },
+    });
     const shine = automationForSpell(shining, { castLevel: 3 });
     expect(shine.damage?.dice).toBe('2d6 + 1d6');
     expect(shine.effects?.[0]?.light).toEqual({ bright: 0, dim: 5 });
@@ -436,13 +474,23 @@ describe('automationForSpell', () => {
       filter: { direction: 'against' },
     });
 
-    const staggering = makeSpell({ key: 'XPHB:Staggering Smite', name: 'Staggering Smite', level: 4 });
+    const staggering = makeSpell({
+      key: 'XPHB:Staggering Smite',
+      name: 'Staggering Smite',
+      level: 4,
+      damage: { dice: ['4d6'], types: ['psychic'] },
+    });
     const stagger = automationForSpell(staggering);
     expect(stagger.damage?.dice).toBe('4d6');
     expect(stagger.effects?.[0]?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
     expect(stagger.effects?.[0]?.conditions).toEqual(['stunned']);
 
-    const banishing = makeSpell({ key: 'XPHB:Banishing Smite', name: 'Banishing Smite', level: 5 });
+    const banishing = makeSpell({
+      key: 'XPHB:Banishing Smite',
+      name: 'Banishing Smite',
+      level: 5,
+      damage: { dice: ['5d10'], types: ['force'] },
+    });
     const banish = automationForSpell(banishing, { castLevel: 7 });
     expect(banish.damage?.dice).toBe('5d10');
     expect(banish.save).toEqual({ ability: 'cha' });
@@ -453,7 +501,13 @@ describe('automationForSpell', () => {
   });
 
   it('Hail of Thorns и Lightning Arrow — ranged-смайты со спасом вокруг цели', () => {
-    const hail = makeSpell({ key: 'XPHB:Hail of Thorns', name: 'Hail of Thorns', level: 1 });
+    const hail = makeSpell({
+      key: 'XPHB:Hail of Thorns',
+      name: 'Hail of Thorns',
+      level: 1,
+      damage: { dice: ['1d10'], types: ['piercing'] },
+      upcast: { above: 1, dice: '1d10' },
+    });
     const h = automationForSpell(hail, { castLevel: 2 });
     expect(h.damage).toEqual({ dice: '1d10 + 1d10', types: ['piercing'] });
     expect(h.weaponAttack?.replace).toBeUndefined();
@@ -466,7 +520,13 @@ describe('automationForSpell', () => {
     });
     expect(spellAutomated(hail)).toBe(true);
 
-    const arrow = makeSpell({ key: 'XPHB:Lightning Arrow', name: 'Lightning Arrow', level: 3 });
+    const arrow = makeSpell({
+      key: 'XPHB:Lightning Arrow',
+      name: 'Lightning Arrow',
+      level: 3,
+      damage: { dice: ['4d8', '2d8'], types: ['lightning'] },
+      upcast: { above: 3, dice: '1d8' },
+    });
     const a = automationForSpell(arrow, { castLevel: 4 });
     expect(a.damage).toEqual({ dice: '4d8 + 1d8', types: ['lightning'] });
     expect(a.weaponAttack?.replace).toBe(true);
@@ -481,7 +541,12 @@ describe('automationForSpell', () => {
   });
 
   it('Booming Blade, True Strike и Zephyr Strike — наездники и эффекты', () => {
-    const booming = makeSpell({ key: 'TCE:Booming Blade', name: 'Booming Blade', level: 0 });
+    const bladeTiers = [
+      { level: 5, dice: '1d8' },
+      { level: 11, dice: '2d8' },
+      { level: 17, dice: '3d8' },
+    ];
+    const booming = makeSpell({ key: 'TCE:Booming Blade', name: 'Booming Blade', level: 0, cantrip: bladeTiers });
     const l1 = automationForSpell(booming, { characterLevel: 1 });
     expect(l1.weaponAttack?.riderDice).toBeUndefined();
     expect(l1.weaponAttack?.hitEffect?.onWillingMove).toEqual({ dice: '1d8', damageType: 'thunder', feet: 5 });
@@ -494,7 +559,16 @@ describe('automationForSpell', () => {
     expect(l17.weaponAttack?.hitEffect?.onWillingMove?.dice).toBe('4d8');
     expect(spellAutomated(booming)).toBe(true);
 
-    const trueStrike = makeSpell({ key: 'XPHB:True Strike', name: 'True Strike', level: 0 });
+    const trueStrike = makeSpell({
+      key: 'XPHB:True Strike',
+      name: 'True Strike',
+      level: 0,
+      cantrip: [
+        { level: 5, dice: '1d6' },
+        { level: 11, dice: '2d6' },
+        { level: 17, dice: '3d6' },
+      ],
+    });
     expect(automationForSpell(trueStrike, { characterLevel: 1 }).weaponAttack?.riderDice).toBeUndefined();
     expect(automationForSpell(trueStrike, { characterLevel: 5 }).weaponAttack).toMatchObject({
       anyWeapon: true,
@@ -1107,6 +1181,7 @@ describe('automationForSpell', () => {
       name: 'Armor of Agathys',
       level: 1,
       automation: 'manual',
+      upcast: { above: 1, flat: 5 },
     });
     const base = automationForSpell(spell);
     expect(base.resolution).toBe('effect');
@@ -1204,7 +1279,17 @@ describe('automationForAction', () => {
 });
 
 describe('Green-Flame Blade (клинок-кантрип)', () => {
-  const spell = () => makeSpell({ key: 'TCE:Green-Flame Blade', name: 'Green-Flame Blade', level: 0 });
+  const spell = () =>
+    makeSpell({
+      key: 'TCE:Green-Flame Blade',
+      name: 'Green-Flame Blade',
+      level: 0,
+      cantrip: [
+        { level: 5, dice: '1d8' },
+        { level: 11, dice: '2d8' },
+        { level: 17, dice: '3d8' },
+      ],
+    });
 
   it('билдер: оружейная атака правой рукой, райдер и вторичный урон по уровням', () => {
     const l1 = automationForSpell(spell(), { characterLevel: 1 });

@@ -17,7 +17,7 @@ import { AUTOMATION_ACTIONS } from './automationActions';
 import { eldritchBlastMods } from './invocations';
 import { monsterAbilityAutomation } from './monsterAbility';
 import { summonSpellDef } from './summons';
-import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from './spellCast';
+import { isHealingSpell, spellAttackCount, spellCantripDice, spellDamageExpression, spellMaxRounds, spellUpcastAt, spellUpcastDice } from './spellCast';
 import type { Spell } from './spells';
 
 export { AUTOMATION_ACTIONS };
@@ -1477,7 +1477,7 @@ function skillEmpowermentDef(spell: Spell, opts: AutomationOptions): AutomationD
 function armorOfAgathysDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Armor of Agathys') return undefined;
   const castLevel = Math.max(1, opts.castLevel ?? Math.max(1, spell.level));
-  const amount = 5 + 5 * (castLevel - 1);
+  const amount = 5 + (spellUpcastAt(spell, castLevel).flat ?? 0);
   const effect: AutomationEffect = {
     name: spell.name,
     duration: PERMANENT,
@@ -1699,13 +1699,8 @@ function ensnaringStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDe
   };
 }
 
-/** Конфигурация XPHB-смайта (2024): кости урона при попадании, спас и эффект при провале. */
+/** Конфигурация XPHB-смайта (2024): тип урона, спас и эффект при провале. */
 interface SmiteConfig {
-  /** Базовая кость на минимальном круге. */
-  base: string;
-  /** Добавка за каждый круг ячейки выше `above`. */
-  per?: string;
-  above?: number;
   /** Тип добавочного урона. */
   type: string;
   save?: AbilityKey;
@@ -1718,42 +1713,28 @@ interface SmiteConfig {
   /** Вторичный спас вокруг цели (Hail — 5 фт, Lightning — 10 фт). */
   burst?: {
     rangeFeet: number;
-    /** Кости/тип всплеска; без них наследуются кости основного урона (Hail). */
-    base?: string;
-    per?: string;
-    above?: number;
-    type?: string;
     save: AbilityKey;
+    /** Индекс базовой кости всплеска в `damage.dice` (Lightning: 1 → 2d8). */
+    diceIndex?: number;
+    type?: string;
     includePrimary?: boolean;
   };
 }
 
-/** Кости смайта/всплеска с апкастом: база + `per` за каждый круг выше `above`. */
-function smiteDiceExpr(base: string, per: string | undefined, above: number | undefined, level: number): string {
-  const extra = per && above ? Math.max(0, level - above) : 0;
-  return [base, ...Array.from({ length: extra }, () => per!)].join(' + ');
-}
-
 /**
  * Смайты XPHB (2024): бонусным действием сразу после попадания — доп. кости
- * урона и, при провале спаса, эффект/сдвиг. Скейл апкаста захардкожен: у не-SRD
- * заклинаний нет `higherLevel` (системный HI-долг, как у Green-Flame Blade).
+ * урона и, при провале спаса, эффект/сдвиг. База и апкаст — из данных
+ * (`damage.dice` + `upcast`), не захардкожены.
  */
 const SMITE_CONFIGS: Record<string, SmiteConfig> = {
-  'XPHB:Divine Smite': { base: '2d8', per: '1d8', above: 1, type: 'radiant' },
+  'XPHB:Divine Smite': { type: 'radiant' },
   'XPHB:Thunderous Smite': {
-    base: '2d6',
-    per: '1d6',
-    above: 1,
     type: 'thunder',
     save: 'str',
     forceFeet: 10,
     effect: { duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
   },
   'XPHB:Wrathful Smite': {
-    base: '1d6',
-    per: '1d6',
-    above: 1,
     type: 'necrotic',
     save: 'wis',
     concentration: true,
@@ -1766,9 +1747,6 @@ const SMITE_CONFIGS: Record<string, SmiteConfig> = {
     },
   },
   'XPHB:Blinding Smite': {
-    base: '3d8',
-    per: '1d8',
-    above: 3,
     type: 'radiant',
     save: 'con',
     concentration: true,
@@ -1781,9 +1759,6 @@ const SMITE_CONFIGS: Record<string, SmiteConfig> = {
     },
   },
   'XPHB:Shining Smite': {
-    base: '2d6',
-    per: '1d6',
-    above: 2,
     type: 'radiant',
     concentration: true,
     effect: {
@@ -1797,15 +1772,11 @@ const SMITE_CONFIGS: Record<string, SmiteConfig> = {
     },
   },
   'XPHB:Staggering Smite': {
-    base: '4d6',
-    per: '1d6',
-    above: 4,
     type: 'psychic',
     save: 'wis',
     effect: { duration: UNTIL_NEXT_TURN, to: 'targets', modifiers: [], conditions: ['stunned'] },
   },
   'XPHB:Banishing Smite': {
-    base: '5d10',
     type: 'force',
     save: 'cha',
     concentration: true,
@@ -1819,37 +1790,27 @@ const SMITE_CONFIGS: Record<string, SmiteConfig> = {
     },
   },
   'XPHB:Hail of Thorns': {
-    base: '1d10',
-    per: '1d10',
-    above: 1,
     type: 'piercing',
     burst: { rangeFeet: 5, save: 'dex', includePrimary: true },
   },
   'XPHB:Lightning Arrow': {
-    base: '4d8',
-    per: '1d8',
-    above: 3,
     type: 'lightning',
     replace: true,
-    burst: { rangeFeet: 10, base: '2d8', per: '1d8', above: 3, type: 'lightning', save: 'dex' },
+    burst: { rangeFeet: 10, save: 'dex', diceIndex: 1 },
   },
 };
 
-/** Билдер XPHB-смайта: доп. кости урона (апкаст), спас и эффект при провале. */
+/** Билдер XPHB-смайта: кости/апкаст из данных, спас и эффект при провале. */
 function xphbSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   const cfg = SMITE_CONFIGS[spell.key];
-  if (!cfg) return undefined;
+  if (!cfg || !spell.damage?.dice?.length) return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const dice = smiteDiceExpr(cfg.base, cfg.per, cfg.above, level);
+  const up = spellUpcastDice(spell, level);
+  const dice = spellDamageExpression(spell, level, opts.characterLevel ?? 1) ?? spell.damage.dice[0]!;
   const secondary = cfg.burst
     ? {
         rangeFeet: cfg.burst.rangeFeet,
-        dice: smiteDiceExpr(
-          cfg.burst.base ?? cfg.base,
-          cfg.burst.per ?? cfg.per,
-          cfg.burst.above ?? cfg.above,
-          level
-        ),
+        dice: [spell.damage.dice[cfg.burst.diceIndex ?? 0] ?? spell.damage.dice[0]!, up].filter(Boolean).join(' + '),
         damageType: cfg.burst.type ?? cfg.type,
         save: { ability: cfg.burst.save, half: true },
         ...(cfg.burst.includePrimary ? { includePrimary: true } : {}),
@@ -1887,13 +1848,11 @@ function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
 /**
  * Green-Flame Blade (TCE 2024): атака оружием правой руки; на попадании —
  * райдер огнём (0/1к8/2к8/3к8 на 1/5/11/17) и вторичная цель в 5 фт:
- * урон огнём = мод заклинательной характеристики + те же кости. Скейл
- * захардкожен: у не-SRD заклинаний нет `higherLevel` (системный HI-долг).
+ * урон огнём = мод заклинательной характеристики + те же кости.
  */
 function greenFlameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'TCE:Green-Flame Blade') return undefined;
-  const level = opts.characterLevel ?? 1;
-  const dice = level >= 17 ? '3d8' : level >= 11 ? '2d8' : level >= 5 ? '1d8' : undefined;
+  const dice = spellCantripDice(spell, opts.characterLevel ?? 1);
   return {
     key: spell.key,
     name: spell.name,
@@ -1906,17 +1865,24 @@ function greenFlameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDe
   };
 }
 
+/** Сумма костей одного вида: `1d8` + `1d8` → `2d8` (иначе обычное сложение). */
+function addDice(expr: string | undefined, extra: string): string {
+  if (!expr) return extra;
+  const a = expr.match(/^(\d*)d(\d+)$/);
+  const b = extra.match(/^(\d*)d(\d+)$/);
+  if (a && b && a[2] === b[2]) return `${Number(a[1] || 1) + Number(b[1] || 1)}d${a[2]}`;
+  return `${expr} + ${extra}`;
+}
+
 /**
  * Booming Blade (TCE): атака оружием правой руки; на попадании — райдер звуком
  * (0/1к8/2к8/3к8 на 1/5/11/17) и эффект «гремящей энергии» до начала вашего
  * следующего хода: добровольное перемещение ≥5 фт — урон 1к8…4к8 и конец.
- * Скейл захардкожен (системный HI-долг не-SRD).
  */
 function boomingBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'TCE:Booming Blade') return undefined;
-  const level = opts.characterLevel ?? 1;
-  const hitDice = level >= 17 ? '3d8' : level >= 11 ? '2d8' : level >= 5 ? '1d8' : undefined;
-  const moveDice = level >= 17 ? '4d8' : level >= 11 ? '3d8' : level >= 5 ? '2d8' : '1d8';
+  const hitDice = spellCantripDice(spell, opts.characterLevel ?? 1);
+  const moveDice = addDice(hitDice, '1d8');
   return {
     key: spell.key,
     name: spell.name,
@@ -1938,8 +1904,7 @@ function boomingBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef |
 /** True Strike (XPHB): атака оружием от заклинательной характеристики, +1к6/2к6/3к6 излучением на 5/11/17. */
 function trueStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:True Strike') return undefined;
-  const level = opts.characterLevel ?? 1;
-  const dice = level >= 17 ? '3d6' : level >= 11 ? '2d6' : level >= 5 ? '1d6' : undefined;
+  const dice = spellCantripDice(spell, opts.characterLevel ?? 1);
   return {
     key: spell.key,
     name: spell.name,

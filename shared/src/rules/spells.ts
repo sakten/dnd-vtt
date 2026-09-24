@@ -83,9 +83,175 @@ export interface Spell {
   /** Накладываемые состояния (ключи каталога). */
   conditions?: ConditionKey[];
   automation: SpellAutomation;
+  /** SRD 5.2: контент под CC-BY (полный текст правил хранится; галка для фильтрации). */
+  srd?: boolean;
   /** SRD — полный текст; не-SRD — одно предложение. */
   description: string[];
   higherLevel?: string[];
+  /** Числовой скейл апкаста (механика; не-SRD хранит только его, без текста). */
+  upcast?: SpellUpcast;
+  /** Скейл кантрипа по уровням персонажа 5/11/17 (механика). */
+  cantrip?: SpellUpcastTier[];
+  /** Базовое число атак/снарядов (Scorching Ray: 3, Magic Missile: 3), больше 1. */
+  attacks?: number;
+}
+
+/** Ступень апкаста/кантрипа: действует с круга (или уровня персонажа) `level`. */
+export interface SpellUpcastTier {
+  level: number;
+  dice?: string;
+  attack?: number;
+  /** Число лучей/снарядов с этой ступени (Eldritch Blast: 2/3/4). */
+  count?: number;
+}
+
+/**
+ * Числовой скейл ячейки выше базовой (без текста — механика). Линейный вид:
+ * за каждые `every` кругов выше `above` — +`dice`/`attack`/`flat`/`attacks`/`targets`;
+ * либо `tiers` с фиксированных кругов (приоритетнее линейного).
+ */
+export interface SpellUpcast {
+  above?: number;
+  every?: number;
+  dice?: string;
+  attack?: number;
+  /** Плоская прибавка за шаг (Armor of Agathys: +5 врем. HP и урона). */
+  flat?: number;
+  /** Доп. лучи/дротики/снаряды за шаг (Magic Missile, Scorching Ray). */
+  attacks?: number;
+  targets?: number;
+  tiers?: SpellUpcastTier[];
+}
+
+const ORD = '(?:st|nd|rd|th)';
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+function numberWord(token: string): number {
+  const n = Number(token);
+  return Number.isFinite(n) ? n : NUMBER_WORDS[token.toLowerCase()] ?? 0;
+}
+
+/**
+ * Числовой скейл апкаста из текста `entriesHigherLevel` (после `stripTags`: у
+ * `{@scaledamage}` остаётся инкремент). Понимает линейный вид («increases by 1d6
+ * for each slot level above 1», «for every two slot levels above 3rd»), доп. цели
+ * и ступени (Elemental Weapon, Magic Weapon, Shadow Blade). Текст не сохраняется —
+ * только числа (не-SRD хранит механику, не правила).
+ */
+export function deriveUpcast(higherLevel: string[]): SpellUpcast | undefined {
+  const text = stripTags(higherLevel.join(' ')).replace(/\s+/g, ' ').trim();
+  if (!text) return undefined;
+
+  // Ступени: Elemental Weapon — «level 5-6 … bonus … +2 … extra damage … 2d4».
+  const tiers: SpellUpcastTier[] = [];
+  for (const m of text.matchAll(/level (\d+)\s*-\s*(\d+) spell slot[^.]*?bonus[^+.\d]*\+(\d+)[^.]*?(\d+d\d+)/gi)) {
+    tiers.push({ level: Number(m[1]), attack: Number(m[3]), dice: m[4] });
+  }
+  for (const m of text.matchAll(/level (\d+)\+ spell slot[^.]*?bonus[^+.\d]*\+(\d+)[^.]*?(\d+d\d+)/gi)) {
+    tiers.push({ level: Number(m[1]), attack: Number(m[2]), dice: m[3] });
+  }
+  // Magic Weapon — «bonus increases to +2 with a level 3-5 spell slot», «+3 … 6+».
+  for (const m of text.matchAll(/bonus increases to \+(\d+) with a level (\d+)(?:-(\d+))?\+? spell slot/gi)) {
+    tiers.push({ level: Number(m[2]), attack: Number(m[1]) });
+  }
+  // Shadow Blade — «3rd- or 4th-level … damage increases to 3d8» / «7th level or higher … 5d8».
+  for (const m of text.matchAll(new RegExp(`(\\d+)${ORD}- or (\\d+)${ORD}-level spell slot[^.]*?damage increases to (\\d+d\\d+)`, 'gi'))) {
+    tiers.push({ level: Number(m[1]), dice: m[3] });
+  }
+  for (const m of text.matchAll(new RegExp(`(\\d+)${ORD} level or higher[^.]*?damage increases to (\\d+d\\d+)`, 'gi'))) {
+    tiers.push({ level: Number(m[1]), dice: m[2] });
+  }
+  if (tiers.length) {
+    tiers.sort((a, b) => a.level - b.level);
+    return { tiers };
+  }
+
+  // Линейный скейл костей/лечения: «increases by 1d6 for each spell slot level above 1».
+  const linear = text.match(
+    /increases? by ([\d]+d[\d]+(?:\s*\+\s*[\d]+d[\d]+)*) for (?:every (two|three) |each |every )(?:spell )?slot levels? above (\d+)/i
+  );
+  if (linear) {
+    const every = linear[2] ? (linear[2].toLowerCase() === 'two' ? 2 : 3) : undefined;
+    return {
+      above: Number(linear[3]),
+      ...(every ? { every } : {}),
+      dice: linear[1]!.replace(/\s*\+\s*/g, ' + '),
+    };
+  }
+
+  // Доп. лучи/снаряды за круг (Magic Missile: «one more dart», Scorching Ray: «one additional ray»).
+  const attacks = text.match(
+    /creates? (one|two|three|four|\d+) (?:additional|more) (?:ray|beam|dart|bolt|projectile) for each (?:spell )?slot levels? above (\d+)/i
+  );
+  if (attacks) return { above: Number(attacks[2]), attacks: numberWord(attacks[1]!) };
+
+  // Плоская прибавка за круг (Armor of Agathys: врем. HP и холод +5).
+  const flat = text.match(/(?:both )?increase by (\d+) for each (?:spell )?slot levels? above (\d+)/i);
+  if (flat) return { above: Number(flat[2]), flat: Number(flat[1]) };
+
+  // Дополнительные цели: «one additional creature for each spell slot level above 1».
+  const targets = text.match(
+    /one additional (?:willing )?(?:creature|humanoid|beast|undead|construct|elemental|fiend|celestial|monstrosity) for each (?:spell )?slot levels? above (\d+)/i
+  );
+  if (targets) return { above: Number(targets[1]), targets: 1 };
+
+  return undefined;
+}
+
+/**
+ * Скейл кантрипа по уровням персонажа (5/11/17): из `entriesHigherLevel`
+ * («levels 5 (2d6), 11 (3d6), 17 (4d6)») либо из описания (TCE-кантрипы:
+ * «At 5th level … extra 1d8», «11th level (2d8 and 3d8)»). Только числа.
+ */
+export function deriveCantripTiers(higherLevel: string[], description: string[]): SpellUpcastTier[] | undefined {
+  const out: SpellUpcastTier[] = [];
+  const hi = stripTags(higherLevel.join(' '));
+  for (const m of hi.matchAll(/\b(\d+)\s*\(([^)]*)\)/g)) {
+    const dice = m[2]?.match(/\d*d\d+/i);
+    if (dice) out.push({ level: Number(m[1]), dice: dice[0] });
+  }
+  if (!out.length) {
+    const desc = stripTags(description.join(' '));
+    const fifth = desc.match(/at (\d+)(?:st|nd|rd|th) level[^.]*?extra (\d+d\d+)/i);
+    if (fifth) out.push({ level: Number(fifth[1]), dice: fifth[2]! });
+    for (const m of desc.matchAll(/(\d+)(?:st|nd|rd|th) level\s*\(([^)]*)\)/gi)) {
+      const dice = m[2]?.match(/\d*d\d+/i);
+      if (dice) out.push({ level: Number(m[1]), dice: dice[0] });
+    }
+  }
+  // Лучи/снаряды от уровня персонажа (Eldritch Blast: 2/3/4 луча).
+  for (const m of hi.matchAll(
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:beams?|rays?|darts?|bolts?|projectiles?)\s+(?:at\s+)?level\s+(\d+)/gi
+  )) {
+    out.push({ level: Number(m[2]), count: numberWord(m[1]!) });
+  }
+  if (!out.length) return undefined;
+  const seen = new Set<number>();
+  return out
+    .filter((t) => (seen.has(t.level) ? false : (seen.add(t.level), true)))
+    .sort((a, b) => a.level - b.level);
+}
+
+/** Базовое число снарядов из описания («three fiery rays», «three glowing darts»), только >1. */
+export function deriveAttackCount(description: string[]): number | undefined {
+  const text = stripTags(description.join(' '));
+  const m = text.match(
+    /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:fiery\s+|glowing\s+|magical\s+)?(?:rays?|beams?|darts?|bolts?|projectiles?)/i
+  );
+  if (!m) return undefined;
+  const n = numberWord(m[1]!);
+  return n > 1 ? n : undefined;
 }
 
 export interface RawSpell {
@@ -389,6 +555,7 @@ export function spellKey(name: string, source: string): string {
 
 /** Приводит сырую запись 5e.tools к нашему `Spell`. `classes` передаются уже вычисленными. */
 export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
+  const level = Math.max(0, Math.min(9, Math.round(Number(raw.level) || 0)));
   const duration = normalizeDuration(raw.duration);
   const save = toStringArray(raw.savingThrow)
     .map((ability) => ABILITIES[ability.toLowerCase()])
@@ -402,7 +569,14 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
     damageDice.length || damageTypes.length ? { dice: damageDice, types: damageTypes } : undefined;
   const paragraphs = collectText(raw.entries);
   const description = raw.srd52 ? paragraphs : [firstSentence(paragraphs[0] ?? '')].filter(Boolean);
-  const higherLevel = raw.srd52 ? collectText(raw.entriesHigherLevel) : [];
+  const hiText = collectText(raw.entriesHigherLevel);
+  // Текст правил храним только для SRD (лицензия); скейлы — всегда числа:
+  // `srd` — галка для фильтрации контента, `upcast`/`cantrip` — механика.
+  const srd = raw.srd52 ? true : undefined;
+  const higherLevel = raw.srd52 ? hiText : [];
+  const upcast = deriveUpcast(hiText);
+  const cantrip = level === 0 ? deriveCantripTiers(hiText, paragraphs) : undefined;
+  const attacks = deriveAttackCount(paragraphs);
   const conditions = toStringArray(raw.conditionInflict).map((c) => conditionKeyOf(c));
   const rulesText = collectText([raw.entries, raw.entriesHigherLevel]).join(' ').toLowerCase();
   const healing = tagged.heal.length && !tagged.damage.length && !damageTypes.length ? true : undefined;
@@ -417,9 +591,10 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
     key: spellKey(raw.name, raw.source),
     name: raw.name,
     source: raw.source as SpellSource,
-    level: Math.max(0, Math.min(9, Math.round(Number(raw.level) || 0))),
+    level,
     school: SCHOOLS[raw.school ?? ''] ?? 'Evocation',
     ritual: raw.meta?.ritual === true || undefined,
+    srd,
     concentration: duration.some((d) => d.concentration) || undefined,
     time: normalizeTime(raw.time),
     range,
@@ -437,5 +612,8 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
     automation: automationOf({ damage, save, spellAttack }),
     description,
     higherLevel: higherLevel.length ? higherLevel : undefined,
+    upcast,
+    cantrip,
+    attacks,
   };
 }
