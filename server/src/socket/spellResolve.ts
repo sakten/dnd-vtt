@@ -4,13 +4,15 @@ import {
   effectiveSpellRangeFeet,
   gridDistanceFeet,
   gridOfMap,
-  handAttackOf,
+  handOf,
   hasInvocation,
   INVOCATION_PACT_KEYS,
+  loadoutOf,
   polymorphFormIssue,
   spellCastArea,
   spellIsSelf,
   tokenVisibleFrom,
+  weaponContextOf,
   type ErrorPayload,
   type Spell,
   type SpellStats,
@@ -82,7 +84,13 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   // Клинок-кантрип (Green-Flame/Booming Blade, True Strike): оружие в правой руке, цель в досягаемости.
   if (def.weaponAttack) {
     const sheet = sheetOfToken(room, caster).sheet;
-    const held = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'right') : undefined;
+    const loadout = loadoutOf({
+      attacks: sheet?.attacks,
+      hands: sheet?.hands,
+      effects: caster.effects,
+      ...weaponContextOf(sheet),
+    });
+    const held = sheet ? handOf(loadout, 'right') : undefined;
     if (!held) return { code: 'noHeldWeapon' };
     // True Strike бьёт и дальним оружием; остальные клинки — только ближним.
     if (!def.weaponAttack.anyWeapon && held.rangeType !== 'melee') return { code: 'noHeldWeapon' };

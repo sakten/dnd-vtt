@@ -1,15 +1,17 @@
 import {
   gridOfMap,
   gripAdjustedDamage,
-  handAttackOf,
+  handOf,
   hostileTokens,
   isBanished,
+  loadoutOf,
   rightGrip,
   rollDice,
   seesInvisible,
   tokenVisibleFrom,
   tokensNearFeet,
   weaponByKey,
+  weaponContextOf,
   type AutomationDef,
   type SpellStats,
   type Token,
@@ -33,12 +35,18 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
   const target = input.targets.find((t): t is Token => !!t);
   if (!spec || !target) return;
   const sheet = sheetOfToken(room, input.caster).sheet;
-  const held = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'right') : undefined;
+  const loadout = loadoutOf({
+    attacks: sheet?.attacks,
+    hands: sheet?.hands,
+    effects: input.caster.effects,
+    ...weaponContextOf(sheet),
+  });
+  const held = sheet ? handOf(loadout, 'right') : undefined;
   if (!held || (!spec.anyWeapon && held.rangeType !== 'melee')) return;
   const weapon = held.weaponKey ? weaponByKey(held.weaponKey) : undefined;
   const base =
     weapon && sheet
-      ? { ...held, damage: gripAdjustedDamage(held.damage, weapon, rightGrip(sheet.attacks, sheet.hands)) }
+      ? { ...held, damage: gripAdjustedDamage(held.damage, weapon, rightGrip(loadout.attacks, loadout.hands)) }
       : held;
   // True Strike: базовый урон — излучением (вариант) или обычным типом оружия.
   const attack = spec.spellAbility && input.variant === 'radiant' ? { ...base, damageType: 'radiant' } : base;

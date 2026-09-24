@@ -4,6 +4,8 @@ import {
   SKILLS,
   attackIsActive,
   combineRollMode,
+  loadoutOf,
+  weaponContextOf,
   withRollParts,
   type AbilityKey,
   type AttackEntry,
@@ -51,12 +53,18 @@ export default function RollMenu() {
     const map = activeMapOf(state);
     if (sheet.attacks.filter(attackIsActive).length > 0) {
       const charToken = characterTokenOf(map, currentCharacterId);
-      out.push({ key: 'sheet', label: t('ui.roll.myCharacter'), tokenId: charToken?.id, attacks: sheet.attacks });
+      const attacks = loadoutOf({
+        attacks: sheet.attacks,
+        hands: sheet.hands,
+        effects: charToken?.effects,
+        ...weaponContextOf(sheet),
+      }).attacks;
+      out.push({ key: 'sheet', label: t('ui.roll.myCharacter'), tokenId: charToken?.id, attacks });
     }
     for (const token of map?.tokens ?? []) {
       if (token.libraryItemId === currentCharacterId) continue;
       if (!canControlWith(state, token)) continue;
-      const attacks = token.attacks ?? [];
+      const attacks = loadoutOf({ attacks: token.attacks, effects: token.effects }).attacks;
       if (attacks.filter(attackIsActive).length === 0) continue;
       out.push({ key: token.id, label: token.name || t('ui.roll.token'), tokenId: token.id, attacks });
     }

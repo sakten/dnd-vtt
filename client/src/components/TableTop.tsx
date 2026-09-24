@@ -12,6 +12,7 @@ import {
   hostileTokens,
   isBanished,
   isSurrounded,
+  loadoutOf,
   modifiedValue,
   pointCell,
   reachableCells,
@@ -22,6 +23,7 @@ import {
   sourcesMode,
   spreadCells,
   unseenBetween,
+  weaponContextOf,
   weaponHasProperty,
   zoneVisionKind,
 } from 'shared';
@@ -62,6 +64,18 @@ function MapSprite({ map }: { map: MapInfo }) {
   return <KonvaImage image={image} width={map.width} height={map.height} listening={false} />;
 }
 
+/** Атаки актора для подписей прицеливания: лист контролёра или сам токен (производный лоадаут). */
+function attacksOf(attacker: Token, sheet: CharacterSheet | null | undefined, currentCharacterId: string | null): AttackEntry[] {
+  const fromSheet =
+    currentCharacterId !== null && attacker.libraryItemId === currentCharacterId && sheet ? sheet : undefined;
+  return loadoutOf({
+    attacks: fromSheet ? fromSheet.attacks : attacker.attacks,
+    hands: fromSheet?.hands,
+    effects: attacker.effects,
+    ...weaponContextOf(fromSheet),
+  }).attacks;
+}
+
 /** Тип дистанции выбранной атаки: оружие/безоружный удар/способность-атака; null — не атака. */
 function attackRangeTypeOf(
   targeting: TargetingState,
@@ -71,10 +85,7 @@ function attackRangeTypeOf(
 ): AttackRangeType | null {
   const index = 'attackIndex' in targeting ? targeting.attackIndex : undefined;
   if (index !== undefined) {
-    const attacks =
-      currentCharacterId !== null && attacker.libraryItemId === currentCharacterId && sheet
-        ? sheet.attacks
-        : attacker.attacks;
+    const attacks = attacksOf(attacker, sheet, currentCharacterId);
     return attacks[index]?.rangeType ?? null;
   }
   if (targeting.kind !== 'action') return null;
@@ -94,11 +105,7 @@ function attackEntryOf(
 ): AttackEntry | null {
   const index = 'attackIndex' in targeting ? targeting.attackIndex : undefined;
   if (index === undefined) return null;
-  const attacks =
-    currentCharacterId !== null && attacker.libraryItemId === currentCharacterId && sheet
-      ? sheet.attacks
-      : attacker.attacks;
-  return attacks[index] ?? null;
+  return attacksOf(attacker, sheet, currentCharacterId)[index] ?? null;
 }
 
 /** Расстояние от точки до отрезка стены (для удаления правым кликом). */

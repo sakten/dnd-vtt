@@ -7,9 +7,12 @@ import {
   druidLevelOf,
   featSpellGrants,
   grantedSpells,
+  handOf,
   invocationAtWillSpells,
   isIncapacitated,
   isTriggeredAbility,
+  loadoutOf,
+  weaponContextOf,
   type ActionDef,
   type AttackEntry,
   type Spell,
@@ -34,6 +37,8 @@ export interface ActionContext {
   isCharacter: boolean;
   incapacitated: boolean;
   weapons: { entry: AttackEntry; index: number }[];
+  /** Оружие левой руки из производного лоадаута (атака второй рукой). */
+  leftHand?: AttackEntry;
   features: ActionDef[];
   abilities: ActionDef[];
   attacksPer: number;
@@ -105,9 +110,17 @@ export function useActionContext(): ActionContext | null {
     const legendarySlot = !!activeEntry?.legendaryOwnerId && activeEntry.tokenId === token.id;
     // В форме зверя (Wild Shape/Polymorph) оружие и атаки — из статблока формы.
     const inShape = !!token.shape;
-    const weapons: { entry: AttackEntry; index: number }[] = (isCharacter && !inShape ? sheet?.attacks ?? [] : token.attacks)
+    const fromSheet = isCharacter && !inShape && sheet ? sheet : undefined;
+    const loadout = loadoutOf({
+      attacks: fromSheet ? fromSheet.attacks : token.attacks,
+      hands: fromSheet?.hands,
+      effects: token.effects,
+      ...weaponContextOf(fromSheet),
+    });
+    const weapons: { entry: AttackEntry; index: number }[] = loadout.attacks
       .map((entry, index) => ({ entry, index }))
       .filter((x) => attackIsActive(x.entry));
+    const leftHand = fromSheet ? handOf(loadout, 'left') : undefined;
     // «Выпутаться» (Web и подобные): динамические действия из эффектов токена.
     const escapeActions: ActionDef[] = token.effects
       .filter((e) => e.escape)
@@ -191,6 +204,7 @@ export function useActionContext(): ActionContext | null {
       isCharacter,
       incapacitated: !isDm && isIncapacitated(token.conditions),
       weapons,
+      leftHand,
       features,
       // Триггерные способности («при уроне»/«при смерти») — только авто, в панели не показываем.
       abilities: (token.statblock?.actions ?? []).filter((a) => !isTriggeredAbility(a)),

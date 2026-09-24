@@ -14,9 +14,10 @@
   gridDistanceFeet,
   gridOfMap,
   gripAdjustedDamage,
-  handAttackOf,
+  handOf,
   isBanished,
   legendaryOnly,
+  loadoutOf,
   masteryAccessible,
   monsterStats,
   restrictionsFor,
@@ -28,6 +29,7 @@
   unarmedStrikeEntry as computedUnarmedStrike,
   weaponAttackEntry,
   weaponByKey,
+  weaponContextOf,
   weaponHasProperty,
   weaponMastery,
   withAdvantage,
@@ -604,7 +606,14 @@ export function registerActionHandlers(ctx: ConnCtx) {
         }
         const index = Math.round(Number(attackIndex));
         // В форме (Wild Shape/Polymorph) оружие и атаки — из статблока зверя, не из листа.
-        const attacks: AttackEntry[] = character && !token.shape ? sheet?.attacks ?? [] : shapeAttacks(token);
+        const fromSheet = sheet && !token.shape ? sheet : undefined;
+        const loadout = loadoutOf({
+          attacks: fromSheet ? fromSheet.attacks : shapeAttacks(token),
+          hands: fromSheet?.hands,
+          effects: token.effects,
+          ...weaponContextOf(sheet),
+        });
+        const attacks: AttackEntry[] = loadout.attacks;
         const entry = action.id === 'unarmedStrike' ? unarmedStrikeEntry(ctx, room, token, sheet) : attacks[index];
         if (!entry || (action.id === 'attack' && !Number.isFinite(index))) {
           fail(ctx, 'noWeapon');
@@ -658,7 +667,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
           }
           // Оффхенд бьёт оружием левой руки (S1): индекс должен совпадать с рукой.
           if (sheet) {
-            const leftAttack = handAttackOf(sheet.attacks, sheet.hands, 'left');
+            const leftAttack = handOf(loadout, 'left');
             if (!leftAttack || leftAttack.id !== entry.id) {
               fail(ctx, 'actionSpent');
               return;
@@ -690,7 +699,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
           if (weapon?.properties.includes('V') && weapon.versatileDamage) {
             attackEntry = {
               ...entry,
-              damage: gripAdjustedDamage(entry.damage, weapon, rightGrip(sheet.attacks, sheet.hands)),
+              damage: gripAdjustedDamage(entry.damage, weapon, rightGrip(loadout.attacks, loadout.hands)),
             };
           }
         }

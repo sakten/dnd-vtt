@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, handAttackOf, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
@@ -290,7 +290,7 @@ export default function ActionPanel() {
 
   // Атака второй рукой (Light): бьёт оружие из левой руки; триггер — прошлая атака другим лёгким.
   // Оружие с Nick и доступом к мастерствам — в «Свободных и прочих» (не тратит бонусное действие).
-  const leftHandAttack = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'left') : undefined;
+  const leftHandAttack = info.leftHand;
   const lightWeapons = weapons.filter(
     ({ entry }) =>
       !!leftHandAttack && entry.id === leftHandAttack.id && weaponHasProperty(entry, 'L')

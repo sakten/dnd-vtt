@@ -2,10 +2,12 @@ import { useState } from 'react';
 import {
   HANDS_SHIELD,
   attackIsActive,
-  handAttackOf,
+  handOf,
   isTwoHandedAttack,
+  loadoutOf,
   statNumber,
   weaponByKey,
+  weaponContextOf,
   type AttackEntry,
   type CharacterSheet,
   type PlayerResources,
@@ -33,8 +35,14 @@ type HandKey = 'right' | 'left';
 
 export default function LoadoutPanel({ token, sheet, resources, readOnly, onOpenSheet, onChange }: Props) {
   const [picker, setPicker] = useState<HandKey | null>(null);
-  const right = handAttackOf(sheet.attacks, sheet.hands, 'right');
-  const left = handAttackOf(sheet.attacks, sheet.hands, 'left');
+  const loadout = loadoutOf({
+    attacks: sheet.attacks,
+    hands: sheet.hands,
+    effects: token.effects,
+    ...weaponContextOf(sheet),
+  });
+  const right = handOf(loadout, 'right');
+  const left = handOf(loadout, 'left');
   const leftShield = sheet.hands?.left === HANDS_SHIELD;
   const twoHanded = isTwoHandedAttack(right);
   const hp =

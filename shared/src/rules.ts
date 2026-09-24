@@ -22,6 +22,7 @@ export * from './rules/monsterAbilities';
 export * from './rules/optional';
 export * from './rules/reactions';
 export * from './rules/hands';
+export * from './rules/loadout';
 export * from './rules/resources';
 export * from './rules/sheet';
 export * from './rules/spellCast';

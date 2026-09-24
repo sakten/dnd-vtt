@@ -1,7 +1,9 @@
 import {
   DiceParseError,
+  loadoutOf,
   restrictionsFor,
   rollDice,
+  weaponContextOf,
   weaponHasProperty,
   type AttackEntry,
   type RollKind,
@@ -11,6 +13,7 @@ import {
 import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { actorStats } from '../room/actor';
+import { sheetOfToken } from '../room/helpers';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
@@ -62,12 +65,24 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         const scope = scopedToken(ctx, found.mapId, tokenId);
         if (!scope) return;
         const stats = actorStats(room, found.token);
-        attacks = stats.attacks;
+        const sheet = sheetOfToken(room, found.token).sheet;
+        attacks =
+          sheet && !found.token.shape
+            ? loadoutOf({
+                attacks: sheet.attacks,
+                hands: sheet.hands,
+                effects: found.token.effects,
+                ...weaponContextOf(sheet),
+              }).attacks
+            : stats.attacks;
         prefix = stats.name;
         attacker = found.token;
         attackerMapId = found.mapId;
       } else {
-        attacks = room.sheets[playerId]?.attacks;
+        const sheet = room.sheets[playerId];
+        attacks = sheet
+          ? loadoutOf({ attacks: sheet.attacks, hands: sheet.hands, ...weaponContextOf(sheet) }).attacks
+          : undefined;
       }
       if (!attacks) return;
       const index = Math.round(Number(attackIndex));
