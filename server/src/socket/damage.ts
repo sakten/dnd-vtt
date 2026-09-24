@@ -25,6 +25,11 @@ export interface DamageApplication {
   applied: boolean;
 }
 
+/** Единственный тип урона из списка; undefined — типов нет или больше одного. */
+export function singleDamageType(types: string[] | undefined): string | undefined {
+  return types && types.length === 1 ? types[0] : undefined;
+}
+
 export interface ApplyDamageInput {
   target: Token | null;
   mapId: string | null;

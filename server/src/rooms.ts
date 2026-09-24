@@ -25,7 +25,7 @@ import * as Combat from './room/combat';
 import * as Effects from './room/effects';
 import * as Resources from './room/resources';
 import * as Tokens from './room/tokens';
-import { controllerIdOfToken, findTokenById, hasResourceFor, locateToken, tokenById } from './room/helpers';
+import { controllerIdOfToken, findTokenById, hasResourceFor, locateToken } from './room/helpers';
 
 export {
   controllerIdOfItem,
@@ -186,11 +186,6 @@ export class RoomManager {
 
   findTokenById(room: Room, id: string): Token | null {
     return findTokenById(room, id);
-  }
-
-  /** Токен по id на любой карте комнаты. */
-  tokenById(room: Room, id: string): Token | null {
-    return tokenById(room, id);
   }
 
   /** Карта и токен по id на любой карте комнаты. */

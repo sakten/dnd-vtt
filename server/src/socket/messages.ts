@@ -47,14 +47,14 @@ export function pushTextMessage(
   return message;
 }
 
-/** Сообщение спасброска: метка «<subject> · успех/провал». */
+/** Сообщение спасброска: метка «<subject> · успех/провал» (автор по умолчанию — система). */
 export function pushSaveMessage(
   ctx: ConnCtx,
   room: Room,
-  input: { author: string; subject: string; roll: DiceRollResult; success: boolean }
+  input: { author?: string; subject: string; roll: DiceRollResult; success: boolean }
 ): ChatMessage {
   return pushRollMessage(ctx, room, {
-    author: input.author,
+    author: input.author ?? 'Система',
     roll: input.roll,
     kind: 'save',
     params: { subject: input.subject, saveOutcome: input.success ? 'success' : 'fail' },

@@ -1,6 +1,7 @@
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { pushSaveMessage, tickEffectTriggers } from './effects';
+import { pushSaveMessage } from './messages';
+import { tickEffectTriggers } from './effects';
 import { removeTokenCompletely } from './tokenRemove';
 import { tickZones } from './zones';
 
@@ -20,7 +21,7 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
 
   const conditions = ctx.manager.tickConditions(room, token, phase);
   for (const save of conditions.saves) {
-    pushSaveMessage(ctx, room, `${save.name} · ${token.name}`, save.roll, save.success);
+    pushSaveMessage(ctx, room, { subject: `${save.name} · ${token.name}`, roll: save.roll, success: save.success });
   }
   for (const removed of conditions.removed) {
     ctx.systemMessage(room, {
@@ -31,7 +32,7 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
 
   const effects = ctx.manager.tickEffects(room, token, phase);
   for (const save of effects.saves) {
-    pushSaveMessage(ctx, room, `${save.name} · ${token.name}`, save.roll, save.success);
+    pushSaveMessage(ctx, room, { subject: `${save.name} · ${token.name}`, roll: save.roll, success: save.success });
   }
   for (const name of effects.removed) {
     ctx.systemMessage(room, { code: 'conditions.effectEnded', params: { name: token.name, effect: name } });

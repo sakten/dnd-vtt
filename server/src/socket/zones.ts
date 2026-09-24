@@ -19,8 +19,8 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { applyDamage } from './damage';
-import { pushSaveMessage } from './effects';
+import { applyDamage, singleDamageType } from './damage';
+import { pushSaveMessage } from './messages';
 import { applyEffectTo, removeZoneEffects } from './effectsApply';
 import { findSpell } from '../spells';
 import { actorStats } from '../room/actor';
@@ -74,11 +74,6 @@ function insideTokens(
   return zone.excludeSource ? sided.filter((t) => t.id !== zone.sourceId) : sided;
 }
 
-function singleType(payload: AutomationPayload): string | undefined {
-  const types = payload.damage?.types ?? [];
-  return types.length === 1 ? types[0] : undefined;
-}
-
 /** Применяет payload зоны к целям: спас → урон (half) → эффекты (с zoneId). */
 function applyZonePayload(
   ctx: ConnCtx,
@@ -89,7 +84,7 @@ function applyZonePayload(
   targets: Token[]
 ): void {
   if (!payload || !targets.length) return;
-  const damageType = singleType(payload);
+  const damageType = singleDamageType(payload.damage?.types);
   for (const target of targets) {
     // Aura of Life: союзник на 0 HP (у нас HP уходят в минус) в начале хода поднимается до `healTo`.
     // Мёртвых не оживляет.
@@ -113,7 +108,7 @@ function applyZonePayload(
         magical: true,
       });
       success = result.success;
-      pushSaveMessage(ctx, room, `${zone.name} · ${target.name}`, result.roll, success);
+      pushSaveMessage(ctx, room, { subject: `${zone.name} · ${target.name}`, roll: result.roll, success });
       if (success && (!payload.save.half || saveNoDamage(target.effects))) continue;
     }
     if (payload.damage) {

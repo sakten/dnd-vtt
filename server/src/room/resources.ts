@@ -1,5 +1,6 @@
 import type { Token } from 'shared';
 import type { Room } from '../roomTypes';
+import { tokensOfLibraryItem } from './helpers';
 import { shapeStatblock } from './shape';
 
 /** Зависимости домена ресурсов: сохранение комнаты. */
@@ -52,13 +53,5 @@ export function spendTokenSpellSlot(m: ResourceDeps, room: Room, token: Token, l
  */
 export function characterTokens(room: Room, playerId: string): { mapId: string; token: Token }[] {
   const libId = room.controllers[playerId];
-  if (!libId) return [];
-  const out: { mapId: string; token: Token }[] = [];
-  for (const map of room.scene.maps) {
-    for (const token of map.tokens) {
-      if (token.libraryItemId !== libId) continue;
-      out.push({ mapId: map.id, token });
-    }
-  }
-  return out;
+  return libId ? tokensOfLibraryItem(room, libId) : [];
 }

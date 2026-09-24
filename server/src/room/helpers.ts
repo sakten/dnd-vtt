@@ -53,8 +53,15 @@ export function findTokenById(room: Room, id: string): Token | null {
   return null;
 }
 
-export function tokenById(room: Room, id: string): Token | null {
-  return findTokenById(room, id);
+/** Все токены, привязанные к предмету библиотеки (персонаж/призыв), на всех картах. */
+export function tokensOfLibraryItem(room: Room, libraryItemId: string): { mapId: string; token: Token }[] {
+  const out: { mapId: string; token: Token }[] = [];
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      if (token.libraryItemId === libraryItemId) out.push({ mapId: map.id, token });
+    }
+  }
+  return out;
 }
 
 /** Токен и id карты, на которой он лежит. */

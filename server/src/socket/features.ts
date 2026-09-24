@@ -2,6 +2,7 @@ import { featChoiceEffects, passiveFeatures, type ChoiceFeature, type ClassLevel
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { applyEffectTo } from './effectsApply';
+import { tokensOfLibraryItem } from '../room/helpers';
 
 const FEATURE_PREFIX = 'feature:';
 
@@ -54,17 +55,6 @@ export function syncFeatureEffects(
   }
 }
 
-/** Все токены персонажа игрока (по привязанному предмету библиотеки). */
-function characterTokens(room: Room, libraryItemId: string): { mapId: string; token: Token }[] {
-  const out: { mapId: string; token: Token }[] = [];
-  for (const map of room.scene.maps) {
-    for (const token of map.tokens) {
-      if (token.libraryItemId === libraryItemId) out.push({ mapId: map.id, token });
-    }
-  }
-  return out;
-}
-
 /** Пересобирает фичевые эффекты у всех токенов персонажа (например, при отвязке листа). */
 export function syncFeatureEffectsForItem(
   ctx: ConnCtx,
@@ -73,7 +63,7 @@ export function syncFeatureEffectsForItem(
   classes: ClassLevel[] | undefined,
   choices?: FeatureChoice[]
 ): void {
-  for (const { mapId, token } of characterTokens(room, libraryItemId)) {
+  for (const { mapId, token } of tokensOfLibraryItem(room, libraryItemId)) {
     syncFeatureEffects(ctx, room, mapId, token, classes ?? [], choices);
     ctx.emitToken(room, 'token:update', mapId, token);
   }

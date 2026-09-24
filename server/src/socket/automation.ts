@@ -44,7 +44,7 @@ import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
-import { applyDamage } from './damage';
+import { applyDamage, singleDamageType } from './damage';
 import { attackDamageRoll, attackHitRoll, attackUnseen, type WeaponDamageMods } from './attackResolve';
 import { fail, type ErrorCode } from './errors';
 import { applyEffectTo, removeConditionInstances, type ApplyEffectArgs } from './effectsApply';
@@ -90,12 +90,6 @@ export interface AutomationInput {
   choice?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
-}
-
-/** Единственный тип урона, если он однозначен (иначе защиты не применяются). */
-function singleDamageType(def: AutomationDef): string | undefined {
-  const types = def.damage?.types ?? [];
-  return types.length === 1 ? types[0] : undefined;
 }
 
 /** Бонус владения кастера по его листу (монстры и токены без листа — 2). */
@@ -148,15 +142,13 @@ function tokensAround(
 ): Token[] {
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return includeSelf ? [caster] : [];
+  const size = gridSizeOfMap(map);
   return map.tokens.filter((token) => {
-    if (token.id === caster.id) return includeSelf;
     // Изгнанные (Banishment) вне поля: радиус-способности их не задевают.
     if (isBanished(token)) return false;
-    if (gridDistanceFeet(token, caster, gridSizeOfMap(map)) > feet) return false;
-    if (side === 'any') return true;
-    return side === 'hostile'
-      ? hostileTokens(caster, token)
-      : token.faction === caster.faction && token.faction !== 'neutral';
+    if (token.id === caster.id) return includeSelf;
+    if (gridDistanceFeet(token, caster, size) > feet) return false;
+    return side === 'any' || sideMatches(caster, token, side);
   });
 }
 
@@ -288,7 +280,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
   // Карающая нежить: урон по провалившим спас до наложения изгнания (урон не снимает его).
   const abilities = ctx.manager.abilitiesForToken(room, caster);
   const searExpr = def.damage && !def.heal ? resolveDiceExpression(def.damage, abilities, proficiencyFor(ctx, room, caster)) : null;
-  const searType = searExpr ? singleDamageType(def) : undefined;
+  const searType = searExpr ? singleDamageType(def.damage?.types) : undefined;
   let searRoll: DiceRollResult | null = null;
   let searSent = false;
 
@@ -1235,7 +1227,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     expression,
     subject: `${caster.name} — ${def.name}`,
     adv: input.advantage === 'a' || input.advantage === 'd' ? input.advantage : undefined,
-    damageType: singleDamageType(def),
+    damageType: singleDamageType(def.damage?.types),
     count: Math.max(1, def.count ?? 1),
     ...(input.summonKey ? { shapeForm: input.summonKey } : {}),
   };

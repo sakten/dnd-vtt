@@ -1,23 +1,11 @@
-import { rollDice, type DiceRollResult, type Token } from 'shared';
+import { rollDice, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { applyDamage } from './damage';
-import { pushSaveMessage as pushSaveRoll } from './messages';
+import { applyDamage, singleDamageType } from './damage';
+import { pushSaveMessage } from './messages';
 import { removeConcSummonsOf, summonSourceIds } from './summons';
 import { endShapesOf } from './forms';
 import { removeZonesOfSource } from './zones';
-
-/** Сообщение-бросок спасброска в чат от имени системы (обёртка над `messages`). */
-export function pushSaveMessage(
-  ctx: ConnCtx,
-  room: Room,
-  subject: string,
-  roll: DiceRollResult,
-  success: boolean,
-  author = 'Система'
-) {
-  return pushSaveRoll(ctx, room, { author, subject, roll, success });
-}
 
 /**
  * Триггеры эффектов в начале хода носителя (Heroism: врем. HP; смайты: повторный урон).
@@ -37,7 +25,7 @@ export function tickEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, toke
     if (!damage?.dice) continue;
     const roll = rollDice(damage.dice);
     if (roll.total <= 0) continue;
-    const damageType = (damage.types ?? []).length === 1 ? damage.types![0] : undefined;
+    const damageType = singleDamageType(damage.types);
     applyDamage(ctx, {
       target: token,
       mapId,
@@ -63,7 +51,7 @@ export function rollDamageSavesOnDamage(ctx: ConnCtx, room: Room, mapId: string,
     const { roll, success } = ctx.manager.rollSave(room, token, duration.ability, duration.dc, {
       advantage: effect.saveOnDamage?.advantage,
     });
-    pushSaveMessage(ctx, room, `${effect.name} · ${token.name}`, roll, success);
+    pushSaveMessage(ctx, room, { subject: `${effect.name} · ${token.name}`, roll, success });
     if (success) {
       ctx.manager.removeEffect(room, token, effect.id);
       ctx.emitToken(room, 'token:update', mapId, token);
@@ -79,7 +67,7 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
   if (!Number.isFinite(damage) || damage <= 0) return;
   const result = ctx.manager.concentrationCheck(room, token, damage);
   if (!result) return;
-  pushSaveMessage(ctx, room, `Концентрация: ${result.names.join(', ')}`, result.roll, result.success);
+  pushSaveMessage(ctx, room, { subject: `Концентрация: ${result.names.join(', ')}`, roll: result.roll, success: result.success });
   if (!result.success) {
     for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
     removeZonesOfSource(ctx, room, token.id, { onlyConcentration: true });

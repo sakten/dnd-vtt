@@ -27,14 +27,11 @@ import type { Room } from '../roomTypes';
 import { actorStats } from './actor';
 import { shapeImageUrl, shapeName, shapeStatblock } from './shape';
 import { controllerIdOfToken, findTokenById } from './helpers';
+import { findToken } from './tokens';
 
 /** Зависимости боевого домена: сохранение комнаты. */
 export interface CombatDeps {
   saveSoon(room: Room): void;
-}
-
-function findToken(room: Room, mapId: string, id: string): Token | null {
-  return room.scene.maps.find((m) => m.id === mapId)?.tokens.find((t) => t.id === id) ?? null;
 }
 
 export function combatOf(room: Room, mapId: string): CombatState | null {
