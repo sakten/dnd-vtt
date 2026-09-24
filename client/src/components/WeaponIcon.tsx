@@ -684,6 +684,45 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M8.4 13.4 C9 15 10 16.2 11.6 16.8" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={1} strokeLinecap="round" />
     </g>
   ),
+  shadowblade: (
+    <g stroke="none">
+      <defs>
+        <linearGradient id="sbS" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#8e7bd8" />
+          <stop offset="0.45" stopColor="#4a3a7a" />
+          <stop offset="1" stopColor="#1d1531" />
+        </linearGradient>
+        <linearGradient id="sbG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#b9a4ff" />
+          <stop offset="0.5" stopColor="#7a68b8" />
+          <stop offset="1" stopColor="#3a2e5e" />
+        </linearGradient>
+        <linearGradient id="sbL" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#241a3a" />
+          <stop offset="1" stopColor="#0d0818" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12.00 1.20L12.58 2.00L13.02 2.80L13.39 3.60L13.69 4.40L13.84 5.20L13.74 6.00L13.56 6.80L13.32 7.60L13.05 8.40L12.78 9.20L12.54 10.00L12.36 10.80L12.26 11.60L12.26 12.40L12.36 13.20L12.54 14.00L12.78 14.80L13.05 15.60L10.95 15.60L10.68 14.80L10.44 14.00L10.26 13.20L10.16 12.40L10.16 11.60L10.26 10.80L10.44 10.00L10.68 9.20L10.95 8.40L11.22 7.60L11.46 6.80L11.64 6.00L11.74 5.20L11.89 4.40L11.99 3.60L12.01 2.80L11.97 2.00L12.00 1.20Z"
+        fill="url(#sbS)"
+        stroke="#0b0716"
+        strokeWidth={0.5}
+      />
+      <path
+        d="M12.00 1.20L12.58 2.00L13.02 2.80L13.39 3.60L13.69 4.40L13.84 5.20L13.74 6.00L13.56 6.80L13.32 7.60L13.05 8.40L12.78 9.20L12.54 10.00L12.36 10.80L12.26 11.60L12.26 12.40L12.36 13.20L12.54 14.00L12.78 14.80L13.05 15.60L10.95 15.60L10.68 14.80L10.44 14.00L10.26 13.20L10.16 12.40L10.16 11.60L10.26 10.80L10.44 10.00L10.68 9.20L10.95 8.40L11.22 7.60L11.46 6.80L11.64 6.00L11.74 5.20L11.89 4.40L11.99 3.60L12.01 2.80L11.97 2.00L12.00 1.20Z"
+        fill="none"
+        stroke="#c9b6ff"
+        strokeWidth={0.45}
+        opacity={0.75}
+      />
+      <rect x={10.7} y={16.5} width={2.6} height={4.3} rx={1.2} fill="url(#sbL)" stroke="#0a0e13" strokeWidth={0.4} />
+      <rect x={10.7} y={16.5} width={0.8} height={4.3} rx={0.4} fill="rgba(200,180,255,0.18)" />
+      <path d="M10.9 17.4 L13.1 17.0" stroke="rgba(10,6,20,0.6)" strokeWidth={0.5} />
+      <path d="M10.9 18.23 L13.1 17.83" stroke="rgba(10,6,20,0.6)" strokeWidth={0.5} />
+      <path d="M10.9 19.07 L13.1 18.67" stroke="rgba(10,6,20,0.6)" strokeWidth={0.5} />
+      <circle cx={12} cy={22.1} r={1.7} fill="url(#sbG)" stroke="#0a0e13" strokeWidth={0.35} />
+    </g>
+  ),
   default: (
     <g>
       <path d="M12 1.6 L14.4 4.6 V15 H9.6 V4.6 Z" fill="currentColor" />
@@ -746,6 +785,7 @@ export function weaponIconId(name: string): string {
   if ((n.includes('клинок тени') || n.includes('shadow blade')) && (n.includes('метание') || n.includes('thrown'))) {
     return 'dart';
   }
+  if (n.includes('клинок тени') || n.includes('shadow blade')) return 'shadowblade';
   return 'default';
 }
 
@@ -777,6 +817,7 @@ const DIAGONAL = new Set([
   'maul',
   'flail',
   'warpick',
+  'shadowblade',
   'default',
 ]);
 

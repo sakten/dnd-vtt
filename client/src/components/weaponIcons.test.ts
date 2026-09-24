@@ -66,7 +66,8 @@ describe('иконки оружия', () => {
     expect(weaponIconId('Хвост')).toBe('tail');
     expect(weaponIconId('Щупальца')).toBe('tentacle');
     expect(weaponIconId('Разряд')).toBe('default');
-    expect(weaponIconId('Клинок тени')).toBe('default');
+    expect(weaponIconId('Shadow Blade')).toBe('shadowblade');
+    expect(weaponIconId('Клинок тени')).toBe('shadowblade');
     expect(weaponIconId('Клинок тени (метание)')).toBe('dart');
   });
 });
