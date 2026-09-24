@@ -98,6 +98,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
         duration: Math.min(1500, Math.max(150, (path.points.length - 1) * 150)),
         own: true,
         diagonalsBefore: turn?.diagonalsUsed ?? 0,
+        ...(path.steps ? { steps: path.steps } : {}),
       };
       set((s) => ({
         movingTokens: { ...s.movingTokens, [id]: moving },
@@ -130,8 +131,9 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
       let diagonals = moving.diagonalsBefore;
       for (let i = 1; i < points.length; i++) {
         const step = movementCost(points[i - 1]!, points[i]!, size, diagonals);
-        feet += step.feet;
         diagonals = step.diagonals;
+        // Местность/зоны: берём стоимость шага из маршрута (стена ×4, трудная ×2).
+        feet += moving.steps?.[i - 1] ?? step.feet;
       }
       const entry =
         map.combat.active && map.combat.currentIndex >= 0 ? map.combat.entries[map.combat.currentIndex] : undefined;

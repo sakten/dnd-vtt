@@ -68,6 +68,8 @@ export interface MovingToken {
   own: boolean;
   /** Число диагоналей на начало похода (чередование 5-10-5). */
   diagonalsBefore: number;
+  /** Стоимость шагов из маршрута (местность/зоны: стена ×4, трудная ×2). */
+  steps?: number[];
 }
 
 export interface CritHit {

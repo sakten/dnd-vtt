@@ -256,6 +256,25 @@ describe('planWalk', () => {
     ).toBe(10);
   });
 
+  it('зона с movementCost ×4 (Wall of Thorns) дороже сложной местности', () => {
+    const zone = (flags: ZoneInstance['flags']): ZoneInstance => ({
+      id: 'z1',
+      name: 'Wall of Thorns',
+      sourceKey: 'XPHB:Wall of Thorns',
+      sourceId: 'src',
+      origin: { x: 75, y: 75 },
+      area: { shape: 'cube', size: 15 },
+      duration: { type: 'concentration' },
+      flags,
+    });
+    const args = { ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 } };
+    expect(planWalk({ ...args, zones: [zone({ difficultTerrain: true })] })?.feet).toBe(20);
+    const wall = planWalk({ ...args, zones: [zone({ difficultTerrain: true, movementCost: 4 })] });
+    expect(wall?.feet).toBe(40);
+    // Стоимость по шагам — для списания движения (маршрут и учёт должны совпадать).
+    expect(wall?.steps).toEqual([20, 20]);
+  });
+
   it('2×2 не проходит подошвой через врага', () => {
     const enemy = [{ id: 'e1', x: 175, y: 75, w: 50, h: 50, faction: 'enemy' }];
     const path = planWalk({

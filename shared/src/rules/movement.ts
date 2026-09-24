@@ -147,6 +147,8 @@ export interface PathfindInput {
   blocked?: Set<string>;
   /** Клетки удвоенной стоимости (союзники, сложная местность). */
   difficult?: Set<string>;
+  /** Клетки особой стоимости: множитель футов за клетку (Wall of Thorns: ×4). */
+  costly?: Map<string, number>;
   /** Если задано — входить можно только туда, где функция истинна (старт разрешён всегда). */
   allowAt?: (cx: number, cy: number) => boolean;
   /** Размер подошвы ходока в клетках: проходимость и сложная местность — по всем её клеткам. */
@@ -162,6 +164,8 @@ export interface FoundPath {
   points: GridPoint[];
   feet: number;
   diagonals: number;
+  /** Стоимость каждого сегмента `points[i] → points[i+1]` (с местностью/зонами), футы. */
+  steps?: number[];
 }
 
 interface PathNode {
@@ -186,6 +190,7 @@ export function findPath(input: PathfindInput): FoundPath | null {
   const feetPerCell = input.feetPerCell ?? DEFAULT_FEET_PER_CELL;
   const blocked = input.blocked ?? new Set<string>();
   const difficult = input.difficult ?? new Set<string>();
+  const costly = input.costly;
   const diagonalsBefore = Math.max(0, input.diagonalsBefore ?? 0);
   const moverCells = Math.max(1, Math.round(input.moverCells ?? 1));
   const start = pointCell(input.from, grid);
@@ -227,6 +232,7 @@ export function findPath(input: PathfindInput): FoundPath | null {
         points: chain.map((n) => cellCenter(n.cx, n.cy, grid)),
         feet: node.g * feetPerCell,
         diagonals: diagonalsBefore + node.diag,
+        steps: chain.slice(1).map((n, i) => (n.g - chain[i]!.g) * feetPerCell),
       };
     }
     const from = cellCenter(node.cx, node.cy, grid);
@@ -239,7 +245,7 @@ export function findPath(input: PathfindInput): FoundPath | null {
       const diagonal = dx !== 0 && dy !== 0;
       const to = cellCenter(cx, cy, grid);
       if (crossesWalls(from, to, walls, 'move')) continue;
-      const stepUnits = (diagonal ? (node.p === 0 ? 1 : 2) : 1) * (footprintHits(cx, cy, moverCells, difficult) ? 2 : 1);
+      const stepUnits = (diagonal ? (node.p === 0 ? 1 : 2) : 1) * cellCostMultiplier(cx, cy, moverCells, difficult, costly);
       const g = node.g + stepUnits;
       const p = diagonal ? node.p ^ 1 : node.p;
       const stateKey = keyOf(cx, cy, p);
@@ -315,6 +321,24 @@ export function footprintHits(cx: number, cy: number, cells: number, set: Set<st
   return false;
 }
 
+/** Множитель стоимости клетки: сложная местность ×2, особая зона (`costly`) — сильнее. */
+function cellCostMultiplier(
+  cx: number,
+  cy: number,
+  cells: number,
+  difficult: Set<string>,
+  costly: Map<string, number> | undefined
+): number {
+  let mult = footprintHits(cx, cy, cells, difficult) ? 2 : 1;
+  if (costly?.size) {
+    for (const key of footprintCells(cx, cy, cells)) {
+      const zone = costly.get(key);
+      if (zone && zone > mult) mult = zone;
+    }
+  }
+  return mult;
+}
+
 export interface PlanWalkMover {
   id: string;
   x: number;
@@ -369,6 +393,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   const own = new Set(footprintCells(startAnchor.cx, startAnchor.cy, cells));
   const blocked = new Set<string>();
   const difficult = new Set<string>();
+  const costly = new Map<string, number>();
   const occupied = new Set<string>();
   for (const other of input.tokens) {
     if (other.id === input.moverId) continue;
@@ -383,7 +408,8 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   if (!input.ignoreDifficult) {
     const mover = input.tokens.find((t) => t.id === input.moverId);
     for (const zone of input.zones) {
-      if (!zone.flags?.difficultTerrain) continue;
+      const zoneCost = zone.flags?.movementCost;
+      if (!zone.flags?.difficultTerrain && !zoneCost) continue;
       // Сложная местность «для врагов» (Conjure Minor Elementals): только враждебные источнику.
       if (zone.side === 'hostile') {
         const source = input.tokens.find((t) => t.id === zone.sourceId);
@@ -396,7 +422,11 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
         if (!hostile) continue;
       }
       // Сложная местность зоны тоже не проходит через сплошные стены (огибает углы).
-      for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) difficult.add(key);
+      const mult = zoneCost && zoneCost > 2 ? zoneCost : 2;
+      for (const key of areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls)) {
+        if (mult > 2) costly.set(key, Math.max(costly.get(key) ?? 0, mult));
+        else difficult.add(key);
+      }
     }
   }
   const bounds = { cols, rows };
@@ -431,7 +461,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     if (!best) return null;
     const point = node(best);
     const cost = movementCost(input.from, point, grid.size, input.diagonalsBefore ?? 0);
-    return { cells: [fromCell, best], points: [input.from, point], feet: cost.feet, diagonals: cost.diagonals };
+    return { cells: [fromCell, best], points: [input.from, point], feet: cost.feet, diagonals: cost.diagonals, steps: [cost.feet] };
   }
 
   const visibleAt = input.visibleAt ?? null;
@@ -456,18 +486,26 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
     walls,
     blocked,
     difficult,
+    costly,
     allowAt: visibleAt ?? undefined,
     moverCells: cells,
     diagonalsBefore: input.diagonalsBefore ?? 0,
   });
   if (!found) return null;
   const points: GridPoint[] = [];
+  const steps: number[] = [];
   for (let i = 0; i < found.cells.length; i++) {
     const cell = found.cells[i]!;
     const snapped = i === found.cells.length - 1 ? anchorPoint : node(cell);
     const last = points[points.length - 1];
-    if (!last || last.x !== snapped.x || last.y !== snapped.y) points.push(snapped);
+    if (last && last.x === snapped.x && last.y === snapped.y) {
+      // Слитая точка: стоимость её шага прибавляется к предыдущему сегменту.
+      if (steps.length) steps[steps.length - 1] = steps[steps.length - 1]! + (found.steps?.[i - 1] ?? 0);
+      continue;
+    }
+    points.push(snapped);
+    if (i > 0) steps.push(found.steps?.[i - 1] ?? 0);
   }
-  points[0] = { x: input.from.x, y: input.from.y };
-  return { ...found, points };
+  if (points.length) points[0] = { x: input.from.x, y: input.from.y };
+  return { ...found, points, steps };
 }

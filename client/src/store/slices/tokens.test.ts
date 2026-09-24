@@ -136,6 +136,33 @@ describe('tokens slice: передвижение', () => {
     });
   });
 
+  it('finishTokenWalk берёт стоимость шага из маршрута (зона ×4, стена)', () => {
+    const heavy = {
+      cells: [
+        { cx: 0, cy: 0 },
+        { cx: 1, cy: 0 },
+        { cx: 2, cy: 0 },
+      ],
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+        { x: 100, y: 0 },
+      ],
+      feet: 40,
+      diagonals: 0,
+      steps: [20, 20],
+    };
+    useGameStore.getState().startTokenWalk('t1', heavy);
+    useGameStore.getState().finishTokenWalk('t1', heavy.points);
+
+    expect(turn().movementUsed).toBe(40);
+    expect(turn().diagonalsUsed).toBe(0);
+    expect(emitted).toContainEqual({
+      event: 'combat:setMovement',
+      payload: { mapId: 'm1', tokenId: 't1', used: 40, diagonals: 0, path: heavy.points },
+    });
+  });
+
   it('finishTokenWalk вне боя не шлёт setMovement', () => {
     deactivateCombat();
     useGameStore.getState().startTokenWalk('t1', path);
