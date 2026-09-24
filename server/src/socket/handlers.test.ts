@@ -469,6 +469,41 @@ describe('action:use', () => {
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(31);
   });
 
+  it('Shillelagh: без клуба/посоха в руке — noClubOrStaff', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 })], { p1: 'lib1' });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'druid', level: 1 }],
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+      attacks: [
+        {
+          id: 'sw',
+          name: 'Скимитар',
+          hit: 'd20+2',
+          damage: '1d6',
+          damageType: 'slashing',
+          rangeType: 'melee',
+          rangeNormal: 5,
+          rangeLong: 0,
+          weaponKey: 'XPHB:Scimitar',
+        },
+      ],
+      hands: { right: 'sw' },
+      spells: [{ key: 'XPHB:Shillelagh', className: 'druid' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Shillelagh' });
+
+    const error = f.emitted.find((e) => e.event === 'chat:error')?.payload as { code?: string } | undefined;
+    expect(error?.code).toBe('noClubOrStaff');
+    expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
+  });
+
   it('Heat Metal: авто-урон с помехой и повтор бонусным действием', () => {
     const room = makeRoom(
       [

@@ -108,6 +108,23 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return undefined;
   }
 
+  // Бафф оружия (Shillelagh): в руке (или хотя бы в листе) должен быть клуб/посох.
+  const weaponOverride = def.effects?.find((d) => d.weaponOverride)?.weaponOverride;
+  if (weaponOverride) {
+    const sheet = sheetOfToken(room, caster).sheet;
+    const loadout = loadoutOf({
+      attacks: sheet?.attacks ?? actorStats(room, caster).attacks,
+      hands: sheet?.hands,
+      effects: caster.effects,
+      ...weaponContextOf(sheet),
+    });
+    const held = [handOf(loadout, 'right'), handOf(loadout, 'left')].filter((a) => !!a);
+    const candidates = held.length ? held : loadout.attacks;
+    if (!candidates.some((a) => a.weaponKey && weaponOverride.weapons.includes(a.weaponKey))) {
+      return { code: 'noClubOrStaff' };
+    }
+  }
+
   if (def.attack && hasRoll) {
     if (!input.stats) return { code: 'spellNoAttack' };
     if (!targets[0]) return { code: 'spellNoTarget' };

@@ -1,4 +1,4 @@
-import { type Spell } from 'shared';
+import { spellWeaponOverride, type Spell } from 'shared';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 
@@ -73,6 +73,8 @@ function diceText(dice: string[]): string {
 }
 
 function damageText(spell: Spell, raw: string): string | undefined {
+  // Shillelagh: кости данных — кость оружия по тирам, а не урон заклинания.
+  if (spellWeaponOverride(spell)) return undefined;
   const dice = spell.damage?.dice ?? [];
   const types = spell.damage?.types ?? [];
   if (!dice.length && !types.length) return undefined;

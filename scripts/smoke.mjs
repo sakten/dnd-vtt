@@ -22,6 +22,7 @@ const SCENARIOS = [
   ['13', './smoke/13-summons.mjs'],
   ['14', './smoke/14-shapes.mjs'],
   ['15', './smoke/15-masteries.mjs'],
+  ['16', './smoke/16-shillelagh.mjs'],
   ['05', './smoke/05-admin-persistence.mjs'],
   ['06', './smoke/06-robustness.mjs'],
 ];

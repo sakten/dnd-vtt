@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import spellsData from 'shared/spellsData';
 import { emptyResources, emptyTurnState, type Spell, type Token } from 'shared';
 import {
   canSpendSlot,
@@ -82,6 +83,18 @@ describe('spellCastInfo', () => {
     expect(info.slotLevel).toBeUndefined();
     expect(info.levels).toEqual([]);
     expect(info.multi).toBe(false);
+  });
+
+  it('Shillelagh: без строки урона — кости данных это кость оружия', () => {
+    const shillelagh = spellsData.spells.find((s) => s.key === 'XPHB:Shillelagh') as Spell;
+    const info = spellCastInfo(shillelagh, 0, {
+      isCharacter: true,
+      resources: emptyResources(),
+      token: undefined,
+      classes: [{ className: 'druid', level: 5 }],
+    });
+    expect(info.expression).toBeNull();
+    expect(info.damageText).toBeNull();
   });
 
   it('левел-спелл: круг ограничен ячейками, область определяется areaSpec', () => {

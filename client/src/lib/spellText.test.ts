@@ -6,6 +6,7 @@ import { spellLevelLabel, spellMechanics, spellSchoolLabel } from './spellText';
 
 const fireball = spellsData.spells.find((s) => s.key === 'XPHB:Fireball') as Spell;
 const swordBurst = spellsData.spells.find((s) => s.key === 'TCE:Sword Burst') as Spell;
+const shillelagh = spellsData.spells.find((s) => s.key === 'XPHB:Shillelagh') as Spell;
 
 describe('spellText', () => {
   it('RU: сводка локализована, нотация «к», школа и круг по-русски', () => {
@@ -51,6 +52,14 @@ describe('spellText', () => {
     expect(lines).toContain('Save: Dexterity');
     expect(lines).toContain('Damage: 1d6, 2d6, 3d6, 4d6 force');
     expect(lines).toContain('Components: V');
+  });
+
+  it('RU: Shillelagh — кость оружия не выдаётся за урон заклинания', () => {
+    setLocale('ru');
+    const lines = spellMechanics(shillelagh).join(' | ');
+    expect(lines).not.toContain('Урон:');
+    expect(lines).not.toContain('2к6');
+    expect(lines).toContain('Длительность: 1 мин');
   });
 
   it('RU: Sword Burst — целиком русский', () => {

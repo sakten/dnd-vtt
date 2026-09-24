@@ -13,6 +13,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.noActions': 'Not enough actions',
   'error.noWeapon': 'No weapon selected',
   'error.noHeldWeapon': 'Take a weapon in your right hand',
+  'error.noClubOrStaff': 'Hold a Club or Quarterstaff',
   'error.legendaryOnly': 'Legendary action — only during its legendary turn',
   'error.legendarySlotOnly': 'Only legendary abilities are available during a legendary turn',
   'error.noLegendary': 'Not enough legendary actions',

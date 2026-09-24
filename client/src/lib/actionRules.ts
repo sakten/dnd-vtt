@@ -197,6 +197,8 @@ export function spellCastInfo(
   const projectiles = spellAttackCount(spell, level, charLevel);
   const def = automationForSpell(spell, { castLevel: level, characterLevel: charLevel });
   const autoTargets = !!def.autoTargets;
+  // Shillelagh: кости данных — кость оружия по тирам, отдельного урона у заклинания нет.
+  const weaponBuff = def.effects?.some((e) => e.weaponOverride) === true;
   const baseTargets = Math.max(
     def.targets ?? 0,
     def.effects?.reduce((max, d) => Math.max(max, d.to === 'targets' ? d.targets ?? 1 : 0), 0) ?? 0
@@ -206,7 +208,7 @@ export function spellCastInfo(
   const multi = !area && (projectiles > 1 || effectTargetCount > 1);
   const multiCount = effectTargetCount > 1 ? effectTargetCount : projectiles;
   const attacky = !!spell.spellAttack || !!spell.save;
-  const expression = spellDamageExpression(spell, level, charLevel);
+  const expression = weaponBuff ? null : spellDamageExpression(spell, level, charLevel);
   const damageText =
     expression && spell.damage
       ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${expression}${

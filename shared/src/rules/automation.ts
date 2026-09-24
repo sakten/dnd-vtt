@@ -2472,3 +2472,11 @@ export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolea
   if (summonSpellDef(spell.key)) return true;
   return spell.automation === 'full';
 }
+
+/**
+ * Заклинание-бафф оружия (Shillelagh): кости в данных описывают кость оружия по
+ * тирам, а не урон заклинания. Карточкам/тултипам такую строку «Урон» показывать нельзя.
+ */
+export function spellWeaponOverride(spell: Spell): boolean {
+  return automationForSpell(spell).effects?.some((e) => e.weaponOverride) === true;
+}
