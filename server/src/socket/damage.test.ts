@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_ABILITIES, type EffectInstance } from 'shared';
 import { makeConnCtx } from '../test/ctx';
 import { makeRoom, makeToken } from '../test/fixtures';
 import { applyDamage } from './damage';
@@ -193,5 +194,63 @@ describe('Armor of Agathys: ответный урон', () => {
     ];
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: true });
     expect(attacker.effects.some((e) => e.id === 'sanc1')).toBe(false);
+  });
+});
+
+describe('концентрация от урона (Greater Invisibility)', () => {
+  // GI — концентрация (без breakOn): урон заставляет спас CON, эффект не «обрывается» атакой.
+  const gi = (sourceId: string): EffectInstance[] => [
+    {
+      id: 'gi',
+      name: 'Greater Invisibility',
+      sourceKey: 'XPHB:Greater Invisibility',
+      sourceId,
+      concentration: true,
+      duration: { type: 'concentration' },
+      conditions: ['invisible'],
+      modifiers: [],
+    },
+    {
+      id: 'anchor',
+      name: 'Greater Invisibility',
+      sourceKey: 'XPHB:Greater Invisibility',
+      sourceId,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    },
+  ];
+
+  it('успешный спас сохраняет эффект, бросок концентрации идёт в чат', () => {
+    const { target, f, ctx } = setup([]);
+    target.statblock = { abilities: { ...DEFAULT_ABILITIES, con: 30 } };
+    target.effects = gi('t1');
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'radiant' });
+    rand.mockRestore();
+    expect(target.effects.some((e) => e.id === 'gi')).toBe(true);
+    expect(f.room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'save')).toBe(true);
+  });
+
+  it('провал снимает эффект вместе с состоянием', () => {
+    const { target, ctx } = setup([]);
+    target.statblock = { abilities: { ...DEFAULT_ABILITIES, con: 1 } };
+    target.effects = gi('t1');
+    target.conditions = [{ key: 'invisible', name: 'Невидим', rounds: null, effectId: 'gi' }];
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'radiant' });
+    rand.mockRestore();
+    expect(target.effects.some((e) => e.id === 'gi')).toBe(false);
+    expect(target.conditions.some((c) => c.key === 'invisible')).toBe(false);
+  });
+
+  it('GI чужого кастера урон по носителю не снимает', () => {
+    const { target, ctx } = setup([]);
+    target.statblock = { abilities: { ...DEFAULT_ABILITIES, con: 1 } };
+    target.effects = gi('t9');
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0);
+    applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'radiant' });
+    rand.mockRestore();
+    expect(target.effects.some((e) => e.id === 'gi')).toBe(true);
   });
 });
