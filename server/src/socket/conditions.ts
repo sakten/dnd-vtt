@@ -1,6 +1,7 @@
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { pushSaveMessage, tickEffectTriggers } from './effects';
+import { removeTokenCompletely } from './tokenRemove';
 import { tickZones } from './zones';
 
 /**
@@ -41,11 +42,21 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
       params: { name: token.name, effect: esc.name, condition: esc.condition },
     });
   }
+  // Banishment: срок вышел, экстрапланетное существо не возвращается — токен удаляется.
+  const vanishedIds = new Set(effects.vanished.map((v) => v.token.id));
+  for (const gone of effects.vanished) {
+    ctx.systemMessage(room, { code: 'automation.banishGone', params: { name: gone.token.name } });
+    removeTokenCompletely(ctx, room, gone.mapId, gone.token);
+  }
   // Целей у каста не осталось — концентрация кастера снята (якоря/чипы обновились).
   for (const changed of effects.pruned) {
+    if (vanishedIds.has(changed.token.id)) continue;
     ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
   }
   if (effects.pruned.length) ctx.syncCombat(room, mapId);
+
+  // Активным токеном был изгнанный навсегда — дальше тикать нечего (токена нет).
+  if (vanishedIds.has(token.id)) return;
 
   // Зоны: аура, вход/выход, startOfTurn/endOfTurn.
   tickZones(ctx, room, mapId, token, phase);

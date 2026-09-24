@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { mapLightCells, type GridSettings, type LightLevel } from 'shared';
+import { isBanished, mapLightCells, type GridSettings, type LightLevel } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeGridOf } from '../store/selectors';
@@ -16,6 +16,8 @@ export function useMapLight(): Map<string, LightLevel> {
   const walls = map?.walls;
   return useMemo(() => {
     if (!tokens) return new Map<string, LightLevel>();
-    return mapLightCells(tokens, zones ?? [], { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY }, walls ?? []);
+    // Изгнанные (Banishment) вне поля: свет их эффектов не считаем.
+    const present = tokens.filter((t) => !isBanished(t));
+    return mapLightCells(present, zones ?? [], { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY }, walls ?? []);
   }, [tokens, zones, walls, grid.size, grid.offsetX, grid.offsetY]);
 }

@@ -310,6 +310,16 @@ describe('spellExtraTargets', () => {
     });
     expect(spellExtraTargets(light, 5)).toBe(0);
   });
+
+  it('Banishment: +1 цель за круг выше 4-го', () => {
+    const banish = makeSpell({
+      level: 4,
+      higherLevel: ['You can target one additional creature for each spell slot level above 4.'],
+    });
+    expect(spellExtraTargets(banish, 4)).toBe(0);
+    expect(spellExtraTargets(banish, 5)).toBe(1);
+    expect(spellExtraTargets(banish, 7)).toBe(3);
+  });
 });
 
 describe('characterLevel', () => {

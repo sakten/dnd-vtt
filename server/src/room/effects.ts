@@ -8,13 +8,16 @@
   conditionName,
   effectDefenses,
   exhaustionRollPenalty,
+  gridOfMap,
   hasConcentrationAdvantage,
   immuneFromSource,
+  isBanished,
   modifiedValue,
   rollDice,
   saveRollParts,
   sheetProficiencyBonus,
   statNumber,
+  tokenCells,
   withAdvantage,
   withRollParts,
   type AbilityKey,
@@ -22,6 +25,7 @@
   type DamageDefense,
   type DiceRollResult,
   type EffectInstance,
+  type MapInfo,
   type ModifierContext,
   type RollParts,
   type Token,
@@ -36,6 +40,93 @@ import { revertShape, shapeGrid } from './shape';
 export interface EffectsDeps {
   saveSoon(room: Room): void;
   characterTokens(room: Room, playerId: string): { mapId: string; token: Token }[];
+}
+
+/** Типы существ, которые при полном сроке Banishment не возвращаются (XPHB). */
+const BANISH_GONE_TYPES = new Set(['aberration', 'celestial', 'elemental', 'fey', 'fiend']);
+
+/** Карта, на которой стоит токен (нужна для возврата из изгнания). */
+function mapOfToken(room: Room, token: Token): MapInfo | undefined {
+  return room.scene.maps.find((map) => map.tokens.some((t) => t.id === token.id));
+}
+
+/** Ближайшая свободная позиция для подошвы токена (спираль по клеткам от точки). */
+function nearestFreeSpot(
+  room: Room,
+  map: MapInfo,
+  token: Token,
+  center: { x: number; y: number },
+  occupied: Set<string>
+): { x: number; y: number } | null {
+  const grid = gridOfMap(map, room.scene.grid);
+  const size = grid.size;
+  const cols = Math.max(1, Math.floor(map.width / size));
+  const rows = Math.max(1, Math.floor(map.height / size));
+  for (let ring = 1; ring <= 8; ring++) {
+    for (let dx = -ring; dx <= ring; dx++) {
+      for (let dy = -ring; dy <= ring; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+        const spot = { x: center.x + dx * size, y: center.y + dy * size };
+        if (spot.x - token.w / 2 < grid.offsetX || spot.y - token.h / 2 < grid.offsetY) continue;
+        if (spot.x + token.w / 2 > grid.offsetX + cols * size) continue;
+        if (spot.y + token.h / 2 > grid.offsetY + rows * size) continue;
+        const cells = tokenCells({ x: spot.x, y: spot.y, w: token.w, h: token.h }, grid);
+        if (cells.some((key) => occupied.has(key))) continue;
+        return spot;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Возврат изгнанного (Banishment): исходная точка или ближайшая свободная
+ * позиция, если её заняли, пока носитель был скрыт.
+ */
+function placeReturningToken(room: Room, token: Token, at: { x: number; y: number }): void {
+  const map = mapOfToken(room, token);
+  if (!map) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const occupied = new Set<string>();
+  for (const other of map.tokens) {
+    if (other.id === token.id || isBanished(other)) continue;
+    for (const key of tokenCells(other, grid)) occupied.add(key);
+  }
+  const own = tokenCells({ x: at.x, y: at.y, w: token.w, h: token.h }, grid);
+  if (own.some((key) => occupied.has(key))) {
+    const spot = nearestFreeSpot(room, map, token, at, occupied);
+    if (spot) {
+      token.x = spot.x;
+      token.y = spot.y;
+      return;
+    }
+  }
+  token.x = at.x;
+  token.y = at.y;
+}
+
+/**
+ * Снимает эффект изгнания: возврат на поле; при естественном истечении срока
+ * экстрапланетное существо не возвращается (Banishment XPHB) — попадает в `vanished`.
+ * true — существо изгнано навсегда (возврата нет).
+ */
+function releaseBanishEffect(
+  room: Room,
+  token: Token,
+  effect: EffectInstance,
+  opts: { vanished?: { mapId: string; token: Token }[]; natural?: boolean } = {}
+): boolean {
+  if (!effect.banish) return false;
+  if (opts.natural) {
+    const creatureType = creatureTypeOf(room, token);
+    if (creatureType && BANISH_GONE_TYPES.has(creatureType)) {
+      const map = mapOfToken(room, token);
+      if (map) opts.vanished?.push({ mapId: map.id, token });
+      return true;
+    }
+  }
+  placeReturningToken(room, token, effect.banish);
+  return false;
 }
 
 /** Защиты токена: у персонажа — из листа, у монстра — из токена, плюс эффекты. */
@@ -190,6 +281,7 @@ export function removeEffect(m: EffectsDeps, room: Room, token: Token, effectId:
   const effect = token.effects.find((e) => e.id === effectId);
   if (!effect) return false;
   changeMaxHp(m, room, token, effect, -1);
+  releaseBanishEffect(room, token, effect);
   token.effects = token.effects.filter((e) => e.id !== effectId);
   token.conditions = token.conditions.filter((c) => c.effectId !== effectId);
   m.saveSoon(room);
@@ -255,11 +347,14 @@ export function tickEffects(
   escalated: { name: string; condition: ConditionKey }[];
   /** Токены с снятой концентрацией (последняя цель каста ушла). */
   pruned: { mapId: string; token: Token }[];
+  /** Изгнанные навсегда (Banishment истёк: экстрапланетные не возвращаются). */
+  vanished: { mapId: string; token: Token }[];
 } {
   const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
   const removed: string[] = [];
   const escalated: { name: string; condition: ConditionKey }[] = [];
   const removedConcentration: { sourceId: string; sourceKey: string }[] = [];
+  const vanished: { mapId: string; token: Token }[] = [];
   let changed = false;
 
   const kept = token.effects.filter((effect) => {
@@ -299,18 +394,23 @@ export function tickEffects(
       changed = true;
       if (d.rounds <= 0) {
         remove = true;
-        removed.push(effect.name);
+        // Изгнание с истёкшим сроком: сообщение о конце эффекта даёт отдельный путь.
+        if (!effect.banish) removed.push(effect.name);
       }
     }
     if (!remove && d.type === 'endOfTurn' && phase === 'start') {
       if (d.of === 'target' || effect.sourceId === token.id) {
         remove = true;
-        removed.push(effect.name);
+        if (!effect.banish) removed.push(effect.name);
       }
     }
     if (remove) {
       changeMaxHp(m, room, token, effect, -1);
       token.conditions = token.conditions.filter((c) => c.effectId !== effect.id);
+      if (effect.banish) {
+        const gone = releaseBanishEffect(room, token, effect, { vanished, natural: true });
+        if (!gone) removed.push(effect.name);
+      }
       if (effect.concentration && effect.sourceId && effect.sourceKey) {
         removedConcentration.push({ sourceId: effect.sourceId, sourceKey: effect.sourceKey });
       }
@@ -355,7 +455,7 @@ export function tickEffects(
   }
 
   if (changed) m.saveSoon(room);
-  return { changed, saves, removed, escalated, pruned: [...pruned.values()] };
+  return { changed, saves, removed, escalated, pruned: [...pruned.values()], vanished };
 }
 
 /** Эффекты концентрации существа-источника на всех картах. */
@@ -418,7 +518,10 @@ export function clearConcentration(m: EffectsDeps, room: Room, sourceId: string)
       );
       if (!removedIds.size) continue;
       for (const effect of token.effects) {
-        if (removedIds.has(effect.id)) changeMaxHp(m, room, token, effect, -1);
+        if (removedIds.has(effect.id)) {
+          changeMaxHp(m, room, token, effect, -1);
+          releaseBanishEffect(room, token, effect);
+        }
       }
       token.effects = token.effects.filter((e) => !removedIds.has(e.id));
       token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
@@ -455,7 +558,10 @@ export function clearEffectsForPlayer(m: EffectsDeps, room: Room, playerId: stri
       for (const c of clearConcentration(m, room, token.id)) changed.set(c.token.id, c);
       if (!token.effects.length) continue;
       const removedIds = new Set(token.effects.map((e) => e.id));
-      for (const effect of token.effects) changeMaxHp(m, room, token, effect, -1);
+      for (const effect of token.effects) {
+        changeMaxHp(m, room, token, effect, -1);
+        releaseBanishEffect(room, token, effect);
+      }
       token.effects = [];
       token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
       changed.set(token.id, { mapId: map.id, token });

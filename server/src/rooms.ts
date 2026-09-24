@@ -386,6 +386,7 @@ export class RoomManager {
     removed: string[];
     escalated: { name: string; condition: ConditionKey }[];
     pruned: { mapId: string; token: Token }[];
+    vanished: { mapId: string; token: Token }[];
   } {
     return Effects.tickEffects(this, room, token, phase);
   }

@@ -1,5 +1,5 @@
 import { Group, Image as KonvaImage, Line, Rect, Text } from 'react-konva';
-import type { MapInfo, Token } from 'shared';
+import { isBanished, type MapInfo, type Token } from 'shared';
 import TokenView from '../TokenView';
 import { useImage } from '../../lib/useImage';
 import { tokenImageUrl } from '../../lib/imageVariants';
@@ -35,6 +35,8 @@ interface Props {
   hidden: Set<string>;
   /** Токены, скрытые невидимостью от текущего зрителя. */
   invisibleHidden: Set<string>;
+  /** Изгнанные (Banishment) для текущего зрителя: у не-DM скрыты, у DM — призрак. */
+  banishedHidden: Set<string>;
   dragGhost: { id: string; x: number; y: number } | null;
   dragPath: { points: WorldPoint[]; feet: number } | null;
   viewScale: number;
@@ -47,6 +49,7 @@ export default function TokenLayer({
   isDm,
   hidden,
   invisibleHidden,
+  banishedHidden,
   dragGhost,
   dragPath,
   viewScale,
@@ -65,10 +68,12 @@ export default function TokenLayer({
       {map?.tokens
         .filter(
           (tok) =>
-            (isDm || !isCellHidden(fog, hidden, tok.x, tok.y)) && !invisibleHidden.has(tok.id)
+            (isDm || !isCellHidden(fog, hidden, tok.x, tok.y)) &&
+            !invisibleHidden.has(tok.id) &&
+            !banishedHidden.has(tok.id)
         )
         .map((tok) => (
-          <TokenView key={tok.id} token={tok} ghost={tokenInvisible(tok)} />
+          <TokenView key={tok.id} token={tok} ghost={tokenInvisible(tok) || isBanished(tok)} />
         ))}
       {dragPath && dragPath.points.length > 1 && (
         <>

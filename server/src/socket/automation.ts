@@ -12,6 +12,7 @@ import {
   exhaustionRollPenalty,
   gridDistanceFeet,
   hostileTokens,
+  isBanished,
   isSurrounded,
   maximizeHealing,
   maximizedRollTotal,
@@ -149,6 +150,8 @@ function tokensAround(
   if (!map) return includeSelf ? [caster] : [];
   return map.tokens.filter((token) => {
     if (token.id === caster.id) return includeSelf;
+    // Изгнанные (Banishment) вне поля: радиус-способности их не задевают.
+    if (isBanished(token)) return false;
     if (gridDistanceFeet(token, caster, gridSizeOfMap(map)) > feet) return false;
     if (side === 'any') return true;
     return side === 'hostile'

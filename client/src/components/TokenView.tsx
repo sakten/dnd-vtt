@@ -6,6 +6,7 @@ import {
   canSee,
   cellCenter,
   ignoresDifficultTerrain,
+  isBanished,
   movementBlocked,
   planWalk,
   sightContextOf,
@@ -109,7 +110,8 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       mapWidth: map.width,
       mapHeight: map.height,
       walls: map.walls,
-      tokens: map.tokens,
+      // Изгнанные (Banishment) клетку не держат — ходить можно сквозь них.
+      tokens: map.tokens.filter((t) => !isBanished(t)),
       moverId: token.id,
       cells: token.cells,
       zones: map.zones,
@@ -187,7 +189,7 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       : null;
     const enemies =
       moving.own && current.isPlayerToken && map
-        ? map.tokens.filter((t) => t.id !== current.id && t.visible !== false && !t.isPlayerToken)
+        ? map.tokens.filter((t) => t.id !== current.id && t.visible !== false && !t.isPlayerToken && !isBanished(t))
         : [];
     const senses = tokenSenses(current);
     const seenFrom = (point: { x: number; y: number }) =>

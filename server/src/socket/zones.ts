@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   areaCells,
   gridOfMap,
+  isBanished,
   rollDice,
   saveNoDamage,
   sideMatches,
@@ -65,9 +66,11 @@ function insideTokens(
           tokenFullyInArea(t, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls)
         )
       : tokensInArea(map.tokens, zone.area, zone.origin, zone.direction ?? null, grid, 'euclidean', map.walls);
+  // Изгнанные (Banishment) вне поля: зона их не видит и эффектов им не накладывает.
+  const present = inside.filter((t) => !isBanished(t));
   // Фильтр по отношению к источнику (Conjure Woodland Beings: только враги).
   const source = zone.side ? map.tokens.find((t) => t.id === zone.sourceId) : undefined;
-  const sided = zone.side && source ? inside.filter((t) => sideMatches(source, t, zone.side!)) : inside;
+  const sided = zone.side && source ? present.filter((t) => sideMatches(source, t, zone.side!)) : present;
   return zone.excludeSource ? sided.filter((t) => t.id !== zone.sourceId) : sided;
 }
 
@@ -235,7 +238,15 @@ export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): vo
   for (const dark of darks) {
     if (losers.has(dark)) continue;
     const darkLevel = zoneSpellLevel(dark)!;
-    const inside = tokensInArea(map.tokens, dark.area, dark.origin, dark.direction ?? null, grid, 'euclidean', map.walls);
+    const inside = tokensInArea(
+      map.tokens.filter((t) => !isBanished(t)),
+      dark.area,
+      dark.origin,
+      dark.direction ?? null,
+      grid,
+      'euclidean',
+      map.walls
+    );
     let darkDies = false;
     for (const token of inside) {
       for (const effect of token.effects) {

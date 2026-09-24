@@ -166,6 +166,12 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.maximizeHealing === true) effect.maximizeHealing = true;
     if (e.deathSaveAdvantage === true) effect.deathSaveAdvantage = true;
     if (e.saveNoDamage === true) effect.saveNoDamage = true;
+    if (e.banish && typeof e.banish === 'object') {
+      const b = e.banish as { x?: unknown; y?: unknown };
+      if (typeof b.x === 'number' && typeof b.y === 'number' && Number.isFinite(b.x) && Number.isFinite(b.y)) {
+        effect.banish = { x: Math.round(b.x * 10) / 10, y: Math.round(b.y * 10) / 10 };
+      }
+    }
     if (e.retaliate && typeof e.retaliate === 'object') {
       const r = e.retaliate as { damageType?: unknown; amount?: unknown };
       if (typeof r.damageType === 'string' && r.damageType) {

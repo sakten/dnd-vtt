@@ -10,6 +10,7 @@ import {
   collectAttackSources,
   gridDistanceFeet,
   hostileTokens,
+  isBanished,
   isSurrounded,
   modifiedValue,
   pointCell,
@@ -35,7 +36,7 @@ import { canControlWith, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
 import { fogRects as buildFogRects, type WorldPoint } from '../lib/fog';
 import { useMapCamera } from '../lib/useMapCamera';
-import { useInvisibilityView } from '../lib/visibility';
+import { useInvisibilityView, useBanishView } from '../lib/visibility';
 import { useFogBrush } from '../lib/useFogBrush';
 import { useAreaBrush } from '../lib/useAreaBrush';
 import { useTokenDrop } from '../lib/useTokenDrop';
@@ -172,6 +173,8 @@ export default function TableTop() {
   const hiddenSet = useMemo(() => new Set(activeMap?.fog.hidden ?? []), [activeMap?.fog.hidden]);
   // Невидимость: скрытие от чужих и «?» вместо иконок в трекере инициативы.
   const invisibility = useInvisibilityView();
+  // Изгнанные (Banishment): не-DM не видят токен вовсе, DM — призраком.
+  const banished = useBanishView();
 
   const fogBrush = useFogBrush(activeMap);
   const areaBrush = useAreaBrush(activeMap);
@@ -304,7 +307,12 @@ export default function TableTop() {
         ? sheet.abilities
         : from.statblock?.abilities;
     const adjacentEnemy = activeMap.tokens.some(
-      (t) => t.id !== from.id && t.visible !== false && hostileTokens(from, t) && gridDistanceFeet(from, t, size) <= 5
+      (t) =>
+        t.id !== from.id &&
+        t.visible !== false &&
+        !isBanished(t) &&
+        hostileTokens(from, t) &&
+        gridDistanceFeet(from, t, size) <= 5
     );
     const range = attack ? attackRange(attack, feet, adjacentEnemy, modifiedValue(0, from.effects, 'reach')) : null;
     const sight = {
@@ -582,6 +590,7 @@ export default function TableTop() {
     return map.tokens.some(
       (t) =>
         (t.isPlayerToken || t.canInteract) &&
+        !isBanished(t) &&
         canControlWith(st, t) &&
         segmentRectDistance(
           { x: door.x1, y: door.y1 },
@@ -735,7 +744,7 @@ export default function TableTop() {
           <GridLayer grid={grid} view={view} viewport={size} />
           <Layer listening={false}>
             <LightLayer
-              tokens={activeMap?.tokens ?? []}
+              tokens={(activeMap?.tokens ?? []).filter((t) => !isBanished(t))}
               zones={activeMap?.zones ?? []}
               grid={grid}
               dimmed={!!visionView}
@@ -765,6 +774,7 @@ export default function TableTop() {
               isDm={isDm}
               hidden={hiddenSet}
               invisibleHidden={invisibility.hidden}
+              banishedHidden={banished}
               dragGhost={dragGhost}
               dragPath={dragPath}
               viewScale={view.scale}

@@ -14,10 +14,10 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
-import { removeSummonsOf, summonSourceIds } from './summons';
-import { endShapeToken, endShapesOf } from './forms';
+import { endShapeToken } from './forms';
 import { handleMovementZones, removeZonesOfSource } from './zones';
 import { syncSurrounded } from './surrounded';
+import { removeTokenCompletely } from './tokenRemove';
 
 /** Производные поля персонажа: в токене не хранятся, в патче игнорируются. */
 const CHARACTER_DERIVED_FIELDS = [
@@ -274,27 +274,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       const scope = scopedToken(ctx, mapId, id);
       if (!scope) return;
       const { room, token } = scope;
-      // Эффекты снимаемого токена откатываются, его концентрация и зоны гаснут на всех картах.
-      for (const effect of [...token.effects]) {
-        if (!manager.removeEffect(room, token, effect.id)) continue;
-        // У снятой цели могла быть последняя цель каста — концентрация кастера гаснет.
-        if (effect.concentration && effect.sourceId && effect.sourceKey) {
-          for (const c of manager.pruneConcentration(room, effect.sourceId, effect.sourceKey)) {
-            emitToken(room, 'token:update', c.mapId, c.token);
-          }
-        }
-      }
-      for (const c of manager.clearConcentration(room, id)) emitToken(room, 'token:update', c.mapId, c.token);
-      removeZonesOfSource(ctx, room, id);
-      removeSummonsOf(ctx, room, summonSourceIds(room, token));
-      endShapesOf(ctx, room, summonSourceIds(room, token));
-      manager.removeToken(room, mapId, id);
-      broadcastAll('token:remove', { mapId, id });
-      syncSurrounded(ctx, room, mapId);
-      if (manager.combatOf(room, mapId)?.active) {
-        manager.removeTokenFromCombat(room, mapId, id);
-        syncCombat(room, mapId);
-      }
+      removeTokenCompletely(ctx, room, mapId, token);
     });
 
 }

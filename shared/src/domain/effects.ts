@@ -226,6 +226,8 @@ export interface EffectInstance {
   seesInvisible?: boolean;
   /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
   ward?: string[];
+  /** Banishment: точка возврата изгнанного существа после снятия эффекта. */
+  banish?: { x: number; y: number };
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
   breakOn?: ('attack' | 'spell' | 'damage')[];
   /** Sanctuary: атакующие носителя обязаны пройти спас WIS (СЛ каста) или потерять атаку/заклинание. */

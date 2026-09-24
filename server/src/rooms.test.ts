@@ -875,6 +875,113 @@ describe('RoomManager эффекты', () => {
     expect(tk.conditions).toHaveLength(0);
   });
 
+  it('Banishment: снятие эффекта возвращает токен в исходную клетку', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 200;
+    room.scene.maps[0]!.height = 200;
+    const tk = token('t1', { x: 25, y: 25 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.applyEffect(room, tk, {
+      id: 'ban1',
+      name: 'Banishment',
+      sourceKey: 'XPHB:Banishment',
+      sourceId: 't9',
+      concentration: true,
+      duration: { type: 'rounds', rounds: 10 },
+      conditions: ['incapacitated'],
+      modifiers: [],
+      banish: { x: 25, y: 25 },
+    });
+    expect(tk.conditions.some((c) => c.key === 'incapacitated')).toBe(true);
+
+    manager.removeEffect(room, tk, 'ban1');
+    expect(tk.effects).toHaveLength(0);
+    expect(tk.conditions).toHaveLength(0);
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 25, y: 25 });
+  });
+
+  it('Banishment: занятую клетку возврата заменяет ближайшая свободная', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 200;
+    room.scene.maps[0]!.height = 200;
+    const tk = token('t1', { x: 25, y: 25 });
+    const occupier = token('t2', { x: 25, y: 25 });
+    room.scene.maps[0]!.tokens = [tk, occupier];
+    manager.applyEffect(room, tk, {
+      id: 'ban1',
+      name: 'Banishment',
+      sourceKey: 'XPHB:Banishment',
+      sourceId: 't9',
+      concentration: true,
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      banish: { x: 25, y: 25 },
+    });
+
+    manager.removeEffect(room, tk, 'ban1');
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 25, y: 75 });
+  });
+
+  it('Banishment: экстрапланетный по истечении срока не возвращается (vanished)', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      x: 25,
+      y: 25,
+      statblock: { abilities: DEFAULT_ABILITIES, creatureType: 'fiend' },
+      effects: [
+        {
+          id: 'ban1',
+          name: 'Banishment',
+          sourceKey: 'XPHB:Banishment',
+          sourceId: 't9',
+          concentration: true,
+          duration: { type: 'rounds', rounds: 1 },
+          modifiers: [],
+          conditions: ['incapacitated'],
+          banish: { x: 25, y: 25 },
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    const res = manager.tickEffects(room, tk, 'start');
+    expect(res.vanished.map((v) => v.token.id)).toEqual(['t1']);
+    expect(res.removed).not.toContain('Banishment');
+    expect(tk.effects).toHaveLength(0);
+  });
+
+  it('Banishment: не-экстрапланетный по истечении срока возвращается', () => {
+    const manager = setup();
+    const room = makeRoom();
+    room.scene.maps[0]!.width = 200;
+    room.scene.maps[0]!.height = 200;
+    const tk = token('t1', {
+      x: 25,
+      y: 25,
+      effects: [
+        {
+          id: 'ban1',
+          name: 'Banishment',
+          sourceKey: 'XPHB:Banishment',
+          sourceId: 't9',
+          concentration: true,
+          duration: { type: 'rounds', rounds: 1 },
+          modifiers: [],
+          banish: { x: 25, y: 25 },
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    const res = manager.tickEffects(room, tk, 'start');
+    expect(res.vanished).toHaveLength(0);
+    expect(res.removed).toContain('Banishment');
+    expect({ x: tk.x, y: tk.y }).toEqual({ x: 25, y: 25 });
+  });
+
   it('пустой AC считается 13, эффекты применяются', () => {
     const manager = setup();
     const room = makeRoom();

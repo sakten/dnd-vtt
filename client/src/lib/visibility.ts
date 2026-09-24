@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { hasCondition, seesInvisible, sideMatches, type Token } from 'shared';
+import { hasCondition, isBanished, seesInvisible, sideMatches, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { canControlTokenWith, characterNameOf } from './control';
@@ -49,4 +49,22 @@ export function useInvisibilityView(): InvisibilityView {
     const mine = tokens.filter((t) => canControlTokenWith(controlState, t, charName));
     return invisibilityViewFor(tokens, mine, role === 'dm' || testMode);
   }, [tokens, role, testMode, selfId, currentCharacterId]);
+}
+
+/**
+ * Изгнанные (Banishment): скрыты с карты для всех, кроме DM (он видит призрака
+ * на месте возврата и чипы эффекта, чтобы управлять сценой).
+ */
+export function banishViewFor(tokens: Token[] | undefined, isDm: boolean): Set<string> {
+  const hidden = new Set<string>();
+  if (isDm) return hidden;
+  for (const token of tokens ?? []) if (isBanished(token)) hidden.add(token.id);
+  return hidden;
+}
+
+export function useBanishView(): Set<string> {
+  const tokens = useActiveMap()?.tokens;
+  const role = useGameStore((s) => s.role);
+  const testMode = useGameStore((s) => s.testMode);
+  return useMemo(() => banishViewFor(tokens, role === 'dm' || testMode), [tokens, role, testMode]);
 }

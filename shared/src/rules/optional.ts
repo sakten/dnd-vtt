@@ -3,6 +3,7 @@ import type { Token } from '../domain/token';
 import { areaCellKey, cellChebyshev, tokenCells, type AreaGrid } from './areas';
 import { hostileTokens } from './combat';
 import { isIncapacitated } from './conditions';
+import { isBanished } from './effects';
 import { rectCrossesWalls } from './walls';
 
 /**
@@ -17,7 +18,7 @@ import { rectCrossesWalls } from './walls';
 export const SURROUNDED_SOURCE = 'rule:surrounded';
 export const SURROUNDED_NAME = 'Окружён';
 
-type CellToken = Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h' | 'faction' | 'conditions'>;
+type CellToken = Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h' | 'faction' | 'conditions' | 'effects'>;
 
 export interface SurroundedInput {
   target: CellToken;
@@ -41,6 +42,8 @@ function cellsSet(token: CellToken, grid: AreaGrid): { set: Set<string>; cells: 
 /** Окружено ли существо смежными врагами (правило DM). */
 export function isSurrounded(input: SurroundedInput): boolean {
   const { target, tokens, grid, walls = [], bounds } = input;
+  // Изгнанный (Banishment) вне поля — окружения нет.
+  if (isBanished(target)) return false;
   const { set: targetCells, cells: targetList } = cellsSet(target, grid);
   if (!targetCells.size) return false;
 
@@ -74,10 +77,10 @@ export function isSurrounded(input: SurroundedInput): boolean {
   const free = [...neighbors].map(parseKey).filter((c) => inBounds(c.cx, c.cy) && !blocked(c.cx, c.cy));
   if (!free.length) return false;
 
-  // Кто стоит в клетке и где чья подошва.
+  // Кто стоит в клетке и где чья подошва (изгнанные — вне поля).
   const occupancy = new Map<string, CellToken>();
   for (const token of tokens) {
-    if (token.id === target.id) continue;
+    if (token.id === target.id || isBanished(token)) continue;
     for (const key of tokenCells(token, grid)) if (!occupancy.has(key)) occupancy.set(key, token);
   }
 
@@ -86,6 +89,7 @@ export function isSurrounded(input: SurroundedInput): boolean {
   const enemies = tokens.filter(
     (t) =>
       t.id !== target.id &&
+      !isBanished(t) &&
       hostileTokens(target, t) &&
       !isIncapacitated(t.conditions) &&
       !t.conditions.some((c) => c.key === 'dead')

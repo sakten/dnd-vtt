@@ -3576,6 +3576,61 @@ describe('зоны и концентрация', () => {
     expect(tokens[2]!.effects.some((e) => e.sourceKey === 'XPHB:Hold Person')).toBe(true);
   });
 
+  it('Banishment: провал спаса прячет цель, возврат — по окончании концентрации', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 125, y: 125 }),
+        makeToken('t2', { x: 175, y: 125, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+        makeToken('t3', { x: 275, y: 125, hpMax: '30', hpCurrent: 30, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.scene.maps[0]!.width = 400;
+    room.scene.maps[0]!.height = 400;
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Banishment', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 4, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → спас провален
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Banishment',
+      slotLevel: 4,
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    const tokens = room.scene.maps[0]!.tokens;
+    const target = tokens[1]!;
+    const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Banishment')!;
+    expect(effect.banish).toEqual({ x: 175, y: 125 });
+    expect(effect.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(target.conditions.some((c) => c.key === 'incapacitated')).toBe(true);
+
+    // Изгнанный — не цель: повторный каст по нему отклоняется.
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Banishment',
+      slotLevel: 4,
+      targetIds: ['t2'],
+    });
+    expect((f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined)?.code).toBe(
+      'spellNoTarget'
+    );
+
+    // Клетку возврата заняли: возврат — в ближайшую свободную.
+    tokens[2]!.x = 175;
+    tokens[2]!.y = 125;
+    f.invoke('spell:endConcentration', { mapId: 'm1', tokenId: 't1' });
+
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Banishment')).toBe(false);
+    expect(target.conditions.some((c) => c.key === 'incapacitated')).toBe(false);
+    expect({ x: target.x, y: target.y }).toEqual({ x: 125, y: 75 });
+  });
+
   it('перетаскивание токена в зону срабатывает вне его хода (enter)', () => {
     const room = makeRoom([makeToken('t1'), makeToken('t2', { x: 500, y: 500, hpMax: '30', hpCurrent: 30 })], {});
     const f = makeCtx(room, { dm: true });

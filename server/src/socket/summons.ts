@@ -4,6 +4,7 @@ import {
   gridOfMap,
   hasInvocation,
   INVOCATION_PACT_KEYS,
+  isBanished,
   PACT_OF_CHAIN_FORMS,
   snapToGrid,
   tokenCells,
@@ -65,7 +66,10 @@ export function hasFreeSummonSpot(
 ): boolean {
   const map = room.scene.maps.find((m) => m.id === mapId);
   if (!map) return false;
-  const occupied = new Set(map.tokens.flatMap((token) => tokenCells(token, map.grid)));
+  // Изгнанные (Banishment) клеток не занимают.
+  const occupied = new Set(
+    map.tokens.filter((t) => !isBanished(t)).flatMap((token) => tokenCells(token, map.grid))
+  );
   return freeSpots(map, cells, center, occupied, 1).length > 0;
 }
 
@@ -233,7 +237,10 @@ export function runSummon(ctx: ConnCtx, request: SummonRequest): Token[] {
     }
   }
 
-  const occupied = new Set(map.tokens.flatMap((token) => tokenCells(token, map.grid)));
+  // Изгнанные (Banishment) клеток не занимают — призыв может встать на их место.
+  const occupied = new Set(
+    map.tokens.filter((t) => !isBanished(t)).flatMap((token) => tokenCells(token, map.grid))
+  );
   const center = request.origin ?? { x: request.caster.x, y: request.caster.y };
   const spots = freeSpots(map, fields.cells, center, occupied, Math.max(1, request.def.count ?? 1));
   const spawned: Token[] = [];

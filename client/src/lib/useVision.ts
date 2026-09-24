@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef } from 'react';
-import type { Token } from 'shared';
+import { isBanished, type Token } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { canControlTokenWith, characterNameOf, useIsDm } from './control';
@@ -25,7 +25,8 @@ export function useVisionViewers(): Viewer[] | null {
   );
   const list = useMemo(() => {
     if (!map || isDm) return null;
-    return visionViewers(map.tokens, map.vision.los, ownToken);
+    // Изгнанные (Banishment) вне поля: обзор от них не считаем.
+    return visionViewers(map.tokens.filter((t) => !isBanished(t)), map.vision.los, ownToken);
   }, [map, isDm, ownToken]);
   const key = useMemo(() => (list ? list.map(viewerSignature).join(';') : null), [list]);
   // Стабильная identity: пока состав/позиции/сенсы зрителей те же, отдаём тот же массив —

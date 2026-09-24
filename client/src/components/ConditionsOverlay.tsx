@@ -7,7 +7,7 @@ import { isCellHidden } from '../lib/fog';
 import { useMapLight } from '../lib/light';
 import { useSpellByKey } from '../lib/useSpells';
 import { useVisionViewers } from '../lib/useVision';
-import { useInvisibilityView } from '../lib/visibility';
+import { useInvisibilityView, useBanishView } from '../lib/visibility';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 
@@ -20,6 +20,7 @@ export default function ConditionsOverlay() {
   const grid = useActiveGrid();
   const hidden = useMemo(() => new Set(map?.fog.hidden ?? []), [map?.fog.hidden]);
   const invisibility = useInvisibilityView();
+  const banished = useBanishView();
   const viewers = useVisionViewers();
   // Свет заклинаний (Light, Daylight) — как в вуали TableTop: иначе в «Темноте»
   // игрок видит освещённый токен, а его чипы скрывались бы.
@@ -44,7 +45,7 @@ export default function ConditionsOverlay() {
     <div className="cond-overlay">
       {tokens.map((t) => {
         // Общий visibleCell с TableTop: скрытая туманом клетка центра токена + невидимость.
-        if (invisibility.hidden.has(t.id)) return null;
+        if (invisibility.hidden.has(t.id) || banished.has(t.id)) return null;
         if (!isDm && (isCellHidden(map?.fog, hidden, t.x, t.y) || !isTokenVisible(t))) return null;
         const left = view.x + t.x * view.scale;
         const top = view.y + (t.y - t.h / 2) * view.scale - 26;

@@ -17,6 +17,7 @@ import {
   hasConcentration,
   ignoresDifficultTerrain,
   immuneToSpeedReduction,
+  isBanished,
   isDiceValue,
   magicalDamageType,
   magicWeaponAttacks,
@@ -388,6 +389,13 @@ describe('каталог эффектов заклинаний', () => {
     const def = spellEffectDefs('XPHB:Hold Person')?.[0];
     expect(def?.conditions).toEqual(['paralyzed']);
     expect(def?.duration.type).toBe('untilSave');
+  });
+
+  it('isBanished: изгнанный — только по флагу banish', () => {
+    expect(isBanished({ effects: [effect({ banish: { x: 25, y: 25 } })] })).toBe(true);
+    expect(isBanished({ effects: [effect({})] })).toBe(false);
+    expect(isBanished({ effects: [] })).toBe(false);
+    expect(isBanished(undefined)).toBe(false);
   });
 
   it('Aid даёт +5 к максимуму HP', () => {

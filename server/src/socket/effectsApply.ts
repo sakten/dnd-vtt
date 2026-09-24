@@ -114,9 +114,16 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     saveNoDamage: effectDef.saveNoDamage,
     retaliate: effectDef.retaliate ? { ...effectDef.retaliate } : undefined,
     ward: effectDef.ward ? [...effectDef.ward] : undefined,
+    banish: effectDef.banish ? { x: target.x, y: target.y } : undefined,
     breakOn: effectDef.breakOn ? [...effectDef.breakOn] : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
+  // Banishment: носитель покидает поле — аура-эффекты зон на нём прекращаются.
+  if (effectDef.banish) {
+    for (const zoneEffect of target.effects.filter((e) => e.zoneId)) {
+      ctx.manager.removeEffect(room, target, zoneEffect.id);
+    }
+  }
   // Wild Shape/Polymorph оканчиваются от недееспособности (XPHB).
   if (target.shape && isIncapacitated(target.conditions)) {
     endShapeToken(ctx, room, mapId, target);

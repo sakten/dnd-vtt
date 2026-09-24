@@ -13,6 +13,7 @@
   firstSentence,
   gridDistanceFeet,
   gridOfMap,
+  isBanished,
   legendaryOnly,
   masteryAccessible,
   monsterStats,
@@ -156,6 +157,11 @@ function retargetMark(
     fail(ctx, 'spellNoTarget');
     return;
   }
+  // Изгнанный (Banishment) — не на поле: метку на него не перенести.
+  if (isBanished(newTarget)) {
+    fail(ctx, 'spellNoTarget');
+    return;
+  }
   const markedId = mark.modifiers.find((m) => m.filter?.targetId)?.filter?.targetId;
   const marked = markedId ? ctx.manager.findToken(room, mapId, markedId) : undefined;
   if (marked && !targetDowned(ctx, room, marked)) {
@@ -241,7 +247,7 @@ function actionTargets(
       ? tokensInArea(map.tokens, opts.area, opts.origin, opts.direction ?? null, grid, 'euclidean', map.walls)
       : [];
     for (const found of affected) {
-      if (found.id !== token.id) targets.push(found);
+      if (found.id !== token.id && !isBanished(found)) targets.push(found);
     }
     return targets;
   }
@@ -486,6 +492,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (!scope) return;
       const { room, token, character } = scope;
       if (rejectIfIncapacitated(ctx, token)) return;
+      // Изгнанные (Banishment) — не на поле: целью действия быть не могут.
+      const requested = Array.isArray(targetIds) ? targetIds.filter((id): id is string => typeof id === 'string') : [];
+      if (requested.some((id) => isBanished(manager.findToken(room, mapId, id)))) {
+        fail(ctx, 'spellNoTarget');
+        return;
+      }
 
       // «Выпутаться» (Web и подобные): действие, проверка характеристики против СЛ эффекта.
       if (actionId.startsWith('escape:')) {

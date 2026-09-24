@@ -1,6 +1,7 @@
 import {
   crossesWalls,
   gridOfMap,
+  isBanished,
   isRecord,
   spellAreaOrigin,
   spellCastArea,
@@ -94,7 +95,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         )
       : [];
     for (const t of affected) {
-      if (t.id !== caster.id) targets.push(t);
+      if (t.id !== caster.id && !isBanished(t)) targets.push(t);
     }
     area = true;
     areaOrigin = originPt;
@@ -105,6 +106,11 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
       if (typeof id !== 'string') continue;
       const found = ctx.manager.findToken(room, mapId, id);
       if (!found) continue;
+      // Изгнанный (Banishment) — не на поле: целью быть не может.
+      if (isBanished(found)) {
+        fail(ctx, 'spellNoTarget');
+        return undefined;
+      }
       // 5e: цель доступна, если видна хотя бы одна её клетка (стена/закрытая дверь рушат линию).
       if (map && found.id !== caster.id && !tokenVisibleFrom(caster, found, map.walls, grid)) {
         fail(ctx, 'noClearPath');

@@ -679,6 +679,19 @@ describe('automationForSpell', () => {
     expect(def.concentration).toBe(true);
   });
 
+  it('Banishment: спас CHA, 10 раундов концентрации и флаг изгнания', () => {
+    const def = automationForSpell(makeSpell({ key: 'XPHB:Banishment', name: 'Banishment', automation: 'manual' }));
+    expect(def.resolution).toBe('effect');
+    expect(def.save).toEqual({ ability: 'cha', half: undefined });
+    expect(def.concentration).toBe(true);
+    const effect = def.effects?.[0];
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(effect?.concentration).toBe(true);
+    expect(effect?.conditions).toEqual(['incapacitated']);
+    expect(effect?.banish).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Banishment', automation: 'manual' })).toBe(true);
+  });
+
   it('Sleep: спас, эскалация в без сознания и пробуждение от урона', () => {
     const def = automationForSpell(makeSpell({ key: 'XPHB:Sleep', name: 'Sleep', automation: 'manual' }));
     const effect = def.effects?.[0];

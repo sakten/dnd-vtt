@@ -1,4 +1,4 @@
-import { cellCenter, crossesWalls, gridOfMap, pointCell, tokenCells, type ErrorPayload, type Token } from 'shared';
+import { cellCenter, crossesWalls, gridOfMap, isBanished, pointCell, tokenCells, type ErrorPayload, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { handleMovementZones } from './zones';
@@ -28,8 +28,9 @@ export function teleportIssue(
   // Точка назначения должна быть ровно свободна (без «подбора» соседней клетки).
   const cell = pointCell(origin, grid);
   const dest = cellCenter(cell.cx, cell.cy, grid);
+  // Изгнанные (Banishment) клеток не занимают.
   const occupied = new Set(
-    map.tokens.filter((t) => t.id !== mover.id).flatMap((t) => tokenCells(t, map.grid))
+    map.tokens.filter((t) => t.id !== mover.id && !isBanished(t)).flatMap((t) => tokenCells(t, map.grid))
   );
   const destCells = tokenCells({ x: dest.x, y: dest.y, w: mover.w, h: mover.h }, map.grid);
   if (destCells.some((key) => occupied.has(key))) return { code: 'teleportNoSpace' };

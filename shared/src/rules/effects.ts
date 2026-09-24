@@ -94,6 +94,14 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   return true;
 }
 
+/**
+ * Изгнан ли носитель (Banishment): токен скрыт с карты и не является целью/
+ * помехой, пока эффект с точкой возврата активен.
+ */
+export function isBanished(token: { effects?: EffectInstance[] } | null | undefined): boolean {
+  return !!token?.effects?.some((e) => e.banish);
+}
+
 /** Все модификаторы эффектов под указанную цель (attack/damage/ac/save/…). */
 export function collectModifiers(
   effects: EffectInstance[] | undefined,

@@ -551,6 +551,22 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       modifiers: [],
     },
   ], { ability: 'wis' }),
+  /**
+   * Banishment (XPHB 2024): спас CHA; провал — изгнание на 10 раундов (1 мин,
+   * концентрация). Возврат при снятии эффекта; экстрапланетные по истечении
+   * полного срока не возвращаются (удаляются) — решает исполнение тика.
+   */
+  'XPHB:Banishment': spellEffect('XPHB:Banishment', 'Banishment', [
+    {
+      name: 'Banishment',
+      duration: { type: 'rounds', rounds: 10 },
+      concentration: true,
+      to: 'targets',
+      conditions: ['incapacitated'],
+      modifiers: [],
+      banish: true,
+    },
+  ], { ability: 'cha' }),
   'XPHB:Hypnotic Pattern': spellEffect('XPHB:Hypnotic Pattern', 'Hypnotic Pattern', [
     {
       name: 'Hypnotic Pattern',
