@@ -191,9 +191,32 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       }
     }
     if (e.retaliate && typeof e.retaliate === 'object') {
-      const r = e.retaliate as { damageType?: unknown; amount?: unknown };
+      const r = e.retaliate as { damageType?: unknown; amount?: unknown; dice?: unknown };
       if (typeof r.damageType === 'string' && r.damageType) {
-        effect.retaliate = { damageType: r.damageType.slice(0, 40), amount: clampInt(r.amount, 0, 999, 0) };
+        const retaliate: NonNullable<EffectInstance['retaliate']> = { damageType: r.damageType.slice(0, 40) };
+        if (typeof r.dice === 'string' && r.dice.trim()) retaliate.dice = r.dice.trim().slice(0, 40);
+        else retaliate.amount = clampInt(r.amount, 0, 999, 0);
+        effect.retaliate = retaliate;
+      }
+    }
+    if (e.takesExtraDamage && typeof e.takesExtraDamage === 'object') {
+      const extra = e.takesExtraDamage as { dice?: unknown; damageType?: unknown };
+      if (
+        typeof extra.dice === 'string' &&
+        extra.dice.trim() &&
+        typeof extra.damageType === 'string' &&
+        extra.damageType
+      ) {
+        effect.takesExtraDamage = {
+          dice: extra.dice.trim().slice(0, 40),
+          damageType: extra.damageType.slice(0, 40),
+        };
+      }
+    }
+    if (e.charges && typeof e.charges === 'object') {
+      const charges = e.charges as { remaining?: unknown; on?: unknown };
+      if (charges.on === 'rangedWeaponAttack') {
+        effect.charges = { remaining: clampInt(charges.remaining, 0, 99, 0), on: 'rangedWeaponAttack' };
       }
     }
     if (e.onWillingMove && typeof e.onWillingMove === 'object') {

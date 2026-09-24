@@ -360,3 +360,119 @@ describe('Invisibility: бросок атаки обрывает эффект', 
     expect(attacker.conditions.some((c) => c.key === 'invisible')).toBe(false);
   });
 });
+
+describe('Spirit Shroud: доп. урон по цели под аурой кастера', () => {
+  const entry = {
+    name: 'Меч',
+    hit: 'd20+5',
+    damage: '1d8',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+  };
+
+  const strike = (sourceId: string): number => {
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+    const target = makeToken('t2', { x: 100, y: 100, ac: '15', hpMax: '30', hpCurrent: 30 });
+    const room = makeCombatRoom([attacker, target]);
+    target.effects = [
+      {
+        id: 'ss',
+        name: 'Spirit Shroud',
+        sourceKey: 'TCE:Spirit Shroud',
+        sourceId,
+        duration: { type: 'permanent' },
+        modifiers: [],
+        takesExtraDamage: { dice: '1d8', damageType: 'cold' },
+      },
+    ];
+    const f = makeConnCtx(room, { dm: true });
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    return target.hpCurrent;
+  };
+
+  it('атака кастера-источника бьёт +1d8 холодом', () => {
+    // 1d8=5 рубящим + 1d8=5 холодом → 30 − 10 = 20.
+    expect(strike('t1')).toBe(20);
+  });
+
+  it('эффект чужого источника доп. урон не даёт', () => {
+    expect(strike('t9')).toBe(25);
+  });
+});
+
+describe('Flame Arrows: заряды боеприпасов', () => {
+  const entry = {
+    name: 'Лук',
+    hit: 'd20+5',
+    damage: '1d8',
+    rangeType: 'ranged' as const,
+    rangeNormal: 80,
+    rangeLong: 320,
+    damageType: 'piercing',
+  };
+
+  it('−1 за дальнобойную атаку, на нуле эффект гаснет', () => {
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+    const target = makeToken('t2', { x: 150, y: 100, ac: '15', hpMax: '40', hpCurrent: 40 });
+    const room = makeCombatRoom([attacker, target]);
+    attacker.effects = [
+      {
+        id: 'fa',
+        name: 'Flame Arrows',
+        sourceKey: 'XGE:Flame Arrows',
+        sourceId: 't2',
+        duration: { type: 'permanent' },
+        modifiers: [
+          {
+            id: 'fa:m',
+            target: 'damage',
+            mode: 'add',
+            value: '1d6fire',
+            filter: { weapon: true, unarmed: false, attackType: 'ranged' },
+          },
+        ],
+        charges: { remaining: 2, on: 'rangedWeaponAttack' },
+      },
+    ];
+    const f = makeConnCtx(room, { dm: true });
+    // 1d8=5 колющим + 1d6=4 огнём → 40 − 9 = 31; заряд 2 → 1.
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    expect(target.hpCurrent).toBe(31);
+    expect(attacker.effects[0]?.charges?.remaining).toBe(1);
+
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    expect(attacker.effects.some((e) => e.name === 'Flame Arrows')).toBe(false);
+  });
+});

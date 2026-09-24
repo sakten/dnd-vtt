@@ -6,6 +6,7 @@ import {
   autoCrit,
   characterLevel,
   collectAttackSources,
+  combineRollParts,
   critRangeFor,
   damageRollParts,
   DiceParseError,
@@ -31,6 +32,7 @@ import {
   seesInvisible,
   sightContextOf,
   sourcesCounts,
+  takenDamageParts,
   tokenVisibleFrom,
   unseenBetween,
   weaponRolls,
@@ -53,7 +55,7 @@ import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { removeBrokenEffects } from './effectsApply';
 import { fail } from './errors';
-import { applyDamageMastery, applyHitMastery, consumeAttackRollEffects, grazeDamage } from './masteries';
+import { applyDamageMastery, applyHitMastery, consumeAttackRollEffects, grazeDamage, spendAttackCharges } from './masteries';
 import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { maybeRollAnim } from './rollAnim';
@@ -334,19 +336,23 @@ export function prepareWeaponAttack(
 
   const targetAc = target ? manager.acForToken(room, target) : 0;
   const attackExpr = hit ? withRollParts(attackRollExpression(hit), { flat: effectParts.flat, dice: effectParts.dice }) : '';
-  const damageParts = damageRollParts(
-    attacker?.effects,
-    {
-      rangeType: attack.rangeType,
-      attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
-      damageType: attack.damageType,
-      targetId: target?.id,
-      // Оружейный контекст: модификаторы с `filter.weapon` (Magic Weapon, Divine Favor).
-      weapon: true,
-      unarmed: isUnarmedAttack(attack),
-    },
-    abilities
-  );
+  const damageParts = combineRollParts([
+    damageRollParts(
+      attacker?.effects,
+      {
+        rangeType: attack.rangeType,
+        attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
+        damageType: attack.damageType,
+        targetId: target?.id,
+        // Оружейный контекст: модификаторы с `filter.weapon` (Magic Weapon, Divine Favor).
+        weapon: true,
+        unarmed: isUnarmedAttack(attack),
+      },
+      abilities
+    ),
+    // Доп. урон по цели от атак источника (Spirit Shroud: цель под аурой).
+    takenDamageParts(target?.effects, attacker?.id),
+  ]);
   const damageExpr = damage ? withRollParts(damage, damageParts) : '';
 
   return {
@@ -413,6 +419,7 @@ export function rollPreparedAttack(
         if (consumed.rider) {
           prep.damageExpr = `${prep.damageExpr} + ${consumed.rider.dice}${consumed.rider.damageType}`;
         }
+        spendAttackCharges(ctx, room, attackerMapId, attacker, attack);
       }
       // Invisibility: бросок атаки досрочно обрывает эффект (даже промах).
       if (attacker && attackerMapId) removeBrokenEffects(ctx, room, attackerMapId, attacker, 'attack');

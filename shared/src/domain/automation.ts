@@ -143,7 +143,11 @@ export interface AutomationEffect {
   /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
-  retaliate?: { damageType: string; amount: number };
+  retaliate?: { damageType: string; amount?: number; dice?: string };
+  /** Расходуемый счётчик эффекта (Flame Arrows: 12 боеприпасов). */
+  charges?: { count: number; on: 'rangedWeaponAttack' };
+  /** Spirit Shroud: носитель получает доп. урон от атак источника эффекта (аура-метка). */
+  takesExtraDamage?: { dice: string; damageType: string };
   /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */
   onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
@@ -196,6 +200,8 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     deathSaveAdvantage: def.deathSaveAdvantage,
     saveNoDamage: def.saveNoDamage,
     retaliate: def.retaliate ? { ...def.retaliate } : undefined,
+    charges: def.charges ? { remaining: def.charges.count, on: def.charges.on } : undefined,
+    takesExtraDamage: def.takesExtraDamage ? { ...def.takesExtraDamage } : undefined,
     onWillingMove: def.onWillingMove ? { ...def.onWillingMove } : undefined,
     zephyrStrike: def.zephyrStrike ? { ...def.zephyrStrike } : undefined,
   };

@@ -236,6 +236,27 @@ export const ACTION_ICONS: Record<string, ReactNode> = {
       <path d="M12 8.6c.9 1.4 1.4 2.3 1.4 3a1.4 1.4 0 0 1-2.8 0c0-.7.5-1.6 1.4-3z" fill="#dcedc8" />
     </>
   ),
+
+  // Holy Weapon — «Разряд»: вспышка священного света
+  'XGE:Holy Weapon:burst': (
+    <>
+      <defs>
+        <radialGradient id="aiHolyBurst" cx="0.5" cy="0.5" r="0.6">
+          <stop offset="0" stopColor="#fffdf0" />
+          <stop offset="0.6" stopColor="#ffd54f" />
+          <stop offset="1" stopColor="#ffb300" />
+        </radialGradient>
+      </defs>
+      <circle cx="12" cy="12" r="5.2" fill="url(#aiHolyBurst)" />
+      <path
+        d="M12 1.6v4.2M12 18.2v4.2M1.6 12h4.2M18.2 12h4.2M4.6 4.6l3 3M16.4 16.4l3 3M19.4 4.6l-3 3M7.6 16.4l-3 3"
+        stroke="#ffd54f"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="2.2" fill="#fffdf0" />
+    </>
+  ),
 };
 
 /** Запасные глифы действий по id (когда точного ключа «заклинание:действие» нет). */

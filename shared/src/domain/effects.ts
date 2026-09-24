@@ -245,7 +245,14 @@ export interface EffectInstance {
   /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
-  retaliate?: { damageType: string; amount: number };
+  retaliate?: { damageType: string; amount?: number; dice?: string };
+  /** Расходуемый счётчик (Flame Arrows: 12 боеприпасов, тратится на броске атаки). */
+  charges?: { remaining: number; on: 'rangedWeaponAttack' };
+  /**
+   * Spirit Shroud: носитель получает доп. урон от атак источника эффекта
+   * (`sourceId`), пока эффект активен — аура-метка на цели.
+   */
+  takesExtraDamage?: { dice: string; damageType: string };
   /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */
   onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */

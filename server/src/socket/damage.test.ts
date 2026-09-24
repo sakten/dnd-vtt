@@ -178,6 +178,19 @@ describe('Armor of Agathys: ответный урон', () => {
     expect(attacker.hpCurrent).toBe(30);
   });
 
+  it('ответный урон костями (Fire Shield/Shadow of Moil): бросается 2d8', () => {
+    const { target, attacker, f } = aoa();
+    target.effects[0]!.retaliate = { damageType: 'fire', dice: '2d8' };
+    const original = Math.random;
+    Math.random = () => 0.5; // каждая d8 = 5
+    try {
+      applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'slashing', attacker, melee: true });
+    } finally {
+      Math.random = original;
+    }
+    expect(attacker.hpCurrent).toBe(20); // 30 − 10
+  });
+
   it('нанесение урона обрывает эффект с breakOn:damage (Sanctuary)', () => {
     const { target, attacker, f } = aoa();
     // Защищённый сам наносит урон — Sanctuary спадает.

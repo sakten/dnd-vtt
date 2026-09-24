@@ -484,7 +484,9 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       maximizeHealing: true,
       deathSaveAdvantage: true,
       saveNoDamage: true,
-      retaliate: { damageType: 'cold', amount: 5 },
+      retaliate: { damageType: 'cold', dice: '2d8' },
+      charges: { count: 12, on: 'rangedWeaponAttack' },
+      takesExtraDamage: { dice: '1d8', damageType: 'radiant' },
       onWillingMove: { dice: '1d8', damageType: 'thunder', feet: 5 },
       zephyrStrike: { dice: '1d8', damageType: 'force', speedFeet: 30 },
     };

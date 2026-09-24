@@ -1267,6 +1267,10 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Command': { param: 'command', options: ['approach', 'drop', 'flee', 'grovel', 'halt'] },
   // True Strike: базовый урон — излучением или обычным типом оружия (+1d6 излучением всегда).
   'XPHB:True Strike': { param: 'damageType', options: ['weapon', 'radiant'] },
+  'XPHB:Elemental Weapon': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+  'TCE:Spirit Shroud': { param: 'damageType', options: ['cold', 'necrotic', 'radiant'] },
+  // Fire Shield: warm — сопротивление холоду и ответ огнём, chill — наоборот.
+  'XPHB:Fire Shield': { param: 'effect', options: ['warm', 'chill'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -1294,6 +1298,11 @@ const BUILTIN_AUTOMATION = new Set([
   'XGE:Far Step',
   'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
+  'XPHB:Elemental Weapon',
+  'TCE:Spirit Shroud',
+  'XGE:Flame Arrows',
+  'XPHB:Fire Shield',
+  'XGE:Shadow of Moil',
   'XPHB:Eyebite',
   'XPHB:Invisibility',
   'XPHB:Greater Invisibility',
@@ -1679,6 +1688,156 @@ function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
       { target: 'damage', mode: 'add', value: bonus, filter: { weapon: true, unarmed: false } },
     ],
     magicWeapon: true,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/**
+ * Elemental Weapon (XPHB): оружие цели — магическое, +1 к попаданию и +1d4 стихией
+ * (ступени 5/7: +2/2d4 и +3/3d4 из данных); тип выбирается при касте.
+ */
+function elementalWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Elemental Weapon') return undefined;
+  const variants = SPELL_VARIANTS[spell.key];
+  const type = variants?.options.includes(opts.variant ?? '') ? opts.variant! : variants?.options[0] ?? 'fire';
+  const castLevel = Math.max(1, opts.castLevel ?? Math.max(1, spell.level));
+  const at = spellUpcastAt(spell, castLevel);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    modifiers: [
+      { target: 'attack', mode: 'add', value: at.attack ?? 1, filter: { weapon: true, unarmed: false } },
+      {
+        target: 'damage',
+        mode: 'add',
+        value: `${at.dice ?? spell.damage?.dice?.[0] ?? '1d4'}${type}`,
+        filter: { weapon: true, unarmed: false },
+      },
+    ],
+    magicWeapon: true,
+    variant: type,
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    targeting: { kind: 'creature', range: 5 },
+    effects: [effect],
+  };
+}
+
+/** Складывает базовую кость с однотипными костями апкаста: `'1d8'` + `'1d8 + 1d8'` → `'3d8'`. */
+function addDiceExpression(base: string, extra: string | undefined): string {
+  if (!extra) return base;
+  const m = base.match(/^(\d*)d(\d+)$/);
+  if (!m) return `${base} + ${extra}`;
+  const terms = extra
+    .split('+')
+    .map((term) => term.trim())
+    .filter(Boolean);
+  if (!terms.length || terms.some((term) => !new RegExp(`^\\d*d${m[2]}$`).test(term))) return `${base} + ${extra}`;
+  return `${Number(m[1] || 1) + terms.length}d${m[2]}`;
+}
+
+/**
+ * Spirit Shroud (TCE): аура 10 фт — враги в ней теряют 10 футов скорости и получают
+ * доп. урон выбранного типа от атак кастера (аура-метка `takesExtraDamage`).
+ */
+function spiritShroudDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'TCE:Spirit Shroud') return undefined;
+  const variants = SPELL_VARIANTS[spell.key];
+  const type = variants?.options.includes(opts.variant ?? '') ? opts.variant! : variants?.options[0] ?? 'cold';
+  const castLevel = Math.max(1, opts.castLevel ?? Math.max(1, spell.level));
+  const baseDice = spell.damage?.dice?.[0] ?? '1d8';
+  const dice = addDiceExpression(baseDice, spellUpcastDice(spell, castLevel));
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 10 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'hostile',
+      aura: {
+        effects: [
+          {
+            name: spell.name,
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'speed', mode: 'add', value: -10 }],
+            takesExtraDamage: { dice, damageType: type },
+            variant: type,
+          },
+        ],
+      },
+    },
+  };
+}
+
+/** Flame Arrows (XGE): колчан на 12 боеприпасов — дальние оружейные атаки бьют +1d6 огнём. */
+function flameArrowsDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Flame Arrows') return undefined;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    modifiers: [
+      {
+        target: 'damage',
+        mode: 'add',
+        value: '1d6fire',
+        filter: { weapon: true, unarmed: false, attackType: 'ranged' },
+      },
+    ],
+    charges: { count: 12, on: 'rangedWeaponAttack' },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    targeting: { kind: 'creature', range: 5 },
+    effects: [effect],
+  };
+}
+
+/** Fire Shield (XPHB): тёплый/холодный щит — сопротивление и ответные 2d8 в ближнем бою. */
+function fireShieldDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Fire Shield') return undefined;
+  const warm = (opts.variant ?? 'warm') !== 'chill';
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'self',
+    modifiers: [
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: warm ? 'cold' : 'fire' } },
+    ],
+    retaliate: { damageType: warm ? 'fire' : 'cold', dice: '2d8' },
+    variant: warm ? 'warm' : 'chill',
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/** Shadow of Moil (XGE): помеха атакам по носителю, сопротивление излучению, ответные 2d8 некротикой. */
+function shadowOfMoilDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Shadow of Moil') return undefined;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'self',
+    modifiers: [
+      { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
+    ],
+    retaliate: { damageType: 'necrotic', dice: '2d8' },
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
@@ -2100,6 +2259,21 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const magicWeapon = magicWeaponDef(spell, opts);
   if (magicWeapon) return magicWeapon;
+
+  const elementalWeapon = elementalWeaponDef(spell, opts);
+  if (elementalWeapon) return elementalWeapon;
+
+  const spiritShroud = spiritShroudDef(spell, opts);
+  if (spiritShroud) return spiritShroud;
+
+  const flameArrows = flameArrowsDef(spell);
+  if (flameArrows) return flameArrows;
+
+  const fireShield = fireShieldDef(spell, opts);
+  if (fireShield) return fireShield;
+
+  const shadowOfMoil = shadowOfMoilDef(spell);
+  if (shadowOfMoil) return shadowOfMoil;
 
   const eyebite = eyebiteDef(spell, opts);
   if (eyebite) return eyebite;

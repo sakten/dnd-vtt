@@ -364,7 +364,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                   {variantDef.param === 'ability'
                     ? abilityName(option as AbilityKey)
                     : variantDef.param === 'effect'
-                      ? t(`ui.eyebite.${option}` as MessageKey)
+                      ? t(`ui.spellVariant.${option}` as MessageKey)
                       : variantDef.param === 'skill'
                         ? skillName(option)
                         : variantDef.param === 'command'

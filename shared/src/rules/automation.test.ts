@@ -360,6 +360,120 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('B2: Elemental Weapon — ступени +1/2/3 и кости 1d4/2d4/3d4, тип вариантом', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Elemental Weapon',
+      name: 'Elemental Weapon',
+      level: 3,
+      automation: 'manual',
+      concentration: true,
+      damage: { dice: ['1d4'], types: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'hour', amount: 1 } }],
+      upcast: { tiers: [
+        { level: 5, attack: 2, dice: '2d4' },
+        { level: 7, attack: 3, dice: '3d4' },
+      ] },
+    });
+    const base = automationForSpell(spell, { variant: 'cold' });
+    expect(base.resolution).toBe('effect');
+    expect(base.targeting).toEqual({ kind: 'creature', range: 5 });
+    expect(base.effects?.[0]?.magicWeapon).toBe(true);
+    expect(base.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'attack',
+      mode: 'add',
+      value: 1,
+      filter: { weapon: true, unarmed: false },
+    });
+    expect(base.effects?.[0]?.modifiers[1]).toMatchObject({ target: 'damage', mode: 'add', value: '1d4cold' });
+    const fifth = automationForSpell(spell, { castLevel: 5 });
+    expect(fifth.effects?.[0]?.modifiers[0]?.value).toBe(2);
+    expect(fifth.effects?.[0]?.modifiers[1]?.value).toBe('2d4acid');
+    const seventh = automationForSpell(spell, { castLevel: 7 });
+    expect(seventh.effects?.[0]?.modifiers[0]?.value).toBe(3);
+    expect(seventh.effects?.[0]?.modifiers[1]?.value).toBe('3d4acid');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('B2: Spirit Shroud — аура 10 фт: −10 футов и доп. урон от атак кастера', () => {
+    const spell = makeSpell({
+      key: 'TCE:Spirit Shroud',
+      name: 'Spirit Shroud',
+      level: 3,
+      automation: 'manual',
+      concentration: true,
+      damage: { dice: ['1d8'], types: ['radiant', 'necrotic', 'cold'] },
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
+      upcast: { above: 3, every: 2, dice: '1d8' },
+    });
+    const def = automationForSpell(spell, { variant: 'radiant' });
+    expect(def.concentration).toBe(true);
+    expect(def.maxRounds).toBe(10);
+    expect(def.zone?.area).toEqual({ shape: 'sphere', size: 10 });
+    expect(def.zone?.side).toBe('hostile');
+    const aura = def.zone?.aura?.effects?.[0];
+    expect(aura?.modifiers[0]).toMatchObject({ target: 'speed', mode: 'add', value: -10 });
+    expect(aura?.takesExtraDamage).toEqual({ dice: '1d8', damageType: 'radiant' });
+    expect(automationForSpell(spell, { castLevel: 5 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('2d8');
+    expect(automationForSpell(spell, { castLevel: 7 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('3d8');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('B2: Flame Arrows — 12 боеприпасов, дальние оружейные атаки +1d6 огнём', () => {
+    const spell = makeSpell({
+      key: 'XGE:Flame Arrows',
+      name: 'Flame Arrows',
+      level: 3,
+      automation: 'manual',
+      concentration: true,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'hour', amount: 1 } }],
+    });
+    const def = automationForSpell(spell);
+    const effect = def.effects?.[0];
+    expect(def.targeting).toEqual({ kind: 'creature', range: 5 });
+    expect(effect?.charges).toEqual({ count: 12, on: 'rangedWeaponAttack' });
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '1d6fire',
+      filter: { weapon: true, unarmed: false, attackType: 'ranged' },
+    });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('B2: Fire Shield — warm/chill: сопротивление и ответные 2d8', () => {
+    const spell = makeSpell({ key: 'XPHB:Fire Shield', name: 'Fire Shield', level: 4, automation: 'manual' });
+    const warm = automationForSpell(spell, { variant: 'warm' }).effects?.[0];
+    expect(warm?.modifiers[0]?.filter?.damageType).toBe('cold');
+    expect(warm?.retaliate).toEqual({ damageType: 'fire', dice: '2d8' });
+    const chill = automationForSpell(spell, { variant: 'chill' }).effects?.[0];
+    expect(chill?.modifiers[0]?.filter?.damageType).toBe('fire');
+    expect(chill?.retaliate).toEqual({ damageType: 'cold', dice: '2d8' });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('B2: Shadow of Moil — помеха атакам, сопротивление излучению, ответные 2d8 некротикой', () => {
+    const spell = makeSpell({
+      key: 'XGE:Shadow of Moil',
+      name: 'Shadow of Moil',
+      level: 4,
+      automation: 'manual',
+      concentration: true,
+    });
+    const effect = automationForSpell(spell).effects?.[0];
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'attack',
+      mode: 'disadvantage',
+      filter: { direction: 'against' },
+    });
+    expect(effect?.modifiers[1]).toMatchObject({
+      target: 'damage',
+      mode: 'resistance',
+      filter: { damageType: 'radiant' },
+    });
+    expect(effect?.retaliate).toEqual({ damageType: 'necrotic', dice: '2d8' });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Помощь: разбудить цель в 5 фт (utility wake)', () => {
     const def = automationForAction(findBaseAction('help')!);
     expect(def?.utility).toMatchObject({ kind: 'wake' });

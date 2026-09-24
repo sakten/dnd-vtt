@@ -3,6 +3,7 @@ import {
   damageLinks,
   gridDistanceFeet,
   retaliationOf,
+  rollDice,
   statNumber,
   type DamagePartAmount,
   type DiceRollResult,
@@ -141,11 +142,14 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     const attacker = input.attacker;
     if (input.melee && attacker && attacker.id !== target.id && tempBefore > 0) {
       const retaliation = retaliationOf(target.effects);
-      if (retaliation) {
+      const retaliationAmount = retaliation?.dice
+        ? rollDice(retaliation.dice).total
+        : retaliation?.amount ?? 0;
+      if (retaliation && retaliationAmount > 0) {
         applyDamage(ctx, {
           target: attacker,
           mapId,
-          amount: retaliation.amount,
+          amount: retaliationAmount,
           damageType: retaliation.damageType,
           // Ответку наносит носитель — его `breakOn:'damage'` (Sanctuary) срабатывает.
           attacker: target,
@@ -155,7 +159,7 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
           params: {
             name: target.name,
             target: attacker.name,
-            amount: retaliation.amount,
+            amount: retaliationAmount,
             type: retaliation.damageType,
           },
         });

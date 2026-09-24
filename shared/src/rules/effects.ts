@@ -274,6 +274,20 @@ export function damageRollParts(
   return rollParts(collectModifiers(effects, 'damage', ctx), abilities);
 }
 
+/** Доп. урон по носителю от атак источника (Spirit Shroud: цель под аурой кастера). */
+export function takenDamageParts(
+  defenderEffects: EffectInstance[] | undefined,
+  attackerId: string | undefined
+): RollParts {
+  const dice: string[] = [];
+  if (!attackerId) return { flat: 0, dice };
+  for (const effect of defenderEffects ?? []) {
+    const extra = effect.takesExtraDamage;
+    if (extra && effect.sourceId === attackerId) dice.push(`${extra.dice}${extra.damageType}`);
+  }
+  return { flat: 0, dice };
+}
+
 /**
  * Применяет модификаторы к числу: `set` — нижняя граница (max, для AC/Barkskin),
  * затем `add`, затем `multiply` (например, Haste ×2 к скорости).
@@ -378,7 +392,7 @@ export function saveNoDamage(effects: EffectInstance[] | undefined): boolean {
 /** Ответный урон атакующему (Armor of Agathys) из эффектов носителя. */
 export function retaliationOf(
   effects: EffectInstance[] | undefined
-): { damageType: string; amount: number } | undefined {
+): EffectInstance['retaliate'] | undefined {
   for (const effect of effects ?? []) {
     if (effect.retaliate) return effect.retaliate;
   }
@@ -506,8 +520,17 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   if (effect.retaliate) {
     parts.push({
       key: 'domain.effect.retaliate',
-      params: { damage: effect.retaliate.amount, type: effect.retaliate.damageType },
+      params: { damage: effect.retaliate.dice ?? effect.retaliate.amount ?? 0, type: effect.retaliate.damageType },
     });
+  }
+  if (effect.takesExtraDamage) {
+    parts.push({
+      key: 'domain.effect.takesExtraDamage',
+      params: { damage: effect.takesExtraDamage.dice, type: effect.takesExtraDamage.damageType },
+    });
+  }
+  if (effect.charges) {
+    parts.push({ key: 'domain.effect.charges', params: { n: effect.charges.remaining } });
   }
   for (const mod of effect.modifiers) {
     switch (mod.mode) {

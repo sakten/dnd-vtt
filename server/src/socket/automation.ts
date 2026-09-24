@@ -7,6 +7,7 @@ import {
   characterLevel,
   collectAttackSources,
   combineRollMode,
+  combineRollParts,
   d20Expr,
   damageRollParts,
   exhaustionRollPenalty,
@@ -25,6 +26,7 @@ import {
   sideMatches,
   sourcesCounts,
   statNumber,
+  takenDamageParts,
   withAdvantage,
   withRollParts,
   type AbilityKey,
@@ -898,7 +900,11 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       if (misdirectCheck(ctx, room, mapId, target, caster)) return done();
       let damageRoll: DiceRollResult | undefined;
       if (expression) {
-        const damageParts = damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities);
+        const damageParts = combineRollParts([
+          damageRollParts(caster.effects, { rangeType, damageType, targetId: target.id }, abilities),
+          // Доп. урон по цели от атак кастера (Spirit Shroud: цель под аурой).
+          takenDamageParts(target.effects, caster.id),
+        ]);
         damageRoll = attackDamageRoll(expression, damageParts, hit.crit);
       }
       const applied = damageRoll

@@ -223,3 +223,29 @@ export function consumeAttackRollEffects(
   if (changed) ctx.emitToken(room, 'token:update', mapId, attacker);
   return rider ? { rider } : {};
 }
+
+/**
+ * Расходует заряды эффектов на броске атаки (Flame Arrows: 1 боеприпас за
+ * дальнобойную оружейную атаку). На нуле эффект гаснет с системкой в чат.
+ */
+export function spendAttackCharges(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  attack: AttackEntry
+): void {
+  if (attack.rangeType !== 'ranged') return;
+  let changed = false;
+  for (const effect of [...attacker.effects]) {
+    const charges = effect.charges;
+    if (!charges || charges.on !== 'rangedWeaponAttack') continue;
+    charges.remaining -= 1;
+    changed = true;
+    if (charges.remaining <= 0) {
+      ctx.manager.removeEffect(room, attacker, effect.id);
+      ctx.systemMessage(room, { code: 'automation.chargesSpent', params: { name: effect.name } });
+    }
+  }
+  if (changed) ctx.emitToken(room, 'token:update', mapId, attacker);
+}
