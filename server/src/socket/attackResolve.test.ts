@@ -243,6 +243,55 @@ describe('Magic Weapon: магический физурон обходит за�
   });
 });
 
+describe('модификаторы урона с фильтром weapon (Divine Favor, Magic Weapon)', () => {
+  const entry = {
+    name: 'Меч',
+    hit: 'd20+5',
+    damage: '1d8',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+  };
+
+  const attackWith = (modifiers: { target: 'attack' | 'damage'; mode: 'add'; value: number | string; filter: { weapon: boolean } }[]) => {
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+    const target = makeToken('t2', { x: 100, y: 100, ac: '15', hpMax: '30', hpCurrent: 30 });
+    const room = makeCombatRoom([attacker, target]);
+    attacker.effects = [
+      { id: 'e1', name: 'Бафф', duration: { type: 'permanent' }, modifiers: modifiers.map((m, i) => ({ ...m, id: `e1:m${i}` })) },
+    ];
+    const f = makeConnCtx(room, { dm: true });
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    return target.hpCurrent;
+  };
+
+  it('Divine Favor: +1d4 излучением добавляется к урону оружия', () => {
+    // 1d8=5 режущим + 1d4=3 излучением → 30 − 8 = 22.
+    expect(attackWith([{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }])).toBe(22);
+  });
+
+  it('Magic Weapon: +1 к урону прибавляется к броску', () => {
+    // 1d8=5 + 1 → 30 − 6 = 24.
+    expect(
+      attackWith([
+        { target: 'attack', mode: 'add', value: 1, filter: { weapon: true } },
+        { target: 'damage', mode: 'add', value: 1, filter: { weapon: true } },
+      ])
+    ).toBe(24);
+  });
+});
+
 describe('Invisibility: бросок атаки обрывает эффект', () => {
   it('после атаки снимаются эффект с breakOn и его условие', () => {
     const entry = {

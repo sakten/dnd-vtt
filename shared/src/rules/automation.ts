@@ -1056,6 +1056,90 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       restrictions: { noReactions: true, actionOrBonusOnly: true, oneAttackOnly: true, spellFailureChance: 25 },
     },
   ], { ability: 'wis' }),
+  // B1: баффы оружия. Divine Favor — свои атаки, Crusader's Mantle — аура союзникам,
+  // Holy Weapon — цель-носитель + выданный бонусным действием «Разряд».
+  /** Divine Favor (XPHB 2024): бонусным действием — оружейные атаки +1d4 излучением, без концентрации. */
+  'XPHB:Divine Favor': {
+    key: 'XPHB:Divine Favor',
+    name: 'Divine Favor',
+    resolution: 'effect',
+    effects: [
+      {
+        name: 'Divine Favor',
+        duration: PERMANENT,
+        to: 'self',
+        modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }],
+      },
+    ],
+  },
+  /** Crusader's Mantle (XPHB 2024): эманация 30 фт — вы и союзники +1d4 излучением оружейными атаками. */
+  "XPHB:Crusader's Mantle": {
+    key: "XPHB:Crusader's Mantle",
+    name: "Crusader's Mantle",
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            name: "Crusader's Mantle",
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }],
+          },
+        ],
+      },
+    },
+  },
+  /** Holy Weapon (XGE): касание — оружие светит 30/30 и бьёт +2d8 излучением; «Разряд» завершает эффект. */
+  'XGE:Holy Weapon': {
+    key: 'XGE:Holy Weapon',
+    name: 'Holy Weapon',
+    resolution: 'effect',
+    concentration: true,
+    targeting: { kind: 'creature', range: 5 },
+    effects: [
+      {
+        name: 'Holy Weapon',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'damage', mode: 'add', value: '2d8radiant', filter: { weapon: true } }],
+        light: { bright: 30, dim: 30 },
+        actions: [
+          {
+            id: 'burst',
+            name: 'Разряд',
+            cost: 'bonus',
+            endsEffect: true,
+            def: {
+              key: 'XGE:Holy Weapon:burst',
+              name: 'Разряд',
+              resolution: 'save',
+              save: { ability: 'con', half: true },
+              damage: { dice: '4d8', types: ['radiant'] },
+              area: { shape: 'sphere', size: 30 },
+              targeting: { kind: 'area', area: { shape: 'sphere', size: 30 }, range: 30 },
+              effects: [
+                {
+                  name: 'Holy Weapon',
+                  duration: { type: 'endOfTurn', of: 'source' },
+                  to: 'targets',
+                  modifiers: [],
+                  conditions: ['blinded'],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  },
   // Animate Objects: до 10 предметов со своими статблоками — механика отдельным
   // срезом. Без записи деривация из данных давала ложный авто-урон 1d4 по цели.
   'XPHB:Animate Objects': {

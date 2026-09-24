@@ -418,8 +418,10 @@ function useGrantedAction(
 
   // СЛ/атака выданного действия считаются по характеристикам кастера-источника
   // (лист с классом заклинания или статблок); без них сейв молча пропускался бы.
+  // Ключ для поиска класса — родительское заклинание эффекта: у под-действий
+  // (Eyebite: Сон, Holy Weapon: Разряд) своего класса в листе нет.
   const caster = effect.sourceId ? ctx.manager.findToken(room, mapId, effect.sourceId) ?? undefined : undefined;
-  const stats = caster ? casterStatsFor(ctx, room, caster, def.key) : null;
+  const stats = caster ? casterStatsFor(ctx, room, caster, effect.sourceKey ?? def.key) : null;
   if ((def.save || def.attack) && !stats) {
     fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
     return;
@@ -467,6 +469,12 @@ function useGrantedAction(
     direction: opts.direction ?? null,
     area: area ?? null,
   });
+  // Holy Weapon: «Разряд» завершает эффект-носитель (и концентрацию кастера).
+  if (granted.endsEffect && effect.concentration && effect.sourceId) {
+    for (const changed of ctx.manager.clearConcentration(room, effect.sourceId)) {
+      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+  }
 }
 
 /** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */

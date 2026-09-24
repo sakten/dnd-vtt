@@ -322,6 +322,8 @@ export interface GrantedAction {
   baseActionId?: string;
   /** Своя механика, если действие не ссылается на базовое (Dragon's Breath). */
   def?: AutomationDef;
+  /** Использование действия завершает эффект-носитель (Holy Weapon: разряд). */
+  endsEffect?: boolean;
 }
 
 export interface AutomationDef extends AutomationPayload {

@@ -356,6 +356,66 @@ describe('action:use', () => {
     expect(effect?.actions?.[0]?.id).toBe('beam');
   });
 
+  it('Holy Weapon: бафф оружия и «Разряд», завершающий эффект', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'cleric', level: 5 }],
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+      spells: [{ key: 'XGE:Holy Weapon', className: 'cleric' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 5, current: 2, max: 2 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XGE:Holy Weapon',
+      slotLevel: 5,
+      targetIds: ['t1'],
+    });
+
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const effect = caster.effects.find((e) => e.sourceKey === 'XGE:Holy Weapon');
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '2d8radiant',
+      filter: { weapon: true },
+    });
+    expect(effect?.light).toEqual({ bright: 30, dim: 30 });
+    expect(effect?.actions?.[0]?.id).toBe('burst');
+
+    // «Разряд» — бонусным действием на следующем ходу (каст уже потратил бонус).
+    combatOf(room).turns.e1!.bonusActionUsed = false;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // спас провален
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `spell:${effect!.id}:burst`,
+      origin: { x: 100, y: 100 },
+    });
+    rand.mockRestore();
+
+    // «Разряд» завершает эффект-носитель (и концентрацию кастера).
+    expect(caster.effects.some((e) => e.sourceKey === 'XGE:Holy Weapon')).toBe(false);
+    const enemy = room.scene.maps[0]!.tokens[1]!;
+    expect(enemy.hpCurrent).toBeLessThan(40);
+    expect(enemy.conditions.some((c) => c.key === 'blinded')).toBe(true);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+  });
+
   it('Heat Metal: авто-урон с помехой и повтор бонусным действием', () => {
     const room = makeRoom(
       [
@@ -5551,6 +5611,8 @@ describe('реакции (R1)', () => {
     const room = makeRoom(
       [
         makeToken('t1', {
+          hpMax: '40',
+          hpCurrent: 40,
           attacks: [
             {
               name: 'Огонь',
@@ -5563,7 +5625,23 @@ describe('реакции (R1)', () => {
             },
           ],
         }),
-        makeToken('t2', { libraryItemId: 'lib2', ac: '10', hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', {
+          libraryItemId: 'lib2',
+          ac: '10',
+          hpMax: '30',
+          hpCurrent: 30,
+          attacks: [
+            {
+              name: 'Копьё',
+              hit: 'd20',
+              damage: '1d6',
+              damageType: 'piercing',
+              rangeType: 'melee',
+              rangeNormal: 5,
+              rangeLong: 0,
+            },
+          ],
+        }),
       ],
       { p1: 'lib2' }
     );
@@ -5596,6 +5674,24 @@ describe('реакции (R1)', () => {
       )
     ).toBe(true);
     expect(combatOf(room).turns.e2!.reactionUsed).toBe(true);
+
+    // Заряд: +1d6 типом огня по оружейным атакам ближнего боя, сгорает на броске.
+    const charge = defender.effects.find((e) => e.consumeOnAttackRoll);
+    expect(charge?.modifiers.find((m) => m.mode === 'add')?.value).toBe('1d6fire');
+    const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17, 1d6 = 5, 1d6 = 5
+    const f3 = makeCtx(room, { playerId: 'p1' });
+    resolveWeaponAttack(f3.ctx, {
+      attacker: defender,
+      attackerMapId: 'm1',
+      target: room.scene.maps[0]!.tokens[0]!,
+      targetMapId: 'm1',
+      attack: defender.attacks[0]!,
+      author: 'A',
+      ignoreRange: true,
+    });
+    rand2.mockRestore();
+    expect(room.scene.maps[0]!.tokens[0]!.hpCurrent).toBe(30); // 40 − (5 колющим + 5 огнём)
+    expect(defender.effects.some((e) => e.consumeOnAttackRoll)).toBe(false);
   });
 
   it('Counterspell отменяет каст', () => {

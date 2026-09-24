@@ -339,6 +339,8 @@ export function prepareWeaponAttack(
       attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
       damageType: attack.damageType,
       targetId: target?.id,
+      // Оружейный контекст: модификаторы с `filter.weapon` (Magic Weapon, Divine Favor).
+      weapon: true,
     },
     abilities
   );

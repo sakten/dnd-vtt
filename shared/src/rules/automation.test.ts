@@ -279,6 +279,85 @@ describe('automationForSpell', () => {
     expect(spellAutomated(mw)).toBe(true);
   });
 
+  it('B1: Divine Favor — +1d4 излучением оружейным атакам, без концентрации', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Divine Favor',
+      name: 'Divine Favor',
+      level: 1,
+      automation: 'manual',
+      duration: [{ type: 'timed', duration: { type: 'minute', amount: 1 } }],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBeUndefined();
+    expect(def.maxRounds).toBe(10);
+    const effect = def.effects?.[0];
+    expect(effect?.to).toBe('self');
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '1d4radiant',
+      filter: { weapon: true },
+    });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it("B1: Crusader's Mantle — аура 30 фт союзникам, +1d4 излучением оружием", () => {
+    const spell = makeSpell({
+      key: "XPHB:Crusader's Mantle",
+      name: "Crusader's Mantle",
+      level: 3,
+      automation: 'manual',
+      concentration: true,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(def.maxRounds).toBe(10);
+    expect(def.zone?.area).toEqual({ shape: 'sphere', size: 30 });
+    expect(def.zone?.anchor).toBe('source');
+    expect(def.zone?.side).toBe('ally');
+    expect(def.zone?.aura?.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '1d4radiant',
+      filter: { weapon: true },
+    });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('B1: Holy Weapon — +2d8 излучением, свет 30/30 и «Разряд»', () => {
+    const spell = makeSpell({
+      key: 'XGE:Holy Weapon',
+      name: 'Holy Weapon',
+      level: 5,
+      automation: 'manual',
+      concentration: true,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'hour', amount: 1 } }],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.maxRounds).toBeUndefined();
+    expect(def.targeting).toEqual({ kind: 'creature', range: 5 });
+    const effect = def.effects?.[0];
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '2d8radiant',
+      filter: { weapon: true },
+    });
+    expect(effect?.light).toEqual({ bright: 30, dim: 30 });
+    const burst = effect?.actions?.[0];
+    expect(burst?.id).toBe('burst');
+    expect(burst?.cost).toBe('bonus');
+    expect(burst?.endsEffect).toBe(true);
+    expect(burst?.def?.save).toEqual({ ability: 'con', half: true });
+    expect(burst?.def?.damage).toEqual({ dice: '4d8', types: ['radiant'] });
+    expect(burst?.def?.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Помощь: разбудить цель в 5 фт (utility wake)', () => {
     const def = automationForAction(findBaseAction('help')!);
     expect(def?.utility).toMatchObject({ kind: 'wake' });

@@ -10,7 +10,6 @@ import {
   rollDice,
   shapeAllowsSpellcast,
   spellEffectDefs,
-  type EffectInstance,
   type ErrorPayload,
   type ReactionOption,
   type ReactionTriggerKind,
@@ -119,25 +118,41 @@ export function applyReactionChoice(
   }
   if (!ctx.manager.spendSlot(room, choice.mapId, token, 'reaction')) return;
 
-  // Absorb Elements: сопротивление типу сработавшего урона до следующего хода.
+  // Absorb Elements: сопротивление типу сработавшего урона до начала следующего
+  // хода носителя + заряд: первое попадание оружием на следующем ходу — +1d6 типом.
   const absorb = absorbTypesOf(key);
   if (absorb.length && damageType && absorb.includes(damageType)) {
-    const effect: EffectInstance = {
-      id: randomUUID(),
+    const resistanceId = randomUUID();
+    ctx.manager.applyEffect(room, token, {
+      id: resistanceId,
       name: spell.name,
       sourceKey: key,
       sourceId: token.id,
       duration: { type: 'rounds', rounds: 1 },
       modifiers: [
+        { id: `${resistanceId}:r`, target: 'damage', mode: 'resistance', filter: { damageType } },
+      ],
+    });
+    const chargeId = randomUUID();
+    ctx.manager.applyEffect(room, token, {
+      id: chargeId,
+      name: spell.name,
+      sourceKey: key,
+      sourceId: token.id,
+      // Заряд переживает начало следующего хода носителя (rounds:2 — спадёт после
+      // него) и сгорает на первом же броске атаки (`consumeOnAttackRoll`).
+      duration: { type: 'rounds', rounds: 2 },
+      modifiers: [
         {
-          id: `${randomUUID()}:r`,
+          id: `${chargeId}:d`,
           target: 'damage',
-          mode: 'resistance',
-          filter: { damageType },
+          mode: 'add',
+          value: `1d6${damageType}`,
+          filter: { weapon: true, attackType: 'melee' },
         },
       ],
-    };
-    ctx.manager.applyEffect(room, token, effect);
+      consumeOnAttackRoll: true,
+    });
     ctx.emitToken(room, 'token:update', choice.mapId, token);
     ctx.systemMessage(room, {
       code: 'spells.resistance',
