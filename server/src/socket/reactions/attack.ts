@@ -231,7 +231,7 @@ function continueAfterRoll(
 export function resolveWeaponAttackWithReactions(
   ctx: ConnCtx,
   input: AttackResolveInput,
-  opts: { beforeRoll?: () => boolean } = {}
+  opts: { beforeRoll?: () => boolean; afterCommit?: () => void } = {}
 ): AttackResolveResult {
   const room = ctx.getRoom();
   // Sanctuary: защищённая цель заставляет атакующего пройти спас или потерять атаку.
@@ -243,6 +243,8 @@ export function resolveWeaponAttackWithReactions(
 
   const rollAndContinue = (extraDisadvantage: boolean): AttackResolveResult => {
     if (opts.beforeRoll && !opts.beforeRoll()) return {};
+    // Атака состоялась (слоты списаны): Shadow Blade — клинок брошен и т.п.
+    opts.afterCommit?.();
     const rolled = rollPreparedAttack(ctx, prep, { extraDisadvantage });
     if (!rolled.plan) return rolled.result;
     return continueAfterRoll(ctx, room, input, rolled.result, rolled.plan);

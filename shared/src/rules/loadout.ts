@@ -1,4 +1,5 @@
 import type { AbilityKey } from '../domain/core';
+import { abilityMod } from '../domain/core';
 import type { EffectInstance } from '../domain/effects';
 import type { FeatureChoice } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetHands } from '../domain/sheet';
@@ -34,6 +35,41 @@ export interface LoadoutInput {
   choices?: FeatureChoice[];
 }
 
+/** Префикс синтетических id атак Shadow Blade (`shadow:<effectId>[:thrown]`). */
+export const SHADOW_BLADE_PREFIX = 'shadow:';
+
+/** id эффекта-клинка тени из синтетической атаки (undefined — обычная запись листа). */
+export function shadowBladeEffectIdOf(attack: AttackEntry): string | undefined {
+  const id = attack.id;
+  if (!id?.startsWith(SHADOW_BLADE_PREFIX)) return undefined;
+  return id.slice(SHADOW_BLADE_PREFIX.length).replace(/:thrown$/, '');
+}
+
+/** Брошенный клинок тени (дальняя синтетическая атака) — после броска клинок исчезает. */
+export function isShadowBladeThrown(attack: AttackEntry): boolean {
+  return !!attack.id?.startsWith(SHADOW_BLADE_PREFIX) && !!attack.id.endsWith(':thrown');
+}
+
+/** Атаки клинка тени: ближняя 5 фт и метание 20/60 (психический, ловкость/сила). */
+function shadowBladeEntries(effect: EffectInstance, context: WeaponContext): AttackEntry[] {
+  const blade = effect.shadowBlade;
+  if (!blade?.inHand) return [];
+  const totalLevel = context.classes.reduce((acc, c) => acc + Math.max(1, c.level), 0);
+  const pb = proficiencyBonus(totalLevel || 1);
+  const mod = Math.max(abilityMod(context.abilities.str ?? 10), abilityMod(context.abilities.dex ?? 10));
+  const melee: AttackEntry = {
+    id: `${SHADOW_BLADE_PREFIX}${effect.id}`,
+    name: 'Клинок тени',
+    hit: d20Expr(pb + mod),
+    damage: damageExpression(blade.dice, mod),
+    damageType: 'psychic',
+    rangeType: 'melee',
+    rangeNormal: 5,
+    rangeLong: 0,
+  };
+  return [melee, { ...melee, id: `${melee.id}:thrown`, rangeType: 'ranged', rangeNormal: 20, rangeLong: 60 }];
+}
+
 /**
  * Производный лоадаут: сохранённые атаки/руки + оружие и оверрайды от активных
  * эффектов (Shadow Blade — временный клинок в правой руке, Shillelagh — кость и
@@ -48,12 +84,13 @@ export function loadoutOf(input: LoadoutInput): ActorLoadout {
     classes: input.classes ?? [],
     ...(input.choices ? { choices: input.choices } : {}),
   };
-  if (!input.effects?.some((e) => e.weaponOverride)) return { attacks, hands: input.hands, context };
-  return {
-    attacks: attacks.map((attack) => applyWeaponOverrides(attack, input.effects, context)),
-    hands: input.hands,
-    context,
-  };
+  const effects = input.effects ?? [];
+  const hasOverrides = effects.some((e) => e.weaponOverride);
+  const blades = effects.filter((e) => e.shadowBlade);
+  if (!hasOverrides && !blades.length) return { attacks, hands: input.hands, context };
+  const mapped = hasOverrides ? attacks.map((attack) => applyWeaponOverrides(attack, effects, context)) : attacks;
+  const extra = blades.flatMap((effect) => shadowBladeEntries(effect, context));
+  return { attacks: extra.length ? [...mapped, ...extra] : mapped, hands: input.hands, context };
 }
 
 /**

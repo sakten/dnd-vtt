@@ -222,6 +222,8 @@ export interface EffectInstance {
   magicWeapon?: boolean;
   /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
   weaponOverride?: WeaponOverride;
+  /** Shadow Blade: синтетический клинок тени (кость, в руке/брошен). */
+  shadowBlade?: { dice: string; inHand: boolean };
   /** Warding Bond: урон носителя тем же количеством переносится на токен-источник. */
   damageLink?: { tokenId: string };
   /** Eyebite: скрытая метка «спасся против этого каста» (повторно не цель). */

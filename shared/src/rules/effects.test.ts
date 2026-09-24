@@ -477,6 +477,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       triggers: { startOfTurn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } } },
       magicWeapon: true,
       weaponOverride: { weapons: ['XPHB:Club'], dice: '1d10', damageType: 'force', abilityMod: 4 },
+      shadowBlade: { dice: '3d8', inHand: false },
       immuneToSpeedReduction: true,
       ignoresDifficultTerrain: true,
       seesInvisible: true,

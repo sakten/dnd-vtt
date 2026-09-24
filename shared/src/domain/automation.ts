@@ -130,6 +130,12 @@ export interface AutomationEffect {
   magicWeapon?: boolean;
   /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
   weaponOverride?: WeaponOverride;
+  /**
+   * Shadow Blade: синтетический клинок тени в руке — кость со скейлом круга
+   * (2d8…5d8), психический, ловкость/сила; брошенный клинок возвращается
+   * бонусным действием (`inHand: false`, пока не возвращён).
+   */
+  shadowBlade?: { dice: string; inHand: boolean };
   /** Warding Bond: переносить получаемый урон на источник эффекта. */
   damageLink?: boolean;
   /** Eyebite: успешный спас цели ставит скрытую метку — повторно её не выбрать до конца каста. */
@@ -217,6 +223,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     weaponOverride: def.weaponOverride
       ? { ...def.weaponOverride, weapons: [...def.weaponOverride.weapons] }
       : undefined,
+    shadowBlade: def.shadowBlade ? { ...def.shadowBlade } : undefined,
     immuneToSpeedReduction: def.immuneToSpeedReduction,
     ignoresDifficultTerrain: def.ignoresDifficultTerrain,
     seesInvisible: def.seesInvisible,
@@ -380,6 +387,8 @@ export interface AutomationUtility {
     | 'wake'
     /** Revivify: вернуть мёртвую цель к жизни с 1 HP. */
     | 'revive'
+    /** Shadow Blade: вернуть брошенный клинок тени в руку (бонусным действием). */
+    | 'recallWeapon'
     /** Spare the Dying: цель на 0 HP становится стабильной. */
     | 'stabilize'
     /** Lesser/Greater Restoration: снять одно состояние из `endConditions` (выбор при касте). */

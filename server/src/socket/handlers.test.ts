@@ -504,6 +504,87 @@ describe('action:use', () => {
     expect(room.scene.maps[0]!.tokens[0]!.effects).toHaveLength(0);
   });
 
+  it('Shadow Blade: синтетический клинок, метание и возврат бонусным действием', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 150, ac: '10', hpMax: '60', hpCurrent: 60, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'wizard', level: 5 }],
+      abilities: { str: 10, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
+      attacks: [],
+      spells: [{ key: 'XGE:Shadow Blade', className: 'wizard' }],
+    };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 2, current: 2, max: 2 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+    registerDiceHandlers(f.ctx);
+
+    f.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XGE:Shadow Blade', slotLevel: 2 });
+
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const effect = caster.effects.find((e) => e.sourceKey === 'XGE:Shadow Blade');
+    expect(effect?.shadowBlade).toEqual({ dice: '2d8', inHand: true });
+
+    // Ближний удар клинком (лист пуст — клинок первый в лоадауте): d20+7, 2d8+4 психическим.
+    // Карта в «Темноте»: клинок тени даёт преимущество (источник rule:shadowBlade).
+    room.scene.maps[0]!.vision = { los: false, darkness: true };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    rand.mockRestore();
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(46);
+    const attackMsg = f.emitted
+      .filter((e) => e.event === 'chat:message')
+      .map((e) => e.payload as { kind?: string; rollKind?: string; labelParams?: { sources?: unknown[] } })
+      .find((m) => m.kind === 'roll' && m.rollKind === 'attack');
+    expect(attackMsg?.labelParams?.sources).toContainEqual({ side: 'advantage', kind: 'rule', key: 'shadowBlade' });
+
+    // Метание (индекс 1): клинок исчезает, эффект выдаёт «Вернуть клинок».
+    combatOf(room).turns.e1!.actionUsed = false;
+    const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 1, targetIds: ['t2'] });
+    rand2.mockRestore();
+    expect(effect?.shadowBlade).toEqual({ dice: '2d8', inHand: false });
+    expect(effect?.actions?.[0]?.id).toBe('return');
+
+    // Пока клинок брошен, синтетических атак в лоадауте нет.
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const missing = f.emitted.filter((e) => e.event === 'chat:error').pop()?.payload as { code?: string } | undefined;
+    expect(missing?.code).toBe('noWeapon');
+
+    // Митигация: подделанная запись листа с префиксом клинка и живым эффектом не проходит.
+    room.sheets.p1!.attacks = [
+      {
+        id: 'shadow:ghost',
+        name: 'Фейк',
+        hit: 'd20+5',
+        damage: '1d8',
+        rangeType: 'melee',
+        rangeNormal: 5,
+        rangeLong: 0,
+      },
+    ];
+    f.invoke('dice:attack', { tokenId: 't1', targetId: 't2', attackIndex: 0 });
+    const forged = f.emitted.filter((e) => e.event === 'chat:error').pop()?.payload as { code?: string } | undefined;
+    expect(forged?.code).toBe('noWeapon');
+    room.sheets.p1!.attacks = [];
+
+    // Возврат бонусным действием.
+    combatOf(room).turns.e1!.bonusActionUsed = false;
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `spell:${effect!.id}:return` });
+    expect(effect?.shadowBlade?.inHand).toBe(true);
+    expect(effect?.actions ?? []).toHaveLength(0);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.shadowBladeReturn')).toBe(true);
+  });
+
   it('Heat Metal: авто-урон с помехой и повтор бонусным действием', () => {
     const room = makeRoom(
       [

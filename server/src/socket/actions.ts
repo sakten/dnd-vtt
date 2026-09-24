@@ -54,6 +54,7 @@ import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedT
 import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone } from './zones';
+import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
@@ -379,6 +380,32 @@ function useGrantedAction(
   const def = base ? automationForAction(base) : granted.def;
   if (!def) return;
 
+  // Shadow Blade: возврат брошенного клинка бонусным действием (флаг в эффекте).
+  if (def.utility?.kind === 'recallWeapon') {
+    const blade = effect.shadowBlade;
+    if (!blade) {
+      fail(ctx, 'noWeapon');
+      return;
+    }
+    const combat = ctx.manager.combatOf(room, mapId);
+    const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, token.id);
+    if (combat?.active && !isActive && !ctx.isDm()) {
+      fail(ctx, 'notYourTurn');
+      return;
+    }
+    const turn = isActive ? ctx.manager.turnForToken(room, mapId, token) : null;
+    if (!ctx.manager.spendSlot(room, mapId, token, chooseSlot(turn, [granted.cost], opts.slot))) {
+      fail(ctx, 'noActions');
+      return;
+    }
+    effect.shadowBlade = { ...blade, inHand: true };
+    effect.actions = [];
+    ctx.emitToken(room, 'token:update', mapId, token);
+    ctx.syncCombat(room, mapId);
+    ctx.systemMessage(room, { code: 'automation.shadowBladeReturn', params: { name: token.name } });
+    return;
+  }
+
   // Перенос метки (Hex/Hunter's Mark): своя логика — проверки, слот, обновление filter.targetId.
   if (def.retarget) {
     retargetMark(ctx, room, mapId, token, effect, def, opts.targetIds, opts.slot);
@@ -620,6 +647,11 @@ export function registerActionHandlers(ctx: ConnCtx) {
           fail(ctx, 'noWeapon');
           return;
         }
+        // Синтетический клинок тени: запись допустима только у живого эффекта с клинком в руке.
+        if (!shadowBladeAttackAllowed(token, entry)) {
+          fail(ctx, 'noWeapon');
+          return;
+        }
         const unarmed = action.id === 'unarmedStrike' || entry.kind === 'unarmed';
         const offTurn = manager.turnStateFor(room, mapId, token);
         const offRestrictions = restrictionsFor(token.conditions, token.effects);
@@ -780,6 +812,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
               syncCombat(room, mapId);
               return true;
             },
+            // Shadow Blade: метание — клинок исчезает из руки (возврат бонусным действием).
+            afterCommit: () => markShadowBladeThrown(ctx, room, mapId, token, attackEntry),
           }
         );
         if (result.error) {

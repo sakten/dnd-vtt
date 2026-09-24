@@ -1324,6 +1324,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
   'XPHB:Shillelagh',
+  'XGE:Shadow Blade',
   'XPHB:Elemental Weapon',
   'TCE:Spirit Shroud',
   'XGE:Flame Arrows',
@@ -1738,6 +1739,26 @@ function shillelaghDef(spell: Spell, opts: AutomationOptions): AutomationDef | u
     },
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/**
+ * Shadow Blade (XGE): бонусным действием — синтетический клинок тени в руке
+ * (кость по кругу 2d8…5d8, психический, ловкость/сила). Клинок появляется в
+ * лоадауте отдельными атаками (ближняя и метание 20/60); брошенный исчезает и
+ * возвращается бонусным действием (`shadowBlade.inHand`).
+ */
+function shadowBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Shadow Blade') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'self',
+    modifiers: [],
+    shadowBlade: { dice: spellUpcastAt(spell, castLevel).dice ?? spell.damage?.dice?.[0] ?? '2d8', inHand: true },
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
 /**
@@ -2310,6 +2331,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const shillelagh = shillelaghDef(spell, opts);
   if (shillelagh) return shillelagh;
+
+  const shadowBlade = shadowBladeDef(spell, opts);
+  if (shadowBlade) return shadowBlade;
 
   const elementalWeapon = elementalWeaponDef(spell, opts);
   if (elementalWeapon) return elementalWeapon;

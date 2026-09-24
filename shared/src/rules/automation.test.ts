@@ -456,6 +456,33 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('B3: Shadow Blade — клинок по кругу (2d8…5d8), метание и возврат', () => {
+    const spell = makeSpell({
+      key: 'XGE:Shadow Blade',
+      name: 'Shadow Blade',
+      level: 2,
+      automation: 'manual',
+      concentration: true,
+      damage: { dice: ['2d8', '3d8', '4d8', '5d8'], types: ['psychic'] },
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
+      upcast: {
+        tiers: [
+          { level: 3, dice: '3d8' },
+          { level: 5, dice: '4d8' },
+          { level: 7, dice: '5d8' },
+        ],
+      },
+    });
+    const base = automationForSpell(spell, { castLevel: 2 });
+    expect(base.resolution).toBe('effect');
+    expect(base.concentration).toBe(true);
+    expect(base.effects?.[0]?.shadowBlade).toEqual({ dice: '2d8', inHand: true });
+    expect(automationForSpell(spell, { castLevel: 3 }).effects?.[0]?.shadowBlade?.dice).toBe('3d8');
+    expect(automationForSpell(spell, { castLevel: 5 }).effects?.[0]?.shadowBlade?.dice).toBe('4d8');
+    expect(automationForSpell(spell, { castLevel: 9 }).effects?.[0]?.shadowBlade?.dice).toBe('5d8');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('B2: Spirit Shroud — аура 10 фт: −10 футов и доп. урон от атак кастера', () => {
     const spell = makeSpell({
       key: 'TCE:Spirit Shroud',

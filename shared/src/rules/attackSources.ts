@@ -35,6 +35,8 @@ export interface AttackSourceInput {
   targetSeesInvisible?: boolean;
   /** Опциональное правило «Окружение»: цель окружена смежными врагами. */
   surrounded?: boolean;
+  /** Shadow Blade: цель в сумерках/темноте — преимущество клинка тени. */
+  dusk?: boolean;
   /** Эффекты с контекстом: источники с именами; иначе — обезличенный `effectMode`. */
   attackerEffects?: EffectInstance[];
   targetEffects?: EffectInstance[];
@@ -72,6 +74,7 @@ export function collectAttackSources(input: AttackSourceInput): AttackSource[] {
   if (input.unseenTarget) out.push({ side: 'disadvantage', kind: 'unseen', key: 'target' });
   if (input.unseenAttacker) out.push({ side: 'advantage', kind: 'unseen', key: 'attacker' });
   if (input.surrounded) out.push({ side: 'advantage', kind: 'rule', key: 'surrounded' });
+  if (input.dusk) out.push({ side: 'advantage', kind: 'rule', key: 'shadowBlade' });
 
   if (input.attackerEffects || input.targetEffects) {
     const ctx: ModifierContext = input.effectContext ?? {};

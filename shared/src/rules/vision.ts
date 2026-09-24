@@ -222,6 +222,20 @@ export function areaKindAt(areas: LightArea[], point: Point): LightAreaKind | nu
   return null;
 }
 
+/**
+ * Уровень света в точке: области/зоны тьмы и мглы, свет заклинаний, глобальная
+ * «Тьма»; по умолчанию — яркий. Для правил, которые смотрят на свет у цели
+ * (Shadow Blade: преимущество в сумерках/темноте).
+ */
+export function lightLevelAt(ctx: SightContext, point: Point): LightLevel | 'dark' {
+  if (visionKindAt(ctx, point)) return 'dark';
+  const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
+  const cell = pointCell(point, grid);
+  const lit = ctx.light?.get(areaCellKey(cell.cx, cell.cy));
+  if (lit) return lit;
+  return ctx.darkness ? 'dark' : 'bright';
+}
+
 const KIND_SEVERITY: Record<LightAreaKind, number> = { darkness: 1, magical: 2, obscured: 3 };
 
 /** Более строгий из двух видов области (мгла строже магической тьмы, та — обычной). */

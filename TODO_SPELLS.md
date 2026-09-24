@@ -40,7 +40,7 @@
 | ✅ B1: `XPHB:Divine Favor` (свои атаки +1d4), `XPHB:Crusader's Mantle` (аура 30 фт союзникам), `XGE:Holy Weapon` (+2d8, свет, «Разряд» бонус-действием с завершением) | `damage:add` c `weapon:true`; аура зоны; `actionCarrier`+`endsEffect` |
 | ✅ B2: `XPHB:Elemental Weapon` (ступени +1/+2/+3 и 1d4/2d4/3d4), `TCE:Spirit Shroud` (аура 10 фт: −10 футов и доп. урон от атак кастера по цели-метке), `XGE:Flame Arrows` (+1d6 огнём дальнему оружию, счётчик 12 зарядов) | `damage:add`/`attack:add`, зона-аура, `takesExtraDamage`, `charges` |
 | `XPHB:Fire Shield`, `XGE:Shadow of Moil` | ✅ `retaliate` костями (2d8), сопротивление; Moil — помеха атакам по носителю (`direction: against`) |
-| `XGE:Shadow Blade` | ⚠️ создание оружия: грантованный attack-action (как Flame Blade), метание/возврат бонусным действием |
+| `XGE:Shadow Blade` | ✅ B3: синтетический клинок в лоадауте (2d8…5d8 психическим, ловкость/сила, ближняя + метание 20/60); метание через `afterCommit` → `inHand: false`, возврат бонусным (`recallWeapon`); преимущество в сумерках/тьме (`lightLevelAt`); валидация `shadow:`-записей |
 | `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame`, `XGE:Investiture of Ice`, `XGE:Investiture of Wind` | ⚠️ наборы модификаторов/режимов (`variant` + effects + granted actions) |
 | `XPHB:Fount of Moonlight` | ✅ B3: свет 20/20, сопротивление излучению, +2d6 ближним атакам (`attackType` в контексте заклинательных атак), реакция `damageReaction` (CON-спас ≤60 фт, слепота) |
 | `XPHB:Shillelagh` | ✅ B3: `weaponOverride` в лоадауте — кость кантрипа (d8/d10/d12/2d6), заклинательная характеристика, силовой тип; только дубинка/посох |

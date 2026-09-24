@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee, lightCells, tokenSenses, zoneVisionCells, zoneVisionKindAt } from './vision';
+import { canSee, lightCells, lightLevelAt, tokenSenses, zoneVisionCells, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -182,5 +182,32 @@ describe('countAttackAdvantage: невидимость (RAW)', () => {
     expect(countAttackAdvantage({ unseenTarget: true }).mode).toBe('d');
     expect(countAttackAdvantage({ unseenAttacker: true }).mode).toBe('a');
     expect(countAttackAdvantage({ unseenTarget: true, unseenAttacker: true }).mode).toBeUndefined();
+  });
+});
+
+describe('lightLevelAt (Shadow Blade: свет у цели)', () => {
+  const point = { x: 25, y: 25 };
+  const grid = { size: 50, offsetX: 0, offsetY: 0 };
+
+  it('по умолчанию яркий; глобальная «Тьма» — темнота', () => {
+    expect(lightLevelAt(SIGHT, point)).toBe('bright');
+    expect(lightLevelAt(DARK_SIGHT, point)).toBe('dark');
+  });
+
+  it('области тьмы/мглы — темнота даже при свете заклинаний', () => {
+    const area: LightArea = { id: 'a1', x: 0, y: 0, w: 100, h: 100, kind: 'darkness' };
+    const light = lightCells([{ x: 25, y: 25, light: { bright: 20, dim: 0 } }], grid);
+    expect(lightLevelAt({ ...SIGHT, areas: [area], light }, point)).toBe('dark');
+    expect(lightLevelAt({ ...SIGHT, areas: [{ ...area, kind: 'magical' }], light }, point)).toBe('dark');
+  });
+
+  it('свет заклинаний: яркая клетка — bright, сумерки — dim, свет снимает «Тьму»', () => {
+    const light = new Map([
+      ['0,0', 'dim' as const],
+      ['1,0', 'bright' as const],
+    ]);
+    expect(lightLevelAt({ ...SIGHT, light }, point)).toBe('dim');
+    expect(lightLevelAt({ ...SIGHT, light }, { x: 75, y: 25 })).toBe('bright');
+    expect(lightLevelAt({ ...DARK_SIGHT, light }, { x: 75, y: 25 })).toBe('bright');
   });
 });

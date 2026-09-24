@@ -273,6 +273,12 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         };
       }
     }
+    if (e.shadowBlade && typeof e.shadowBlade === 'object') {
+      const b = e.shadowBlade as { dice?: unknown; inHand?: unknown };
+      if (typeof b.dice === 'string' && b.dice.trim()) {
+        effect.shadowBlade = { dice: b.dice.trim().slice(0, 40), inHand: b.inHand !== false };
+      }
+    }
     if (Array.isArray(e.breakOn)) {
       const events = e.breakOn.filter(
         (k): k is 'attack' | 'spell' | 'damage' => k === 'attack' || k === 'spell' || k === 'damage'

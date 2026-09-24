@@ -78,6 +78,42 @@ describe('Shillelagh (weaponOverride)', () => {
   });
 });
 
+describe('Shadow Blade (shadowBlade)', () => {
+  const blade: EffectInstance = {
+    id: 'sb',
+    name: 'Shadow Blade',
+    sourceKey: 'XGE:Shadow Blade',
+    duration: { type: 'concentration' },
+    concentration: true,
+    modifiers: [],
+    shadowBlade: { dice: '3d8', inHand: true },
+  };
+  const ctx = { abilities: { str: 10, dex: 18 }, classes: [{ className: 'wizard', level: 5 }] };
+
+  it('в руке — синтетические атаки: ближняя 5 фт и метание 20/60, психический', () => {
+    const loadout = loadoutOf({ attacks: [sword], effects: [blade], ...ctx });
+    expect(loadout.attacks).toHaveLength(3);
+    const melee = loadout.attacks[1]!;
+    expect(melee).toMatchObject({
+      id: 'shadow:sb',
+      hit: 'd20+7',
+      damage: '3d8+4',
+      damageType: 'psychic',
+      rangeType: 'melee',
+      rangeNormal: 5,
+    });
+    expect(loadout.attacks[2]).toMatchObject({ id: 'shadow:sb:thrown', rangeType: 'ranged', rangeNormal: 20, rangeLong: 60 });
+    expect(loadout.attacks[0]).toBe(sword);
+  });
+
+  it('брошен (inHand: false) — атак нет', () => {
+    const thrown: EffectInstance = { ...blade, shadowBlade: { dice: '3d8', inHand: false } };
+    const attacks = [sword];
+    const loadout = loadoutOf({ attacks, effects: [thrown], ...ctx });
+    expect(loadout.attacks).toBe(attacks);
+  });
+});
+
 describe('handOf', () => {
   it('оружие правой и левой руки; щит — не оружие', () => {
     const loadout = loadoutOf({ attacks: [sword, knife], hands: { right: 'sw', left: HANDS_SHIELD } });

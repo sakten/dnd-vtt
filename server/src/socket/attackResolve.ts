@@ -18,6 +18,7 @@ import {
   isCriticalHit,
   isSurrounded,
   isUnarmedAttack,
+  lightLevelAt,
   magicalDamageType,
   magicWeaponAttacks,
   mapLightCells,
@@ -30,6 +31,7 @@ import {
   rollDice,
   rollMode,
   seesInvisible,
+  shadowBladeEffectIdOf,
   sightContextOf,
   sourcesCounts,
   takenDamageParts,
@@ -46,6 +48,7 @@ import {
   type MapInfo,
   type RollLabelParams,
   type RollParts,
+  type SightContext,
   type Token,
 } from 'shared';
 import type { ConnCtx } from './context';
@@ -92,19 +95,24 @@ export interface AttackResolveResult {
   damageRoll?: DiceRollResult;
 }
 
+/** Контекст обзора карты со светом заклинаний (невидимость и свет у цели). */
+export function attackSight(room: Room, map: MapInfo): SightContext {
+  const grid = gridOfMap(map, room.scene.grid);
+  // Свет заклинаний (Light, Daylight, факелы-эффекты) — как в вуали: в «Темноте» он снимает невидимость.
+  return {
+    ...sightContextOf(map, grid),
+    light: mapLightCells(map.tokens, map.zones ?? [], grid, map.walls),
+  };
+}
+
 /** Невидимость участников для adv/dis (одна карта): общий расчёт оружия и заклинаний. */
 export function attackUnseen(
   room: Room,
   attacker: Token,
   target: Token,
-  map: MapInfo
+  map: MapInfo,
+  sight: SightContext = attackSight(room, map)
 ): { unseenTarget: boolean; unseenAttacker: boolean } {
-  const grid = gridOfMap(map, room.scene.grid);
-  // Свет заклинаний (Light, Daylight, факелы-эффекты) — как в вуали: в «Темноте» он снимает невидимость.
-  const sight = {
-    ...sightContextOf(map, grid),
-    light: mapLightCells(map.tokens, map.zones ?? [], grid, map.walls),
-  };
   return unseenBetween(
     attacker,
     target,
@@ -222,6 +230,7 @@ export function prepareWeaponAttack(
   let unseenTarget = false;
   let unseenAttacker = false;
   let surrounded = false;
+  let dusk = false;
 
   // Досягаемость: бонус эффекта учитывается только в свой ход (Battering Roots).
   const reachBonus =
@@ -256,9 +265,14 @@ export function prepareWeaponAttack(
         return { error: { code: 'noClearPath' } };
       }
       hasTarget = true;
-      const unseen = attackUnseen(room, attacker, target, map);
+      const sight = attackSight(room, map);
+      const unseen = attackUnseen(room, attacker, target, map, sight);
       unseenTarget = unseen.unseenTarget;
       unseenAttacker = unseen.unseenAttacker;
+      // Shadow Blade: цель в сумерках/темноте — преимущество (клинок тени).
+      if (shadowBladeEffectIdOf(attack)) {
+        dusk = lightLevelAt(sight, { x: target.x, y: target.y }) !== 'bright';
+      }
       // Опциональное правило «Окружение»: преимущество смежным врагам окружённой цели.
       surrounded =
         room.optionalRules.surrounded &&
@@ -319,6 +333,7 @@ export function prepareWeaponAttack(
     unseenTarget,
     unseenAttacker,
     surrounded,
+    dusk,
     attackerSeesInvisible: seesInvisible(attacker?.effects),
     targetSeesInvisible: seesInvisible(target?.effects),
   });

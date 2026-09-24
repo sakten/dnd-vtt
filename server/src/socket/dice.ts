@@ -18,6 +18,7 @@ import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
+import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 
 export function registerDiceHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, cleanLabel } = ctx;
@@ -89,6 +90,11 @@ export function registerDiceHandlers(ctx: ConnCtx) {
       if (!Number.isFinite(index) || index < 0 || index >= attacks.length) return;
       const entry = attacks[index];
       if (!entry) return;
+      // Синтетический клинок тени: у записи должен быть живой эффект с клинком в руке.
+      if (entry.id?.startsWith('shadow:') && (!attacker || !shadowBladeAttackAllowed(attacker, entry))) {
+        fail(ctx, 'noWeapon');
+        return;
+      }
 
       // Единая экономика: в бою атака списывает действие/запас мультиатаки в момент броска.
       const combatant = attacker && attackerMapId ? { token: attacker, mapId: attackerMapId } : null;
@@ -139,6 +145,9 @@ export function registerDiceHandlers(ctx: ConnCtx) {
               syncCombat(room, combatant.mapId);
             }
             return true;
+          },
+          afterCommit: () => {
+            if (attackerMapId) markShadowBladeThrown(ctx, room, attackerMapId, attacker, entry);
           },
         }
       );

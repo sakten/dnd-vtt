@@ -72,4 +72,9 @@ describe('collectAttackSources', () => {
     ]);
     expect(collectAttackSources({ targetConditions: invisible, attackerSeesInvisible: true })).toEqual([]);
   });
+
+  it('Shadow Blade: цель в сумерках/темноте — преимущество (dusk)', () => {
+    expect(collectAttackSources({ dusk: true })).toEqual([{ side: 'advantage', kind: 'rule', key: 'shadowBlade' }]);
+    expect(collectAttackSources({ dusk: false })).toEqual([]);
+  });
 });

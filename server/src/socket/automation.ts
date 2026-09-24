@@ -400,6 +400,8 @@ type UtilityHandler = (u: {
 
 /** Обработчики простых утилит: доп. действие/движение, отход, доп. атаки, пул лечения, проверка. */
 const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
+  // Shadow Blade: возврат клинка обрабатывается в `useGrantedAction` (флаг эффекта).
+  recallWeapon: () => {},
   extraAction: ({ ctx, room, input, utility, turn }) => {
     const amount = Math.max(1, Math.round(utility.amount ?? 1));
     if (turn) turn.extraActions += amount;
