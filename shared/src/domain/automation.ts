@@ -32,6 +32,18 @@ export interface AutomationSave {
   half?: boolean;
 }
 
+/** Всплеск вокруг цели: спас и урон по всем существам в радиусе (Ice Knife, Hail of Thorns). */
+export interface AttackBurst {
+  /** Радиус от центра, футы. */
+  rangeFeet: number;
+  /** Кости урона (со скейлом); нет — без урона. */
+  dice?: string;
+  damageType: string;
+  save?: { ability: AbilityKey; half?: boolean };
+  /** Радиус бьёт и по основной цели (Ice Knife: «цель и существа вокруг»). */
+  includePrimary?: boolean;
+}
+
 export interface AutomationDice {
   /** Выражение костей с учётом скейла (апкаст/кантрип). */
   dice: string;
@@ -454,6 +466,11 @@ export interface AutomationDef extends AutomationPayload {
   /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   /**
+   * Всплеск вокруг цели: спас и урон по всем существам в `rangeFeet`
+   * (Ice Knife — независимо от попадания; Hail of Thorns/Lightning Arrow — райдер).
+   */
+  burst?: AttackBurst;
+  /**
    * Райдер оружия/смайта: клинки-кантрипы (Green-Flame Blade) и ranged-смайты
    * (Hail of Thorns, Lightning Arrow): кости на попадании и вторичный урон.
    */
@@ -470,14 +487,7 @@ export interface AutomationDef extends AutomationPayload {
      * Вторичная цель в `rangeFeet` от основной: урон = мод заклинательной + `dice`.
      * `save` — вторичный урон по спасброску всех в радиусе (Lightning); без него — GFB-режим.
      */
-    secondary?: {
-      rangeFeet: number;
-      dice?: string;
-      damageType: string;
-      save?: { ability: AbilityKey; half?: boolean };
-      /** Радиус бьёт и по основной цели (Hail of Thorns: «цель и существа вокруг»). */
-      includePrimary?: boolean;
-    };
+    secondary?: AttackBurst;
     /** Эффект на цель при попадании (Booming Blade: гремящая энергия). */
     hitEffect?: AutomationEffect;
   };

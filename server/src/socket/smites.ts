@@ -2,18 +2,14 @@ import {
   actionSlotAvailable,
   automationForSpell,
   characterLevel,
-  gridOfMap,
-  isBanished,
   maxCastableLevel,
   SMITE_ON_MISS,
   SMITE_RANGE,
   SMITE_SPELLS,
-  tokensNearFeet,
   type AttackEntry,
   type AutomationDef,
   type AutomationEffect,
   type Spell,
-  type SpellStats,
   type Token,
 } from 'shared';
 import { controllerIdOfToken } from '../rooms';
@@ -21,7 +17,7 @@ import { creatureTypeOf } from '../room/actor';
 import type { Room } from '../roomTypes';
 import { findSpell } from '../spells';
 import type { ConnCtx } from './context';
-import { anchorConcentration, dropConcentration, executeAutomation } from './automation';
+import { anchorConcentration, dropConcentration, runBurst } from './automation';
 import { applyEffectTo } from './effectsApply';
 import { applyForcedMovement } from './force';
 import { pushSaveMessage } from './messages';
@@ -220,37 +216,6 @@ export function applySmiteChoice(
   if (def.force && failed) applyForcedMovement(ctx, room, mapId, attacker, target, def.force);
 
   return finish(resisted);
-}
-
-/** Вторичный спас смайта вокруг цели (Hail of Thorns — 5 фт, Lightning Arrow — 10 фт). */
-function runBurst(
-  ctx: ConnCtx,
-  room: Room,
-  mapId: string,
-  attacker: Token,
-  center: Token,
-  spell: Spell,
-  secondary: NonNullable<NonNullable<AutomationDef['weaponAttack']>['secondary']>,
-  stats: SpellStats | null,
-  author: string
-): void {
-  const save = secondary.save;
-  if (!save) return;
-  const map = ctx.manager.findMap(room, mapId);
-  if (!map) return;
-  const grid = gridOfMap(map, room.scene.grid);
-  const targets = tokensNearFeet(map.tokens, center, secondary.rangeFeet, grid.size).filter(
-    (t) => (secondary.includePrimary === true || t.id !== center.id) && !isBanished(t)
-  );
-  if (!targets.length) return;
-  const burst: AutomationDef = {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    save: { ability: save.ability, half: save.half !== false },
-    ...(secondary.dice ? { damage: { dice: secondary.dice, types: [secondary.damageType] } } : {}),
-  };
-  executeAutomation(ctx, { caster: attacker, mapId, def: burst, targets, stats, author });
 }
 
 /** Banishing Smite: после урона атаки — спас CHA цели при остатке ≤ 50 HP; провал — изгнание. */

@@ -1746,4 +1746,35 @@ describe('Составной урон (D)', () => {
     ]);
     expect(spellDamageParts(makeSpell({}))).toBeUndefined();
   });
+
+  it('Ice Knife: атака колющим + взрыв 2к6 холодом (спас DEX, и по основной цели)', () => {
+    const iceKnife = (opts: Partial<Spell> = {}) =>
+      makeSpell({
+        key: 'XPHB:Ice Knife',
+        name: 'Ice Knife',
+        level: 1,
+        spellAttack: 'ranged',
+        save: ['dex'],
+        damage: { dice: ['1d10', '2d6'], types: ['cold', 'piercing'] },
+        upcast: { above: 1, every: 1, dice: '1d6' },
+        ...opts,
+      });
+    const base = automationForSpell(iceKnife());
+    expect(base.resolution).toBe('attack');
+    expect(base.attack).toEqual({ rangeType: 'ranged' });
+    expect(base.damage).toEqual({ dice: '1d10piercing', types: ['piercing'] });
+    expect(base.burst).toEqual({
+      rangeFeet: 5,
+      dice: '2d6cold',
+      damageType: 'cold',
+      save: { ability: 'dex', half: false },
+      includePrimary: true,
+    });
+    expect(automationForSpell(iceKnife(), { castLevel: 3 }).burst?.dice).toBe('4d6cold');
+    expect(spellAutomated(iceKnife())).toBe(true);
+    expect(spellDamageParts(iceKnife())).toEqual([
+      { dice: '1d10', types: ['piercing'] },
+      { dice: '2d6', types: ['cold'] },
+    ]);
+  });
 });

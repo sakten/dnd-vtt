@@ -12,6 +12,7 @@ import {
   damageRollParts,
   exhaustionRollPenalty,
   gridDistanceFeet,
+  gridOfMap,
   hostileTokens,
   isBanished,
   isSurrounded,
@@ -27,10 +28,12 @@ import {
   sourcesCounts,
   statNumber,
   takenDamageParts,
+  tokensNearFeet,
   withAdvantage,
   withRollParts,
   type AbilityKey,
   type AreaSpec,
+  type AttackBurst,
   type AutomationDice,
   type AutomationDef,
   type AutomationEffect,
@@ -814,6 +817,40 @@ function applyResult(
   return result;
 }
 
+/**
+ * Всплеск вокруг цели: спас и урон по всем существам в радиусе (Ice Knife —
+ * независимо от попадания; Hail of Thorns/Lightning Arrow — райдер смайта).
+ */
+export function runBurst(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  center: Token,
+  source: { key: string; name: string },
+  burst: AttackBurst,
+  stats: SpellStats | null,
+  author: string
+): void {
+  const save = burst.save;
+  if (!save) return;
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const targets = tokensNearFeet(map.tokens, center, burst.rangeFeet, grid.size).filter(
+    (t) => (burst.includePrimary === true || t.id !== center.id) && !isBanished(t)
+  );
+  if (!targets.length) return;
+  const def: AutomationDef = {
+    key: source.key,
+    name: source.name,
+    resolution: 'save',
+    save: { ability: save.ability, half: save.half !== false },
+    ...(burst.dice ? { damage: { dice: burst.dice, types: [burst.damageType] } } : {}),
+  };
+  executeAutomation(ctx, { caster: attacker, mapId, def, targets, stats, author });
+}
+
 /** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
 function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   const { ctx, room, def, caster, mapId, targets, author, abilities, expression, subject, damageType, adv, count } = run;
@@ -895,6 +932,11 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
 
     const windowPlan = { attacker: caster, attackerMapId: mapId, target, targetMapId: mapId, damageType, rangeType };
     const nextRay = () => resolveRay(i + 1);
+    /** После броска луча: взрыв осколка (Ice Knife) — и следующий луч. */
+    const afterRay = () => {
+      if (def.burst) runBurst(ctx, room, mapId, caster, target, def, def.burst, stats, author);
+      nextRay();
+    };
 
     /** Урон и эффекты луча; выполняется после окон (промах мог стать попаданием). */
     const applyRayHit = (mods: WeaponDamageMods, done: () => void) => {
@@ -953,20 +995,20 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       const opened = openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
         if (!ctx.getRoom()) return;
         const total = hit.hitRoll.total + penalty + bonus + inspiration;
-        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, ac)) return nextRay();
+        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, ac)) return afterRay();
         withHitWindows(total, (ok, mods) => {
-          if (ok) applyRayHit(mods ?? {}, nextRay);
-          else nextRay();
+          if (ok) applyRayHit(mods ?? {}, afterRay);
+          else afterRay();
         });
       });
       if (opened) return;
-      return nextRay();
+      return afterRay();
     }
 
     // Попадание: окно защитных реакций цели и защитников-союзников.
     withHitWindows(hit.hitRoll.total + penalty, (ok, mods) => {
-      if (ok) applyRayHit(mods ?? {}, nextRay);
-      else nextRay();
+      if (ok) applyRayHit(mods ?? {}, afterRay);
+      else afterRay();
     });
   };
 

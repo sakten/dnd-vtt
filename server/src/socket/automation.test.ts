@@ -857,6 +857,42 @@ describe('составной урон (D)', () => {
   });
 });
 
+describe('Ice Knife (D)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const cast = (f: ReturnType<typeof setup>['f'], room: ReturnType<typeof setup>['room'], random: number) => {
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    const neighbor = makeToken('t3', { x: 150, y: 150, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(neighbor);
+    vi.spyOn(Math, 'random').mockReturnValue(random);
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Ice Knife')!, { castLevel: 1, characterLevel: 1 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+    return { target, neighbor };
+  };
+
+  it('попадание: 1к10 колющим + взрыв 2к6 холодом по цели и соседу в 5 фт', () => {
+    const { room, f } = setup();
+    const { target, neighbor } = cast(f, room, 0.5); // d20 → 16 (попал), кости → 6 и 8
+    expect(target.hpCurrent).toBe(16);
+    expect(neighbor.hpCurrent).toBe(22);
+  });
+
+  it('промах: осколок всё равно взрывается', () => {
+    const { room, f } = setup();
+    const { target, neighbor } = cast(f, room, 0); // d20 → 6 (промах), кости → 1
+    expect(target.hpCurrent).toBe(28);
+    expect(neighbor.hpCurrent).toBe(28);
+  });
+});
+
 
 describe('Polymorph: якорь концентрации', () => {
   afterEach(() => vi.restoreAllMocks());

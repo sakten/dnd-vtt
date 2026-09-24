@@ -11,6 +11,7 @@ import {
   spellAttackCount,
   spellAutomated,
   spellDamageExpression,
+  spellDamageParts,
   spellExtraTargets,
   spellHasArea,
   spellTargetKind,
@@ -209,12 +210,18 @@ export function spellCastInfo(
   const multiCount = effectTargetCount > 1 ? effectTargetCount : projectiles;
   const attacky = !!spell.spellAttack || !!spell.save;
   const expression = weaponBuff ? null : spellDamageExpression(spell, level, charLevel);
+  // Составной урон/атака+всплеск (Flame Strike, Ice Knife): части из каталога.
+  const parts = spellDamageParts(spell);
   const damageText =
-    expression && spell.damage
-      ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${expression}${
-          spell.damage.types.length ? ` (${spell.damage.types.join(', ')})` : ''
-        }`
-      : null;
+    parts?.length
+      ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${parts
+          .map((part) => `${part.dice}${part.types.length ? ` (${part.types.join(', ')})` : ''}`)
+          .join(' + ')}`
+      : expression && spell.damage
+        ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${expression}${
+            spell.damage.types.length ? ` (${spell.damage.types.join(', ')})` : ''
+          }`
+        : null;
   const levels = isCantrip || !canCast ? [] : castLevelsForSpell(spell, caster);
   return {
     isCantrip,

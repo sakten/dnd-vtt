@@ -1357,6 +1357,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Ice Storm',
   'XPHB:Destructive Wave',
   'XPHB:Wall of Thorns',
+  'XPHB:Ice Knife',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -2254,6 +2255,32 @@ function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
   };
 }
 
+/**
+ * Ice Knife (XPHB 2024): дальняя заклинательная атака (1к10 колющим); вне
+ * зависимости от попадания осколок взрывается — цель и все в 5 фт проходят
+ * спас DEX и получают 2к6 холодом (апкаст +1к6; при успехе урона нет).
+ */
+function iceKnifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Ice Knife') return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const cold = scaledDice('2d6', spell.upcast?.dice, upcastSteps(spell, level));
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    attack: { rangeType: 'ranged' },
+    count: 1,
+    damage: { dice: '1d10piercing', types: ['piercing'] },
+    burst: {
+      rangeFeet: 5,
+      dice: `${cold}cold`,
+      damageType: 'cold',
+      save: { ability: 'dex', half: false },
+      includePrimary: true,
+    },
+  };
+}
+
 /** Часть составного урона: кость и тип (Flame Strike: 5d6 огнём + 5d6 излучением). */
 interface CompositePart {
   dice: string;
@@ -2548,6 +2575,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const wallOfThorns = wallOfThornsDef(spell, opts);
   if (wallOfThorns) return wallOfThorns;
 
+  const iceKnife = iceKnifeDef(spell, opts);
+  if (iceKnife) return iceKnife;
+
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
 
@@ -2748,6 +2778,13 @@ export function spellDamageParts(spell: Spell): { dice: string; types: string[] 
     return [
       { dice: '7d8', types: ['piercing'] },
       { dice: '7d8', types: ['slashing'] },
+    ];
+  }
+  // Ice Knife: атака колющим + взрыв холодом вокруг цели (не один броском).
+  if (spell.key === 'XPHB:Ice Knife') {
+    return [
+      { dice: '1d10', types: ['piercing'] },
+      { dice: '2d6', types: ['cold'] },
     ];
   }
   return undefined;
