@@ -26,6 +26,8 @@ export interface ModifierContext {
   direction?: 'self' | 'against';
   /** Бросок атаки оружием (true) или заклинанием (false/undefined). */
   weapon?: boolean;
+  /** Атака безоружным ударом (false — с оружием в руках; undefined — не оружейный путь). */
+  unarmed?: boolean;
   /** Спасбросок против конкретного состояния (Protection from Poison). */
   condition?: ConditionKey;
   /** Спасбросок против заклинаний/магических эффектов (Circle of Power). */
@@ -87,6 +89,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.targetId && f.targetId !== ctx.targetId) return false;
   if (f.direction && f.direction !== ctx.direction) return false;
   if (f.weapon !== undefined && f.weapon !== ctx.weapon) return false;
+  if (f.unarmed !== undefined && f.unarmed !== ctx.unarmed) return false;
   if (f.condition && f.condition !== ctx.condition) return false;
   if (f.conditions && (!ctx.condition || !f.conditions.includes(ctx.condition))) return false;
   if (f.magical !== undefined && f.magical !== ctx.magical) return false;

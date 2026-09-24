@@ -392,7 +392,7 @@ describe('action:use', () => {
       target: 'damage',
       mode: 'add',
       value: '2d8radiant',
-      filter: { weapon: true },
+      filter: { weapon: true, unarmed: false },
     });
     expect(effect?.light).toEqual({ bright: 30, dim: 30 });
     expect(effect?.actions?.[0]?.id).toBe('burst');

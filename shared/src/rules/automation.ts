@@ -1068,11 +1068,11 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         name: 'Divine Favor',
         duration: PERMANENT,
         to: 'self',
-        modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }],
+        modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true, unarmed: false } }],
       },
     ],
   },
-  /** Crusader's Mantle (XPHB 2024): эманация 30 фт — вы и союзники +1d4 излучением оружейными атаками. */
+  /** Crusader's Mantle (XPHB 2024): эманация 30 фт — вы и союзники +1d4 излучением оружием и безоружным ударом. */
   "XPHB:Crusader's Mantle": {
     key: "XPHB:Crusader's Mantle",
     name: "Crusader's Mantle",
@@ -1087,6 +1087,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       aura: {
         effects: [
           {
+            // RAW 2024: оружие **и** безоружный удар, поэтому без `unarmed: false`.
             name: "Crusader's Mantle",
             duration: PERMANENT,
             to: 'targets',
@@ -1109,7 +1110,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         duration: CONCENTRATION,
         concentration: true,
         to: 'targets',
-        modifiers: [{ target: 'damage', mode: 'add', value: '2d8radiant', filter: { weapon: true } }],
+        modifiers: [{ target: 'damage', mode: 'add', value: '2d8radiant', filter: { weapon: true, unarmed: false } }],
         light: { bright: 30, dim: 30 },
         actions: [
           {
@@ -1674,8 +1675,8 @@ function magicWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | 
     duration: PERMANENT,
     to: 'targets',
     modifiers: [
-      { target: 'attack', mode: 'add', value: bonus, filter: { weapon: true } },
-      { target: 'damage', mode: 'add', value: bonus, filter: { weapon: true } },
+      { target: 'attack', mode: 'add', value: bonus, filter: { weapon: true, unarmed: false } },
+      { target: 'damage', mode: 'add', value: bonus, filter: { weapon: true, unarmed: false } },
     ],
     magicWeapon: true,
   };

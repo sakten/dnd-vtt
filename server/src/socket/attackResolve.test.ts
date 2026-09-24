@@ -253,9 +253,22 @@ describe('модификаторы урона с фильтром weapon (Divine
     rangeLong: 0,
     damageType: 'slashing',
   };
+  const unarmedEntry = {
+    name: 'Безоружный удар',
+    kind: 'unarmed' as const,
+    hit: 'd20+5',
+    damage: '1d8',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'bludgeoning',
+  };
 
-  const attackWith = (modifiers: { target: 'attack' | 'damage'; mode: 'add'; value: number | string; filter: { weapon: boolean } }[]) => {
-    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [entry] });
+  const attackWith = (
+    modifiers: { target: 'attack' | 'damage'; mode: 'add'; value: number | string; filter: { weapon: boolean; unarmed?: boolean } }[],
+    attackEntry: typeof entry = entry
+  ) => {
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [attackEntry] });
     const target = makeToken('t2', { x: 100, y: 100, ac: '15', hpMax: '30', hpCurrent: 30 });
     const room = makeCombatRoom([attacker, target]);
     attacker.effects = [
@@ -268,7 +281,7 @@ describe('модификаторы урона с фильтром weapon (Divine
         attackerMapId: 'm1',
         target,
         targetMapId: 'm1',
-        attack: entry,
+        attack: attackEntry,
         author: 'A',
         ignoreRange: true,
       });
@@ -276,17 +289,26 @@ describe('модификаторы урона с фильтром weapon (Divine
     return target.hpCurrent;
   };
 
+  const divineFavor = [
+    { target: 'damage' as const, mode: 'add' as const, value: '1d4radiant', filter: { weapon: true, unarmed: false } },
+  ];
+
   it('Divine Favor: +1d4 излучением добавляется к урону оружия', () => {
     // 1d8=5 режущим + 1d4=3 излучением → 30 − 8 = 22.
-    expect(attackWith([{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }])).toBe(22);
+    expect(attackWith(divineFavor)).toBe(22);
+  });
+
+  it('Divine Favor: безоружный удар бонус не получает (фильтр unarmed: false)', () => {
+    // 1d8=5 дробящим без райдера → 30 − 5 = 25.
+    expect(attackWith(divineFavor, unarmedEntry)).toBe(25);
   });
 
   it('Magic Weapon: +1 к урону прибавляется к броску', () => {
     // 1d8=5 + 1 → 30 − 6 = 24.
     expect(
       attackWith([
-        { target: 'attack', mode: 'add', value: 1, filter: { weapon: true } },
-        { target: 'damage', mode: 'add', value: 1, filter: { weapon: true } },
+        { target: 'attack', mode: 'add', value: 1, filter: { weapon: true, unarmed: false } },
+        { target: 'damage', mode: 'add', value: 1, filter: { weapon: true, unarmed: false } },
       ])
     ).toBe(24);
   });

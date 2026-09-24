@@ -16,6 +16,7 @@ import {
   isCriticalFail,
   isCriticalHit,
   isSurrounded,
+  isUnarmedAttack,
   magicalDamageType,
   magicWeaponAttacks,
   mapLightCells,
@@ -294,6 +295,7 @@ export function prepareWeaponAttack(
     rangeType: attack.rangeType,
     attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
     weapon: true,
+    unarmed: isUnarmedAttack(attack),
     attackerType: creatureTypeOf(room, attacker),
   } as const;
   const effectParts = attackRollParts(attacker?.effects, target?.effects, effectCtx, abilities);
@@ -341,6 +343,7 @@ export function prepareWeaponAttack(
       targetId: target?.id,
       // Оружейный контекст: модификаторы с `filter.weapon` (Magic Weapon, Divine Favor).
       weapon: true,
+      unarmed: isUnarmedAttack(attack),
     },
     abilities
   );

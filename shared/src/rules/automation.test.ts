@@ -271,8 +271,8 @@ describe('automationForSpell', () => {
     expect(base.resolution).toBe('effect');
     expect(base.effects?.[0]?.magicWeapon).toBe(true);
     expect(base.effects?.[0]?.modifiers).toEqual([
-      { target: 'attack', mode: 'add', value: 1, filter: { weapon: true } },
-      { target: 'damage', mode: 'add', value: 1, filter: { weapon: true } },
+      { target: 'attack', mode: 'add', value: 1, filter: { weapon: true, unarmed: false } },
+      { target: 'damage', mode: 'add', value: 1, filter: { weapon: true, unarmed: false } },
     ]);
     expect(automationForSpell(mw, { castLevel: 4 }).effects?.[0]?.modifiers[0]?.value).toBe(2);
     expect(automationForSpell(mw, { castLevel: 6 }).effects?.[0]?.modifiers[0]?.value).toBe(3);
@@ -297,7 +297,7 @@ describe('automationForSpell', () => {
       target: 'damage',
       mode: 'add',
       value: '1d4radiant',
-      filter: { weapon: true },
+      filter: { weapon: true, unarmed: false },
     });
     expect(spellAutomated(spell)).toBe(true);
   });
@@ -318,12 +318,14 @@ describe('automationForSpell', () => {
     expect(def.zone?.area).toEqual({ shape: 'sphere', size: 30 });
     expect(def.zone?.anchor).toBe('source');
     expect(def.zone?.side).toBe('ally');
+    // RAW 2024: безоружный удар входит, поэтому фильтр без `unarmed: false`.
     expect(def.zone?.aura?.effects?.[0]?.modifiers[0]).toMatchObject({
       target: 'damage',
       mode: 'add',
       value: '1d4radiant',
       filter: { weapon: true },
     });
+    expect(def.zone?.aura?.effects?.[0]?.modifiers[0]?.filter?.unarmed).toBeUndefined();
     expect(spellAutomated(spell)).toBe(true);
   });
 
@@ -345,7 +347,7 @@ describe('automationForSpell', () => {
       target: 'damage',
       mode: 'add',
       value: '2d8radiant',
-      filter: { weapon: true },
+      filter: { weapon: true, unarmed: false },
     });
     expect(effect?.light).toEqual({ bright: 30, dim: 30 });
     const burst = effect?.actions?.[0];
