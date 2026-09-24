@@ -18,13 +18,15 @@ import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { applyDamage } from './damage';
+import { applyEffectTo } from './effectsApply';
 import { resolveWeaponAttackWithReactions } from './reactions/attack';
 import type { SpellCastInput } from './spellResolve';
 
 /**
- * Клинок-кантрип (Green-Flame Blade): каст резолвится оружейной атакой правой
- * руки (хват универсального учитывается), райдер — на попадании, вторичная
- * цель выбирается автоматически — ближайший враждебный в 5 фт от основной.
+ * Клинок-кантрип (Green-Flame/Booming Blade, True Strike): каст резолвится оружейной
+ * атакой правой руки (хват универсального учитывается), райдер — на попадании,
+ * вторичная цель выбирается автоматически. True Strike бьёт любым оружием и
+ * считает атаку/урон от заклинательной характеристики.
  */
 export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput, def: AutomationDef): void {
   const spec = def.weaponAttack;
@@ -32,12 +34,14 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
   if (!spec || !target) return;
   const sheet = sheetOfToken(room, input.caster).sheet;
   const held = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'right') : undefined;
-  if (!held || held.rangeType !== 'melee') return;
+  if (!held || (!spec.anyWeapon && held.rangeType !== 'melee')) return;
   const weapon = held.weaponKey ? weaponByKey(held.weaponKey) : undefined;
-  const attack =
+  const base =
     weapon && sheet
       ? { ...held, damage: gripAdjustedDamage(held.damage, weapon, rightGrip(sheet.attacks, sheet.hands)) }
       : held;
+  // True Strike: базовый урон — излучением (вариант) или обычным типом оружия.
+  const attack = spec.spellAbility && input.variant === 'radiant' ? { ...base, damageType: 'radiant' } : base;
   resolveWeaponAttackWithReactions(ctx, {
     attacker: input.caster,
     attackerMapId: input.mapId,
@@ -48,9 +52,29 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
     advantage: input.advantage,
     author: input.author,
     ...(spec.riderDice ? { riderDice: spec.riderDice } : {}),
+    ...(spec.spellAbility && input.stats ? { attackAbility: input.stats.ability } : {}),
     afterHit: () => {
       if (spec.secondary) applySecondary(ctx, room, input, target, spec.secondary, input.stats);
+      if (spec.hitEffect) applyHitEffect(ctx, room, input, target, spec.hitEffect);
     },
+  });
+}
+
+/** Эффект на цель при попадании (Booming Blade): носится до начала вашего след. хода. */
+function applyHitEffect(
+  ctx: ConnCtx,
+  room: Room,
+  input: SpellCastInput,
+  target: Token,
+  effectDef: NonNullable<AutomationDef['weaponAttack']>['hitEffect']
+): void {
+  if (!effectDef) return;
+  applyEffectTo(ctx, room, {
+    sourceKey: input.spell.key,
+    sourceId: input.caster.id,
+    mapId: input.mapId,
+    effectDef,
+    target,
   });
 }
 

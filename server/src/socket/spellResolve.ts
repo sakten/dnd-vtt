@@ -79,16 +79,21 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return { code: 'spellNoTarget' };
   }
 
-  // Клинок-кантрип (Green-Flame Blade): оружие в правой руке, цель в досягаемости.
+  // Клинок-кантрип (Green-Flame/Booming Blade, True Strike): оружие в правой руке, цель в досягаемости.
   if (def.weaponAttack) {
     const sheet = sheetOfToken(room, caster).sheet;
     const held = sheet ? handAttackOf(sheet.attacks, sheet.hands, 'right') : undefined;
-    if (!held || held.rangeType !== 'melee') return { code: 'noHeldWeapon' };
+    if (!held) return { code: 'noHeldWeapon' };
+    // True Strike бьёт и дальним оружием; остальные клинки — только ближним.
+    if (!def.weaponAttack.anyWeapon && held.rangeType !== 'melee') return { code: 'noHeldWeapon' };
     if (!targets[0]) return { code: 'spellNoTarget' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
     const feet = gridDistanceFeet(caster, targets[0], grid.size);
-    if (feet > (held.rangeNormal || 5)) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+    const maxFeet = def.weaponAttack.anyWeapon
+      ? held.rangeLong || held.rangeNormal || 5
+      : held.rangeNormal || 5;
+    if (feet > maxFeet) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
     if (map && targets[0].id !== caster.id && !tokenVisibleFrom(caster, targets[0], map.walls, grid)) {
       return { code: 'noClearPath' };
     }

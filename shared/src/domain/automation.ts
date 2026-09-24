@@ -63,11 +63,12 @@ export interface AutomationEffect {
   targets?: number;
   /** Наложить на союзников в радиусе от кастера без выбора целей (Zealous Presence). */
   radiusFeet?: number;
-  /**
-   * Привязать эффект к цели каста: модификаторам проставляется filter.targetId
+  /** Привязать эффект к цели каста: модификаторам проставляется filter.targetId
    * (Hex/Hunter's Mark накладываются на кастера, но бьют только по метке).
    */
   markTarget?: boolean;
+  /** Одноразовый эффект: сгорает после ближайшего броска атаки носителя (Zephyr Strike). */
+  consumeOnAttackRoll?: boolean;
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
   /** Модификаторы без id — id присваивает сервер при наложении. */
@@ -142,6 +143,10 @@ export interface AutomationEffect {
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
   retaliate?: { damageType: string; amount: number };
+  /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */
+  onWillingMove?: { dice: string; damageType: string; feet: number };
+  /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
+  zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
 }
 
 /** Что происходит в результате применения (ортогонально способу разрешения). */
@@ -356,6 +361,10 @@ export interface AutomationDef extends AutomationPayload {
     riderDice?: string;
     /** Кости заменяют урон оружия, а не добавляются (Lightning Arrow). */
     replace?: boolean;
+    /** Разрешено любое оружие правой руки, включая дальнее (True Strike); иначе — только ближний бой. */
+    anyWeapon?: boolean;
+    /** Броски атаки/урона — от заклинательной характеристики вместо Силы/Ловкости (True Strike). */
+    spellAbility?: boolean;
     /**
      * Вторичная цель в `rangeFeet` от основной: урон = мод заклинательной + `dice`.
      * `save` — вторичный урон по спасброску всех в радиусе (Lightning); без него — GFB-режим.
@@ -368,6 +377,8 @@ export interface AutomationDef extends AutomationPayload {
       /** Радиус бьёт и по основной цели (Hail of Thorns: «цель и существа вокруг»). */
       includePrimary?: boolean;
     };
+    /** Эффект на цель при попадании (Booming Blade: гремящая энергия). */
+    hitEffect?: AutomationEffect;
   };
   /** Фильтр целей по отношению к кастеру (Conjure Woodland Beings: только враги). */
   side?: 'hostile' | 'ally';

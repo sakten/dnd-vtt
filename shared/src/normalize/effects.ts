@@ -181,6 +181,26 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         effect.retaliate = { damageType: r.damageType.slice(0, 40), amount: clampInt(r.amount, 0, 999, 0) };
       }
     }
+    if (e.onWillingMove && typeof e.onWillingMove === 'object') {
+      const m = e.onWillingMove as { dice?: unknown; damageType?: unknown; feet?: unknown };
+      if (typeof m.dice === 'string' && m.dice.trim() && typeof m.damageType === 'string' && m.damageType) {
+        effect.onWillingMove = {
+          dice: m.dice.trim().slice(0, 40),
+          damageType: m.damageType.slice(0, 40),
+          feet: clampInt(m.feet, 5, 120, 5),
+        };
+      }
+    }
+    if (e.zephyrStrike && typeof e.zephyrStrike === 'object') {
+      const z = e.zephyrStrike as { dice?: unknown; damageType?: unknown; speedFeet?: unknown };
+      if (typeof z.dice === 'string' && z.dice.trim() && typeof z.damageType === 'string' && z.damageType) {
+        effect.zephyrStrike = {
+          dice: z.dice.trim().slice(0, 40),
+          damageType: z.damageType.slice(0, 40),
+          speedFeet: clampInt(z.speedFeet, 5, 120, 30),
+        };
+      }
+    }
     if (Array.isArray(e.ward)) {
       const types = e.ward.filter((t): t is string => typeof t === 'string' && !!t).slice(0, 12);
       if (types.length) effect.ward = [...new Set(types)];

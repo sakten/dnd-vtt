@@ -16,6 +16,7 @@ import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
 import { endShapeToken } from './forms';
 import { handleMovementZones, removeZonesOfSource } from './zones';
+import { handleWillingMoveEffects } from './willingMove';
 import { syncSurrounded } from './surrounded';
 import { removeTokenCompletely } from './tokenRemove';
 
@@ -85,11 +86,14 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         fail(ctx, 'immobile');
         return;
       }
+      const fromX = token.x;
+      const fromY = token.y;
       token.x = x;
       token.y = y;
       emitToken(room, 'token:update', mapId, token);
       // Перетаскивание (в т.ч. в чужой ход): аура и enter/exit зон тоже срабатывают.
       handleMovementZones(ctx, room, mapId);
+      handleWillingMoveEffects(ctx, room, mapId, token, fromX, fromY);
       syncSurrounded(ctx, room, mapId);
     });
 
@@ -112,10 +116,13 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       const { room, token } = scope;
       if (token.x === x && token.y === y) return;
+      const fromX = token.x;
+      const fromY = token.y;
       token.x = x;
       token.y = y;
       // Вход/выход зон по ходу движения; позицию фиксирует финальный token:move.
       handleMovementZones(ctx, room, mapId);
+      handleWillingMoveEffects(ctx, room, mapId, token, fromX, fromY);
       syncSurrounded(ctx, room, mapId);
     });
 

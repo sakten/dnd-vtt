@@ -767,6 +767,7 @@
   'ui.spellPopover.summonForm': 'Форма',
   'ui.spellPopover.beastForm': 'Зверь (Polymorph)',
   'ui.spellPopover.damageType': 'Тип урона',
+  'ui.spellPopover.weaponDamage': 'как у оружия',
   'ui.spellPopover.abilityChoice': 'Характеристика',
   'ui.spellPopover.effectChoice': 'Эффект',
   'ui.eyebite.asleep': 'Сон',

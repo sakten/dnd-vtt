@@ -174,6 +174,14 @@ describe('spellTargetKind', () => {
     const spell = makeSpell({ range: { type: 'emanation', distance: { type: 'feet', amount: 30 } } });
     expect(spellTargetKind(spell)).toBe('self');
   });
+
+  it('True Strike: range self в данных, но каст целится в существо', () => {
+    const spell = makeSpell({
+      key: 'XPHB:True Strike',
+      range: { type: 'point', distance: { type: 'self' } },
+    });
+    expect(spellTargetKind(spell)).toBe('creature');
+  });
 });
 
 describe('области (Ф7)', () => {

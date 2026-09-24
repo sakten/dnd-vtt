@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AttackEntry, CharacterSheet } from 'shared';
+import type { AttackEntry, CharacterSheet, DamageDefense } from 'shared';
 import { findSpell } from '../spells';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
+import { resolveWeaponAttack } from './attackResolve';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from './spellResolve';
+import { handleWillingMoveEffects } from './willingMove';
 
 /** Сид Math.random на время колбэка (броски детерминированы). */
 function withRandom(value: number, fn: () => void): void {
@@ -167,5 +169,121 @@ describe('Green-Flame Blade через каст', () => {
     const { room, input, primary } = setup({});
     primary.x = 250; // 20 фт от кастера
     expect(validateSpellCast(room, input)?.code).toBe('outOfRange');
+  });
+});
+
+describe('Booming Blade, True Strike и Zephyr Strike', () => {
+  function setupSpell(
+    key: string,
+    opts: { hands?: CharacterSheet['hands']; attacks?: AttackEntry[]; level?: number; targetAc?: string } = {}
+  ) {
+    const attacker = makeToken('t1', { libraryItemId: 'lib1', isPlayerToken: true, faction: 'ally', x: 50, y: 75 });
+    const primary = makeToken('t2', {
+      faction: 'enemy',
+      x: 100,
+      y: 100,
+      ac: opts.targetAc ?? '10',
+      hpMax: '40',
+      hpCurrent: 40,
+    });
+    const room = makeCombatRoom([attacker, primary], { p1: 'lib1' });
+    const level = opts.level ?? 5;
+    room.sheets['p1'] = {
+      name: 'Маг',
+      abilities: { str: 10, dex: 14, con: 12, int: 16, wis: 10, cha: 8 },
+      proficiencyBonus: '3',
+      classes: [{ className: 'wizard', level }],
+      attacks: opts.attacks ?? [SWORD],
+      hands: opts.hands ?? { right: 'sword' },
+      spells: [{ key, className: 'wizard' }],
+      saves: {},
+      skills: {},
+      damageDefenses: [],
+      senses: [],
+      hpMax: '30',
+      ac: '16',
+      speed: 30,
+    } as unknown as CharacterSheet;
+    const f = makeConnCtx(room, { playerId: 'p1', dm: true, all: true });
+    const input: SpellCastInput = {
+      caster: attacker,
+      mapId: 'm1',
+      spell: findSpell(key)!,
+      castLevel: 0,
+      characterLevel: level,
+      stats: { ability: 'int', mod: 3, dc: 13, attack: 5 },
+      targets: [primary],
+      author: 'Маг',
+    };
+    return { attacker, primary, room, f, input };
+  }
+
+  it('Booming Blade: райдер звуком и эффект движения', () => {
+    const { primary, f, input } = setupSpell('TCE:Booming Blade');
+    withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+    expect(primary.hpCurrent).toBe(26); // 40 − (1d10+3 = 9) − (1d8 звуком = 5)
+    const effect = primary.effects.find((e) => e.sourceKey === 'TCE:Booming Blade');
+    expect(effect?.onWillingMove).toEqual({ dice: '2d8', damageType: 'thunder', feet: 5 });
+  });
+
+  it('Booming Blade: добровольное движение 5 фт — 2d8 звуком и конец эффекта', () => {
+    const { primary, f, room, input } = setupSpell('TCE:Booming Blade');
+    withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+    const fromX = primary.x;
+    const fromY = primary.y;
+    primary.x += 50;
+    withRandom(0.5, () => handleWillingMoveEffects(f.ctx, room, 'm1', primary, fromX, fromY));
+    expect(primary.hpCurrent).toBe(16); // 26 − (2d8 = 10)
+    expect(primary.effects.some((e) => e.sourceKey === 'TCE:Booming Blade')).toBe(false);
+  });
+
+  it('Booming Blade: смещение меньше 5 фт не срабатывает', () => {
+    const { primary, f, room, input } = setupSpell('TCE:Booming Blade');
+    withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+    const fromX = primary.x;
+    const fromY = primary.y;
+    primary.x += 20;
+    withRandom(0.5, () => handleWillingMoveEffects(f.ctx, room, 'm1', primary, fromX, fromY));
+    expect(primary.hpCurrent).toBe(26);
+    expect(primary.effects.some((e) => e.sourceKey === 'TCE:Booming Blade')).toBe(true);
+  });
+
+  it('True Strike: атака от заклинательной характеристики и выбор типа урона', () => {
+    const attack: AttackEntry = { ...SWORD, hit: 'd20+str', damage: '1d10+str' };
+    const slashingResist: DamageDefense = { id: 'd1', type: 'resistance', damageType: 'slashing' };
+
+    // Вариант «излучение»: базовый урон не режется сопротивлением к рубящему.
+    const radiant = setupSpell('XPHB:True Strike', { attacks: [attack], targetAc: '12' });
+    radiant.primary.damageDefenses = [slashingResist];
+    withRandom(0.5, () => resolveSpellCast(radiant.f.ctx, { ...radiant.input, variant: 'radiant' }));
+    expect(radiant.primary.hpCurrent).toBe(27); // d20 11 + Инт 3 = 14 ≥ 12; (1d10+3 = 9) + (1d6 = 4)
+
+    // Вариант «как у оружия»: рубящее сопротивление режет базовую часть (STR 10 не попал бы: 11 < 12).
+    const weapon = setupSpell('XPHB:True Strike', { attacks: [attack], targetAc: '12' });
+    weapon.primary.damageDefenses = [slashingResist];
+    withRandom(0.5, () => resolveSpellCast(weapon.f.ctx, weapon.input));
+    expect(weapon.primary.hpCurrent).toBe(32); // 9 рубящего → 4 после сопротивления + 4 излучением
+  });
+
+  it('Zephyr Strike: расход на атаку — преимущество, 1d8 силовым и скорость +30', () => {
+    const { attacker, primary, f, input } = setupSpell('XGE:Zephyr Strike');
+    withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+    expect(attacker.effects.some((e) => e.zephyrStrike)).toBe(true);
+
+    withRandom(0.5, () =>
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target: primary,
+        targetMapId: 'm1',
+        attack: SWORD,
+        author: 'Маг',
+      })
+    );
+    expect(primary.hpCurrent).toBe(26); // 40 − (1d10+3 = 9) − (1d8 силовым = 5)
+    expect(attacker.effects.some((e) => e.zephyrStrike)).toBe(false); // одноразовый
+    expect(
+      attacker.effects.some((e) => e.modifiers.some((m) => m.target === 'speed' && m.mode === 'add' && m.value === 30))
+    ).toBe(true);
   });
 });

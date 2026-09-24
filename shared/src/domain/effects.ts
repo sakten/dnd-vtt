@@ -246,4 +246,8 @@ export interface EffectInstance {
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
   retaliate?: { damageType: string; amount: number };
+  /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */
+  onWillingMove?: { dice: string; damageType: string; feet: number };
+  /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
+  zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
 }

@@ -19,16 +19,17 @@
 - **Armor of Agathys** (`tempHp` + `retaliate`), **Heroism** (temp HP в начале хода), **Heal** (70 +10/круг), **Heat Metal** (повтор бонусным действием + апкаст), **Otto's Irresistible Dance** (`escapeDc` = `stats.dc`), **Stinking Cloud / Hunger of Hadar** (состояния в зонах каталога), **Hellish Rebuke** (реакция работает), **Silvery Barbs/Shield** — ок.
 - **XPHB/SRD-апкаст костей** (Fireball `8d6 + 1d6`, Melf's Acid Arrow `4d4 + 1d4`) — работает.
 
-## A. Наездник на попадание — ✅ сделано, кроме blade-кантрипов
+## A. Наездник на попадание — ✅ сделано (13/13)
 
 | Заклинания | Статус |
 |---|---|
 | `XPHB:Divine Smite`, `Thunderous`, `Wrathful`, `Blinding`, `Shining`, `Staggering`, `Banishing` | ✅ окно после попадания, апкаст, спас/эффекты, толчок+ничком, изгнание ≤50 HP, концентрация |
 | `XPHB:Hail of Thorns`, `XPHB:Lightning Arrow` | ✅ ranged-смайты: спас всех в 5/10 фт; Lightning — окно и после промаха, замена урона оружия, крит удваивает |
 | `TCE:Green-Flame Blade` | ✅ атака оружием правой руки + райдер + авто-вторичная цель |
+| `TCE:Booming Blade` | ✅ райдер звуком + эффект «разряд при добровольном движении ≥5 фт» (толчки/телепорт не считаются) |
+| `XPHB:True Strike` | ✅ любое оружие правой руки, атака/урон от заклинательной характеристики, выбор типа базового урона в попапе (оружие/излучение) |
+| `XGE:Zephyr Strike` | ✅ без OA, одноразовая атака: преимущество + 1d8 силовым + скорость +30 до конца хода (авто) |
 | `XPHB:Searing Smite`, `XPHB:Ensnaring Strike` | ✅ (ранее) |
-| `TCE:Booming Blade`, `XPHB:True Strike` | ❌ остались: разряд при движении; замена характеристики атаки/урона на заклинательную |
-| `XGE:Zephyr Strike` | ❌ осталось: одноразовое преимущество + 1d8 + скорость, без OA |
 
 ## B. Баффы оружия/себя — `effect`-модификаторы — 21
 

@@ -770,6 +770,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.spellPopover.summonForm': 'Form',
   'ui.spellPopover.beastForm': 'Beast (Polymorph)',
   'ui.spellPopover.damageType': 'Damage type',
+  'ui.spellPopover.weaponDamage': "weapon's type",
   'ui.spellPopover.abilityChoice': 'Ability',
   'ui.spellPopover.effectChoice': 'Effect',
   'ui.eyebite.asleep': 'Asleep',

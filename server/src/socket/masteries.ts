@@ -188,8 +188,9 @@ export function applyMasteryChoice(
 }
 
 /**
- * Одноразовые мастерства (Sap/Vex) сгорают после ближайшего броска атаки носителя;
- * Vex — только когда атака идёт по помеченной цели.
+ * Одноразовые эффекты (Sap/Vex, Zephyr Strike) сгорают после ближайшего броска атаки
+ * носителя; Vex — только когда атака идёт по помеченной цели. Zephyr дополнительно
+ * возвращает райдер урона и выдаёт скорость +30 до конца хода (даже при промахе).
  */
 export function consumeAttackRollEffects(
   ctx: ConnCtx,
@@ -197,14 +198,28 @@ export function consumeAttackRollEffects(
   mapId: string,
   attacker: Token,
   target: Token | null
-): void {
+): { rider?: { dice: string; damageType: string } } {
   const oneShot = attacker.effects.filter((effect) => effect.consumeOnAttackRoll);
-  if (!oneShot.length) return;
+  if (!oneShot.length) return {};
   let changed = false;
+  let rider: { dice: string; damageType: string } | undefined;
   for (const effect of oneShot) {
     const marked = effect.modifiers.find((m) => m.filter?.targetId)?.filter?.targetId;
     if (marked && marked !== target?.id) continue;
+    if (effect.zephyrStrike) {
+      rider = { dice: effect.zephyrStrike.dice, damageType: effect.zephyrStrike.damageType };
+      const speedId = randomUUID();
+      ctx.manager.applyEffect(room, attacker, {
+        id: speedId,
+        name: effect.name,
+        sourceKey: effect.sourceKey,
+        sourceId: effect.sourceId,
+        duration: { type: 'endOfTurn', of: 'target' },
+        modifiers: [{ id: `${speedId}:m0`, target: 'speed', mode: 'add', value: effect.zephyrStrike.speedFeet }],
+      });
+    }
     if (ctx.manager.removeEffect(room, attacker, effect.id)) changed = true;
   }
   if (changed) ctx.emitToken(room, 'token:update', mapId, attacker);
+  return rider ? { rider } : {};
 }

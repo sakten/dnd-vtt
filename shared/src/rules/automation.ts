@@ -1180,6 +1180,8 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Protection from Energy': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
   'XGE:Skill Empowerment': { param: 'skill', options: SKILLS.map((s) => s.key) },
   'XPHB:Command': { param: 'command', options: ['approach', 'drop', 'flee', 'grovel', 'halt'] },
+  // True Strike: базовый урон — излучением или обычным типом оружия (+1d6 излучением всегда).
+  'XPHB:True Strike': { param: 'damageType', options: ['weapon', 'radiant'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */
@@ -1193,6 +1195,9 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Vampiric Touch',
   'XPHB:Flame Blade',
   'TCE:Green-Flame Blade',
+  'TCE:Booming Blade',
+  'XPHB:True Strike',
+  'XGE:Zephyr Strike',
   'XPHB:Sunbeam',
   'XPHB:Heat Metal',
   'XPHB:Call Lightning',
@@ -1902,6 +1907,79 @@ function greenFlameBladeDef(spell: Spell, opts: AutomationOptions): AutomationDe
 }
 
 /**
+ * Booming Blade (TCE): атака оружием правой руки; на попадании — райдер звуком
+ * (0/1к8/2к8/3к8 на 1/5/11/17) и эффект «гремящей энергии» до начала вашего
+ * следующего хода: добровольное перемещение ≥5 фт — урон 1к8…4к8 и конец.
+ * Скейл захардкожен (системный HI-долг не-SRD).
+ */
+function boomingBladeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'TCE:Booming Blade') return undefined;
+  const level = opts.characterLevel ?? 1;
+  const hitDice = level >= 17 ? '3d8' : level >= 11 ? '2d8' : level >= 5 ? '1d8' : undefined;
+  const moveDice = level >= 17 ? '4d8' : level >= 11 ? '3d8' : level >= 5 ? '2d8' : '1d8';
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    attack: { rangeType: 'melee' },
+    weaponAttack: {
+      ...(hitDice ? { riderDice: `${hitDice}thunder` } : {}),
+      hitEffect: {
+        name: spell.name,
+        duration: UNTIL_NEXT_TURN,
+        to: 'targets',
+        modifiers: [],
+        onWillingMove: { dice: moveDice, damageType: 'thunder', feet: 5 },
+      },
+    },
+  };
+}
+
+/** True Strike (XPHB): атака оружием от заклинательной характеристики, +1к6/2к6/3к6 излучением на 5/11/17. */
+function trueStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:True Strike') return undefined;
+  const level = opts.characterLevel ?? 1;
+  const dice = level >= 17 ? '3d6' : level >= 11 ? '2d6' : level >= 5 ? '1d6' : undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    weaponAttack: {
+      anyWeapon: true,
+      spellAbility: true,
+      ...(dice ? { riderDice: `${dice}radiant` } : {}),
+    },
+  };
+}
+
+/**
+ * Zephyr Strike (XGE): бонусным действием — перемещение не провоцирует атаки;
+ * один раз за время действия атака оружием с преимуществом (+1d8 силовым и
+ * скорость +30 до конца хода) — расход и райдер обрабатывает резолв атаки.
+ */
+function zephyrStrikeDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Zephyr Strike') return undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    effects: [
+      {
+        name: spell.name,
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [{ target: 'attack', mode: 'advantage', filter: { weapon: true } }],
+        restrictions: { ignoresOpportunityAttacks: true },
+        consumeOnAttackRoll: true,
+        zephyrStrike: { dice: '1d8', damageType: 'force', speedFeet: 30 },
+      },
+    ],
+  };
+}
+
+/**
  * Определение автоматизации заклинания: строка каталога → деривация из данных
  * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
  * Заклинаниям длительностью ровно 1 минута проставляется лимит 10 раундов.
@@ -1918,6 +1996,15 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const greenFlame = greenFlameBladeDef(spell, opts);
   if (greenFlame) return greenFlame;
+
+  const booming = boomingBladeDef(spell, opts);
+  if (booming) return booming;
+
+  const trueStrike = trueStrikeDef(spell, opts);
+  if (trueStrike) return trueStrike;
+
+  const zephyr = zephyrStrikeDef(spell);
+  if (zephyr) return zephyr;
 
   const breath = breathSpellDef(spell, opts);
   if (breath) return breath;

@@ -147,6 +147,8 @@ export function spellMaxRounds(spell: Spell): number | undefined {
 
 /** Цель по умолчанию: self или существо. Эманация (2024) исходит от кастера — тоже self. */
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {
+  // True Strike (XPHB): в данных range self, но каст бьёт по выбранной цели — клик по существу.
+  if (spell.key === 'XPHB:True Strike') return 'creature';
   return spellIsSelf(spell) || spell.range.type === 'emanation' ? 'self' : 'creature';
 }
 

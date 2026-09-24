@@ -480,6 +480,42 @@ describe('automationForSpell', () => {
     expect(spellAutomated(arrow)).toBe(true);
   });
 
+  it('Booming Blade, True Strike и Zephyr Strike — наездники и эффекты', () => {
+    const booming = makeSpell({ key: 'TCE:Booming Blade', name: 'Booming Blade', level: 0 });
+    const l1 = automationForSpell(booming, { characterLevel: 1 });
+    expect(l1.weaponAttack?.riderDice).toBeUndefined();
+    expect(l1.weaponAttack?.hitEffect?.onWillingMove).toEqual({ dice: '1d8', damageType: 'thunder', feet: 5 });
+    expect(l1.weaponAttack?.hitEffect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    const l5 = automationForSpell(booming, { characterLevel: 5 });
+    expect(l5.weaponAttack?.riderDice).toBe('1d8thunder');
+    expect(l5.weaponAttack?.hitEffect?.onWillingMove?.dice).toBe('2d8');
+    const l17 = automationForSpell(booming, { characterLevel: 17 });
+    expect(l17.weaponAttack?.riderDice).toBe('3d8thunder');
+    expect(l17.weaponAttack?.hitEffect?.onWillingMove?.dice).toBe('4d8');
+    expect(spellAutomated(booming)).toBe(true);
+
+    const trueStrike = makeSpell({ key: 'XPHB:True Strike', name: 'True Strike', level: 0 });
+    expect(automationForSpell(trueStrike, { characterLevel: 1 }).weaponAttack?.riderDice).toBeUndefined();
+    expect(automationForSpell(trueStrike, { characterLevel: 5 }).weaponAttack).toMatchObject({
+      anyWeapon: true,
+      spellAbility: true,
+      riderDice: '1d6radiant',
+    });
+    expect(spellVariantDef('XPHB:True Strike')?.options).toEqual(['weapon', 'radiant']);
+    expect(spellAutomated(trueStrike)).toBe(true);
+
+    const zephyr = makeSpell({ key: 'XGE:Zephyr Strike', name: 'Zephyr Strike', level: 1 });
+    const z = automationForSpell(zephyr);
+    expect(z.resolution).toBe('effect');
+    expect(z.concentration).toBe(true);
+    const zEffect = z.effects?.[0];
+    expect(zEffect?.restrictions?.ignoresOpportunityAttacks).toBe(true);
+    expect(zEffect?.consumeOnAttackRoll).toBe(true);
+    expect(zEffect?.zephyrStrike).toEqual({ dice: '1d8', damageType: 'force', speedFeet: 30 });
+    expect(zEffect?.modifiers[0]).toMatchObject({ target: 'attack', mode: 'advantage', filter: { weapon: true } });
+    expect(spellAutomated(zephyr)).toBe(true);
+  });
+
   it('лимит «1 минута» = 10 раундов; больше минуты и instant — без лимита', () => {
     const bless = makeSpell({
       key: 'XPHB:Bless',

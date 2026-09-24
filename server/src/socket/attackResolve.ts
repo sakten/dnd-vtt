@@ -36,6 +36,7 @@ import {
   weaponHasProperty,
   withAdvantage,
   withRollParts,
+  type AbilityKey,
   type AttackEntry,
   type DiceRollResult,
   type ErrorPayload,
@@ -73,6 +74,8 @@ export interface AttackResolveInput {
   ignoreRange?: boolean;
   /** Типизированные кости урона от заклинания-наездника (`1d8fire`) — на попадании. */
   riderDice?: string;
+  /** Броски атаки/урона от этой характеристики вместо Силы/Ловкости (True Strike). */
+  attackAbility?: AbilityKey;
   /** Хук после нанесения урона попаданием (Green-Flame Blade: вторичная цель). */
   afterHit?: (damage: WeaponDamageResult) => void;
 }
@@ -273,6 +276,11 @@ export function prepareWeaponAttack(
 
   // Преимущество/помеха: явный выбор + состояния + эффекты атакующего/цели + дистанция.
   const abilities = attacker ? manager.abilitiesForToken(room, attacker) : undefined;
+  // True Strike: броски атаки и урона — от заклинательной характеристики, не Силы/Ловкости.
+  const rollAbilities =
+    input.attackAbility && abilities
+      ? { ...abilities, str: abilities[input.attackAbility] ?? 10, dex: abilities[input.attackAbility] ?? 10 }
+      : abilities;
   // Тяжёлое оружие: помеха, если профильная характеристика ниже 13 (решение владельца:
   // ближний бой — Сила, дальний — Ловкость).
   const heavyPenalty =
@@ -280,8 +288,8 @@ export function prepareWeaponAttack(
       ? (attack.rangeType === 'ranged' ? abilities.dex : abilities.str) < 13
       : false;
   // Формулы могут содержать характеристики и бонус владения: d20+str, d20+pb.
-  const hit = rawHit ? resolveAbilityMods(rawHit, abilities, proficiency) : '';
-  const damage = rawDamage ? resolveAbilityMods(rawDamage, abilities, proficiency) : '';
+  const hit = rawHit ? resolveAbilityMods(rawHit, rollAbilities, proficiency) : '';
+  const damage = rawDamage ? resolveAbilityMods(rawDamage, rollAbilities, proficiency) : '';
   const effectCtx = {
     rangeType: attack.rangeType,
     attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
@@ -393,8 +401,14 @@ export function rollPreparedAttack(
         hit: hitSuccess === undefined ? undefined : hitSuccess ? 'hit' : 'miss',
       };
       pushRollMessage(ctx, room, { author, roll: hit.hitRoll, kind: 'attack', params });
-      // Sap/Vex: одноразовые мастерства сгорают после броска атаки (даже промаха).
-      if (attacker && attackerMapId) consumeAttackRollEffects(ctx, room, attackerMapId, attacker, target);
+      // Sap/Vex/Zephyr: одноразовые эффекты сгорают после броска атаки (даже промаха);
+      // Zephyr Strike добавляет райдер (1d8 силовым) к урону этой атаки.
+      if (attacker && attackerMapId) {
+        const consumed = consumeAttackRollEffects(ctx, room, attackerMapId, attacker, target);
+        if (consumed.rider) {
+          prep.damageExpr = `${prep.damageExpr} + ${consumed.rider.dice}${consumed.rider.damageType}`;
+        }
+      }
       // Invisibility: бросок атаки досрочно обрывает эффект (даже промах).
       if (attacker && attackerMapId) removeBrokenEffects(ctx, room, attackerMapId, attacker, 'attack');
       result.hitRoll = hit.hitRoll;

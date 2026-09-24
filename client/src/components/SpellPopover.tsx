@@ -369,7 +369,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                         ? skillName(option)
                         : variantDef.param === 'command'
                           ? t(`ui.command.${option}` as MessageKey)
-                          : damageLabel(option)}
+                          : option === 'weapon'
+                            ? t('ui.spellPopover.weaponDamage')
+                            : damageLabel(option)}
                 </option>
               ))}
             </select>
