@@ -500,19 +500,24 @@ describe('диспел света и тьмы', () => {
 describe('зоны с зарядами и появлением (C-хвосты)', () => {
   const stats = { ability: 'wis', mod: 3, dc: 14, attack: 5 } as const;
 
-  it('Healing Spirit: лечит вошедших (кроме конструктов/нежити) и гаснет по зарядам', () => {
+  it('Healing Spirit: лечит только союзников (кроме конструктов/нежити) и гаснет по зарядам', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;
     const caster = map.tokens[0]!;
+    caster.faction = 'ally';
     const ally = map.tokens[1]!;
+    ally.faction = 'ally';
     const construct = makeToken('t3', {
       x: 250,
       y: 100,
       hpMax: '30',
       hpCurrent: 10,
+      faction: 'ally',
       statblock: { creatureType: 'construct', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
     });
-    map.tokens.push(construct);
+    const enemy = makeToken('t5', { x: 250, y: 100, hpMax: '30', hpCurrent: 10, faction: 'enemy' });
+    const full = makeToken('t6', { x: 250, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' });
+    map.tokens.push(construct, enemy, full);
     const def = automationForSpell(findSpell('XGE:Healing Spirit')!, { castLevel: 2, spellMod: 3 });
     // Якорь концентрации кастера — как его ставит executeAutomation (иначе зона сиротеет).
     caster.effects.push({
@@ -532,16 +537,22 @@ describe('зоны с зарядами и появлением (C-хвосты)'
     ally.hpCurrent = 10;
     construct.x = 150;
     construct.y = 100;
+    enemy.x = 150;
+    enemy.y = 100;
+    full.x = 150;
+    full.y = 100;
     const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05); // d20 = 2, 1к6 = 1
     handleMovementZones(f.ctx, room, 'm1');
     rand.mockRestore();
     expect(ally.hpCurrent).toBe(11);
     expect(construct.hpCurrent).toBe(10);
+    expect(enemy.hpCurrent).toBe(10);
+    expect(full.hpCurrent).toBe(30);
     expect(zone?.charges).toBe(3);
 
-    // Последний заряд: вошедший лечится, зона исчезает.
+    // Последний заряд: вошедший союзник лечится, зона исчезает.
     zone!.charges = 1;
-    const other = makeToken('t4', { x: 250, y: 100, hpMax: '30', hpCurrent: 5 });
+    const other = makeToken('t4', { x: 250, y: 100, hpMax: '30', hpCurrent: 5, faction: 'ally' });
     map.tokens.push(other);
     other.x = 150;
     other.y = 100;

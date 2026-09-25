@@ -1440,10 +1440,10 @@ export function spiritualWeaponDef(spell: Spell, opts: AutomationOptions): Autom
 }
 
 /**
- * Healing Spirit (XGE): дух в кубе 5 фт (в 60 фт, концентрация). Существо, впервые
- * за ход вошедшее в куб или начавшее там ход, лечится 1к6 (+1к6 за круг выше 2);
- * конструктов и нежить дух не лечит. Лимит лечений — 1 + мод. характеристики
- * (мин 2) — заряды зоны; бонусным действием дух движется на 30 фт.
+ * Healing Spirit (XGE): дух в кубе 5 фт (в 60 фт, концентрация). Союзное существо,
+ * впервые за ход вошедшее в куб или начавшее там ход, лечится 1к6 (+1к6 за круг
+ * выше 2); конструктов и нежить дух не лечит. Лимит лечений — 1 + мод.
+ * характеристики (мин 2) — заряды зоны; бонусным действием дух движется на 30 фт.
  */
 export function healingSpiritDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XGE:Healing Spirit') return undefined;
@@ -1461,6 +1461,7 @@ export function healingSpiritDef(spell: Spell, opts: AutomationOptions): Automat
       duration: CONCENTRATION,
       enterOncePerTurn: true,
       movable: true,
+      side: 'ally',
       charges: Math.max(2, 1 + Math.round(opts.spellMod ?? 0)),
       excludeCreatureTypes: ['construct', 'undead'],
       actions: [zoneMoveAction('Перемещение духа', 'bonus', 30)],

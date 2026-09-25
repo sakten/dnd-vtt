@@ -82,6 +82,12 @@ function applyZonePayload(
   if (!payload || !targets.length) return;
   const damageType = singleDamageType(payload.damage?.types);
   for (const target of targets) {
+    // Лечение при полном HP бесполезно: заряд не тратится, карта не выходит
+    // (Healing Spirit — payload только с лечением).
+    if (payload.heal && !payload.damage && !payload.save && !payload.effects?.length && payload.healTo === undefined) {
+      const hp = actorStats(room, target).hp;
+      if (hp.current >= hp.max) continue;
+    }
     // Заряды зоны (Cordon of Arrows, Healing Spirit): трата на каждую затронутую цель.
     if (zone.charges !== undefined) {
       if (zone.charges <= 0) break;

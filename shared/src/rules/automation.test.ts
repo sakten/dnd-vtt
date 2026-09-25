@@ -1824,6 +1824,7 @@ describe('automationForSpell', () => {
       origin: 'point',
       enterOncePerTurn: true,
       movable: true,
+      side: 'ally',
       charges: 4,
       excludeCreatureTypes: ['construct', 'undead'],
     });

@@ -8,7 +8,7 @@
 
 - Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **234**, красных (`manual`) — **186**.
 - Открыто из аудита: **B4** (трансформации — 7 спеллов), **C** (стены — Wall of Fire/Ice, Blade Barrier, Wall of Light), **F** (Conjure Elemental/Fey — 2), **I** (контроль/утилита — 12; Charm Monster и Compulsion закрыты плашкой с состоянием, Glyph of Warding решено не делать, Watery Sphere отложен владельцем).
-- **Закрыто (сессия 15):** G — Dimension Door (телепорт 500 фт + пассажир) и Thunder Step (телепорт 90 фт, пассажир не крупнее, гром 10 фт CON 3к10+1к10/круг); C-хвосты — Healing Spirit (зона-куб, лимит лечений = 1+мод., мин 2), Cordon of Arrows (4 стрелы +2/круг, enter/end-of-turn, бьёт только врагов), Storm Sphere (сфера r20, труднопроходима, спас STR при появлении/в конце хода, бонусная молния с преимуществом внутри). Новые примитивы зон: `charges`, `onCreate`, `excludeCreatureTypes`.
+- **Закрыто (сессия 15):** G — Dimension Door (телепорт 500 фт + пассажир) и Thunder Step (телепорт 90 фт, пассажир не крупнее, гром 10 фт CON 3к10+1к10/круг); C-хвосты — Healing Spirit (зона-куб, лечит только союзников с неполным HP, лимит лечений = 1+мод., мин 2), Cordon of Arrows (4 стрелы +2/круг, enter/end-of-turn, бьёт только врагов), Storm Sphere (сфера r20, труднопроходима, спас STR при появлении/в конце хода, бонусная молния с преимуществом внутри). Новые примитивы зон: `charges`, `onCreate`, `excludeCreatureTypes`.
 - **Manual-замки (сессия 14):** B4 (Guardian of Nature, Tenser's Transformation, Alter Self, Enlarge/Reduce, Investiture of Flame/Ice/Wind), C (стены), F (Conjure Elemental/Fey) — деривация из описаний давала ложную/неверную механику. Вернуть в автоматизацию по мере реализации механик.
 - Системные — §8 (каталог Guidance, универсальная подсветка).
 - **FX-TODO:** анимация Chain Lightning — дуга от кастера и скачки между целями (порядок знает сервер — передавать в `fx:play`), фабрика в `client/src/components/spellFx/`.
@@ -33,7 +33,7 @@
 ## C. Зоны / ловушки / повтор — открытые доработки
 
 - **Осталось:** стены — `Wall of Fire` / `Wall of Ice` / `Blade Barrier` / `Wall of Light` (нужна геометрия стены). Manual-замок до реализации.
-- **Сделано (сессия 15):** `XGE:Healing Spirit` (лимит лечений зарядами, не конструктов/нежить, авто-лечение на вход/начало хода, перенос бонусным действием), `XPHB:Cordon of Arrows` (стрелы-заряды, enter/end-of-turn, решение владельца — бьёт только враждебных), `XGE:Storm Sphere` (зона с `onCreate`-уроном, бонусная молния по цели в 60 фт от центра с преимуществом внутри сферы).
+- **Сделано (сессия 15):** `XGE:Healing Spirit` (лимит лечений зарядами, лечит только союзников с неполным HP, не конструктов/нежить, авто-лечение на вход/начало хода, перенос бонусным действием), `XPHB:Cordon of Arrows` (стрелы-заряды, enter/end-of-turn, решение владельца — бьёт только враждебных), `XGE:Storm Sphere` (зона с `onCreate`-уроном, бонусная молния по цели в 60 фт от центра с преимуществом внутри сферы).
 - **Решено не делать (сессия 14):** `XPHB:Glyph of Warding` — остаётся manual-замком.
 - Остальные зоны с триггерами (Create Bonfire, Cloud of Daggers, Spike Growth, Tasha's Caustic Brew, Sickening Radiance, Wind Wall, Black Tentacles, Maelstrom, Dawn, Insect Plague, Conjure Animals, Wrath of Nature, Yolande, Dust Devil, Maximilian's) — механизм есть, доработок по аудиту не требуют.
 
