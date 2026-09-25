@@ -40,4 +40,15 @@ describe('zoneStyle', () => {
     expect(big.stripe).toBeNull();
     expect(small.stripe).not.toBeNull();
   });
+
+  it('стены получают свою текстуру вместо штриховки', () => {
+    expect(zoneStyle(zone({ sourceKey: 'XPHB:Wall of Fire' })).texture).toBe('fire');
+    expect(zoneStyle(zone({ sourceKey: 'XPHB:Wall of Thorns' })).texture).toBe('thorns');
+    expect(zoneStyle(zone({ sourceKey: 'XPHB:Blade Barrier' })).texture).toBe('blades');
+    expect(zoneStyle(zone({ sourceKey: 'XGE:Wall of Sand' })).texture).toBe('sand');
+    for (const key of ['XPHB:Wall of Fire', 'XPHB:Wall of Thorns', 'XPHB:Blade Barrier', 'XGE:Wall of Sand']) {
+      expect(zoneStyle(zone({ sourceKey: key })).stripe).toBeNull();
+    }
+    expect(zoneStyle(zone({ sourceKey: 'XPHB:Web' })).texture).toBeUndefined();
+  });
 });

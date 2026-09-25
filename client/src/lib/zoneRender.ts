@@ -16,7 +16,19 @@ export interface ZoneStyle {
   stripe: string | null;
   stripeAlpha: number;
   labelColor: string;
+  /** Процедурная текстура стены (рисунок поверх заливки, `zoneTextures`). */
+  texture?: ZoneTexture;
 }
+
+/** Текстуры стен: рисуются поверх заливки клеток (без ассетов, детерминированно). */
+export type ZoneTexture = 'fire' | 'thorns' | 'blades' | 'sand';
+
+const WALL_TEXTURES: Record<string, { texture: ZoneTexture; color: string }> = {
+  'XPHB:Wall of Fire': { texture: 'fire', color: '#f97316' },
+  'XPHB:Wall of Thorns': { texture: 'thorns', color: '#22c55e' },
+  'XPHB:Blade Barrier': { texture: 'blades', color: '#94a3b8' },
+  'XGE:Wall of Sand': { texture: 'sand', color: '#eab308' },
+};
 
 /** Затухание крупных зон: чем больше область, тем прозрачнее заливка и штриховка. */
 function sizeAttenuation(size: number): number {
@@ -45,6 +57,19 @@ export function zoneStyle(zone: ZoneInstance): ZoneStyle {
       stripe: '#f8fafc',
       stripeAlpha: 0.25,
       labelColor: '#e5e7eb',
+    };
+  }
+  // Стены: своя текстура вместо штриховки (огонь, шипы, клинки, песок).
+  const wall = WALL_TEXTURES[zone.sourceKey];
+  if (wall) {
+    return {
+      kind: 'effect',
+      fill: wall.color,
+      fillAlpha: 0.18,
+      stripe: null,
+      stripeAlpha: 0,
+      labelColor: wall.color,
+      texture: wall.texture,
     };
   }
   const color = zoneColor(zone.sourceKey);

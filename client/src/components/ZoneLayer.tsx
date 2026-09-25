@@ -2,6 +2,7 @@ import { Group, Line, Rect, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
 import { areaCellsLit, areaCellsSpread, cellCenter, pointCell, type GridSettings, type Wall, type ZoneInstance } from 'shared';
 import { zoneColor, zoneStyle, type ZoneStyle } from '../lib/zoneRender';
+import { drawZoneTexture } from '../lib/zoneTextures';
 
 interface CellRect {
   key: string;
@@ -32,6 +33,8 @@ function drawZone(ctx: Konva.Context, cells: CellRect[], style: ZoneStyle, mode:
     ctx.globalAlpha = style.fillAlpha;
     ctx.fillStyle = style.fill;
     ctx.fill();
+    // Стены: процедурная текстура поверх заливки (огонь/шипы/клинки/песок).
+    if (style.texture) drawZoneTexture(ctx, style.texture, cells);
   }
   if (mode !== 'fills' && style.stripe) {
     ctx.clip();
