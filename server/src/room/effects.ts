@@ -378,6 +378,8 @@ export function tickEffects(
   saves: { name: string; roll: DiceRollResult; success: boolean }[];
   removed: string[];
   escalated: { name: string; condition: ConditionKey }[];
+  /** Bestow Curse: имена эффектов, вынудивших Уклонение в начале хода. */
+  forced: string[];
   /** Токены с снятой концентрацией (последняя цель каста ушла). */
   pruned: { mapId: string; token: Token }[];
   /** Изгнанные навсегда (Banishment истёк: экстрапланетные не возвращаются). */
@@ -387,6 +389,8 @@ export function tickEffects(
   const removed: string[] = [];
   const escalated: { name: string; condition: ConditionKey }[] = [];
   const removedConcentration: { sourceId: string; sourceKey: string }[] = [];
+  const forced: string[] = [];
+  const forcedDodges: EffectInstance[] = [];
   const vanished: { mapId: string; token: Token }[] = [];
   let changed = false;
 
@@ -452,6 +456,12 @@ export function tickEffects(
       effect.charges.remaining = 1;
       changed = true;
     }
+    // Bestow Curse («Уклонение»): спас в начале хода; провал — Уклонение на этот ход.
+    if (!remove && phase === 'start' && effect.turnDodge) {
+      const { roll, success } = rollSave(room, token, effect.turnDodge.ability, effect.turnDodge.dc, { magical: true });
+      saves.push({ name: effect.name, roll, success });
+      if (!success) forcedDodges.push(effect);
+    }
     if (remove) {
       changeMaxHp(m, room, token, effect, -1);
       releaseDomination(token, effect);
@@ -468,6 +478,12 @@ export function tickEffects(
     return !remove;
   });
   token.effects = kept;
+
+  for (const curse of forcedDodges) {
+    applyEffect(m, room, token, turnDodgeEffect(curse));
+    forced.push(curse.name);
+    changed = true;
+  }
 
   for (const map of room.scene.maps) {
     for (const other of map.tokens) {
@@ -504,7 +520,21 @@ export function tickEffects(
   }
 
   if (changed) m.saveSoon(room);
-  return { changed, saves, removed, escalated, pruned: [...pruned.values()], vanished };
+  return { changed, saves, removed, escalated, forced, pruned: [...pruned.values()], vanished };
+}
+
+/** Принудительное Уклонение от Bestow Curse: помеха атак против, преимущество Лов, запрет действий. */
+function turnDodgeEffect(curse: EffectInstance): EffectInstance {
+  return {
+    id: `${curse.id}:dodge`,
+    name: 'Уклонение',
+    duration: { type: 'endOfTurn', of: 'target' },
+    modifiers: [
+      { id: `${curse.id}:dodge-attack`, target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+      { id: `${curse.id}:dodge-save`, target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
+    ],
+    restrictions: { noActions: true },
+  };
 }
 
 /** Эффекты концентрации существа-источника на всех картах. */

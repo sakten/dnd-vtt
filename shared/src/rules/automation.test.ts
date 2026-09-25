@@ -1839,6 +1839,49 @@ describe('automationForSpell', () => {
     expect(spellAutomated({ key: "XPHB:Heroes' Feast", automation: 'manual' })).toBe(true);
   });
 
+  it('Bestow Curse: 4 режима проклятия и апкаст длительности', () => {
+    const minute = [{ type: 'timed' as const, duration: { type: 'minute' as const, amount: 1 }, concentration: true }];
+    const spell = makeSpell({
+      key: 'XPHB:Bestow Curse',
+      name: 'Bestow Curse',
+      level: 3,
+      automation: 'manual',
+      save: ['wis'],
+      duration: minute,
+    });
+    const str = automationForSpell(spell, { variant: 'checks-str' });
+    expect(str.resolution).toBe('effect');
+    expect(str.save).toMatchObject({ ability: 'wis' });
+    expect(str.concentration).toBe(true);
+    expect(str.maxRounds).toBe(10);
+    expect(str.effects?.[0]?.modifiers).toEqual([
+      expect.objectContaining({ target: 'check', mode: 'disadvantage', filter: { ability: 'str' } }),
+      expect.objectContaining({ target: 'save', mode: 'disadvantage', filter: { ability: 'str' } }),
+    ]);
+
+    const attacks = automationForSpell(spell, { variant: 'attacks' });
+    expect(attacks.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'attack',
+      mode: 'disadvantage',
+      filter: { direction: 'against' },
+    });
+
+    const dodge = automationForSpell(spell, { variant: 'dodge' });
+    expect(dodge.effects?.[0]?.turnDodge).toEqual({ ability: 'wis' });
+
+    const necrotic = automationForSpell(spell, { variant: 'necrotic' });
+    expect(necrotic.effects?.[0]?.takesExtraDamage).toEqual({ dice: '1d8', damageType: 'necrotic' });
+
+    // Апкаст: 4-й круг — 10 минут концентрации, 5-й+ — без концентрации и лимита.
+    expect(automationForSpell(spell, { castLevel: 4 }).maxRounds).toBe(100);
+    const upcast = automationForSpell(spell, { castLevel: 5 });
+    expect(upcast.concentration).toBeUndefined();
+    expect(upcast.maxRounds).toBeNull();
+    expect(upcast.effects?.[0]?.duration).toEqual({ type: 'permanent' });
+    expect(upcast.effects?.[0]?.concentration).toBe(false);
+    expect(spellAutomated({ key: 'XPHB:Bestow Curse', automation: 'manual' })).toBe(true);
+  });
+
   it('Protection from Evil and Good: помеха шести типам и scoped-иммунитет', () => {
     const spell = makeSpell({
       key: 'XPHB:Protection from Evil and Good',

@@ -1342,6 +1342,11 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Blindness/Deafness': { param: 'effect', options: ['blinded', 'deafened'] },
   'XGE:Skill Empowerment': { param: 'skill', options: SKILLS.map((s) => s.key) },
   'XPHB:Command': { param: 'command', options: ['approach', 'drop', 'flee', 'grovel', 'halt'] },
+  // Bestow Curse: режим проклятия; checks-* — помеха проверкам и спасброскам характеристики.
+  'XPHB:Bestow Curse': {
+    param: 'effect',
+    options: ['checks-str', 'checks-dex', 'checks-con', 'checks-int', 'checks-wis', 'checks-cha', 'attacks', 'dodge', 'necrotic'],
+  },
   // True Strike: базовый урон — излучением или обычным типом оружия (+1d6 излучением всегда).
   'XPHB:True Strike': { param: 'damageType', options: ['weapon', 'radiant'] },
   'XPHB:Elemental Weapon': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
@@ -1422,6 +1427,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Dominate Person',
   'XPHB:Blindness/Deafness',
   'XGE:Life Transference',
+  'XPHB:Bestow Curse',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1759,6 +1765,52 @@ function heroesFeastDef(spell: Spell): AutomationDef | undefined {
     maxHpBonus: { dice: '2d10' },
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/**
+ * Bestow Curse (XPHB 2024): спас WIS; выбранное проклятие — помеха проверкам и
+ * спасброскам характеристики, помеха атак против вас, запрет действий (принудительное
+ * Уклонение) или +1d8 некротикой с ваших атак. Апкаст: 4-й круг — 10 минут концентрации,
+ * 5-й+ — без концентрации (8/24 часа и до снятия — в VTT до долгого отдыха).
+ */
+function bestowCurseDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Bestow Curse') return undefined;
+  const castLevel = opts.castLevel ?? spell.level;
+  const option = SPELL_VARIANTS[spell.key]?.options.includes(opts.variant ?? '')
+    ? opts.variant!
+    : 'checks-str';
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: castLevel >= 5 ? PERMANENT : CONCENTRATION,
+    concentration: castLevel < 5,
+    to: 'targets',
+    targets: 1,
+    modifiers: [],
+    variant: option,
+  };
+  if (option.startsWith('checks-')) {
+    const ability = option.slice('checks-'.length) as AbilityKey;
+    effect.modifiers = [
+      { target: 'check', mode: 'disadvantage', filter: { ability } },
+      { target: 'save', mode: 'disadvantage', filter: { ability } },
+    ];
+  } else if (option === 'attacks') {
+    effect.modifiers = [{ target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } }];
+  } else if (option === 'dodge') {
+    effect.turnDodge = { ability: 'wis' };
+  } else {
+    effect.takesExtraDamage = { dice: '1d8', damageType: 'necrotic' };
+  }
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    save: { ability: 'wis' },
+    ...(castLevel < 5 ? { concentration: true } : {}),
+    ...(castLevel === 4 ? { maxRounds: 100 } : {}),
+    ...(castLevel >= 5 ? { maxRounds: null } : {}),
+    effects: [effect],
+  };
 }
 
 /** Command (XPHB): выбранный приказ действует до конца следующего хода цели; Approach/Drop/Flee — ручные. */
@@ -3034,6 +3086,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const heroesFeast = heroesFeastDef(spell);
   if (heroesFeast) return heroesFeast;
+
+  const bestowCurse = bestowCurseDef(spell, opts);
+  if (bestowCurse) return bestowCurse;
 
   const invisibility = invisibilityDef(spell, opts);
   if (invisibility) return invisibility;

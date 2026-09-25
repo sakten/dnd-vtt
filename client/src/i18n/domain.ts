@@ -107,6 +107,9 @@ function effectPartText(part: EffectTextPart): string {
         : undefined;
     return t(part.key as MessageKey, { ...part.params, conditions: list, ...(types !== undefined ? { types } : {}) });
   }
+  if (part.params?.ability !== undefined && part.params?.type === undefined) {
+    return t(part.key as MessageKey, { ...part.params, ability: abilityName(String(part.params.ability) as AbilityKey) });
+  }
   if (part.params?.type === undefined) return t(part.key as MessageKey, part.params);
   return t(part.key as MessageKey, { ...part.params, type: damageLabel(String(part.params.type)) });
 }

@@ -44,7 +44,9 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
             ? t(`ui.command.${e.variant}` as MessageKey)
             : variantParam === 'effect' && (CONDITION_KEYS as string[]).includes(e.variant)
               ? conditionLabel(e.variant)
-              : damageLabel(e.variant)
+              : variantParam === 'effect'
+                ? t(`ui.spellVariant.${e.variant}` as MessageKey)
+                : damageLabel(e.variant)
       : '';
     const label = variantLabel ? `${e.name} (${variantLabel})` : e.name;
     const badge = charge != null ? (charge > 9 ? '9+' : String(charge)) : rounds != null ? (rounds > 9 ? '9+' : String(rounds)) : null;

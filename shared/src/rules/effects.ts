@@ -516,6 +516,9 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   if (effect.maximizeHealing) parts.push({ key: 'domain.effect.maxHeal' });
   if (effect.deathSaveAdvantage) parts.push({ key: 'domain.effect.deathSaveAdv' });
   if (effect.saveNoDamage) parts.push({ key: 'domain.effect.saveNoDamage' });
+  if (effect.turnDodge) {
+    parts.push({ key: 'domain.effect.turnDodge', params: { ability: effect.turnDodge.ability } });
+  }
   if (effect.sanctuary) parts.push({ key: 'domain.effect.sanctuary' });
   if (effect.retaliate) {
     parts.push({

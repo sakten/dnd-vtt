@@ -102,6 +102,8 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
       : undefined,
     // Sanctuary: СЛ спасброска атакующего — СЛ каста (передаётся как untilSaveDc).
     sanctuary: effectDef.sanctuary ? { dc: untilSaveDc ?? 10 } : undefined,
+    // Bestow Curse («Уклонение»): СЛ спаса в начале хода — СЛ каста.
+    turnDodge: effectDef.turnDodge ? { ability: effectDef.turnDodge.ability, dc: untilSaveDc ?? 10 } : undefined,
     damageLink: effectDef.damageLink ? { tokenId: sourceId } : undefined,
     banish: effectDef.banish ? { x: target.x, y: target.y } : undefined,
   };

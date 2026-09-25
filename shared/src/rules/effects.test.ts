@@ -381,6 +381,21 @@ describe('normalizeEffects: Elemental Bane', () => {
   });
 });
 
+describe('normalizeEffects: Bestow Curse (Уклонение)', () => {
+  it('сохраняет характеристику спаса и СЛ', () => {
+    const [out] = normalizeEffects([
+      {
+        id: 'bc',
+        name: 'Bestow Curse',
+        duration: { type: 'concentration' },
+        modifiers: [],
+        turnDodge: { ability: 'wis', dc: 15 },
+      },
+    ]);
+    expect(out?.turnDodge).toEqual({ ability: 'wis', dc: 15 });
+  });
+});
+
 describe('каталог эффектов заклинаний', () => {
   it('Shield даёт +5 AC до конца хода', () => {
     const defs = spellEffectDefs('XPHB:Shield');

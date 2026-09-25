@@ -380,6 +380,7 @@ export class RoomManager {
     saves: { name: string; roll: DiceRollResult; success: boolean }[];
     removed: string[];
     escalated: { name: string; condition: ConditionKey }[];
+    forced: string[];
     pruned: { mapId: string; token: Token }[];
     vanished: { mapId: string; token: Token }[];
   } {

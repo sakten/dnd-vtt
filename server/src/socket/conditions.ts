@@ -45,6 +45,10 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
       params: { name: token.name, effect: esc.name, condition: esc.condition },
     });
   }
+  // Bestow Curse: провал спаса в начале хода — цель вынуждена уклоняться.
+  for (const name of effects.forced) {
+    ctx.systemMessage(room, { code: 'conditions.forcedDodge', params: { name: token.name, effect: name } });
+  }
   // Banishment: срок вышел, экстрапланетное существо не возвращается — токен удаляется.
   const vanishedIds = new Set(effects.vanished.map((v) => v.token.id));
   for (const gone of effects.vanished) {

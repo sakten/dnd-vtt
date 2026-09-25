@@ -416,3 +416,41 @@ describe('Elemental Bane: снятие сопротивления и доп. у�
     expect(target.effects[0]?.elementalBane?.usedTurn).toBeNull();
   });
 });
+
+describe('Bestow Curse: спас в начале хода и принудительное Уклонение', () => {
+  const curse = (): EffectInstance => ({
+    id: 'bc',
+    name: 'Bestow Curse',
+    sourceKey: 'XPHB:Bestow Curse',
+    sourceId: 't9',
+    concentration: true,
+    duration: { type: 'concentration' },
+    modifiers: [],
+    turnDodge: { ability: 'wis', dc: 15 },
+  });
+
+  it('провал накладывает Уклонение с запретом действий', () => {
+    const { target, f, ctx } = setup([]);
+    target.effects.push(curse());
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → провал
+    const res = ctx.manager.tickEffects(f.room, target, 'start');
+    rand.mockRestore();
+    expect(res.saves[0]).toMatchObject({ name: 'Bestow Curse', success: false });
+    const dodge = target.effects.find((e) => e.name === 'Уклонение');
+    expect(dodge?.restrictions).toEqual({ noActions: true });
+    expect(dodge?.duration).toEqual({ type: 'endOfTurn', of: 'target' });
+    expect(dodge?.modifiers.some((m) => m.target === 'attack' && m.mode === 'disadvantage')).toBe(true);
+    expect(res.forced).toEqual(['Bestow Curse']);
+  });
+
+  it('успешный спас Уклонение не накладывает', () => {
+    const { target, f, ctx } = setup([]);
+    target.effects.push(curse());
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99); // d20 = 20 → успех
+    const res = ctx.manager.tickEffects(f.room, target, 'start');
+    rand.mockRestore();
+    expect(res.saves[0]).toMatchObject({ name: 'Bestow Curse', success: true });
+    expect(target.effects.some((e) => e.name === 'Уклонение')).toBe(false);
+    expect(res.forced).toEqual([]);
+  });
+});
