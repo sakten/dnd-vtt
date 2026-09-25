@@ -34,6 +34,7 @@ export type ErrorCode =
   | 'shapeInForm'
   | 'shapeNoRevert'
   | 'spellSelfOnly'
+  | 'spellLongCast'
   | 'noAreaPoint'
   | 'noClearPath'
   | 'outOfRange'

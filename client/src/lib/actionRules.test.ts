@@ -4,6 +4,7 @@ import { emptyResources, emptyTurnState, type Spell, type Token } from 'shared';
 import {
   canSpendSlot,
   castLevelsForSpell,
+  longCastInCombat,
   maxCastableForSpell,
   sortPanelSpells,
   spellHasEffects,
@@ -48,6 +49,19 @@ describe('spellSlotOf', () => {
     expect(spellSlotOf(makeSpell({ time: [{ number: 1, unit: 'bonus' }] }))).toBe('bonus');
     expect(spellSlotOf(makeSpell({ time: [{ number: 1, unit: 'reaction' }] }))).toBe('reaction');
     expect(spellSlotOf(makeSpell({ time: [{ number: 1, unit: 'minute' }] }))).toBe('other');
+    // Pact of the Chain: долгий по данным Find Familiar кастуется действием.
+    expect(spellSlotOf(makeSpell({ time: [{ number: 1, unit: 'hour' }] }), { actionCast: true })).toBe('action');
+  });
+});
+
+describe('longCastInCombat', () => {
+  it('долгие касты (1 мин и больше) в бою недоступны, вне боя — доступны', () => {
+    const prayer = makeSpell({ time: [{ number: 10, unit: 'minute' }] });
+    expect(longCastInCombat(prayer, true)).toBe(true);
+    expect(longCastInCombat(prayer, false)).toBe(false);
+    expect(longCastInCombat(makeSpell(), true)).toBe(false);
+    // Pact of the Chain: Find Familiar действием — доступен и в бою.
+    expect(longCastInCombat(prayer, true, { actionCast: true })).toBe(false);
   });
 });
 

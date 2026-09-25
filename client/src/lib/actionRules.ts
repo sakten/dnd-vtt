@@ -28,9 +28,18 @@ import {
 import { t, type MessageKey } from '../i18n';
 
 /** Секция панели для заклинания; 'other' — свободные/особые. */
-export function spellSlotOf(spell: Spell): 'action' | 'bonus' | 'reaction' | 'other' {
-  const cost = spellActionCost(spell);
+export function spellSlotOf(spell: Spell, opts: { actionCast?: boolean } = {}): 'action' | 'bonus' | 'reaction' | 'other' {
+  const cost = opts.actionCast ? 'action' : spellActionCost(spell);
   return cost === 'action' || cost === 'bonus' || cost === 'reaction' ? cost : 'other';
+}
+
+/** Долгое накладывание (1 минута и больше): в бою заклинание недоступно. */
+export function longCastInCombat(
+  spell: Spell,
+  combatActive: boolean,
+  opts: { actionCast?: boolean } = {}
+): boolean {
+  return combatActive && !opts.actionCast && spellActionCost(spell) === 'special';
 }
 
 /** Накладывает ли заклинание эффекты — напрямую или аурой/триггерами зоны. */

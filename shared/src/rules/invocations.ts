@@ -20,6 +20,8 @@ export interface InvocationMechanics {
   concentrationAdvantage?: boolean;
   /** Заклинание без ячейки (ключ каталога). */
   atWill?: string;
+  /** At-will каст — действием, а не временем заклинания (Pact of the Chain: Find Familiar). */
+  actionCast?: boolean;
   /** Пакт-инвокация (Blade/Chain/Tome). */
   pact?: InvocationPact;
   /** Модификатор Eldritch Blast. */
@@ -32,8 +34,8 @@ export const INVOCATION_MECHANICS: Record<string, InvocationMechanics> = {
   "XPHB:Devil's Sight": { sense: { type: 'devilsight', range: 120 } },
   'XPHB:Eldritch Mind': { concentrationAdvantage: true },
   'XPHB:Pact of the Blade': { pact: 'blade' },
-  // Pact of the Chain: Find Familiar без ячейки (XPHB) + особые формы в пикере.
-  'XPHB:Pact of the Chain': { pact: 'chain', atWill: 'XPHB:Find Familiar' },
+  // Pact of the Chain: Find Familiar без ячейки (XPHB) действием + особые формы в пикере.
+  'XPHB:Pact of the Chain': { pact: 'chain', atWill: 'XPHB:Find Familiar', actionCast: true },
   'XPHB:Pact of the Tome': { pact: 'tome', tome: true },
   'XPHB:Agonizing Blast': { blast: 'agonizing' },
   'XPHB:Repelling Blast': { blast: 'repelling' },
@@ -153,6 +155,14 @@ export function eldritchBlastMods(sheet: Pick<CharacterSheet, 'invocations'>): {
 /** Заклинание доступно персонажу без ячейки по инвокации. */
 export function invocationCoversSpell(sheet: Pick<CharacterSheet, 'invocations'>, spellKey: string): boolean {
   return invocationAtWillSpells(sheet).includes(spellKey);
+}
+
+/** At-will заклинание кастуется действием, а не своим временем (Pact of the Chain: Find Familiar). */
+export function invocationActionCast(sheet: Pick<CharacterSheet, 'invocations'>, spellKey: string): boolean {
+  return (sheet.invocations ?? []).some((key) => {
+    const mechanics = INVOCATION_MECHANICS[key];
+    return mechanics?.actionCast === true && mechanics.atWill === spellKey;
+  });
 }
 
 /** Дальность заклинания с учётом инвокаций (Eldritch Spear: Eldritch Blast на 300 фт). */

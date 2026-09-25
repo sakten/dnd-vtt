@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
@@ -9,6 +9,7 @@ import {
   canUseFeature,
   featureSlot,
   featFreeCastKeys,
+  longCastInCombat,
   maxCastableForSpell,
   sortPanelSpells,
   spellSlotOf,
@@ -235,6 +236,9 @@ export default function ActionPanel() {
     restrictions: restrictionsFor(token.conditions, token.effects),
   };
 
+  // Pact of the Chain: Find Familiar кастуется действием (инвокация), а не 1 час.
+  const invocationAction = (key: string): boolean => isCharacter && !!sheet && invocationActionCast(sheet, key);
+
   /** Клик по кнопке: цели не нужны — применяем сразу, иначе входим в режим выбора цели. */
   const fire = (actionId: string, slot: ActionCost, attackIndex?: number, label?: string) => {
     const def = BASE_ACTIONS.find((a) => a.id === actionId);
@@ -284,9 +288,9 @@ export default function ActionPanel() {
   );
   const legendaryAbilities = abilities.filter(legendaryOnly);
 
-  const spellsAction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'action'));
-  const spellsBonus = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'bonus'));
-  const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s) === 'other'));
+  const spellsAction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'action'));
+  const spellsBonus = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'bonus'));
+  const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'other'));
 
   // Атака второй рукой (Light): бьёт оружие из левой руки; триггер — прошлая атака другим лёгким.
   // Оружие с Nick и доступом к мастерствам — в «Свободных и прочих» (не тратит бонусное действие).
@@ -315,8 +319,11 @@ export default function ActionPanel() {
   const spellDisabled = (spell: Spell): boolean => {
     // Смайты применяются райдером после попадания оружием — из панели не кастуются.
     if (SMITE_SPELLS.has(spell.key)) return true;
+    // Долгое накладывание (1 мин и больше) в бою недоступно.
+    const castAsAction = invocationAction(spell.key);
+    if (longCastInCombat(spell, combatActive, { actionCast: castAsAction })) return true;
     // Блокируем по экономике действий (действие/бонус/реакция уже потрачены).
-    const slot = spellSlotOf(spell);
+    const slot = spellSlotOf(spell, { actionCast: castAsAction });
     if (!canSpendSlot(turnCtx, slot === 'other' ? 'special' : slot, spell.key)) return true;
     if (slot === 'reaction' && spell.level > 0) {
       const maxLevel = maxCastableForSpell(spell, {
@@ -338,6 +345,9 @@ export default function ActionPanel() {
       `${spellDisplayName(spell)} · ${level}`,
       ...spellMechanics(spell),
       ...(smite ? [t('ui.action.smiteOnHit')] : []),
+      ...(longCastInCombat(spell, combatActive, { actionCast: invocationAction(spell.key) })
+        ? [t('ui.action.longCastInCombat')]
+        : []),
     ].join('\n');
     return (
       <button

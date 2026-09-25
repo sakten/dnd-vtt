@@ -4432,6 +4432,50 @@ describe('spell:cast', () => {
     expect(room.chat.some((m) => m.kind === 'roll' && m.labelParams?.subject?.includes('провал'))).toBe(true);
   });
 
+  it('Долгое накладывание: в бою отклоняется, вне боя — работает', () => {
+    const tokens = () => [
+      makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+      makeToken('t2', { faction: 'ally', x: 125, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ];
+    const sheet = () => ({ ...casterSheet(), spells: [{ key: 'XPHB:Prayer of Healing', className: 'wizard' }] });
+    const resources = () => ({ ...casterResources(), spellSlots: [{ level: 2, current: 1, max: 1 }] });
+
+    const room = makeRoom(tokens(), { p1: 'lib1' });
+    room.sheets.p1 = sheet();
+    room.resources.p1 = resources();
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Prayer of Healing',
+      slotLevel: 2,
+      targetIds: ['t2'],
+    });
+    expect((f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined)?.code).toBe('spellLongCast');
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
+
+    // Вне боя каст проходит.
+    const rest = makeRoom(tokens(), { p1: 'lib1' });
+    rest.sheets.p1 = sheet();
+    rest.resources.p1 = resources();
+    combatOf(rest).active = false;
+    const fr = makeCtx(rest, { playerId: 'p1' });
+    registerSpellHandlers(fr.ctx);
+
+    fr.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Prayer of Healing',
+      slotLevel: 2,
+      targetIds: ['t2'],
+    });
+    expect(fr.emitted.filter((e) => e.event === 'chat:error')).toEqual([]);
+    expect(rest.resources.p1!.spellSlots[0]!.current).toBe(0);
+  });
+
   it('без выбранного заклинания не кастует', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.sheets.p1 = casterSheet();

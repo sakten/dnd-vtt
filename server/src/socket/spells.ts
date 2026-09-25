@@ -2,6 +2,7 @@ import {
   actionSlotAvailable,
   characterLevel,
   featSpellGrants,
+  invocationActionCast,
   invocationAtWillSelfOnly,
   invocationCoversSpell,
   restrictionsFor,
@@ -47,12 +48,14 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       fail(ctx, 'smiteOnHitOnly');
       return;
     }
-    const cost = spellActionCost(spell);
+    let cost = spellActionCost(spell);
 
     const isCharacter = room.controllers[ctx.playerId] === token.libraryItemId;
     const sheet = isCharacter ? room.sheets[ctx.playerId] : undefined;
     // Инвокация (Armor of Shadows, Mask of Many Faces…): каст без ячейки и подготовки.
     const atWill = isCharacter && !!sheet && invocationCoversSpell(sheet, spellKey);
+    // Pact of the Chain: Find Familiar кастуется действием (Magic action), а не 1 час.
+    if (atWill && sheet && invocationActionCast(sheet, spellKey)) cost = 'action';
     // At-will «на себя» (Armor of Shadows и подобные): цель — только сам кастер.
     if (atWill && invocationAtWillSelfOnly(spellKey)) {
       const ids = Array.isArray(targetIds) ? targetIds : [];
@@ -79,6 +82,11 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     const stats = casterStatsFor(room, token, spellKey);
 
     const combat = manager.combatOf(room, mapId);
+    // Долгое накладывание (1 минута и больше): в бою недоступно.
+    if (combat?.active && cost === 'special') {
+      fail(ctx, 'spellLongCast', { name: spell.name });
+      return;
+    }
     const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
     // В чужой ход игрок может кастовать только реакционные заклинания.
     if (combat?.active && !isActive && !isDm() && cost !== 'reaction') {

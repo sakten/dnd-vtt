@@ -11,8 +11,10 @@ import {
   effectiveSpellRangeFeet,
   eldritchBlastMods,
   familiarFormAvailable,
+  invocationActionCast,
   invocationAtWillSpells,
   invocationAutomated,
+  invocationCoversSpell,
   invocationIssue,
   invocationLimit,
   invocationSenses,
@@ -106,6 +108,14 @@ describe('формы фамильяра', () => {
     expect(familiarFormAvailable('XMM:Imp', false, true)).toBe(true);
     expect(familiarFormAvailable('XMM:Imp', false, false)).toBe(false);
     expect(familiarFormAvailable('XMM:Owl', true, false)).toBe(true);
+  });
+
+  it('Pact of the Chain: Find Familiar — действием без ячейки', () => {
+    const pact = sheet({ invocations: ['XPHB:Pact of the Chain'] });
+    expect(invocationCoversSpell(pact, 'XPHB:Find Familiar')).toBe(true);
+    expect(invocationActionCast(pact, 'XPHB:Find Familiar')).toBe(true);
+    expect(invocationActionCast(pact, 'XPHB:Fireball')).toBe(false);
+    expect(invocationActionCast(sheet({ invocations: ['XPHB:Armor of Shadows'] }), 'XPHB:Find Familiar')).toBe(false);
   });
 });
 

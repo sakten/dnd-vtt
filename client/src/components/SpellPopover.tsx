@@ -7,6 +7,7 @@ import {
   INVOCATION_PACT_KEYS,
   invocationAtWillSelfOnly,
   invocationAtWillSpells,
+  invocationActionCast,
   invocationCoversSpell,
   spellActionCost,
   spellAreaOrigin,
@@ -109,6 +110,8 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   // At-will инвокация «на себя» (Armor of Shadows): цель не выбирается.
   const selfOnlyAtWill =
     !!sheet && sheetCaster && invocationCoversSpell(sheet, spell.key) && invocationAtWillSelfOnly(spell.key);
+  // Pact of the Chain: Find Familiar кастуется действием (Magic action) без ячейки.
+  const invocationAction = !!sheetCaster && !!sheet && invocationActionCast(sheet, spell.key);
   const pactChain = hasInvocation(sheet ?? {}, INVOCATION_PACT_KEYS.chain);
   // Зона заклинания (Moonbeam/Flaming Sphere/Faithful Hound): своя геометрия для прицела.
   const zoneDef = automationForSpell(spell, { castLevel: info.slotLevel ?? level }).zone;
@@ -278,7 +281,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
             <div className="sp-name">{spellDisplayName(spell)}</div>
             <div className="sp-meta">
               {info.isCantrip ? t('ui.spellPopover.cantrip') : t('ui.spellPopover.level', { n: spell.level })} ·{' '}
-              {actionCostText(abilityAction ? abilityAction.slot : spellActionCost(spell))}
+              {actionCostText(abilityAction ? abilityAction.slot : invocationAction ? 'action' : spellActionCost(spell))}
             </div>
           </div>
           <button className="sp-close" aria-label={t('ui.common.close')} onClick={onClose}>
