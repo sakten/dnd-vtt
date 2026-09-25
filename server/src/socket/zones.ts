@@ -450,6 +450,9 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
             zone.enteredThisTurn = { ...(zone.enteredThisTurn ?? {}), [token.id]: key };
           }
           applyZonePayload(ctx, room, mapId, zone, payload, [token]);
+          // Последний заряд мог уйти в этом триггере (Cordon of Arrows, Healing Spirit):
+          // без отметки изменения клиент не получит снятие зоны до перезагрузки.
+          if (!map.zones.some((z) => z.id === zone.id)) changed = true;
         }
       }
     }

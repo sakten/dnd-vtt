@@ -654,4 +654,58 @@ describe('зоны с зарядами и появлением (C-хвосты)'
       .find((m) => m.kind === 'roll' && m.rollKind === 'attack');
     expect(attackMsg?.labelParams?.sources).toContainEqual({ side: 'advantage', kind: 'rule', key: 'insideZone' });
   });
+
+  it('Cordon of Arrows: последняя стрела в конце хода — зона гаснет и рассылается', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    caster.faction = 'ally';
+    const enemy = map.tokens[1]!;
+    enemy.faction = 'enemy';
+    enemy.hpMax = '30';
+    enemy.hpCurrent = 30;
+    enemy.x = 150;
+    enemy.y = 100;
+    const def = automationForSpell(findSpell('XPHB:Cordon of Arrows')!, { castLevel: 2 });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats,
+      origin: { x: caster.x, y: caster.y },
+    });
+    zone!.charges = 1;
+    f.emitted.length = 0;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    tickZones(f.ctx, room, 'm1', enemy, 'end');
+    rand.mockRestore();
+    expect(map.zones).toHaveLength(0);
+    // Снятие зоны должно уехать клиентам сразу, а не после F5.
+    expect(f.emitted.filter((e) => e.event === 'zones:update').length).toBeGreaterThan(0);
+  });
+
+  it('Большой юнит (3×3) входит в Cordon один раз', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    caster.faction = 'ally';
+    const big = makeToken('big', { x: 600, y: 300, w: 150, h: 150, faction: 'enemy', hpMax: '60', hpCurrent: 60 });
+    map.tokens.push(big);
+    const def = automationForSpell(findSpell('XPHB:Cordon of Arrows')!, { castLevel: 2 });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats,
+      origin: { x: caster.x, y: caster.y },
+    });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    for (const x of [550, 500, 450, 400, 350, 300, 250]) {
+      big.x = x;
+      big.y = 300;
+      handleMovementZones(f.ctx, room, 'm1');
+    }
+    rand.mockRestore();
+    expect(zone?.charges).toBe(3);
+  });
 });
