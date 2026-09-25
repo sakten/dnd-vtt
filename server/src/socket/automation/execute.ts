@@ -60,6 +60,7 @@ import {
   type AutomationInput,
   type AutomationRun,
 } from './core';
+import { dispatchKind } from './dispatch';
 import {
   applyDefEffects,
   applyUtility,
@@ -480,7 +481,12 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     ? sided.filter((t) => !def.excludeCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''))
     : sided;
 
-  if (def.resolution === 'utility' && def.utility) {
+  const abilities = ctx.manager.abilitiesForToken(room, caster);
+  const proficiency = proficiencyFor(ctx, room, caster);
+  const expression = withSpellAbilityMod(resolveDiceExpression(def.damage ?? def.heal, abilities, proficiency), def, stats);
+  const kind = dispatchKind(def, { hasStats: !!stats, hasExpression: !!expression });
+
+  if (kind === 'utility') {
     applyUtility(ctx, { ...input, targets });
     // Far Step: телепорт при касте + выданное бонусное действие (эффект на кастера).
     if (def.effects?.length) applyDefEffects(ctx, { ...input, targets });
@@ -511,7 +517,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   if (def.concentration) dropConcentration(ctx, room, caster);
 
   // Призыв: спавн токенов по шаблону каталога (скейл круга/кастера, владелец-контролёр).
-  if (def.resolution === 'summon' && def.summon) {
+  if (kind === 'summon' && def.summon) {
     runSummon(ctx, {
       caster,
       mapId,
@@ -533,7 +539,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     createZoneFromDef(ctx, { caster, mapId, def, stats, origin: zoneOrigin, direction: input.direction });
   }
 
-  if (def.resolution === 'effect' && def.effects?.length) {
+  if (kind === 'effect') {
     applyDefEffects(ctx, { ...input, targets });
     // Снятие состояний при касте (Protection from Poison): независимо от эффекта.
     if (def.endConditions?.length) {
@@ -567,10 +573,6 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     anchorConcentration(ctx, room, caster, mapId, def);
   }
 
-  const abilities = ctx.manager.abilitiesForToken(room, caster);
-  const proficiency = proficiencyFor(ctx, room, caster);
-  const expression = withSpellAbilityMod(resolveDiceExpression(def.damage ?? def.heal, abilities, proficiency), def, stats);
-
   const run: AutomationRun = {
     ctx,
     room,
@@ -593,13 +595,13 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };
 
-  if (def.lifeTransfer) return runLifeTransfer(run);
-  if (def.attack && stats) return runWeaponAttacks(run, stats);
-  if (def.save && stats && def.heal && def.damage) return runHealOrDamage(run, stats);
-  if (def.save && stats) return runSave(run, stats);
-  if (!def.save && !def.attack && def.effects?.length) return runAutoAbility(run, stats);
+  if (kind === 'lifeTransfer') return runLifeTransfer(run);
+  if (kind === 'attack') return runWeaponAttacks(run, stats!);
+  if (kind === 'healOrDamage') return runHealOrDamage(run, stats!);
+  if (kind === 'save') return runSave(run, stats!);
+  if (kind === 'auto') return runAutoAbility(run, stats);
 
-  if (!expression) {
+  if (kind === 'manual') {
     if (def.zone) return; // зона уже создана; отдельного сообщения не нужно
     const level = input.manual?.level;
     const detail = input.manual?.description?.[0] ? `\n${input.manual.description[0]}` : '';
@@ -614,6 +616,6 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     return;
   }
 
-  if (def.targets) return runMultiTarget(run);
+  if (kind === 'multi') return runMultiTarget(run);
   runSingleTargets(run);
 }
