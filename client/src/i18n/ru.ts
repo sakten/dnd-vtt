@@ -270,6 +270,7 @@
   'ui.attackSources.effect': 'Эффект',
   'ui.attackSources.surrounded': 'Окружён (смежный враг)',
   'ui.attackSources.shadowBlade': 'Тень (цель в сумерках/тьме)',
+  'ui.attackSources.insideZone': 'Цель внутри сферы шторма',
   'ui.toolbar.dice': 'Кости',
   'ui.toolbar.diceTitle': 'Настройки бросков',
   'ui.roll.anim': 'Анимация d20',

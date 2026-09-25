@@ -1078,13 +1078,12 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Geas': manualSpell('XPHB:Geas', 'Geas'),
   'XGE:Soul Cage': manualSpell('XGE:Soul Cage', 'Soul Cage'),
   // Класс B4/C/F/G аудита (сессия 14): данные давали ложную деривацию —
-  // Dimension Door бил авто-уроном 4d6 (это урон только при провале телепорта),
   // Tenser's — спасом 2d12 (это добавка к оружию), Investitures/Guardian of Nature/
   // Alter Self/Enlarge-Reduce — «уроном» из тегов, стены шли generic-спасом без
-  // геометрии, Storm Sphere — attack вместо сферы, Cordon/Glyph — спасом без
-  // триггера, Healing Spirit — лечением без лимита зарядов. Лочим до реализации
+  // геометрии, Glyph — спасом без триггера. Лочим до реализации
   // механик (TODO_SPELLS B4/C/F/G), чтобы «зелёный» не врал.
-  // Dimension Door и Thunder Step реализованы билдерами (`dimensionDoorDef`/`thunderStepDef`).
+  // Dimension Door/Thunder Step/Healing Spirit/Cordon of Arrows/Storm Sphere —
+  // реализованы билдерами (`dimensionDoorDef`/`thunderStepDef`/…).
   "XGE:Tenser's Transformation": manualSpell("XGE:Tenser's Transformation", "Tenser's Transformation", true),
   'XGE:Investiture of Flame': manualSpell('XGE:Investiture of Flame', 'Investiture of Flame', true),
   'XGE:Investiture of Ice': manualSpell('XGE:Investiture of Ice', 'Investiture of Ice', true),
@@ -1098,10 +1097,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Wall of Ice': manualSpell('XPHB:Wall of Ice', 'Wall of Ice', true),
   'XPHB:Blade Barrier': manualSpell('XPHB:Blade Barrier', 'Blade Barrier', true),
   'XGE:Wall of Light': manualSpell('XGE:Wall of Light', 'Wall of Light', true),
-  'XGE:Healing Spirit': manualSpell('XGE:Healing Spirit', 'Healing Spirit', true),
-  'XPHB:Cordon of Arrows': manualSpell('XPHB:Cordon of Arrows', 'Cordon of Arrows'),
   'XPHB:Glyph of Warding': manualSpell('XPHB:Glyph of Warding', 'Glyph of Warding'),
-  'XGE:Storm Sphere': manualSpell('XGE:Storm Sphere', 'Storm Sphere', true),
   // Решение владельца (сессия 14): очарование — ручная механика, каст вешает только
   // плашку «Очарован»; поведение/перемещение ведёт мастер, красный маркер не рисуется.
   'XPHB:Charm Monster': chipSpell('XPHB:Charm Monster', 'Charm Monster', 'charmed'),

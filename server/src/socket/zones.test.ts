@@ -4,6 +4,7 @@ import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { createZoneFromDef, handleMovementZones, removeZonesOfSource, tickZones } from './zones';
+import { executeAutomation } from './automation';
 
 /** Синтетическая зона: аура-слепота внутри + урон в начале хода (аналог HoH). */
 const zoneDef: AutomationDef = {
@@ -493,5 +494,153 @@ describe('диспел света и тьмы', () => {
     handleMovementZones(f.ctx, room, 'm1');
 
     expect(target.effects.some((e) => e.id === 'ef-light')).toBe(false);
+  });
+});
+
+describe('зоны с зарядами и появлением (C-хвосты)', () => {
+  const stats = { ability: 'wis', mod: 3, dc: 14, attack: 5 } as const;
+
+  it('Healing Spirit: лечит вошедших (кроме конструктов/нежити) и гаснет по зарядам', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const ally = map.tokens[1]!;
+    const construct = makeToken('t3', {
+      x: 250,
+      y: 100,
+      hpMax: '30',
+      hpCurrent: 10,
+      statblock: { creatureType: 'construct', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
+    });
+    map.tokens.push(construct);
+    const def = automationForSpell(findSpell('XGE:Healing Spirit')!, { castLevel: 2, spellMod: 3 });
+    // Якорь концентрации кастера — как его ставит executeAutomation (иначе зона сиротеет).
+    caster.effects.push({
+      id: 'anchor1',
+      name: 'Healing Spirit',
+      sourceKey: 'XGE:Healing Spirit',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    const zone = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def, stats, origin: { x: 150, y: 100 } });
+    expect(zone?.charges).toBe(4);
+
+    ally.x = 150;
+    ally.y = 100;
+    ally.hpCurrent = 10;
+    construct.x = 150;
+    construct.y = 100;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05); // d20 = 2, 1к6 = 1
+    handleMovementZones(f.ctx, room, 'm1');
+    rand.mockRestore();
+    expect(ally.hpCurrent).toBe(11);
+    expect(construct.hpCurrent).toBe(10);
+    expect(zone?.charges).toBe(3);
+
+    // Последний заряд: вошедший лечится, зона исчезает.
+    zone!.charges = 1;
+    const other = makeToken('t4', { x: 250, y: 100, hpMax: '30', hpCurrent: 5 });
+    map.tokens.push(other);
+    other.x = 150;
+    other.y = 100;
+    const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    handleMovementZones(f.ctx, room, 'm1');
+    rand2.mockRestore();
+    expect(other.hpCurrent).toBe(6);
+    expect(map.zones).toHaveLength(0);
+  });
+
+  it('Cordon of Arrows: бьёт только враждебных, тратит стрелы и гаснет', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    caster.faction = 'ally';
+    const enemy = map.tokens[1]!;
+    enemy.faction = 'enemy';
+    enemy.hpMax = '30';
+    enemy.hpCurrent = 30;
+    const friend = makeToken('t3', { x: 250, y: 100, hpMax: '30', hpCurrent: 30, faction: 'ally' });
+    map.tokens.push(friend);
+    const def = automationForSpell(findSpell('XPHB:Cordon of Arrows')!, { castLevel: 2 });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats,
+      origin: { x: caster.x, y: caster.y },
+    });
+    expect(zone?.charges).toBe(4);
+
+    // На момент создания враг и союзник были внутри 30 фт; выводим и вводим заново.
+    enemy.x = 400;
+    enemy.y = 400;
+    friend.x = 400;
+    friend.y = 350;
+    handleMovementZones(f.ctx, room, 'm1');
+    enemy.x = 150;
+    enemy.y = 100;
+    friend.x = 200;
+    friend.y = 100;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05); // d20 = 2 — провал; 2к4 = 2
+    handleMovementZones(f.ctx, room, 'm1');
+    rand.mockRestore();
+    expect(enemy.hpCurrent).toBe(28);
+    expect(friend.hpCurrent).toBe(30);
+    expect(zone?.charges).toBe(3);
+  });
+
+  it('Storm Sphere: при появлении бьёт спас STR по существам в сфере', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const enemy = map.tokens[1]!;
+    enemy.hpMax = '30';
+    enemy.hpCurrent = 30;
+    const def = automationForSpell(findSpell('XGE:Storm Sphere')!, { castLevel: 4 });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05); // d20 = 2 — провал; 2к6 = 2
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats,
+      origin: { x: 150, y: 100 },
+    });
+    rand.mockRestore();
+    expect(zone).toBeTruthy();
+    expect(enemy.hpCurrent).toBe(28);
+  });
+
+  it('Storm Sphere: молния бьёт с преимуществом по цели внутри сферы', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const enemy = map.tokens[1]!;
+    enemy.hpMax = '30';
+    enemy.hpCurrent = 30;
+    const def = automationForSpell(findSpell('XGE:Storm Sphere')!, { castLevel: 4 });
+    const zone = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def, stats, origin: { x: 150, y: 100 } });
+    const bolt = def.zone?.actions?.[0]?.def;
+    expect(bolt).toBeTruthy();
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99); // d20 = 20 — попадание
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: bolt!,
+      targets: [enemy],
+      stats,
+      author: 'DM',
+      origin: zone!.origin,
+      zoneId: zone!.id,
+    });
+    rand.mockRestore();
+
+    const attackMsg = f.emitted
+      .filter((e) => e.event === 'chat:message')
+      .map((e) => e.payload as { kind?: string; rollKind?: string; labelParams?: { sources?: unknown[] } })
+      .find((m) => m.kind === 'roll' && m.rollKind === 'attack');
+    expect(attackMsg?.labelParams?.sources).toContainEqual({ side: 'advantage', kind: 'rule', key: 'insideZone' });
   });
 });

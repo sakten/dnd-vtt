@@ -25,6 +25,8 @@ export type AutomationResolution = 'attack' | 'save' | 'auto' | 'effect' | 'util
 
 export interface AutomationAttack {
   rangeType: 'melee' | 'ranged';
+  /** Атака действия зоны (Storm Sphere): цель внутри зоны-источника — преимущество. */
+  advantageInZone?: boolean;
 }
 
 export interface AutomationSave {
@@ -339,6 +341,15 @@ export interface ZoneDef {
   /** Вход срабатывает первый раз за ход (Spirit Guardians). */
   enterOncePerTurn?: boolean;
   movable?: boolean;
+  /**
+   * Одноразовый payload при появлении зоны (Storm Sphere: «существа в сфере,
+   * когда она появляется»): применяется сразу после создания, вход позже — нет.
+   */
+  onCreate?: AutomationPayload;
+  /** Заряды зоны (Cordon of Arrows — стрелы; Healing Spirit — лимит лечений). */
+  charges?: number;
+  /** Типы существ, на которых не действуют аура и триггеры (Healing Spirit: конструкты/нежить). */
+  excludeCreatureTypes?: string[];
   aura?: AutomationPayload;
   /** Аура и триггеры зоны не действуют на источник (Spirit Guardians). */
   excludeSource?: boolean;
@@ -392,6 +403,10 @@ export interface ZoneInstance {
   enterOncePerTurn?: boolean;
   /** Аура и триггеры не действуют на источник зоны. */
   excludeSource?: boolean;
+  /** Типы существ, на которых не действуют аура и триггеры (Healing Spirit). */
+  excludeCreatureTypes?: string[];
+  /** Оставшиеся заряды зоны (Cordon of Arrows, Healing Spirit); 0 — зона исчезает. */
+  charges?: number;
   /** Действия владельца зоны, пока она на карте (перемещение). */
   actions?: GrantedAction[];
   /**

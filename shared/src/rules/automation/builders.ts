@@ -38,6 +38,9 @@ export const BUILTIN_AUTOMATION = new Set([
   'XGE:Far Step',
   'XPHB:Dimension Door',
   'XGE:Thunder Step',
+  'XGE:Healing Spirit',
+  'XPHB:Cordon of Arrows',
+  'XGE:Storm Sphere',
   'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
   'XPHB:Shillelagh',
@@ -1423,6 +1426,118 @@ export function spiritualWeaponDef(spell: Spell, opts: AutomationOptions): Autom
       movable: true,
       actions: [zoneMoveAction('Перенос силы', 'bonus', 20), strike],
       flags: { subtle: true, sprite: 'hammer' },
+    },
+  };
+}
+
+/**
+ * Healing Spirit (XGE): дух в кубе 5 фт (в 60 фт, концентрация). Существо, впервые
+ * за ход вошедшее в куб или начавшее там ход, лечится 1к6 (+1к6 за круг выше 2);
+ * конструктов и нежить дух не лечит. Лимит лечений — 1 + мод. характеристики
+ * (мин 2) — заряды зоны; бонусным действием дух движется на 30 фт.
+ */
+export function healingSpiritDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Healing Spirit') return undefined;
+  const steps = upcastSteps(spell, Math.max(spell.level, opts.castLevel ?? spell.level));
+  const heal = { dice: scaledDice(partDice(spell, 'main', '1d6'), spell.upcast?.dice, steps) };
+  const trigger: AutomationPayload = { heal };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'cube', size: 5 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      movable: true,
+      charges: Math.max(2, 1 + Math.round(opts.spellMod ?? 0)),
+      excludeCreatureTypes: ['construct', 'undead'],
+      actions: [zoneMoveAction('Перемещение духа', 'bonus', 30)],
+      triggers: { enter: trigger, startOfTurn: trigger },
+    },
+  };
+}
+
+/**
+ * Cordon of Arrows (XPHB 2024): 4 стрелы в своей клетке (+2 за круг выше 2).
+ * Враждебное существо, впервые за ход вошедшее в 30 фт или закончившее там ход,
+ * проходит спас DEX или получает 2к4 колющего; стрела тратится. Без стрел конец.
+ * Решение владельца: заклинание не трогает союзников источника (side hostile).
+ */
+export function cordonOfArrowsDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Cordon of Arrows') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const payload: AutomationPayload = {
+    save: { ability: 'dex' },
+    damage: { dice: partDice(spell, 'main', '2d4'), types: ['piercing'] },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      duration: PERMANENT,
+      enterOncePerTurn: true,
+      excludeSource: true,
+      side: 'hostile',
+      charges: 4 + 2 * (castLevel - spell.level),
+      triggers: { enter: payload, endOfTurn: payload },
+    },
+  };
+}
+
+/**
+ * Storm Sphere (XGE): сфера r20 (150 фт, концентрация, труднопроходима). Существа
+ * в сфере при появлении и в конце своего хода — спас STR, иначе 2к6 дробящего.
+ * Бонусным действием — молния по существу в 60 фт от центра: атака заклинанием,
+ * 4к6 электричеством, преимущество, если цель внутри сферы. Оба урона +1к6/круг
+ * выше 4. Помеха слуховому Восприятию в 30 фт — нарратив (механики проверки нет).
+ */
+export function stormSphereDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Storm Sphere') return undefined;
+  const steps = upcastSteps(spell, Math.max(spell.level, opts.castLevel ?? spell.level));
+  const trigger: AutomationPayload = {
+    save: { ability: 'str' },
+    damage: {
+      dice: scaledDice(partDice(spell, 'trigger', '2d6'), spell.upcast?.dice, steps),
+      types: ['bludgeoning'],
+    },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { difficultTerrain: true },
+      onCreate: trigger,
+      triggers: { endOfTurn: trigger },
+      actions: [
+        {
+          id: 'bolt',
+          name: 'Молния',
+          cost: 'bonus',
+          def: {
+            key: spell.key,
+            name: 'Молния',
+            resolution: 'attack',
+            attack: { rangeType: 'ranged', advantageInZone: true },
+            count: 1,
+            damage: {
+              dice: scaledDice(partDice(spell, 'repeat', '4d6'), spell.upcast?.dice, steps),
+              types: ['lightning'],
+            },
+            targeting: { kind: 'creature', range: 60, from: 'origin' },
+          },
+        },
+      ],
     },
   };
 }

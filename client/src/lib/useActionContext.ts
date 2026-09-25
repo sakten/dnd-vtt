@@ -161,7 +161,8 @@ export function useActionContext(): ActionContext | null {
       if (!isDm && !canControlTokenWith(control, source, charName, controlledIds)) continue;
       for (const action of zone.actions) {
         // Незаряженный «Удар силы» (Spiritual Weapon) не показываем: сначала бонусное действие.
-        if (action.def?.attack && !zone.readyStrike) continue;
+        // Бонусные атаки зон (молния Storm Sphere) ограничены слотом и заряда не требуют.
+        if (action.def?.attack && action.cost === 'free' && !zone.readyStrike) continue;
         zoneActions.push({
           id: `zone:${zone.id}:${action.id}`,
           name: action.name,

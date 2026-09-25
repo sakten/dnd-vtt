@@ -1,4 +1,5 @@
 import {
+  areaContainsPoint,
   attackRollParts,
   autoCrit,
   collectAttackSources,
@@ -135,7 +136,7 @@ function applyLeavingBurst(
 function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   const { ctx, room, def, caster, mapId, targets, author, abilities, expression, subject, damageType, adv, count } = run;
   if (!def.attack) return;
-  const { rangeType } = def.attack;
+  const { rangeType, advantageInZone } = def.attack;
   const castMap = ctx.manager.findMap(room, mapId);
   const gridSize = castMap ? gridSizeOfMap(castMap) : 50;
   const penalty = exhaustionRollPenalty(caster.conditions);
@@ -196,6 +197,14 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       attackerSeesInvisible: seesInvisible(caster.effects),
       targetSeesInvisible: seesInvisible(target.effects),
     });
+    // Storm Sphere: цель внутри сферы-источника действия — преимущество броска атаки.
+    if (advantageInZone && run.zoneId && castMap) {
+      const zone = castMap.zones?.find((z) => z.id === run.zoneId);
+      const areaGrid = { size: gridSize, offsetX: castMap.grid.offsetX, offsetY: castMap.grid.offsetY };
+      if (zone && areaContainsPoint(zone.area, zone.origin, zone.direction ?? null, target, areaGrid)) {
+        sources.push({ side: 'advantage', kind: 'rule', key: 'insideZone' });
+      }
+    }
     const { advantage, disadvantage } = sourcesCounts(sources);
     const ac = ctx.manager.acForToken(room, target);
     const hit = attackHitRoll({
@@ -582,8 +591,10 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   }
 
   // Зона создаётся независимо от мгновенного payload'а (спас/урон/эффекты — сразу).
-  // Для ауры на источнике точка берётся с кастера, даже если клиент её не прислал.
-  const zoneOrigin = input.origin ?? (def.zone?.anchor === 'source' ? { x: caster.x, y: caster.y } : null);
+  // Для ауры на источнике и зон «в своей клетке» (Cordon) точка берётся с кастера.
+  const zoneOrigin =
+    input.origin ??
+    (def.zone?.anchor === 'source' || def.zone?.origin === 'self' ? { x: caster.x, y: caster.y } : null);
   if (def.zone && zoneOrigin) {
     createZoneFromDef(ctx, { caster, mapId, def, stats, origin: zoneOrigin, direction: input.direction });
   }
@@ -641,6 +652,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     damageType: singleDamageType(def.damage?.types),
     count: Math.max(1, def.count ?? 1),
     ...(input.summonKey ? { shapeForm: input.summonKey } : {}),
+    ...(input.zoneId ? { zoneId: input.zoneId } : {}),
     ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };
 

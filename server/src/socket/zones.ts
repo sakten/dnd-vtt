@@ -22,7 +22,7 @@ import { areaTokens } from './areaTokens';
 import { pushSaveMessage } from './messages';
 import { applyEffectTo, removeZoneEffects } from './effectsApply';
 import { findSpell } from '../spells';
-import { actorStats } from '../room/actor';
+import { actorStats, creatureTypeOf } from '../room/actor';
 
 /**
  * Зоны на карте (R8.1, движок областей): создание при касте, аура внутри,
@@ -58,13 +58,16 @@ function insideTokens(
 ): Token[] {
   const map = ctx.manager.findMap(room, mapId);
   const source = map?.tokens.find((t) => t.id === zone.sourceId);
-  return areaTokens(ctx, room, mapId, zone.area, zone.origin, {
+  const inside = areaTokens(ctx, room, mapId, zone.area, zone.origin, {
     direction: zone.direction ?? null,
     containment,
     side: zone.side,
     source,
     excludeSource: zone.excludeSource,
   });
+  // Типы-исключения (Healing Spirit: конструкты и нежить) не входят в зону.
+  if (!zone.excludeCreatureTypes?.length) return inside;
+  return inside.filter((t) => !zone.excludeCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''));
 }
 
 /** Применяет payload зоны к целям: спас → урон (half) → эффекты (с zoneId). */
@@ -79,6 +82,11 @@ function applyZonePayload(
   if (!payload || !targets.length) return;
   const damageType = singleDamageType(payload.damage?.types);
   for (const target of targets) {
+    // Заряды зоны (Cordon of Arrows, Healing Spirit): трата на каждую затронутую цель.
+    if (zone.charges !== undefined) {
+      if (zone.charges <= 0) break;
+      zone.charges -= 1;
+    }
     // Aura of Life: союзник на 0 HP (у нас HP уходят в минус) в начале хода поднимается до `healTo`.
     // Мёртвых не оживляет.
     if (payload.healTo !== undefined && !target.conditions.some((c) => c.key === 'dead')) {
@@ -103,6 +111,19 @@ function applyZonePayload(
       success = result.success;
       pushSaveMessage(ctx, room, { subject: `${zone.name} · ${target.name}`, roll: result.roll, success });
       if (success && (!payload.save.half || saveNoDamage(target.effects))) continue;
+    }
+    // Лечение зоны (Healing Spirit): кость на цель, жетон — обычной картой в чате.
+    if (payload.heal) {
+      const roll = rollDice(payload.heal.dice);
+      applyDamage(ctx, {
+        target,
+        mapId,
+        amount: roll.total,
+        kind: 'heal',
+        roll,
+        author: zone.name,
+        params: { subject: `${zone.name} · ${target.name}` },
+      });
     }
     if (payload.damage) {
       const roll = rollDice(payload.damage.dice);
@@ -133,6 +154,8 @@ function applyZonePayload(
       });
     }
   }
+  // Заряды кончились (Cordon of Arrows): стрелы истрачены — зона гаснет.
+  if (zone.charges !== undefined && zone.charges <= 0) removeZone(ctx, room, mapId, zone);
 }
 
 /** Пересчитывает состав зоны: аура на вошедших, снятие с вышедших, enter/exit. */
@@ -319,7 +342,9 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     side: zoneDef.side,
     light: zoneDef.light ? { ...zoneDef.light } : undefined,
     actions: zoneDef.actions,
-    readyStrike: zoneDef.actions?.some((a) => a.def?.attack) ? true : undefined,
+    readyStrike: zoneDef.actions?.some((a) => a.def?.attack && a.cost === 'free') ? true : undefined,
+    charges: zoneDef.charges,
+    excludeCreatureTypes: zoneDef.excludeCreatureTypes ? [...zoneDef.excludeCreatureTypes] : undefined,
     dc: input.stats?.dc,
     aura: zoneDef.aura,
     triggers: zoneDef.triggers,
@@ -329,6 +354,17 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
   map.zones.push(zone);
   // Появившиеся внутри сразу получают ауру (HoH: «полностью внутри — ослеплён»).
   syncZone(ctx, room, input.mapId, zone, { aura: true, enterExit: false });
+  // Storm Sphere: «существа в сфере, когда она появляется» — разовый payload (не вход).
+  if (zoneDef.onCreate && map.zones.some((z) => z.id === zone.id)) {
+    applyZonePayload(
+      ctx,
+      room,
+      input.mapId,
+      zone,
+      zoneDef.onCreate,
+      insideTokens(ctx, room, input.mapId, zone, zoneDef.onCreate.containment)
+    );
+  }
   // Диспел-пересечения со тьмой/светом: зона может погибнуть сразу (тогда null).
   resolveLightDispels(ctx, room, input.mapId);
   ctx.broadcastZones(room, input.mapId);
@@ -390,6 +426,11 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
       }
     }
     syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
+    // Зона могла погаснуть от исчерпания зарядов (Cordon of Arrows).
+    if (!map.zones.some((z) => z.id === zone.id)) {
+      changed = true;
+      continue;
+    }
     const payload = phase === 'start' ? zone.triggers?.startOfTurn : zone.triggers?.endOfTurn;
     if (payload) {
       // Триггер бьёт по своему `containment` (payload), а не по правилу ауры.
@@ -431,6 +472,7 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): vo
     }
     if (origin === 'moved') changed = true;
     syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
+    if (!map.zones.some((z) => z.id === zone.id)) changed = true;
   }
   if (changed) ctx.broadcastZones(room, mapId);
   // Токен со светом мог войти в тьму (или зона-аура сдвинулась за источником).

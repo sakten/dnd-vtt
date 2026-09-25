@@ -298,7 +298,10 @@ function useZoneAction(
   // Бесплатный «Удар силы» (Spiritual Weapon): бьёт из центра зоны, доступен, пока
   // заряжен кастом или «Переносом»; цель — в 5 фт от центра.
   if (attacking && fromOrigin) {
-    if (!zone.readyStrike) {
+    // «Удар силы» (Spiritual Weapon) — только пока зона заряжена; бонусная молния
+    // Storm Sphere ограничена экономикой бонусного действия и заряда не требует.
+    const chargedStrike = granted.cost === 'free';
+    if (chargedStrike && !zone.readyStrike) {
       fail(ctx, 'strikeNotCharged', { name: zone.name });
       return;
     }
@@ -333,7 +336,7 @@ function useZoneAction(
       fail(ctx, 'noActions');
       return;
     }
-    zone.readyStrike = false;
+    zone.readyStrike = chargedStrike ? false : zone.readyStrike;
     ctx.broadcastZones(room, mapId);
     ctx.syncCombat(room, mapId);
     const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
@@ -347,6 +350,7 @@ function useZoneAction(
       origin: zone.origin,
       direction: null,
       area: null,
+      zoneId: zone.id,
     });
     return;
   }
@@ -426,6 +430,7 @@ function useZoneAction(
     origin: zone.origin,
     direction: null,
     area: area ?? null,
+    zoneId: zone.id,
   });
 }
 

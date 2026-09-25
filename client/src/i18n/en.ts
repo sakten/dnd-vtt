@@ -273,6 +273,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.attackSources.effect': 'Effect',
   'ui.attackSources.surrounded': 'Surrounded (adjacent enemy)',
   'ui.attackSources.shadowBlade': 'Shadow (target in dim light/darkness)',
+  'ui.attackSources.insideZone': 'Target inside the storm sphere',
   'ui.toolbar.dice': 'Dice',
   'ui.toolbar.diceTitle': 'Roll settings',
   'ui.roll.anim': 'D20 animation',

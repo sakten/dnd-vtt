@@ -235,6 +235,15 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         summon: true,
         ...(needForm && form ? { summonKey: form } : {}),
       });
+    } else if (zoneDef && zoneDef.origin === 'self') {
+      // Зона «в своей клетке» без прицела (Cordon of Arrows): каст сразу.
+      castSpell({
+        tokenId,
+        spellKey: spell.key,
+        slotLevel: info.slotLevel,
+        advantage: mode,
+        ...(variant ? { variant } : {}),
+      });
     } else if (zoneDef && zoneDef.origin === 'point') {
       // Зона от точки без режима области (Faithful Hound): прицел от кастера, радиус — зона.
       startAim({

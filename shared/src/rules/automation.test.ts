@@ -1801,6 +1801,81 @@ describe('automationForSpell', () => {
     expect(automationForSpell(ts, { castLevel: 5 }).utility?.fromBurst?.damage?.dice).toBe('5d10');
   });
 
+  it('C: Healing Spirit/Cordon/Storm Sphere — зоны с зарядами и триггерами', () => {
+    const spirit = automationForSpell(
+      makeSpell({
+        key: 'XGE:Healing Spirit',
+        name: 'Healing Spirit',
+        level: 2,
+        damage: { dice: ['1d6'], types: [] },
+        upcast: { above: 2, dice: '1d6' },
+      }),
+      { castLevel: 3, spellMod: 3 }
+    );
+    expect(spirit.resolution).toBe('effect');
+    expect(spirit.zone).toMatchObject({
+      area: { shape: 'cube', size: 5 },
+      origin: 'point',
+      enterOncePerTurn: true,
+      movable: true,
+      charges: 4,
+      excludeCreatureTypes: ['construct', 'undead'],
+    });
+    expect(spirit.zone?.triggers?.enter?.heal).toEqual({ dice: '2d6' });
+    expect(spirit.zone?.triggers?.startOfTurn?.heal).toEqual({ dice: '2d6' });
+    expect(spirit.zone?.actions?.[0]?.cost).toBe('bonus');
+
+    const cordon = automationForSpell(
+      makeSpell({
+        key: 'XPHB:Cordon of Arrows',
+        name: 'Cordon of Arrows',
+        level: 2,
+        damage: { dice: ['2d4'], types: ['piercing'] },
+      })
+    );
+    expect(cordon.zone).toMatchObject({
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      enterOncePerTurn: true,
+      excludeSource: true,
+      side: 'hostile',
+      charges: 4,
+    });
+    expect(cordon.zone?.triggers?.enter?.save).toEqual({ ability: 'dex' });
+    expect(cordon.zone?.triggers?.endOfTurn?.damage).toEqual({ dice: '2d4', types: ['piercing'] });
+    expect(
+      automationForSpell(
+        makeSpell({ key: 'XPHB:Cordon of Arrows', name: 'Cordon of Arrows', level: 2 }),
+        { castLevel: 4 }
+      ).zone?.charges
+    ).toBe(8);
+
+    const storm = automationForSpell(
+      makeSpell({
+        key: 'XGE:Storm Sphere',
+        name: 'Storm Sphere',
+        level: 4,
+        save: ['str'],
+        damage: {
+          dice: ['2d6', '4d6'],
+          types: ['bludgeoning', 'lightning'],
+          parts: [
+            { dice: '2d6', types: ['bludgeoning'], role: 'trigger' as const },
+            { dice: '4d6', types: ['lightning'], role: 'repeat' as const },
+          ],
+        },
+        upcast: { above: 4, dice: '1d6' },
+      }),
+      { castLevel: 5 }
+    );
+    expect(storm.zone?.onCreate?.save).toEqual({ ability: 'str' });
+    expect(storm.zone?.onCreate?.damage?.dice).toBe('3d6');
+    expect(storm.zone?.triggers?.endOfTurn?.damage?.dice).toBe('3d6');
+    expect(storm.zone?.flags).toEqual({ difficultTerrain: true });
+    expect(storm.zone?.actions?.[0]?.def?.attack).toEqual({ rangeType: 'ranged', advantageInZone: true });
+    expect(storm.zone?.actions?.[0]?.def?.damage?.dice).toBe('5d6');
+  });
+
   it('B4/C/F/G: ложная деривация выключена manual-замком (сессия 14)', () => {
     const keys = [
       "XGE:Tenser's Transformation",
@@ -1816,10 +1891,7 @@ describe('automationForSpell', () => {
       'XPHB:Wall of Ice',
       'XPHB:Blade Barrier',
       'XGE:Wall of Light',
-      'XGE:Healing Spirit',
-      'XPHB:Cordon of Arrows',
       'XPHB:Glyph of Warding',
-      'XGE:Storm Sphere',
     ];
     for (const key of keys) {
       const spell = makeSpell({ key, automation: 'full', save: ['dex'], damage: { dice: ['4d6'], types: ['fire'] } });

@@ -59,6 +59,8 @@ export interface AutomationInput {
   placements?: { targetId: string; x: number; y: number }[];
   /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
   passengerId?: string;
+  /** Зона-источник действия (кнопки зоны): для преимуществ «цель внутри зоны». */
+  zoneId?: string;
 }
 
 /** Бонус владения кастера по его листу (монстры и токены без листа — 2). */
@@ -171,6 +173,8 @@ export interface AutomationRun {
   shapeForm?: string;
   /** Steel Wind Strike: точка телепорта, выполняется после резолва всех атак. */
   teleportTo?: { x: number; y: number };
+  /** Зона-источник действия: цель внутри неё → преимущество (Storm Sphere). */
+  zoneId?: string;
 }
 
 /** Лечение с бонусом Ученика жизни. */

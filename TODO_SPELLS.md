@@ -1,14 +1,15 @@
 # TODO_SPELLS.md
 
-Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 25.09.2026, сессия 14; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–14).
+Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 25.09.2026, сессия 15; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–15).
 Источники: снимок `shared/src/data/spells.json`, RU-тексты `shared/src/data/text.ru/spells.json`.
 Метод проверки: прямые вызовы `automationForSpell` / `spellAutomated` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation/`, `shared/src/rules/automation/`, `shared/src/rules/spellCast.ts`).
 
 ## Сводка
 
-- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **230**, красных (`manual`) — **190**.
-- Открыто из аудита: **B4** (трансформации — 7 спеллов), **C-доработки** (Healing Spirit, Cordon of Arrows, стены, Storm Sphere), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door / Thunder Step — 2), **H** (закрыт: «нет типа» не автоматизируем, Ray of Enfeeblement и Arcane Hand отложены), **I** (контроль/утилита — 12; Charm Monster и Compulsion закрыты плашкой с состоянием, Glyph of Warding решено не делать, Watery Sphere отложен владельцем).
-- **Manual-замки (сессия 14):** B4 (Guardian of Nature, Tenser's Transformation, Alter Self, Enlarge/Reduce, Investiture of Flame/Ice/Wind), C (Healing Spirit, Cordon of Arrows, Glyph of Warding, Storm Sphere, Wall of Fire/Ice, Blade Barrier, Wall of Light), F (Conjure Elemental/Fey), G (Dimension Door) — деривация из описаний давала ложную/неверную механику (Dimension Door — авто-урон 4d6, Tenser's — спас 2d12, стены — generic-спас без геометрии и т.п.). Вернуть в автоматизацию по мере реализации механик.
+- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **234**, красных (`manual`) — **186**.
+- Открыто из аудита: **B4** (трансформации — 7 спеллов), **C** (стены — Wall of Fire/Ice, Blade Barrier, Wall of Light), **F** (Conjure Elemental/Fey — 2), **I** (контроль/утилита — 12; Charm Monster и Compulsion закрыты плашкой с состоянием, Glyph of Warding решено не делать, Watery Sphere отложен владельцем).
+- **Закрыто (сессия 15):** G — Dimension Door (телепорт 500 фт + пассажир) и Thunder Step (телепорт 90 фт, пассажир не крупнее, гром 10 фт CON 3к10+1к10/круг); C-хвосты — Healing Spirit (зона-куб, лимит лечений = 1+мод., мин 2), Cordon of Arrows (4 стрелы +2/круг, enter/end-of-turn, бьёт только врагов), Storm Sphere (сфера r20, труднопроходима, спас STR при появлении/в конце хода, бонусная молния с преимуществом внутри). Новые примитивы зон: `charges`, `onCreate`, `excludeCreatureTypes`.
+- **Manual-замки (сессия 14):** B4 (Guardian of Nature, Tenser's Transformation, Alter Self, Enlarge/Reduce, Investiture of Flame/Ice/Wind), C (стены), F (Conjure Elemental/Fey) — деривация из описаний давала ложную/неверную механику. Вернуть в автоматизацию по мере реализации механик.
 - Системные — §8 (каталог Guidance, универсальная подсветка).
 - **FX-TODO:** анимация Chain Lightning — дуга от кастера и скачки между целями (порядок знает сервер — передавать в `fx:play`), фабрика в `client/src/components/spellFx/`.
 - **После закрытия спелов — R16** (`REFACTOR.md`): декларативный `AutomationSpec` + `extends/patch` для копий с правкой механики. До тех пор правило: база урона — из данных, исключения — в один реестр (не инлайн), новые механики — именованными примитивами `AutomationDef/Effect`.
@@ -31,7 +32,8 @@
 
 ## C. Зоны / ловушки / повтор — открытые доработки
 
-- **Осталось:** `XGE:Healing Spirit` (лимит лечений), `XPHB:Cordon of Arrows`, `XGE:Storm Sphere` (бонус-действие); стены — `Wall of Fire` / `Wall of Ice` / `Blade Barrier` / `Wall of Light` (нужна геометрия стены). Все — manual-замок до реализации.
+- **Осталось:** стены — `Wall of Fire` / `Wall of Ice` / `Blade Barrier` / `Wall of Light` (нужна геометрия стены). Manual-замок до реализации.
+- **Сделано (сессия 15):** `XGE:Healing Spirit` (лимит лечений зарядами, не конструктов/нежить, авто-лечение на вход/начало хода, перенос бонусным действием), `XPHB:Cordon of Arrows` (стрелы-заряды, enter/end-of-turn, решение владельца — бьёт только враждебных), `XGE:Storm Sphere` (зона с `onCreate`-уроном, бонусная молния по цели в 60 фт от центра с преимуществом внутри сферы).
 - **Решено не делать (сессия 14):** `XPHB:Glyph of Warding` — остаётся manual-замком.
 - Остальные зоны с триггерами (Create Bonfire, Cloud of Daggers, Spike Growth, Tasha's Caustic Brew, Sickening Radiance, Wind Wall, Black Tentacles, Maelstrom, Dawn, Insect Plague, Conjure Animals, Wrath of Nature, Yolande, Dust Devil, Maximilian's) — механизм есть, доработок по аудиту не требуют.
 
@@ -39,10 +41,9 @@
 
 - `XPHB:Conjure Elemental`, `XPHB:Conjure Fey` — нужен дух + повторяющаяся атака (грантованный attack-action, как Flame Blade). Сейчас manual-замок (был ложный прямой урон).
 
-## G. Перемещение — 2
+## G. Перемещение — 0 открыто
 
-- `XPHB:Dimension Door` — ⚠️ + пассажир. Сейчас manual-замок (был авто-урон 4d6 из клаузы провала).
-- `XGE:Thunder Step` — ⚠️ телепорт + урон в точке выхода (сейчас save по цели).
+**Сделано (сессия 15):** `XPHB:Dimension Door` — телепорт до 500 фт + одно согласное существо в 5 фт (приземляется в 5 фт от точки; занятая точка — отклонение каста, упрощение клаузы про 4к6). `XGE:Thunder Step` — телепорт 90 фт, пассажир не крупнее кастера, гром в 10 фт от покинутой точки (CON, 3к10 +1к10/круг, половина при успехе). Пассажир выбирается после точки (панель прицела, «Без спутника»).
 
 ## H. Особая логика — 0 открыто
 
@@ -83,8 +84,8 @@ Manual: `automationForSpell` → `resolution:'manual'`. Часть опирае�
 | Тип | Осталось |
 |---|---|
 | effect-баффы | 7 (B4-трансформации) |
-| zone/повтор | Healing Spirit, Cordon of Arrows, стены, Storm Sphere |
+| zone/повтор | стены (4) |
 | духи-атаки | 2 (Conjure Elemental/Fey) |
-| перемещение | 2 (Dimension Door, Thunder Step) |
+| перемещение | 0 |
 | отложено | Ray of Enfeeblement, Arcane Hand (H) |
 | контроль/утилита (I) | 12 |
