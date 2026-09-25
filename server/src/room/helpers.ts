@@ -53,6 +53,12 @@ export function findTokenById(room: Room, id: string): Token | null {
   return null;
 }
 
+/** Источник Dominate у токена (для траты его реакции); null — токен не под контролем. */
+export function dominationSourceOf(room: Room, token: Token): Token | null {
+  const sourceId = token.effects.find((e) => e.dominates && e.sourceId)?.sourceId;
+  return sourceId ? findTokenById(room, sourceId) : null;
+}
+
 /** Все токены, привязанные к предмету библиотеки (персонаж/призыв), на всех картах. */
 export function tokensOfLibraryItem(room: Room, libraryItemId: string): { mapId: string; token: Token }[] {
   const out: { mapId: string; token: Token }[] = [];

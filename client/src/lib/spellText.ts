@@ -1,4 +1,4 @@
-import { isHealingSpell, spellCastArea, spellDamageParts, spellTempHp, spellWeaponOverride, type Spell } from 'shared';
+import { automationForSpell, isHealingSpell, spellCastArea, spellDamageParts, spellTempHp, spellWeaponOverride, type Spell } from 'shared';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 
@@ -99,8 +99,15 @@ function damageText(spell: Spell, raw: string): string | undefined {
   return text;
 }
 
+/** Зона заклинания запрещает вербальные компоненты (Silence, Jallarzi). */
+function zoneSilences(spell: Spell): boolean {
+  return automationForSpell(spell).zone?.flags?.silence === true;
+}
+
 function conditionText(spell: Spell): string {
-  return (spell.conditions ?? []).map((c) => conditionLabel(c).toLowerCase()).join(', ');
+  const labels = (spell.conditions ?? []).map((c) => conditionLabel(c).toLowerCase());
+  if (zoneSilences(spell)) labels.push(conditionLabel('silenced').toLowerCase());
+  return labels.join(', ');
 }
 
 /** Строки механики: действие/дистанция/область/длительность/атака/спасбросок/урон/состояние/компоненты. */
@@ -123,7 +130,13 @@ export function spellMechanics(spell: Spell): string[] {
     const damage = damageText(spell, raw);
     if (damage) lines.push(`${t(isHealingSpell(spell) ? 'ui.spellMech.healing' : 'ui.spellMech.damage')}: ${damage}`);
   }
-  if (spell.conditions?.length) lines.push(`${t('ui.spellMech.condition')}: ${conditionText(spell)}`);
+  const transfer = automationForSpell(spell).lifeTransfer;
+  if (transfer) {
+    lines.push(`${t('ui.spellMech.healing')}: ${t('ui.spellMech.lifeTransfer', { factor: transfer.factor })}`);
+  }
+  if (spell.conditions?.length || zoneSilences(spell)) {
+    lines.push(`${t('ui.spellMech.condition')}: ${conditionText(spell)}`);
+  }
   const comps = componentsText(spell);
   if (comps) lines.push(`${t('ui.spellMech.components')}: ${comps}`);
   return lines;

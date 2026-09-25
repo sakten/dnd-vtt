@@ -125,6 +125,21 @@ function spellEffect(
 /** Типы существ, против которых работают Protection from Evil and Good и подобные. */
 const EVIL_GOOD_TYPES = ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'];
 
+/** Выбираемые типы урона Resistance (XPHB 2024). */
+const RESISTANCE_TYPES = [
+  'acid',
+  'bludgeoning',
+  'cold',
+  'fire',
+  'lightning',
+  'necrotic',
+  'piercing',
+  'poison',
+  'radiant',
+  'slashing',
+  'thunder',
+];
+
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
   'XPHB:Polymorph': {
@@ -314,15 +329,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       ],
     },
   ]),
-  'XPHB:Resistance': spellEffect('XPHB:Resistance', 'Resistance', [
-    {
-      name: 'Resistance',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [{ target: 'save', mode: 'add', value: '1d4' }],
-    },
-  ]),
   'XPHB:Guidance': spellEffect('XPHB:Guidance', 'Guidance', [
     {
       name: 'Guidance',
@@ -426,6 +432,34 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       light: { bright: 60, dim: 60, sunlight: true },
     },
   },
+  /**
+   * Silence (XPHB 2024): сфера r20 — звук не возникает и не проходит; целиком
+   * внутри — оглохший и иммунитет к звуку; вербальные заклинания невозможны.
+   */
+  'XPHB:Silence': {
+    key: 'XPHB:Silence',
+    name: 'Silence',
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      containment: 'fullyWithin',
+      flags: { silence: true },
+      aura: {
+        effects: [
+          {
+            name: 'Silence',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'damage', mode: 'immunity', value: 0, filter: { damageType: 'thunder' } }],
+            conditions: ['deafened'],
+          },
+        ],
+      },
+    },
+  },
   /** Moonbeam (XPHB 2024): появление/вход/конец хода — спас CON; сумерки; действие — двигать до 60 фт. */
   'XPHB:Moonbeam': {
     key: 'XPHB:Moonbeam',
@@ -517,15 +551,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     },
   },
-  'XPHB:Aid': spellEffect('XPHB:Aid', 'Aid', [
-    {
-      name: 'Aid',
-      duration: PERMANENT,
-      to: 'targets',
-      targets: 3,
-      modifiers: [{ target: 'maxHp', mode: 'add', value: 5 }],
-    },
-  ]),
   // Контроль (спас → состояние); «до конца следующего хода» трактуется движком
   // как до начала следующего хода источника.
   'XPHB:Color Spray': spellEffect('XPHB:Color Spray', 'Color Spray', [
@@ -1008,8 +1033,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       movable: true,
       flags: { obscured: 'heavy' },
       triggers: {
-        enter: { save: { ability: 'con', half: true }, damage: { dice: '5d8', types: ['poison'] } },
-        startOfTurn: { save: { ability: 'con', half: true }, damage: { dice: '5d8', types: ['poison'] } },
+        enter: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['poison'] } },
+        startOfTurn: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['poison'] } },
       },
     },
   },
@@ -1292,6 +1317,8 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Enhance Ability': { param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] },
   'XPHB:Eyebite': { param: 'effect', options: ['asleep', 'panicked', 'sickened'] },
   'XPHB:Protection from Energy': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+  'XPHB:Resistance': { param: 'damageType', options: RESISTANCE_TYPES },
+  'XPHB:Blindness/Deafness': { param: 'effect', options: ['blinded', 'deafened'] },
   'XGE:Skill Empowerment': { param: 'skill', options: SKILLS.map((s) => s.key) },
   'XPHB:Command': { param: 'command', options: ['approach', 'drop', 'flee', 'grovel', 'halt'] },
   // True Strike: базовый урон — излучением или обычным типом оружия (+1d6 излучением всегда).
@@ -1357,6 +1384,8 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Hail of Thorns',
   'XPHB:Lightning Arrow',
   'XPHB:Protection from Energy',
+  'XPHB:Aid',
+  'XPHB:Resistance',
   'XPHB:Flame Strike',
   'XPHB:Ice Storm',
   'XPHB:Destructive Wave',
@@ -1365,6 +1394,11 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Vitriolic Sphere',
   'XPHB:False Life',
   'XGE:Negative Energy Flood',
+  "XPHB:Jallarzi's Storm of Radiance",
+  'XPHB:Dominate Beast',
+  'XPHB:Dominate Person',
+  'XPHB:Blindness/Deafness',
+  'XGE:Life Transference',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1597,6 +1631,24 @@ function protectionFromEnergyDef(spell: Spell, opts: AutomationOptions): Automat
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
+/** Resistance (XPHB 2024): выбранный тип — −1d4 получаемого урона этого типа, заряд раз в ход. */
+function resistanceDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Resistance') return undefined;
+  const variant = SPELL_VARIANTS[spell.key];
+  const type = variant?.options.includes(opts.variant ?? '') ? opts.variant! : variant?.options[0] ?? RESISTANCE_TYPES[0]!;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    modifiers: [],
+    damageReduce: { dice: '1d4', types: [type] },
+    charges: { count: 1 },
+    variant: type,
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
 /** Skill Empowerment: выбранный навык — экспертиза цели (ПБ носителя добавляется ещё раз). */
 function skillEmpowermentDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XGE:Skill Empowerment') return undefined;
@@ -1626,6 +1678,21 @@ function armorOfAgathysDef(spell: Spell, opts: AutomationOptions): AutomationDef
     modifiers: [],
     tempHp: amount,
     retaliate: { damageType: 'cold', amount },
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/** Aid (XPHB): +5 к максимуму HP, ещё +5 за каждый круг выше 2 (до 3 целей). */
+function aidDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Aid') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const amount = 5 + (spellUpcastAt(spell, castLevel).flat ?? 0);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'targets',
+    targets: 3,
+    modifiers: [{ target: 'maxHp', mode: 'add', value: amount }],
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
@@ -1660,8 +1727,71 @@ function commandDef(spell: Spell, opts: AutomationOptions): AutomationDef | unde
   };
 }
 
-/** Far Step (XGE): телепорт 60 фт при касте; пока концентрация — тем же бонусным действием. */
-function farStepDef(spell: Spell): AutomationDef | undefined {
+/** Типы существ для Dominate Beast/Person (XPHB 2024). */
+const DOMINATE_TYPES: Record<string, string> = {
+  'XPHB:Dominate Beast': 'beast',
+  'XPHB:Dominate Person': 'humanoid',
+};
+
+/**
+ * Dominate Beast/Person (XPHB 2024): спас WIS (в бою — с преимуществом), очарование
+ * и контроль цели, пока держится концентрация; урон даёт повторный спас. Апкаст —
+ * длительность: выше базового круга лимит «1 минута» (10 раундов) снимается.
+ */
+function dominateDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  const creatureType = DOMINATE_TYPES[spell.key];
+  if (!creatureType) return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'damage' },
+    concentration: true,
+    to: 'targets',
+    modifiers: [],
+    conditions: ['charmed'],
+    saveOnDamage: {},
+    dominates: true,
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    saveAdvantageInCombat: true,
+    requiresCreatureTypes: [creatureType],
+    ...(castLevel > spell.level ? { maxRounds: null } : {}),
+    effects: [effect],
+  };
+}
+
+/**
+ * Blindness/Deafness (XPHB 2024): спас CON, выбранное состояние (вариант),
+ * повтор спасброска в конце каждого хода цели; апкаст — доп. цели.
+ */
+function blindnessDeafnessDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Blindness/Deafness') return undefined;
+  const variant = SPELL_VARIANTS[spell.key];
+  const condition = (variant?.options.includes(opts.variant ?? '') ? opts.variant! : 'blinded') as ConditionKey;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'end' },
+    to: 'targets',
+    targets: 1,
+    modifiers: [],
+    conditions: [condition],
+    variant: condition,
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    save: { ability: 'con' },
+    effects: [effect],
+  };
+}
+
+/** Far Step (XGE): телепорт 60 фт при касте; пока концентрация — тем же бонусным действием. */function farStepDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XGE:Far Step') return undefined;
   const jump: AutomationDef = {
     key: spell.key,
@@ -2412,6 +2542,24 @@ function falseLifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
 }
 
 /**
+ * Life Transference (XGE 2024): кастер получает 4к8 некротикой (неуменьшаемой,
+ * +1к8 за круг выше 3), одна цель в 30 фт лечится на ×2 полученного урона.
+ */
+function lifeTransferenceDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Life Transference') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const dice = spellDamageExpression(spell, castLevel, opts.characterLevel ?? 1) ?? '4d8';
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'auto',
+    damage: { dice, types: ['necrotic'] },
+    lifeTransfer: { factor: 2 },
+    targeting: { kind: 'creature', range: 30 },
+  };
+}
+
+/**
  * Negative Energy Flood (XGE): спас CON (успех — половина), 5d12 некротикой;
  * нежить спас не бросает — вместо урона получает половину броска врем. хитами.
  * Убитый этим уроном поднимается зомби (ветка в исполнителе).
@@ -2567,6 +2715,51 @@ function wallOfThornsDef(spell: Spell, opts: AutomationOptions): AutomationDef |
 }
 
 /**
+ * Jallarzi's Storm of Radiance (XPHB 2024): цилиндр r10 — внутри ослеплённый,
+ * оглохший и запрет вербальных; появление/вход/конец хода — спас CON,
+ * 2d10 излучением + 2d10 звуком (+1d10 обеим частям за круг выше 5).
+ */
+function jallarziDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== "XPHB:Jallarzi's Storm of Radiance") return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, castLevel);
+  const radiant = scaledDice('2d10', spell.upcast?.dice, steps);
+  const thunder = scaledDice('2d10', spell.upcast?.dice, steps);
+  const save: AutomationSave = { ability: 'con', half: true };
+  const storm: AutomationPayload = {
+    save,
+    damage: { dice: `${radiant}radiant + ${thunder}thunder`, types: ['radiant', 'thunder'] },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save,
+    damage: storm.damage,
+    zone: {
+      area: { shape: 'cylinder', size: 10 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      flags: { silence: true },
+      aura: {
+        effects: [
+          {
+            name: spell.name,
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [],
+            conditions: ['blinded', 'deafened'],
+          },
+        ],
+      },
+      triggers: { enter: storm, endOfTurn: storm },
+    },
+  };
+}
+
+/**
  * Green-Flame Blade (TCE 2024): атака оружием правой руки; на попадании —
  * райдер огнём (0/1к8/2к8/3к8 на 1/5/11/17) и вторичная цель в 5 фт:
  * урон огнём = мод заклинательной характеристики + те же кости.
@@ -2672,6 +2865,8 @@ function zephyrStrikeDef(spell: Spell): AutomationDef | undefined {
  */
 export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
   const def = buildSpellAutomation(spell, opts);
+  // Билдер мог задать лимит сам (в т.ч. `null` — апкаст Dominate без лимита 1 мин).
+  if (def.maxRounds !== undefined) return def;
   const maxRounds = spellMaxRounds(spell);
   return maxRounds ? { ...def, maxRounds } : def;
 }
@@ -2697,6 +2892,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const protectionEnergy = protectionFromEnergyDef(spell, opts);
   if (protectionEnergy) return protectionEnergy;
+
+  const resistance = resistanceDef(spell, opts);
+  if (resistance) return resistance;
 
   const vampiric = vampiricTouchDef(spell, opts);
   if (vampiric) return vampiric;
@@ -2728,6 +2926,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const composite = compositeDamageDef(spell, opts);
   if (composite) return composite;
 
+  const jallarzi = jallarziDef(spell, opts);
+  if (jallarzi) return jallarzi;
+
   const wallOfThorns = wallOfThornsDef(spell, opts);
   if (wallOfThorns) return wallOfThorns;
 
@@ -2743,6 +2944,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const negativeEnergyFlood = negativeEnergyFloodDef(spell);
   if (negativeEnergyFlood) return negativeEnergyFlood;
 
+  const lifeTransference = lifeTransferenceDef(spell, opts);
+  if (lifeTransference) return lifeTransference;
+
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
 
@@ -2757,6 +2961,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const armorOfAgathys = armorOfAgathysDef(spell, opts);
   if (armorOfAgathys) return armorOfAgathys;
+
+  const aid = aidDef(spell, opts);
+  if (aid) return aid;
 
   const invisibility = invisibilityDef(spell, opts);
   if (invisibility) return invisibility;
@@ -2796,6 +3003,12 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const command = commandDef(spell, opts);
   if (command) return command;
+
+  const dominate = dominateDef(spell, opts);
+  if (dominate) return dominate;
+
+  const blindness = blindnessDeafnessDef(spell, opts);
+  if (blindness) return blindness;
 
   const smite = xphbSmiteDef(spell, opts);
   if (smite) return smite;
@@ -2960,6 +3173,13 @@ export function spellDamageParts(spell: Spell): { dice: string; types: string[] 
     return [
       { dice: '1d10', types: ['piercing'] },
       { dice: '2d6', types: ['cold'] },
+    ];
+  }
+  // Jallarzi's Storm of Radiance: 2d10 излучением + 2d10 звуком одним броском.
+  if (spell.key === "XPHB:Jallarzi's Storm of Radiance") {
+    return [
+      { dice: '2d10', types: ['radiant'] },
+      { dice: '2d10', types: ['thunder'] },
     ];
   }
   return undefined;

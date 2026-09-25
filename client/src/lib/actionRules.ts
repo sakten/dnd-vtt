@@ -230,11 +230,13 @@ export function spellCastInfo(
       ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${parts
           .map((part) => `${part.dice}${part.types.length ? ` (${part.types.join(', ')})` : ''}`)
           .join(' + ')}`
-      : expression && spell.damage
-        ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${expression}${
-            spell.damage.types.length ? ` (${spell.damage.types.join(', ')})` : ''
-          }`
-        : null;
+      : def.lifeTransfer && expression
+        ? `${t('ui.actionRules.selfDamage')}: ${expression} · ${t('ui.spellMech.healing')} ×${def.lifeTransfer.factor}`
+        : expression && spell.damage
+          ? `${t(isHealingSpell(spell) ? 'ui.actionRules.healing' : 'ui.actionRules.damage')}: ${expression}${
+              spell.damage.types.length ? ` (${spell.damage.types.join(', ')})` : ''
+            }`
+          : null;
   const levels = isCantrip || !canCast ? [] : castLevelsForSpell(spell, caster);
   return {
     isCantrip,

@@ -1,5 +1,5 @@
 import type { GrantedAction, LightSource, WeaponOverride } from './automation';
-import type { AbilityKey } from './core';
+import type { AbilityKey, Faction } from './core';
 import type { Sense } from './sense';
 import type { AttackRangeType } from './token';
 
@@ -102,7 +102,7 @@ export interface Modifier {
 
 export type EffectDuration =
   | { type: 'rounds'; rounds: number }
-  | { type: 'untilSave'; ability: AbilityKey; dc: number; timing: 'start' | 'end' }
+  | { type: 'untilSave'; ability: AbilityKey; dc: number; timing: 'start' | 'end' | 'damage' }
   | { type: 'endOfTurn'; of: 'source' | 'target' }
   | { type: 'concentration' }
   | { type: 'permanent' };
@@ -244,6 +244,10 @@ export interface EffectInstance {
   damageReaction?: { ability: AbilityKey; feet: number; condition: ConditionKey };
   /** Banishment: точка возврата изгнанного существа после снятия эффекта. */
   banish?: { x: number; y: number };
+  /** Dominate Beast/Person: носитель под контролем источника (команды), пока эффект жив. */
+  dominates?: boolean;
+  /** Прежняя фракция до доминирования — для отката при снятии эффекта. */
+  prevFaction?: Faction;
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
   breakOn?: ('attack' | 'spell' | 'damage')[];
   /** Sanctuary: атакующие носителя обязаны пройти спас WIS (СЛ каста) или потерять атаку/заклинание. */
@@ -256,6 +260,8 @@ export interface EffectInstance {
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
   retaliate?: { damageType: string; amount?: number; dice?: string };
+  /** Resistance: −`dice` от урона выбранных типов; заряд тратится и обновляется в начале хода. */
+  damageReduce?: { dice: string; types: string[] };
   /** Расходуемый счётчик (Flame Arrows: 12 боеприпасов; Magic Stone: 3 камня). */
   charges?: { remaining: number; on?: 'rangedWeaponAttack' };
   /**

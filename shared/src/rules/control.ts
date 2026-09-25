@@ -10,7 +10,12 @@ export interface ControlsTokenInput {
   currentCharacterId?: string | null;
   /** Имя персонажа игрока для сверки с `token.owner` (пусто — сверка не идёт). */
   charName?: string;
-  token: Pick<Token, 'libraryItemId' | 'owner'>;
+  token: Pick<Token, 'libraryItemId' | 'owner'> & { effects?: Token['effects'] };
+  /**
+   * id токенов, которыми игрок управляет напрямую (для производного контроля
+   * Dominate: цель слушается игрока, пока жив эффект с источником-токеном).
+   */
+  controlledTokenIds?: Set<string>;
 }
 
 export function controlsToken(input: ControlsTokenInput): boolean {
@@ -18,6 +23,10 @@ export function controlsToken(input: ControlsTokenInput): boolean {
   if (!input.selfId) return false;
   if (input.currentCharacterId && input.token.libraryItemId === input.currentCharacterId) return true;
   if (input.token.owner && input.charName && input.token.owner === input.charName) return true;
+  const ids = input.controlledTokenIds;
+  if (ids?.size && input.token.effects?.some((e) => e.dominates && e.sourceId && ids.has(e.sourceId))) {
+    return true;
+  }
   return false;
 }
 

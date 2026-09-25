@@ -13,6 +13,7 @@ import {
   nearestTarget,
   pointCell,
   polymorphFormIssue,
+  silencedByZones,
   spellCastArea,
   spellIsSelf,
   tokenVisibleFrom,
@@ -23,7 +24,7 @@ import {
   type Token,
 } from 'shared';
 import type { Room } from '../roomTypes';
-import { actorStats } from '../room/actor';
+import { actorStats, creatureTypeOf } from '../room/actor';
 import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
@@ -71,6 +72,15 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const targets = input.targets.filter((t) => !!t);
   const hasRoll = !!(def.damage || def.heal);
 
+  // Молчание (Silence, Jallarzi): под зоной нельзя кастовать с вербальным компонентом.
+  const silenceMap = room.scene.maps.find((m) => m.id === input.mapId);
+  if (
+    silenceMap &&
+    silencedByZones(spell, caster, silenceMap.zones, gridOfMap(silenceMap, room.scene.grid), silenceMap.walls)
+  ) {
+    return { code: 'silenced' };
+  }
+
   // Зона от точки без режима области (Faithful Hound): точка в пределах дистанции и видна кастеру.
   if (def.zone && def.zone.origin === 'point' && input.origin && !input.area) {
     const map = room.scene.maps.find((m) => m.id === input.mapId);
@@ -83,6 +93,19 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
 
   if (def.effects?.some((d) => d.markTarget) && !targets[0]) {
     return { code: 'spellNoTarget' };
+  }
+
+  // Тип цели (Dominate Beast/Person и подобные): только разрешённые типы существ.
+  if (def.requiresCreatureTypes?.length) {
+    for (const target of targets) {
+      if (!def.requiresCreatureTypes.includes(creatureTypeOf(room, target) ?? '')) return { code: 'spellNoTarget' };
+    }
+  }
+  // Dominate: на союзников нельзя (нейтральные — можно).
+  if (def.effects?.some((d) => d.dominates)) {
+    for (const target of targets) {
+      if (target.faction !== 'neutral' && target.faction === caster.faction) return { code: 'spellNoTarget' };
+    }
   }
 
   // Клинок-кантрип (Green-Flame/Booming Blade, True Strike): оружие в правой руке, цель в досягаемости.

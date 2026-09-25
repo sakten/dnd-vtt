@@ -218,7 +218,7 @@ const AOE_TAGS = new Set(['S', 'C', 'L', 'N', 'Q', 'R', 'Y']);
 const GRANTED_ACTION_AREA = new Set(["XPHB:Dragon's Breath"]);
 
 /** Заклинания-зоны без спасброска: прицел нужен для точки (Daylight). */
-const POINT_ZONE_SPELLS = new Set(['XPHB:Daylight']);
+const POINT_ZONE_SPELLS = new Set(['XPHB:Daylight', 'XPHB:Silence']);
 
 /**
  * Wall of Thorns (XPHB): варианты формы стены — вертикальная/горизонтальная

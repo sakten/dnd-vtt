@@ -46,7 +46,12 @@ export function useInvisibilityView(): InvisibilityView {
     if (!tokens?.length) return { hidden: new Set<string>(), masked: new Set<string>() };
     const charName = characterNameOf(useGameStore.getState(), currentCharacterId);
     const controlState = { role, testMode, selfId, currentCharacterId };
-    const mine = tokens.filter((t) => canControlTokenWith(controlState, t, charName));
+    // Прямо контролируемые токены: подконтрольные (Dominate) тоже «свои» — невидимость их не скрывает.
+    const controlledTokenIds = new Set<string>();
+    for (const t of tokens) {
+      if (canControlTokenWith(controlState, t, charName)) controlledTokenIds.add(t.id);
+    }
+    const mine = tokens.filter((t) => canControlTokenWith(controlState, t, charName, controlledTokenIds));
     return invisibilityViewFor(tokens, mine, role === 'dm' || testMode);
   }, [tokens, role, testMode, selfId, currentCharacterId]);
 }

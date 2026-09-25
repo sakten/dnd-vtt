@@ -160,11 +160,24 @@ export function characterName(room: Room, mapId: string, playerId: string): stri
 }
 
 export function controlsToken(room: Room, mapId: string, playerId: string, token: Token): boolean {
+  const currentCharacterId = room.controllers[playerId] ?? null;
+  const charName = characterName(room, mapId, playerId);
+  // Прямо контролируемые токены этой карты: их цели под Dominate тоже слушаются игрока.
+  const map = findMap(room, mapId);
+  const controlledTokenIds = new Set<string>();
+  if (map) {
+    for (const t of map.tokens) {
+      if (controlsTokenRule({ selfId: playerId, currentCharacterId, charName, token: t })) {
+        controlledTokenIds.add(t.id);
+      }
+    }
+  }
   return controlsTokenRule({
     selfId: playerId,
-    currentCharacterId: room.controllers[playerId] ?? null,
-    charName: token.owner ? characterName(room, mapId, playerId) : '',
+    currentCharacterId,
+    charName,
     token,
+    ...(controlledTokenIds.size ? { controlledTokenIds } : {}),
   });
 }
 

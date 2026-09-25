@@ -2,7 +2,7 @@
 
 > **Временное к релизу** (совместимость, костыли, лицензии) — `ISSUES_RELEASE.md`.
 > **Назначение:** открытая очередь технических работ (R6–R9). Продукт, фазы и очередь контента классов — `PLAN.md`; карта кода — `ARCHITECTURE.md`; деплой — `DEPLOY.md`.
-> **Очередь:** R7.7, R7.10, R9.1–R9.4, R10, R11, R12, R14 (карточки ниже — единственный источник деталей).
+> **Очередь:** R7.7, R7.10, R9.1–R9.4, R10, R11, R12, R14, R16 (карточки ниже — единственный источник деталей).
 > **Сделано (в истории git):** R6.1–R6.9, R7.1–R7.5, R7.6, R7.8, R7.9, R7.11, R8.1–R8.8 (фундамент черт + лог партий 1–22), R8.6 (метки бросков), R15 (возврат изгнания и стены) — `git log -p -- REFACTOR.md`.
 > **Проверки:** в цикле — `npm run check:quiet`; перед деплоем — полный `npm run verify` (обязателен).
 > **Порядок дальше:** движок restrictions → зоны → призывы (сделаны; хвосты — в карточках).
@@ -53,3 +53,12 @@
 **Что сделать:** `server/src/socket/effectTriggers.ts` — `gateAttackOnTarget(ctx, room, attacker, target, source)` (Sanctuary и будущие «нельзя выбрать целью»; вызов из двух входов атаки и каста) и `afterDamage(ctx, room, mapId, target, attacker, { melee, damageType, amount })` (retaliate, `breakOn:'damage'`, позже Fire Shield). Мигрировать sanctuary/retaliate/breakOn, порядок зафиксировать тестами: Sanctuary — до окна реакций, ответка — после урона.
 **Не трогать:** окна реакций (ward/Absorb Elements остаются в `reactions/*`) и `damageLink`/temp HP/`deathWard` (порядок в `adjustTokenHp`).
 **Условие старта:** 2+ новых реактивных спелла в очереди; для двух уже сделанных выигрыша нет, а риск смены порядка ненулевой.
+
+## R16. AutomationSpec: декларативные спеки заклинаний + копии с правкой механики. P2, L (старт — только после закрытия очереди спелов).
+Сейчас механика размазана: каталог `AUTOMATION_SPELLS` (dice-литералы/`$spell`), ~25 билдеров по ключу в `shared/src/rules/automation.ts`, централизован только `COMPOSITE_CONFIGS`. База урона задаётся инлайн: `scaledDice('6d10'…)` (Steel Wind Strike), `'10d4'` (Vitriolic), `'7d8'` (Wall of Thorns), `'2d10'` (Jallarzi), `'2d6'` (Ice Knife), flat Heal/False Life/Negative Energy Flood, каталог Faithful Hound/Hunger of Hadar/разряд Holy Weapon.
+Причина констант: `collectTaggedDice` дедуплицирует кости (`seen`), а `damage.dice`/`types` не связаны по позициям — данные не выражают части (Jallarzi/Flame Strike/Destructive Wave: вторая одинаковая часть исчезает; Ice Knife: порядок dice≠types).
+**Цель:** одна декларативная запись на заклинание (`AutomationSpec`): `DiceRef` (`{from:'spell',part,scale:'upcast'} | {dice} | {flat,perLevel,above}`), effects/zone/триггеры/флаги; структурные билдеры → шаблоны (`zoneStorm`, `weaponAttack`, `chain`, `teleportAfter`, `summon`), параметры из спека. Рантайм — только резолв ссылок; разбор 5e.tools остаётся на сборке.
+**Копии:** `extends` + `patch` (set/append/remove по путям; массивы заменяются целиком), ключи `CUSTOM:`, отдельный снимок кастомных спелов (пример: Jallarzi с огнём и параличом — ~10 строк данных).
+**Порядок:** 1) закрыть очередь спелов (`TODO_SPELLS.md`), каждую новую механику — именованным примитивом `AutomationDef/Effect` (как `banish`/`chain`/`readyStrike`), база урона — из данных, исключения — в один реестр, не инлайн; 2) ревизия примитивов и проектирование `AutomationSpec`/шаблонов по реальным случаям; 3) миграция каталога/билдеров; 4) `extends`/`patch` + кастомный каталог; 5) обвязка (deploy-инварианты, i18n/иконки копий).
+**Дрейф, найденный аудитом (чинить раньше/по ходу):** Steel Wind Strike добавляет `+1d10/круг`, которого нет в 5e.tools XPHB; TODO §I описывает Guardian of Faith как `4к8`, а в 2024 — 20 плоских; ревизия апкастов после снятия дедупа.
+**Риск:** проектировать спек до новых механик — переписывание; поэтому R16 стартует только после очереди спелов.

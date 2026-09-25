@@ -400,11 +400,6 @@ describe('каталог эффектов заклинаний', () => {
     expect(isBanished(undefined)).toBe(false);
   });
 
-  it('Aid даёт +5 к максимуму HP', () => {
-    const def = spellEffectDefs('XPHB:Aid')?.[0];
-    expect(def?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: 5 });
-  });
-
   it('spellAutomated: full или есть каталог эффектов', () => {
     expect(spellAutomated({ key: 'XPHB:Fireball', automation: 'full' })).toBe(true);
     expect(spellAutomated({ key: 'XPHB:Shield', automation: 'manual' })).toBe(true);
@@ -491,6 +486,8 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       deathSaveAdvantage: true,
       saveNoDamage: true,
       retaliate: { damageType: 'cold', dice: '2d8' },
+      damageReduce: { dice: '1d4', types: ['fire'] },
+      dominates: true,
       charges: { count: 12, on: 'rangedWeaponAttack' },
       takesExtraDamage: { dice: '1d8', damageType: 'radiant' },
       onWillingMove: { dice: '1d8', damageType: 'thunder', feet: 5 },

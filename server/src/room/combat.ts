@@ -15,6 +15,7 @@ import {
   modifiedValue,
   restrictionsFor,
   rollDice,
+  slotSpendable,
   type AbilityKey,
   type ActionCost,
   type CombatState,
@@ -26,8 +27,7 @@ import {
 import type { Room } from '../roomTypes';
 import { actorStats } from './actor';
 import { shapeImageUrl, shapeName, shapeStatblock } from './shape';
-import { controllerIdOfToken, findTokenById } from './helpers';
-import { findToken } from './tokens';
+import { controllerIdOfToken, dominationSourceOf, findTokenById } from './helpers';import { findToken } from './tokens';
 
 /** Зависимости боевого домена: сохранение комнаты. */
 export interface CombatDeps {
@@ -424,7 +424,20 @@ export function spendSlot(m: CombatDeps, room: Room, mapId: string, token: Token
   // Реакция доступна в чужой ход: берём состояние записи токена, не только активной.
   const turn = slot === 'reaction' ? turnStateFor(room, mapId, token) : turnForToken(room, mapId, token);
   if (!turn) return true;
+  // Dominate: реакция цели тратит и реакцию источника-кастера (если тот в бою).
+  const dominator = slot === 'reaction' ? dominationSourceOf(room, token) : null;
+  const dominatorTurn = dominator ? turnStateFor(room, mapId, dominator) : null;
+  if (
+    dominator &&
+    dominatorTurn &&
+    !slotSpendable(dominatorTurn, restrictionsFor(dominator.conditions, dominator.effects), 'reaction')
+  ) {
+    return false;
+  }
   if (!consumeSlotTurn(turn, restrictionsFor(token.conditions, token.effects), slot)) return false;
+  if (dominator && dominatorTurn) {
+    consumeSlotTurn(dominatorTurn, restrictionsFor(dominator.conditions, dominator.effects), 'reaction');
+  }
   m.saveSoon(room);
   return true;
 }

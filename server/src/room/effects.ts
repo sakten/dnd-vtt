@@ -304,10 +304,16 @@ export function removeEffect(m: EffectsDeps, room: Room, token: Token, effectId:
   if (!effect) return false;
   changeMaxHp(m, room, token, effect, -1);
   releaseBanishEffect(room, token, effect);
+  releaseDomination(token, effect);
   token.effects = token.effects.filter((e) => e.id !== effectId);
   token.conditions = token.conditions.filter((c) => c.effectId !== effectId);
   m.saveSoon(room);
   return true;
+}
+
+/** Dominate: снятие эффекта возвращает цели прежнюю фракцию. */
+function releaseDomination(token: Token, effect: EffectInstance): void {
+  if (effect.dominates && effect.prevFaction) token.faction = effect.prevFaction;
 }
 
 /**
@@ -436,8 +442,14 @@ export function tickEffects(
         if (!effect.banish) removed.push(effect.name);
       }
     }
+    // Resistance: заряд снижения урона обновляется в начале хода носителя («раз в ход»).
+    if (!remove && phase === 'start' && effect.damageReduce && effect.charges && effect.charges.remaining < 1) {
+      effect.charges.remaining = 1;
+      changed = true;
+    }
     if (remove) {
       changeMaxHp(m, room, token, effect, -1);
+      releaseDomination(token, effect);
       token.conditions = token.conditions.filter((c) => c.effectId !== effect.id);
       if (effect.banish) {
         const gone = releaseBanishEffect(room, token, effect, { vanished, natural: true });
@@ -553,6 +565,7 @@ export function clearConcentration(m: EffectsDeps, room: Room, sourceId: string)
         if (removedIds.has(effect.id)) {
           changeMaxHp(m, room, token, effect, -1);
           releaseBanishEffect(room, token, effect);
+          releaseDomination(token, effect);
         }
       }
       token.effects = token.effects.filter((e) => !removedIds.has(e.id));
@@ -593,6 +606,7 @@ export function clearEffectsForPlayer(m: EffectsDeps, room: Room, playerId: stri
       for (const effect of token.effects) {
         changeMaxHp(m, room, token, effect, -1);
         releaseBanishEffect(room, token, effect);
+        releaseDomination(token, effect);
       }
       token.effects = [];
       token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));

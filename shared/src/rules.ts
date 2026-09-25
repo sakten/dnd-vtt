@@ -25,6 +25,7 @@ export * from './rules/hands';
 export * from './rules/loadout';
 export * from './rules/resources';
 export * from './rules/sheet';
+export * from './rules/silence';
 export * from './rules/spellCast';
 export * from './rules/spellChoices';
 export * from './rules/spellLimits';

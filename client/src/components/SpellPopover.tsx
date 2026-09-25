@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   automationForSpell,
+  CONDITION_KEYS,
   crValue,
   familiarFormAvailable,
   hasInvocation,
@@ -23,7 +24,7 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { spellDisplayName } from '../i18n/names';
-import { abilityName, damageLabel, skillName } from '../i18n/domain';
+import { abilityName, conditionLabel, damageLabel, skillName } from '../i18n/domain';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
 import { t, type MessageKey } from '../i18n';
@@ -378,7 +379,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
                   {variantDef.param === 'ability'
                     ? abilityName(option as AbilityKey)
                     : variantDef.param === 'effect'
-                      ? t(`ui.spellVariant.${option}` as MessageKey)
+                      ? (CONDITION_KEYS as string[]).includes(option)
+                        ? conditionLabel(option)
+                        : t(`ui.spellVariant.${option}` as MessageKey)
                       : variantDef.param === 'skill'
                         ? skillName(option)
                         : variantDef.param === 'command'

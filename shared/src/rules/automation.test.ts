@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
 import { automationForAction, automationForSpell, spellAutomated, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
 import { findBaseAction } from './actions';
+import { spellExtraTargets } from './spellCast';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
@@ -1242,6 +1243,46 @@ describe('automationForSpell', () => {
     expect(daylight.zone?.light).toEqual({ bright: 60, dim: 60, sunlight: true });
   });
 
+  it('Silence: сфера молчания — запрет вербальных, оглохший и иммунитет к звуку', () => {
+    const def = automationForSpell(makeSpell({ key: 'XPHB:Silence', name: 'Silence', level: 2, automation: 'manual' }));
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const zone = def.zone;
+    expect(zone?.area).toEqual({ shape: 'sphere', size: 20 });
+    expect(zone?.containment).toBe('fullyWithin');
+    expect(zone?.flags?.silence).toBe(true);
+    const aura = zone?.aura?.effects?.[0];
+    expect(aura?.conditions).toEqual(['deafened']);
+    expect(aura?.modifiers[0]).toMatchObject({ target: 'damage', mode: 'immunity', filter: { damageType: 'thunder' } });
+    expect(spellAutomated({ key: 'XPHB:Silence', automation: 'manual' })).toBe(true);
+  });
+
+  it("Jallarzi's Storm of Radiance: зона с составным спасом, сайленсом и триггерами", () => {
+    const spell = makeSpell({
+      key: "XPHB:Jallarzi's Storm of Radiance",
+      name: 'Storm of Radiance',
+      level: 5,
+      automation: 'manual',
+      upcast: { above: 5, dice: '1d10' },
+    });
+    const base = automationForSpell(spell);
+    expect(base.resolution).toBe('save');
+    expect(base.concentration).toBe(true);
+    expect(base.save).toMatchObject({ ability: 'con', half: true });
+    expect(base.damage).toEqual({ dice: '2d10radiant + 2d10thunder', types: ['radiant', 'thunder'] });
+    const zone = base.zone;
+    expect(zone?.area).toEqual({ shape: 'cylinder', size: 10 });
+    expect(zone?.flags?.silence).toBe(true);
+    expect(zone?.enterOncePerTurn).toBe(true);
+    expect(zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded', 'deafened']);
+    expect(zone?.triggers?.enter?.damage?.dice).toBe('2d10radiant + 2d10thunder');
+    expect(zone?.triggers?.endOfTurn?.save).toMatchObject({ ability: 'con', half: true });
+    const up = automationForSpell(spell, { castLevel: 6 });
+    expect(up.damage?.dice).toBe('3d10radiant + 3d10thunder');
+    expect(up.zone?.triggers?.enter?.damage?.dice).toBe('3d10radiant + 3d10thunder');
+    expect(spellAutomated({ key: "XPHB:Jallarzi's Storm of Radiance", automation: 'manual' })).toBe(true);
+  });
+
   it('зоны с перемещением: Moonbeam, Flaming Sphere, Faithful Hound', () => {
     const moonbeam = automationForSpell(
       makeSpell({
@@ -1441,13 +1482,21 @@ describe('automationForSpell', () => {
   });
 
   it('Cloudkill и Sleet Storm: зоны мглы с триггерами', () => {
-    const cloudkill = automationForSpell(
-      makeSpell({ key: 'XPHB:Cloudkill', name: 'Cloudkill', automation: 'manual' })
-    );
-    expect(cloudkill.zone?.area).toEqual({ shape: 'sphere', size: 20 });
-    expect(cloudkill.zone?.flags?.obscured).toBe('heavy');
-    expect(cloudkill.zone?.triggers?.startOfTurn?.save).toMatchObject({ ability: 'con', half: true });
-    expect(cloudkill.zone?.triggers?.startOfTurn?.damage?.dice).toBe('5d8');
+    const cloudkill = makeSpell({
+      key: 'XPHB:Cloudkill',
+      name: 'Cloudkill',
+      level: 5,
+      automation: 'manual',
+      damage: { dice: ['5d8'], types: ['poison'] },
+      upcast: { above: 5, dice: '1d8' },
+    });
+    const base = automationForSpell(cloudkill);
+    expect(base.zone?.area).toEqual({ shape: 'sphere', size: 20 });
+    expect(base.zone?.flags?.obscured).toBe('heavy');
+    expect(base.zone?.triggers?.startOfTurn?.save).toMatchObject({ ability: 'con', half: true });
+    expect(base.zone?.triggers?.startOfTurn?.damage?.dice).toBe('5d8');
+    const upcast = automationForSpell(cloudkill, { castLevel: 6 });
+    expect(upcast.zone?.triggers?.startOfTurn?.damage?.dice).toBe('5d8 + 1d8');
 
     const sleet = automationForSpell(
       makeSpell({ key: 'XPHB:Sleet Storm', name: 'Sleet Storm', automation: 'manual' })
@@ -1499,8 +1548,104 @@ describe('automationForSpell', () => {
     expect(fire.area).toBeUndefined();
   });
 
-  it('Beacon of Hope: авто-цели союзников, преимущество WIS/death-сейвов, максимум лечения', () => {
-    const def = automationForSpell(
+  it('Resistance: выбранный тип урона, −1d4 зарядом, вариант в подписи', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Resistance',
+      name: 'Resistance',
+      automation: 'manual',
+    });
+    const fire = automationForSpell(spell, { variant: 'fire' });
+    expect(fire.resolution).toBe('effect');
+    expect(fire.concentration).toBe(true);
+    const effect = fire.effects?.[0];
+    expect(effect?.damageReduce).toEqual({ dice: '1d4', types: ['fire'] });
+    expect(effect?.charges).toEqual({ count: 1 });
+    expect(effect?.variant).toBe('fire');
+    expect(automationForSpell(spell).effects?.[0]?.variant).toBe('acid');
+    expect(spellAutomated({ key: 'XPHB:Resistance', automation: 'manual' })).toBe(true);
+  });
+
+  it('Dominate Beast/Person: очарование, контроль и спас от урона', () => {
+    const minute = [{ type: 'timed' as const, duration: { type: 'minute' as const, amount: 1 }, concentration: true }];
+    const beast = makeSpell({
+      key: 'XPHB:Dominate Beast',
+      name: 'Dominate Beast',
+      level: 4,
+      automation: 'manual',
+      duration: minute,
+    });
+    const base = automationForSpell(beast);
+    expect(base.resolution).toBe('effect');
+    expect(base.save).toMatchObject({ ability: 'wis' });
+    expect(base.saveAdvantageInCombat).toBe(true);
+    expect(base.requiresCreatureTypes).toEqual(['beast']);
+    expect(base.maxRounds).toBe(10);
+    const effect = base.effects?.[0];
+    expect(effect?.conditions).toEqual(['charmed']);
+    expect(effect?.dominates).toBe(true);
+    expect(effect?.saveOnDamage).toEqual({});
+    expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'damage' });
+    // Апкаст — длительность: лимит «1 минута» (10 раундов) снимается.
+    expect(automationForSpell(beast, { castLevel: 5 }).maxRounds).toBeNull();
+
+    const person = makeSpell({
+      key: 'XPHB:Dominate Person',
+      name: 'Dominate Person',
+      level: 5,
+      automation: 'manual',
+      duration: minute,
+    });
+    expect(automationForSpell(person).requiresCreatureTypes).toEqual(['humanoid']);
+    expect(automationForSpell(person).maxRounds).toBe(10);
+    expect(automationForSpell(person, { castLevel: 6 }).maxRounds).toBeNull();
+    expect(spellAutomated({ key: 'XPHB:Dominate Beast', automation: 'manual' })).toBe(true);
+    expect(spellAutomated({ key: 'XPHB:Dominate Person', automation: 'manual' })).toBe(true);
+  });
+
+  it('Blindness/Deafness: спас CON, выбранное состояние, повтор в конце хода', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Blindness/Deafness',
+      name: 'Blindness/Deafness',
+      level: 2,
+      automation: 'manual',
+      save: ['con'],
+      higherLevel: ['You can target one additional creature for each spell slot level above 2.'],
+    });
+    const base = automationForSpell(spell);
+    expect(base.resolution).toBe('effect');
+    expect(base.save).toMatchObject({ ability: 'con' });
+    expect(base.concentration).toBeUndefined();
+    const effect = base.effects?.[0];
+    expect(effect?.targets).toBe(1);
+    expect(effect?.conditions).toEqual(['blinded']);
+    expect(effect?.variant).toBe('blinded');
+    expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'end' });
+    const deaf = automationForSpell(spell, { variant: 'deafened' });
+    expect(deaf.effects?.[0]?.conditions).toEqual(['deafened']);
+    expect(deaf.effects?.[0]?.variant).toBe('deafened');
+    // Апкаст: доп. цель из данных («one additional creature for each slot above 2»).
+    expect(spellExtraTargets(spell, 3)).toBe(1);
+    expect(spellAutomated({ key: 'XPHB:Blindness/Deafness', automation: 'manual' })).toBe(true);
+  });
+
+    it('Life Transference: неуменьшаемый урон себе и лечение ×2 у цели', () => {
+    const spell = makeSpell({
+      key: 'XGE:Life Transference',
+      name: 'Life Transference',
+      level: 3,
+      automation: 'full',
+      damage: { dice: ['4d8'], types: ['necrotic'] },
+      higherLevel: ['The damage increases by 1d8 for each slot level above 3.'],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('auto');
+    expect(def.damage).toEqual({ dice: '4d8', types: ['necrotic'] });
+    expect(def.lifeTransfer).toEqual({ factor: 2 });
+    expect(automationForSpell(spell, { castLevel: 4 }).damage?.dice).toBe('4d8 + 1d8');
+    expect(spellAutomated({ key: 'XGE:Life Transference', automation: 'full' })).toBe(true);
+  });
+
+  it('Beacon of Hope: авто-цели союзников, преимущество WIS/death-сейвов, максимум лечения', () => {    const def = automationForSpell(
       makeSpell({ key: 'XPHB:Beacon of Hope', name: 'Beacon of Hope', level: 3, automation: 'manual' })
     );
     expect(def.resolution).toBe('effect');
@@ -1611,6 +1756,22 @@ describe('automationForSpell', () => {
     expect(upcast.effects?.[0]?.tempHp).toBe(15);
     expect(upcast.effects?.[0]?.retaliate).toEqual({ damageType: 'cold', amount: 15 });
     expect(spellAutomated({ key: 'XPHB:Armor of Agathys', automation: 'manual' })).toBe(true);
+  });
+
+  it('Aid: +5 к максимуму HP, ещё +5 за круг выше 2', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Aid',
+      name: 'Aid',
+      level: 2,
+      automation: 'manual',
+      upcast: { above: 2, flat: 5 },
+    });
+    const base = automationForSpell(spell);
+    expect(base.resolution).toBe('effect');
+    expect(base.effects?.[0]?.targets).toBe(3);
+    expect(base.effects?.[0]?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: 5 });
+    const upcast = automationForSpell(spell, { castLevel: 4 });
+    expect(upcast.effects?.[0]?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: 15 });
   });
 
   it('Protection from Evil and Good: помеха шести типам и scoped-иммунитет', () => {

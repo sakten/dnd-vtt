@@ -15,7 +15,9 @@ import { clampInt, isAbilityKey, newId } from './internal';
 import { normalizeSenses } from './sense';
 import type { GrantedAction, LightSource } from '../domain/automation';
 import { CONDITION_KEYS } from '../rules/conditions';
-import { CREATURE_TYPES } from '../labels';
+import { CREATURE_TYPES, DAMAGE_TYPES } from '../labels';
+
+const DAMAGE_KEYS = new Set(DAMAGE_TYPES.map((d) => d.key));
 
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
@@ -109,7 +111,12 @@ export function normalizeEffectDuration(raw: unknown): EffectDuration | null {
   if (d.type === 'rounds') return { type: 'rounds', rounds: clampInt(d.rounds, 0, 9999, 0) };
   if (d.type === 'untilSave') {
     if (!isAbilityKey(d.ability)) return null;
-    return { type: 'untilSave', ability: d.ability, dc: clampInt(d.dc, 0, 40, 0), timing: d.timing === 'start' ? 'start' : 'end' };
+    return {
+      type: 'untilSave',
+      ability: d.ability,
+      dc: clampInt(d.dc, 0, 40, 0),
+      timing: d.timing === 'start' ? 'start' : d.timing === 'damage' ? 'damage' : 'end',
+    };
   }
   if (d.type === 'endOfTurn') return { type: 'endOfTurn', of: d.of === 'target' ? 'target' : 'source' };
   if (d.type === 'concentration') return { type: 'concentration' };
@@ -210,6 +217,10 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         effect.banish = { x: Math.round(b.x * 10) / 10, y: Math.round(b.y * 10) / 10 };
       }
     }
+    if (e.dominates === true) effect.dominates = true;
+    if (e.prevFaction === 'ally' || e.prevFaction === 'enemy' || e.prevFaction === 'neutral') {
+      effect.prevFaction = e.prevFaction;
+    }
     if (e.retaliate && typeof e.retaliate === 'object') {
       const r = e.retaliate as { damageType?: unknown; amount?: unknown; dice?: unknown };
       if (typeof r.damageType === 'string' && r.damageType) {
@@ -217,6 +228,15 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         if (typeof r.dice === 'string' && r.dice.trim()) retaliate.dice = r.dice.trim().slice(0, 40);
         else retaliate.amount = clampInt(r.amount, 0, 999, 0);
         effect.retaliate = retaliate;
+      }
+    }
+    if (e.damageReduce && typeof e.damageReduce === 'object') {
+      const r = e.damageReduce as { dice?: unknown; types?: unknown };
+      const types = Array.isArray(r.types)
+        ? r.types.filter((t): t is string => typeof t === 'string' && DAMAGE_KEYS.has(t)).slice(0, 12)
+        : [];
+      if (typeof r.dice === 'string' && r.dice.trim() && types.length) {
+        effect.damageReduce = { dice: r.dice.trim().slice(0, 40), types };
       }
     }
     if (e.takesExtraDamage && typeof e.takesExtraDamage === 'object') {

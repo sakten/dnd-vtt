@@ -34,6 +34,39 @@ describe('controlsToken', () => {
       false
     );
   });
+
+  it('Dominate: цель слушается того, кто контролирует источник эффекта', () => {
+    const dominated = {
+      ...token({ libraryItemId: 'libX' }),
+      effects: [
+        {
+          id: 'e1',
+          name: 'Dominate Beast',
+          duration: { type: 'concentration' as const },
+          modifiers: [],
+          dominates: true,
+          sourceId: 'caster',
+        },
+      ],
+    };
+    expect(
+      controlsToken({
+        selfId: 'p1',
+        currentCharacterId: 'lib2',
+        token: dominated,
+        controlledTokenIds: new Set(['caster']),
+      })
+    ).toBe(true);
+    expect(
+      controlsToken({
+        selfId: 'p1',
+        currentCharacterId: 'lib2',
+        token: dominated,
+        controlledTokenIds: new Set(['other']),
+      })
+    ).toBe(false);
+    expect(controlsToken({ selfId: 'p1', currentCharacterId: 'lib2', token: dominated })).toBe(false);
+  });
 });
 
 describe('isCharacterToken', () => {

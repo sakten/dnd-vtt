@@ -25,8 +25,8 @@ export interface ApplyEffectArgs {
   escapeDc?: number;
   /** Зона-источник (аура): эффект снимается при выходе и окончании зоны. */
   zoneId?: string;
-  /** Лимит «1 минута» = 10 раундов (из `def.maxRounds`). */
-  maxRounds?: number;
+  /** Лимит «1 минута» = 10 раундов (из `def.maxRounds`); null — без лимита. */
+  maxRounds?: number | null;
 }
 
 /** Накладывает один эффект на токен (заменяя прошлый каст того же источника). */
@@ -87,6 +87,14 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     banish: effectDef.banish ? { x: target.x, y: target.y } : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
+  // Dominate: цель переходит под контроль источника — фракция меняется, прежняя в эффекте.
+  if (effectDef.dominates) {
+    const source = ctx.manager.findToken(room, mapId, sourceId);
+    if (source) {
+      effect.prevFaction = target.faction;
+      target.faction = source.faction;
+    }
+  }
   // Banishment: носитель покидает поле — аура-эффекты зон на нём прекращаются.
   if (effectDef.banish) {
     for (const zoneEffect of target.effects.filter((e) => e.zoneId)) {

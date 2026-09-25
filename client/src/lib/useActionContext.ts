@@ -73,13 +73,18 @@ export function useActionContext(): ActionContext | null {
       tokenId = selectedTokenId ?? characterTokenOf(map, currentCharacterId)?.id ?? null;
     }
     const control = { role, testMode, selfId, currentCharacterId };
+    // Прямо контролируемые токены: их подконтрольные (Dominate) тоже слушаются игрока.
+    const controlledIds = new Set<string>();
+    for (const t of map.tokens) {
+      if (canControlTokenWith(control, t, charName)) controlledIds.add(t.id);
+    }
     // В чужой ход игрок видит свой токен: доступны реакции, действия — нет.
     // Но контролируемый призыв (фамильяр/сумммон по владельцу) остаётся со своим ходом.
     if (combat.active && currentCharacterId !== null && !isDm) {
       const shown = tokenById(map, tokenId);
       const shownMine =
         !!shown &&
-        (shown.libraryItemId === currentCharacterId || canControlTokenWith(control, shown, charName));
+        (shown.libraryItemId === currentCharacterId || canControlTokenWith(control, shown, charName, controlledIds));
       if (!shownMine) {
         const mine = characterTokenOf(map, currentCharacterId);
         if (mine) {
@@ -100,7 +105,7 @@ export function useActionContext(): ActionContext | null {
     if (!token) return null;
     // Контроль — как у серверного `controlsToken` (контроллер или владелец по имени);
     // лист игрока доступен только при привязке через контроллера (`isCharacter`).
-    const controlled = canControlTokenWith(control, token, charName);
+    const controlled = canControlTokenWith(control, token, charName, controlledIds);
     const isCharacter = isCharacterTokenWith(control, token);
     const ownEntry = combat.entries.find((e) => e.tokenId === token.id);
     const ownTurn = ownEntry ? combat.turns[ownEntry.id] : undefined;
@@ -153,7 +158,7 @@ export function useActionContext(): ActionContext | null {
       if (!zone.actions?.length || !zone.sourceId) continue;
       const source = tokenById(map, zone.sourceId);
       if (!source) continue;
-      if (!isDm && !canControlTokenWith(control, source, charName)) continue;
+      if (!isDm && !canControlTokenWith(control, source, charName, controlledIds)) continue;
       for (const action of zone.actions) {
         // Незаряженный «Удар силы» (Spiritual Weapon) не показываем: сначала бонусное действие.
         if (action.def?.attack && !zone.readyStrike) continue;

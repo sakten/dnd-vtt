@@ -141,7 +141,7 @@ describe('Armor of Agathys: ответный урон', () => {
     const target = makeToken('t1', { hpMax: '50', hpCurrent: 50, hpTemp: 5 });
     const attacker = makeToken('t2', { hpMax: '30', hpCurrent: 30 });
     const room = makeRoom();
-    room.scene.maps[0]!.tokens.push(target, attacker);
+    room.scene.maps[0]!.tokens.push(target);
     const f = makeConnCtx(room, { dm: true });
     target.effects.push({
       id: 'aoa1',
@@ -207,6 +207,95 @@ describe('Armor of Agathys: ответный урон', () => {
     ];
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: true });
     expect(attacker.effects.some((e) => e.id === 'sanc1')).toBe(false);
+  });
+});
+
+describe('Resistance: снижение урона зарядом', () => {
+  function resist() {
+    const target = makeToken('t1', { hpMax: '50', hpCurrent: 50 });
+    // CON 30: концентрация не спадает от тестового урона (проверяем только заряд).
+    target.statblock = { abilities: { ...DEFAULT_ABILITIES, con: 30 } };
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens.push(target);
+    const f = makeConnCtx(room, { dm: true });
+    target.effects.push({
+      id: 'res1',
+      name: 'Resistance',
+      sourceKey: 'XPHB:Resistance',
+      sourceId: target.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+      damageReduce: { dice: '1d4', types: ['fire'] },
+      charges: { remaining: 1 },
+    });
+    return { target, f };
+  }
+
+  it('урон выбранного типа режется на 1d4, заряд тратится до конца хода', () => {
+    const { target, f } = resist();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.75); // d4 = 4
+    const first = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    rand.mockRestore();
+    expect(first.amount).toBe(6);
+    expect(target.hpCurrent).toBe(44);
+    expect(target.effects[0]?.charges?.remaining).toBe(0);
+    const second = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    expect(second.amount).toBe(10);
+    expect(target.hpCurrent).toBe(34);
+  });
+
+  it('урон другого типа заряд не тратит', () => {
+    const { target, f } = resist();
+    const result = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'cold' });
+    expect(result.amount).toBe(10);
+    expect(target.effects[0]?.charges?.remaining).toBe(1);
+  });
+
+  it('заряд обновляется в начале хода носителя', () => {
+    const { target, f } = resist();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.75);
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    rand.mockRestore();
+    expect(target.effects[0]?.charges?.remaining).toBe(0);
+    f.ctx.manager.tickEffects(f.room, target, 'start');
+    expect(target.effects[0]?.charges?.remaining).toBe(1);
+  });
+});
+
+describe('неуменьшаемый урон (Life Transference)', () => {
+  it('сопротивления и Resistance не уменьшают, заряд не тратится', () => {
+    const target = makeToken('t1', {
+      hpMax: '50',
+      hpCurrent: 50,
+      damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'necrotic' }],
+    });
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens.push(target);
+    const f = makeConnCtx(room, { dm: true });
+    // CON 30: концентрация не спадает от тестового урона (проверяем только неуменьшаемость).
+    target.statblock = { abilities: { ...DEFAULT_ABILITIES, con: 30 } };
+    target.effects.push({
+      id: 'res1',
+      name: 'Resistance',
+      sourceKey: 'XPHB:Resistance',
+      sourceId: target.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+      damageReduce: { dice: '1d4', types: ['necrotic'] },
+      charges: { remaining: 1 },
+    });
+    const result = applyDamage(f.ctx, {
+      target,
+      mapId: 'm1',
+      amount: 12,
+      damageType: 'necrotic',
+      unreducible: true,
+    });
+    expect(result.amount).toBe(12);
+    expect(target.hpCurrent).toBe(38);
+    expect(target.effects[0]?.charges?.remaining).toBe(1);
   });
 });
 

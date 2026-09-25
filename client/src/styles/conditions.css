@@ -400,6 +400,10 @@
   border-color: var(--magic-light);
 }
 
+.eff-spent {
+  opacity: 0.45;
+}
+
 .eff-more {
   color: var(--warn);
   font-weight: 700;

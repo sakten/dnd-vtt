@@ -5,6 +5,7 @@ import { fakeSocket, makeMap, makeScene, makeToken } from '../test/fixtures';
 import { useGameStore } from '../store/useGameStore';
 import { useActionContext } from './useActionContext';
 import { isCharacterTokenWith, useCanEndTurn, useIsRealDm } from './control';
+import { useInvisibilityView } from './visibility';
 
 const PLAYER = { id: 'p1', name: 'Игрок', role: 'player' as const, isConnected: true };
 
@@ -104,8 +105,7 @@ describe('useActionContext: контроль и лист персонажа', ()
     expect(isCharacterTokenWith(state, makeToken('x', { owner: 'Иван' }))).toBe(false);
   });
 
-  it('ход контролируемого призыва: панель остаётся на нём и действия доступны', () => {
-    const s = useGameStore.getState();
+  it('ход контролируемого призыва: панель остаётся на нём и действия доступны', () => {    const s = useGameStore.getState();
     const map = s.scene.maps[0]!;
     useGameStore.setState({
       scene: {
@@ -134,5 +134,33 @@ describe('useActionContext: контроль и лист персонажа', ()
     expect(result.current?.token.id).toBe('t2');
     expect(result.current?.controlled).toBe(true);
     expect(result.current?.turn).toBeTruthy();
+  });
+
+  it('Dominate: подконтрольная цель управляема и не скрыта невидимостью', () => {
+    setCombatActive(false);
+    const s = useGameStore.getState();
+    const map = s.scene.maps[0]!;
+    const caster = map.tokens.find((t) => t.id === 't1')!;
+    const beast = makeToken('t3', { name: 'Волк' });
+    beast.conditions.push({ key: 'invisible', name: 'Невидим', rounds: null });
+    beast.effects.push({
+      id: 'dom1',
+      name: 'Dominate Beast',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+      dominates: true,
+    });
+    useGameStore.setState({
+      scene: { ...s.scene, maps: [{ ...map, tokens: [...map.tokens, beast] }] },
+      currentCharacterId: 'lib1',
+      selectedTokenId: 't3',
+    });
+
+    const { result } = renderHook(() => useActionContext());
+    expect(result.current?.controlled).toBe(true);
+    const { result: invis } = renderHook(() => useInvisibilityView());
+    expect(invis.current.hidden.has('t3')).toBe(false);
   });
 });

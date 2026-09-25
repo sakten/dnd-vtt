@@ -6,6 +6,7 @@ export type ErrorCode =
   | 'reactionSpent'
   | 'incapacitated'
   | 'spellsBlocked'
+  | 'silenced'
   | 'immobile'
   | 'notYourTurn'
   | 'actionSpent'

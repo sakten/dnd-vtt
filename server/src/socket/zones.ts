@@ -309,7 +309,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     direction: input.direction ?? null,
     area: zoneDef.area,
     duration: zoneDef.duration,
-    maxRounds: input.def.maxRounds,
+    maxRounds: input.def.maxRounds ?? undefined,
     concentration: input.def.concentration,
     anchor: zoneDef.anchor,
     movable: zoneDef.movable,

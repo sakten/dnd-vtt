@@ -7,6 +7,7 @@ import {
   statNumber,
   type DamagePartAmount,
   type DiceRollResult,
+  type EffectInstance,
   type RollLabelParams,
   type Token,
 } from 'shared';
@@ -51,6 +52,8 @@ export interface ApplyDamageInput {
   attacker?: Token;
   /** Ближняя атака — ответный урон срабатывает. */
   melee?: boolean;
+  /** Урон нельзя уменьшить: защиты, Resistance и перенос Warding Bond пропускаются. */
+  unreducible?: boolean;
 }
 
 /** Есть ли у токена учёт HP: свои max HP или ресурсы персонажа-контролёра. */
@@ -93,6 +96,20 @@ function transferLinkedDamage(ctx: ConnCtx, room: Room, mapId: string, target: T
   }
 }
 
+/** Resistance: первый подходящий по типу урона заряд снижения у цели. */
+function damageReductionFor(
+  target: Token,
+  damageTypes: string[]
+): { effect: EffectInstance; type: string } | undefined {
+  for (const effect of target.effects) {
+    const reduce = effect.damageReduce;
+    if (!reduce || (effect.charges?.remaining ?? 0) <= 0) continue;
+    const type = damageTypes.find((t) => reduce.types.includes(t));
+    if (type) return { effect, type };
+  }
+  return undefined;
+}
+
 /**
  * Единая точка урона/лечения: защиты → половина → сообщение → HP по гейту учёта.
  * Заменяет четыре копии «roll → defenses → applyHp» в атаках и заклинаниях.
@@ -107,8 +124,18 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     input.kind === 'heal' || !input.parts?.length
       ? [{ amount: input.amount, ...(damageType ? { damageType } : {}) }]
       : input.parts.map((part) => ({ amount: part.amount, ...(part.damageType ?? damageType ? { damageType: part.damageType ?? damageType } : {}) }));
-  const adjusted = applyDamageToParts(groups, defenses);
-  const amount = input.halve ? Math.floor(adjusted.amount / 2) : adjusted.amount;
+  const adjusted = input.unreducible
+    ? { amount: groups.reduce((sum, g) => sum + g.amount, 0), note: undefined }
+    : applyDamageToParts(groups, defenses);
+  const groupTypes = groups.map((g) => g.damageType).filter((t): t is string => !!t);
+  const reduction = !input.unreducible && input.kind !== 'heal' && target ? damageReductionFor(target, groupTypes) : undefined;
+  let reducedBy = 0;
+  if (reduction) {
+    reducedBy = rollDice(reduction.effect.damageReduce!.dice).total;
+    const charges = reduction.effect.charges;
+    if (charges) charges.remaining = Math.max(0, charges.remaining - 1);
+  }
+  const amount = Math.max(0, (input.halve ? Math.floor(adjusted.amount / 2) : adjusted.amount) - reducedBy);
 
   if (input.roll && input.author && input.params) {
     pushRollMessage(ctx, room, {
@@ -117,6 +144,14 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
       kind: input.kind ?? 'damage',
       params: { ...input.params, damageNote: adjusted.note },
       crit: input.crit,
+    });
+  }
+
+  if (reduction) {
+    if (mapId) ctx.emitToken(room, 'token:update', mapId, target!);
+    ctx.systemMessage(room, {
+      code: 'automation.damageReduce',
+      params: { name: target!.name, amount: reducedBy, type: reduction.type },
     });
   }
 
@@ -129,8 +164,8 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   ctx.applyHp(room, mapId, target, input.kind === 'heal' ? amount : -amount, { crit: input.crit });
   checkSummonDeath(ctx, room, mapId, target);
   if (input.kind !== 'heal') {
-    // Warding Bond: цель получила урон — источник получает столько же.
-    transferLinkedDamage(ctx, room, mapId, target, amount);
+    // Warding Bond: цель получила урон — источник получает столько же (кроме неуменьшаемого).
+    if (!input.unreducible) transferLinkedDamage(ctx, room, mapId, target, amount);
     // Триггеры монстра: «при получении урона» — на каждый урон, «при смерти» — переход HP к 0.
     runAbilityTriggers(ctx, room, mapId, target, 'takeDamage');
     if (hpBefore > 0 && (target.hpCurrent ?? 0) <= 0) runAbilityTriggers(ctx, room, mapId, target, 'death');

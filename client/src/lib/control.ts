@@ -33,13 +33,19 @@ type ControlState = Pick<State, 'role' | 'testMode' | 'selfId' | 'currentCharact
  * Проверка контроля по минимальному срезу состояния (для мемоизированных предикатов,
  * где нельзя тянуть весь стор): единое правило `controlsToken` из shared.
  */
-export function canControlTokenWith(s: ControlState, token: Token, charName: string): boolean {
+export function canControlTokenWith(
+  s: ControlState,
+  token: Token,
+  charName: string,
+  controlledTokenIds?: Set<string>
+): boolean {
   return controlsToken({
     isDm: isDmWith(s),
     selfId: s.selfId,
     currentCharacterId: s.currentCharacterId,
     charName,
     token,
+    ...(controlledTokenIds ? { controlledTokenIds } : {}),
   });
 }
 
@@ -67,7 +73,15 @@ export function useCanEndTurn(): boolean {
 }
 
 export function canControlWith(s: State, token: Token): boolean {
-  return canControlTokenWith(s, token, characterNameOf(s, s.currentCharacterId));
+  const map = activeMapOf(s);
+  const charName = characterNameOf(s, s.currentCharacterId);
+  const controlledTokenIds = new Set<string>();
+  if (map) {
+    for (const t of map.tokens) {
+      if (canControlTokenWith(s, t, charName)) controlledTokenIds.add(t.id);
+    }
+  }
+  return canControlTokenWith(s, token, charName, controlledTokenIds);
 }
 
 export function canAddLibraryItemWith(

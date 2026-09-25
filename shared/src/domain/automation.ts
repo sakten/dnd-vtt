@@ -176,6 +176,8 @@ export interface AutomationEffect {
    * экстрапланетные существа не возвращаются (токен удаляется).
    */
   banish?: boolean;
+  /** Dominate Beast/Person: носитель под контролем источника (команды), пока эффект жив. */
+  dominates?: boolean;
   /** Досрочный обрыв эффекта: носитель совершил бросок атаки, применил заклинание или нанёс урон. */
   breakOn?: ('attack' | 'spell' | 'damage')[];
   /** Sanctuary: атакующие носителя обязаны пройти спас WIS или потерять атаку/заклинание. */
@@ -188,6 +190,11 @@ export interface AutomationEffect {
   saveNoDamage?: boolean;
   /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
   retaliate?: { damageType: string; amount?: number; dice?: string };
+  /**
+   * Resistance (XPHB 2024): носитель уменьшает получаемый урон выбранного типа на
+   * `dice`; расходуется заряд (`charges`), который обновляется в начале его хода.
+   */
+  damageReduce?: { dice: string; types: string[] };
   /**
    * Расходуемый счётчик эффекта: Flame Arrows (12 боеприпасов, `on` — триггер
    * траты) и Magic Stone (3 камня — тратится при использовании выданного действия).
@@ -256,7 +263,9 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     maximizeHealing: def.maximizeHealing,
     deathSaveAdvantage: def.deathSaveAdvantage,
     saveNoDamage: def.saveNoDamage,
+    dominates: def.dominates,
     retaliate: def.retaliate ? { ...def.retaliate } : undefined,
+    damageReduce: def.damageReduce ? { ...def.damageReduce, types: [...def.damageReduce.types] } : undefined,
     charges: def.charges ? { remaining: def.charges.count, on: def.charges.on } : undefined,
     takesExtraDamage: def.takesExtraDamage ? { ...def.takesExtraDamage } : undefined,
     onWillingMove: def.onWillingMove ? { ...def.onWillingMove } : undefined,
@@ -324,6 +333,8 @@ export interface ZoneDef {
     subtle?: boolean;
     /** Спрайт-маркер зоны (Spiritual Weapon — жёлтый молот силы). */
     sprite?: 'hammer';
+    /** Зона молчания (Silence, Jallarzi): внутри нельзя кастовать с вербальным компонентом. */
+    silence?: boolean;
   };
 }
 
@@ -464,8 +475,8 @@ export interface AutomationDef extends AutomationPayload {
    */
   undeadTempHp?: boolean;
   concentration?: boolean;
-  /** Лимит длительности «1 минута» = 10 раундов (см. `EffectInstance.maxRounds`). */
-  maxRounds?: number;
+  /** Лимит длительности «1 минута» = 10 раундов; `null` — без лимита (апкаст Dominate). */
+  maxRounds?: number | null;
   attack?: AutomationAttack;
   /** Число атак/снарядов/повторов; скейл (апкаст/уровень персонажа) уже учтён. */
   count?: number;
@@ -521,8 +532,17 @@ export interface AutomationDef extends AutomationPayload {
   side?: 'hostile' | 'ally';
   /** Типы существ, на которых заклинание не действует (Command: нежить) — цели пропускаются. */
   excludeCreatureTypes?: string[];
+  /** Только эти типы существ (Dominate Beast/Person) — иначе каст отклоняется. */
+  requiresCreatureTypes?: string[];
+  /** Первый спасбросок с преимуществом, пока в комнате активен бой (Dominate). */
+  saveAdvantageInCombat?: boolean;
   /** Лечение на половину фактически нанесённого урона (Vampiric Touch). */
   lifesteal?: boolean;
+  /**
+   * Life Transference: кастер получает урон (`damage`) неуменьшаемым, цель лечится
+   * на `factor` × фактически полученный урон.
+   */
+  lifeTransfer?: { factor: number };
   /**
    * Steel Wind Strike: после резолва атак кастер телепортируется в точку в `feet`
    * от любой из выбранных целей (точка приходит в `origin` того же каста).

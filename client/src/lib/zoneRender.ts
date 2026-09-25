@@ -48,6 +48,17 @@ export function zoneStyle(zone: ZoneInstance): ZoneStyle {
     };
   }
   const color = zoneColor(zone.sourceKey);
+  // Зоны молчания (Silence, Jallarzi): прозрачная фиолетовая штриховка.
+  if (zone.flags?.silence) {
+    return {
+      kind: 'effect',
+      fill: '#a855f7',
+      fillAlpha: 0.08,
+      stripe: '#a855f7',
+      stripeAlpha: 0.45,
+      labelColor: '#d8b4fe',
+    };
+  }
   // Крупные зоны (туча Call Lightning, Daylight) — без штриховки и почти прозрачные.
   const scale = sizeAttenuation(zone.area.size);
   const compact = zone.area.size <= 30;

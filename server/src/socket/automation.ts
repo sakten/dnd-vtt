@@ -198,13 +198,15 @@ function rollTargetSaveFor(
   author: string,
   target: Token,
   stats: SpellStats,
-  ability: AbilityKey
+  ability: AbilityKey,
+  advantage?: boolean
 ): TargetSave {
   const autoFail = autoFailSave(target.conditions, ability);
   const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, {
     conditionsAutoFail: true,
     condition: def.effects?.[0]?.conditions?.[0],
     magical: true,
+    ...(advantage ? { advantage: true } : {}),
   });
   pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
   return { target, roll, autoFail, success };
@@ -270,6 +272,8 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
 
   const applied: string[] = [];
   let anchor: string | undefined;
+  // Dominate: в активном бою первый спас цели — с преимуществом (решение владельца).
+  const combatAdvantage = !!def.saveAdvantageInCombat && ctx.manager.combatOf(room, mapId)?.active === true;
   // Карающая нежить: урон по провалившим спас до наложения изгнания (урон не снимает его).
   const abilities = ctx.manager.abilitiesForToken(room, caster);
   const searExpr = def.damage && !def.heal ? resolveDiceExpression(def.damage, abilities, proficiencyFor(ctx, room, caster)) : null;
@@ -290,7 +294,7 @@ function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
         applications.push({
           effectDef,
           target,
-          save: rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability),
+          save: rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability, combatAdvantage),
         });
       } else {
         applications.push({ effectDef, target });
@@ -1106,6 +1110,41 @@ function runHealOrDamage(run: AutomationRun, stats: SpellStats): void {
   }
 }
 
+/** Life Transference: кастер получает неуменьшаемый урон, цель лечится на долю от него. */
+function runLifeTransfer(run: AutomationRun): void {
+  const { ctx, room, def, caster, mapId, targets, expression, author } = run;
+  if (!expression) return;
+  const factor = def.lifeTransfer?.factor ?? 2;
+  const roll = rollDice(expression);
+  pushRollMessage(ctx, room, {
+    author,
+    roll,
+    kind: 'damage',
+    params: { subject: `${def.name}: ${caster.name}`, damageType: run.damageType },
+  });
+  const self = applyDamage(ctx, {
+    target: caster,
+    mapId,
+    amount: roll.total,
+    damageType: run.damageType,
+    unreducible: true,
+  });
+  const heal = Math.max(0, Math.round(self.amount * factor));
+  for (const target of targets) {
+    if (heal <= 0) continue;
+    // Лечение — обычной картой в чате (не системной строкой).
+    applyDamage(ctx, {
+      target,
+      mapId,
+      amount: heal,
+      kind: 'heal',
+      roll: rollDice(String(heal)),
+      author,
+      params: { subject: `${def.name}: ${caster.name} → ${target.name}` },
+    });
+  }
+}
+
 /** Спасбросок по площади: один бросок урона, половина при успехе; эффекты — при провале. */
 function runSave(run: AutomationRun, stats: SpellStats): void {
   const { ctx, room, def, caster, targets, abilities, expression } = run;
@@ -1128,9 +1167,10 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
     : new Set<string>();
   const saves: TargetSave[] = [];
   const half = def.save.half;
+  const combatAdvantage = !!def.saveAdvantageInCombat && ctx.manager.combatOf(room, run.mapId)?.active === true;
   for (const target of targets) {
     if (undeadIds.has(target.id)) continue;
-    const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability);
+    const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability, combatAdvantage);
     saves.push(save);
   }
   const applyAll = () => {
@@ -1326,6 +1366,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };
 
+  if (def.lifeTransfer) return runLifeTransfer(run);
   if (def.attack && stats) return runWeaponAttacks(run, stats);
   if (def.save && stats && def.heal && def.damage) return runHealOrDamage(run, stats);
   if (def.save && stats) return runSave(run, stats);

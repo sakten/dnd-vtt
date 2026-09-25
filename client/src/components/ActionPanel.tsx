@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { activeGridOf } from '../store/selectors';
 import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -100,6 +101,7 @@ export default function ActionPanel() {
   const spellByKey = useSpellByKey();
   const info = useActionContext();
   const activeMap = useActiveMap();
+  const grid = useGameStore(activeGridOf);
   const [casting, setCasting] = useState<{ spell: Spell; ability?: ActionDef } | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [shapeOpen, setShapeOpen] = useState(false);
@@ -316,9 +318,14 @@ export default function ActionPanel() {
       ? weapons.find(({ entry }) => entry.weaponKey === turn.cleaveWeapon)
       : undefined;
 
+  const silenced = (spell: Spell): boolean =>
+    silencedByZones(spell, token, activeMap?.zones, grid, activeMap?.walls ?? []);
+
   const spellDisabled = (spell: Spell): boolean => {
     // Смайты применяются райдером после попадания оружием — из панели не кастуются.
     if (SMITE_SPELLS.has(spell.key)) return true;
+    // Зона молчания (Silence, Jallarzi): вербальный компонент недоступен.
+    if (silenced(spell)) return true;
     // Долгое накладывание (1 мин и больше) в бою недоступно.
     const castAsAction = invocationAction(spell.key);
     if (longCastInCombat(spell, combatActive, { actionCast: castAsAction })) return true;
@@ -348,6 +355,7 @@ export default function ActionPanel() {
       ...(longCastInCombat(spell, combatActive, { actionCast: invocationAction(spell.key) })
         ? [t('ui.action.longCastInCombat')]
         : []),
+      ...(silenced(spell) ? [t('ui.action.silenced')] : []),
     ].join('\n');
     return (
       <button

@@ -43,6 +43,42 @@ function setup() {
 
 const stats = { ability: 'wis', mod: 3, dc: 14, attack: 5 } as const;
 
+describe('Life Transference', () => {
+  it('неуменьшаемый урон кастеру, цель лечится вдвое', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    // Кастер без контролёра — HP живут в токене; сопротивление некротике не должно резать урон.
+    delete room.controllers['p1'];
+    caster.hpMax = '40';
+    caster.hpCurrent = 40;
+    target.hpMax = '100';
+    target.hpCurrent = 10;
+    caster.damageDefenses = [{ id: 'd1', type: 'resistance', damageType: 'necrotic' }];
+
+    const original = Math.random;
+    Math.random = () => 0.5; // d8 = 5 → 4d8 = 20
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XGE:Life Transference')!, { castLevel: 3 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+
+    expect(caster.hpCurrent).toBe(20);
+    expect(target.hpCurrent).toBe(50);
+    // Лечение приходит обычной картой броска (kind heal), а не системной строкой.
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'heal')).toBe(true);
+  });
+});
+
 describe('концентрация заклинаний с зонами', () => {
   it('новый каст концентрации снимает прежнюю зону и её эффекты', () => {
     const { room, f } = setup();

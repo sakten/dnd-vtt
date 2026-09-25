@@ -1,6 +1,6 @@
-import { spellVariantDef, type AbilityKey, type EffectInstance, type Spell } from 'shared';
+import { CONDITION_KEYS, spellVariantDef, type AbilityKey, type EffectInstance, type Spell } from 'shared';
 import { t, type MessageKey } from '../i18n';
-import { abilityName, damageLabel, effectDurationText, effectSummaryText, skillName } from '../i18n/domain';
+import { abilityName, conditionLabel, damageLabel, effectDurationText, effectSummaryText, skillName } from '../i18n/domain';
 import ChipRow from './ChipRow';
 import SpellIcon from './SpellIcon';
 
@@ -22,8 +22,10 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
     const spell = e.sourceKey ? spellByKey?.get(e.sourceKey) : undefined;
     const ownConcentration = e.concentration === true && e.sourceId === tokenId;
     const summary = effectSummaryText(e);
+    const charge = e.charges?.remaining;
     const parts: string[] = [];
     if (summary) parts.push(summary);
+    if (charge != null) parts.push(t('ui.effects.charges', { n: charge }));
     if (ownConcentration) parts.push(t('ui.effects.concentration'));
     if (!parts.length) {
       parts.push(e.duration.type === 'concentration' ? t('ui.effects.mark') : effectDurationText(e.duration));
@@ -40,17 +42,23 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
           ? skillName(e.variant)
           : variantParam === 'command'
             ? t(`ui.command.${e.variant}` as MessageKey)
-            : damageLabel(e.variant)
+            : variantParam === 'effect' && (CONDITION_KEYS as string[]).includes(e.variant)
+              ? conditionLabel(e.variant)
+              : damageLabel(e.variant)
       : '';
     const label = variantLabel ? `${e.name} (${variantLabel})` : e.name;
+    const badge = charge != null ? (charge > 9 ? '9+' : String(charge)) : rounds != null ? (rounds > 9 ? '9+' : String(rounds)) : null;
     return {
       key: e.id,
       title: label,
       node: (
-        <span className={`eff-chip${ownConcentration ? ' eff-concentration' : ''}`} title={`${label} — ${parts.join(' · ')}`}>
+        <span
+          className={`eff-chip${ownConcentration ? ' eff-concentration' : ''}${charge != null && charge <= 0 ? ' eff-spent' : ''}`}
+          title={`${label} — ${parts.join(' · ')}`}
+        >
           {spell ? <SpellIcon spell={spell} className="eff-chip-icon" /> : <span className="eff-chip-dot" />}
           <span className="eff-chip-name">{label}</span>
-          {rounds != null ? <span className="eff-chip-num">{rounds > 9 ? '9+' : rounds}</span> : null}
+          {badge != null ? <span className="eff-chip-num">{badge}</span> : null}
         </span>
       ),
     };
