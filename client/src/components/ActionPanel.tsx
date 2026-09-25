@@ -13,6 +13,7 @@ import {
   longCastInCombat,
   maxCastableForSpell,
   sortPanelSpells,
+  spellPanelFiltered,
   spellSlotOf,
   type TurnContext,
 } from '../lib/actionRules';
@@ -108,6 +109,9 @@ export default function ActionPanel() {
   const shapeToken = useGameStore((s) => s.shapeToken);
   const revertShape = useGameStore((s) => s.revertShape);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
+  // Фильтры заклинаний панели: «вне боя» и уровень (фокус/1–6).
+  const [showNonCombat, setShowNonCombat] = useState(false);
+  const [spellLevel, setSpellLevel] = useState<'all' | number>('all');
   const panelRef = useRef<HTMLDivElement>(null);
 
   const clampHeight = useCallback((v: number) => Math.max(140, Math.min(v, window.innerHeight - 80)), []);
@@ -290,9 +294,10 @@ export default function ActionPanel() {
   );
   const legendaryAbilities = abilities.filter(legendaryOnly);
 
-  const spellsAction = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'action'));
-  const spellsBonus = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'bonus'));
-  const spellsOther = sortPanelSpells(panelSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'other'));
+  const filteredSpells = panelSpells.filter((s) => spellPanelFiltered(s, { showNonCombat, level: spellLevel }));
+  const spellsAction = sortPanelSpells(filteredSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'action'));
+  const spellsBonus = sortPanelSpells(filteredSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'bonus'));
+  const spellsOther = sortPanelSpells(filteredSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'other'));
 
   // Атака второй рукой (Light): бьёт оружие из левой руки; триггер — прошлая атака другим лёгким.
   // Оружие с Nick и доступом к мастерствам — в «Свободных и прочих» (не тратит бонусное действие).
@@ -781,6 +786,31 @@ export default function ActionPanel() {
             }}
             onClose={() => setShapeOpen(false)}
           />
+        </div>
+      )}
+      {panelSpells.length > 0 && (
+        <div className="ap-filters">
+          <span className="ap-levels" role="group" aria-label={t('ui.action.spellLevelLabel')}>
+            <button className={`ap-chip${spellLevel === 'all' ? ' on' : ''}`} onClick={() => setSpellLevel('all')}>
+              {t('ui.action.filterAll')}
+            </button>
+            <button className={`ap-chip${spellLevel === 0 ? ' on' : ''}`} onClick={() => setSpellLevel(0)}>
+              {t('ui.action.cantrip')}
+            </button>
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <button key={n} className={`ap-chip${spellLevel === n ? ' on' : ''}`} onClick={() => setSpellLevel(n)}>
+                {n}
+              </button>
+            ))}
+          </span>
+          <button
+            className={`ap-chip ap-noncombat${showNonCombat ? ' on' : ''}`}
+            title={t('ui.action.showNonCombatHint')}
+            aria-pressed={showNonCombat}
+            onClick={() => setShowNonCombat((v) => !v)}
+          >
+            {t('ui.action.showNonCombat')}
+          </button>
         </div>
       )}
       <div className="ap-body" ref={bodyRef}>

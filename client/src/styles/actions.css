@@ -72,6 +72,46 @@
   font-weight: 700;
 }
 
+.ap-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 4px 0 0;
+}
+
+.ap-levels {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ap-chip {
+  padding: 1px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.ap-chip:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.ap-chip.on {
+  color: var(--accent);
+  border-color: currentColor;
+  background: rgba(124, 156, 255, 0.14);
+}
+
+.ap-noncombat {
+  margin-left: auto;
+}
+
 .ap-counters {
   display: flex;
   align-items: center;

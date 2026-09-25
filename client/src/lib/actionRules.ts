@@ -10,6 +10,7 @@ import {
   spellActionCost,
   spellAttackCount,
   spellAutomated,
+  spellByDesign,
   spellDamageExpression,
   spellDamageParts,
   spellExtraTargets,
@@ -58,6 +59,21 @@ export function sortPanelSpells(spells: Spell[]): Spell[] {
   return [...spells].sort(
     (a, b) => rank(a) - rank(b) || a.level - b.level || a.name.localeCompare(b.name)
   );
+}
+
+/**
+ * Фильтры панели действий: уровень (0 — фокус, 1–6, 'all') и «вне боя».
+ * Без галки «вне боя» скрыты долгие касты (1 минута и больше) и заклинания
+ * с красной меткой manual (неавтоматизированные; byDesign-плашки остаются).
+ */
+export function spellPanelFiltered(
+  spell: Spell,
+  opts: { showNonCombat: boolean; level: 'all' | number }
+): boolean {
+  if (opts.level !== 'all' && spell.level !== opts.level) return false;
+  if (opts.showNonCombat) return true;
+  if (spellActionCost(spell) === 'special') return false;
+  return spellAutomated(spell) || spellByDesign(spell);
 }
 
 const ACTION_COST_KEYS: Record<ActionCost, MessageKey> = {

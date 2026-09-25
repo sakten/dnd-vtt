@@ -590,6 +590,10 @@
 
   'ui.action.cantrip': 'фокус',
   'ui.action.level': '{n} круг',
+  'ui.action.filterAll': 'Все',
+  'ui.action.spellLevelLabel': 'Уровень заклинаний',
+  'ui.action.showNonCombat': 'Вне боя',
+  'ui.action.showNonCombatHint': 'Показать долгие (внебоевые) и неавтоматизированные заклинания',
   'ui.action.smiteOnHit': 'Применяется при попадании оружием (бонусным действием)',
   'ui.action.longCastInCombat': 'В бою недоступно: долгое накладывание',
   'ui.action.silenced': 'Недоступно: зона молчания (нужен вербальный компонент)',
