@@ -807,6 +807,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.spellMech.ranged': 'ranged spell',
   'ui.spellMech.save': 'Save',
   'ui.spellMech.damage': 'Damage',
+  'ui.spellMech.healing': 'Healing',
   'ui.spellMech.tempHp': 'Temporary HP',
   'ui.spellMech.condition': 'Condition',
   'ui.spellMech.components': 'Components',

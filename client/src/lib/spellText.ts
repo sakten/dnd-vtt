@@ -1,4 +1,4 @@
-import { spellCastArea, spellDamageParts, spellTempHp, spellWeaponOverride, type Spell } from 'shared';
+import { isHealingSpell, spellCastArea, spellDamageParts, spellTempHp, spellWeaponOverride, type Spell } from 'shared';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 
@@ -121,7 +121,7 @@ export function spellMechanics(spell: Spell): string[] {
     lines.push(`${t('ui.spellMech.tempHp')}: ${diceText([tempHp])}`);
   } else {
     const damage = damageText(spell, raw);
-    if (damage) lines.push(`${t('ui.spellMech.damage')}: ${damage}`);
+    if (damage) lines.push(`${t(isHealingSpell(spell) ? 'ui.spellMech.healing' : 'ui.spellMech.damage')}: ${damage}`);
   }
   if (spell.conditions?.length) lines.push(`${t('ui.spellMech.condition')}: ${conditionText(spell)}`);
   const comps = componentsText(spell);

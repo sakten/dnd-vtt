@@ -18,6 +18,14 @@ describe('damageTypeHint', () => {
     expect(damageTypeHint('1d6firex')).toBeUndefined();
   });
 
+  it('d20 — атака/проверка: подсказки нет, преимущество не перебивается', () => {
+    expect(damageTypeHint('d20a')).toBeUndefined();
+    expect(damageTypeHint('d20d')).toBeUndefined();
+    expect(damageTypeHint('1d20fi')).toBeUndefined();
+    expect(damageTypeHint('d20+5fi')).toBeUndefined();
+    expect(damageTypeHint('1d6fi')?.options).toEqual(['fire']);
+  });
+
   it('обычный текст и числа без терма не трогает', () => {
     expect(damageTypeHint('привет')).toBeUndefined();
     expect(damageTypeHint('2 фляги')).toBeUndefined();
@@ -31,7 +39,7 @@ describe('damageTypeHint', () => {
   });
 
   it('дописывает тип, не удаляя кубик и модификатор', () => {
-    expect(applyDamageHint('d20fi', damageTypeHint('d20fi')!, 'fire')).toEqual({ text: 'd20fire', caret: 7 });
+    expect(applyDamageHint('d12fi', damageTypeHint('d12fi')!, 'fire')).toEqual({ text: 'd12fire', caret: 7 });
     expect(applyDamageHint('1d8+3fo', damageTypeHint('1d8+3fo')!, 'force')).toEqual({ text: '1d8+3force', caret: 10 });
     expect(applyDamageHint('1d6+2d4ne', damageTypeHint('1d6+2d4ne')!, 'necrotic')).toEqual({
       text: '1d6+2d4necrotic',

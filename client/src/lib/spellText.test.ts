@@ -7,6 +7,7 @@ import { spellLevelLabel, spellMechanics, spellSchoolLabel } from './spellText';
 const fireball = spellsData.spells.find((s) => s.key === 'XPHB:Fireball') as Spell;
 const swordBurst = spellsData.spells.find((s) => s.key === 'TCE:Sword Burst') as Spell;
 const shillelagh = spellsData.spells.find((s) => s.key === 'XPHB:Shillelagh') as Spell;
+const healingWord = spellsData.spells.find((s) => s.key === 'XPHB:Healing Word') as Spell;
 
 describe('spellText', () => {
   it('RU: сводка локализована, нотация «к», школа и круг по-русски', () => {
@@ -60,6 +61,17 @@ describe('spellText', () => {
     expect(lines).not.toContain('Урон:');
     expect(lines).not.toContain('2к6');
     expect(lines).toContain('Длительность: 1 мин');
+  });
+
+  it('Healing Word — «Лечение», а не «Урон»', () => {
+    setLocale('ru');
+    const ru = spellMechanics(healingWord).join(' | ');
+    expect(ru).toContain('Лечение: 2к4');
+    expect(ru).not.toContain('Урон:');
+    setLocale('en');
+    const en = spellMechanics(healingWord).join(' | ');
+    expect(en).toContain('Healing: 2d4');
+    expect(en).not.toContain('Damage:');
   });
 
   it('RU: Sword Burst — целиком русский', () => {

@@ -18,6 +18,9 @@ export function damageTypeHint(input: string, caret = input.length): DamageHint 
   const match = /(\d*d\d+|[+-]\d+)([a-z]+)$/i.exec(input.slice(0, at));
   if (!match) return undefined;
   const partial = match[2]!.toLowerCase();
+  // d20 — бросок атаки/проверки: суффикс типа урона не подсказываем (у `a`/`d` своё значение — преимущество/помеха).
+  const dice = [...input.slice(0, at - partial.length).matchAll(/d(\d+)/gi)];
+  if (Number(dice[dice.length - 1]?.[1]) === 20) return undefined;
   const options = DAMAGE_TYPES.map((d) => d.key)
     .filter((key) => key.startsWith(partial) && key !== partial)
     .sort();

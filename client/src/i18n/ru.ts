@@ -804,6 +804,7 @@
   'ui.spellMech.ranged': 'дальняя заклинанием',
   'ui.spellMech.save': 'Спасбросок',
   'ui.spellMech.damage': 'Урон',
+  'ui.spellMech.healing': 'Лечение',
   'ui.spellMech.tempHp': 'Временные хиты',
   'ui.spellMech.condition': 'Состояние',
   'ui.spellMech.components': 'Компоненты',
