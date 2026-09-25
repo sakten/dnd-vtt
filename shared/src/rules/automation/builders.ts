@@ -3,6 +3,7 @@ import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt, spellUpcastDice, wallOfThornsArea } from '../spellCast';
 import type { DamagePartRole, Spell } from '../spells';
+import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN, spellEffect, zoneMoveAction } from './header';
 import { SPELL_VARIANTS } from './variants';
 import type { AutomationOptions } from './variants';
@@ -354,12 +355,13 @@ export function minuteMeteorsDef(spell: Spell, opts: AutomationOptions): Automat
   if (spell.key !== "XGE:Melf's Minute Meteors") return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
   const charges = 6 + 2 * Math.max(0, level - 3);
+  const meteorDice = spell.damage?.dice?.[0] ?? '2d6';
   const burst: AutomationDef = {
     key: spell.key,
     name: 'Метеор',
     resolution: 'save',
     save: { ability: 'dex', half: true },
-    damage: { dice: '2d6', types: ['fire'] },
+    damage: { dice: meteorDice, types: ['fire'] },
     area: { shape: 'sphere', size: 5 },
     targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 120 },
   };
@@ -484,7 +486,7 @@ export function resistanceDef(spell: Spell, opts: AutomationOptions): Automation
     concentration: true,
     to: 'targets',
     modifiers: [],
-    damageReduce: { dice: '1d4', types: [type] },
+    damageReduce: { dice: SPELL_BASES.resistance.damageReduceDice, types: [type] },
     charges: { count: 1 },
     variant: type,
   };
@@ -507,7 +509,7 @@ export function elementalBaneDef(spell: Spell, opts: AutomationOptions): Automat
     to: 'targets',
     targets: 1,
     modifiers: [],
-    elementalBane: { damageType: type, dice: '2d6' },
+    elementalBane: { damageType: type, dice: SPELL_BASES.elementalBane.extraDice },
     variant: type,
   };
   return spellEffect(spell.key, spell.name, [effect], { ability: 'con' });
@@ -575,7 +577,7 @@ export function heroesFeastDef(spell: Spell): AutomationDef | undefined {
     targets: 12,
     modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } }],
     conditionImmunities: ['frightened', 'poisoned'],
-    maxHpBonus: { dice: '2d10' },
+    maxHpBonus: { dice: SPELL_BASES.heroesFeast.maxHpDice },
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
@@ -1311,7 +1313,8 @@ export function xphbSmiteDef(spell: Spell, opts: AutomationOptions): AutomationD
 export function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Heal') return undefined;
   const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const amount = 70 + 10 * Math.max(0, castLevel - 6);
+  const { flat, perLevel, above } = SPELL_BASES.heal;
+  const amount = flat + perLevel * Math.max(0, castLevel - above);
   return {
     key: spell.key,
     name: spell.name,
@@ -1461,12 +1464,13 @@ export function vitriolicSphereDef(spell: Spell, opts: AutomationOptions): Autom
 export function falseLifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:False Life') return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const bonus = 5 * Math.max(0, level - 1);
+  const base = SPELL_BASES.falseLife;
+  const bonus = base.perLevel * Math.max(0, level - base.above);
   return {
     key: spell.key,
     name: spell.name,
     resolution: 'utility',
-    utility: { kind: 'tempHp', dice: `2d4 + 4${bonus ? ` + ${bonus}` : ''}` },
+    utility: { kind: 'tempHp', dice: `${base.dice} + ${base.flat}${bonus ? ` + ${bonus}` : ''}` },
   };
 }
 

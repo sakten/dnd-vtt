@@ -1,6 +1,7 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
 import { DAMAGE_TYPES } from '../../labels';
 import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, UNTIL_NEXT_TURN, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, remarkAction, spellEffect, zoneMoveAction } from './header';
+import { SPELL_BASES } from './bases';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -173,8 +174,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'targets',
       targets: 3,
       modifiers: [
-        { target: 'attack', mode: 'add', value: '1d4' },
-        { target: 'save', mode: 'add', value: '1d4' },
+        { target: 'attack', mode: 'add', value: SPELL_BASES.d4Bonus },
+        { target: 'save', mode: 'add', value: SPELL_BASES.d4Bonus },
       ],
     },
   ]),
@@ -186,8 +187,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'targets',
       targets: 3,
       modifiers: [
-        { target: 'attack', mode: 'add', value: '-1d4' },
-        { target: 'save', mode: 'add', value: '-1d4' },
+        { target: 'attack', mode: 'add', value: `-${SPELL_BASES.d4Bonus}` },
+        { target: 'save', mode: 'add', value: `-${SPELL_BASES.d4Bonus}` },
       ],
     },
   ]),
@@ -197,7 +198,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       duration: CONCENTRATION,
       concentration: true,
       to: 'targets',
-      modifiers: [{ target: 'check', mode: 'add', value: '1d4' }],
+      modifiers: [{ target: 'check', mode: 'add', value: SPELL_BASES.d4Bonus }],
     },
   ]),
   'XPHB:Hex': spellEffect('XPHB:Hex', 'Hex', [
@@ -925,7 +926,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       duration: { type: 'rounds', rounds: 10 },
       to: 'self',
       modifiers: [],
-      misdirect: { charges: 3, die: 'd6', threshold: 3 },
+      misdirect: { ...SPELL_BASES.mirrorImage.misdirect },
     },
   ]),
   'XPHB:Slow': spellEffect('XPHB:Slow', 'Slow', [

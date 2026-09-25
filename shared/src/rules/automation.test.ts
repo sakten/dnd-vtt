@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
 import { automationForAction, automationForSpell, spellAutomated, spellByDesign, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
+import { SPELL_BASES } from './automation/bases';
 import { findBaseAction } from './actions';
 import { spellExtraTargets } from './spellCast';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
@@ -2402,5 +2403,32 @@ describe('Составной урон (D)', () => {
     expect(def.damage).toEqual({ dice: '5d12necrotic', types: ['necrotic'] });
     expect(def.undeadTempHp).toBe(true);
     expect(spellAutomated(spell)).toBe(true);
+  });
+});
+
+describe('SPELL_BASES: реестр констант класса C', () => {
+  it('билдеры и каталог берут значения из реестра', () => {
+    const heal = automationForSpell(makeSpell({ key: 'XPHB:Heal', name: 'Heal', level: 6 }), { castLevel: 7 });
+    expect(heal.heal?.dice).toBe(String(SPELL_BASES.heal.flat + SPELL_BASES.heal.perLevel));
+
+    const falseLife = automationForSpell(makeSpell({ key: 'XPHB:False Life', name: 'False Life', level: 1 }));
+    expect(falseLife.utility?.dice).toBe(`${SPELL_BASES.falseLife.dice} + ${SPELL_BASES.falseLife.flat}`);
+
+    const resistance = automationForSpell(makeSpell({ key: 'XPHB:Resistance', name: 'Resistance', level: 0 }));
+    expect(resistance.effects?.[0]?.damageReduce?.dice).toBe(SPELL_BASES.resistance.damageReduceDice);
+
+    const mirror = automationForSpell(makeSpell({ key: 'XPHB:Mirror Image', name: 'Mirror Image', level: 2 }));
+    expect(mirror.effects?.[0]?.misdirect).toEqual({ ...SPELL_BASES.mirrorImage.misdirect });
+
+    const bane = automationForSpell(makeSpell({ key: 'XGE:Elemental Bane', name: 'Elemental Bane', level: 4 }), {
+      variant: 'fire',
+    });
+    expect(bane.effects?.[0]?.elementalBane?.dice).toBe(SPELL_BASES.elementalBane.extraDice);
+
+    const feast = automationForSpell(makeSpell({ key: "XPHB:Heroes' Feast", name: "Heroes' Feast", level: 6 }));
+    expect(feast.effects?.[0]?.maxHpBonus?.dice).toBe(SPELL_BASES.heroesFeast.maxHpDice);
+
+    const bless = automationForSpell(makeSpell({ key: 'XPHB:Bless', name: 'Bless', level: 1 }));
+    expect(bless.effects?.[0]?.modifiers.find((m) => m.target === 'attack')?.value).toBe(SPELL_BASES.d4Bonus);
   });
 });
