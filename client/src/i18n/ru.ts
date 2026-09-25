@@ -26,6 +26,7 @@
   'error.summonNoForm': 'Выберите форму фамильяра',
   'error.summonNoSpace': 'Рядом нет свободного места для призыва',
   'error.teleportNoSpace': 'Нет свободной видимой клетки для телепорта',
+  'error.passengerTooLarge': 'Пассажир телепорта не должен быть крупнее заклинателя',
   'error.nameTaken': 'Это имя уже занято в комнате — выберите другое или войдите позже',
   'error.shapeNoAbility': 'Дикий облик доступен друиду со 2 уровня',
   'error.shapeNoForm': 'Форма недоступна: проверьте известные формы и лимит CR',
@@ -581,6 +582,9 @@
   'ui.aim.scatterHintTargets': 'Клик по существам в 30 фт — выбрать/снять · «Далее» — точки',
   'ui.aim.scatterPlace': 'Точка для {name} ({i}/{n})',
   'ui.aim.scatterHintPlace': 'Клик по карте — свободная видимая клетка до 120 фт от кастера · «Назад» сбросит точки',
+  'ui.aim.passenger': 'Спутник телепорта',
+  'ui.aim.passengerHint': 'Клик по существу в 5 фт — взять с собой · «Без спутника» — одному',
+  'ui.aim.withoutPassenger': 'Без спутника',
 
   'ui.action.cantrip': 'фокус',
   'ui.action.level': '{n} круг',

@@ -28,6 +28,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.summonNoForm': 'Choose a familiar form',
   'error.summonNoSpace': 'No free space nearby for the summon',
   'error.teleportNoSpace': 'No free visible space for the teleport',
+  'error.passengerTooLarge': 'A teleport passenger cannot be larger than the caster',
   'error.nameTaken': 'This name is already taken in the room — pick another or join later',
   'error.shapeNoAbility': 'Wild Shape is available to druids from level 2',
   'error.shapeNoForm': 'Form unavailable: check known forms and the CR limit',
@@ -584,6 +585,9 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.aim.scatterHintTargets': 'Click creatures within 30 ft to pick/unpick · “Next” for destinations',
   'ui.aim.scatterPlace': 'Destination for {name} ({i}/{n})',
   'ui.aim.scatterHintPlace': 'Click the map — a free visible space within 120 ft of the caster · “Back” resets pins',
+  'ui.aim.passenger': 'Teleport passenger',
+  'ui.aim.passengerHint': 'Click a creature within 5 ft to bring along · “Without passenger” to go alone',
+  'ui.aim.withoutPassenger': 'Without passenger',
 
   'ui.action.cantrip': 'cantrip',
   'ui.action.level': 'level {n}',

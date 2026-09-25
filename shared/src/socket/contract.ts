@@ -170,6 +170,8 @@ export interface ClientToServerEvents {
     condition?: string;
     /** Scatter: точка назначения на каждую цель (мировые координаты). */
     placements?: { targetId: string; x: number; y: number }[];
+    /** Телепорт с пассажиром (Dimension Door, Thunder Step): существо, взятое с собой. */
+    passengerId?: string;
   }) => void;
   /** Досрочно прекратить концентрацию заклинателя (снять его эффекты). */
   'spell:endConcentration': (payload: { mapId: string; tokenId: string }) => void;

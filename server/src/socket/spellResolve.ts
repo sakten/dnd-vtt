@@ -11,6 +11,7 @@ import {
   INVOCATION_PACT_KEYS,
   loadoutOf,
   nearestTarget,
+  passengerIssue,
   pointCell,
   polymorphFormIssue,
   silencedByZones,
@@ -56,6 +57,8 @@ export interface SpellCastInput {
   condition?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
+  /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
+  passengerId?: string;
   author: string;
 }
 
@@ -229,9 +232,24 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   }
 
   // Телепорт (Misty Step): точка в пределах дистанции, свободна и видна кастеру.
+  // Пассажир (Dimension Door/Thunder Step) — рядом с кастером и (опц.) не крупнее него.
   if (def.utility?.kind === 'teleport') {
     if (!input.origin) return { code: 'noAreaPoint' };
-    return teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
+    const issue = teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
+    if (issue) return issue;
+    const plan = def.utility.passenger;
+    if (plan && input.passengerId) {
+      if (input.passengerId === caster.id) return { code: 'spellNoTarget' };
+      const map = room.scene.maps.find((m) => m.id === input.mapId);
+      const grid = gridOfMap(map, room.scene.grid);
+      const passenger = map?.tokens.find((t) => t.id === input.passengerId);
+      if (!map || !passenger) return { code: 'spellNoTarget' };
+      const passengerInvalid = passengerIssue(caster, passenger, grid, plan);
+      if (passengerInvalid) return passengerInvalid;
+      // Место рядом с точкой прибытия: у Thunder Step его может не быть — пассажир
+      // остаётся, поэтому отсутствие места каст не отклоняет.
+    }
+    return undefined;
   }
 
   // Steel Wind Strike: точка телепорта — рядом с любой из выбранных целей (правила клеток).
@@ -341,6 +359,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     ...(input.condition ? { choice: input.condition } : {}),
     ...(input.placements ? { placements: input.placements } : {}),
+    ...(input.passengerId ? { passengerId: input.passengerId } : {}),
     manual: {
       description: input.spell.description,
       level: input.spell.level,

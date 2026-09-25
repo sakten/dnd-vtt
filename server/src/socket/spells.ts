@@ -27,7 +27,7 @@ import { spellsInShapeAllowed } from './forms';
 export function registerSpellHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, emitToken } = ctx;
 
-  ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction, summonKey, variant, condition }) => {
+  ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction, summonKey, variant, condition, passengerId }) => {
     if (!ctx.playerId || typeof spellKey !== 'string') return;
     if (rejectIfReaction(ctx)) return;
     const scope = scopedToken(ctx, mapId, tokenId);
@@ -115,6 +115,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       summonKey,
       variant,
       condition,
+      passengerId: typeof passengerId === 'string' && passengerId ? passengerId : undefined,
       author: room.players.find((p) => p.id === ctx.playerId)?.name ?? '?',
     });
     if (!input) return;

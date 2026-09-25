@@ -345,4 +345,84 @@ describe('actions slice', () => {
     expect(emitted).toHaveLength(0);
     expect(useGameStore.getState().interaction?.mode).toBe('multi');
   });
+
+  const startPassengerAim = () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.tokens = [makeToken('t1', { x: 100, y: 100 }), makeToken('t2', { x: 150, y: 100 })];
+    useGameStore.getState().startAim({
+      tokenId: 't1',
+      spellKey: 'XPHB:Dimension Door',
+      slotLevel: 4,
+      spec: { shape: 'sphere', size: 0 },
+      originKind: 'point',
+      rangeFeet: 500,
+      passenger: { feet: 5, destFeet: 5 },
+    });
+    useGameStore.getState().aimToCursor({ x: 600, y: 100 });
+    useGameStore.getState().confirmAim();
+  };
+
+  it('телепорт с пассажиром: confirmAim ждёт выбора спутника, «Без спутника» — каст без него', () => {
+    startPassengerAim();
+    expect(emitted).toHaveLength(0);
+    const it = useGameStore.getState().interaction;
+    expect(it?.mode).toBe('target');
+    expect(it?.mode === 'target' ? it.target.kind : null).toBe('passenger');
+    useGameStore.getState().skipPassenger();
+    expect(emitted).toContainEqual({
+      event: 'spell:cast',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Dimension Door',
+        slotLevel: 4,
+        origin: { x: 600, y: 100 },
+      },
+    });
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
+  it('телепорт с пассажиром: клик по спутнику шлёт passengerId', () => {
+    startPassengerAim();
+    useGameStore.getState().resolveTargeting('t2');
+    expect(emitted).toContainEqual({
+      event: 'spell:cast',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Dimension Door',
+        slotLevel: 4,
+        origin: { x: 600, y: 100 },
+        passengerId: 't2',
+      },
+    });
+    expect(useGameStore.getState().interaction).toBeNull();
+  });
+
+  it('телепорт с пассажиром: рядом никого — каст сразу', () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.tokens = [makeToken('t1', { x: 100, y: 100 }), makeToken('t2', { x: 400, y: 100 })];
+    useGameStore.getState().startAim({
+      tokenId: 't1',
+      spellKey: 'XPHB:Dimension Door',
+      slotLevel: 4,
+      spec: { shape: 'sphere', size: 0 },
+      originKind: 'point',
+      rangeFeet: 500,
+      passenger: { feet: 5, destFeet: 5 },
+    });
+    useGameStore.getState().aimToCursor({ x: 600, y: 100 });
+    useGameStore.getState().confirmAim();
+    expect(emitted).toContainEqual({
+      event: 'spell:cast',
+      payload: {
+        mapId: 'm1',
+        tokenId: 't1',
+        spellKey: 'XPHB:Dimension Door',
+        slotLevel: 4,
+        origin: { x: 600, y: 100 },
+        direction: { x: 600, y: 100 },
+      },
+    });
+  });
 });

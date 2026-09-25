@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, armorOfAgathysDef, bestowCurseDef, blindnessDeafnessDef, boomingBladeDef, breathSpellDef, callLightningDef, chainLightningDef, commandDef, compositeDamageDef, conjureMinorElementalsDef, dominateDef, elementalBaneDef, elementalWeaponDef, enervationDef, enhanceAbilityDef, ensnaringStrikeDef, eyebiteDef, falseLifeDef, farStepDef, fireShieldDef, flameArrowsDef, flameBladeDef, greenFlameBladeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, invisibilityDef, jallarziDef, lifeTransferenceDef, magicStoneDef, magicWeaponDef, minuteMeteorsDef, negativeEnergyFloodDef, protectionFromEnergyDef, resistanceDef, searingSmiteDef, shadowBladeDef, shadowOfMoilDef, shillelaghDef, skillEmpowermentDef, spellBuiltinAutomated, spiritShroudDef, spiritualWeaponDef, steelWindStrikeDef, sunbeamDef, trueStrikeDef, vampiricTouchDef, vitriolicSphereDef, wallOfThornsDef, witchBoltDef, xphbSmiteDef, zephyrStrikeDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, armorOfAgathysDef, bestowCurseDef, blindnessDeafnessDef, boomingBladeDef, breathSpellDef, callLightningDef, chainLightningDef, commandDef, compositeDamageDef, conjureMinorElementalsDef, dimensionDoorDef, dominateDef, elementalBaneDef, elementalWeaponDef, enervationDef, enhanceAbilityDef, ensnaringStrikeDef, eyebiteDef, falseLifeDef, farStepDef, fireShieldDef, flameArrowsDef, flameBladeDef, greenFlameBladeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, invisibilityDef, jallarziDef, lifeTransferenceDef, magicStoneDef, magicWeaponDef, minuteMeteorsDef, negativeEnergyFloodDef, protectionFromEnergyDef, resistanceDef, searingSmiteDef, shadowBladeDef, shadowOfMoilDef, shillelaghDef, skillEmpowermentDef, spellBuiltinAutomated, spiritShroudDef, spiritualWeaponDef, steelWindStrikeDef, sunbeamDef, thunderStepDef, trueStrikeDef, vampiricTouchDef, vitriolicSphereDef, wallOfThornsDef, witchBoltDef, xphbSmiteDef, zephyrStrikeDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { spellVariantDef } from './variants';
 import type { AutomationOptions } from './variants';
@@ -140,6 +140,12 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const farStep = farStepDef(spell);
   if (farStep) return farStep;
+
+  const dimensionDoor = dimensionDoorDef(spell);
+  if (dimensionDoor) return dimensionDoor;
+
+  const thunderStep = thunderStepDef(spell, opts);
+  if (thunderStep) return thunderStep;
 
   const armorOfAgathys = armorOfAgathysDef(spell, opts);
   if (armorOfAgathys) return armorOfAgathys;

@@ -23,6 +23,7 @@ import {
   type AttackBurst,
   type AutomationDef,
   type AutomationEffect,
+  type AutomationUtility,
   type DiceRollResult,
   type SpellStats,
   type Token,
@@ -102,6 +103,32 @@ export function runBurst(
     ...(burst.dice ? { damage: { dice: burst.dice, types: [burst.damageType] } } : {}),
   };
   executeAutomation(ctx, { caster: attacker, mapId, def, targets, stats, author });
+}
+
+/**
+ * Thunder Step: спас и урон по существам у покинутой точки (после телепорта).
+ * `departure` — подошва кастера до перемещения (мутируется `executeTeleport`).
+ */
+function applyLeavingBurst(
+  ctx: ConnCtx,
+  room: Room,
+  input: AutomationInput,
+  burst: NonNullable<AutomationUtility['fromBurst']>,
+  departure: { x: number; y: number; w: number; h: number }
+): void {
+  const map = ctx.manager.findMap(room, input.mapId);
+  if (!map) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const targets = tokensNearFeet(map.tokens, departure, burst.feet, grid.size).filter((t) => !isBanished(t));
+  if (!targets.length) return;
+  const def: AutomationDef = {
+    key: input.def.key,
+    name: input.def.name,
+    resolution: 'save',
+    save: burst.save,
+    ...(burst.damage ? { damage: burst.damage } : {}),
+  };
+  executeAutomation(ctx, { ...input, def, targets });
 }
 
 /** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
@@ -505,9 +532,13 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   const kind = dispatchKind(def, { hasStats: !!stats, hasExpression: !!expression });
 
   if (kind === 'utility') {
+    // Thunder Step: вспышка в покинутой точке — сразу после телепорта кастера/пассажира.
+    const leavingBurst = def.utility?.kind === 'teleport' ? def.utility.fromBurst : undefined;
+    const departure = leavingBurst ? { x: caster.x, y: caster.y, w: caster.w, h: caster.h } : null;
     applyUtility(ctx, { ...input, targets });
     // Far Step: телепорт при касте + выданное бонусное действие (эффект на кастера).
     if (def.effects?.length) applyDefEffects(ctx, { ...input, targets });
+    if (leavingBurst && departure) applyLeavingBurst(ctx, room, input, leavingBurst, departure);
     return;
   }
 

@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import {
   autoFailSave,
+  cellCenter,
   combineRollMode,
   d20Expr,
   gridDistanceFeet,
+  gridOfMap,
+  isBanished,
+  pointCell,
   rollDice,
   sideMatches,
   statNumber,
+  teleportCellsNearBoxes,
   withAdvantage,
   withRollParts,
   type AbilityKey,
@@ -258,6 +263,35 @@ type UtilityHandler = (u: {
   utility: AutomationUtility;
   turn: TurnState | null;
 }) => void;
+
+/**
+ * Пассажир телепорта (Dimension Door/Thunder Step): ближайшая свободная клетка
+ * в `destFeet` от точки прибытия кастера. Нет места — пассажир остаётся (Thunder Step).
+ */
+function teleportPassenger(ctx: ConnCtx, room: Room, input: AutomationInput, utility: AutomationUtility): void {
+  const plan = utility.passenger;
+  if (!plan || !input.passengerId) return;
+  const map = ctx.manager.findMap(room, input.mapId);
+  const passenger = ctx.manager.findToken(room, input.mapId, input.passengerId);
+  if (!map || !passenger || passenger.id === input.caster.id || isBanished(passenger)) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const cells = teleportCellsNearBoxes([input.caster], map.tokens, grid, map.walls, plan.destFeet, passenger.id);
+  if (!cells.length) return;
+  const casterCell = pointCell(input.caster, grid);
+  let best: { cx: number; cy: number } | null = null;
+  let bestDist = Infinity;
+  for (const key of cells) {
+    const [cx, cy] = key.split(',').map(Number);
+    if (cx === undefined || cy === undefined) continue;
+    const dist = Math.hypot(cx - casterCell.cx, cy - casterCell.cy);
+    if (dist < bestDist) {
+      best = { cx, cy };
+      bestDist = dist;
+    }
+  }
+  if (!best) return;
+  executeTeleport(ctx, room, input.mapId, passenger, cellCenter(best.cx, best.cy, grid));
+}
 
 /** Обработчики простых утилит: доп. действие/движение, отход, доп. атаки, пул лечения, проверка. */
 const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
@@ -543,7 +577,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     }
     if (changed) ctx.manager.saveSoon(room);
   },
-  /** Misty Step: телепорт кастера в выбранную точку в пределах дистанции. */
+  /** Misty Step/DD/Thunder Step: телепорт кастера в выбранную точку. */
   teleport: ({ ctx, room, input, utility }) => {
     if (!input.origin) {
       fail(ctx, 'noAreaPoint');
@@ -555,6 +589,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       return;
     }
     executeTeleport(ctx, room, input.mapId, input.caster, input.origin);
+    teleportPassenger(ctx, room, input, utility);
   },
   /** Scatter: не-союзники кидают WIS-спас (успех — остаётся); невалидные точки пропускаем. */
   scatter: ({ ctx, room, input, utility }) => {

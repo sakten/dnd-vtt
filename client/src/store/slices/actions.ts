@@ -15,7 +15,7 @@ import {
   toggleScatterTarget,
   type InteractionCommand,
 } from '../../domain/interaction';
-import { areaCellKey, crossesWalls, pointCell, teleportCellsNearTargets } from 'shared';
+import { areaCellKey, crossesWalls, isBanished, passengerIssue, pointCell, teleportCellsNearTargets } from 'shared';
 import { emitInMap } from '../helpers';
 import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
@@ -35,6 +35,7 @@ export const createActionSlice: Slice<
     | 'aimToCursor'
     | 'cancelAim'
     | 'confirmAim'
+    | 'skipPassenger'
     | 'endConcentration'
     | 'startMultiTarget'
     | 'addMultiTarget'
@@ -158,9 +159,61 @@ export const createActionSlice: Slice<
 
     cancelAim: () => _set({ interaction: null }),
 
+    /** Телепорт с пассажиром: каст без спутника. */
+    skipPassenger: () => {
+      const it = get().interaction;
+      if (it?.mode !== 'target' || it.target.kind !== 'passenger') return;
+      const target = it.target;
+      _set({ interaction: null });
+      get().castSpell({
+        tokenId: target.tokenId,
+        spellKey: target.spellKey,
+        slotLevel: target.slotLevel,
+        advantage: target.advantage,
+        origin: target.origin,
+      });
+    },
+
     confirmAim: () => {
       const it = get().interaction;
       if (it?.mode === 'aim' && it.aim.blocked) return;
+      // Телепорт с пассажиром (Dimension Door/Thunder Step): перед кастом —
+      // выбор существа рядом; нет подходящих — кастуем без пассажира.
+      if (it?.mode === 'aim') {
+        const aim = it.aim;
+        const plan = aim.passenger;
+        const origin = aim.origin;
+        if (plan && origin) {
+          const state = get();
+          const map = activeMapOf(state);
+          const caster = tokenById(map, aim.tokenId);
+          const grid = activeGridOf(state);
+          const eligible =
+            map && caster
+              ? map.tokens.filter(
+                  (t) => t.id !== caster.id && !isBanished(t) && !passengerIssue(caster, t, grid, plan)
+                )
+              : [];
+          if (eligible.length) {
+            _set({
+              interaction: {
+                mode: 'target',
+                target: {
+                  kind: 'passenger',
+                  tokenId: aim.tokenId,
+                  spellKey: aim.spellKey ?? '',
+                  slotLevel: aim.slotLevel,
+                  advantage: aim.advantage,
+                  label: aim.spellKey ?? '',
+                  origin,
+                  plan,
+                },
+              },
+            });
+            return;
+          }
+        }
+      }
       const { next, command } = confirmArea(it);
       _set({ interaction: next });
       runCommand(command);

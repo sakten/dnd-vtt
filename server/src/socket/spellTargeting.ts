@@ -45,6 +45,8 @@ export interface SpellCastParams {
   condition?: string;
   /** Scatter: точки назначения по целям. */
   placements?: unknown;
+  /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
+  passengerId?: string;
   author: string;
 }
 
@@ -141,6 +143,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     variant: params.variant,
     condition: params.condition,
     ...(placements.length ? { placements } : {}),
+    ...(params.passengerId ? { passengerId: params.passengerId } : {}),
     author: params.author,
   };
 }

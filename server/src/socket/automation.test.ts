@@ -4,6 +4,7 @@ import {
   automationForSpell,
   effectDefenses,
   findBaseAction,
+  gridDistanceFeet,
   monsterAbilityAutomation,
   monsterStats,
   normalizeSheet,
@@ -594,6 +595,78 @@ describe('концентрация заклинаний с зонами', () => 
     const effect = caster.effects.find((e) => e.sourceKey === 'XGE:Far Step' && !!e.actions?.length);
     expect(effect?.actions?.[0]?.cost).toBe('bonus');
     expect(effect?.actions?.[0]?.def?.utility).toEqual({ kind: 'teleport', amount: 60 });
+  });
+
+  it('Dimension Door: пассажир в 5 фт прибывает рядом с точкой кастера', () => {
+    const { room, f } = setup();
+    const [caster, passenger] = room.scene.maps[0]!.tokens;
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Dimension Door')!),
+      targets: [],
+      stats,
+      author: 'DM',
+      origin: { x: 600, y: 100 },
+      passengerId: passenger!.id,
+    });
+    // Телепорт выравнивает по центру клетки (600 → 625), пассажир — в 5 фт.
+    expect(caster!.x).toBe(625);
+    expect(caster!.y).toBe(125);
+    expect(passenger!.x).not.toBe(150);
+    expect(gridDistanceFeet(caster!, passenger!, 50)).toBe(5);
+  });
+
+  it('Thunder Step: пассажир летит с кастером, гром бьёт у покинутой точки', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const [caster, passenger] = map.tokens;
+    const bystander = makeToken('t3', { x: 150, y: 150, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(bystander);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05); // d20 = 2 (провал), кости = 1
+    try {
+      executeAutomation(f.ctx, {
+        caster: caster!,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XGE:Thunder Step')!, { castLevel: 3 }),
+        targets: [],
+        stats,
+        author: 'DM',
+        origin: { x: 400, y: 100 },
+        passengerId: passenger!.id,
+      });
+    } finally {
+      rand.mockRestore();
+    }
+    expect(caster!.x).toBe(425);
+    expect(gridDistanceFeet(caster!, passenger!, 50)).toBe(5);
+    // Свидетель в 5 фт от покинутой точки провалил спас: 3к10 = 3.
+    expect(bystander.hpCurrent).toBe(27);
+  });
+
+  it('Телепорт с пассажиром: валидация дистанции и размера (Thunder Step)', () => {
+    const { room } = setup();
+    const map = room.scene.maps[0]!;
+    const [caster, passenger] = map.tokens;
+    const far = makeToken('t3', { x: 400, y: 100, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(far);
+    const input = (passengerId: string) => ({
+      caster: caster!,
+      mapId: 'm1',
+      spell: findSpell('XGE:Thunder Step')!,
+      castLevel: 3,
+      characterLevel: 5,
+      stats,
+      targets: [],
+      origin: { x: 200, y: 100 },
+      passengerId,
+      author: 'DM',
+    });
+    expect(validateSpellCast(room, input(far.id))).toMatchObject({ code: 'outOfRange' });
+    const big = { ...passenger!, id: 'big', w: 100, h: 100, x: 150, y: 100 };
+    map.tokens.push(big);
+    expect(validateSpellCast(room, input('big'))).toMatchObject({ code: 'passengerTooLarge' });
+    expect(validateSpellCast(room, input(passenger!.id))).toBeUndefined();
   });
 
   it('Protection from Evil and Good: charmed от фиенда не проходит, от гуманоида — проходит', () => {

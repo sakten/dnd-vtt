@@ -36,6 +36,8 @@ export interface AimState {
   nearTargets?: boolean;
   /** Предел близости точки телепорта к цели, футы (Steel Wind Strike: 5). */
   nearFeet?: number;
+  /** Телепорт с пассажиром (Dimension Door/Thunder Step): после точки — шаг выбора спутника. */
+  passenger?: { feet: number; destFeet: number; maxSize?: boolean };
 }
 
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
@@ -106,6 +108,19 @@ export type TargetingState =
       attackIndex: number;
       advantage?: 'a' | 'd';
       label: string;
+    }
+  | {
+      /** Телепорт с пассажиром: точка уже выбрана, осталось взять существо (или пропустить). */
+      kind: 'passenger';
+      tokenId: string;
+      spellKey: string;
+      slotLevel?: number;
+      advantage?: 'a' | 'd';
+      label: string;
+      /** Точка прибытия кастера. */
+      origin: Point;
+      /** Допуск пассажира: дистанция от кастера и (Thunder Step) размер. */
+      plan: { feet: number; destFeet: number; maxSize?: boolean };
     };
 
 /** Выбор одного состояния для снятия (Lesser/Greater Restoration) после клика по цели. */
@@ -148,6 +163,8 @@ export interface SpellCastPayload {
   condition?: string;
   /** Scatter: точка назначения на каждую цель. */
   placements?: { targetId: string; x: number; y: number }[];
+  /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
+  passengerId?: string;
 }
 
 /** Команда, которую стор исполняет после перехода машины. */
@@ -313,6 +330,22 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           targetIds: [targetId],
           ...(t.summonKey ? { summonKey: t.summonKey } : {}),
           ...(t.variant ? { variant: t.variant } : {}),
+        },
+      },
+    };
+  }
+  if (t.kind === 'passenger') {
+    return {
+      next: null,
+      command: {
+        type: 'castSpell',
+        payload: {
+          tokenId: t.tokenId,
+          spellKey: t.spellKey,
+          slotLevel: t.slotLevel,
+          advantage: t.advantage,
+          origin: t.origin,
+          passengerId: targetId,
         },
       },
     };

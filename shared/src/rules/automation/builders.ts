@@ -36,6 +36,8 @@ export const BUILTIN_AUTOMATION = new Set([
   'XGE:Skill Empowerment',
   'XPHB:Command',
   'XGE:Far Step',
+  'XPHB:Dimension Door',
+  'XGE:Thunder Step',
   'XPHB:Armor of Agathys',
   'XPHB:Magic Weapon',
   'XPHB:Shillelagh',
@@ -738,6 +740,45 @@ export function blindnessDeafnessDef(spell: Spell, opts: AutomationOptions): Aut
     concentration: true,
     utility: { kind: 'teleport', amount: 60 },
     effects: [actionCarrier(spell, { id: 'farStep', name: 'Прыжок', cost: 'bonus', def: jump })],
+  };
+}
+
+/**
+ * Dimension Door (XPHB 2024): телепорт до 500 фт, можно взять одно согласное
+ * существо в 5 фт (приземляется в 5 фт от точки прибытия). Занятая точка
+ * прибытия отклоняется кастом (упрощение клаузы про 4d6 — как у Misty Step).
+ */
+export function dimensionDoorDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Dimension Door') return undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'utility',
+    utility: { kind: 'teleport', amount: 500, passenger: { feet: 5, destFeet: 5 } },
+    targeting: { kind: 'point', range: 500 },
+  };
+}
+
+/**
+ * Thunder Step (XGE): телепорт до 90 фт; пассажир не крупнее кастера (нет места
+ * рядом с точкой — остаётся); сразу после исчезновения — спас CON всем в 10 фт
+ * от покинутой точки, 3к10 звуком (половина при успехе), +1к10 за круг выше 3-го.
+ */
+export function thunderStepDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Thunder Step') return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const dice = scaledDice(partDice(spell, 'main', '3d10'), spell.upcast?.dice, upcastSteps(spell, level));
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'utility',
+    utility: {
+      kind: 'teleport',
+      amount: 90,
+      passenger: { feet: 5, destFeet: 5, maxSize: true },
+      fromBurst: { feet: 10, save: { ability: 'con', half: true }, damage: { dice, types: ['thunder'] } },
+    },
+    targeting: { kind: 'point', range: 90 },
   };
 }
 

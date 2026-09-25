@@ -42,11 +42,32 @@ export function nearestTarget<T extends Pick<Token, 'x' | 'y'>>(
 }
 
 /**
+ * Допуск пассажира телепорта (Dimension Door, Thunder Step): существо рядом в
+ * момент каста и (для Thunder Step) не крупнее кастера. undefined — можно.
+ */
+export function passengerIssue(
+  caster: Token,
+  target: Token,
+  grid: AreaGrid,
+  plan: { feet: number; maxSize?: boolean }
+): { code: 'outOfRange'; feet: number } | { code: 'passengerTooLarge' } | undefined {
+  const feet = gridDistanceFeet(caster, target, grid.size);
+  if (feet > plan.feet) return { code: 'outOfRange', feet };
+  if (plan.maxSize && (target.w > caster.w || target.h > caster.h)) return { code: 'passengerTooLarge' };
+  return undefined;
+}
+
+/**
  * Дистанция от клетки до подошвы цели по правилам сетки: своя и любая соседняя
  * клетка (в т.ч. по диагонали) — 5 фт, следующая — 10 фт и т.д. Так «рядом»
  * одинаково работает для маленьких и больших существ.
  */
-export function cellNearTargetFeet(cx: number, cy: number, target: Token, grid: AreaGrid): number {
+export function cellNearTargetFeet(
+  cx: number,
+  cy: number,
+  target: Pick<Token, 'x' | 'y' | 'w' | 'h'>,
+  grid: AreaGrid
+): number {
   let best = Infinity;
   for (const key of tokenCells(target, grid)) {
     const [tx, ty] = key.split(',').map(Number);
@@ -69,23 +90,41 @@ export function teleportCellsNearTargets(
   feet: number,
   moverId: string
 ): string[] {
+  return teleportCellsNearBoxes(
+    targets.filter((t) => !isBanished(t)),
+    tokens,
+    grid,
+    walls,
+    feet,
+    moverId
+  );
+}
+
+/** То же от произвольных прямоугольников-якорей (точка прибытия Dimension Door). */
+export function teleportCellsNearBoxes(
+  anchors: readonly Pick<Token, 'x' | 'y' | 'w' | 'h'>[],
+  tokens: readonly Token[],
+  grid: AreaGrid,
+  walls: Wall[],
+  feet: number,
+  moverId: string
+): string[] {
   const occupied = new Set(
     tokens.filter((t) => t.id !== moverId && !isBanished(t)).flatMap((t) => tokenCells(t, grid))
   );
   const radiusCells = Math.max(1, Math.ceil(feet / 5));
   const out = new Set<string>();
-  for (const target of targets) {
-    if (isBanished(target)) continue;
+  for (const anchor of anchors) {
     // Перебираем вокруг каждой клетки подошвы (большие цели занимают несколько).
-    for (const key of tokenCells(target, grid)) {
+    for (const key of tokenCells(anchor, grid)) {
       const [tx, ty] = key.split(',').map(Number);
       if (tx === undefined || ty === undefined) continue;
       for (let cx = tx - radiusCells; cx <= tx + radiusCells; cx++) {
         for (let cy = ty - radiusCells; cy <= ty + radiusCells; cy++) {
           const cell = areaCellKey(cx, cy);
           if (occupied.has(cell) || out.has(cell)) continue;
-          if (cellNearTargetFeet(cx, cy, target, grid) > feet) continue;
-          if (crossesWalls(target, cellCenter(cx, cy, grid), walls, 'sight')) continue;
+          if (cellNearTargetFeet(cx, cy, anchor, grid) > feet) continue;
+          if (crossesWalls(anchor, cellCenter(cx, cy, grid), walls, 'sight')) continue;
           out.add(cell);
         }
       }

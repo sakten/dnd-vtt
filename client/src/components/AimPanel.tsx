@@ -19,6 +19,7 @@ export default function AimPanel() {
   const finish = useGameStore((s) => s.finishMultiTarget);
   const toPlaces = useGameStore((s) => s.scatterToPlaces);
   const back = useGameStore((s) => s.scatterBack);
+  const skipPassenger = useGameStore((s) => s.skipPassenger);
   const map = useActiveMap();
 
   if (!interaction) return null;
@@ -26,10 +27,17 @@ export default function AimPanel() {
   if (interaction.mode === 'condition') return null;
 
   if (interaction.mode === 'target') {
+    const target = interaction.target;
+    const passenger = target.kind === 'passenger';
     return (
       <div className="aim-panel" data-testid="aim-panel">
-        <span className="aim-title">{interaction.target.label}</span>
-        <span className="aim-hint">{t('ui.aim.targetHint')}</span>
+        <span className="aim-title">{passenger ? t('ui.aim.passenger') : target.label}</span>
+        <span className="aim-hint">{passenger ? t('ui.aim.passengerHint') : t('ui.aim.targetHint')}</span>
+        {passenger && (
+          <button className="aim-apply" onClick={skipPassenger}>
+            {t('ui.aim.withoutPassenger')}
+          </button>
+        )}
         <button className="aim-cancel" onClick={cancel}>
           {t('ui.common.cancel')}
         </button>

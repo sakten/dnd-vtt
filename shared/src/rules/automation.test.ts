@@ -1773,9 +1773,36 @@ describe('automationForSpell', () => {
     }
   });
 
+  it('G: Dimension Door/Thunder Step — телепорт с пассажиром и громом', () => {
+    const dd = automationForSpell(makeSpell({ key: 'XPHB:Dimension Door', name: 'Dimension Door', level: 4 }));
+    expect(dd.resolution).toBe('utility');
+    expect(dd.utility).toEqual({ kind: 'teleport', amount: 500, passenger: { feet: 5, destFeet: 5 } });
+    expect(dd.targeting).toEqual({ kind: 'point', range: 500 });
+    expect(dd.damage).toBeUndefined();
+    expect(spellAutomated(makeSpell({ key: 'XPHB:Dimension Door' }))).toBe(true);
+
+    const ts = makeSpell({
+      key: 'XGE:Thunder Step',
+      name: 'Thunder Step',
+      level: 3,
+      damage: { dice: ['3d10'], types: ['thunder'] },
+      save: ['con'],
+      saveHalf: true,
+      upcast: { above: 3, dice: '1d10' },
+    });
+    const base = automationForSpell(ts);
+    expect(base.utility?.passenger).toEqual({ feet: 5, destFeet: 5, maxSize: true });
+    expect(base.utility?.fromBurst).toEqual({
+      feet: 10,
+      save: { ability: 'con', half: true },
+      damage: { dice: '3d10', types: ['thunder'] },
+    });
+    expect(base.targeting).toEqual({ kind: 'point', range: 90 });
+    expect(automationForSpell(ts, { castLevel: 5 }).utility?.fromBurst?.damage?.dice).toBe('5d10');
+  });
+
   it('B4/C/F/G: ложная деривация выключена manual-замком (сессия 14)', () => {
     const keys = [
-      'XPHB:Dimension Door',
       "XGE:Tenser's Transformation",
       'XGE:Investiture of Flame',
       'XGE:Investiture of Ice',

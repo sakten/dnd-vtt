@@ -57,6 +57,8 @@ export interface AutomationInput {
   choice?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
+  /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
+  passengerId?: string;
 }
 
 /** Бонус владения кастера по его листу (монстры и токены без листа — 2). */

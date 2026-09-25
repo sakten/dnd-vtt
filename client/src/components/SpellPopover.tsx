@@ -193,6 +193,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         originKind: 'point',
         rangeFeet: teleportDef.amount ?? 30,
         summon: true,
+        ...(teleportDef.passenger ? { passenger: teleportDef.passenger } : {}),
       });
     } else if (scatterDef) {
       startScatter({

@@ -480,6 +480,13 @@ export interface AutomationUtility {
   thenMove?: boolean;
   /** Направление для `direction` (Compulsion). */
   direction?: DirectionKey;
+  /**
+   * Телепорт: взять одно согласное существо (`feet` — дистанция от кастера при
+   * касте, `destFeet` — от точки прибытия; `maxSize` — не крупнее кастера).
+   */
+  passenger?: { feet: number; destFeet: number; maxSize?: boolean };
+  /** Телепорт: вспышка в покинутой точке (Thunder Step) — спас и урон вокруг. */
+  fromBurst?: { feet: number; save: AutomationSave; damage?: AutomationDice };
 }
 
 /** Действие, выдаваемое эффектом (Expeditious Retreat: Рывок бонусным действием). */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GRID, type Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { creatureTargetIssue, nearestTarget, teleportCellsNearTargets } from './targeting';
+import { creatureTargetIssue, nearestTarget, passengerIssue, teleportCellsNearTargets } from './targeting';
 
 const grid = { ...DEFAULT_GRID };
 const token = (id: string, x: number, y: number): Token =>
@@ -35,6 +35,24 @@ describe('nearestTarget', () => {
     const near = token('b', 120, 100);
     expect(nearestTarget({ x: 110, y: 100 }, [far, near])?.id).toBe('b');
     expect(nearestTarget({ x: 110, y: 100 }, [])).toBeUndefined();
+  });
+});
+
+describe('passengerIssue', () => {
+  const caster = token('c', 100, 100);
+
+  it('существо рядом — можно; дальше предела — outOfRange с футами', () => {
+    expect(passengerIssue(caster, token('t', 150, 150), grid, { feet: 5 })).toBeUndefined();
+    expect(passengerIssue(caster, token('t', 200, 100), grid, { feet: 5 })).toEqual({
+      code: 'outOfRange',
+      feet: 10,
+    });
+  });
+
+  it('крупнее кастера — passengerTooLarge только при maxSize (Thunder Step)', () => {
+    const big = { ...token('b', 150, 100), w: 100, h: 100 } as Token;
+    expect(passengerIssue(caster, big, grid, { feet: 5, maxSize: true })).toEqual({ code: 'passengerTooLarge' });
+    expect(passengerIssue(caster, big, grid, { feet: 5 })).toBeUndefined();
   });
 });
 

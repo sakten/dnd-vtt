@@ -25,6 +25,7 @@ export type ErrorCode =
   | 'summonNoForm'
   | 'summonNoSpace'
   | 'teleportNoSpace'
+  | 'passengerTooLarge'
   | 'nameTaken'
   | 'shapeNoAbility'
   | 'shapeNoForm'

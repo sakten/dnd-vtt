@@ -5,6 +5,7 @@ import {
   confirmArea,
   finishMulti,
   pickMultiTarget,
+  pickTarget,
   placeScatterPoint,
   scatterBack,
   scatterToPlaces,
@@ -215,6 +216,30 @@ describe('Scatter: цели → точки', () => {
           { targetId: 't3', x: 200, y: 200 },
         ],
       },
+    });
+  });
+});
+
+describe('пассажир телепорта', () => {
+  it('клик по существу — каст с точкой прибытия и passengerId', () => {
+    const origin = { x: 200, y: 100 };
+    const it = {
+      mode: 'target' as const,
+      target: {
+        kind: 'passenger' as const,
+        tokenId: 't1',
+        spellKey: 'XPHB:Dimension Door',
+        slotLevel: 4,
+        label: '',
+        origin,
+        plan: { feet: 5, destFeet: 5 },
+      },
+    };
+    const { next, command } = pickTarget(it, 't2');
+    expect(next).toBeNull();
+    expect(command).toMatchObject({
+      type: 'castSpell',
+      payload: { tokenId: 't1', spellKey: 'XPHB:Dimension Door', slotLevel: 4, origin, passengerId: 't2' },
     });
   });
 });

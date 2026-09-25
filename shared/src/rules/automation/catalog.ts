@@ -1084,7 +1084,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // геометрии, Storm Sphere — attack вместо сферы, Cordon/Glyph — спасом без
   // триггера, Healing Spirit — лечением без лимита зарядов. Лочим до реализации
   // механик (TODO_SPELLS B4/C/F/G), чтобы «зелёный» не врал.
-  'XPHB:Dimension Door': manualSpell('XPHB:Dimension Door', 'Dimension Door'),
+  // Dimension Door и Thunder Step реализованы билдерами (`dimensionDoorDef`/`thunderStepDef`).
   "XGE:Tenser's Transformation": manualSpell("XGE:Tenser's Transformation", "Tenser's Transformation", true),
   'XGE:Investiture of Flame': manualSpell('XGE:Investiture of Flame', 'Investiture of Flame', true),
   'XGE:Investiture of Ice': manualSpell('XGE:Investiture of Ice', 'Investiture of Ice', true),
