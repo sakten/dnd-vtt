@@ -82,6 +82,9 @@ export type TargetingState =
       /** Прорубающее (Cleave): вторая цель. */
       cleave?: boolean;
       label: string;
+      /** Точка действия (Spiritual Weapon): цель выбирается в 5 фт от неё. */
+      origin?: Point;
+      nearFeet?: number;
     }
   | {
       kind: 'spell';
@@ -92,7 +95,7 @@ export type TargetingState =
       label: string;
       /** Polymorph: выбранная форма-зверь (ключ каталога). */
       summonKey?: string;
-      /** Вариант каста (Dragon's Breath: тип урона выдоха). */
+      /** Вариант каста (Dragon's Breath: тип выдоха). */
       variant?: string;
       /** Lesser/Greater Restoration: снимаемые состояния — после цели показываем выбор. */
       endConditionKeys?: ConditionKey[];

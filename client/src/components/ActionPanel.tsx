@@ -391,6 +391,23 @@ export default function ActionPanel() {
           // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
           const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
           const advantage = isCheck ? rollMode ?? undefined : undefined;
+          // Удар силы (Spiritual Weapon): цель в 5 фт от центра зоны; удар заряжает бонусное действие.
+          if (f.zoneId && f.targeting?.kind === 'creature' && f.targeting.from === 'origin') {
+            const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
+            if (zone) {
+              startTargeting({
+                kind: 'action',
+                tokenId: token.id,
+                actionId: f.id,
+                slot,
+                advantage,
+                label: base,
+                origin: zone.origin,
+                nearFeet: f.targeting.range ?? 5,
+              });
+              return;
+            }
+          }
           // Действие зоны (перемещение/удар): прицел с якорем от текущего центра зоны.
           if (f.zoneId && (f.targeting?.kind === 'point' || f.targeting?.kind === 'area')) {
             const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);

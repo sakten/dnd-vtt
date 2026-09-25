@@ -35,6 +35,7 @@ export type ErrorCode =
   | 'shapeNoRevert'
   | 'spellSelfOnly'
   | 'spellLongCast'
+  | 'strikeNotCharged'
   | 'noAreaPoint'
   | 'noClearPath'
   | 'outOfRange'

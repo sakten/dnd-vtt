@@ -7,6 +7,7 @@ import {
   areaCellKey,
   areaCells,
   attackRange,
+  cellNearTargetFeet,
   collectAttackSources,
   creatureTargetIssue,
   gridDistanceFeet,
@@ -504,6 +505,22 @@ export default function TableTop() {
     });
   }, [multiTarget, activeMap, spellByKey, grid, isDm, hiddenSet, visionView, invisibility.hidden]);
 
+  // Spiritual Weapon: цель — в 5 фт от выбранной точки силы (каст и удар зоной).
+  const targetEligible = useMemo(() => {
+    if (!activeMap || targeting?.kind !== 'action' || !targeting.origin || !targeting.nearFeet) return [];
+    const origin = targeting.origin;
+    const nearFeet = targeting.nearFeet;
+    const g = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    const cell = pointCell(origin, g);
+    return activeMap.tokens.filter((t) => {
+      if (t.id === targeting.tokenId || isBanished(t) || invisibility.hidden.has(t.id)) return false;
+      const cells = tokenCells(t, g);
+      if (!isDm && cells.some((key) => hiddenSet.has(key))) return false;
+      if (visionView && !cells.some((key) => visionView.base.has(key))) return false;
+      return cellNearTargetFeet(cell.cx, cell.cy, t, g) <= nearFeet;
+    });
+  }, [targeting, activeMap, grid, isDm, hiddenSet, visionView, invisibility.hidden]);
+
   // Steel Wind Strike: клетки телепорта рядом с выбранными целями.
   const teleportCells = useMemo(() => {
     if (!aim?.nearTargets || !aim.nearFeet || !aim.targetIds?.length || !activeMap) return [];
@@ -818,7 +835,7 @@ export default function TableTop() {
               aimCells={aimCells}
               rangeCircle={aimRangeCircle}
               multiTargetTokens={scatter ? scatterTokens : multiTargetTokens}
-              eligibleTokens={multiTarget ? eligibleTargets : []}
+              eligibleTokens={multiTarget ? eligibleTargets : targetEligible}
               teleportCells={teleportCells}
               scatterPins={scatterPins}
               viewScale={view.scale}

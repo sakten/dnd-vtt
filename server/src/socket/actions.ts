@@ -4,6 +4,7 @@
   applyWeaponOverrides,
   automationForAction,
   casterStats,
+  cellNearTargetFeet,
   classFeatures,
   combineRollMode,
   consumeSlotTurn,
@@ -21,6 +22,7 @@
   loadoutOf,
   masteryAccessible,
   monsterStats,
+  pointCell,
   restrictionsFor,
   rightGrip,
   rollDice,
@@ -269,7 +271,7 @@ function useZoneAction(
   room: Scope['room'],
   mapId: string,
   actionId: string,
-  opts: { slot?: ActionCost; origin?: { x: number; y: number } }
+  opts: { slot?: ActionCost; origin?: { x: number; y: number }; targetIds?: unknown }
 ): void {
   const rest = actionId.slice('zone:'.length);
   const at = rest.indexOf(':');
@@ -288,13 +290,77 @@ function useZoneAction(
     return;
   }
 
-  const origin = opts.origin && Number.isFinite(opts.origin.x) && Number.isFinite(opts.origin.y) ? opts.origin : null;
+  const moving = def.utility?.kind === 'moveZone';
+  const attacking = !!def.attack || !!def.save;
+  const fromOrigin = def.targeting?.kind === 'creature' && (def.targeting.from ?? 'caster') === 'origin';
+  const grid = gridOfMap(map, room.scene.grid);
+
+  // Бесплатный «Удар силы» (Spiritual Weapon): бьёт из центра зоны, доступен, пока
+  // заряжен кастом или «Переносом»; цель — в 5 фт от центра.
+  if (attacking && fromOrigin) {
+    if (!zone.readyStrike) {
+      fail(ctx, 'strikeNotCharged', { name: zone.name });
+      return;
+    }
+    const stats = casterStatsFor(room, caster, zone.sourceKey);
+    if (!stats) {
+      fail(ctx, 'spellNoAttack');
+      return;
+    }
+    const targets = actionTargets(ctx, room, mapId, caster, { targetIds: opts.targetIds, selfWhenEmpty: false }).filter(
+      (t) => t.id !== caster.id
+    );
+    if (!targets.length) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    const cell = pointCell(zone.origin, grid);
+    for (const target of targets) {
+      const distance = cellNearTargetFeet(cell.cx, cell.cy, target, grid);
+      if (distance > (def.targeting?.range ?? 5)) {
+        fail(ctx, 'outOfRange', { feet: distance });
+        return;
+      }
+    }
+    const combat = ctx.manager.combatOf(room, mapId);
+    const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, caster.id);
+    if (combat?.active && !isActive && !ctx.isDm()) {
+      fail(ctx, 'notYourTurn');
+      return;
+    }
+    const turn = isActive ? ctx.manager.turnForToken(room, mapId, caster) : null;
+    if (!ctx.manager.spendSlot(room, mapId, caster, chooseSlot(turn, [granted.cost], opts.slot))) {
+      fail(ctx, 'noActions');
+      return;
+    }
+    zone.readyStrike = false;
+    ctx.broadcastZones(room, mapId);
+    ctx.syncCombat(room, mapId);
+    const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
+    executeAutomation(ctx, {
+      caster,
+      mapId,
+      def: { ...def, name: granted.name },
+      targets,
+      stats,
+      author,
+      origin: zone.origin,
+      direction: null,
+      area: null,
+    });
+    return;
+  }
+
+  // Перемещение и прочие зональные действия (Moonbeam, Call Lightning): точка клика.
+  const origin =
+    opts.origin && Number.isFinite(opts.origin.x) && Number.isFinite(opts.origin.y) ? opts.origin : null;
   if (!origin) {
     fail(ctx, 'noAreaPoint');
     return;
   }
-  const moving = def.utility?.kind === 'moveZone';
-  const grid = gridOfMap(map, room.scene.grid);
+  const requested = actionTargets(ctx, room, mapId, caster, { targetIds: opts.targetIds, selfWhenEmpty: false }).filter(
+    (t) => t.id !== caster.id
+  );
   const feet = (Math.hypot(origin.x - zone.origin.x, origin.y - zone.origin.y) / grid.size) * 5;
   const limit = moving ? Math.max(0, def.utility?.amount ?? 0) : def.targeting?.range ?? 0;
   if (feet > limit) {
@@ -312,6 +378,12 @@ function useZoneAction(
     fail(ctx, def.save ? 'spellNoDc' : 'spellNoAttack');
     return;
   }
+  const area = def.targeting?.kind === 'area' ? def.targeting.area : undefined;
+  const targets = attacking
+    ? requested.length
+      ? requested
+      : actionTargets(ctx, room, mapId, caster, { area, origin, selfWhenEmpty: !area })
+    : [];
 
   const combat = ctx.manager.combatOf(room, mapId);
   const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, caster.id);
@@ -327,16 +399,22 @@ function useZoneAction(
   ctx.syncCombat(room, mapId);
 
   if (moving) {
+    // Перенос заряжает бесплатный удар силы, если у зоны он есть (Spiritual Weapon).
+    const grantsStrike = (zone.actions ?? []).some(
+      (a) => a.def?.targeting?.kind === 'creature' && (a.def.targeting.from ?? 'caster') === 'origin'
+    );
+    if (grantsStrike) zone.readyStrike = true;
     moveZone(ctx, room, mapId, zone, origin);
-    ctx.systemMessage(room, {
-      code: 'automation.zoneMoved',
-      params: { name: caster.name, feature: zone.name },
-    });
-    return;
+    if (!attacking) {
+      ctx.systemMessage(room, {
+        code: 'automation.zoneMoved',
+        params: { name: caster.name, feature: zone.name },
+      });
+      return;
+    }
   }
+  if (!attacking) return;
 
-  const area = def.targeting?.kind === 'area' ? def.targeting.area : undefined;
-  const targets = actionTargets(ctx, room, mapId, caster, { area, origin, selfWhenEmpty: !area });
   const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
   executeAutomation(ctx, {
     caster,
@@ -345,7 +423,7 @@ function useZoneAction(
     targets,
     stats,
     author,
-    origin,
+    origin: zone.origin,
     direction: null,
     area: area ?? null,
   });
@@ -546,9 +624,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      // Действия зон (перемещение Moonbeam/Flaming Sphere).
+      // Действия зон (перемещение Moonbeam/Flaming Sphere, удар силы Spiritual Weapon).
       if (actionId.startsWith('zone:')) {
-        useZoneAction(ctx, room, mapId, actionId, { slot, origin });
+        useZoneAction(ctx, room, mapId, actionId, { slot, origin, targetIds: requested });
         return;
       }
 

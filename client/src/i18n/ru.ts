@@ -18,6 +18,7 @@
   'error.recharging': 'Способность перезаряжается: {name}',
   'error.spellNotPrepared': 'Заклинание не выбрано в листе',
   'error.spellLongCast': '{name}: долгое накладывание — в бою недоступно',
+  'error.strikeNotCharged': '{name}: сначала потратьте бонусное действие',
   'error.spellNotInStatblock': 'Заклинание не выбрано в статблоке',
   'error.familiarNoAttack': 'Фамильяр не может атаковать (нужна черта «Договор цепи»)',
   'error.summonNoPact': 'Эта форма фамильяра требует инвокацию «Договор цепи»',

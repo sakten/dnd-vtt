@@ -250,11 +250,20 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
 
   if (input.area) return undefined;
 
-  // Creature-таргетинг у self-заклинания (Eyebite): дистанция и видимость цели.
+  // Creature-таргетинг: от кастера (Eyebite) или от точки каста (сила Spiritual Weapon).
   if (def.targeting?.kind === 'creature') {
     const range = def.targeting.range ?? 5;
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
+    if ((def.targeting.from ?? 'caster') === 'origin') {
+      if (!input.origin) return { code: 'noAreaPoint' };
+      const cell = pointCell(input.origin, grid);
+      for (const target of targets) {
+        const feet = cellNearTargetFeet(cell.cx, cell.cy, target, grid);
+        if (feet > range) return { code: 'outOfRange', params: { feet } };
+      }
+      return undefined;
+    }
     for (const target of targets) {
       if (target.id === caster.id) continue;
       const feet = gridDistanceFeet(caster, target, grid.size);

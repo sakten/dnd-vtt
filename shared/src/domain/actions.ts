@@ -28,6 +28,8 @@ export interface ActionTargeting {
   /** Максимум целей. */
   targets?: number;
   area?: AreaSpec;
+  /** Точка отсчёта дистанции для `creature`: кастер (по умолчанию) или точка каста (сила). */
+  from?: 'caster' | 'origin';
 }
 export interface MonsterAbilityAttack {
   rangeType: 'melee' | 'ranged';
@@ -88,6 +90,8 @@ export interface ActionDef {
   libraryId?: string;
   /** id зоны-источника (действия, выданные зоной: перемещение). */
   zoneId?: string;
+  /** Лимит перемещения зоны за действие, футы (Spiritual Weapon: 20). */
+  moveFeet?: number;
   /** Ключ иконки действия (`<ключ заклинания-источника>:<id действия>`); пусто — общий глиф. */
   iconKey?: string;
 }

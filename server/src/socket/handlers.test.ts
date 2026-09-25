@@ -4601,6 +4601,65 @@ describe('spell:cast', () => {
     expect([caster.x, caster.y]).toEqual([275, 275]);
   });
 
+  it('Spiritual Weapon: каст заряжает бесплатный удар, «Перенос» двигает и заряжает снова', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 175, y: 100, ac: '12', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Spiritual Weapon', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 2, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+
+    // Каст (бонус): сила появилась, удар заряжен, урона нет — он отдельным бесплатным действием.
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Spiritual Weapon',
+      slotLevel: 2,
+      origin: { x: 150, y: 100 },
+    });
+    expect(f.emitted.filter((e) => e.event === 'chat:error')).toEqual([]);
+    const map = room.scene.maps[0]!;
+    const zone = (map.zones ?? []).find((z) => z.sourceKey === 'XPHB:Spiritual Weapon');
+    expect(zone).toBeDefined();
+    expect(zone!.readyStrike).toBe(true);
+    expect(map.tokens[1]!.hpCurrent).toBe(30);
+    expect(combatOf(room).turns.e1!.bonusActionUsed).toBe(true);
+
+    // Бесплатный удар из центра силы (цель в 5 фт): бонус не тратится ещё раз.
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // попадание, 1d8=5 (+мод Инт 4)
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `zone:${zone!.id}:strike`, targetIds: ['t2'] });
+    rand.mockRestore();
+    expect(f.emitted.filter((e) => e.event === 'chat:error')).toEqual([]);
+    expect(map.tokens[1]!.hpCurrent).toBe(21);
+    expect(zone!.readyStrike).toBe(false);
+    expect(combatOf(room).turns.e1!.actionUsed).toBe(false);
+
+    // Без заряда удар отклоняется.
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `zone:${zone!.id}:strike`, targetIds: ['t2'] });
+    expect((f.selfEvents('chat:error').pop()?.payload as { code?: string } | undefined)?.code).toBe('strikeNotCharged');
+    expect(map.tokens[1]!.hpCurrent).toBe(21);
+
+    // Новый ход: «Перенос» (бонус) двигает силу ≤20 фт и снова заряжает удар.
+    const errorsBefore = f.selfEvents('chat:error').length;
+    combatOf(room).turns.e1!.bonusActionUsed = false;
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `zone:${zone!.id}:move`, origin: { x: 200, y: 100 } });
+    expect(f.selfEvents('chat:error').length).toBe(errorsBefore);
+    expect([zone!.origin.x, zone!.origin.y]).toEqual([200, 100]);
+    expect(zone!.readyStrike).toBe(true);
+
+    const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0.6);
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: `zone:${zone!.id}:strike`, targetIds: ['t2'] });
+    rand2.mockRestore();
+    expect(map.tokens[1]!.hpCurrent).toBe(12);
+    expect(zone!.readyStrike).toBe(false);
+  });
+
   it('без выбранного заклинания не кастует', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.sheets.p1 = casterSheet();

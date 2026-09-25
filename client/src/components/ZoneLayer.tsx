@@ -1,6 +1,6 @@
-import { Group, Line, Shape, Text } from 'react-konva';
+import { Group, Line, Rect, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
-import { areaCellsLit, areaCellsSpread, type GridSettings, type Wall, type ZoneInstance } from 'shared';
+import { areaCellsLit, areaCellsSpread, cellCenter, pointCell, type GridSettings, type Wall, type ZoneInstance } from 'shared';
 import { zoneColor, zoneStyle, type ZoneStyle } from '../lib/zoneRender';
 
 interface CellRect {
@@ -75,27 +75,60 @@ export default function ZoneLayer({
       {zones
         .filter((zone) => zone.origin && Number.isFinite(zone.origin.x) && Number.isFinite(zone.origin.y))
         .map((zone) => {
-        // Почти незаметные зоны (туча Call Lightning): маленькая молния в центре (+ имя для DM).
+        // Почти незаметные зоны: молния Call Lightning или жёлтый молот силы (Spiritual Weapon).
         if (zone.flags?.subtle) {
-          const x = zone.origin.x;
-          const y = zone.origin.y;
-          const color = zoneColor(zone.sourceKey);
+          const cell = pointCell(zone.origin, grid);
+          const center = cellCenter(cell.cx, cell.cy, grid);
+          const x = center.x;
+          const y = center.y;
+          const hammer = zone.flags.sprite === 'hammer';
+          const color = hammer ? '#ffd43b' : zoneColor(zone.sourceKey);
+          const s = grid.size;
           return (
             <Group key={zone.id} listening={false}>
-              <Line
-                points={[x + 2, y - 13, x - 6, y + 1, x, y + 1, x - 3, y + 13, x + 7, y - 2, x + 1, y - 2, x + 5, y - 13]}
-                closed
-                fill={color}
-                stroke="#000000"
-                strokeWidth={1}
-                opacity={0.8}
-                listening={false}
-              />
+              {hammer ? (
+                <>
+                  <Rect
+                    x={x - s * 0.33}
+                    y={y - s * 0.36}
+                    width={s * 0.66}
+                    height={s * 0.24}
+                    cornerRadius={s * 0.03}
+                    fill={color}
+                    stroke="#000000"
+                    strokeWidth={1}
+                    opacity={0.95}
+                    listening={false}
+                  />
+                  <Rect
+                    x={x - s * 0.055}
+                    y={y - s * 0.12}
+                    width={s * 0.11}
+                    height={s * 0.5}
+                    cornerRadius={s * 0.02}
+                    fill={color}
+                    stroke="#000000"
+                    strokeWidth={1}
+                    opacity={0.95}
+                    listening={false}
+                  />
+                </>
+              ) : (
+                <Line
+                  points={[x + 2, y - 13, x - 6, y + 1, x, y + 1, x - 3, y + 13, x + 7, y - 2, x + 1, y - 2, x + 5, y - 13]}
+                  closed
+                  fill={color}
+                  stroke="#000000"
+                  strokeWidth={1}
+                  opacity={0.8}
+                  listening={false}
+                />
+              )}
               {subtleLabels && (
                 <Text
                   text={zone.name}
                   x={x}
-                  y={y + 16}
+                  y={y + s * 0.48}
                   fontSize={11}
                   fill={color}
                   opacity={0.5}

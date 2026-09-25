@@ -197,6 +197,31 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('Spiritual Weapon: зона-сила, каст заряжает бесплатный удар, «Перенос» двигает и заряжает', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Spiritual Weapon',
+      name: 'Spiritual Weapon',
+      level: 2,
+      time: [{ number: 1, unit: 'bonus' }],
+      spellAttack: 'melee',
+      damage: { dice: ['1d8'], types: ['force'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.zone?.origin).toBe('point');
+    expect(def.zone?.flags).toEqual({ subtle: true, sprite: 'hammer' });
+    const [move, strike] = def.zone?.actions ?? [];
+    expect(move).toMatchObject({ id: 'move', cost: 'bonus', def: { utility: { kind: 'moveZone', amount: 20 } } });
+    expect(strike).toMatchObject({
+      id: 'strike',
+      cost: 'free',
+      def: { targeting: { kind: 'creature', range: 5, from: 'origin' } },
+    });
+    expect(strike?.def?.damage).toEqual({ dice: '1d8', types: ['force'], abilityMod: true });
+    expect(automationForSpell(spell, { castLevel: 4 }).zone?.actions?.[1]?.def?.damage?.dice).toBe('3d8');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Lesser Restoration — каталог: endCondition и допустимые состояния', () => {
     const lesser = makeSpell({
       key: 'XPHB:Lesser Restoration',

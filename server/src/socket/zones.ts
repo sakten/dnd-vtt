@@ -319,6 +319,7 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     side: zoneDef.side,
     light: zoneDef.light ? { ...zoneDef.light } : undefined,
     actions: zoneDef.actions,
+    readyStrike: zoneDef.actions?.some((a) => a.def?.attack) ? true : undefined,
     dc: input.stats?.dc,
     aura: zoneDef.aura,
     triggers: zoneDef.triggers,
@@ -373,6 +374,11 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
         removeZone(ctx, room, mapId, zone);
         continue;
       }
+    }
+    // Конец хода источника: незаряженный «Удар силы» гаснет (Spiritual Weapon).
+    if (phase === 'end' && zone.sourceId === token.id && zone.readyStrike) {
+      zone.readyStrike = false;
+      changed = true;
     }
     // Лимит «1 минута» = 10 раундов (зоны: Moonbeam, Flaming Sphere и подобные).
     if (zone.maxRounds != null && phase === 'start' && zone.sourceId === token.id) {

@@ -155,6 +155,8 @@ export function useActionContext(): ActionContext | null {
       if (!source) continue;
       if (!isDm && !canControlTokenWith(control, source, charName)) continue;
       for (const action of zone.actions) {
+        // Незаряженный «Удар силы» (Spiritual Weapon) не показываем: сначала бонусное действие.
+        if (action.def?.attack && !zone.readyStrike) continue;
         zoneActions.push({
           id: `zone:${zone.id}:${action.id}`,
           name: action.name,
@@ -162,6 +164,7 @@ export function useActionContext(): ActionContext | null {
           costs: [action.cost],
           targeting: action.def?.targeting,
           zoneId: zone.id,
+          moveFeet: action.def?.utility?.kind === 'moveZone' ? action.def.utility.amount : undefined,
           description: zone.name,
           iconKey: `${zone.sourceKey}:${action.id}`,
         });

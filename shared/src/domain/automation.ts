@@ -322,6 +322,8 @@ export interface ZoneDef {
     blocksLineOfSight?: boolean;
     /** Почти незаметный визуал зоны (туча Call Lightning): только тонкий контур. */
     subtle?: boolean;
+    /** Спрайт-маркер зоны (Spiritual Weapon — жёлтый молот силы). */
+    sprite?: 'hammer';
   };
 }
 
@@ -353,6 +355,11 @@ export interface ZoneInstance {
   excludeSource?: boolean;
   /** Действия владельца зоны, пока она на карте (перемещение). */
   actions?: GrantedAction[];
+  /**
+   * Заряжена на бесплатный удар (Spiritual Weapon): выдаётся при создании и
+   * «Переносом» за бонусное действие, сбрасывается ударом и в конце хода источника.
+   */
+  readyStrike?: boolean;
   /** СЛ спасбросков payload'ов (посчитана при касте). */
   dc?: number;
   aura?: AutomationPayload;
@@ -436,7 +443,8 @@ export interface AutomationUtility {
 export interface GrantedAction {
   id: string;
   name: string;
-  cost: 'action' | 'bonus';
+  /** `free` — не тратит ресурсов хода (Spiritual Weapon: удар после бонусного действия). */
+  cost: 'action' | 'bonus' | 'free';
   /** Механика базового действия каталога (`dash`) — payload не дублируется. */
   baseActionId?: string;
   /** Своя механика, если действие не ссылается на базовое (Dragon's Breath). */

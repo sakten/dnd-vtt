@@ -20,6 +20,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.recharging': 'Ability is recharging: {name}',
   'error.spellNotPrepared': 'Spell is not selected in the sheet',
   'error.spellLongCast': '{name}: long casting time — unavailable in combat',
+  'error.strikeNotCharged': '{name}: spend a bonus action first',
   'error.spellNotInStatblock': 'Spell is not selected in the statblock',
   'error.familiarNoAttack': "A familiar can't attack (Pact of the Chain required)",
   'error.summonNoPact': 'This familiar form requires the Pact of the Chain invocation',

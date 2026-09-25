@@ -416,7 +416,9 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
           typeof a === 'object' &&
           typeof (a as GrantedAction).id === 'string' &&
           typeof (a as GrantedAction).name === 'string' &&
-          ((a as GrantedAction).cost === 'action' || (a as GrantedAction).cost === 'bonus')
+          ((a as GrantedAction).cost === 'action' ||
+            (a as GrantedAction).cost === 'bonus' ||
+            (a as GrantedAction).cost === 'free')
       );
       if (actions.length) effect.actions = actions.slice(0, 8);
     }

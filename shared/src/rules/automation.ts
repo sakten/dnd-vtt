@@ -2282,6 +2282,49 @@ function steelWindStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDe
 }
 
 /**
+ * Spiritual Weapon (XPHB 2024): бонусным действием — сила в точке ≤60 фт.
+ * Каст заряжает бесплатный «Удар силы» (цель в 5 фт от неё, 1к8 + мод, +1к8/круг).
+ * Позже бонусным действием «Перенос силы» двигает её ≤20 фт и снова заряжает удар.
+ */
+function spiritualWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Spiritual Weapon') return undefined;
+  const castLevel = Math.max(2, opts.castLevel ?? spell.level);
+  const damage = {
+    dice: scaledDice(spell.damage?.dice?.[0] ?? '1d8', '1d8', castLevel - 2),
+    types: ['force'],
+    abilityMod: true,
+  };
+  const strike: GrantedAction = {
+    id: 'strike',
+    name: 'Удар силы',
+    cost: 'free',
+    def: {
+      key: spell.key,
+      name: spell.name,
+      resolution: 'attack',
+      attack: { rangeType: 'melee' },
+      count: 1,
+      damage,
+      targeting: { kind: 'creature', range: 5, from: 'origin' },
+    },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 0 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      movable: true,
+      actions: [zoneMoveAction('Перенос силы', 'bonus', 20), strike],
+      flags: { subtle: true, sprite: 'hammer' },
+    },
+  };
+}
+
+/**
  * Chain Lightning (XPHB 2024): игрок выбирает первую цель (150 фт); три скачка
  * (+1 за круг выше 6) добираются авто по враждебным существам в 30 фт от неё;
  * все цели — спас DEX, один бросок 10к8 электричеством (половина при успехе).
@@ -2678,6 +2721,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const steelWindStrike = steelWindStrikeDef(spell, opts);
   if (steelWindStrike) return steelWindStrike;
+
+  const spiritualWeapon = spiritualWeaponDef(spell, opts);
+  if (spiritualWeapon) return spiritualWeapon;
 
   const composite = compositeDamageDef(spell, opts);
   if (composite) return composite;
