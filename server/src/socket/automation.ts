@@ -979,6 +979,13 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       if (def.burst) runBurst(ctx, room, mapId, caster, target, def, def.burst, stats, author);
       nextRay();
     };
+    /** Промах: Melf's Acid Arrow брызжет половиной первичного урона. */
+    const afterMiss = () => {
+      if (def.halfOnMiss && expression) {
+        applyResult(run, target, rollDice(expression), { halve: true, subject: label });
+      }
+      afterRay();
+    };
 
     /** Урон и эффекты луча; выполняется после окон (промах мог стать попаданием). */
     const applyRayHit = (mods: WeaponDamageMods, done: () => void) => {
@@ -1037,14 +1044,14 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       const opened = openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
         if (!ctx.getRoom()) return;
         const total = hit.hitRoll.total + penalty + bonus + inspiration;
-        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, ac)) return afterRay();
+        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, ac)) return afterMiss();
         withHitWindows(total, (ok, mods) => {
           if (ok) applyRayHit(mods ?? {}, afterRay);
-          else afterRay();
+          else afterMiss();
         });
       });
       if (opened) return;
-      return afterRay();
+      return afterMiss();
     }
 
     // Попадание: окно защитных реакций цели и защитников-союзников.
@@ -1203,6 +1210,24 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
       if (save.success && (!half || saveNoDamage(save.target.effects))) continue;
       applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
     }
+    // Self-эффекты «только при провале» (Enervation: повтор действием).
+    const failed = saves.some((save) => !save.success);
+    const onFailSelf = (def.effects ?? []).filter((e) => e.to === 'self' && e.selfOnFail);
+    if (failed && onFailSelf.length) {
+      for (const effectDef of onFailSelf) {
+        applyEffectLight(run.ctx, run.room, run.mapId, {
+          sourceKey: def.key,
+          sourceId: caster.id,
+          mapId: run.mapId,
+          effectDef,
+          target: caster,
+          maxRounds: def.maxRounds,
+          untilSaveDc: stats.dc,
+          escapeDc: stats.dc,
+        });
+      }
+      if (def.concentration) anchorConcentration(run.ctx, run.room, caster, run.mapId, def);
+    }
     // Форма — не эффект: якорь концентрации на кастере нужен для проверки уроном и снятия.
     if (run.def.concentration && shaped) anchorConcentration(run.ctx, run.room, run.caster, run.mapId, run.def);
   };
@@ -1318,7 +1343,8 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
 
   // Self-эффекты не-effect резолвов (Vampiric Touch, Sunbeam, Conjure Woodland Beings):
   // один раз на кастера + якорь концентрации (зоны/эффекты живут до её снятия).
-  const selfEffects = (def.effects ?? []).filter((e) => e.to === 'self');
+  // `selfOnFail` (Enervation) — отложены до провала спасброска в runSave.
+  const selfEffects = (def.effects ?? []).filter((e) => e.to === 'self' && !e.selfOnFail);
   if (selfEffects.length) {
     for (const effectDef of selfEffects) {
       applyEffectLight(ctx, room, mapId, {

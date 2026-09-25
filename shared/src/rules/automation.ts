@@ -1428,6 +1428,10 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Blindness/Deafness',
   'XGE:Life Transference',
   'XPHB:Bestow Curse',
+  'XPHB:Witch Bolt',
+  "XPHB:Melf's Acid Arrow",
+  'XGE:Enervation',
+  "XGE:Melf's Minute Meteors",
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1594,6 +1598,124 @@ function heatMetalDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
     damage,
     effects: [holding, actionCarrier(spell, { id: 'burn', name: 'Раскалённый металл', cost: 'bonus', def: burn })],
   };
+}
+
+/**
+ * Witch Bolt (XPHB 2024): дальняя атака 2к12 (+1к12/круг к первичному урону);
+ * связь — на попадании и при промахе: бонусным действием 1к12 электричеством
+ * без броска (каркас Heat Metal). Обрыв по дистанции/укрытию не отслеживается.
+ */
+function witchBoltDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Witch Bolt') return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const initial = scaledDice('2d12', spell.upcast?.dice, upcastSteps(spell, level));
+  const bolt: AutomationDef = {
+    key: spell.key,
+    name: 'Разряд',
+    resolution: 'auto',
+    damage: { dice: '1d12', types: ['lightning'] },
+    targeting: { kind: 'creature', range: 60 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    attack: { rangeType: 'ranged' },
+    count: 1,
+    concentration: true,
+    damage: { dice: `${initial}lightning`, types: ['lightning'] },
+    effects: [actionCarrier(spell, { id: 'bolt', name: 'Разряд', cost: 'bonus', def: bolt })],
+  };
+}
+
+/**
+ * Melf's Acid Arrow (XPHB 2024): дальняя атака 4к4 кислотой; при попадании — ещё
+ * 2к4 в конце следующего хода цели (одноразовый `triggers.endOfTurn`); при промахе —
+ * половина первичного урона (`halfOnMiss`). Апкаст +1к4 к обеим частям.
+ */
+function acidArrowDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== "XPHB:Melf's Acid Arrow") return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, level);
+  const primary = scaledDice('4d4', spell.upcast?.dice, steps);
+  const delayed = scaledDice('2d4', spell.upcast?.dice, steps);
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    attack: { rangeType: 'ranged' },
+    count: 1,
+    halfOnMiss: true,
+    damage: { dice: `${primary}acid`, types: ['acid'] },
+    effects: [
+      {
+        name: spell.name,
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [],
+        triggers: { endOfTurn: { damage: { dice: `${delayed}acid`, types: ['acid'] } } },
+      },
+    ],
+  };
+}
+
+/**
+ * Enervation (XGE): спас DEX; успех — половина урона и конец (аппроксимация:
+ * 4к8/2 вместо броска 2к8); провал — 4к8 некротикой и повтор действием 4к8
+ * с лечением половины (концентрация; каркас Heat Metal + `lifesteal`).
+ */
+function enervationDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Enervation') return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const dice = scaledDice('4d8', spell.upcast?.dice, upcastSteps(spell, level));
+  const drain: AutomationDef = {
+    key: spell.key,
+    name: 'Вытягивание жизни',
+    resolution: 'auto',
+    damage: { dice: `${dice}necrotic`, types: ['necrotic'] },
+    lifesteal: true,
+    targeting: { kind: 'creature', range: 60 },
+  };
+  const carrier = actionCarrier(spell, { id: 'drain', name: 'Вытягивание жизни', cost: 'action', def: drain });
+  carrier.selfOnFail = true;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${dice}necrotic`, types: ['necrotic'] },
+    effects: [carrier],
+  };
+}
+
+/**
+ * Melf's Minute Meteors (XGE): 6 метеоров (+2 за круг выше 3); бонусным действием
+ * метеор в точку ≤120 фт — бурст 5 фт, спас DEX, 2к6 огнём (половина при успехе).
+ */
+function minuteMeteorsDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== "XGE:Melf's Minute Meteors") return undefined;
+  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const charges = 6 + 2 * Math.max(0, level - 3);
+  const burst: AutomationDef = {
+    key: spell.key,
+    name: 'Метеор',
+    resolution: 'save',
+    save: { ability: 'dex', half: true },
+    damage: { dice: '2d6', types: ['fire'] },
+    area: { shape: 'sphere', size: 5 },
+    targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 120 },
+  };
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'self',
+    modifiers: [],
+    charges: { count: charges },
+    actions: [{ id: 'meteor', name: 'Метеор', cost: 'bonus', def: burst }],
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
 /** Call Lightning (XPHB 2024): туча-цилиндр 60 фт, удар 5 фт при касте (в центр) и повтор действием. */
@@ -3026,6 +3148,18 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const heatMetal = heatMetalDef(spell, opts);
   if (heatMetal) return heatMetal;
+
+  const witchBolt = witchBoltDef(spell, opts);
+  if (witchBolt) return witchBolt;
+
+  const acidArrow = acidArrowDef(spell, opts);
+  if (acidArrow) return acidArrow;
+
+  const enervation = enervationDef(spell, opts);
+  if (enervation) return enervation;
+
+  const minuteMeteors = minuteMeteorsDef(spell, opts);
+  if (minuteMeteors) return minuteMeteors;
 
   const callLightning = callLightningDef(spell, opts);
   if (callLightning) return callLightning;

@@ -1216,6 +1216,99 @@ describe('automationForSpell', () => {
     expect(action?.def?.targeting).toEqual({ kind: 'creature', range: 60 });
   });
 
+  it('Witch Bolt: атака 2d12 (+1d12/круг) и повтор 1d12 бонусом', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Witch Bolt',
+      name: 'Witch Bolt',
+      level: 1,
+      automation: 'manual',
+      spellAttack: 'ranged',
+      damage: { dice: ['2d12'], types: ['lightning'] },
+      upcast: { above: 1, dice: '1d12' },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('attack');
+    expect(def.concentration).toBe(true);
+    expect(def.damage?.dice).toBe('2d12lightning');
+    const carrier = def.effects?.[0];
+    expect(carrier?.to).toBe('self');
+    const action = carrier?.actions?.[0];
+    expect(action?.cost).toBe('bonus');
+    expect(action?.def?.resolution).toBe('auto');
+    expect(action?.def?.damage).toEqual({ dice: '1d12', types: ['lightning'] });
+    expect(action?.def?.targeting).toEqual({ kind: 'creature', range: 60 });
+    expect(automationForSpell(spell, { castLevel: 3 }).damage?.dice).toBe('4d12lightning');
+    expect(spellAutomated({ key: 'XPHB:Witch Bolt', automation: 'manual' })).toBe(true);
+  });
+
+  it("Melf's Acid Arrow: промах — половина, попадание — 2d4 в конце следующего хода", () => {
+    const spell = makeSpell({
+      key: "XPHB:Melf's Acid Arrow",
+      name: "Melf's Acid Arrow",
+      level: 2,
+      automation: 'manual',
+      spellAttack: 'ranged',
+      damage: { dice: ['4d4'], types: ['acid'] },
+      upcast: { above: 2, dice: '1d4' },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('attack');
+    expect(def.halfOnMiss).toBe(true);
+    expect(def.damage?.dice).toBe('4d4acid');
+    expect(def.effects?.[0]?.triggers?.endOfTurn?.damage).toEqual({ dice: '2d4acid', types: ['acid'] });
+    const up = automationForSpell(spell, { castLevel: 4 });
+    expect(up.damage?.dice).toBe('6d4acid');
+    expect(up.effects?.[0]?.triggers?.endOfTurn?.damage?.dice).toBe('4d4acid');
+    expect(spellAutomated({ key: "XPHB:Melf's Acid Arrow", automation: 'manual' })).toBe(true);
+  });
+
+  it('Enervation: повтор действием с лечением половины только при провале спаса', () => {
+    const spell = makeSpell({
+      key: 'XGE:Enervation',
+      name: 'Enervation',
+      level: 5,
+      automation: 'manual',
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['4d8'], types: ['necrotic'] },
+      upcast: { above: 5, dice: '1d8' },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'dex', half: true });
+    expect(def.damage?.dice).toBe('4d8necrotic');
+    const carrier = def.effects?.[0];
+    expect(carrier?.to).toBe('self');
+    expect(carrier?.selfOnFail).toBe(true);
+    const action = carrier?.actions?.[0];
+    expect(action?.cost).toBe('action');
+    expect(action?.def?.lifesteal).toBe(true);
+    expect(action?.def?.damage?.dice).toBe('4d8necrotic');
+    expect(automationForSpell(spell, { castLevel: 7 }).damage?.dice).toBe('6d8necrotic');
+    expect(spellAutomated({ key: 'XGE:Enervation', automation: 'manual' })).toBe(true);
+  });
+
+  it("Melf's Minute Meteors: 6 зарядов (+2/круг), метеор бонусом — бурст 5 фт", () => {
+    const spell = makeSpell({ key: "XGE:Melf's Minute Meteors", name: 'Minute Meteors', level: 3, automation: 'manual' });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const effect = def.effects?.[0];
+    expect(effect?.charges).toEqual({ count: 6 });
+    const action = effect?.actions?.[0];
+    expect(action?.cost).toBe('bonus');
+    expect(action?.def?.resolution).toBe('save');
+    expect(action?.def?.save).toEqual({ ability: 'dex', half: true });
+    expect(action?.def?.damage).toEqual({ dice: '2d6', types: ['fire'] });
+    expect(action?.def?.targeting).toEqual({
+      kind: 'area',
+      area: { shape: 'sphere', size: 5 },
+      range: 120,
+    });
+    expect(automationForSpell(spell, { castLevel: 5 }).effects?.[0]?.charges?.count).toBe(10);
+    expect(spellAutomated({ key: "XGE:Melf's Minute Meteors", automation: 'manual' })).toBe(true);
+  });
+
   it('Hex/Hunter\'s Mark: метку можно перенести бонусным действием', () => {
     for (const key of ['XPHB:Hex', "XPHB:Hunter's Mark"]) {
       const def = automationForSpell(makeSpell({ key, name: key, automation: 'manual' }));

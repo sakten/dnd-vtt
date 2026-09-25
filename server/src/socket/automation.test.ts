@@ -79,6 +79,72 @@ describe('Life Transference', () => {
   });
 });
 
+describe("Melf's Acid Arrow", () => {
+  it('промах наносит половину первичного урона', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.ac = '50'; // не попасть
+    const original = Math.random;
+    Math.random = () => 0.5; // d4 = 3 → 4d4 = 12, половина 6
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell("XPHB:Melf's Acid Arrow")!, { castLevel: 2 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.hpCurrent).toBe(24);
+  });
+});
+
+describe('Enervation', () => {
+  it('повтор действием появляется только при провале спасброска', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    const hasDrain = () => caster.effects.some((e) => e.actions?.some((a) => a.id === 'drain'));
+
+    const original = Math.random;
+    Math.random = () => 0.99; // d20 = 20 → успех
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XGE:Enervation')!, { castLevel: 5 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(hasDrain()).toBe(false);
+
+    Math.random = () => 0; // d20 = 1 → провал
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XGE:Enervation')!, { castLevel: 5 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(hasDrain()).toBe(true);
+  });
+});
+
 describe('концентрация заклинаний с зонами', () => {
   it('новый каст концентрации снимает прежнюю зону и её эффекты', () => {
     const { room, f } = setup();

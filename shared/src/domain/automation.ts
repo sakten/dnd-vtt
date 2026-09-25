@@ -87,6 +87,8 @@ export interface AutomationEffect {
   concentration?: boolean;
   /** `to`: self — кастер, targets — выбранные цели. */
   to?: 'self' | 'targets';
+  /** Enervation: self-эффект (повтор) накладывается только при провале спасброска цели. */
+  selfOnFail?: boolean;
   /** Максимум целей (мультицелевые баффы/дебаффы, напр. Bless — 3). */
   targets?: number;
   /** Наложить на союзников в радиусе от кастера без выбора целей (Zealous Presence). */
@@ -123,6 +125,11 @@ export interface AutomationEffect {
   misdirect?: { charges: number; die: string; threshold: number };
   /** Ограничения экономики/действий, пока эффект активен. */
   restrictions?: Restrictions;
+  /**
+   * Bestow Curse (режим «Уклонение»): в начале каждого хода носителя — спас
+   * `ability` (СЛ каста), при провале цель вынуждена уклоняться этот ход.
+   */
+  turnDodge?: { ability: AbilityKey };
   /** Выпутывание действием: проверка характеристики или спасбросок против СЛ каста (Web, Dance). */
   escape?: { kind?: 'check' | 'save'; ability: AbilityKey; skill?: string; dc?: number; label?: string; iconKey?: string };
   /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
@@ -485,6 +492,11 @@ export interface AutomationDef extends AutomationPayload {
    * половину броска временными хитами.
    */
   undeadTempHp?: boolean;
+  /**
+   * Промах атаки наносит половину урона (Melf's Acid Arrow: брызги кислоты).
+   * Крит не применяется, эффекты на промахе не накладываются.
+   */
+  halfOnMiss?: boolean;
   concentration?: boolean;
   /** Лимит длительности «1 минута» = 10 раундов; `null` — без лимита (апкаст Dominate). */
   maxRounds?: number | null;
