@@ -1894,9 +1894,7 @@ describe('automationForSpell', () => {
       'XPHB:Enlarge/Reduce',
       'XPHB:Conjure Elemental',
       'XPHB:Conjure Fey',
-      'XPHB:Wall of Fire',
       'XPHB:Wall of Ice',
-      'XPHB:Blade Barrier',
       'XGE:Wall of Light',
       'XPHB:Glyph of Warding',
     ];
@@ -2410,6 +2408,57 @@ describe('Составной урон (D)', () => {
     expect(automationForSpell(wall(), { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 15, inner: 10 });
     expect(spellVariantDef('XPHB:Wall of Thorns')?.options).toEqual(['vertical', 'horizontal', 'ring']);
     expect(spellAutomated(wall())).toBe(true);
+  });
+
+  it('Wall of Fire / Blade Barrier / Wall of Sand: параметры стены и триггеры', () => {
+    const fire = makeSpell({
+      key: 'XPHB:Wall of Fire',
+      name: 'Wall of Fire',
+      level: 4,
+      concentration: true,
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['5d8'], types: ['fire'] },
+      upcast: { above: 4, every: 1, dice: '1d8' },
+    });
+    const fireBase = automationForSpell(fire, { variant: 'vertical' });
+    expect(fireBase.zone?.area).toEqual({ shape: 'line', size: 60, width: 10 });
+    expect(fireBase.zone?.triggers?.enter?.save).toEqual({ ability: 'dex', half: true });
+    expect(fireBase.zone?.triggers?.enter?.damage).toEqual({ dice: '5d8fire', types: ['fire'] });
+    expect(fireBase.zone?.flags).toEqual({ obscured: 'heavy' });
+    // Кольцо 20 фт в диаметре: внешний радиус 10, свободная середина 5.
+    expect(automationForSpell(fire, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 5 });
+    expect(automationForSpell(fire, { castLevel: 6 }).damage?.dice).toBe('7d8fire');
+
+    const blades = makeSpell({
+      key: 'XPHB:Blade Barrier',
+      name: 'Blade Barrier',
+      level: 6,
+      concentration: true,
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['6d10'], types: ['force'] },
+    });
+    expect(automationForSpell(blades, { variant: 'vertical' }).zone?.area).toEqual({
+      shape: 'line',
+      size: 100,
+      width: 5,
+    });
+    expect(automationForSpell(blades, { variant: 'ring' }).zone?.area).toEqual({
+      shape: 'ring',
+      size: 30,
+      inner: 25,
+    });
+    expect(automationForSpell(blades).zone?.flags).toEqual({ difficultTerrain: true });
+    expect(automationForSpell(blades).zone?.triggers?.endOfTurn?.save).toEqual({ ability: 'dex', half: true });
+
+    const sand = makeSpell({ key: 'XGE:Wall of Sand', name: 'Wall of Sand', level: 3, concentration: true });
+    const sandDef = automationForSpell(sand, { variant: 'horizontal' });
+    expect(sandDef.zone?.area).toEqual({ shape: 'line', size: 30, width: 10 });
+    expect(sandDef.zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(sandDef.zone?.flags).toEqual({ obscured: 'heavy', movementCost: 3 });
+    expect(spellVariantDef('XGE:Wall of Sand')?.options).toEqual(['vertical', 'horizontal']);
+    for (const s of [fire, blades, sand]) expect(spellAutomated(s), s.key).toBe(true);
   });
 
   it('spellDamageParts: части для карточек (Destructive Wave — оба типа варианта)', () => {

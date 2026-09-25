@@ -1082,8 +1082,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // Alter Self/Enlarge-Reduce — «уроном» из тегов, стены шли generic-спасом без
   // геометрии, Glyph — спасом без триггера. Лочим до реализации
   // механик (TODO_SPELLS B4/C/F/G), чтобы «зелёный» не врал.
-  // Dimension Door/Thunder Step/Healing Spirit/Cordon of Arrows/Storm Sphere —
-  // реализованы билдерами (`dimensionDoorDef`/`thunderStepDef`/…).
+  // Реализованы билдерами: Dimension Door/Thunder Step, Healing Spirit/Cordon of Arrows/
+  // Storm Sphere, Wall of Thorns/Wall of Fire/Blade Barrier/Wall of Sand.
   "XGE:Tenser's Transformation": manualSpell("XGE:Tenser's Transformation", "Tenser's Transformation", true),
   'XGE:Investiture of Flame': manualSpell('XGE:Investiture of Flame', 'Investiture of Flame', true),
   'XGE:Investiture of Ice': manualSpell('XGE:Investiture of Ice', 'Investiture of Ice', true),
@@ -1093,9 +1093,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Enlarge/Reduce': manualSpell('XPHB:Enlarge/Reduce', 'Enlarge/Reduce', true),
   'XPHB:Conjure Elemental': manualSpell('XPHB:Conjure Elemental', 'Conjure Elemental', true),
   'XPHB:Conjure Fey': manualSpell('XPHB:Conjure Fey', 'Conjure Fey', true),
-  'XPHB:Wall of Fire': manualSpell('XPHB:Wall of Fire', 'Wall of Fire', true),
   'XPHB:Wall of Ice': manualSpell('XPHB:Wall of Ice', 'Wall of Ice', true),
-  'XPHB:Blade Barrier': manualSpell('XPHB:Blade Barrier', 'Blade Barrier', true),
   'XGE:Wall of Light': manualSpell('XGE:Wall of Light', 'Wall of Light', true),
   'XPHB:Glyph of Warding': manualSpell('XPHB:Glyph of Warding', 'Glyph of Warding'),
   // Решение владельца (сессия 14): очарование — ручная механика, каст вешает только

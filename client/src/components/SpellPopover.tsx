@@ -17,7 +17,7 @@ import {
   spellCastAreaOverride,
   spellRangeFeet,
   spellVariantDef,
-  wallOfThornsArea,
+  wallArea,
   type AbilityKey,
   type ActionCost,
   type Spell,
@@ -123,11 +123,8 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const [forms, setForms] = useState<{ key: string; name: string }[] | null>(null);
   const [showCr0, setShowCr0] = useState(false);
   const [variant, setVariant] = useState(() => variantDef?.options[0] ?? '');
-  // Геометрия каста: вариант формы (Wall of Thorns) / оверрайд (Call Lightning) / зона / данные.
-  const castArea =
-    spell.key === 'XPHB:Wall of Thorns'
-      ? wallOfThornsArea(variant)
-      : (spellCastAreaOverride(spell) ?? zoneDef?.area ?? spell.areaSpec);
+  // Геометрия каста: стена (вариант формы) / оверрайд (Call Lightning) / зона / данные.
+  const castArea = wallArea(spell.key, variant) ?? spellCastAreaOverride(spell) ?? zoneDef?.area ?? spell.areaSpec;
   useEffect(() => {
     if (!needForm && !needBeast) return;
     let alive = true;

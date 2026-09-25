@@ -47,6 +47,10 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Destructive Wave': { param: 'damageType', options: ['radiant', 'necrotic'] },
   // Wall of Thorns: форма стены шипов (вертикальная/горизонтальная) или круг радиусом 10 фт.
   'XPHB:Wall of Thorns': { param: 'effect', options: ['vertical', 'horizontal', 'ring'] },
+  // Стены: форма задаёт `wallArea` (`WALL_DIMS`).
+  'XPHB:Wall of Fire': { param: 'effect', options: ['vertical', 'horizontal', 'ring'] },
+  'XPHB:Blade Barrier': { param: 'effect', options: ['vertical', 'horizontal', 'ring'] },
+  'XGE:Wall of Sand': { param: 'effect', options: ['vertical', 'horizontal'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */

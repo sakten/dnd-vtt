@@ -1,7 +1,7 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, AutomationSave, GrantedAction, LightSource, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
-import { spellCantripDice, spellDamageExpression, spellUpcastAt, spellUpcastDice, wallOfThornsArea } from '../spellCast';
+import { spellCantripDice, spellDamageExpression, spellUpcastAt, spellUpcastDice, wallArea } from '../spellCast';
 import type { DamagePartRole, Spell } from '../spells';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN, spellEffect, zoneMoveAction } from './header';
@@ -75,6 +75,9 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Ice Storm',
   'XPHB:Destructive Wave',
   'XPHB:Wall of Thorns',
+  'XPHB:Wall of Fire',
+  'XPHB:Blade Barrier',
+  'XGE:Wall of Sand',
   'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
   'XPHB:False Life',
@@ -1813,12 +1816,107 @@ export function wallOfThornsDef(spell: Spell, opts: AutomationOptions): Automati
     save: { ability: 'dex', half: true },
     damage: { dice: `${piercing}piercing`, types: ['piercing'] },
     zone: {
-      area: wallOfThornsArea(opts.variant),
+      area: wallArea(spell.key, opts.variant)!,
       origin: 'point',
       duration: CONCENTRATION,
       enterOncePerTurn: true,
       triggers: { enter: thornPayload, endOfTurn: thornPayload },
       flags: { difficultTerrain: true, obscured: 'heavy', movementCost: 4 },
+    },
+  };
+}
+
+/**
+ * Wall of Fire (XPHB 2024): полоса огня 60×10 или кольцо r10/r5 (концентрация, 1 мин).
+ * Появление: спас DEX, 5к8 огнём (половина при успехе); вход/конец хода внутри —
+ * тот же спас раз за ход. Решение владельца: полоса 10 фт бьёт с обеих сторон
+ * (упрощение RAW-выбора одной стороны; ширина — параметр `WALL_DIMS`).
+ */
+export function wallOfFireDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Wall of Fire') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, castLevel);
+  const dice = scaledDice(partDice(spell, 'main', '5d8'), spell.upcast?.dice, steps);
+  const payload: AutomationPayload = {
+    containment: 'anyCell',
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${dice}fire`, types: ['fire'] },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${dice}fire`, types: ['fire'] },
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      triggers: { enter: payload, endOfTurn: payload },
+      // RAW: стена непрозрачна (движок читает мглу; LOS-флаг зон пока не используется).
+      flags: { obscured: 'heavy' },
+    },
+  };
+}
+
+/**
+ * Blade Barrier (XPHB 2024): стена клинков — линия 100×5 или кольцо r30/r25
+ * (концентрация, 10 мин, труднопроходима). Появление/вход/конец хода: спас DEX,
+ * 6к10 силовым (половина при успехе). Укрытие 3/4 не механизировано.
+ */
+export function bladeBarrierDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Blade Barrier') return undefined;
+  const dice = partDice(spell, 'main', '6d10');
+  const payload: AutomationPayload = {
+    containment: 'anyCell',
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${dice}force`, types: ['force'] },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${dice}force`, types: ['force'] },
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      triggers: { enter: payload, endOfTurn: payload },
+      flags: { difficultTerrain: true },
+    },
+  };
+}
+
+/**
+ * Wall of Sand (XGE): стена песка 30×10 (концентрация, 10 мин). Блокирует обзор
+ * (мгла), движение — нет; внутри существо ослеплено и тратит ×3 движения.
+ */
+export function wallOfSandDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Wall of Sand') return undefined;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'targets',
+    modifiers: [],
+    conditions: ['blinded'],
+    ...(opts.variant ? { variant: opts.variant } : {}),
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      aura: { effects: [effect] },
+      flags: { obscured: 'heavy', movementCost: 3 },
     },
   };
 }

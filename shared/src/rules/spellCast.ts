@@ -221,22 +221,53 @@ const GRANTED_ACTION_AREA = new Set(["XPHB:Dragon's Breath"]);
 const POINT_ZONE_SPELLS = new Set(['XPHB:Daylight', 'XPHB:Silence']);
 
 /**
- * Wall of Thorns (XPHB): варианты формы стены — вертикальная/горизонтальная
- * линия 60×5 или круг: внутри свободно 10 фт от центра, стена 5 фт наружу
- * (кольцо `inner` 10, внешний радиус 15).
+ * Размеры стены (футы): линия `length × width` или кольцо между `innerRadius`
+ * и `outerRadius` (внутри кольца — свободная середина). Параметры на заклинание —
+ * чтобы менять габариты без правки геометрии.
  */
-export function wallOfThornsArea(variant?: string): AreaSpec {
-  if (variant === 'ring') return { shape: 'ring', size: 15, inner: 10 };
-  return { shape: 'line', size: 60, width: 5 };
+export interface WallDims {
+  length: number;
+  width: number;
+  outerRadius: number;
+  innerRadius: number;
 }
 
-/** Направление-заготовка линии стены (вертикальная/горизонтальная ось); null — не стена/круг. */
+const WALL_DIMS: Record<string, WallDims> = {
+  // Wall of Thorns: линия 60×5; круг — свободно 10 фт, стена 5 фт наружу (r15).
+  'XPHB:Wall of Thorns': { length: 60, width: 5, outerRadius: 15, innerRadius: 10 },
+  // Wall of Fire: 60×10 (решение владельца: полоса бьёт с обеих сторон); кольцо r10/r5.
+  'XPHB:Wall of Fire': { length: 60, width: 10, outerRadius: 10, innerRadius: 5 },
+  // Blade Barrier: линия 100×5; кольцо 60 фт в диаметре (r30), стена 5 фт.
+  'XPHB:Blade Barrier': { length: 100, width: 5, outerRadius: 30, innerRadius: 25 },
+  // Wall of Sand: 30×10, без кольца.
+  'XGE:Wall of Sand': { length: 30, width: 10, outerRadius: 0, innerRadius: 0 },
+};
+
+/** Заклинание-стена (геометрия `wallArea`, варианты vertical/horizontal/ring). */
+export function isWallSpell(spellKey: string): boolean {
+  return !!WALL_DIMS[spellKey];
+}
+
+/** Геометрия стены: линия `length×width` или кольцо `inner..outer` (variant 'ring'). */
+export function wallArea(spellKey: string, variant?: string): AreaSpec | undefined {
+  const dims = WALL_DIMS[spellKey];
+  if (!dims) return undefined;
+  if (variant === 'ring' && dims.outerRadius > 0) {
+    return { shape: 'ring', size: dims.outerRadius, inner: dims.innerRadius };
+  }
+  return { shape: 'line', size: dims.length, width: dims.width };
+}
+
+/**
+ * Направление-заготовка линии стены (вертикальная/горизонтальная ось); null — не стена
+ * или кольцо. Ось задаёт вариант каста, а не клик (клик лишь выбирает точку стены).
+ */
 export function spellCastDirection(
   spellKey: string,
   variant: string | undefined,
   origin: { x: number; y: number }
 ): { x: number; y: number } | null {
-  if (spellKey !== 'XPHB:Wall of Thorns' || variant === 'ring') return null;
+  if (!isWallSpell(spellKey) || variant === 'ring') return null;
   return variant === 'horizontal' ? { x: origin.x + 100, y: origin.y } : { x: origin.x, y: origin.y + 100 };
 }
 
@@ -250,18 +281,17 @@ export function spellCastAreaOverride(spell: Spell): AreaSpec | undefined {
   return CAST_AREA_OVERRIDES[spell.key];
 }
 
-/** Область применения каста: вариант (Wall of Thorns), оверрайд, иначе данные заклинания. */
+/** Область применения каста: стена (вариант формы), оверрайд, иначе данные заклинания. */
 export function spellCastArea(spell: Spell, variant?: string): AreaSpec | undefined {
-  if (spell.key === 'XPHB:Wall of Thorns') return wallOfThornsArea(variant);
-  return CAST_AREA_OVERRIDES[spell.key] ?? spell.areaSpec;
+  return wallArea(spell.key, variant) ?? CAST_AREA_OVERRIDES[spell.key] ?? spell.areaSpec;
 }
 
 /** Доступен ли режим области: есть геометрия, спасбросок и AoE-тег (или эманация/зона от точки). */
 export function spellHasArea(spell: Spell): boolean {
   if (GRANTED_ACTION_AREA.has(spell.key)) return false;
+  // Стены: геометрия приходит из варианта формы (`spellCastArea`).
+  if (isWallSpell(spell.key)) return true;
   if (CAST_AREA_OVERRIDES[spell.key]) return true;
-  // Wall of Thorns: геометрия приходит из варианта формы (`spellCastArea`).
-  if (spell.key === 'XPHB:Wall of Thorns') return true;
   if (!spell.areaSpec) return false;
   if (POINT_ZONE_SPELLS.has(spell.key)) return true;
   if ((spell.save?.length ?? 0) === 0) return false;
