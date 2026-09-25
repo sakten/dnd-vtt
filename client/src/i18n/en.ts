@@ -121,6 +121,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.automation.restore': '{name}: {feature} → {target}: ended ({conditions})',
   'system.automation.deathWard': '{name}: Death Ward prevented the fall — 1 HP, the effect ends',
   'system.automation.shadowBladeReturn': '{name}: the shadow blade returns to hand',
+  'system.automation.teleportFailed': '{name}: arrival space is occupied — the teleport failed, {amount} force damage',
   'system.automation.tempHp': '{name}: {feature} → {targets}',
   'system.automation.zombieRises': '{name}: rises as a Zombie',
   'system.automation.patientDefense': '{name}: {feature} (Disengage + Dodge)',

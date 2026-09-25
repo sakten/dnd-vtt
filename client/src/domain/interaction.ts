@@ -38,6 +38,8 @@ export interface AimState {
   nearFeet?: number;
   /** Телепорт с пассажиром (Dimension Door/Thunder Step): после точки — шаг выбора спутника. */
   passenger?: { feet: number; destFeet: number; maxSize?: boolean };
+  /** Dimension Door: точка может быть невидимой/за стеной — клиент не блокирует путь. */
+  ignoreSight?: boolean;
 }
 
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */

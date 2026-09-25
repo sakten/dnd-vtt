@@ -1776,7 +1776,13 @@ describe('automationForSpell', () => {
   it('G: Dimension Door/Thunder Step — телепорт с пассажиром и громом', () => {
     const dd = automationForSpell(makeSpell({ key: 'XPHB:Dimension Door', name: 'Dimension Door', level: 4 }));
     expect(dd.resolution).toBe('utility');
-    expect(dd.utility).toEqual({ kind: 'teleport', amount: 500, passenger: { feet: 5, destFeet: 5 } });
+    expect(dd.utility).toEqual({
+      kind: 'teleport',
+      amount: 500,
+      passenger: { feet: 5, destFeet: 5 },
+      ignoreSight: true,
+      blockedDamage: { dice: '4d6', types: ['force'] },
+    });
     expect(dd.targeting).toEqual({ kind: 'point', range: 500 });
     expect(dd.damage).toBeUndefined();
     expect(spellAutomated(makeSpell({ key: 'XPHB:Dimension Door' }))).toBe(true);

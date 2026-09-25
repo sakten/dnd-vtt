@@ -145,8 +145,9 @@ export const createActionSlice: Slice<
         _set({ interaction: next });
         return;
       }
-      // Подсветка: путь до точки перекрыт стеной/закрытой дверью — применять нельзя.
-      let blocked = !!map && !!token && crossesWalls(token, origin, map.walls, 'sight');
+      // Подсветка: путь до точки перекрыт стеной/закрытой дверью — применять нельзя
+      // (Dimension Door: точку можно не видеть — путь не проверяем).
+      let blocked = !!map && !!token && !aim.ignoreSight && crossesWalls(token, origin, map.walls, 'sight');
       // Steel Wind Strike: точка телепорта должна быть рядом с одной из выбранных целей.
       if (!blocked && map && token && aim.nearTargets && aim.nearFeet) {
         const targets = (aim.targetIds ?? []).map((id) => tokenById(map, id)).filter((t) => !!t);

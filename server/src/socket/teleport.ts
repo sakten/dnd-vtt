@@ -7,6 +7,7 @@ import { handleMovementZones } from './zones';
  * Проверка точки телепорта (Misty Step, Scatter): не дальше `feet` от `from`
  * (по умолчанию — сам перемещаемый), внутри карты, свободна подошвой и видна.
  * `skipDistance` — дистанцию проверил вызывающий (Steel Wind Strike: правила клеток).
+ * `skipSight` — путь/видимость не требуются (Dimension Door: точка может быть за стеной).
  */
 export function teleportIssue(
   room: Room,
@@ -15,7 +16,7 @@ export function teleportIssue(
   origin: { x: number; y: number },
   feet: number,
   from?: Token,
-  opts: { skipDistance?: boolean } = {}
+  opts: { skipDistance?: boolean; skipSight?: boolean } = {}
 ): ErrorPayload | undefined {
   const map = room.scene.maps.find((m) => m.id === mapId);
   if (!map) return { code: 'teleportNoSpace' };
@@ -28,7 +29,7 @@ export function teleportIssue(
   if (map.width > 0 && (origin.x < 0 || origin.y < 0 || origin.x > map.width || origin.y > map.height)) {
     return { code: 'teleportNoSpace' };
   }
-  if (crossesWalls(anchor, origin, map.walls, 'sight')) return { code: 'noClearPath' };
+  if (!opts.skipSight && crossesWalls(anchor, origin, map.walls, 'sight')) return { code: 'noClearPath' };
   // Точка назначения должна быть ровно свободна (без «подбора» соседней клетки).
   const cell = pointCell(origin, grid);
   const dest = cellCenter(cell.cx, cell.cy, grid);

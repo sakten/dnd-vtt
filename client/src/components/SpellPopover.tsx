@@ -194,6 +194,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         rangeFeet: teleportDef.amount ?? 30,
         summon: true,
         ...(teleportDef.passenger ? { passenger: teleportDef.passenger } : {}),
+        ...(teleportDef.ignoreSight ? { ignoreSight: true } : {}),
       });
     } else if (scatterDef) {
       startScatter({

@@ -118,6 +118,7 @@
   'system.automation.restore': '{name}: {feature} → {target}: снято ({conditions})',
   'system.automation.deathWard': '{name}: Death Ward спас от падения — 1 HP, эффект рассеялся',
   'system.automation.shadowBladeReturn': '{name}: клинок тени возвращается в руку',
+  'system.automation.teleportFailed': '{name}: точка прибытия занята — телепорт не удался, {amount} силового урона',
   'system.automation.tempHp': '{name}: {feature} → {targets}',
   'system.automation.zombieRises': '{name}: из тела поднимается зомби',
   'system.automation.patientDefense': '{name}: {feature} (Отход + Уклонение)',

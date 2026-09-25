@@ -233,10 +233,15 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
 
   // Телепорт (Misty Step): точка в пределах дистанции, свободна и видна кастеру.
   // Пассажир (Dimension Door/Thunder Step) — рядом с кастером и (опц.) не крупнее него.
+  // Dimension Door (`ignoreSight`): путь/видимость не требуются; занятая точка —
+  // не запрет каста, а провал с уроном (ячейка тратится) — разрешаем резолв.
   if (def.utility?.kind === 'teleport') {
     if (!input.origin) return { code: 'noAreaPoint' };
-    const issue = teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
-    if (issue) return issue;
+    const issue = teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30, undefined, {
+      skipSight: !!def.utility.ignoreSight,
+    });
+    const recoverable = !!def.utility.blockedDamage && issue?.code === 'teleportNoSpace';
+    if (issue && !recoverable) return issue;
     const plan = def.utility.passenger;
     if (plan && input.passengerId) {
       if (input.passengerId === caster.id) return { code: 'spellNoTarget' };
@@ -246,8 +251,6 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
       if (!map || !passenger) return { code: 'spellNoTarget' };
       const passengerInvalid = passengerIssue(caster, passenger, grid, plan);
       if (passengerInvalid) return passengerInvalid;
-      // Место рядом с точкой прибытия: у Thunder Step его может не быть — пассажир
-      // остаётся, поэтому отсутствие места каст не отклоняет.
     }
     return undefined;
   }

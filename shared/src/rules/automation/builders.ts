@@ -748,8 +748,9 @@ export function blindnessDeafnessDef(spell: Spell, opts: AutomationOptions): Aut
 
 /**
  * Dimension Door (XPHB 2024): телепорт до 500 фт, можно взять одно согласное
- * существо в 5 фт (приземляется в 5 фт от точки прибытия). Занятая точка
- * прибытия отклоняется кастом (упрощение клаузы про 4d6 — как у Misty Step).
+ * существо в 5 фт (приземляется в 5 фт от точки прибытия). Точку можно не видеть
+ * (сквозь стены); занятая/непроходимая точка — провал: ячейка тратится, кастер
+ * и пассажир получают 4к6 силового урона, никто не перемещается.
  */
 export function dimensionDoorDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Dimension Door') return undefined;
@@ -757,7 +758,15 @@ export function dimensionDoorDef(spell: Spell): AutomationDef | undefined {
     key: spell.key,
     name: spell.name,
     resolution: 'utility',
-    utility: { kind: 'teleport', amount: 500, passenger: { feet: 5, destFeet: 5 } },
+    utility: {
+      kind: 'teleport',
+      amount: 500,
+      passenger: { feet: 5, destFeet: 5 },
+      // RAW: точку можно не видеть (сквозь стены); занятая точка — провал каста
+      // с уроном 4к6 силовым кастеру и пассажиру (ячейка уже потрачена).
+      ignoreSight: true,
+      blockedDamage: { dice: spell.damage?.dice?.[0] ?? '4d6', types: ['force'] },
+    },
     targeting: { kind: 'point', range: 500 },
   };
 }

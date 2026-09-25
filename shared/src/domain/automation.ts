@@ -502,6 +502,13 @@ export interface AutomationUtility {
   passenger?: { feet: number; destFeet: number; maxSize?: boolean };
   /** Телепорт: вспышка в покинутой точке (Thunder Step) — спас и урон вокруг. */
   fromBurst?: { feet: number; save: AutomationSave; damage?: AutomationDice };
+  /** Dimension Door: чистый путь/видимость точки не требуются (сквозь стены). */
+  ignoreSight?: boolean;
+  /**
+   * Dimension Door: если точка прибытия занята/непроходима — каст исполняется
+   * (ячейка тратится), телепорт не происходит, путешественники получают урон.
+   */
+  blockedDamage?: AutomationDice;
 }
 
 /** Действие, выдаваемое эффектом (Expeditious Retreat: Рывок бонусным действием). */

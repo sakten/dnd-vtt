@@ -7,6 +7,7 @@ import {
   gridDistanceFeet,
   gridOfMap,
   isBanished,
+  passengerIssue,
   pointCell,
   rollDice,
   sideMatches,
@@ -263,6 +264,41 @@ type UtilityHandler = (u: {
   utility: AutomationUtility;
   turn: TurnState | null;
 }) => void;
+
+/**
+ * Dimension Door: точка прибытия занята/непроходима — телепорт не состоялся,
+ * ячейка уже потрачена; кастер и действительный пассажир получают `blockedDamage`.
+ */
+function applyFailedTeleport(ctx: ConnCtx, room: Room, input: AutomationInput, utility: AutomationUtility): void {
+  const dice = utility.blockedDamage;
+  if (!dice) return;
+  const map = ctx.manager.findMap(room, input.mapId);
+  const travelers: Token[] = [input.caster];
+  const plan = utility.passenger;
+  const passenger =
+    plan && input.passengerId ? ctx.manager.findToken(room, input.mapId, input.passengerId) : undefined;
+  if (passenger && map && passenger.id !== input.caster.id && !isBanished(passenger)) {
+    const grid = gridOfMap(map, room.scene.grid);
+    if (!passengerIssue(input.caster, passenger, grid, plan!)) travelers.push(passenger);
+  }
+  const roll = rollDice(dice.dice);
+  const damageType = singleDamageType(dice.types);
+  for (const target of travelers) {
+    applyDamage(ctx, {
+      target,
+      mapId: input.mapId,
+      amount: roll.total,
+      damageType,
+      roll,
+      author: input.author,
+      params: { subject: `${input.def.name} · ${target.name}`, damageType },
+    });
+  }
+  ctx.systemMessage(room, {
+    code: 'automation.teleportFailed',
+    params: { name: input.caster.name, feature: input.def.name, amount: roll.total },
+  });
+}
 
 /**
  * Пассажир телепорта (Dimension Door/Thunder Step): ближайшая свободная клетка
@@ -583,8 +619,15 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       fail(ctx, 'noAreaPoint');
       return;
     }
-    const issue = teleportIssue(room, input.mapId, input.caster, input.origin, utility.amount ?? 30);
+    const issue = teleportIssue(room, input.mapId, input.caster, input.origin, utility.amount ?? 30, undefined, {
+      skipSight: !!utility.ignoreSight,
+    });
     if (issue) {
+      // Dimension Door: занятая точка прибытия — провал каста с уроном, а не ошибка.
+      if (utility.blockedDamage && issue.code === 'teleportNoSpace') {
+        applyFailedTeleport(ctx, room, input, utility);
+        return;
+      }
       fail(ctx, issue.code as ErrorCode, issue.params);
       return;
     }

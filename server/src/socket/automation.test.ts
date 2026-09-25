@@ -617,6 +617,54 @@ describe('концентрация заклинаний с зонами', () => 
     expect(gridDistanceFeet(caster!, passenger!, 50)).toBe(5);
   });
 
+  it('Dimension Door: точку за стеной телепорт разрешает (ignoreSight)', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const [caster] = map.tokens;
+    map.walls = [{ id: 'w1', x1: 300, y1: -100, x2: 300, y2: 300, kind: 'wall' }];
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Dimension Door')!),
+      targets: [],
+      stats,
+      author: 'DM',
+      origin: { x: 600, y: 100 },
+    });
+    expect(caster!.x).toBe(625);
+  });
+
+  it('Dimension Door: занятая точка — телепорт не состоялся, 4к6 силовым кастеру и пассажиру', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const [caster, passenger] = map.tokens;
+    delete room.controllers['p1'];
+    caster!.hpMax = '40';
+    caster!.hpCurrent = 40;
+    passenger!.hpMax = '30';
+    passenger!.hpCurrent = 30;
+    const blocker = makeToken('t3', { x: 600, y: 100, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(blocker);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05); // 4к6 = 4
+    executeAutomation(f.ctx, {
+      caster: caster!,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Dimension Door')!),
+      targets: [],
+      stats,
+      author: 'DM',
+      origin: { x: 600, y: 100 },
+      passengerId: passenger!.id,
+    });
+    rand.mockRestore();
+    // Никто не переместился, оба получили 4 силового урона.
+    expect(caster!.x).toBe(100);
+    expect(passenger!.x).toBe(150);
+    expect(caster!.hpCurrent).toBe(36);
+    expect(passenger!.hpCurrent).toBe(26);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.teleportFailed')).toBe(true);
+  });
+
   it('Thunder Step: пассажир летит с кастером, гром бьёт у покинутой точки', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

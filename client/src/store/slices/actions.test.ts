@@ -280,6 +280,24 @@ describe('actions slice', () => {
     expect(useGameStore.getState().interaction?.mode).toBe('aim');
   });
 
+  it('Dimension Door: точка за стеной не блокируется (ignoreSight)', () => {
+    const map = useGameStore.getState().scene.maps[0]!;
+    map.walls = [{ id: 'w1', x1: 150, y1: 50, x2: 150, y2: 200, kind: 'wall' }];
+    useGameStore.getState().startAim({
+      tokenId: 't1',
+      spellKey: 'XPHB:Dimension Door',
+      slotLevel: 4,
+      spec: { shape: 'sphere', size: 0 },
+      originKind: 'point',
+      rangeFeet: 500,
+      passenger: { feet: 5, destFeet: 5 },
+      ignoreSight: true,
+    });
+    useGameStore.getState().aimToCursor({ x: 250, y: 100 });
+    const aim = useGameStore.getState().interaction;
+    expect(aim?.mode === 'aim' ? aim.aim.blocked : undefined).toBe(false);
+  });
+
   it('multiTarget: каст после выбора целей на все снаряды', () => {
     useGameStore.getState().startMultiTarget({
       tokenId: 't1',
