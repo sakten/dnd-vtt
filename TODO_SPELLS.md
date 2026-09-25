@@ -7,8 +7,8 @@
 ## Сводка (пересчитано 25.09.2026)
 
 - Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **255**: каталог 68, билдеры 50, призывы 12, деривация из данных 125. Красных (`manual`) — **165**.
-- Категории ниже — аудит проблемных мест (94 записи в таблице «Инвентарь»). Закрыто в сессиях 10–11: **A** (13), **B1/B2/B3/B5** (16), **D** (6: Flame Strike, Ice Storm, Destructive Wave, Wall of Thorns, Ice Knife, Vitriolic Sphere), **E** (2).
-- Открыто: **B4** (Guardian of Nature, Tenser's, Alter Self, Enlarge/Reduce, Investitures — 5), **C-доработки** (Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere), **D-мультицель** (Jallarzi, Spiritual Weapon, Steel Wind Strike, Chain Lightning — 4), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door/Thunder Step — 2), **H** (16) и частичные §7.
+- Категории ниже — аудит проблемных мест (94 записи в таблице «Инвентарь»). Закрыто в сессиях 10–12: **A** (13), **B1/B2/B3/B5** (16), **D** (8: Flame Strike, Ice Storm, Destructive Wave, Wall of Thorns, Ice Knife, Vitriolic Sphere, Chain Lightning, Steel Wind Strike), **E** (2).
+- Открыто: **B4** (Guardian of Nature, Tenser's, Alter Self, Enlarge/Reduce, Investitures — 5), **C-доработки** (Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere), **D-мультицель** (Jallarzi, Spiritual Weapon — 2), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door/Thunder Step — 2), **H** (16) и частичные §7.
 - Составной урон решён типизированными костями в `dice` (`5d6fire + 5d6radiant` + `applyDamageToParts`), без отдельного поля `parts`; всплеск атаки — `AutomationDef.burst` (Ice Knife); отложенный урон — `EffectInstance.triggers.endOfTurn` (Vitriolic).
 
 ## Проверено — НЕ дефекты (не переоткрывать)
@@ -55,9 +55,9 @@
 - **Повтор на цели (эффект-триггеры/грантованные действия):** `XPHB:Witch Bolt`, `XPHB:Melf's Acid Arrow`, `XGE:Immolation`, `XGE:Enervation` (leech + 4d8 на провале вместо текущих 2d8), `XGE:Melf's Minute Meteors` (6 зарядов).
 - **Осталось (сверено 25.09.2026):** `Healing Spirit` (лимит лечений), `Cordon of Arrows`, `Glyph of Warding` (ловушки/заряды), `Storm Sphere` (бонус-действие), стены — `Wall of Fire`/`Wall of Ice`/`Blade Barrier`/`Wall of Light` идут generic-спасом без геометрии стены (Wall of Thorns сделан в D).
 
-## D. Составной урон и несколько целей — ✅ 6/10, ⚠️ мультицель — 4
+## D. Составной урон и несколько целей — ✅ 8/10, ⚠️ мультицель — 2
 
-> Составной урон и часть механик сделаны (сессии 11): части одним броском — типизированные кости (`5d6fire + 5d6radiant`), защиты по каждой части (`applyDamageToParts`); билдеры `COMPOSITE_CONFIGS`/`compositeDamageDef`, `iceKnifeDef` (всплеск `AutomationDef.burst`), `vitriolicSphereDef` (отложенный урон `triggers.endOfTurn`), `wallOfThornsDef` (зона-линия/кольцо). Осталась мультицель.
+> Составной урон и часть механик сделаны (сессии 11–12): части одним броском — типизированные кости (`5d6fire + 5d6radiant`), защиты по каждой части (`applyDamageToParts`); билдеры `COMPOSITE_CONFIGS`/`compositeDamageDef`, `iceKnifeDef` (всплеск `AutomationDef.burst`), `vitriolicSphereDef` (отложенный урон `triggers.endOfTurn`), `wallOfThornsDef` (зона-линия/кольцо), `chainLightningDef` (первая цель + авто-скачки), `steelWindStrikeDef` (до 5 целей + телепорт после резолва). Осталась мультицель.
 
 | Заклинание | Статус |
 |---|---|
@@ -69,8 +69,10 @@
 | `XPHB:Ice Knife` | ✅ атака 1к10 колющим + взрыв 2к6 холодом (спас DEX, 5 фт, и при промахе; `AutomationDef.burst`) |
 | `XPHB:Vitriolic Sphere` | ✅ 10к4 кислотой (+2к4/круг), провал — ещё 5к4 в конце следующего хода (`EffectInstance.triggers.endOfTurn`, одноразово) |
 | `XPHB:Spiritual Weapon` | ⚠️ грантованная атака + мод заклинательной характеристики |
-| `XPHB:Steel Wind Strike` | ⚠️ до 5 целей + телепорт |
-| `XPHB:Chain Lightning` | ⚠️ 3 перескока |
+| `XPHB:Steel Wind Strike` | ✅ до 5 существ (multi, без повторов): заклинательная атака 6к10 силовым (+1к10/круг); после резолва — телепорт в 5 фт от цели (`AutomationDef.teleportAfter`, прицел после выбора целей) |
+| `XPHB:Chain Lightning` | ✅ первая цель (150 фт), скачки авто по врагам в 30 фт (3, +1/круг выше 6); спас DEX, один бросок 10к8 (`AutomationDef.chain`); ⚠️ FX: анимация дуги и скачков — TODO |
+
+**FX (TODO):** `XPHB:Chain Lightning` — цепная молния без визуала: нужен эффект дуги от кастера к первой цели и перескоков между целями (порядок скачков знает сервер — передавать в `fx:play`), фабрика в `client/src/components/spellFx/`.
 
 ## E. Временные хиты — ✅ сделано — 2
 
@@ -130,6 +132,7 @@
 4. **Лечение с +модом — ✅ сделано:** Cure Wounds, Healing Word, Mass Healing Word, Mass Cure Wounds получают `heal.abilityMod` (флаг `healAbilityMod` в `AUTOMATION_ADDITIONS`), `withSpellAbilityMod` смотрит и на `def.heal`. Prayer of Healing — без мода (SRD 2024: «also regain 2d8»).
 5. **Каталог:** `XPHB:Resistance` (`save+1d4` вместо −1d4 к урону раз в ход), `XPHB:Guidance` (все проверки вместо выбранного навыка), `XPHB:Aid` (+5/круг), `XPHB:Cloudkill` (зона 5d8 без апкаста).
 6. **Лимит «1 минута» — ✅ реализовано:** спеллы длительностью ровно 1 минута получают `maxRounds: 10` (`spellMaxRounds`), эффекты и зоны гаснут на 10-м ходу носителя/источника, даже если не сняты спасом/концентрацией; больше минуты (10 минут/час) не лимитируется, instant не затрагивается. Счётчик — `EffectInstance.maxRounds`/`ZoneInstance.maxRounds`, тик — `tickEffects`/`tickZones`.
+7. **Универсальная подсветка целей (TODO, сессия 12):** обобщить механизм Steel Wind Strike на все режимы выбора. Сейчас общие правила — `shared/src/rules/targeting.ts` (`creatureTargetIssue`: дистанция/стены; `teleportCellsNearTargets`: клетки рядом с целями), клиентская подсветка — `TableTop` (`eligibleTargets`/`teleportCells`) + `AimLayer` (пунктир кандидатов, зелёные клетки), локальный `blocked` — стор `aimToCursor`. Нужно: единый слой «кандидаты режима» для single-target/multi/area (какие существа/клетки доступны, подсветка кандидатов и выбранных, игнор клика по невалидным), правила выбора — только в shared, клиент — рендер; заодно вынести туда остальные inline-проверки таргетинга (выбор цели/области/зонных действий).
 
 ## Инвентарь по типам (для планирования)
 
@@ -138,9 +141,9 @@
 | attackRiders (наездники) | 13 | ✅ есть, нужен вход от «после попадания» |
 | effect-баффы | 21 | ✅ 16, ⚠️ 5 (B4-трансформации) |
 | zone/повтор | 28 | ✅ есть, ⚠️ Healing Spirit/Cordon/Glyph/стены/Storm Sphere |
-| составной урон/мультицель | 10 | ✅ 6 (Flame Strike, Ice Storm, Destructive Wave, Wall of Thorns, Ice Knife, Vitriolic), ⚠️ 4 (Jallarzi, Spiritual Weapon, Steel Wind Strike, Chain Lightning) |
+| составной урон/мультицель | 10 | ✅ 8 (Flame Strike, Ice Storm, Destructive Wave, Wall of Thorns, Ice Knife, Vitriolic, Chain Lightning, Steel Wind Strike), ⚠️ 2 (Jallarzi, Spiritual Weapon) |
 | temp HP | 2 | ✅ реализовано (2) |
 | духи-атаки | 2 | ⚠️ granted actions |
 | перемещение | 2 | ✅ `utility.teleport`; ⚠️ Dimension Door (пассажир), Thunder Step (урон в точке выхода) |
 | особая логика / нет типа | 16 | ❌ 13 без типа, 3 почти выразимы |
-| **Итого в аудите** | **94** | закрыто 37 (A 13, B 16, D 6, E 2); открыто — остальное |
+| **Итого в аудите** | **94** | закрыто 39 (A 13, B 16, D 8, E 2); открыто — остальное |

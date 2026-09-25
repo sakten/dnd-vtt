@@ -42,10 +42,16 @@ export default function AimPanel() {
     return (
       <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">
-          {t('ui.aim.areaLabel', { shape: t(SHAPE_RU[aim.spec.shape] ?? 'ui.aim.area'), size: aim.spec.size })}
+          {aim.nearTargets
+            ? t('ui.aim.teleport')
+            : t('ui.aim.areaLabel', { shape: t(SHAPE_RU[aim.spec.shape] ?? 'ui.aim.area'), size: aim.spec.size })}
         </span>
         <span className={`aim-hint${aim.blocked ? ' aim-blocked' : ''}`}>
-          {aim.blocked ? t('ui.aim.blocked') : t('ui.aim.aimHint')}
+          {aim.blocked
+            ? t(aim.nearTargets ? 'ui.aim.nearTargetsInvalid' : 'ui.aim.blocked')
+            : aim.nearTargets
+              ? t('ui.aim.nearTargets')
+              : t('ui.aim.aimHint')}
         </span>
         <button className="aim-cancel" onClick={cancel}>
           {t('ui.common.cancel')}

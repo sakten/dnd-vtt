@@ -204,8 +204,9 @@ export function spellCastInfo(
   const area = spellHasArea(spell);
   const self = spellTargetKind(spell) === 'self';
   const charLevel = caster.classes ? characterLevel(caster.classes) : 1;
-  const projectiles = spellAttackCount(spell, level, charLevel);
   const def = automationForSpell(spell, { castLevel: level, characterLevel: charLevel });
+  // Chain Lightning: скачки добираются авто — клиент выбирает только первую цель.
+  const projectiles = def.chain ? 1 : spellAttackCount(spell, level, charLevel);
   const autoTargets = !!def.autoTargets;
   // Shillelagh: кости данных — кость оружия по тирам, отдельного урона у заклинания нет.
   const weaponBuff = def.effects?.some((e) => e.weaponOverride) === true;

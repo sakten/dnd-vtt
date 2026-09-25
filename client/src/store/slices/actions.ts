@@ -15,7 +15,7 @@ import {
   toggleScatterTarget,
   type InteractionCommand,
 } from '../../domain/interaction';
-import { crossesWalls } from 'shared';
+import { areaCellKey, crossesWalls, pointCell, teleportCellsNearTargets } from 'shared';
 import { emitInMap } from '../helpers';
 import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
@@ -132,14 +132,28 @@ export const createActionSlice: Slice<
       if (it?.mode !== 'aim') return;
       const map = activeMapOf(state);
       const token = tokenById(map, it.aim.tokenId);
-      const next = aimToCursor(it, cursor, token, activeGridOf(state).size || 50);
-      if (!next || next.mode !== 'aim' || !next.aim.origin) {
+      const grid = activeGridOf(state);
+      const next = aimToCursor(it, cursor, token, grid.size || 50);
+      if (!next || next.mode !== 'aim') {
+        _set({ interaction: next });
+        return;
+      }
+      const aim = next.aim;
+      const origin = aim.origin;
+      if (!origin) {
         _set({ interaction: next });
         return;
       }
       // Подсветка: путь до точки перекрыт стеной/закрытой дверью — применять нельзя.
-      const blocked = !!map && !!token && crossesWalls(token, next.aim.origin, map.walls, 'sight');
-      _set({ interaction: { mode: 'aim', aim: { ...next.aim, blocked } } });
+      let blocked = !!map && !!token && crossesWalls(token, origin, map.walls, 'sight');
+      // Steel Wind Strike: точка телепорта должна быть рядом с одной из выбранных целей.
+      if (!blocked && map && token && aim.nearTargets && aim.nearFeet) {
+        const targets = (aim.targetIds ?? []).map((id) => tokenById(map, id)).filter((t) => !!t);
+        const cells = teleportCellsNearTargets(targets, map.tokens, grid, map.walls, aim.nearFeet, aim.tokenId);
+        const cell = pointCell({ x: origin.x, y: origin.y }, grid);
+        if (!cells.includes(areaCellKey(cell.cx, cell.cy))) blocked = true;
+      }
+      _set({ interaction: { mode: 'aim', aim: { ...aim, blocked } } });
     },
 
     cancelAim: () => _set({ interaction: null }),

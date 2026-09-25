@@ -10,13 +10,17 @@ interface Props {
   /** Радиус досягаемости действия зоны (якорь + лимит): подсказка при прицеле. */
   rangeCircle?: { x: number; y: number; radius: number } | null;
   multiTargetTokens: Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h'>[];
+  /** Кандидаты мульти-цели: подсветка доступных для выбора существ. */
+  eligibleTokens?: Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h'>[];
+  /** Steel Wind Strike: клетки, куда можно телепортироваться после атак. */
+  teleportCells?: CellRect[];
   /** Scatter: уже поставленные точки назначения (номер = порядок целей). */
   scatterPins?: { x: number; y: number }[];
   viewScale: number;
 }
 
 /** Подсветка движения, прицеливания области и выбранных целей мультиатаки. */
-export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, multiTargetTokens, scatterPins = [], viewScale }: Props) {
+export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, multiTargetTokens, eligibleTokens = [], teleportCells = [], scatterPins = [], viewScale }: Props) {
   return (
     <>
       {rangeCircle && (
@@ -40,6 +44,18 @@ export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, mu
           height={c.size}
           fill="#7c9cff"
           opacity={0.18}
+          listening={false}
+        />
+      ))}
+      {teleportCells.map((c) => (
+        <Rect
+          key={`tp-${c.x},${c.y}`}
+          x={c.x}
+          y={c.y}
+          width={c.size}
+          height={c.size}
+          fill="#51cf66"
+          opacity={0.28}
           listening={false}
         />
       ))}
@@ -82,6 +98,20 @@ export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, mu
             listening={false}
           />
         </Fragment>
+      ))}
+      {eligibleTokens.map((t) => (
+        <Rect
+          key={`el-${t.id}`}
+          x={t.x - t.w / 2}
+          y={t.y - t.h / 2}
+          width={t.w}
+          height={t.h}
+          stroke="#4dabf7"
+          strokeWidth={2 / viewScale}
+          dash={[6 / viewScale, 6 / viewScale]}
+          opacity={0.75}
+          listening={false}
+        />
       ))}
       {multiTargetTokens.map((t, i) => (
         <Fragment key={`mt-${i}-${t.id}`}>

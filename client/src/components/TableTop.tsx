@@ -8,6 +8,7 @@ import {
   areaCells,
   attackRange,
   collectAttackSources,
+  creatureTargetIssue,
   gridDistanceFeet,
   hostileTokens,
   isBanished,
@@ -23,7 +24,10 @@ import {
   sightContextOf,
   snapToGrid,
   sourcesMode,
+  spellRangeFeet,
   spreadCells,
+  teleportCellsNearTargets,
+  tokenCells,
   unseenBetween,
   weaponContextOf,
   weaponHasProperty,
@@ -483,6 +487,43 @@ export default function TableTop() {
     lightMap,
   ]);
 
+  // Мульти-цель: подсветка существ, которых можно выбрать (дистанция, стены, туман, обзор).
+  const eligibleTargets = useMemo(() => {
+    if (!multiTarget || !activeMap) return [];
+    const caster = tokenById(activeMap, multiTarget.tokenId);
+    const spell = multiTarget.spellKey ? spellByKey.get(multiTarget.spellKey) : undefined;
+    const rangeFeet = spell ? spellRangeFeet(spell) : null;
+    if (!caster || rangeFeet === null) return [];
+    const g = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    return activeMap.tokens.filter((t) => {
+      if (t.id === caster.id || isBanished(t) || invisibility.hidden.has(t.id)) return false;
+      const cells = tokenCells(t, g);
+      if (!isDm && cells.some((key) => hiddenSet.has(key))) return false;
+      if (visionView && !cells.some((key) => visionView.base.has(key))) return false;
+      return creatureTargetIssue(caster, t, activeMap.walls, g, rangeFeet) === undefined;
+    });
+  }, [multiTarget, activeMap, spellByKey, grid, isDm, hiddenSet, visionView, invisibility.hidden]);
+
+  // Steel Wind Strike: клетки телепорта рядом с выбранными целями.
+  const teleportCells = useMemo(() => {
+    if (!aim?.nearTargets || !aim.nearFeet || !aim.targetIds?.length || !activeMap) return [];
+    const g = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    const targets = aim.targetIds.map((id) => tokenById(activeMap, id)).filter((t) => !!t);
+    const keys = teleportCellsNearTargets(targets, activeMap.tokens, g, activeMap.walls, aim.nearFeet, aim.tokenId);
+    const bounded = activeMap.width > 0 && activeMap.height > 0;
+    const maxCx = Math.ceil(activeMap.width / g.size);
+    const maxCy = Math.ceil(activeMap.height / g.size);
+    const out: { x: number; y: number; size: number }[] = [];
+    for (const key of keys) {
+      const [cx, cy] = key.split(',').map(Number);
+      if (cx === undefined || cy === undefined || cx < 0 || cy < 0) continue;
+      if (bounded && (cx >= maxCx || cy >= maxCy)) continue;
+      if (!isDm && hiddenSet.has(key)) continue;
+      out.push({ x: g.offsetX + cx * g.size, y: g.offsetY + cy * g.size, size: g.size });
+    }
+    return out;
+  }, [aim, activeMap, grid, isDm, hiddenSet]);
+
   // Маска для оверлея эффектов: игрок видит анимацию только в видимых клетках (DM — везде).
   const fxMask = useMemo<FxMask | null>(() => {
     if (!visionView || !activeMap) return null;
@@ -777,6 +818,8 @@ export default function TableTop() {
               aimCells={aimCells}
               rangeCircle={aimRangeCircle}
               multiTargetTokens={scatter ? scatterTokens : multiTargetTokens}
+              eligibleTokens={multiTarget ? eligibleTargets : []}
+              teleportCells={teleportCells}
               scatterPins={scatterPins}
               viewScale={view.scale}
             />

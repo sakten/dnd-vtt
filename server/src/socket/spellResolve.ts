@@ -1,5 +1,7 @@
 import {
   automationForSpell,
+  cellNearTargetFeet,
+  creatureTargetIssue,
   crossesWalls,
   effectiveSpellRangeFeet,
   gridDistanceFeet,
@@ -8,6 +10,8 @@ import {
   hasInvocation,
   INVOCATION_PACT_KEYS,
   loadoutOf,
+  nearestTarget,
+  pointCell,
   polymorphFormIssue,
   spellCastArea,
   spellIsSelf,
@@ -207,6 +211,21 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return teleportIssue(room, input.mapId, caster, input.origin, def.utility.amount ?? 30);
   }
 
+  // Steel Wind Strike: точка телепорта — рядом с любой из выбранных целей (правила клеток).
+  if (def.teleportAfter) {
+    if (!input.origin) return { code: 'noAreaPoint' };
+    const anchor = nearestTarget(input.origin, targets);
+    if (!anchor) return { code: 'spellNoTarget' };
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const cell = pointCell(input.origin, grid);
+    const feet = cellNearTargetFeet(cell.cx, cell.cy, anchor, grid);
+    if (feet > def.teleportAfter.feet) return { code: 'outOfRange', params: { feet } };
+    return teleportIssue(room, input.mapId, caster, input.origin, def.teleportAfter.feet, anchor, {
+      skipDistance: true,
+    });
+  }
+
   // Scatter: до N целей в 30 фт; каждая — точка назначения в 120 фт от кастера (видна, свободна).
   if (def.utility?.kind === 'scatter') {
     const placements = input.placements ?? [];
@@ -247,11 +266,12 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
   const map = room.scene.maps.find((m) => m.id === input.mapId);
-  const gridSize = gridOfMap(map, room.scene.grid).size;
+  const grid = gridOfMap(map, room.scene.grid);
   for (const target of targets) {
     if (target.id === caster.id) continue;
-    const feet = gridDistanceFeet(caster, target, gridSize);
-    if (feet > rangeFeet) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+    const issue = creatureTargetIssue(caster, target, map?.walls ?? [], grid, rangeFeet);
+    if (issue?.code === 'outOfRange') return { code: 'outOfRange', params: { feet: Math.round(issue.feet) } };
+    if (issue) return { code: issue.code };
   }
   return undefined;
 }

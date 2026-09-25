@@ -467,6 +467,11 @@ export interface AutomationDef extends AutomationPayload {
   targets?: number;
   /** Максимум целей = модификатор способности (Мантия вдохновения: Харизма, min 1). */
   targetsAbility?: AbilityKey;
+  /**
+   * Chain Lightning: игрок выбирает только первую цель, до `jumps` враждебных
+   * существ в `feet` от неё добавляются автоматически (по дистанции, без повторов).
+   */
+  chain?: { jumps: number; feet: number };
   /** Автосбор целей в радиусе от кастера (черты без мультивыбора): сторона и дистанция. */
   autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any'; includeSelf?: boolean };
   /** Стоимость/цель черты (для классовых действий). */
@@ -510,6 +515,11 @@ export interface AutomationDef extends AutomationPayload {
   excludeCreatureTypes?: string[];
   /** Лечение на половину фактически нанесённого урона (Vampiric Touch). */
   lifesteal?: boolean;
+  /**
+   * Steel Wind Strike: после резолва атак кастер телепортируется в точку в `feet`
+   * от любой из выбранных целей (точка приходит в `origin` того же каста).
+   */
+  teleportAfter?: { feet: number };
   /** Перенос метки эффекта на новую цель (Hex/Hunter's Mark): обновляет filter.targetId. */
   retarget?: boolean;
   /** Эффекты при успешном спасброске (Irresistible Dance: короткий танец до конца следующего хода). */

@@ -4476,6 +4476,131 @@ describe('spell:cast', () => {
     expect(rest.resources.p1!.spellSlots[0]!.current).toBe(0);
   });
 
+  it('Chain Lightning: игрок выбирает первую цель, скачки — авто по врагам в 30 фт', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 200, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { faction: 'enemy', x: 225, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t4', { faction: 'ally', x: 200, y: 150, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t5', { faction: 'enemy', x: 600, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Chain Lightning', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 6, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // 10d8 = 10, спас d20 = 1 (провал)
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Chain Lightning',
+      slotLevel: 6,
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    expect(f.emitted.filter((e) => e.event === 'chat:error')).toEqual([]);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(20); // первая цель
+    expect(room.scene.maps[0]!.tokens[2]!.hpCurrent).toBe(20); // скачок: враг в 5 фт
+    expect(room.scene.maps[0]!.tokens[3]!.hpCurrent).toBe(30); // союзник рядом — не задет
+    expect(room.scene.maps[0]!.tokens[4]!.hpCurrent).toBe(30); // враг в 40 фт — не задет
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(0);
+  });
+
+  it('Steel Wind Strike: до 5 целей, затем телепорт рядом с целью', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 225, y: 225, ac: '12', hpMax: '30', hpCurrent: 30 }),
+        makeToken('t3', { faction: 'enemy', x: 325, y: 225, ac: '12', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Steel Wind Strike', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 5, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // d20=13 (попадание), 6d10 по 7
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Steel Wind Strike',
+      slotLevel: 5,
+      targetIds: ['t2', 't3'],
+      origin: { x: 275, y: 225 }, // в ровно 5 фт от t2, клетка свободна
+    });
+    rand.mockRestore();
+
+    expect(f.emitted.filter((e) => e.event === 'chat:error')).toEqual([]);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
+    expect(room.scene.maps[0]!.tokens[2]!.hpCurrent).toBeLessThan(30);
+    // Телепорт — в выбранную точку (центр клетки).
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    expect([caster.x, caster.y]).toEqual([275, 225]);
+  });
+
+  it('Steel Wind Strike: точка вдали от целей — отказ, атаки не идут', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 225, y: 225, ac: '12', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Steel Wind Strike', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 5, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Steel Wind Strike',
+      slotLevel: 5,
+      targetIds: ['t2'],
+      origin: { x: 600, y: 100 },
+    });
+
+    expect((f.selfEvents('chat:error')[0]?.payload as { code?: string } | undefined)?.code).toBe('outOfRange');
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(30);
+    expect(room.resources.p1!.spellSlots[0]!.current).toBe(1);
+    expect([room.scene.maps[0]!.tokens[0]!.x, room.scene.maps[0]!.tokens[0]!.y]).toEqual([100, 100]);
+  });
+
+  it('Steel Wind Strike: телепорт рядом с крупным врагом (по клеткам, не по центру)', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', faction: 'ally', x: 100, y: 100 }),
+        makeToken('t2', { faction: 'enemy', x: 200, y: 200, w: 100, h: 100, ac: '12', hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XPHB:Steel Wind Strike', className: 'wizard' }] };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 5, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // попадание по AC 12
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XPHB:Steel Wind Strike',
+      slotLevel: 5,
+      targetIds: ['t2'],
+      origin: { x: 275, y: 275 }, // соседняя с подошвой 2×2 клетка (по центрам было бы 10+ фт)
+    });
+    rand.mockRestore();
+
+    expect(f.emitted.filter((e) => e.event === 'chat:error')).toEqual([]);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBeLessThan(30);
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    expect([caster.x, caster.y]).toEqual([275, 275]);
+  });
+
   it('без выбранного заклинания не кастует', () => {
     const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
     room.sheets.p1 = casterSheet();

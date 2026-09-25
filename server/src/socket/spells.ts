@@ -16,7 +16,7 @@ import { findSpell } from '../spells';
 import { pushRollMessage } from './messages';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken } from './guards';
 import { casterStatsFor, spellClassFor } from './spellStats';
-import { collectSpellCast } from './spellTargeting';
+import { collectSpellCast, expandChainTargets } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
 import { sanctuaryBlocks } from './sanctuary';
@@ -124,6 +124,9 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       socket.emit('chat:error', invalid);
       return;
     }
+
+    // Chain Lightning: скачки добираются авто по врагам вокруг первой цели.
+    expandChainTargets(ctx, room, input);
 
     const turn =
       cost === 'reaction' ? manager.turnStateFor(room, mapId, token) : manager.turnForToken(room, mapId, token);

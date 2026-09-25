@@ -161,6 +161,42 @@ describe('automationForSpell', () => {
     expect(automationForSpell(heal, { castLevel: 8 }).heal?.dice).toBe('90');
   });
 
+  it('Chain Lightning: первая цель выбирается, скачки авто (3, +1 за круг выше 6)', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Chain Lightning',
+      name: 'Chain Lightning',
+      level: 6,
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['10d8'], types: ['lightning'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'dex', half: true });
+    expect(def.damage).toEqual({ dice: '10d8', types: ['lightning'] });
+    expect(def.chain).toEqual({ jumps: 3, feet: 30 });
+    expect(automationForSpell(spell, { castLevel: 8 }).chain?.jumps).toBe(5);
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('Steel Wind Strike: до 5 целей-атак, +1к10/круг, телепорт после', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Steel Wind Strike',
+      name: 'Steel Wind Strike',
+      level: 5,
+      spellAttack: 'melee',
+      damage: { dice: ['6d10'], types: ['force'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('attack');
+    expect(def.attack).toEqual({ rangeType: 'melee' });
+    expect(def.targets).toBe(5);
+    expect(def.damage).toEqual({ dice: '6d10', types: ['force'] });
+    expect(def.teleportAfter).toEqual({ feet: 5 });
+    expect(automationForSpell(spell, { castLevel: 7 }).damage?.dice).toBe('8d10');
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Lesser Restoration — каталог: endCondition и допустимые состояния', () => {
     const lesser = makeSpell({
       key: 'XPHB:Lesser Restoration',

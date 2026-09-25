@@ -99,6 +99,8 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
     return def.shape;
   })();
+  // Steel Wind Strike: после выбора целей — прицел телепорта рядом одной из них.
+  const strikeTeleport = automationForSpell(spell, { castLevel: info.slotLevel ?? level }).teleportAfter;
   const needBeast = !!shapeDef;
   // Lesser/Greater Restoration: допустимые к снятию состояния; выбор — после клика по цели.
   const endConditionDef = (() => {
@@ -167,6 +169,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         count: info.multiCount,
         distinct: info.multiKind === 'targets',
         ...(variant ? { variant } : {}),
+        ...(strikeTeleport
+          ? { thenAim: { rangeFeet: null, feet: strikeTeleport.feet } }
+          : {}),
       });
     } else if (info.autoTargets) {
       // Цели собирает сервер по радиусу (Beacon of Hope): клик по цели не нужен.

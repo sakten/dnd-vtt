@@ -3,10 +3,13 @@ import {
   aimOriginKind,
   aimToCursor,
   confirmArea,
+  finishMulti,
+  pickMultiTarget,
   placeScatterPoint,
   scatterBack,
   scatterToPlaces,
   startAim,
+  startMulti,
   startScatter,
   toggleScatterTarget,
 } from './interaction';
@@ -87,6 +90,62 @@ describe('области прицеливания', () => {
     expect(moved?.mode === 'aim' ? moved.aim.origin : null).toEqual({ x: 200, y: 100 });
     // Кольцо — не направленная область: direction остаётся точкой (как у сфер).
     expect(moved?.mode === 'aim' ? moved.aim.direction : null).toEqual({ x: 200, y: 100 });
+  });
+});
+
+describe('Steel Wind Strike: цели → точка телепорта', () => {
+  const start = () =>
+    startMulti({
+      tokenId: 't1',
+      spellKey: 'XPHB:Steel Wind Strike',
+      slotLevel: 5,
+      count: 5,
+      distinct: true,
+      thenAim: { rangeFeet: null, feet: 5 },
+    });
+
+  it('после выбора целей — прицел, каст несёт и цели, и точку', () => {
+    const caster = makeToken('t1', { x: 100, y: 100 });
+    const it = pickMultiTarget(start(), 't2').next;
+    expect(it?.mode).toBe('multi');
+
+    // Досрочное применение (2 цели из 5) — прицел, а не каст.
+    const early = finishMulti(pickMultiTarget(it, 't3').next);
+    expect(early.command).toBeUndefined();
+    const aim = early.next!;
+    expect(aim.mode).toBe('aim');
+    if (aim.mode !== 'aim') return;
+    expect(aim.aim.targetIds).toEqual(['t2', 't3']);
+    expect(aim.aim.nearTargets).toBe(true);
+
+    const moved = aimToCursor(aim, { x: 250, y: 100 }, caster, 50);
+    const cast = confirmArea(moved);
+    expect(cast.command).toMatchObject({
+      type: 'castSpell',
+      payload: { spellKey: 'XPHB:Steel Wind Strike', targetIds: ['t2', 't3'], origin: { x: 250, y: 100 } },
+    });
+  });
+
+  it('без ограничения ренжа точка телепорта не клампится', () => {
+    const caster = makeToken('t1', { x: 100, y: 100 });
+    const aim = finishMulti(pickMultiTarget(start(), 't2').next).next!;
+    const moved = aimToCursor(aim, { x: 5000, y: 100 }, caster, 50);
+    expect(moved?.mode === 'aim' ? moved.aim.origin : null).toEqual({ x: 5000, y: 100 });
+  });
+
+  it('полный набор целей сразу переводит к прицелу', () => {
+    // count 2 и thenAim: второй клик не кастует, а открывает прицел.
+    const it = startMulti({
+      tokenId: 't1',
+      spellKey: 'XPHB:Steel Wind Strike',
+      slotLevel: 3,
+      count: 2,
+      distinct: true,
+      thenAim: { rangeFeet: null, feet: 5 },
+    });
+    const result = pickMultiTarget(pickMultiTarget(it, 't2').next, 't3');
+    expect(result.command).toBeUndefined();
+    expect(result.next?.mode).toBe('aim');
   });
 });
 

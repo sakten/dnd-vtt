@@ -1,6 +1,8 @@
 import {
+  automationForSpell,
   crossesWalls,
   gridOfMap,
+  hostileTokens,
   isBanished,
   isRecord,
   spellAreaOrigin,
@@ -10,6 +12,7 @@ import {
   spellIsSelf,
   spellRangeFeet,
   tokenVisibleFrom,
+  tokensNearFeet,
   type Spell,
   type SpellStats,
   type Token,
@@ -18,6 +21,7 @@ import type { ConnCtx } from './context';
 import { areaTokens } from './areaTokens';
 import { fail } from './errors';
 import type { SpellCastInput } from './spellResolve';
+import type { Room } from '../roomTypes';
 
 const isPoint = (p: unknown): p is { x: number; y: number } =>
   isRecord(p) && Number.isFinite(p.x) && Number.isFinite(p.y);
@@ -139,4 +143,30 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     ...(placements.length ? { placements } : {}),
     author: params.author,
   };
+}
+
+/**
+ * Chain Lightning: игрок выбрал только первую цель — добавляем скачки: до `jumps`
+ * враждебных существ в `feet` от неё (по дистанции, без повторов, кроме изгнанных).
+ */
+export function expandChainTargets(ctx: ConnCtx, room: Room, input: SpellCastInput): void {
+  const primary = input.targets[0];
+  if (!primary) return;
+  const def = automationForSpell(input.spell, {
+    castLevel: input.castLevel,
+    characterLevel: input.characterLevel,
+  });
+  const chain = def.chain;
+  if (!chain) return;
+  const map = ctx.manager.findMap(room, input.mapId);
+  if (!map) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const extra = tokensNearFeet(map.tokens, primary, chain.feet, grid.size).filter(
+    (token) =>
+      token.id !== primary.id &&
+      !input.targets.some((t) => t.id === token.id) &&
+      !isBanished(token) &&
+      hostileTokens(input.caster, token)
+  );
+  for (const token of extra.slice(0, Math.max(0, chain.jumps))) input.targets.push(token);
 }

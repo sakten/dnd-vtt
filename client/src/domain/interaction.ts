@@ -30,6 +30,12 @@ export interface AimState {
   variant?: string;
   /** Призыв: точка под курсором (подсветка одной клетки, без риски origin). */
   summon?: boolean;
+  /** Цели, выбранные до прицела (Steel Wind Strike): уйдут в каст. */
+  targetIds?: string[];
+  /** Телепорт после атак: точка должна быть рядом с выбранной целью (подсказка). */
+  nearTargets?: boolean;
+  /** Предел близости точки телепорта к цели, футы (Steel Wind Strike: 5). */
+  nearFeet?: number;
 }
 
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
@@ -45,6 +51,8 @@ export interface MultiTargetState {
   targets: string[];
   /** Существа-цели: без повторов, можно применить, выбрав меньше максимума. */
   distinct?: boolean;
+  /** После выбора целей — прицел телепорта (Steel Wind Strike), без команды каста. */
+  thenAim?: { rangeFeet: number | null; feet: number };
 }
 
 /** Scatter: до N целей, затем точка назначения на каждую (последний клик кастует). */
@@ -259,6 +267,7 @@ export function confirmArea(interaction: Interaction | null): InteractionResult 
         advantage: aim.advantage,
         origin: aim.origin ?? undefined,
         direction: aim.direction ?? undefined,
+        ...(aim.targetIds?.length ? { targetIds: aim.targetIds } : {}),
         ...(aim.summonKey ? { summonKey: aim.summonKey } : {}),
         ...(aim.variant ? { variant: aim.variant } : {}),
       },
@@ -335,17 +344,42 @@ export function pickCondition(interaction: Interaction | null, key: string): Int
   };
 }
 
-/** Клик по токену в режиме мульти-цели; последний выбор запускает каст. */
+/** Клик по токену в режиме мульти-цели; последний выбор запускает каст (или прицел телепорта). */
 export function pickMultiTarget(interaction: Interaction | null, targetId: string): InteractionResult {
   if (interaction?.mode !== 'multi') return { next: interaction };
   const mt = interaction.multi;
   // Существа-цели не дублируются (одно существо — один раз); снаряды могут бить в одну цель.
   if (mt.distinct && mt.targets.includes(targetId)) return { next: interaction };
   const targets = [...mt.targets, targetId];
-  if (targets.length >= mt.count) {
-    return { next: null, command: multiCommand(mt, targets) };
-  }
+  if (targets.length >= mt.count) return multiFinish(mt, targets);
   return { next: { mode: 'multi', multi: { ...mt, targets } } };
+}
+
+/** Переход от мульти-цели: каст сразу либо прицел телепорта (Steel Wind Strike). */
+function multiFinish(mt: MultiTargetState, targets: string[]): InteractionResult {
+  if (mt.thenAim) {
+    return {
+      next: {
+        mode: 'aim',
+        aim: {
+          tokenId: mt.tokenId,
+          spellKey: mt.spellKey,
+          slotLevel: mt.slotLevel,
+          advantage: mt.advantage,
+          targetIds: targets,
+          spec: { shape: 'sphere', size: 0 },
+          originKind: 'point',
+          rangeFeet: mt.thenAim.rangeFeet,
+          origin: null,
+          direction: null,
+          summon: true,
+          nearTargets: true,
+          nearFeet: mt.thenAim.feet,
+        },
+      },
+    };
+  }
+  return { next: null, command: multiCommand(mt, targets) };
 }
 
 /** Команда применения мульти-цели: заклинание или классовая черта. */
@@ -370,12 +404,12 @@ function multiCommand(mt: MultiTargetState, targets: string[]): InteractionComma
   };
 }
 
-/** Досрочное применение мульти-цели: выбранных меньше максимума (Mass Healing Word). */
+/** Досрочное применение мульти-цели: выбранных меньше максимума (Mass Healing Word; Steel Wind Strike — прицел). */
 export function finishMulti(interaction: Interaction | null): InteractionResult {
   if (interaction?.mode !== 'multi') return { next: interaction };
   const mt = interaction.multi;
   if (!mt.targets.length) return { next: interaction };
-  return { next: null, command: multiCommand(mt, mt.targets) };
+  return multiFinish(mt, mt.targets);
 }
 
 /** Клик по токену в фазе целей Scatter: тумблер; на лимите — сразу фаза точек. */

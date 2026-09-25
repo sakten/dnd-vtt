@@ -6,6 +6,7 @@ import { handleMovementZones } from './zones';
 /**
  * Проверка точки телепорта (Misty Step, Scatter): не дальше `feet` от `from`
  * (по умолчанию — сам перемещаемый), внутри карты, свободна подошвой и видна.
+ * `skipDistance` — дистанцию проверил вызывающий (Steel Wind Strike: правила клеток).
  */
 export function teleportIssue(
   room: Room,
@@ -13,14 +14,17 @@ export function teleportIssue(
   mover: Token,
   origin: { x: number; y: number },
   feet: number,
-  from?: Token
+  from?: Token,
+  opts: { skipDistance?: boolean } = {}
 ): ErrorPayload | undefined {
   const map = room.scene.maps.find((m) => m.id === mapId);
   if (!map) return { code: 'teleportNoSpace' };
   const grid = gridOfMap(map, room.scene.grid);
   const anchor = from ?? mover;
-  const distance = (Math.hypot(origin.x - anchor.x, origin.y - anchor.y) / grid.size) * 5;
-  if (distance > feet) return { code: 'outOfRange', params: { feet: Math.round(distance) } };
+  if (!opts.skipDistance) {
+    const distance = (Math.hypot(origin.x - anchor.x, origin.y - anchor.y) / grid.size) * 5;
+    if (distance > feet) return { code: 'outOfRange', params: { feet: Math.round(distance) } };
+  }
   if (map.width > 0 && (origin.x < 0 || origin.y < 0 || origin.x > map.width || origin.y > map.height)) {
     return { code: 'teleportNoSpace' };
   }

@@ -2263,6 +2263,43 @@ function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationDef | un
 }
 
 /**
+ * Steel Wind Strike (XPHB 2024): до 5 существ в 30 фт — заклинательная атака
+ * 6к10 силовым (+1к10 за круг выше 5); после атак телепорт в 5 фт от любой цели.
+ */
+function steelWindStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Steel Wind Strike') return undefined;
+  const castLevel = Math.max(5, opts.castLevel ?? spell.level);
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'attack',
+    attack: { rangeType: 'melee' },
+    targets: 5,
+    count: 5,
+    damage: { dice: scaledDice('6d10', '1d10', castLevel - 5), types: ['force'] },
+    teleportAfter: { feet: 5 },
+  };
+}
+
+/**
+ * Chain Lightning (XPHB 2024): игрок выбирает первую цель (150 фт); три скачка
+ * (+1 за круг выше 6) добираются авто по враждебным существам в 30 фт от неё;
+ * все цели — спас DEX, один бросок 10к8 электричеством (половина при успехе).
+ */
+function chainLightningDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Chain Lightning') return undefined;
+  const castLevel = Math.max(6, opts.castLevel ?? spell.level);
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    save: { ability: 'dex', half: true },
+    damage: { dice: spell.damage?.dice?.[0] ?? '10d8', types: ['lightning'] },
+    chain: { jumps: 3 + (castLevel - 6), feet: 30 },
+  };
+}
+
+/**
  * Ice Knife (XPHB 2024): дальняя заклинательная атака (1к10 колющим); вне
  * зависимости от попадания осколок взрывается — цель и все в 5 фт проходят
  * спас DEX и получают 2к6 холодом (апкаст +1к6; при успехе урона нет).
@@ -2635,6 +2672,12 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const heal = healSpellDef(spell, opts);
   if (heal) return heal;
+
+  const chainLightning = chainLightningDef(spell, opts);
+  if (chainLightning) return chainLightning;
+
+  const steelWindStrike = steelWindStrikeDef(spell, opts);
+  if (steelWindStrike) return steelWindStrike;
 
   const composite = compositeDamageDef(spell, opts);
   if (composite) return composite;

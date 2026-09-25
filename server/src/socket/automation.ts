@@ -744,6 +744,8 @@ interface AutomationRun {
   count: number;
   /** Выбранная форма Polymorph (ключ каталога бестиария). */
   shapeForm?: string;
+  /** Steel Wind Strike: точка телепорта, выполняется после резолва всех атак. */
+  teleportTo?: { x: number; y: number };
 }
 
 /** Лечение с бонусом Ученика жизни. */
@@ -884,6 +886,17 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   const castMap = ctx.manager.findMap(room, mapId);
   const gridSize = castMap ? gridSizeOfMap(castMap) : 50;
   const penalty = exhaustionRollPenalty(caster.conditions);
+  // Число атак: у целевых заклинаний (Steel Wind Strike, `def.targets`) — одна атака
+  // на выбранную цель; у снарядов (Eldritch Blast) — `count`, как раньше.
+  const rays = def.targets ? Math.min(count, Math.max(1, targets.length)) : count;
+
+  /** Конец последовательности: телепорт после атак (Steel Wind Strike). */
+  let finished = false;
+  const finishSequence = () => {
+    if (finished) return;
+    finished = true;
+    if (run.teleportTo) executeTeleport(ctx, room, mapId, caster, run.teleportTo);
+  };
 
   /**
    * Каждый луч/снаряд бьёт свою цель (если задана), иначе — последнюю/первую.
@@ -891,10 +904,10 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
    * последовательность: следующий запускается из resume окна.
    */
   const resolveRay = (i: number): void => {
-    if (i >= count) return;
+    if (i >= rays) return finishSequence();
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
     if (!target) return resolveRay(i + 1);
-    const label = count > 1 ? `${subject} (${i + 1}/${count})` : subject;
+    const label = rays > 1 ? `${subject} (${i + 1}/${rays})` : subject;
     const effectCtx = { rangeType, attackType: rangeType, attackerType: creatureTypeOf(room, caster) } as const;
     const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
@@ -953,7 +966,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       },
     });
     // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друга.
-    if (count === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);
+    if (rays === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);
 
     const windowPlan = { attacker: caster, attackerMapId: mapId, target, targetMapId: mapId, damageType, rangeType };
     const nextRay = () => resolveRay(i + 1);
@@ -1310,6 +1323,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     damageType: singleDamageType(def.damage?.types),
     count: Math.max(1, def.count ?? 1),
     ...(input.summonKey ? { shapeForm: input.summonKey } : {}),
+    ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };
 
   if (def.attack && stats) return runWeaponAttacks(run, stats);

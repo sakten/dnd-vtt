@@ -137,6 +137,34 @@ describe('spellCastInfo', () => {
     expect(withSlot.levels).toEqual([3]);
   });
 
+  it('Chain Lightning: выбирается только первая цель — скачки авто (не multi)', () => {
+    const spell = spellsData.spells.find((s) => s.key === 'XPHB:Chain Lightning') as Spell;
+    const resources = { ...emptyResources(), spellSlots: [{ level: 6, current: 1, max: 1 }] };
+    const info = spellCastInfo(spell, 6, {
+      isCharacter: true,
+      resources,
+      token: undefined,
+      classes: [{ className: 'wizard', level: 11 }],
+    });
+    expect(info.multi).toBe(false);
+    expect(info.projectiles).toBe(1);
+    expect(info.damageText).toBeTruthy();
+  });
+
+  it('Steel Wind Strike: до 5 разных целей (multi targets), потом телепорт', () => {
+    const spell = spellsData.spells.find((s) => s.key === 'XPHB:Steel Wind Strike') as Spell;
+    const resources = { ...emptyResources(), spellSlots: [{ level: 5, current: 1, max: 1 }] };
+    const info = spellCastInfo(spell, 5, {
+      isCharacter: true,
+      resources,
+      token: undefined,
+      classes: [{ className: 'wizard', level: 9 }],
+    });
+    expect(info.multi).toBe(true);
+    expect(info.multiKind).toBe('targets');
+    expect(info.multiCount).toBe(5);
+  });
+
   it('в меню кругов только ячейки в наличии (без пустых)', () => {
     const spell = makeSpell({ level: 1 });
     const resources = {
