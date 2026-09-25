@@ -758,10 +758,10 @@ function healAfter(run: AutomationRun, target: Token): void {
   }
 }
 
-/** Flame Blade: + модификатор заклинательной характеристики кастера к урону. */
+/** Flame Blade / лечащие заклинания (Cure Wounds): + модификатор заклинательной характеристики кастера. */
 function withSpellAbilityMod(expression: string | null, def: AutomationDef, stats: SpellStats | null): string | null {
   const mod = stats ? Math.round(stats.mod) : 0;
-  if (!expression || !def.damage?.abilityMod || !mod) return expression;
+  if (!expression || !(def.damage?.abilityMod || def.heal?.abilityMod) || !mod) return expression;
   return `${expression}${mod > 0 ? '+' : ''}${mod}`;
 }
 

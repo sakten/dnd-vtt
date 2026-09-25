@@ -1188,6 +1188,8 @@ export interface AutomationAddition {
   damageTypes?: string[];
   /** Массовая цель без области (Mass Healing Word/Prayer of Healing/Mass Cure Wounds). */
   targets?: number;
+  /** Прибавить модификатор заклинательной характеристики к лечению (Cure Wounds и др.). */
+  healAbilityMod?: boolean;
   /** Фильтр целей мгновенной части по стороне (Spirit Guardians: только враги). */
   side?: 'hostile' | 'ally';
 }
@@ -1231,9 +1233,11 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
       },
     },
   },
-  'XPHB:Mass Healing Word': { targets: 6 },
+  'XPHB:Cure Wounds': { healAbilityMod: true },
+  'XPHB:Healing Word': { healAbilityMod: true },
+  'XPHB:Mass Healing Word': { targets: 6, healAbilityMod: true },
   'XPHB:Prayer of Healing': { targets: 5 },
-  'XPHB:Mass Cure Wounds': { targets: 6 },
+  'XPHB:Mass Cure Wounds': { targets: 6, healAbilityMod: true },
 };
 
 /** Подстановка выражения урона заклинания в кости триггеров зоны (`'$spell'`). */
@@ -2743,6 +2747,7 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
     };
     if (addition.zone) merged.zone = resolveZoneDice(addition.zone, spellDamage);
     if (addition.damageTypes && merged.damage) merged.damage = { ...merged.damage, types: addition.damageTypes };
+    if (addition.healAbilityMod && merged.heal) merged.heal = { ...merged.heal, abilityMod: true };
     if (addition.targets) merged.targets = addition.targets;
     if (addition.side) merged.side = addition.side;
     return merged;

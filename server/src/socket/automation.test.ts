@@ -1537,6 +1537,28 @@ describe('лечение, стабильность и оживление', () =>
     expect(target.conditions.map((c) => c.key)).toEqual(['prone']);
   });
 
+  it('Cure Wounds: кости + модификатор заклинательной характеристики', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[1]!;
+    const target = map.tokens[0]!;
+    room.resources.p1 = makeResources({ hp: { current: 5, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 } });
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // 2d8 → 2
+    const cure = findSpell('XPHB:Cure Wounds')!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(cure, { castLevel: 1, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'A',
+    });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.hp.current).toBe(5 + 2 + stats.mod);
+  });
+
   it('Lesser Restoration: выбор снимает состояние и его эффект-источник', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;

@@ -81,6 +81,28 @@ describe('automationForSpell', () => {
     expect(def.damage).toBeUndefined();
   });
 
+  it('лечение с +модом заклинательной характеристики: Cure Wounds/Healing Word/Mass', () => {
+    const cases: [string, string][] = [
+      ['XPHB:Cure Wounds', '2d8'],
+      ['XPHB:Healing Word', '2d4'],
+      ['XPHB:Mass Healing Word', '2d4'],
+      ['XPHB:Mass Cure Wounds', '5d8'],
+    ];
+    for (const [key, dice] of cases) {
+      const spell = makeSpell({ key, name: key, damage: { dice: [dice], types: [] }, healing: true });
+      expect(automationForSpell(spell).heal).toEqual({ dice, types: [], abilityMod: true });
+    }
+    // Prayer of Healing — без мода (SRD 2024: «also regain 2d8»).
+    const prayer = makeSpell({
+      key: 'XPHB:Prayer of Healing',
+      name: 'Prayer of Healing',
+      level: 2,
+      damage: { dice: ['2d8'], types: [] },
+      healing: true,
+    });
+    expect(automationForSpell(prayer).heal).toEqual({ dice: '2d8', types: [] });
+  });
+
   it('массовое лечение: до 6/5 целей из добавлений', () => {
     const mhwSpell = makeSpell({
       key: 'XPHB:Mass Healing Word',

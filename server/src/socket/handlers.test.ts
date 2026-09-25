@@ -3542,7 +3542,7 @@ describe('зоны и концентрация', () => {
     });
     rand.mockRestore();
 
-    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(10); // 5 + 2d8 2 + (2 + круг 1)
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(13); // 5 + 2d8 2 + мод Мдр 3 + (2 + круг 1)
     expect(room.resources.p1!.hp.current).toBe(23); // Целитель-благословенный: +3
   });
 
