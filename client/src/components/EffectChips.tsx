@@ -14,6 +14,9 @@ interface Props {
   tokenId?: string;
 }
 
+/** Стрелки направления (Compulsion) — плашка над целью. */
+const DIRECTION_GLYPHS = { up: '↑', down: '↓', left: '←', right: '→' } as const;
+
 /** Чипы активных эффектов (Ф8): иконка источника, суть эффекта в тултипе. */
 export default function EffectChips({ effects, spellByKey, className, max = 3, tokenId }: Props) {
   const items = effects
@@ -33,6 +36,9 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
       parts.push(effectDurationText(e.duration));
     }
     const rounds = e.duration.type === 'rounds' ? e.duration.rounds : undefined;
+    // Compulsion: выбранное направление — стрелкой перед именем.
+    const direction = e.commandDirection;
+    if (direction) parts.unshift(t(`ui.direction.${direction}` as MessageKey));
     // Выбранный вариант (Dragon's Breath: тип урона; Enhance Ability: характеристика) — в скобках к имени.
     const variantParam = e.sourceKey ? spellVariantDef(e.sourceKey)?.param : undefined;
     const variantLabel = e.variant
@@ -49,17 +55,18 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
                 : damageLabel(e.variant)
       : '';
     const label = variantLabel ? `${e.name} (${variantLabel})` : e.name;
+    const display = direction ? `${DIRECTION_GLYPHS[direction]} ${label}` : label;
     const badge = charge != null ? (charge > 9 ? '9+' : String(charge)) : rounds != null ? (rounds > 9 ? '9+' : String(rounds)) : null;
     return {
       key: e.id,
-      title: label,
+      title: display,
       node: (
         <span
           className={`eff-chip${ownConcentration ? ' eff-concentration' : ''}${charge != null && charge <= 0 ? ' eff-spent' : ''}`}
-          title={`${label} — ${parts.join(' · ')}`}
+          title={`${display} — ${parts.join(' · ')}`}
         >
           {spell ? <SpellIcon spell={spell} className="eff-chip-icon" /> : <span className="eff-chip-dot" />}
-          <span className="eff-chip-name">{label}</span>
+          <span className="eff-chip-name">{display}</span>
           {badge != null ? <span className="eff-chip-num">{badge}</span> : null}
         </span>
       ),

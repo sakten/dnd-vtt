@@ -386,6 +386,11 @@ export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolea
   return spell.automation === 'full';
 }
 
+/** Ручная механика «ведёт мастер» (Charm Monster/Compulsion): красный маркер не рисуем. */
+export function spellByDesign(spell: Pick<Spell, 'key'>): boolean {
+  return AUTOMATION_SPELLS[spell.key]?.byDesign === true;
+}
+
 /**
  * Заклинание-бафф оружия (Shillelagh): кости в данных описывают кость оружия по
  * тирам, а не урон заклинания. Карточкам/тултипам такую строку «Урон» показывать нельзя.

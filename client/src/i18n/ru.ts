@@ -538,6 +538,10 @@
   'ui.effects.concentration': 'концентрация',
   'ui.effects.charges': 'Заряды: {n}',
   'ui.effects.mark': 'метка',
+  'ui.direction.up': 'вверх',
+  'ui.direction.down': 'вниз',
+  'ui.direction.left': 'влево',
+  'ui.direction.right': 'вправо',
 
   'ui.reaction.trigger.saveFail': 'провален спасбросок',
   'ui.reaction.trigger.attackHit': 'попадание по нему',

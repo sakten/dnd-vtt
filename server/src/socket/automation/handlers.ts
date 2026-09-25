@@ -520,6 +520,29 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
   },
   // Перемещение зоны обрабатывается веткой `zone:` в action:use — до executeAutomation.
   moveZone: () => void 0,
+  /** Compulsion: отметить направление над целями источника (движение ведёт мастер). */
+  direction: ({ ctx, room, input, utility }) => {
+    const direction = utility.direction;
+    if (!direction) return;
+    let changed = false;
+    for (const map of room.scene.maps) {
+      for (const token of map.tokens) {
+        let tokenChanged = false;
+        for (const effect of token.effects) {
+          // Плашки-состояния источника: у эффекта-действий на кастере состояний нет.
+          if (effect.sourceKey === input.def.key && effect.sourceId === input.caster.id && effect.conditions?.length) {
+            effect.commandDirection = direction;
+            tokenChanged = true;
+          }
+        }
+        if (tokenChanged) {
+          ctx.emitToken(room, 'token:update', map.id, token);
+          changed = true;
+        }
+      }
+    }
+    if (changed) ctx.manager.saveSoon(room);
+  },
   /** Misty Step: телепорт кастера в выбранную точку в пределах дистанции. */
   teleport: ({ ctx, room, input, utility }) => {
     if (!input.origin) {

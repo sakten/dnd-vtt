@@ -135,6 +135,66 @@ describe('Chill Touch', () => {
   });
 });
 
+describe('Charm Monster', () => {
+  it('ручной каст вешает плашку «Очарован» на цель', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Charm Monster')!),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+    expect(target.conditions.some((c) => c.key === 'charmed')).toBe(true);
+    expect(
+      target.effects.some((e) => e.sourceKey === 'XPHB:Charm Monster' && e.conditions?.includes('charmed'))
+    ).toBe(true);
+  });
+});
+
+describe('Compulsion', () => {
+  it('вешает плашку, выдаёт 4 направления и сбрасывает направление в конце хода цели', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Compulsion')!),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+    const chip = target.effects.find((e) => e.sourceKey === 'XPHB:Compulsion' && e.conditions?.includes('charmed'));
+    expect(chip).toBeTruthy();
+    const actionEffect = caster.effects.find((e) => e.sourceKey === 'XPHB:Compulsion' && e.actions?.length === 4);
+    expect(actionEffect?.hidden).toBe(true);
+    expect(actionEffect?.actions?.map((a) => a.id)).toEqual([
+      'direction-up',
+      'direction-down',
+      'direction-left',
+      'direction-right',
+    ]);
+
+    // Бонусное действие «Вверх»: слот тратится, над целью появляется метка направления.
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: caster.id,
+      actionId: `spell:${actionEffect!.id}:direction-up`,
+    });
+    expect(chip!.commandDirection).toBe('up');
+
+    // Конец хода цели снимает метку направления.
+    f.manager.tickEffects(room, target, 'end');
+    expect(chip!.commandDirection).toBeUndefined();
+  });
+});
+
 describe('Harm', () => {
   it('провал спасброска снижает максимум HP на полученный урон; снятие эффекта возвращает', () => {
     const { room, f } = setup();

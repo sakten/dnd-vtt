@@ -462,6 +462,11 @@ export function tickEffects(
         if (!effect.banish) removed.push(effect.name);
       }
     }
+    // Compulsion: направление живёт до конца хода цели (движение ведёт мастер).
+    if (phase === 'end' && effect.commandDirection) {
+      delete effect.commandDirection;
+      changed = true;
+    }
     // Resistance: заряд снижения урона обновляется в начале хода носителя («раз в ход»).
     if (!remove && phase === 'start' && effect.damageReduce && effect.charges && effect.charges.remaining < 1) {
       effect.charges.remaining = 1;

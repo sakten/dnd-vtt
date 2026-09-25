@@ -2,12 +2,13 @@
 
 Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 25.09.2026, сессия 14; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–14).
 Источники: снимок `shared/src/data/spells.json`, RU-тексты `shared/src/data/text.ru/spells.json`.
-Метод проверки: прямые вызовы `automationForSpell` / `spellAutomated` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation.ts`, `shared/src/rules/automation.ts`, `shared/src/rules/spellCast.ts`).
+Метод проверки: прямые вызовы `automationForSpell` / `spellAutomated` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation/`, `shared/src/rules/automation/`, `shared/src/rules/spellCast.ts`).
 
 ## Сводка
 
-- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **248**, красных (`manual`) — **172**.
-- Открыто из аудита: **B4** (трансформации — 5), **C-доработки** (Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door / Thunder Step — 2), **H** (закрыт: «нет типа» не автоматизируем, Ray of Enfeeblement и Arcane Hand отложены), **I** (контроль/утилита — 15).
+- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **230**, красных (`manual`) — **190**.
+- Открыто из аудита: **B4** (трансформации — 7 спеллов), **C-доработки** (Healing Spirit, Cordon of Arrows, стены, Storm Sphere), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door / Thunder Step — 2), **H** (закрыт: «нет типа» не автоматизируем, Ray of Enfeeblement и Arcane Hand отложены), **I** (контроль/утилита — 12; Charm Monster и Compulsion закрыты плашкой с состоянием, Glyph of Warding решено не делать, Watery Sphere отложен владельцем).
+- **Manual-замки (сессия 14):** B4 (Guardian of Nature, Tenser's Transformation, Alter Self, Enlarge/Reduce, Investiture of Flame/Ice/Wind), C (Healing Spirit, Cordon of Arrows, Glyph of Warding, Storm Sphere, Wall of Fire/Ice, Blade Barrier, Wall of Light), F (Conjure Elemental/Fey), G (Dimension Door) — деривация из описаний давала ложную/неверную механику (Dimension Door — авто-урон 4d6, Tenser's — спас 2d12, стены — generic-спас без геометрии и т.п.). Вернуть в автоматизацию по мере реализации механик.
 - Системные — §8 (каталог Guidance, универсальная подсветка).
 - **FX-TODO:** анимация Chain Lightning — дуга от кастера и скачки между целями (порядок знает сервер — передавать в `fx:play`), фабрика в `client/src/components/spellFx/`.
 - **После закрытия спелов — R16** (`REFACTOR.md`): декларативный `AutomationSpec` + `extends/patch` для копий с правкой механики. До тех пор правило: база урона — из данных, исключения — в один реестр (не инлайн), новые механики — именованными примитивами `AutomationDef/Effect`.
@@ -23,22 +24,23 @@
 - **Скейл кантрипов (5/11/17)**: все уронные кантрипы растут (Mind Sliver, Toll the Dead, Thorn Whip, Thunderclap, Word of Radiance, XGE/TCE — сверено с 5e.tools); `XGE:Magic Stone` не растёт, и это по правилам (upgrade-клаузы нет). Флаг §8.1 был из-за вызова без `characterLevel`.
 - **Повтор на цели (сделано, известные упрощения):** Witch Bolt/Enervation — обрыв по дистанции/полному укрытию не отслеживается; Enervation при успехе — 4к8/2 вместо отдельного броска 2к8; Minute Meteors — по одному метеору за бонус-действие (пара — вручную), бросок при касте не автоматизирован. Immolation: «пепел» и запрет немагического тушения — нарратив.
 
-## B4. Трансформации (отложено владельцем) — 5
+## B4. Трансформации (отложено владельцем) — 7
 
-- `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame/Ice/Wind` — наборы модификаторов/режимов (`variant` + effects + granted actions).
+- `XGE:Guardian of Nature`, `XGE:Tenser's Transformation`, `XPHB:Alter Self`, `XPHB:Enlarge/Reduce`, `XGE:Investiture of Flame/Ice/Wind` — наборы модификаторов/режимов (`variant` + effects + granted actions). Сейчас manual-замок (деривация давала ложный урон/спас).
 
 ## C. Зоны / ловушки / повтор — открытые доработки
 
-- **Осталось:** `XGE:Healing Spirit` (лимит лечений), `XPHB:Cordon of Arrows`, `XPHB:Glyph of Warding` (ловушки/заряды), `XGE:Storm Sphere` (бонус-действие); стены — `Wall of Fire` / `Wall of Ice` / `Blade Barrier` / `Wall of Light` идут generic-спасом без геометрии стены.
+- **Осталось:** `XGE:Healing Spirit` (лимит лечений), `XPHB:Cordon of Arrows`, `XGE:Storm Sphere` (бонус-действие); стены — `Wall of Fire` / `Wall of Ice` / `Blade Barrier` / `Wall of Light` (нужна геометрия стены). Все — manual-замок до реализации.
+- **Решено не делать (сессия 14):** `XPHB:Glyph of Warding` — остаётся manual-замком.
 - Остальные зоны с триггерами (Create Bonfire, Cloud of Daggers, Spike Growth, Tasha's Caustic Brew, Sickening Radiance, Wind Wall, Black Tentacles, Maelstrom, Dawn, Insect Plague, Conjure Animals, Wrath of Nature, Yolande, Dust Devil, Maximilian's) — механизм есть, доработок по аудиту не требуют.
 
 ## F. Духи-атаки — 2
 
-- `XPHB:Conjure Elemental`, `XPHB:Conjure Fey` — сейчас прямой save/auto-урон; нужен дух + повторяющаяся атака (грантованный attack-action, как Flame Blade).
+- `XPHB:Conjure Elemental`, `XPHB:Conjure Fey` — нужен дух + повторяющаяся атака (грантованный attack-action, как Flame Blade). Сейчас manual-замок (был ложный прямой урон).
 
 ## G. Перемещение — 2
 
-- `XPHB:Dimension Door` — ⚠️ + пассажир.
+- `XPHB:Dimension Door` — ⚠️ + пассажир. Сейчас manual-замок (был авто-урон 4d6 из клаузы провала).
 - `XGE:Thunder Step` — ⚠️ телепорт + урон в точке выхода (сейчас save по цели).
 
 ## H. Особая логика — 0 открыто
@@ -47,9 +49,11 @@
 
 **Отложено:** `XPHB:Ray of Enfeeblement` — «половина урона от атак» (механики нет; выключен как manual). `XPHB:Bigby's Hand` (в данных — Arcane Hand) — 4 режима-действия (кулак/толчок/захват/укрытие) + рука с HP/КЗ; у зон нет HP, нужен отдельный срез (решение владельца, сессия 13).
 
-## I. Контроль / дебафф / утилита (дополнено 25.09.2026) — 19
+## I. Контроль / дебафф / утилита (дополнено 25.09.2026) — 12
 
 Manual: `automationForSpell` → `resolution:'manual'`. Часть опирается на существующие движки (состояния, зоны, геометрия стен, `creatureTypeOf`).
+
+**Сделано (сессия 14):** `XPHB:Charm Monster` — `chipSpell` (ручная механика `byDesign`): каст вешает состояние **Charmed** (реальный condition, не только чип), механику ведёт мастер, красный маркер не рисуется. `XPHB:Compulsion` — то же + 4 выданных бонусных действия «Вверх/Вниз/Влево/Вправо»; выбранное направление видно стрелкой над целью до конца её хода, движение ведёт мастер.
 
 | Ур. | Заклинание | Что нужно |
 |---|---|---|
@@ -60,14 +64,13 @@ Manual: `automationForSpell` → `resolution:'manual'`. Часть опирае�
 | 3 | `XPHB:Magic Circle` | зона-цилиндр r10 h20 на выбранные типы: запрет входа, очарования, испуга, одержимости |
 | 3 | `XGE:Wall of Sand` | стена (обзор заслонён, внутри `blinded`, движение ×3) — геометрии стен нет |
 | 4 | `XPHB:Guardian of Faith` | зона-страж: 20 излучением (спас Лов.) при перемещении впервые за ход/начале хода в 10 фт, исчезает после 60 суммарного урона |
-| 4 | `XGE:Watery Sphere` | сфера r5: спас Сил., `restrained`, до 4 целей, перемещение действием на 30 фт, сбивание с ног в конце |
 | 4 | `XPHB:Otiluke's Resilient Sphere` | сфера-барьер вокруг цели: непроницаема для атак/эффектов, спас Лов., катится действием; нужна механика барьера |
-| 4 | `XPHB:Charm Monster` | `charmed` + дружелюбие (как Charm Person — manual) |
-| 4 | `XPHB:Compulsion` | очарование + бонус-действие «направление»: цель тратит перемещение (движка принуждения нет) |
 | 5 | `XPHB:Dispel Evil and Good` | бафф против типов (помеха их атакам по вам) + режимы: изгнание на родной план, снятие очарования/испуга/одержимости |
 | 5 | `XPHB:Telekinesis` | спас Сил. + перемещение существа/объекта на 30 фт, подвешивание, тонкие манипуляции |
 | 5 | `XPHB:Wall of Force` | стена (плиты/сфера/купол): непроницаема, неуязвима, снимается только Дезинтеграцией |
 | 5 | `XPHB:Wall of Stone` | стена-камень из плит (КЗ/Хиты, можно сделать постоянной) — геометрии стен нет |
+
+**Отложено владельцем (сессия 14):** `XGE:Watery Sphere` — вне скоупа; при реализации мало чипа: нужно состояние `restrained` + перемещение/сбивание с ног.
 
 ## 8. Системные (открыто)
 
@@ -78,9 +81,9 @@ Manual: `automationForSpell` → `resolution:'manual'`. Часть опирае�
 
 | Тип | Осталось |
 |---|---|
-| effect-баффы | 5 (B4-трансформации) |
-| zone/повтор | Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere |
+| effect-баффы | 7 (B4-трансформации) |
+| zone/повтор | Healing Spirit, Cordon of Arrows, стены, Storm Sphere |
 | духи-атаки | 2 (Conjure Elemental/Fey) |
 | перемещение | 2 (Dimension Door, Thunder Step) |
 | отложено | Ray of Enfeeblement, Arcane Hand (H) |
-| контроль/утилита (I) | 15 |
+| контроль/утилита (I) | 12 |

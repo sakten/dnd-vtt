@@ -3,6 +3,7 @@ import type { Sense } from './sense';
 import type { AbilityKey } from './core';
 import type {
   ConditionKey,
+  DirectionKey,
   EffectDuration,
   EffectEscalation,
   EffectInstance,
@@ -456,7 +457,9 @@ export interface AutomationUtility {
     /** Spare the Dying: цель на 0 HP становится стабильной. */
     | 'stabilize'
     /** Lesser/Greater Restoration: снять одно состояние из `endConditions` (выбор при касте). */
-    | 'endCondition';
+    | 'endCondition'
+    /** Compulsion: отметить направление над целями источника (механику ведёт мастер). */
+    | 'direction';
   amount?: number;
   ability?: AbilityKey;
   /** Scatter: максимальное число целей (5). */
@@ -469,6 +472,8 @@ export interface AutomationUtility {
   multiplier?: number;
   /** После выдачи — ходы «только движение» в порядке инициативы (Мантия вдохновения). */
   thenMove?: boolean;
+  /** Направление для `direction` (Compulsion). */
+  direction?: DirectionKey;
 }
 
 /** Действие, выдаваемое эффектом (Expeditious Retreat: Рывок бонусным действием). */
@@ -490,6 +495,15 @@ export interface AutomationDef extends AutomationPayload {
   key: string;
   name: string;
   resolution: AutomationResolution;
+  /**
+   * Ручная механика по решению владельца (Charm Monster/Compulsion): каст вешает
+   * только плашку состояния `chip`, остальное ведёт мастер; красный маркер не рисуется.
+   */
+  byDesign?: boolean;
+  /** Плашка состояния, накладываемая кастом при `byDesign` (без спасброска — ведёт мастер). */
+  chip?: ConditionKey;
+  /** Выданные мастеру действия ручного спелла (Compulsion: 4 направления) — эффект на кастере. */
+  chipActions?: GrantedAction[];
   /**
    * Negative Energy Flood: нежить спас не бросает — вместо урона получает
    * половину броска временными хитами.

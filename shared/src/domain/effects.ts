@@ -3,6 +3,9 @@ import type { AbilityKey, Faction } from './core';
 import type { Sense } from './sense';
 import type { AttackRangeType } from './token';
 
+/** Направление принудительного движения (Compulsion: бонусное действие мастера). */
+export type DirectionKey = 'up' | 'down' | 'left' | 'right';
+
 export type ConditionKey =
   | 'blinded'
   | 'charmed'
@@ -290,4 +293,6 @@ export interface EffectInstance {
   onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
+  /** Compulsion: выбранное направление — плашка над целью до её хода (ведёт мастер). */
+  commandDirection?: DirectionKey;
 }

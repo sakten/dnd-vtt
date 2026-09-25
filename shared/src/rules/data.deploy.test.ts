@@ -301,6 +301,15 @@ describe('снимок данных', () => {
       if (def.resolution === 'manual' && (def.damage || def.effects?.length)) {
         badCatalog.push(`${key}: manual с механикой`);
       }
+      if (def.byDesign && def.resolution !== 'manual') {
+        badCatalog.push(`${key}: byDesign не manual`);
+      }
+      if (def.chip && (!def.byDesign || !CONDITION_KEYS.includes(def.chip))) {
+        badCatalog.push(`${key}: chip без byDesign или невалидное состояние`);
+      }
+      if (def.chipActions?.length && !def.chip) {
+        badCatalog.push(`${key}: chipActions без chip`);
+      }
     }
     expect(badCatalog).toEqual([]);
 

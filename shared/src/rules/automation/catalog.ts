@@ -1,6 +1,6 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
 import { DAMAGE_TYPES } from '../../labels';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, UNTIL_NEXT_TURN, WEB_RESTRAINED, manualSpell, remarkAction, spellEffect, zoneMoveAction } from './header';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, UNTIL_NEXT_TURN, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, remarkAction, spellEffect, zoneMoveAction } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -1076,6 +1076,43 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Contact Other Plane': manualSpell('XPHB:Contact Other Plane', 'Contact Other Plane'),
   'XPHB:Geas': manualSpell('XPHB:Geas', 'Geas'),
   'XGE:Soul Cage': manualSpell('XGE:Soul Cage', 'Soul Cage'),
+  // Класс B4/C/F/G аудита (сессия 14): данные давали ложную деривацию —
+  // Dimension Door бил авто-уроном 4d6 (это урон только при провале телепорта),
+  // Tenser's — спасом 2d12 (это добавка к оружию), Investitures/Guardian of Nature/
+  // Alter Self/Enlarge-Reduce — «уроном» из тегов, стены шли generic-спасом без
+  // геометрии, Storm Sphere — attack вместо сферы, Cordon/Glyph — спасом без
+  // триггера, Healing Spirit — лечением без лимита зарядов. Лочим до реализации
+  // механик (TODO_SPELLS B4/C/F/G), чтобы «зелёный» не врал.
+  'XPHB:Dimension Door': manualSpell('XPHB:Dimension Door', 'Dimension Door'),
+  "XGE:Tenser's Transformation": manualSpell("XGE:Tenser's Transformation", "Tenser's Transformation", true),
+  'XGE:Investiture of Flame': manualSpell('XGE:Investiture of Flame', 'Investiture of Flame', true),
+  'XGE:Investiture of Ice': manualSpell('XGE:Investiture of Ice', 'Investiture of Ice', true),
+  'XGE:Investiture of Wind': manualSpell('XGE:Investiture of Wind', 'Investiture of Wind', true),
+  'XGE:Guardian of Nature': manualSpell('XGE:Guardian of Nature', 'Guardian of Nature', true),
+  'XPHB:Alter Self': manualSpell('XPHB:Alter Self', 'Alter Self', true),
+  'XPHB:Enlarge/Reduce': manualSpell('XPHB:Enlarge/Reduce', 'Enlarge/Reduce', true),
+  'XPHB:Conjure Elemental': manualSpell('XPHB:Conjure Elemental', 'Conjure Elemental', true),
+  'XPHB:Conjure Fey': manualSpell('XPHB:Conjure Fey', 'Conjure Fey', true),
+  'XPHB:Wall of Fire': manualSpell('XPHB:Wall of Fire', 'Wall of Fire', true),
+  'XPHB:Wall of Ice': manualSpell('XPHB:Wall of Ice', 'Wall of Ice', true),
+  'XPHB:Blade Barrier': manualSpell('XPHB:Blade Barrier', 'Blade Barrier', true),
+  'XGE:Wall of Light': manualSpell('XGE:Wall of Light', 'Wall of Light', true),
+  'XGE:Healing Spirit': manualSpell('XGE:Healing Spirit', 'Healing Spirit', true),
+  'XPHB:Cordon of Arrows': manualSpell('XPHB:Cordon of Arrows', 'Cordon of Arrows'),
+  'XPHB:Glyph of Warding': manualSpell('XPHB:Glyph of Warding', 'Glyph of Warding'),
+  'XGE:Storm Sphere': manualSpell('XGE:Storm Sphere', 'Storm Sphere', true),
+  // Решение владельца (сессия 14): очарование — ручная механика, каст вешает только
+  // плашку «Очарован»; поведение/перемещение ведёт мастер, красный маркер не рисуется.
+  'XPHB:Charm Monster': chipSpell('XPHB:Charm Monster', 'Charm Monster', 'charmed'),
+  'XPHB:Compulsion': chipSpell('XPHB:Compulsion', 'Compulsion', 'charmed', {
+    concentration: true,
+    actions: [
+      directionAction('Вверх', 'up'),
+      directionAction('Вниз', 'down'),
+      directionAction('Влево', 'left'),
+      directionAction('Вправо', 'right'),
+    ],
+  }),
 };
 
 /**

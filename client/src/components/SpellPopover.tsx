@@ -13,6 +13,7 @@ import {
   spellActionCost,
   spellAreaOrigin,
   spellAutomated,
+  spellByDesign,
   spellCastAreaOverride,
   spellRangeFeet,
   spellVariantDef,
@@ -420,7 +421,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
 
         {info.damageText && <div className="sp-damage">{info.damageText}</div>}
 
-        {!spellAutomated(spell) && (
+        {!spellAutomated(spell) && !spellByDesign(spell) && (
           <div className="sp-note">{t('ui.spellPopover.manualNote')}</div>
         )}
 

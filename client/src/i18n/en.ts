@@ -541,6 +541,10 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.effects.concentration': 'concentration',
   'ui.effects.charges': 'Charges: {n}',
   'ui.effects.mark': 'mark',
+  'ui.direction.up': 'up',
+  'ui.direction.down': 'down',
+  'ui.direction.left': 'left',
+  'ui.direction.right': 'right',
 
   'ui.reaction.trigger.saveFail': 'failed a saving throw',
   'ui.reaction.trigger.attackHit': 'hit on it',

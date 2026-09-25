@@ -1,8 +1,46 @@
 import type { AutomationDef, AutomationEffect, AutomationSave, GrantedAction } from '../../domain/automation';
-import type { EffectDuration } from '../../domain/effects';
+import type { ConditionKey, DirectionKey, EffectDuration } from '../../domain/effects';
 import { AUTOMATION_ACTIONS } from '../automationActions';
 
 export { AUTOMATION_ACTIONS };
+
+/**
+ * Ручное заклинание «ведёт мастер» (решение владельца): каст вешает только плашку
+ * состояния `chip` и не рисует красный маркер (Charm Monster, Compulsion).
+ * `actions` — выданные действия на кастере (Compulsion: 4 направления).
+ */
+export function chipSpell(
+  key: string,
+  name: string,
+  chip: ConditionKey,
+  opts: { concentration?: boolean; range?: number; actions?: GrantedAction[] } = {}
+): AutomationDef {
+  return {
+    key,
+    name,
+    resolution: 'manual',
+    byDesign: true,
+    chip,
+    ...(opts.concentration ? { concentration: true } : {}),
+    ...(opts.actions?.length ? { chipActions: opts.actions } : {}),
+    targeting: { kind: 'creature', range: opts.range ?? 30 },
+  };
+}
+
+/** Действие-направление Compulsion (вверх/вниз/влево/вправо): механику движения ведёт мастер. */
+export function directionAction(name: string, direction: DirectionKey): GrantedAction {
+  return {
+    id: `direction-${direction}`,
+    name,
+    cost: 'bonus',
+    def: {
+      key: 'XPHB:Compulsion',
+      name,
+      resolution: 'utility',
+      utility: { kind: 'direction', direction },
+    },
+  };
+}
 
 /** Выданное действие «Перенести метку» (Hex/Hunter's Mark): только после смерти текущей цели. */
 export function remarkAction(spellKey: string, name: string): GrantedAction {

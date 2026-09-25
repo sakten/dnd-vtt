@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
-import { automationForAction, automationForSpell, spellAutomated, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
+import { automationForAction, automationForSpell, spellAutomated, spellByDesign, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
 import { findBaseAction } from './actions';
 import { spellExtraTargets } from './spellCast';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
@@ -1759,6 +1759,62 @@ describe('automationForSpell', () => {
       expect(automationForSpell(spell).damage, key).toBeUndefined();
       expect(spellAutomated(spell), key).toBe(false);
     }
+  });
+
+  it('B4/C/F/G: ложная деривация выключена manual-замком (сессия 14)', () => {
+    const keys = [
+      'XPHB:Dimension Door',
+      "XGE:Tenser's Transformation",
+      'XGE:Investiture of Flame',
+      'XGE:Investiture of Ice',
+      'XGE:Investiture of Wind',
+      'XGE:Guardian of Nature',
+      'XPHB:Alter Self',
+      'XPHB:Enlarge/Reduce',
+      'XPHB:Conjure Elemental',
+      'XPHB:Conjure Fey',
+      'XPHB:Wall of Fire',
+      'XPHB:Wall of Ice',
+      'XPHB:Blade Barrier',
+      'XGE:Wall of Light',
+      'XGE:Healing Spirit',
+      'XPHB:Cordon of Arrows',
+      'XPHB:Glyph of Warding',
+      'XGE:Storm Sphere',
+    ];
+    for (const key of keys) {
+      const spell = makeSpell({ key, automation: 'full', save: ['dex'], damage: { dice: ['4d6'], types: ['fire'] } });
+      expect(automationForSpell(spell).resolution, key).toBe('manual');
+      expect(automationForSpell(spell).damage, key).toBeUndefined();
+      expect(spellAutomated(spell), key).toBe(false);
+    }
+  });
+
+  it('Charm Monster/Compulsion: ручная механика с плашкой, без красной точки', () => {
+    for (const [key, concentration] of [
+      ['XPHB:Charm Monster', false],
+      ['XPHB:Compulsion', true],
+    ] as const) {
+      const spell = makeSpell({ key, automation: 'manual' });
+      const def = automationForSpell(spell);
+      expect(def.resolution, key).toBe('manual');
+      expect(def.byDesign, key).toBe(true);
+      expect(def.chip, key).toBe('charmed');
+      expect(def.concentration ?? false, key).toBe(concentration);
+      expect(def.targeting, key).toEqual({ kind: 'creature', range: 30 });
+      expect(spellAutomated(spell), key).toBe(false);
+      expect(spellByDesign(spell), key).toBe(true);
+    }
+    // Compulsion: 4 бонусных действия-направления, механика — за мастером.
+    const compulsion = automationForSpell(makeSpell({ key: 'XPHB:Compulsion', automation: 'manual' }));
+    expect(compulsion.chipActions?.map((a) => [a.id, a.name, a.cost, a.def?.utility?.direction])).toEqual([
+      ['direction-up', 'Вверх', 'bonus', 'up'],
+      ['direction-down', 'Вниз', 'bonus', 'down'],
+      ['direction-left', 'Влево', 'bonus', 'left'],
+      ['direction-right', 'Вправо', 'bonus', 'right'],
+    ]);
+    // Класс H — не «ведёт мастер»: маркер остаётся красным.
+    expect(spellByDesign({ key: 'XPHB:Geas' })).toBe(false);
   });
 
   it('Dominate Beast/Person: очарование, контроль и спас от урона', () => {

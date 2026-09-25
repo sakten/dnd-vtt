@@ -314,6 +314,9 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         };
       }
     }
+    if (e.commandDirection === 'up' || e.commandDirection === 'down' || e.commandDirection === 'left' || e.commandDirection === 'right') {
+      effect.commandDirection = e.commandDirection;
+    }
     if (Array.isArray(e.ward)) {
       const types = e.ward.filter((t): t is string => typeof t === 'string' && !!t).slice(0, 12);
       if (types.length) effect.ward = [...new Set(types)];

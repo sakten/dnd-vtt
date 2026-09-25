@@ -4,5 +4,5 @@ export type { AutomationAddition } from './catalog';
 export type { AutomationOptions, SpellVariantDef } from './variants';
 export { SPELL_VARIANTS, spellVariantDef } from './variants';
 export { shadowBladeReturnAction, spellBuiltinAutomated } from './builders';
-export { automationForSpell, automationForAction, spellEffectDefs, spellTempHp, spellDamageParts, spellAutomated, spellWeaponOverride } from './derive';
+export { automationForSpell, automationForAction, spellEffectDefs, spellTempHp, spellDamageParts, spellAutomated, spellByDesign, spellWeaponOverride } from './derive';
 export type { ActionAutomationOptions } from './derive';

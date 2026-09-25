@@ -22,6 +22,7 @@ import {
   withRollParts,
   type AttackBurst,
   type AutomationDef,
+  type AutomationEffect,
   type DiceRollResult,
   type SpellStats,
   type Token,
@@ -602,6 +603,49 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   if (kind === 'auto') return runAutoAbility(run, stats);
 
   if (kind === 'manual') {
+    // Ручные спеллы «ведёт мастер» (Charm Monster/Compulsion): каст вешает плашку;
+    // действия направления — скрытым эффектом на кастере (концентрация — на нём же).
+    if (def.chip && targets.length) {
+      const chipEffect: AutomationEffect = {
+        name: def.name,
+        duration: def.concentration ? { type: 'concentration' } : { type: 'permanent' },
+        ...(def.concentration ? { concentration: true } : {}),
+        to: 'targets',
+        modifiers: [],
+        conditions: [def.chip],
+      };
+      for (const target of targets) {
+        applyEffectLight(ctx, room, mapId, {
+          sourceKey: def.key,
+          sourceId: caster.id,
+          mapId,
+          effectDef: chipEffect,
+          target,
+        });
+      }
+      let anchorId: string | undefined;
+      if (def.chipActions?.length) {
+        anchorId = applyEffectLight(ctx, room, mapId, {
+          sourceKey: def.key,
+          sourceId: caster.id,
+          mapId,
+          effectDef: {
+            name: def.name,
+            duration: def.concentration ? { type: 'concentration' } : { type: 'permanent' },
+            ...(def.concentration ? { concentration: true } : {}),
+            to: 'self',
+            modifiers: [],
+            actions: def.chipActions,
+            hidden: true,
+          },
+          target: caster,
+        });
+      }
+      if (def.concentration) {
+        if (anchorId) ctx.manager.setConcentration(room, mapId, caster, anchorId);
+        else anchorConcentration(ctx, room, caster, mapId, def);
+      }
+    }
     if (def.zone) return; // зона уже создана; отдельного сообщения не нужно
     const level = input.manual?.level;
     const detail = input.manual?.description?.[0] ? `\n${input.manual.description[0]}` : '';

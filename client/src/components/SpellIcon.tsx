@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { spellAutomated, type Spell } from 'shared';
+import { spellAutomated, spellByDesign, type Spell } from 'shared';
 import { t } from '../i18n';
 import { loadSpellIcons, spellIconsSync } from '../lib/spellIcons';
 import { spellVisual } from '../lib/spellIcon';
@@ -66,7 +66,7 @@ export default function SpellIcon({ spell, className }: { spell: Spell; classNam
         </g>
       )}
       <LevelBadge numeral={numeral} accent={accent} />
-      {!spellAutomated(spell) && (
+      {!spellAutomated(spell) && !spellByDesign(spell) && (
         <g>
           <title>{t('ui.spellIcon.notImplemented')}</title>
           <circle cx="11" cy="11" r="7.4" fill="#0b0f14" opacity="0.82" />
