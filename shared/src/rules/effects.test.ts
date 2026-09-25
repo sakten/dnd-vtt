@@ -349,10 +349,35 @@ describe('effectSummaryParts (тултипы)', () => {
     const images = effect({ modifiers: [], misdirect: { charges: 3, die: 'd6', threshold: 3 } });
     expect(effectSummaryParts(images)).toEqual([{ key: 'domain.effect.mirrorImages', params: { charges: 3 } }]);
 
+    const bane = effect({ modifiers: [], elementalBane: { damageType: 'fire', dice: '2d6' } });
+    expect(effectSummaryParts(bane)).toEqual([
+      { key: 'domain.effect.elementalBane', params: { damage: '2d6', type: 'fire' } },
+    ]);
+
     const hidden = effect({ hidden: true, conditions: ['prone'] });
     expect(effectSummaryParts(hidden)).toEqual([]);
 
     expect(effectSummaryParts(effect({ modifiers: [] }))).toEqual([]);
+  });
+});
+
+describe('normalizeEffects: Elemental Bane', () => {
+  const raw = (extra: Record<string, unknown>): unknown => ({
+    id: 'eb',
+    name: 'Elemental Bane',
+    duration: { type: 'concentration' },
+    modifiers: [],
+    elementalBane: { damageType: 'fire', dice: '2d6', ...extra },
+  });
+
+  it('сохраняет тип, кости и метку хода (включая null)', () => {
+    expect(normalizeEffects([raw({})])[0]?.elementalBane).toEqual({ damageType: 'fire', dice: '2d6' });
+    expect(normalizeEffects([raw({ usedTurn: '2:e1' })])[0]?.elementalBane?.usedTurn).toBe('2:e1');
+    expect(normalizeEffects([raw({ usedTurn: null })])[0]?.elementalBane?.usedTurn).toBeNull();
+  });
+
+  it('отбрасывает неизвестный тип урона', () => {
+    expect(normalizeEffects([raw({ damageType: 'nope' })])[0]?.elementalBane).toBeUndefined();
   });
 });
 
@@ -487,6 +512,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       saveNoDamage: true,
       retaliate: { damageType: 'cold', dice: '2d8' },
       damageReduce: { dice: '1d4', types: ['fire'] },
+      elementalBane: { damageType: 'fire', dice: '2d6' },
       dominates: true,
       charges: { count: 12, on: 'rangedWeaponAttack' },
       takesExtraDamage: { dice: '1d8', damageType: 'radiant' },

@@ -155,7 +155,12 @@ function releaseBanishEffect(
 export function damageDefensesForToken(room: Room, token: Token): DamageDefense[] {
   const base = actorStats(room, token).damageDefenses;
   const extra = effectDefenses(token.effects);
-  return extra.length ? [...base, ...extra] : base;
+  const all = extra.length ? [...base, ...extra] : base;
+  // Elemental Bane: пока эффект жив, сопротивление выбранному типу не действует.
+  const lost = new Set(
+    token.effects.flatMap((e) => (e.elementalBane ? [e.elementalBane.damageType] : []))
+  );
+  return lost.size ? all.filter((d) => d.type !== 'resistance' || !lost.has(d.damageType)) : all;
 }
 
 /** Иммунитеты к состояниям: эффекты носителя + статблок (бестиарий, формы). */

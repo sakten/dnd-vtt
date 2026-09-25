@@ -529,6 +529,12 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
       params: { damage: effect.takesExtraDamage.dice, type: effect.takesExtraDamage.damageType },
     });
   }
+  if (effect.elementalBane) {
+    parts.push({
+      key: 'domain.effect.elementalBane',
+      params: { damage: effect.elementalBane.dice, type: effect.elementalBane.damageType },
+    });
+  }
   if (effect.charges) {
     parts.push({ key: 'domain.effect.charges', params: { n: effect.charges.remaining } });
   }

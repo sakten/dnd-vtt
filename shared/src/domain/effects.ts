@@ -262,6 +262,12 @@ export interface EffectInstance {
   retaliate?: { damageType: string; amount?: number; dice?: string };
   /** Resistance: −`dice` от урона выбранных типов; заряд тратится и обновляется в начале хода. */
   damageReduce?: { dice: string; types: string[] };
+  /**
+   * Elemental Bane: носитель теряет сопротивление типу `damageType`; первый раз за ход,
+   * получая урон этого типа, дополнительно получает `dice` того же типа.
+   * `usedTurn` — метка хода, в котором доп. урон уже сработал (null — вне боя).
+   */
+  elementalBane?: { damageType: string; dice: string; usedTurn?: string | null };
   /** Расходуемый счётчик (Flame Arrows: 12 боеприпасов; Magic Stone: 3 камня). */
   charges?: { remaining: number; on?: 'rangedWeaponAttack' };
   /**

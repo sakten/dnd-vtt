@@ -1,4 +1,5 @@
 import {
+  applyDamageDefenses,
   applyDamageToParts,
   damageLinks,
   gridDistanceFeet,
@@ -110,6 +111,28 @@ function damageReductionFor(
   return undefined;
 }
 
+/** Ключ текущего хода карты (round:entryId) для «раз за ход»; вне боя — null. */
+function currentTurnKey(ctx: ConnCtx, room: Room, mapId: string | null): string | null {
+  const map = mapId ? ctx.manager.findMap(room, mapId) : undefined;
+  const combat = map?.combat;
+  if (!combat?.active || combat.currentIndex < 0) return null;
+  const entry = combat.entries[combat.currentIndex];
+  return entry ? `${combat.round}:${entry.id}` : null;
+}
+
+/** Elemental Bane: эффект носителя, чей тип есть в уроне и не срабатывал в текущем ходу. */
+function elementalBaneFor(
+  target: Token,
+  damageTypes: string[],
+  turn: string | null
+): EffectInstance | undefined {
+  for (const effect of target.effects) {
+    const bane = effect.elementalBane;
+    if (bane && bane.usedTurn !== turn && damageTypes.includes(bane.damageType)) return effect;
+  }
+  return undefined;
+}
+
 /**
  * Единая точка урона/лечения: защиты → половина → сообщение → HP по гейту учёта.
  * Заменяет четыре копии «roll → defenses → applyHp» в атаках и заклинаниях.
@@ -135,7 +158,7 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     const charges = reduction.effect.charges;
     if (charges) charges.remaining = Math.max(0, charges.remaining - 1);
   }
-  const amount = Math.max(0, (input.halve ? Math.floor(adjusted.amount / 2) : adjusted.amount) - reducedBy);
+  let amount = Math.max(0, (input.halve ? Math.floor(adjusted.amount / 2) : adjusted.amount) - reducedBy);
 
   if (input.roll && input.author && input.params) {
     pushRollMessage(ctx, room, {
@@ -152,6 +175,29 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     ctx.systemMessage(room, {
       code: 'automation.damageReduce',
       params: { name: target!.name, amount: reducedBy, type: reduction.type },
+    });
+  }
+
+  // Elemental Bane: первый урон выбранного типа за ход — доп. кости того же типа.
+  const turn = currentTurnKey(ctx, room, mapId);
+  const bane = target && input.kind !== 'heal' && amount > 0 ? elementalBaneFor(target, groupTypes, turn) : undefined;
+  if (bane && target) {
+    const baneRoll = rollDice(bane.elementalBane!.dice);
+    const defense = input.unreducible
+      ? { amount: baneRoll.total }
+      : applyDamageDefenses(baneRoll.total, bane.elementalBane!.damageType, defenses);
+    amount += defense.amount;
+    bane.elementalBane!.usedTurn = turn;
+    const source = bane.sourceId ? ctx.manager.locateToken(room, bane.sourceId)?.token : undefined;
+    pushRollMessage(ctx, room, {
+      author: source?.name ?? bane.name,
+      roll: baneRoll,
+      kind: 'damage',
+      params: {
+        subject: `${bane.name} · ${target.name}`,
+        damageType: bane.elementalBane!.damageType,
+        damageNote: defense.note,
+      },
     });
   }
 

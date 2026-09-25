@@ -196,6 +196,11 @@ export interface AutomationEffect {
    */
   damageReduce?: { dice: string; types: string[] };
   /**
+   * Elemental Bane (XGE): носитель теряет сопротивление выбранному типу; первый раз
+   * за ход, получая урон этого типа, дополнительно получает `dice` того же типа.
+   */
+  elementalBane?: { damageType: string; dice: string };
+  /**
    * Расходуемый счётчик эффекта: Flame Arrows (12 боеприпасов, `on` — триггер
    * траты) и Magic Stone (3 камня — тратится при использовании выданного действия).
    */
@@ -266,6 +271,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     dominates: def.dominates,
     retaliate: def.retaliate ? { ...def.retaliate } : undefined,
     damageReduce: def.damageReduce ? { ...def.damageReduce, types: [...def.damageReduce.types] } : undefined,
+    elementalBane: def.elementalBane ? { ...def.elementalBane } : undefined,
     charges: def.charges ? { remaining: def.charges.count, on: def.charges.on } : undefined,
     takesExtraDamage: def.takesExtraDamage ? { ...def.takesExtraDamage } : undefined,
     onWillingMove: def.onWillingMove ? { ...def.onWillingMove } : undefined,

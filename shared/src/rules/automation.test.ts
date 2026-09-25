@@ -1565,6 +1565,50 @@ describe('automationForSpell', () => {
     expect(spellAutomated({ key: 'XPHB:Resistance', automation: 'manual' })).toBe(true);
   });
 
+  it('Elemental Bane: спас CON, выбранный тип без сопротивления, +2d6 за первый урон за ход', () => {
+    const spell = makeSpell({
+      key: 'XGE:Elemental Bane',
+      name: 'Elemental Bane',
+      level: 4,
+      automation: 'manual',
+      save: ['con'],
+      upcast: { above: 4, targets: 1 },
+    });
+    const cold = automationForSpell(spell, { variant: 'cold' });
+    expect(cold.resolution).toBe('effect');
+    expect(cold.concentration).toBe(true);
+    expect(cold.save).toMatchObject({ ability: 'con' });
+    const effect = cold.effects?.[0];
+    expect(effect?.elementalBane).toEqual({ damageType: 'cold', dice: '2d6' });
+    expect(effect?.variant).toBe('cold');
+    expect(automationForSpell(spell).effects?.[0]?.elementalBane?.damageType).toBe('acid');
+    // Апкаст: +1 цель за круг выше 4-го (кости не растут).
+    expect(spellExtraTargets(spell, 6)).toBe(2);
+    expect(spellAutomated({ key: 'XGE:Elemental Bane', automation: 'manual' })).toBe(true);
+  });
+
+  it('класс H: «нет типа» выключены явным manual без ложной деривации', () => {
+    const keys = [
+      'XPHB:Phantasmal Force',
+      'XPHB:Control Water',
+      'XGE:Transmute Rock',
+      'XPHB:Ray of Enfeeblement',
+      'XPHB:Meld into Stone',
+      'XPHB:Forbiddance',
+      'XGE:Create Homunculus',
+      'XPHB:Dream',
+      'XPHB:Contact Other Plane',
+      'XPHB:Geas',
+      'XGE:Soul Cage',
+    ];
+    for (const key of keys) {
+      const spell = makeSpell({ key, automation: 'full', save: ['con'], damage: { dice: ['2d6'], types: ['fire'] } });
+      expect(automationForSpell(spell).resolution, key).toBe('manual');
+      expect(automationForSpell(spell).damage, key).toBeUndefined();
+      expect(spellAutomated(spell), key).toBe(false);
+    }
+  });
+
   it('Dominate Beast/Person: очарование, контроль и спас от урона', () => {
     const minute = [{ type: 'timed' as const, duration: { type: 'minute' as const, amount: 1 }, concentration: true }];
     const beast = makeSpell({

@@ -999,6 +999,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.effect.saveNoDamage': 'no damage on a successful save',
   'domain.effect.retaliate': 'retaliates {damage} ({type})',
   'domain.effect.takesExtraDamage': 'extra {damage} ({type}) from the source’s attacks',
+  'domain.effect.elementalBane': 'no resistance to {type}; first {type} damage each turn: +{damage}',
   'domain.effect.charges': 'charges: {n}',
   'domain.effect.immuneFrom': 'can’t gain {conditions} from: {types}',
   'domain.effect.sanctuary': 'attackers must pass a Wisdom save or lose the attack',

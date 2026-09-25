@@ -122,6 +122,11 @@ function spellEffect(
   };
 }
 
+/** Явный manual-замок: отключает ложную деривацию из данных (решение владельца, класс H). */
+function manualSpell(key: string, name: string, concentration = false): AutomationDef {
+  return { key, name, resolution: 'manual', ...(concentration ? { concentration: true } : {}) };
+}
+
 /** Типы существ, против которых работают Protection from Evil and Good и подобные. */
 const EVIL_GOOD_TYPES = ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'];
 
@@ -1199,6 +1204,21 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     resolution: 'manual',
     concentration: true,
   },
+  // Класс H аудита: «нет типа» (решение владельца, сессия 13) — не автоматизируем.
+  // В данных у всех `automation: 'full'`, но механики нет — без явной записи деривация
+  // давала ложный спас/авто-урон. Ray of Enfeeblement отложен, но выключен так же;
+  // «почти выразимо» (Bestow Curse, Arcane Hand, Heroes' Feast) остаются в TODO.
+  'XPHB:Phantasmal Force': manualSpell('XPHB:Phantasmal Force', 'Phantasmal Force', true),
+  'XPHB:Control Water': manualSpell('XPHB:Control Water', 'Control Water', true),
+  'XGE:Transmute Rock': manualSpell('XGE:Transmute Rock', 'Transmute Rock'),
+  'XPHB:Ray of Enfeeblement': manualSpell('XPHB:Ray of Enfeeblement', 'Ray of Enfeeblement', true),
+  'XPHB:Meld into Stone': manualSpell('XPHB:Meld into Stone', 'Meld into Stone'),
+  'XPHB:Forbiddance': manualSpell('XPHB:Forbiddance', 'Forbiddance'),
+  'XGE:Create Homunculus': manualSpell('XGE:Create Homunculus', 'Create Homunculus'),
+  'XPHB:Dream': manualSpell('XPHB:Dream', 'Dream'),
+  'XPHB:Contact Other Plane': manualSpell('XPHB:Contact Other Plane', 'Contact Other Plane'),
+  'XPHB:Geas': manualSpell('XPHB:Geas', 'Geas'),
+  'XGE:Soul Cage': manualSpell('XGE:Soul Cage', 'Soul Cage'),
 };
 
 /**
@@ -1317,6 +1337,7 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Enhance Ability': { param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] },
   'XPHB:Eyebite': { param: 'effect', options: ['asleep', 'panicked', 'sickened'] },
   'XPHB:Protection from Energy': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+  'XGE:Elemental Bane': { param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
   'XPHB:Resistance': { param: 'damageType', options: RESISTANCE_TYPES },
   'XPHB:Blindness/Deafness': { param: 'effect', options: ['blinded', 'deafened'] },
   'XGE:Skill Empowerment': { param: 'skill', options: SKILLS.map((s) => s.key) },
@@ -1386,6 +1407,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Protection from Energy',
   'XPHB:Aid',
   'XPHB:Resistance',
+  'XGE:Elemental Bane',
   'XPHB:Flame Strike',
   'XPHB:Ice Storm',
   'XPHB:Destructive Wave',
@@ -1647,6 +1669,28 @@ function resistanceDef(spell: Spell, opts: AutomationOptions): AutomationDef | u
     variant: type,
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/**
+ * Elemental Bane (XGE): спас CON; при провале цель теряет сопротивление выбранному
+ * типу, а первый урон этим типом за ход наносит ей дополнительно 2к6 того же типа.
+ * Апкаст из данных (`upcast.targets`) — доп. цели, кости не растут.
+ */
+function elementalBaneDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Elemental Bane') return undefined;
+  const variant = SPELL_VARIANTS[spell.key];
+  const type = variant?.options.includes(opts.variant ?? '') ? opts.variant! : variant?.options[0] ?? 'acid';
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: CONCENTRATION,
+    concentration: true,
+    to: 'targets',
+    targets: 1,
+    modifiers: [],
+    elementalBane: { damageType: type, dice: '2d6' },
+    variant: type,
+  };
+  return spellEffect(spell.key, spell.name, [effect], { ability: 'con' });
 }
 
 /** Skill Empowerment: выбранный навык — экспертиза цели (ПБ носителя добавляется ещё раз). */
@@ -2895,6 +2939,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const resistance = resistanceDef(spell, opts);
   if (resistance) return resistance;
+
+  const elementalBane = elementalBaneDef(spell, opts);
+  if (elementalBane) return elementalBane;
 
   const vampiric = vampiricTouchDef(spell, opts);
   if (vampiric) return vampiric;

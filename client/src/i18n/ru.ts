@@ -996,6 +996,7 @@
   'domain.effect.saveNoDamage': 'при успешном спасброске урона нет',
   'domain.effect.retaliate': 'ответный урон {damage} ({type})',
   'domain.effect.takesExtraDamage': 'доп. урон {damage} ({type}) от атак источника',
+  'domain.effect.elementalBane': 'нет сопротивления {type}; первый урон {type} за ход: +{damage}',
   'domain.effect.charges': 'зарядов: {n}',
   'domain.effect.immuneFrom': 'нельзя получить {conditions} от: {types}',
   'domain.effect.sanctuary': 'атакующие должны пройти спас Мдр или потерять атаку',

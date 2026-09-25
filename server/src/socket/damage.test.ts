@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_ABILITIES, type EffectInstance } from 'shared';
 import { makeConnCtx } from '../test/ctx';
-import { makeRoom, makeToken } from '../test/fixtures';
+import { makeCombatRoom, makeRoom, makeToken } from '../test/fixtures';
 import { applyDamage } from './damage';
 
 function setup(defenses: { id: string; type: 'resistance' | 'immunity' | 'vulnerability'; damageType: string }[]) {
@@ -354,5 +354,65 @@ describe('концентрация от урона (Greater Invisibility)', () =
     applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'radiant' });
     rand.mockRestore();
     expect(target.effects.some((e) => e.id === 'gi')).toBe(true);
+  });
+});
+
+describe('Elemental Bane: снятие сопротивления и доп. урон', () => {
+  const bane = (damageType: string): EffectInstance => ({
+    id: 'eb',
+    name: 'Elemental Bane',
+    sourceKey: 'XGE:Elemental Bane',
+    sourceId: 't9',
+    concentration: true,
+    duration: { type: 'concentration' },
+    modifiers: [],
+    elementalBane: { damageType, dice: '2d6' },
+  });
+
+  it('сопротивление выбранному типу не действует', () => {
+    const { target, ctx } = setup([{ id: 'd1', type: 'resistance', damageType: 'fire' }]);
+    target.effects.push(bane('fire'));
+    const result = applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    // 10 без сопротивления + 2к6 (2..12).
+    expect(result.amount).toBeGreaterThanOrEqual(12);
+    expect(result.amount).toBeLessThanOrEqual(22);
+    expect(target.hpCurrent).toBe(50 - result.amount);
+  });
+
+  it('первый урон за ход даёт 2к6, повторный — нет, новый ход — снова', () => {
+    const target = makeToken('t1', { hpMax: '50', hpCurrent: 50 });
+    target.effects.push(bane('fire'));
+    const room = makeCombatRoom([target]);
+    const f = makeConnCtx(room, { dm: true });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d6 = 4 → 2к6 = 8
+    const first = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    const second = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    expect(first.amount).toBe(18);
+    expect(second.amount).toBe(10);
+    expect(target.effects[0]?.elementalBane?.usedTurn).toBe('1:e1');
+    expect(f.room.chat.some((m) => m.kind === 'roll' && m.labelParams?.damageType === 'fire')).toBe(true);
+    room.scene.maps[0]!.combat!.round = 2;
+    const third = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    rand.mockRestore();
+    expect(third.amount).toBe(18);
+    expect(target.hpCurrent).toBe(4);
+  });
+
+  it('урон другого типа не срабатывает', () => {
+    const { target, ctx } = setup([]);
+    target.effects.push(bane('fire'));
+    const result = applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'cold' });
+    expect(result.amount).toBe(10);
+    expect(target.effects[0]?.elementalBane?.usedTurn).toBeUndefined();
+  });
+
+  it('вне боя срабатывает один раз — до начала боя', () => {
+    const { target, ctx } = setup([]);
+    target.effects.push(bane('fire'));
+    const first = applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    const second = applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
+    expect(first.amount).toBeGreaterThan(10);
+    expect(second.amount).toBe(10);
+    expect(target.effects[0]?.elementalBane?.usedTurn).toBeNull();
   });
 });

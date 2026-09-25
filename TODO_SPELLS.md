@@ -1,13 +1,13 @@
 # TODO_SPELLS.md
 
-Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 25.09.2026, сессия 12; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–12).
+Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 25.09.2026, сессия 13; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–13).
 Источники: снимок `shared/src/data/spells.json`, RU-тексты `shared/src/data/text.ru/spells.json`.
 Метод проверки: прямые вызовы `automationForSpell` / `spellAutomated` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation.ts`, `shared/src/rules/automation.ts`, `shared/src/rules/spellCast.ts`).
 
 ## Сводка
 
-- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **255**, красных (`manual`) — **165**.
-- Открыто из аудита (94 записи): **B4** (трансформации — 5), **C-доработки** (Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door / Thunder Step — 2), **H** (15), **I** (контроль/утилита — 15).
+- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **248**, красных (`manual`) — **172**.
+- Открыто из аудита: **B4** (трансформации — 5), **C-доработки** (Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere), **F** (Conjure Elemental/Fey — 2), **G** (Dimension Door / Thunder Step — 2), **H** («почти выразимо» — 3; «нет типа» не автоматизируем, Ray of Enfeeblement отложен), **I** (контроль/утилита — 15).
 - Системные — §8 (каталог Guidance, универсальная подсветка).
 - **FX-TODO:** анимация Chain Lightning — дуга от кастера и скачки между целями (порядок знает сервер — передавать в `fx:play`), фабрика в `client/src/components/spellFx/`.
 - **После закрытия спелов — R16** (`REFACTOR.md`): декларативный `AutomationSpec` + `extends/patch` для копий с правкой механики. До тех пор правило: база урона — из данных, исключения — в один реестр (не инлайн), новые механики — именованными примитивами `AutomationDef/Effect`.
@@ -41,31 +41,19 @@
 - `XPHB:Dimension Door` — ⚠️ + пассажир.
 - `XGE:Thunder Step` — ⚠️ телепорт + урон в точке выхода (сейчас save по цели).
 
-## H. Особая логика / нет типа автоматизации — 15
+## H. Особая логика — 3 открыто
 
-**Нет типа — нужен новый движок или остаётся manual (13):**
-
-| Заклинание | Причина |
-|---|---|
-| `XPHB:Phantasmal Force` | иллюзия + расследование |
-| `XPHB:Control Water`, `XGE:Transmute Rock` | смена среды, несколько режимов |
-| `XGE:Elemental Bane` | «утрата сопротивления» — модификатора нет |
-| `XPHB:Ray of Enfeeblement` | «половина урона от атак» — механики нет |
-| `XPHB:Meld into Stone` | нарратив/укрытие |
-| `XPHB:Forbiddance` | ритуал, запрет телепортации в область |
-| `XGE:Create Homunculus` | крафт спутника |
-| `XPHB:Dream` | нарратив |
-| `XPHB:Contact Other Plane` | нарратив + риск безумия |
-| `XPHB:Geas` | нарратив/очарование на 30 дней |
-| `XGE:Soul Cage` | 6 использований |
-
-**Почти выразимо существующими механизмами (3):**
+**«Почти выразимо» — делаем (3):**
 
 | Заклинание | Что нужно |
 |---|---|
 | `XPHB:Bestow Curse` | выбор на касте (`variant`): помеха к проверкам/спасам, помеха атак по вам, запрет действий; 4-й режим (+1d8 некротикой) — attack rider |
-| `XPHB:Bigby's Hand` | 5 режимов — грантованные actions, нужен объём (кандидат на `targeting.from:'origin'` + заряд) |
+| `XPHB:Bigby's Hand` (в данных — Arcane Hand) | 5 режимов — грантованные actions, нужен объём (кандидат на `targeting.from:'origin'` + заряд) |
 | `XPHB:Heroes' Feast` | 1 час пира: temp/max HP, иммунитеты — effects + спец-тайминг |
+
+**«Нет типа» — не автоматизируем (решение владельца, сессия 13):** `XPHB:Phantasmal Force`, `XPHB:Control Water`, `XGE:Transmute Rock`, `XPHB:Meld into Stone`, `XPHB:Forbiddance`, `XGE:Create Homunculus`, `XPHB:Dream`, `XPHB:Contact Other Plane`, `XPHB:Geas`, `XGE:Soul Cage` — в `AUTOMATION_SPELLS` явные manual-записи (иначе деривация из данных давала ложный спас/авто-урон). **Не переоткрывать.**
+
+**Отложено:** `XPHB:Ray of Enfeeblement` — «половина урона от атак» (механики нет; выключен как manual, вернуться при появлении модификатора).
 
 ## I. Контроль / дебафф / утилита (дополнено 25.09.2026) — 19
 
@@ -107,5 +95,6 @@ Manual: `automationForSpell` → `resolution:'manual'`. Часть опирае�
 | zone/повтор | Healing Spirit, Cordon of Arrows, Glyph of Warding, стены, Storm Sphere |
 | духи-атаки | 2 (Conjure Elemental/Fey) |
 | перемещение | 2 (Dimension Door, Thunder Step) |
-| особая логика / нет типа | 15 |
+| почти выразимо (H) | 3 |
+| отложено | Ray of Enfeeblement (H) |
 | контроль/утилита (I) | 15 |

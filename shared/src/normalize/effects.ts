@@ -239,6 +239,20 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         effect.damageReduce = { dice: r.dice.trim().slice(0, 40), types };
       }
     }
+    if (e.elementalBane && typeof e.elementalBane === 'object') {
+      const b = e.elementalBane as { damageType?: unknown; dice?: unknown; usedTurn?: unknown };
+      if (typeof b.damageType === 'string' && DAMAGE_KEYS.has(b.damageType) && typeof b.dice === 'string' && b.dice.trim()) {
+        effect.elementalBane = {
+          damageType: b.damageType,
+          dice: b.dice.trim().slice(0, 40),
+          ...(typeof b.usedTurn === 'string'
+            ? { usedTurn: b.usedTurn.slice(0, 40) }
+            : b.usedTurn === null
+              ? { usedTurn: null }
+              : {}),
+        };
+      }
+    }
     if (e.takesExtraDamage && typeof e.takesExtraDamage === 'object') {
       const extra = e.takesExtraDamage as { dice?: unknown; damageType?: unknown };
       if (
