@@ -196,6 +196,8 @@ export interface AutomationEffect {
   sanctuary?: boolean;
   /** Лечение носителя берёт максимум костей (Beacon of Hope). */
   maximizeHealing?: boolean;
+  /** Chill Touch: носитель не может восстанавливать HP, пока эффект жив. */
+  noHeal?: boolean;
   /** Преимущество на спасброски от смерти (Beacon of Hope). */
   deathSaveAdvantage?: boolean;
   /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
@@ -278,6 +280,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     damageReaction: def.damageReaction ? { ...def.damageReaction } : undefined,
     breakOn: def.breakOn ? [...def.breakOn] : undefined,
     maximizeHealing: def.maximizeHealing,
+    noHeal: def.noHeal,
     deathSaveAdvantage: def.deathSaveAdvantage,
     saveNoDamage: def.saveNoDamage,
     dominates: def.dominates,
@@ -566,6 +569,11 @@ export interface AutomationDef extends AutomationPayload {
    * на `factor` × фактически полученный урон.
    */
   lifeTransfer?: { factor: number };
+  /**
+   * Harm: при провале спасброска максимум HP цели снижается на фактически полученный
+   * урон (не ниже 1). Снятие — долгий отдых (эффект-штраф висит до снятия).
+   */
+  maxHpFromDamage?: boolean;
   /**
    * Steel Wind Strike: после резолва атак кастер телепортируется в точку в `feet`
    * от любой из выбранных целей (точка приходит в `origin` того же каста).

@@ -3,6 +3,7 @@ import {
   applyDamageToParts,
   damageLinks,
   gridDistanceFeet,
+  healBlocked,
   retaliationOf,
   rollDice,
   statNumber,
@@ -199,6 +200,12 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
         damageNote: defense.note,
       },
     });
+  }
+
+  // Chill Touch: носитель не восстанавливает HP, пока эффект жив.
+  if (input.kind === 'heal' && target && healBlocked(target.effects)) {
+    ctx.systemMessage(room, { code: 'automation.healBlocked', params: { name: target.name } });
+    return { amount: 0, applied: false };
   }
 
   if (!target || !mapId || amount <= 0 || !hasHpTracking(room, target)) {

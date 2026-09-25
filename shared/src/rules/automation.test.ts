@@ -1527,6 +1527,39 @@ describe('automationForSpell', () => {
     expect(def.effects?.[0]?.duration).toEqual({ type: 'endOfTurn', of: 'target' });
   });
 
+  it('Chill Touch: деривация атаки + запрет лечения до конца хода кастера', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Chill Touch',
+      name: 'Chill Touch',
+      level: 0,
+      spellAttack: 'melee',
+      damage: { dice: ['1d10'], types: ['necrotic'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('attack');
+    expect(def.damage?.dice).toBe('1d10');
+    const effect = def.effects?.[0];
+    expect(effect?.noHeal).toBe(true);
+    expect(effect?.to).toBe('targets');
+    expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+  });
+
+  it('Harm: спас CON с половиной + снижение максимума HP на полученный урон', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Harm',
+      name: 'Harm',
+      level: 6,
+      save: ['con'],
+      saveHalf: true,
+      damage: { dice: ['14d6'], types: ['necrotic'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'con', half: true });
+    expect(def.damage?.dice).toBe('14d6');
+    expect(def.maxHpFromDamage).toBe(true);
+  });
+
   it('Spirit Guardians: деривация урона + зона с подстановкой костей', () => {
     const spell = makeSpell({
       key: 'XPHB:Spirit Guardians',

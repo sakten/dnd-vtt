@@ -17,6 +17,7 @@ import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
 import { executeAutomation } from './automation';
+import { applyDamage } from './damage';
 import { tickEffectTriggers, tickEndTurnEffectTriggers } from './effects';
 import { applyEffectTo, removeBrokenEffects } from './effectsApply';
 import { pendingOffers } from './reactions';
@@ -101,6 +102,95 @@ describe("Melf's Acid Arrow", () => {
       Math.random = original;
     }
     expect(target.hpCurrent).toBe(24);
+  });
+});
+
+describe('Chill Touch', () => {
+  it('попадание запрещает восстановление HP до конца следующего хода кастера', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    const original = Math.random;
+    Math.random = () => 0.5; // d20 = 11 → попадание; d10 = 6
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XPHB:Chill Touch')!, { characterLevel: 1 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.hpCurrent).toBe(24);
+    const effect = target.effects.find((e) => e.noHeal);
+    expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 15, kind: 'heal' });
+    expect(target.hpCurrent).toBe(24);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.healBlocked')).toBe(true);
+  });
+});
+
+describe('Harm', () => {
+  it('провал спасброска снижает максимум HP на полученный урон; снятие эффекта возвращает', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.hpMax = '100';
+    target.hpCurrent = 100;
+    const original = Math.random;
+    Math.random = () => 0; // d20 = 1 → спас провален; d6 = 1 → 14 урона
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XPHB:Harm')!, { castLevel: 6 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.hpCurrent).toBe(86);
+    expect(target.hpMax).toBe('86');
+    const penalty = target.effects.find((e) => e.name === 'Harm');
+    expect(penalty?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: -14 });
+
+    f.manager.removeEffect(room, target, penalty!.id);
+    expect(target.hpMax).toBe('100');
+    expect(target.hpCurrent).toBe(86);
+  });
+
+  it('успешный спасбросок — половина урона без снижения максимума', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.hpMax = '100';
+    target.hpCurrent = 100;
+    const original = Math.random;
+    Math.random = () => 0.99; // d20 = 20 → спас пройден; d6 = 6 → 84, половина 42
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: automationForSpell(findSpell('XPHB:Harm')!, { castLevel: 6 }),
+        targets: [target],
+        stats,
+        author: 'DM',
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.hpCurrent).toBe(58);
+    expect(target.hpMax).toBe('100');
+    expect(target.effects.some((e) => e.name === 'Harm')).toBe(false);
   });
 });
 

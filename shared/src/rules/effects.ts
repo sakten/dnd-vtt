@@ -379,6 +379,11 @@ export function maximizeHealing(effects: EffectInstance[] | undefined): boolean 
   return (effects ?? []).some((e) => e.maximizeHealing === true);
 }
 
+/** Носитель не может восстанавливать HP (Chill Touch). */
+export function healBlocked(effects: EffectInstance[] | undefined): boolean {
+  return (effects ?? []).some((e) => e.noHeal === true);
+}
+
 /** Преимущество на спасброски от смерти (Beacon of Hope). */
 export function deathSaveAdvantage(effects: EffectInstance[] | undefined): boolean {
   return (effects ?? []).some((e) => e.deathSaveAdvantage === true);
@@ -514,6 +519,7 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   if (effect.magicWeapon) parts.push({ key: 'domain.effect.magicWeapon' });
   if (effect.damageLink) parts.push({ key: 'domain.effect.damageLink' });
   if (effect.maximizeHealing) parts.push({ key: 'domain.effect.maxHeal' });
+  if (effect.noHeal) parts.push({ key: 'domain.effect.noHeal' });
   if (effect.deathSaveAdvantage) parts.push({ key: 'domain.effect.deathSaveAdv' });
   if (effect.saveNoDamage) parts.push({ key: 'domain.effect.saveNoDamage' });
   if (effect.duration.type === 'untilSave' && effect.duration.damage) {

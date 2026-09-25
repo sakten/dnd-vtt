@@ -263,6 +263,8 @@ export interface EffectInstance {
   sanctuary?: { dc: number };
   /** Лечение носителя берёт максимум костей (Beacon of Hope). */
   maximizeHealing?: boolean;
+  /** Chill Touch: носитель не может восстанавливать HP, пока эффект жив. */
+  noHeal?: boolean;
   /** Преимущество на спасброски от смерти (Beacon of Hope). */
   deathSaveAdvantage?: boolean;
   /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */

@@ -332,13 +332,13 @@ export function changeMaxHp(m: EffectsDeps, room: Room, token: Token, effect: Ef
   const res = controllerId ? room.resources[controllerId] : undefined;
   if (controllerId && res && res.hp.max > 0) {
     res.hp.max = Math.max(1, res.hp.max + sign * bonus);
-    if (sign > 0) res.hp.current += bonus;
+    if (sign > 0 && bonus > 0) res.hp.current += bonus;
     else res.hp.current = Math.min(res.hp.current, res.hp.max);
     m.characterTokens(room, controllerId);
   } else {
     const base = statNumber(token.hpMax);
     if (base > 0) token.hpMax = String(Math.max(1, base + sign * bonus));
-    if (sign > 0) token.hpCurrent += bonus;
+    if (sign > 0 && bonus > 0) token.hpCurrent += bonus;
     else token.hpCurrent = Math.min(token.hpCurrent, statNumber(token.hpMax));
   }
 }

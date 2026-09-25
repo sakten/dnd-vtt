@@ -49,7 +49,7 @@ import bestiaryData from 'shared/bestiaryData';
 import type { ConnCtx } from './context';
 import type { Room } from '../roomTypes';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
-import { creatureTypeOf } from '../room/actor';
+import { actorStats, creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { bonusDieOptions, spendBonusDie } from './bonusDice';
 import { applyDamage, singleDamageType } from './damage';
@@ -771,6 +771,32 @@ function withSpellAbilityMod(expression: string | null, def: AutomationDef, stat
   return `${expression}${mod > 0 ? '+' : ''}${mod}`;
 }
 
+/**
+ * Harm: максимум HP цели снижается на фактически полученный урон (не ниже 1).
+ * Штраф — постоянный эффект с модификатором maxHp, снимается с эффектом (долгий отдых).
+ */
+function applyMaxHpFromDamage(run: AutomationRun, target: Token, amount: number): void {
+  const { ctx, room, mapId, caster, def } = run;
+  const maxHp = actorStats(room, target).hp.max;
+  const penalty = Math.min(Math.round(amount), Math.max(0, maxHp - 1));
+  if (penalty <= 0) return;
+  ctx.manager.applyEffect(room, target, {
+    id: randomUUID(),
+    name: def.name,
+    sourceKey: def.key,
+    sourceId: caster.id,
+    duration: { type: 'permanent' },
+    modifiers: [{ id: randomUUID(), target: 'maxHp', mode: 'add', value: -penalty }],
+  });
+  const controllerId = ctx.manager.controllerOfToken(room, target);
+  if (controllerId) ctx.emitResources(room, controllerId);
+  ctx.emitToken(room, 'token:update', mapId, target);
+  ctx.systemMessage(room, {
+    code: 'automation.maxHpReduced',
+    params: { name: target.name, amount: penalty },
+  });
+}
+
 /** Negative Energy Flood: убитый поднимается зомби (XMM:Zombie) в своей клетке; ведёт DM. */
 function spawnZombie(run: AutomationRun, at: Token): void {
   const { ctx, room, mapId } = run;
@@ -1208,7 +1234,11 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
       }
       if (!damageRoll) continue;
       if (save.success && (!half || saveNoDamage(save.target.effects))) continue;
-      applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
+      const result = applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
+      // Harm: провал спасброска снижает максимум HP на фактически полученный урон.
+      if (def.maxHpFromDamage && !save.success && result.applied && result.amount > 0) {
+        applyMaxHpFromDamage(run, save.target, result.amount);
+      }
     }
     // Self-эффекты «только при провале» (Enervation: повтор действием).
     const failed = saves.some((save) => !save.success);

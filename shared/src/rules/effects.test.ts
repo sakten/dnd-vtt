@@ -15,6 +15,7 @@ import {
   effectSummaryParts,
   evalModifierValue,
   hasConcentration,
+  healBlocked,
   ignoresDifficultTerrain,
   immuneToSpeedReduction,
   isBanished,
@@ -173,6 +174,14 @@ describe('спасброски', () => {
     expect(deathSaveAdvantage([beacon])).toBe(true);
     expect(maximizeHealing([])).toBe(false);
     expect(deathSaveAdvantage(undefined)).toBe(false);
+  });
+
+  it('Chill Touch: запрет восстановления HP и его сводка', () => {
+    const chill = effect({ noHeal: true });
+    expect(healBlocked([chill])).toBe(true);
+    expect(healBlocked([])).toBe(false);
+    expect(healBlocked(undefined)).toBe(false);
+    expect(effectSummaryParts(chill).some((p) => p.key === 'domain.effect.noHeal')).toBe(true);
   });
 });
 
@@ -551,6 +560,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       damageReaction: { ability: 'con', feet: 60, condition: 'blinded' },
       breakOn: ['attack'],
       maximizeHealing: true,
+      noHeal: true,
       deathSaveAdvantage: true,
       saveNoDamage: true,
       retaliate: { damageType: 'cold', dice: '2d8' },

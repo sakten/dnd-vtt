@@ -105,6 +105,15 @@ const STINKING_POISONED: AutomationEffect = {
   restrictions: { noActions: true, noBonus: true },
 };
 
+/** Chill Touch: цель не восстанавливает HP до конца следующего хода кастера. */
+const CHILL_TOUCH: AutomationEffect = {
+  name: 'Chill Touch',
+  duration: UNTIL_NEXT_TURN,
+  to: 'targets',
+  modifiers: [],
+  noHeal: true,
+};
+
 /** Строка каталога «заклинание с накладываемыми эффектами». */
 function spellEffect(
   key: string,
@@ -1237,6 +1246,8 @@ export interface AutomationAddition {
   healAbilityMod?: boolean;
   /** Фильтр целей мгновенной части по стороне (Spirit Guardians: только враги). */
   side?: 'hostile' | 'ally';
+  /** Harm: снижение максимума HP цели на фактически полученный ею урон. */
+  maxHpFromDamage?: boolean;
 }
 
 export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
@@ -1283,6 +1294,8 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
   'XPHB:Mass Healing Word': { targets: 6, healAbilityMod: true },
   'XPHB:Prayer of Healing': { targets: 5 },
   'XPHB:Mass Cure Wounds': { targets: 6, healAbilityMod: true },
+  'XPHB:Chill Touch': { effects: [CHILL_TOUCH] },
+  'XPHB:Harm': { maxHpFromDamage: true },
 };
 
 /** Подстановка выражения урона заклинания в кости триггеров зоны (`'$spell'`). */
@@ -3349,6 +3362,7 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
     if (addition.healAbilityMod && merged.heal) merged.heal = { ...merged.heal, abilityMod: true };
     if (addition.targets) merged.targets = addition.targets;
     if (addition.side) merged.side = addition.side;
+    if (addition.maxHpFromDamage) merged.maxHpFromDamage = true;
     return merged;
   };
 

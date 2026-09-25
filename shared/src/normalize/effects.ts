@@ -220,6 +220,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
     if (e.seesInvisible === true) effect.seesInvisible = true;
     if (e.maximizeHealing === true) effect.maximizeHealing = true;
+    if (e.noHeal === true) effect.noHeal = true;
     if (e.deathSaveAdvantage === true) effect.deathSaveAdvantage = true;
     if (e.saveNoDamage === true) effect.saveNoDamage = true;
     if (e.banish && typeof e.banish === 'object') {
