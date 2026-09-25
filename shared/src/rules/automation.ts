@@ -1406,6 +1406,7 @@ const BUILTIN_AUTOMATION = new Set([
   'XPHB:Lightning Arrow',
   'XPHB:Protection from Energy',
   'XPHB:Aid',
+  "XPHB:Heroes' Feast",
   'XPHB:Resistance',
   'XGE:Elemental Bane',
   'XPHB:Flame Strike',
@@ -1737,6 +1738,25 @@ function aidDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefine
     to: 'targets',
     targets: 3,
     modifiers: [{ target: 'maxHp', mode: 'add', value: amount }],
+  };
+  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
+}
+
+/**
+ * Heroes' Feast (XPHB 2024): до 12 существ — сопротивление яду, иммунитет к испугу
+ * и отравлению, +2к10 к максимуму и текущим HP (24 часа; в VTT — до долгого отдыха).
+ * Пир идёт 1 час и эффекты вступают после него — внебоевые часы не моделируются.
+ */
+function heroesFeastDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== "XPHB:Heroes' Feast") return undefined;
+  const effect: AutomationEffect = {
+    name: spell.name,
+    duration: PERMANENT,
+    to: 'targets',
+    targets: 12,
+    modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } }],
+    conditionImmunities: ['frightened', 'poisoned'],
+    maxHpBonus: { dice: '2d10' },
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
@@ -3011,6 +3031,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const aid = aidDef(spell, opts);
   if (aid) return aid;
+
+  const heroesFeast = heroesFeastDef(spell);
+  if (heroesFeast) return heroesFeast;
 
   const invisibility = invisibilityDef(spell, opts);
   if (invisibility) return invisibility;

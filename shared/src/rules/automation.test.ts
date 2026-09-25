@@ -1818,6 +1818,27 @@ describe('automationForSpell', () => {
     expect(upcast.effects?.[0]?.modifiers[0]).toMatchObject({ target: 'maxHp', mode: 'add', value: 15 });
   });
 
+  it("Heroes' Feast: 12 целей, сопротивление яду, иммунитеты и 2к10 к максимуму HP", () => {
+    const spell = makeSpell({
+      key: "XPHB:Heroes' Feast",
+      name: "Heroes' Feast",
+      level: 6,
+      automation: 'manual',
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    const effect = def.effects?.[0];
+    expect(effect?.targets).toBe(12);
+    expect(effect?.conditionImmunities).toEqual(['frightened', 'poisoned']);
+    expect(effect?.maxHpBonus).toEqual({ dice: '2d10' });
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'resistance',
+      filter: { damageType: 'poison' },
+    });
+    expect(spellAutomated({ key: "XPHB:Heroes' Feast", automation: 'manual' })).toBe(true);
+  });
+
   it('Protection from Evil and Good: помеха шести типам и scoped-иммунитет', () => {
     const spell = makeSpell({
       key: 'XPHB:Protection from Evil and Good',

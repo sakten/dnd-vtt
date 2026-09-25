@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CharacterSheet } from 'shared';
-import { fakeSocket, type EmittedEvent } from '../test/fixtures';
+import { fakeSocket, makeMap, makeScene, makeToken, type EmittedEvent } from '../test/fixtures';
 import { useGameStore } from '../store/useGameStore';
 import { defaultSheet } from '../lib/sheet';
 import CharacterSheetModal from './CharacterSheetModal';
@@ -48,5 +48,33 @@ describe('CharacterSheetModal', () => {
   it('без open ничего не рендерит', () => {
     const { container } = render(<CharacterSheetModal open={false} onClose={vi.fn()} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it('показывает иммунитеты к состояниям от эффектов', () => {
+    useGameStore.setState({
+      scene: makeScene([
+        makeMap('m1', [
+          makeToken('t1', {
+            libraryItemId: 'lib1',
+            effects: [
+              {
+                id: 'ef1',
+                name: "Heroes' Feast",
+                duration: { type: 'permanent' },
+                modifiers: [],
+                conditionImmunities: ['frightened', 'poisoned'],
+              },
+            ],
+          }),
+        ]),
+      ]),
+      viewMapId: 'm1',
+      currentCharacterId: 'lib1',
+    });
+    render(<CharacterSheetModal open onClose={vi.fn()} />);
+
+    expect(screen.getByText('Иммунитеты к состояниям')).toBeTruthy();
+    expect(screen.getByText('Испуган')).toBeTruthy();
+    expect(screen.getByText('Отравлен')).toBeTruthy();
   });
 });

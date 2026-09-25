@@ -110,6 +110,11 @@ export interface AutomationEffect {
   saveOnDamage?: { advantage?: boolean };
   /** Временные HP, выдаваемые при наложении (Fighting Spirit и подобные). */
   tempHp?: number;
+  /**
+   * Heroes' Feast: бонус `dice` к максимуму HP (и текущим HP) — кости бросаются
+   * один раз при наложении эффекта; откат при снятии идёт по тому же числу.
+   */
+  maxHpBonus?: { dice: string };
   /** Кость бонуса к d20-тесту, тратится при использовании (Бардовское вдохновение). */
   bonusDie?: string;
   /** Доп. способы траты кости (Боевое вдохновение): урон/AC. */

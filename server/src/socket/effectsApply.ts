@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   effectFieldsFromDef,
   isIncapacitated,
+  rollDice,
   sheetProficiencyBonus,
   type AutomationEffect,
   type ConditionKey,
@@ -10,6 +11,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { pushRollMessage } from './messages';
 import { endShapeToken } from './forms';
 
 export interface ApplyEffectArgs {
@@ -68,6 +70,23 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
       ...(markedId ? { filter: { ...m.filter, targetId: markedId } } : {}),
     });
   });
+  // Heroes' Feast: +2к10 к максимуму HP — бросок один раз при наложении, откат по нему же.
+  if (effectDef.maxHpBonus) {
+    const roll = rollDice(effectDef.maxHpBonus.dice);
+    modifiers.push({
+      id: `${effectId}:maxHp`,
+      target: 'maxHp',
+      mode: 'add',
+      value: roll.total,
+    });
+    const source = ctx.manager.findToken(room, mapId, sourceId);
+    pushRollMessage(ctx, room, {
+      author: source?.name ?? effectDef.name,
+      roll,
+      kind: 'heal',
+      params: { subject: `${effectDef.name} · ${target.name}` },
+    });
+  }
   const effect: EffectInstance = {
     ...effectFieldsFromDef(effectDef),
     id: effectId,
@@ -87,6 +106,10 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     banish: effectDef.banish ? { x: target.x, y: target.y } : undefined,
   };
   ctx.manager.applyEffect(room, target, effect);
+  // Бонус к максимуму HP: у персонажа он в ресурсах — обновляем панель сразу.
+  if (controllerId && (effectDef.maxHpBonus || effectDef.modifiers.some((m) => m.target === 'maxHp'))) {
+    ctx.emitResources(room, controllerId);
+  }
   // Dominate: цель переходит под контроль источника — фракция меняется, прежняя в эффекте.
   if (effectDef.dominates) {
     const source = ctx.manager.findToken(room, mapId, sourceId);

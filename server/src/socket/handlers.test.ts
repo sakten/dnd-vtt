@@ -10,7 +10,7 @@ import {
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { actorStats } from '../room/actor';
-import { makeCombatRoom as makeRoom, makeResources, makeToken } from '../test/fixtures';
+import { makeCombatRoom as makeRoom, makeResources, makeRoom as makePlainRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx as makeCtx } from '../test/ctx';
 import { registerCombatHandlers } from './combat';
 import { registerLibraryHandlers } from './library';
@@ -5027,6 +5027,45 @@ describe('spell:cast', () => {
     expect(target.hpMax).toBe('25');
     expect(target.hpCurrent).toBe(25);
     expect(target.effects).toHaveLength(1);
+  });
+
+  it("Heroes' Feast: сопротивление яду, иммунитеты и 2к10 к максимуму HP", () => {
+    const room = makePlainRoom({ controllers: { p1: 'lib1', p2: 'lib2' } });
+    room.scene.maps[0]!.tokens.push(
+      makeToken('t1', { libraryItemId: 'lib1' }),
+      makeToken('t2', { libraryItemId: 'lib2' })
+    );
+    room.resources.p2 = makeResources({
+      hp: { current: 20, max: 20, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+    });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      classes: [{ className: 'cleric', level: 11 }],
+      spells: [{ key: "XPHB:Heroes' Feast", className: 'cleric' }],
+    };
+    room.resources.p1 = { ...casterResources(), spellSlots: [{ level: 6, current: 1, max: 1 }] };
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d10 = 6 → 2d10 = 12
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: "XPHB:Heroes' Feast",
+      slotLevel: 6,
+      targetIds: ['t2'],
+    });
+    rand.mockRestore();
+
+    const target = room.scene.maps[0]!.tokens.find((t) => t.id === 't2')!;
+    expect(room.resources.p2!.hp.max).toBe(32);
+    expect(room.resources.p2!.hp.current).toBe(32);
+    expect(f.emitted.some((e) => e.event === 'resources:update')).toBe(true);
+    expect(room.chat.some((m) => m.kind === 'roll' && m.rollKind === 'heal')).toBe(true);
+    const effect = target.effects.find((e) => e.sourceKey === "XPHB:Heroes' Feast");
+    expect(effect?.conditionImmunities).toEqual(['frightened', 'poisoned']);
+    expect(effect?.modifiers.some((m) => m.target === 'maxHp' && m.value === 12)).toBe(true);
+    expect(effect?.modifiers.some((m) => m.target === 'damage' && m.mode === 'resistance')).toBe(true);
   });
 
   it('Hex помечает цель, даёт +1d6 урона и метку на цели', () => {

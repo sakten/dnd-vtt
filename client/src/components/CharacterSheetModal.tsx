@@ -7,6 +7,7 @@ import {
   abilityMod,
   classSaves,
   computedMaxHp,
+  conditionImmunities,
   normalizeSheet,
   subclassList,
   type AbilityKey,
@@ -15,9 +16,11 @@ import {
   type SkillLevel,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { useCharacterToken } from '../store/hooks';
 import { t } from '../i18n';
-import { abilityName, classLabel, skillName, subclassLabel } from '../i18n/domain';
+import { abilityName, classLabel, conditionLabel, skillName, subclassLabel } from '../i18n/domain';
 import { bonusPart, defaultSheet, skillPreview } from '../lib/sheet';
+import ConditionIcon from './ConditionIcon';
 import SensesForm from './SensesForm';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
@@ -37,6 +40,15 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
   const setSheet = useGameStore((s) => s.setSheet);
   const [draft, setDraft] = useState<CharacterSheet | null>(null);
   const [tab, setTab] = useState<'main' | 'spells' | 'talents'>('main');
+  const characterToken = useCharacterToken();
+  const immuneConditions = characterToken
+    ? [
+        ...new Set([
+          ...conditionImmunities(characterToken.effects),
+          ...(characterToken.statblock?.conditionImmunities ?? []),
+        ]),
+      ]
+    : [];
 
   useEffect(() => {
     if (!open) return;
@@ -302,6 +314,19 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
           value={draft.damageDefenses ?? []}
           onChange={(damageDefenses) => setDraft((d) => (d ? { ...d, damageDefenses } : d))}
         />
+        {immuneConditions.length > 0 && (
+          <div>
+            <div className="sheet-section-title">{t('ui.statblock.conditionImmunities')}</div>
+            <div className="cond-immunity-grid">
+              {immuneConditions.map((key) => (
+                <span key={key} className="checkbox-row cond-immunity-item">
+                  <ConditionIcon condition={key} className="cond-immunity-icon" />
+                  <span>{conditionLabel(key)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         </>
         )}
 
