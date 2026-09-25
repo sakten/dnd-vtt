@@ -151,7 +151,8 @@ check(near(empty.pixel(60, 860), 35, 39, 47, 25), '02-table: панель ток
 const map = imgs['03-map'];
 const full = (img) => [0, 0, img.width, img.height];
 // Панель действий стоит между панелью токенов и чатом — исключаем её из подсчёта карты.
-const panelEx = (img) => [400, img.height - 330, img.width - 500, img.height];
+// Координаты должны совпадать с CSS `.action-panel` (left 360, right max(440, chat+80)).
+const panelEx = (img) => [360, img.height - 330, img.width - 440, img.height];
 const grayPred = (p) => near(p, 46, 52, 64, 10);
 const green = countIn(map, (p) => near(p, 90, 160, 90, 30), ...full(map));
 const gray = countInExcept(map, grayPred, panelEx(map));
