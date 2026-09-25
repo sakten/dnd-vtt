@@ -1596,7 +1596,11 @@ export function compositeDamageDef(spell: Spell, opts: AutomationOptions): Autom
       cfg.upcast === 'all' || (cfg.upcast === 'first' && i === 0)
         ? scaledDice(part.dice, spell.upcast?.dice, steps)
         : part.dice;
-    return { dice: scaled, type: cfg.variantPart === i && opts.variant ? opts.variant : part.type };
+    return {
+      dice: scaled,
+      // Вариантный тип: выбранный при касте, иначе — дефолт конфига (не порядок типов в данных).
+      type: cfg.variantPart === i ? (opts.variant ?? cfg.parts[i]?.type ?? part.type) : part.type,
+    };
   });
   return {
     key: spell.key,

@@ -248,6 +248,31 @@ describe('Booming Blade, True Strike и Zephyr Strike', () => {
     expect(primary.effects.some((e) => e.sourceKey === 'TCE:Booming Blade')).toBe(true);
   });
 
+  it('Booming Blade: тиры 1/5/11/17 — начальный райдер и урон движения', () => {
+    // [уровень, райдер на попадании, урон движения]; бросок 0.5: d10=6, d8=5, попадание d20+5 ≥ 10.
+    const tiers: [number, string, string][] = [
+      [1, '', '1d8'],
+      [5, '1d8', '2d8'],
+      [11, '2d8', '3d8'],
+      [17, '3d8', '4d8'],
+    ];
+    for (const [level, rider, move] of tiers) {
+      const { primary, f, room, input } = setupSpell('TCE:Booming Blade', { level });
+      withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+      const riderDamage = rider ? Number(rider[0]) * 5 : 0;
+      expect(primary.hpCurrent, `уровень ${level}: начальный урон`).toBe(40 - 9 - riderDamage);
+      const effect = primary.effects.find((e) => e.sourceKey === 'TCE:Booming Blade');
+      expect(effect?.onWillingMove?.dice, `уровень ${level}: кость движения`).toBe(move);
+
+      const fromX = primary.x;
+      const fromY = primary.y;
+      primary.x += 50;
+      withRandom(0.5, () => handleWillingMoveEffects(f.ctx, room, 'm1', primary, fromX, fromY));
+      expect(primary.hpCurrent, `уровень ${level}: урон после перемещения`).toBe(40 - 9 - riderDamage - Number(move[0]) * 5);
+      expect(primary.effects.some((e) => e.sourceKey === 'TCE:Booming Blade'), `уровень ${level}: эффект снят`).toBe(false);
+    }
+  });
+
   it('True Strike: атака от заклинательной характеристики и выбор типа урона', () => {
     const attack: AttackEntry = { ...SWORD, hit: 'd20+str', damage: '1d10+str' };
     const slashingResist: DamageDefense = { id: 'd1', type: 'resistance', damageType: 'slashing' };
