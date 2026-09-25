@@ -380,12 +380,15 @@ export function tickEffects(
   escalated: { name: string; condition: ConditionKey }[];
   /** Bestow Curse: имена эффектов, вынудивших Уклонение в начале хода. */
   forced: string[];
+  /** Провал повторного спаса `untilSave.damage` (Immolation): броски для применения на сокете. */
+  saveDamage: { token: Token; name: string; roll: DiceRollResult; damageType?: string }[];
   /** Токены с снятой концентрацией (последняя цель каста ушла). */
   pruned: { mapId: string; token: Token }[];
   /** Изгнанные навсегда (Banishment истёк: экстрапланетные не возвращаются). */
   vanished: { mapId: string; token: Token }[];
 } {
   const saves: { name: string; roll: DiceRollResult; success: boolean }[] = [];
+  const saveDamage: { token: Token; name: string; roll: DiceRollResult; damageType?: string }[] = [];
   const removed: string[] = [];
   const escalated: { name: string; condition: ConditionKey }[] = [];
   const removedConcentration: { sourceId: string; sourceKey: string }[] = [];
@@ -404,7 +407,15 @@ export function tickEffects(
       });
       saves.push({ name: effect.name, roll, success });
       if (success) remove = true;
-      else if (effect.escalate) {
+      else if (d.damage) {
+        // Immolation: провал повторного спаса — урон, эффект продолжает гореть.
+        saveDamage.push({
+          token,
+          name: effect.name,
+          roll: rollDice(d.damage.dice),
+          damageType: d.damage.types.length === 1 ? d.damage.types[0] : undefined,
+        });
+      } else if (effect.escalate) {
         // Провал повторного спасброска: состояние меняется (Sleep → без сознания).
         // Иммунитет к новому состоянию — эскалация пропускается, эффект остаётся как есть.
         const next = effect.escalate;
@@ -520,7 +531,7 @@ export function tickEffects(
   }
 
   if (changed) m.saveSoon(room);
-  return { changed, saves, removed, escalated, forced, pruned: [...pruned.values()], vanished };
+  return { changed, saves, removed, escalated, forced, saveDamage, pruned: [...pruned.values()], vanished };
 }
 
 /** Принудительное Уклонение от Bestow Curse: помеха атак против, преимущество Лов, запрет действий. */

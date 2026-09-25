@@ -111,11 +111,22 @@ export function normalizeEffectDuration(raw: unknown): EffectDuration | null {
   if (d.type === 'rounds') return { type: 'rounds', rounds: clampInt(d.rounds, 0, 9999, 0) };
   if (d.type === 'untilSave') {
     if (!isAbilityKey(d.ability)) return null;
+    const rawDamage = d.damage as { dice?: unknown; types?: unknown } | undefined;
+    const damage =
+      rawDamage && typeof rawDamage.dice === 'string' && rawDamage.dice.trim()
+        ? {
+            dice: rawDamage.dice.trim().slice(0, 40),
+            types: Array.isArray(rawDamage.types)
+              ? rawDamage.types.filter((t): t is string => typeof t === 'string' && DAMAGE_KEYS.has(t)).slice(0, 4)
+              : [],
+          }
+        : undefined;
     return {
       type: 'untilSave',
       ability: d.ability,
       dc: clampInt(d.dc, 0, 40, 0),
       timing: d.timing === 'start' ? 'start' : d.timing === 'damage' ? 'damage' : 'end',
+      ...(damage ? { damage } : {}),
     };
   }
   if (d.type === 'endOfTurn') return { type: 'endOfTurn', of: d.of === 'target' ? 'target' : 'source' };

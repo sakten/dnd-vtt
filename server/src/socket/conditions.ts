@@ -1,5 +1,6 @@
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { applyDamage } from './damage';
 import { pushSaveMessage } from './messages';
 import { tickEffectTriggers, tickEndTurnEffectTriggers } from './effects';
 import { removeTokenCompletely } from './tokenRemove';
@@ -35,6 +36,19 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
   const effects = ctx.manager.tickEffects(room, token, phase);
   for (const save of effects.saves) {
     pushSaveMessage(ctx, room, { subject: `${save.name} · ${token.name}`, roll: save.roll, success: save.success });
+  }
+  // Провал повторного спаса `untilSave.damage` (Immolation): урон картой в чат.
+  for (const hit of effects.saveDamage) {
+    applyDamage(ctx, {
+      target: hit.token,
+      mapId,
+      amount: hit.roll.total,
+      damageType: hit.damageType,
+      roll: hit.roll,
+      author: hit.name,
+      kind: 'damage',
+      params: { subject: `${hit.name} · ${hit.token.name}`, damageType: hit.damageType },
+    });
   }
   for (const name of effects.removed) {
     ctx.systemMessage(room, { code: 'conditions.effectEnded', params: { name: token.name, effect: name } });

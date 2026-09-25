@@ -1309,6 +1309,32 @@ describe('automationForSpell', () => {
     expect(spellAutomated({ key: "XGE:Melf's Minute Meteors", automation: 'manual' })).toBe(true);
   });
 
+  it('Immolation: спас DEX, горение со светом и уроном при провале повторного спаса', () => {
+    const spell = makeSpell({
+      key: 'XGE:Immolation',
+      name: 'Immolation',
+      level: 5,
+      automation: 'manual',
+      save: ['dex'],
+      saveHalf: true,
+      damage: { dice: ['8d6', '4d6'], types: ['fire'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('save');
+    expect(def.concentration).toBe(true);
+    expect(def.save).toEqual({ ability: 'dex', half: true });
+    expect(def.damage).toEqual({ dice: '8d6fire', types: ['fire'] });
+    const burn = def.effects?.[0];
+    expect(burn?.light).toEqual({ bright: 30, dim: 30 });
+    expect(burn?.duration).toMatchObject({
+      type: 'untilSave',
+      ability: 'dex',
+      timing: 'end',
+      damage: { dice: '4d6fire', types: ['fire'] },
+    });
+    expect(spellAutomated({ key: 'XGE:Immolation', automation: 'manual' })).toBe(true);
+  });
+
   it('Hex/Hunter\'s Mark: метку можно перенести бонусным действием', () => {
     for (const key of ['XPHB:Hex', "XPHB:Hunter's Mark"]) {
       const def = automationForSpell(makeSpell({ key, name: key, automation: 'manual' }));

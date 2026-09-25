@@ -396,6 +396,34 @@ describe('normalizeEffects: Bestow Curse (Уклонение)', () => {
   });
 });
 
+describe('normalizeEffects: Immolation', () => {
+  it('сохраняет урон повторного спаса и свет', () => {
+    const [out] = normalizeEffects([
+      {
+        id: 'im',
+        name: 'Immolation',
+        duration: {
+          type: 'untilSave',
+          ability: 'dex',
+          dc: 15,
+          timing: 'end',
+          damage: { dice: '4d6fire', types: ['fire'] },
+        },
+        modifiers: [],
+        light: { bright: 30, dim: 30 },
+      },
+    ]);
+    expect(out?.duration).toEqual({
+      type: 'untilSave',
+      ability: 'dex',
+      dc: 15,
+      timing: 'end',
+      damage: { dice: '4d6fire', types: ['fire'] },
+    });
+    expect(out?.light).toEqual({ bright: 30, dim: 30 });
+  });
+});
+
 describe('каталог эффектов заклинаний', () => {
   it('Shield даёт +5 AC до конца хода', () => {
     const defs = spellEffectDefs('XPHB:Shield');

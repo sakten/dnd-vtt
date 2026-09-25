@@ -1005,6 +1005,7 @@
   'domain.effect.deathSaveAdv': 'преимущество на спасброски от смерти',
   'domain.effect.saveNoDamage': 'при успешном спасброске урона нет',
   'domain.effect.turnDodge': 'в начале каждого хода — спас {ability} или Уклонение',
+  'domain.effect.untilSaveDamage': 'в конце хода — спас или {damage}',
   'domain.effect.retaliate': 'ответный урон {damage} ({type})',
   'domain.effect.takesExtraDamage': 'доп. урон {damage} ({type}) от атак источника',
   'domain.effect.elementalBane': 'нет сопротивления {type}; первый урон {type} за ход: +{damage}',

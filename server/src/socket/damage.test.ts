@@ -454,3 +454,44 @@ describe('Bestow Curse: спас в начале хода и принудите�
     expect(res.forced).toEqual([]);
   });
 });
+
+describe('Immolation: повторный спас в конце хода', () => {
+  const burning = (): EffectInstance => ({
+    id: 'im',
+    name: 'Immolation',
+    sourceKey: 'XGE:Immolation',
+    sourceId: 't9',
+    concentration: true,
+    duration: {
+      type: 'untilSave',
+      ability: 'dex',
+      dc: 15,
+      timing: 'end',
+      damage: { dice: '4d6fire', types: ['fire'] },
+    },
+    modifiers: [],
+  });
+
+  it('провал — бросок урона в saveDamage, эффект остаётся', () => {
+    const { target, f, ctx } = setup([]);
+    target.effects.push(burning());
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → провал, d6 = 1 → 4
+    const res = ctx.manager.tickEffects(f.room, target, 'end');
+    rand.mockRestore();
+    expect(res.saves[0]).toMatchObject({ name: 'Immolation', success: false });
+    expect(res.saveDamage[0]).toMatchObject({ name: 'Immolation', damageType: 'fire' });
+    expect(res.saveDamage[0]?.roll.total).toBe(4);
+    expect(target.effects.some((e) => e.id === 'im')).toBe(true);
+  });
+
+  it('успех — эффект снят, урона нет', () => {
+    const { target, f, ctx } = setup([]);
+    target.effects.push(burning());
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.99); // d20 = 20 → успех
+    const res = ctx.manager.tickEffects(f.room, target, 'end');
+    rand.mockRestore();
+    expect(res.saves[0]?.success).toBe(true);
+    expect(res.saveDamage).toHaveLength(0);
+    expect(target.effects.some((e) => e.id === 'im')).toBe(false);
+  });
+});

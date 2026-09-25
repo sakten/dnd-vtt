@@ -21,7 +21,7 @@
 - **Armor of Agathys** (`tempHp` + `retaliate`), **Heroism**, **Heal** (70 +10/круг), **Heat Metal**, **Otto's** (`escapeDc`), **Stinking Cloud / Hunger of Hadar**, **Hellish Rebuke**, **Silvery Barbs / Shield** — ок.
 - **XPHB/SRD-апкаст костей** (Fireball `8d6 + 1d6`, Melf's Acid Arrow `4d4 + 1d4`) — ок.
 - **Скейл кантрипов (5/11/17)**: все уронные кантрипы растут (Mind Sliver, Toll the Dead, Thorn Whip, Thunderclap, Word of Radiance, XGE/TCE — сверено с 5e.tools); `XGE:Magic Stone` не растёт, и это по правилам (upgrade-клаузы нет). Флаг §8.1 был из-за вызова без `characterLevel`.
-- **Повтор на цели (сделано, известные упрощения):** Witch Bolt/Enervation — обрыв по дистанции/полному укрытию не отслеживается; Enervation при успехе — 4к8/2 вместо отдельного броска 2к8; Minute Meteors — по одному метеору за бонус-действие (пара — вручную), бросок при касте не автоматизирован.
+- **Повтор на цели (сделано, известные упрощения):** Witch Bolt/Enervation — обрыв по дистанции/полному укрытию не отслеживается; Enervation при успехе — 4к8/2 вместо отдельного броска 2к8; Minute Meteors — по одному метеору за бонус-действие (пара — вручную), бросок при касте не автоматизирован. Immolation: «пепел» и запрет немагического тушения — нарратив.
 
 ## B4. Трансформации (отложено владельцем) — 5
 
@@ -30,7 +30,6 @@
 ## C. Зоны / ловушки / повтор — открытые доработки
 
 - **Осталось:** `XGE:Healing Spirit` (лимит лечений), `XPHB:Cordon of Arrows`, `XPHB:Glyph of Warding` (ловушки/заряды), `XGE:Storm Sphere` (бонус-действие); стены — `Wall of Fire` / `Wall of Ice` / `Blade Barrier` / `Wall of Light` идут generic-спасом без геометрии стены.
-- **Повтор на цели:** `XGE:Immolation` — повтор спасброском в конце хода (провал — 4к6, успех — конец); у `untilSave` урона при провале нет, решить отдельно.
 - Остальные зоны с триггерами (Create Bonfire, Cloud of Daggers, Spike Growth, Tasha's Caustic Brew, Sickening Radiance, Wind Wall, Black Tentacles, Maelstrom, Dawn, Insect Plague, Conjure Animals, Wrath of Nature, Yolande, Dust Devil, Maximilian's) — механизм есть, доработок по аудиту не требуют.
 
 ## F. Духи-атаки — 2

@@ -381,6 +381,7 @@ export class RoomManager {
     removed: string[];
     escalated: { name: string; condition: ConditionKey }[];
     forced: string[];
+    saveDamage: { token: Token; name: string; roll: DiceRollResult; damageType?: string }[];
     pruned: { mapId: string; token: Token }[];
     vanished: { mapId: string; token: Token }[];
   } {

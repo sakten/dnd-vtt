@@ -1432,6 +1432,7 @@ const BUILTIN_AUTOMATION = new Set([
   "XPHB:Melf's Acid Arrow",
   'XGE:Enervation',
   "XGE:Melf's Minute Meteors",
+  'XGE:Immolation',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
@@ -1716,6 +1717,40 @@ function minuteMeteorsDef(spell: Spell, opts: AutomationOptions): AutomationDef 
     actions: [{ id: 'meteor', name: 'Метеор', cost: 'bonus', def: burst }],
   };
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
+}
+
+/**
+ * Immolation (XGE): спас DEX — 8к6 огнём (половина при успехе); провал — цель
+ * горит (яркий свет 30 + тусклый 30), в конце каждого её хода повтор DEX: провал —
+ * ещё 4к6 огнём, успех — конец заклинания. Апкаста нет.
+ */
+function immolationDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Immolation') return undefined;
+  const initial = spell.damage?.dice?.[0] ?? '8d6';
+  const burnDice = spell.damage?.dice?.[1] ?? '4d6';
+  const burn: AutomationEffect = {
+    name: spell.name,
+    duration: {
+      type: 'untilSave',
+      ability: 'dex',
+      dc: 0,
+      timing: 'end',
+      damage: { dice: `${burnDice}fire`, types: ['fire'] },
+    },
+    concentration: true,
+    to: 'targets',
+    modifiers: [],
+    light: { bright: 30, dim: 30 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${initial}fire`, types: ['fire'] },
+    effects: [burn],
+  };
 }
 
 /** Call Lightning (XPHB 2024): туча-цилиндр 60 фт, удар 5 фт при касте (в центр) и повтор действием. */
@@ -3160,6 +3195,9 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const minuteMeteors = minuteMeteorsDef(spell, opts);
   if (minuteMeteors) return minuteMeteors;
+
+  const immolation = immolationDef(spell);
+  if (immolation) return immolation;
 
   const callLightning = callLightningDef(spell, opts);
   if (callLightning) return callLightning;

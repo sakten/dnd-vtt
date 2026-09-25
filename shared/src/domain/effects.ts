@@ -102,7 +102,14 @@ export interface Modifier {
 
 export type EffectDuration =
   | { type: 'rounds'; rounds: number }
-  | { type: 'untilSave'; ability: AbilityKey; dc: number; timing: 'start' | 'end' | 'damage' }
+  | {
+      type: 'untilSave';
+      ability: AbilityKey;
+      dc: number;
+      timing: 'start' | 'end' | 'damage';
+      /** Урон при провале повторного спасброска (Immolation: 4d6 огнём, эффект остаётся). */
+      damage?: { dice: string; types: string[] };
+    }
   | { type: 'endOfTurn'; of: 'source' | 'target' }
   | { type: 'concentration' }
   | { type: 'permanent' };
