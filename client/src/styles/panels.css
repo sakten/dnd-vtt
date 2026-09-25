@@ -391,6 +391,22 @@
   padding: 6px 10px;
 }
 
+.tp-resizer {
+  position: absolute;
+  top: -4px;
+  left: 16px;
+  right: 16px;
+  height: 8px;
+  cursor: row-resize;
+  border-radius: 4px;
+  z-index: var(--z-inner);
+}
+
+.tp-resizer:hover,
+.tp-resizer:active {
+  background: rgba(124, 156, 255, 0.3);
+}
+
 .token-panel-header-actions {
   display: flex;
   align-items: center;

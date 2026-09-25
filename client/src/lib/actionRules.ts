@@ -62,16 +62,16 @@ export function sortPanelSpells(spells: Spell[]): Spell[] {
 }
 
 /**
- * Фильтры панели действий: уровень (0 — фокус, 1–6, 'all') и «вне боя».
- * Без галки «вне боя» скрыты долгие касты (1 минута и больше) и заклинания
- * с красной меткой manual (неавтоматизированные; byDesign-плашки остаются).
+ * Фильтры панели действий: уровень (0 — фокус, 1–6, 'all'); в бою скрыты долгие
+ * касты (1 минута и больше) и заклинания с красной меткой manual (неавтоматизированные;
+ * byDesign-плашки остаются). Вне боя показываются все.
  */
 export function spellPanelFiltered(
   spell: Spell,
-  opts: { showNonCombat: boolean; level: 'all' | number }
+  opts: { combatActive: boolean; level: 'all' | number }
 ): boolean {
   if (opts.level !== 'all' && spell.level !== opts.level) return false;
-  if (opts.showNonCombat) return true;
+  if (!opts.combatActive) return true;
   if (spellActionCost(spell) === 'special') return false;
   return spellAutomated(spell) || spellByDesign(spell);
 }

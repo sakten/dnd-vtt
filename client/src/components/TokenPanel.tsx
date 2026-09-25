@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -6,6 +6,7 @@ import { uploadImage } from '../lib/api';
 import { thumbUrl } from '../lib/imageVariants';
 import { t } from '../i18n';
 import { canAddLibraryItem, canSetAsCharacter, useIsDm } from '../lib/control';
+import { useDragSize } from '../lib/useDragSize';
 import Modal from './Modal';
 import StatblockForm from './StatblockForm';
 import StatblockSpells from './StatblockSpells';
@@ -23,8 +24,18 @@ export default function TokenPanel() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tab, setTab] = useState<'main' | 'statblock' | 'spells'>('main');
   const fileRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const lastClickRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-token-panel') === 'collapsed');
+
+  // Высота панели: короткая по умолчанию, тянется вверх за верхний край.
+  const clampHeight = useCallback((v: number) => Math.max(120, Math.min(v, window.innerHeight - 80)), []);
+  const measureHeight = useCallback(() => panelRef.current?.offsetHeight ?? 220, []);
+  const {
+    size: panelHeight,
+    onPointerDown: onResizeDown,
+    onPointerMove: onResizeMove,
+  } = useDragSize('vtt-token-height', 'y', clampHeight, 220, measureHeight);
 
   const toggleCollapsed = () => {
     setCollapsed((v) => {
@@ -106,7 +117,12 @@ export default function TokenPanel() {
   };
 
   return (
-    <div className={`token-panel ${collapsed ? 'collapsed' : ''}`}>
+    <div
+      ref={panelRef}
+      className={`token-panel ${collapsed ? 'collapsed' : ''}`}
+      style={!collapsed && panelHeight != null ? { height: panelHeight } : undefined}
+    >
+      {!collapsed && <div className="tp-resizer" onPointerDown={onResizeDown} onPointerMove={onResizeMove} />}
       <div className="token-panel-header">
         <span>{t('ui.tokenPanel.title')}</span>
         <div className="token-panel-header-actions">

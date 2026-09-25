@@ -595,8 +595,6 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.action.level': 'level {n}',
   'ui.action.filterAll': 'All',
   'ui.action.spellLevelLabel': 'Spell level',
-  'ui.action.showNonCombat': 'Show non-combat',
-  'ui.action.showNonCombatHint': 'Show long-cast (non-combat) and manual spells',
   'ui.action.smiteOnHit': 'Applied after a weapon hit (as a bonus action)',
   'ui.action.longCastInCombat': 'Unavailable in combat: long casting time',
   'ui.action.silenced': 'Unavailable: silence zone (needs a Verbal component)',

@@ -109,8 +109,7 @@ export default function ActionPanel() {
   const shapeToken = useGameStore((s) => s.shapeToken);
   const revertShape = useGameStore((s) => s.revertShape);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
-  // Фильтры заклинаний панели: «вне боя» и уровень (фокус/1–6).
-  const [showNonCombat, setShowNonCombat] = useState(false);
+  // Фильтр заклинаний панели по уровню (фокус/1–6); в бою долгие и manual скрываются.
   const [spellLevel, setSpellLevel] = useState<'all' | number>('all');
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -294,7 +293,7 @@ export default function ActionPanel() {
   );
   const legendaryAbilities = abilities.filter(legendaryOnly);
 
-  const filteredSpells = panelSpells.filter((s) => spellPanelFiltered(s, { showNonCombat, level: spellLevel }));
+  const filteredSpells = panelSpells.filter((s) => spellPanelFiltered(s, { combatActive, level: spellLevel }));
   const spellsAction = sortPanelSpells(filteredSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'action'));
   const spellsBonus = sortPanelSpells(filteredSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'bonus'));
   const spellsOther = sortPanelSpells(filteredSpells.filter((s) => spellSlotOf(s, { actionCast: invocationAction(s.key) }) === 'other'));
@@ -803,14 +802,6 @@ export default function ActionPanel() {
               </button>
             ))}
           </span>
-          <button
-            className={`ap-chip ap-noncombat${showNonCombat ? ' on' : ''}`}
-            title={t('ui.action.showNonCombatHint')}
-            aria-pressed={showNonCombat}
-            onClick={() => setShowNonCombat((v) => !v)}
-          >
-            {t('ui.action.showNonCombat')}
-          </button>
         </div>
       )}
       <div className="ap-body" ref={bodyRef}>

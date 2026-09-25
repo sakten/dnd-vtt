@@ -68,23 +68,23 @@ describe('longCastInCombat', () => {
 
 describe('spellPanelFiltered', () => {
   it('уровень: фокус/1–6 фильтруют, выше 6 — только «Все»', () => {
-    expect(spellPanelFiltered(makeSpell({ level: 0 }), { showNonCombat: true, level: 0 })).toBe(true);
-    expect(spellPanelFiltered(makeSpell({ level: 0 }), { showNonCombat: true, level: 1 })).toBe(false);
-    expect(spellPanelFiltered(makeSpell({ level: 7 }), { showNonCombat: true, level: 6 })).toBe(false);
-    expect(spellPanelFiltered(makeSpell({ level: 7 }), { showNonCombat: true, level: 'all' })).toBe(true);
+    expect(spellPanelFiltered(makeSpell({ level: 0 }), { combatActive: false, level: 0 })).toBe(true);
+    expect(spellPanelFiltered(makeSpell({ level: 0 }), { combatActive: false, level: 1 })).toBe(false);
+    expect(spellPanelFiltered(makeSpell({ level: 7 }), { combatActive: false, level: 6 })).toBe(false);
+    expect(spellPanelFiltered(makeSpell({ level: 7 }), { combatActive: false, level: 'all' })).toBe(true);
   });
 
-  it('без галки скрыты долгие касты и manual-метка; byDesign-плашки остаются', () => {
+  it('в бою скрыты долгие касты и manual-метка; вне боя и byDesign — видны', () => {
     const long = makeSpell({ key: 'XPHB:Prayer of Healing', time: [{ number: 10, unit: 'minute' }] });
-    expect(spellPanelFiltered(long, { showNonCombat: false, level: 'all' })).toBe(false);
-    expect(spellPanelFiltered(long, { showNonCombat: true, level: 'all' })).toBe(true);
+    expect(spellPanelFiltered(long, { combatActive: true, level: 'all' })).toBe(false);
+    expect(spellPanelFiltered(long, { combatActive: false, level: 'all' })).toBe(true);
 
     const manual = makeSpell({ key: 'XPHB:Phantasmal Force', automation: 'manual' });
-    expect(spellPanelFiltered(manual, { showNonCombat: false, level: 'all' })).toBe(false);
-    expect(spellPanelFiltered(manual, { showNonCombat: true, level: 'all' })).toBe(true);
+    expect(spellPanelFiltered(manual, { combatActive: true, level: 'all' })).toBe(false);
+    expect(spellPanelFiltered(manual, { combatActive: false, level: 'all' })).toBe(true);
 
     const byDesign = makeSpell({ key: 'XPHB:Charm Monster', automation: 'manual' });
-    expect(spellPanelFiltered(byDesign, { showNonCombat: false, level: 'all' })).toBe(true);
+    expect(spellPanelFiltered(byDesign, { combatActive: true, level: 'all' })).toBe(true);
   });
 });
 
