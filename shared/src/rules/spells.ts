@@ -1,6 +1,7 @@
 import type { AreaSpec } from '../domain/actions';
 import type { AbilityKey } from '../domain/core';
 import type { ConditionKey } from '../domain/effects';
+import { DAMAGE_TYPES } from '../labels';
 import { conditionKeyOf } from './conditions';
 
 /**
@@ -49,9 +50,32 @@ export interface SpellComponents {
   m?: string | boolean;
 }
 
+export type DamagePartRole =
+  /** Основной урон применения; при нескольких `main` — составной (Flame Strike). */
+  | 'main'
+  /** Отдельный урон при успешном спасброске (Enervation: 2d8). */
+  | 'success'
+  /** Повтор: последующие ходы/действие/конец следующего хода (Witch Bolt, Melf's). */
+  | 'repeat'
+  /** Срабатывание по триггеру: вход/конец хода/движение/взрыв (Wall of Thorns, Ice Knife). */
+  | 'trigger'
+  /** Альтернатива вместо основного (Toll the Dead: 1d12 раненой цели; Spirit Guardians: некротика). */
+  | 'choice';
+
+export interface SpellDamagePart {
+  /** Кость урона части (без типа). */
+  dice: string;
+  /** Типы части из текста (`Radiant or Necrotic` → два — выбор при касте). */
+  types: string[];
+  /** Роль части — выбирается билдером по роли, не по индексу. */
+  role: DamagePartRole;
+}
+
 export interface SpellDamage {
   dice: string[];
   types: string[];
+  /** Части документа в порядке появления (`{@damage}` + тип рядом); нет — не выражены. */
+  parts?: SpellDamagePart[];
 }
 
 export interface Spell {
@@ -420,7 +444,29 @@ export function collectText(value: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/** Сырые абзацы без снятия тегов — для разбора `{@damage}` (части урона). */
+function collectRawText(value: unknown, out: string[] = []): string[] {
+  if (typeof value === 'string') {
+    if (value) out.push(value);
+    return out;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectRawText(item, out);
+    return out;
+  }
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if (obj.type === 'table' || obj.type === 'tableGroup') return out;
+    if (obj.entries) collectRawText(obj.entries, out);
+    else if (obj.items) collectRawText(obj.items, out);
+    else if (obj.entry) collectRawText(obj.entry, out);
+  }
+  return out;
+}
+
 const DICE_VALUE_RE = /^\d*d\d+/i;
+/** Слова типов урона для разбора частей (`Fire damage`, `Radiant or Necrotic damage`). */
+const DAMAGE_WORDS = DAMAGE_TYPES.map((d) => d.key).filter((key) => !key.startsWith('magical'));
 /** Контекст лечения: «regains … Hit Points», «Temporary Hit Points», рост максимума HP. */
 const HEAL_CONTEXT_RE = /regain|heal|temporary hit point|hit point.{0,30}increas/i;
 const DAMAGE_CONTEXT_RE = /damage/i;
@@ -450,6 +496,63 @@ function collectTaggedDice(entries: unknown): { damage: string[]; heal: string[]
       continue;
     }
     seen.add(value);
+  }
+  return out;
+}
+
+/** Роль части по фразам вокруг тега (сборка, `npm run spells`); потребители данных берут по роли. */
+function damagePartRole(text: string, tagStart: number, tagEnd: number): DamagePartRole {
+  const prev = Math.max(text.lastIndexOf('.', tagStart - 1), text.lastIndexOf(';', tagStart - 1)) + 1;
+  const nextDot = text.indexOf('.', tagEnd);
+  const nextTag = text.slice(tagEnd).search(/\{@/);
+  const postEnd = Math.min(
+    nextDot < 0 ? tagEnd + 240 : nextDot + 1,
+    tagEnd + (nextTag >= 0 ? nextTag : 240)
+  );
+  const pre = text.slice(prev, tagStart).toLowerCase();
+  const post = text.slice(tagEnd, postEnd).toLowerCase();
+  const prior = text.slice(Math.max(0, prev - 400), prev).toLowerCase();
+  if (/successful save/.test(pre) && !/failed save/.test(pre)) return 'success';
+  if (/(subsequent turns|each of (its|your) turns|use your action|use an action|as an action|bonus action)/.test(pre + prior)) {
+    return 'repeat';
+  }
+  if (/(at the end of (its|your) next turn|at the start of each of its turns)/.test(post)) return 'repeat';
+  if (/repeats the saving throw/.test(prior) && /failed save/.test(post)) return 'repeat';
+  if (
+    /(starts its turn|ends its turn|enters|willingly moves|moves willingly|hit or miss|first time on a turn|moving through|if the target is moved|each creature within)/.test(
+      pre + post
+    )
+  ) {
+    return 'trigger';
+  }
+  if (/\binstead takes\b/.test(pre) || /\bor\s*$/.test(pre)) return 'choice';
+  return 'main';
+}
+
+/** Абзацы скейла кантрипа/круга — в части урона не входят (текст «increases when you reach»). */
+const SCALING_PARAGRAPH_RE = /(reach \d+(?:st|nd|rd|th) level|Using a Higher-Level Spell Slot|Cantrip Upgrade|damage increases when you reach)/i;
+
+/**
+ * Части урона из тегов `{@damage}`: кость + типы из ближайшего текста до слова
+ * «damage» и роль по фразам вокруг (сборка снимка; рантайм текст не парсит).
+ * Абзацы скейла отсекаются; без типа рядом (`damage of the chosen type`) часть не выражается.
+ */
+export function collectDamageParts(paragraphs: string[]): SpellDamagePart[] {
+  const cut = paragraphs.findIndex((paragraph) => SCALING_PARAGRAPH_RE.test(paragraph));
+  const text = JSON.stringify((cut >= 0 ? paragraphs.slice(0, cut) : paragraphs).join(' '));
+  const out: SpellDamagePart[] = [];
+  const re = /\{@damage\s+([^|{}]+)/g;
+  for (const match of text.matchAll(re)) {
+    const dice = (match[1] ?? '').trim();
+    if (!DICE_VALUE_RE.test(dice)) continue;
+    const tagStart = match.index ?? 0;
+    const tagEnd = tagStart + match[0].length;
+    const nextTag = text.slice(tagEnd).search(/\{@/);
+    const phrase = (nextTag >= 0 ? text.slice(tagEnd, tagEnd + nextTag) : text.slice(tagEnd)).split(/[.;]/)[0] ?? '';
+    const damageAt = phrase.toLowerCase().indexOf('damage');
+    const before = damageAt >= 0 ? phrase.slice(0, damageAt) : '';
+    const types = DAMAGE_WORDS.filter((word) => new RegExp(`\\b${word}\\b`, 'i').test(before));
+    if (types.length) out.push({ dice, types, role: damagePartRole(text, tagStart, tagEnd) });
   }
   return out;
 }
@@ -565,9 +668,14 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
   const tagged = collectTaggedDice([raw.entries, raw.entriesHigherLevel]);
   const damageTypes = toStringArray(raw.damageInflict);
   const damageDice = tagged.damage.length ? tagged.damage : tagged.heal;
-  const damage: SpellDamage | undefined =
-    damageDice.length || damageTypes.length ? { dice: damageDice, types: damageTypes } : undefined;
   const paragraphs = collectText(raw.entries);
+  // Части документа (кость+тип+роль) сохраняем, когда их две и больше: составной урон,
+  // повтор, отдельные триггеры (Flame Strike, Jallarzi, Melf's, Wall of Thorns…).
+  const parts = collectDamageParts(collectRawText(raw.entries));
+  const damage: SpellDamage | undefined =
+    damageDice.length || damageTypes.length
+      ? { dice: damageDice, types: damageTypes, ...(parts.length >= 2 ? { parts } : {}) }
+      : undefined;
   const description = raw.srd52 ? paragraphs : [firstSentence(paragraphs[0] ?? '')].filter(Boolean);
   const hiText = collectText(raw.entriesHigherLevel);
   // Текст правил храним только для SRD (лицензия); скейлы — всегда числа:

@@ -1262,7 +1262,7 @@ describe('automationForSpell', () => {
     expect(spellAutomated({ key: "XPHB:Melf's Acid Arrow", automation: 'manual' })).toBe(true);
   });
 
-  it('Enervation: повтор действием с лечением половины только при провале спаса', () => {
+  it('Enervation: повтор действием только при провале; успех — отдельный бросок 2d8', () => {
     const spell = makeSpell({
       key: 'XGE:Enervation',
       name: 'Enervation',
@@ -1270,13 +1270,22 @@ describe('automationForSpell', () => {
       automation: 'manual',
       save: ['dex'],
       saveHalf: true,
-      damage: { dice: ['4d8'], types: ['necrotic'] },
+      damage: {
+        dice: ['2d8', '4d8', '4d8;2d8'],
+        types: ['necrotic'],
+        parts: [
+          { dice: '2d8', types: ['necrotic'], role: 'success' },
+          { dice: '4d8', types: ['necrotic'], role: 'main' },
+          { dice: '4d8', types: ['necrotic'], role: 'repeat' },
+        ],
+      },
       upcast: { above: 5, dice: '1d8' },
     });
     const def = automationForSpell(spell);
     expect(def.resolution).toBe('save');
-    expect(def.save).toEqual({ ability: 'dex', half: true });
+    expect(def.save).toEqual({ ability: 'dex' });
     expect(def.damage?.dice).toBe('4d8necrotic');
+    expect(def.successDamage?.dice).toBe('2d8necrotic');
     const carrier = def.effects?.[0];
     expect(carrier?.to).toBe('self');
     expect(carrier?.selfOnFail).toBe(true);
@@ -1284,7 +1293,9 @@ describe('automationForSpell', () => {
     expect(action?.cost).toBe('action');
     expect(action?.def?.lifesteal).toBe(true);
     expect(action?.def?.damage?.dice).toBe('4d8necrotic');
-    expect(automationForSpell(spell, { castLevel: 7 }).damage?.dice).toBe('6d8necrotic');
+    const up = automationForSpell(spell, { castLevel: 7 });
+    expect(up.damage?.dice).toBe('6d8necrotic');
+    expect(up.successDamage?.dice).toBe('4d8necrotic');
     expect(spellAutomated({ key: 'XGE:Enervation', automation: 'manual' })).toBe(true);
   });
 

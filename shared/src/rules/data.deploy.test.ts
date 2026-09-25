@@ -26,7 +26,7 @@ import type { Spell } from './spells';
  * обновить hash ниже — иначе тест падает и сигналит, какой файл изменился.
  */
 const HASHES = {
-  spells: '81a0ce0c9833d470',
+  spells: '2133927495d56bbf',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',
@@ -86,6 +86,8 @@ const DAMAGE_KEYS = new Set([
   'psychic',
 ]);
 const AREA_SHAPES = new Set(['sphere', 'cone', 'cube', 'line', 'cylinder']);
+/** Роли частей урона (collectDamageParts на сборке; потребители берут по роли). */
+const PART_ROLES = new Set(['main', 'success', 'repeat', 'trigger', 'choice']);
 
 /** Состояния с авто-эффектами в `conditions.ts` (charmed/deafened — только чипы). */
 const MECHANICAL_CONDITIONS = new Set([
@@ -247,6 +249,18 @@ describe('снимок данных', () => {
       }
       for (const type of s.damage?.types ?? []) {
         if (!type) bad.push(`${s.key}: пустой тип урона`);
+      }
+      // Части урона (кость+тип+роль): кости валидны, типы из каталога, роли известны.
+      for (const part of s.damage?.parts ?? []) {
+        try {
+          parseDiceExpression(part.dice);
+        } catch {
+          bad.push(`${s.key}: часть ${part.dice}`);
+        }
+        if (!part.types.length || part.types.some((t) => !DAMAGE_KEYS.has(t))) {
+          bad.push(`${s.key}: типы части ${JSON.stringify(part.types)}`);
+        }
+        if (!PART_ROLES.has(part.role)) bad.push(`${s.key}: роль части ${part.role}`);
       }
       for (const ability of s.save ?? []) {
         if (!ABILITIES.has(ability)) bad.push(`${s.key}: спасбросок ${ability}`);

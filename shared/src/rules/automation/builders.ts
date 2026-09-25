@@ -2,10 +2,20 @@ import type { AutomationDef, AutomationEffect, AutomationPayload, AutomationSave
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt, spellUpcastDice, wallOfThornsArea } from '../spellCast';
-import type { Spell } from '../spells';
+import type { DamagePartRole, Spell } from '../spells';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN, spellEffect, zoneMoveAction } from './header';
 import { SPELL_VARIANTS } from './variants';
 import type { AutomationOptions } from './variants';
+
+/** Кость части данных по роли (нет роли — запасное литеральное значение). */
+function partDice(spell: Spell, role: DamagePartRole, fallback: string): string {
+  return spell.damage?.parts?.find((part) => part.role === role)?.dice ?? fallback;
+}
+
+/** Все части данных с ролью (составной урон — несколько `main` в порядке текста). */
+function partsOfRole(spell: Spell, role: DamagePartRole): { dice: string; types: string[] }[] {
+  return (spell.damage?.parts ?? []).filter((part) => part.role === role);
+}
 
 /** Заклинания с собранной в коде автоматизацией (билдеры, не строки каталога). */
 export const BUILTIN_AUTOMATION = new Set([
@@ -250,12 +260,12 @@ export function heatMetalDef(spell: Spell, opts: AutomationOptions): AutomationD
 export function witchBoltDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Witch Bolt') return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const initial = scaledDice('2d12', spell.upcast?.dice, upcastSteps(spell, level));
+  const initial = scaledDice(partDice(spell, 'main', '2d12'), spell.upcast?.dice, upcastSteps(spell, level));
   const bolt: AutomationDef = {
     key: spell.key,
     name: 'Разряд',
     resolution: 'auto',
-    damage: { dice: '1d12', types: ['lightning'] },
+    damage: { dice: partDice(spell, 'repeat', '1d12'), types: ['lightning'] },
     targeting: { kind: 'creature', range: 60 },
   };
   return {
@@ -279,8 +289,8 @@ export function acidArrowDef(spell: Spell, opts: AutomationOptions): AutomationD
   if (spell.key !== "XPHB:Melf's Acid Arrow") return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
   const steps = upcastSteps(spell, level);
-  const primary = scaledDice('4d4', spell.upcast?.dice, steps);
-  const delayed = scaledDice('2d4', spell.upcast?.dice, steps);
+  const primary = scaledDice(partDice(spell, 'main', '4d4'), spell.upcast?.dice, steps);
+  const delayed = scaledDice(partDice(spell, 'repeat', '2d4'), spell.upcast?.dice, steps);
   return {
     key: spell.key,
     name: spell.name,
@@ -309,12 +319,16 @@ export function acidArrowDef(spell: Spell, opts: AutomationOptions): AutomationD
 export function enervationDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XGE:Enervation') return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const dice = scaledDice('4d8', spell.upcast?.dice, upcastSteps(spell, level));
+  const steps = upcastSteps(spell, level);
+  // Части из данных: успех 2к8, провал 4к8, повтор действием 4к8; всё +1к8/круг.
+  const success = scaledDice(partDice(spell, 'success', '2d8'), spell.upcast?.dice, steps);
+  const initial = scaledDice(partDice(spell, 'main', '4d8'), spell.upcast?.dice, steps);
+  const repeat = scaledDice(partDice(spell, 'repeat', '4d8'), spell.upcast?.dice, steps);
   const drain: AutomationDef = {
     key: spell.key,
     name: 'Вытягивание жизни',
     resolution: 'auto',
-    damage: { dice: `${dice}necrotic`, types: ['necrotic'] },
+    damage: { dice: `${repeat}necrotic`, types: ['necrotic'] },
     lifesteal: true,
     targeting: { kind: 'creature', range: 60 },
   };
@@ -325,8 +339,9 @@ export function enervationDef(spell: Spell, opts: AutomationOptions): Automation
     name: spell.name,
     resolution: 'save',
     concentration: true,
-    save: { ability: 'dex', half: true },
-    damage: { dice: `${dice}necrotic`, types: ['necrotic'] },
+    save: { ability: 'dex' },
+    damage: { dice: `${initial}necrotic`, types: ['necrotic'] },
+    successDamage: { dice: `${success}necrotic`, types: ['necrotic'] },
     effects: [carrier],
   };
 }
@@ -367,8 +382,8 @@ export function minuteMeteorsDef(spell: Spell, opts: AutomationOptions): Automat
  */
 export function immolationDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XGE:Immolation') return undefined;
-  const initial = spell.damage?.dice?.[0] ?? '8d6';
-  const burnDice = spell.damage?.dice?.[1] ?? '4d6';
+  const initial = partDice(spell, 'main', spell.damage?.dice?.[0] ?? '8d6');
+  const burnDice = partDice(spell, 'repeat', spell.damage?.dice?.[1] ?? '4d6');
   const burn: AutomationEffect = {
     name: spell.name,
     duration: {
@@ -1394,14 +1409,14 @@ export function chainLightningDef(spell: Spell, opts: AutomationOptions): Automa
 export function iceKnifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Ice Knife') return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const cold = scaledDice('2d6', spell.upcast?.dice, upcastSteps(spell, level));
+  const cold = scaledDice(partDice(spell, 'trigger', '2d6'), spell.upcast?.dice, upcastSteps(spell, level));
   return {
     key: spell.key,
     name: spell.name,
     resolution: 'attack',
     attack: { rangeType: 'ranged' },
     count: 1,
-    damage: { dice: '1d10piercing', types: ['piercing'] },
+    damage: { dice: `${partDice(spell, 'main', '1d10')}piercing`, types: ['piercing'] },
     burst: {
       rangeFeet: 5,
       dice: `${cold}cold`,
@@ -1420,7 +1435,7 @@ export function iceKnifeDef(spell: Spell, opts: AutomationOptions): AutomationDe
 export function vitriolicSphereDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Vitriolic Sphere') return undefined;
   const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const primary = scaledDice('10d4', spell.upcast?.dice, upcastSteps(spell, level));
+  const primary = scaledDice(partDice(spell, 'main', '10d4'), spell.upcast?.dice, upcastSteps(spell, level));
   return {
     key: spell.key,
     name: spell.name,
@@ -1433,7 +1448,7 @@ export function vitriolicSphereDef(spell: Spell, opts: AutomationOptions): Autom
         duration: PERMANENT,
         to: 'targets',
         modifiers: [],
-        triggers: { endOfTurn: { damage: { dice: '5d4acid', types: ['acid'] } } },
+        triggers: { endOfTurn: { damage: { dice: `${partDice(spell, 'repeat', '5d4')}acid`, types: ['acid'] } } },
       },
     ],
   };
@@ -1480,12 +1495,13 @@ export function lifeTransferenceDef(spell: Spell, opts: AutomationOptions): Auto
  */
 export function negativeEnergyFloodDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XGE:Negative Energy Flood') return undefined;
+  const dice = spell.damage?.dice?.[0] ?? '5d12';
   return {
     key: spell.key,
     name: spell.name,
     resolution: 'save',
     save: { ability: 'con', half: true },
-    damage: { dice: '5d12necrotic', types: ['necrotic'] },
+    damage: { dice: `${dice}necrotic`, types: ['necrotic'] },
     undeadTempHp: true,
   };
 }
@@ -1570,7 +1586,12 @@ export function compositeDamageDef(spell: Spell, opts: AutomationOptions): Autom
   if (!cfg) return undefined;
   const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
   const steps = upcastSteps(spell, castLevel);
-  const parts = cfg.parts.map((part, i) => {
+  const componentMains = partsOfRole(spell, 'main');
+  const source =
+    componentMains.length === cfg.parts.length && !componentMains.some((part) => !part.types.length)
+      ? componentMains.map((part) => ({ dice: part.dice, type: part.types[0] ?? '' }))
+      : cfg.parts;
+  const parts = source.map((part, i) => {
     const scaled =
       cfg.upcast === 'all' || (cfg.upcast === 'first' && i === 0)
         ? scaledDice(part.dice, spell.upcast?.dice, steps)
@@ -1603,8 +1624,8 @@ export function wallOfThornsDef(spell: Spell, opts: AutomationOptions): Automati
   if (spell.key !== 'XPHB:Wall of Thorns') return undefined;
   const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
   const steps = upcastSteps(spell, castLevel);
-  const piercing = scaledDice('7d8', spell.upcast?.dice, steps);
-  const slashing = scaledDice('7d8', spell.upcast?.dice, steps);
+  const piercing = scaledDice(partDice(spell, 'main', '7d8'), spell.upcast?.dice, steps);
+  const slashing = scaledDice(partDice(spell, 'trigger', '7d8'), spell.upcast?.dice, steps);
   const thornPayload: AutomationPayload = {
     containment: 'anyCell',
     save: { ability: 'dex', half: true },
@@ -1637,8 +1658,9 @@ export function jallarziDef(spell: Spell, opts: AutomationOptions): AutomationDe
   if (spell.key !== "XPHB:Jallarzi's Storm of Radiance") return undefined;
   const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
   const steps = upcastSteps(spell, castLevel);
-  const radiant = scaledDice('2d10', spell.upcast?.dice, steps);
-  const thunder = scaledDice('2d10', spell.upcast?.dice, steps);
+  const mains = partsOfRole(spell, 'main');
+  const radiant = scaledDice(mains[0]?.dice ?? '2d10', spell.upcast?.dice, steps);
+  const thunder = scaledDice(mains[1]?.dice ?? '2d10', spell.upcast?.dice, steps);
   const save: AutomationSave = { ability: 'con', half: true };
   const storm: AutomationPayload = {
     save,

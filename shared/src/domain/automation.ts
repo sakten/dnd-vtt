@@ -299,6 +299,12 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
 export interface AutomationPayload {
   save?: AutomationSave;
   damage?: AutomationDice;
+  /**
+   * Enervation: урон при успешном спасброске — отдельный бросок вместо половины
+   * `damage` (спас с `half: true` при этом не ставится). Нет — успех даёт 0
+   * (или половину `damage` при `save.half`).
+   */
+  successDamage?: AutomationDice;
   heal?: AutomationDice;
   effects?: AutomationEffect[];
   /** Состояния, снимаемые с цели (Heal, Lesser/Greater Restoration). */

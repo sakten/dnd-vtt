@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  collectDamageParts,
   collectText,
   deriveAreaSpec,
   deriveAttackCount,
@@ -347,5 +348,66 @@ describe('deriveAreaSpec', () => {
     expect(point('a 15-foot cube')).toEqual({ shape: 'cube', size: 15 });
     expect(point('a 30-foot cone')).toEqual({ shape: 'cone', size: 30 });
     expect(point('a 60-foot line')).toEqual({ shape: 'line', size: 60, width: 5 });
+  });
+});
+
+describe('collectDamageParts (части урона с ролями, сборка снимка)', () => {
+  it('составной урон: две main-части (Flame Strike)', () => {
+    const parts = collectDamageParts([
+      'A creature makes a Dexterity saving throw, taking {@damage 5d6} Fire damage and {@damage 5d6} Radiant damage on a failed save or half as much damage on a successful one.',
+    ]);
+    expect(parts).toEqual([
+      { dice: '5d6', types: ['fire'], role: 'main' },
+      { dice: '5d6', types: ['radiant'], role: 'main' },
+    ]);
+  });
+
+  it('Enervation: success / main / repeat', () => {
+    const parts = collectDamageParts([
+      'On a successful save, the target takes {@damage 2d8} necrotic damage, and the spell ends. On a failed save, the target takes {@damage 4d8} necrotic damage, and until the spell ends, you can use your action on each of your turns to automatically deal {@damage 4d8} necrotic damage to the target.',
+    ]);
+    expect(parts.map((p) => [p.dice, p.role])).toEqual([
+      ['2d8', 'success'],
+      ['4d8', 'main'],
+      ['4d8', 'repeat'],
+    ]);
+  });
+
+  it("Melf's Acid Arrow: отложенная часть — repeat", () => {
+    const parts = collectDamageParts([
+      "On a hit, the target takes {@damage 4d4} Acid damage and {@damage 2d4} Acid damage at the end of its next turn.",
+    ]);
+    expect(parts.map((p) => [p.dice, p.role])).toEqual([
+      ['4d4', 'main'],
+      ['2d4', 'repeat'],
+    ]);
+  });
+
+  it('альтернатива: choice (раненая цель Toll the Dead)', () => {
+    const parts = collectDamageParts([
+      'The target must succeed on a Wisdom saving throw or take {@damage 1d8} Necrotic damage. If the target is missing any of its Hit Points, it instead takes {@damage 1d12} Necrotic damage.',
+    ]);
+    expect(parts.map((p) => [p.dice, p.role])).toEqual([
+      ['1d8', 'main'],
+      ['1d12', 'choice'],
+    ]);
+  });
+
+  it('триггер в предыдущем предложении (Ice Knife: взрыв независимо от попадания)', () => {
+    const parts = collectDamageParts([
+      'On a hit, the target takes {@damage 1d10} Piercing damage. Hit or miss, the shard then explodes. The target and each creature within 5 feet of it must succeed on a Dexterity saving throw or take {@damage 2d6} Cold damage.',
+    ]);
+    expect(parts.map((p) => [p.dice, p.role])).toEqual([
+      ['1d10', 'main'],
+      ['2d6', 'trigger'],
+    ]);
+  });
+
+  it('абзац скейла кантрипа не даёт частей (Booming Blade)', () => {
+    const parts = collectDamageParts([
+      "If the target willingly moves 5 feet or more before then, the target takes {@damage 1d8} thunder damage, and the spell ends.",
+      'This spell’s damage increases when you reach certain levels. At 5th level, the melee attack deals an extra {@damage 1d8} thunder damage on a hit.',
+    ]);
+    expect(parts.map((p) => [p.dice, p.role])).toEqual([['1d8', 'trigger']]);
   });
 });

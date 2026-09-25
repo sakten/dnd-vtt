@@ -94,9 +94,16 @@ interface Grant {
 
 const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-function buildNameIndex(spells: { name: string; key: string; level: number }[]): Map<string, Grant> {
+function buildNameIndex(
+  entries: { spell: { name: string; key: string; level: number }; rawName: string }[]
+): Map<string, Grant> {
   const map = new Map<string, Grant>();
-  for (const s of spells) map.set(s.name.toLowerCase(), { key: s.key, level: s.level });
+  for (const { spell, rawName } of entries) {
+    const grant = { key: spell.key, level: spell.level };
+    map.set(spell.name.toLowerCase(), grant);
+    // Алиас: классовые списки 5e.tools могут звать заклинание старым (PI) именем.
+    map.set(rawName.toLowerCase(), grant);
+  }
   return map;
 }
 
@@ -219,13 +226,14 @@ async function main() {
     if (!current || (PRIORITY[spell.source] ?? 9) < (PRIORITY[current.source] ?? 9)) byName.set(key, spell);
   }
 
-  const normalized = [...byName.values()]
+  const entries = [...byName.values()]
     .map((raw) => {
       const spell = normalizeSpell(raw, extractClasses(lookup, raw.name, raw.source));
       const renamed = typeof raw.srd52 === 'string' ? raw.srd52 : SPELL_RENAMES[raw.name];
-      return renamed ? { ...spell, name: renamed } : spell;
+      return { spell: renamed ? { ...spell, name: renamed } : spell, rawName: raw.name };
     })
-    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+    .sort((a, b) => a.spell.level - b.spell.level || a.spell.name.localeCompare(b.spell.name));
+  const normalized = entries.map((e) => e.spell);
 
   const output = {
     attribution:
@@ -250,7 +258,7 @@ async function main() {
   console.log('По источникам:', JSON.stringify(bySource));
   console.log('По automation:', JSON.stringify(byAutomation));
 
-  await buildClassData(dir, buildNameIndex(normalized));
+  await buildClassData(dir, buildNameIndex(entries));
 }
 
 /** Собирает лимиты кастеров и выдаваемые заклинания классов/подклассов из `class-*.json`. */

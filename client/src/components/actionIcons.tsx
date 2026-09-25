@@ -412,6 +412,45 @@ export const ACTION_ICON_FALLBACKS: Record<string, ReactNode> = {
       <path d="M9 13.6h6" stroke="#eafff0" strokeWidth="1.5" strokeLinecap="round" />
     </>
   ),
+  bolt: (
+    <>
+      <path d="M13.6 2.6 5.4 13.8h4.8L8.8 21.4l8.2-11.2h-4.8z" fill="#ffe066" stroke="#8a6a00" strokeWidth="0.6" strokeLinejoin="round" />
+      <path d="M5.6 5.2 4 3.6M18.4 5.2 20 3.6M18 19l1.8 1.6M6 19l-1.8 1.6" stroke="#9bd0ff" strokeWidth="1.3" strokeLinecap="round" />
+    </>
+  ),
+  meteor: (
+    <>
+      <circle cx="13.4" cy="13.4" r="5.6" fill="#ff9f43" stroke="#7a3a00" strokeWidth="0.7" />
+      <circle cx="11.6" cy="11.8" r="1.7" fill="#ffd8a8" />
+      <path d="M4.2 4.2 10 10M2.8 8.4 7 12.6M8.4 2.8l4.2 4.2" stroke="#ffd166" strokeWidth="1.5" strokeLinecap="round" />
+    </>
+  ),
+  drain: (
+    <>
+      <circle cx="12" cy="12" r="7.6" fill="#3b1d78" stroke="#845ef7" strokeWidth="1.4" />
+      <path d="M12 5.6a6.4 6.4 0 0 1 0 12.8 4.6 4.6 0 0 0 0-9.2 3 3 0 0 0 0 6" fill="none" stroke="#d0bfff" strokeWidth="1.4" strokeLinecap="round" />
+    </>
+  ),
+  'direction-up': (
+    <>
+      <path d="M12 3.6 5.4 10.4h3.4v9.2h6.4v-9.2h3.4z" fill="#74c0fc" stroke="#1c5f9e" strokeWidth="0.7" strokeLinejoin="round" />
+    </>
+  ),
+  'direction-down': (
+    <>
+      <path d="M12 20.4 5.4 13.6h3.4V4.4h6.4v9.2h3.4z" fill="#74c0fc" stroke="#1c5f9e" strokeWidth="0.7" strokeLinejoin="round" />
+    </>
+  ),
+  'direction-left': (
+    <>
+      <path d="M3.6 12 10.4 5.4v3.4h9.2v6.4h-9.2v3.4z" fill="#74c0fc" stroke="#1c5f9e" strokeWidth="0.7" strokeLinejoin="round" />
+    </>
+  ),
+  'direction-right': (
+    <>
+      <path d="M20.4 12 13.6 5.4v3.4H4.4v6.4h9.2v3.4z" fill="#74c0fc" stroke="#1c5f9e" strokeWidth="0.7" strokeLinejoin="round" />
+    </>
+  ),
 };
 
 /** id действия из ключа `<ключ заклинания>:<id>` (последний сегмент). */

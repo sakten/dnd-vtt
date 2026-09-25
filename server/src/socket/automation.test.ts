@@ -263,7 +263,7 @@ describe('Enervation', () => {
     const hasDrain = () => caster.effects.some((e) => e.actions?.some((a) => a.id === 'drain'));
 
     const original = Math.random;
-    Math.random = () => 0.99; // d20 = 20 → успех
+    Math.random = () => 0.99; // d20 = 20 → успех; d8 = 8 → 2d8 = 16
     try {
       executeAutomation(f.ctx, {
         caster,
@@ -276,9 +276,10 @@ describe('Enervation', () => {
     } finally {
       Math.random = original;
     }
+    expect(target.hpCurrent).toBe(14);
     expect(hasDrain()).toBe(false);
 
-    Math.random = () => 0; // d20 = 1 → провал
+    Math.random = () => 0; // d20 = 1 → провал; d8 = 1 → 4d8 = 4
     try {
       executeAutomation(f.ctx, {
         caster,
@@ -291,6 +292,7 @@ describe('Enervation', () => {
     } finally {
       Math.random = original;
     }
+    expect(target.hpCurrent).toBe(10);
     expect(hasDrain()).toBe(true);
   });
 });

@@ -355,11 +355,14 @@ function runLifeTransfer(run: AutomationRun): void {
 function runSave(run: AutomationRun, stats: SpellStats): void {
   const { ctx, room, def, caster, targets, abilities, expression } = run;
   if (!def.save) return;
-  // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз).
+  // Enervation: успех — отдельный бросок `successDamage` (не половина общего).
+  const successExpr = def.successDamage ? resolveDiceExpression(def.successDamage, abilities, run.proficiency) : null;
+  const rollParts = damageRollParts(caster.effects, { damageType: run.damageType }, abilities);
+  // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз). При
+  // `successDamage` бросок свой на каждую цель: успех и провал — разные кости.
   let damageRoll: DiceRollResult | null = null;
-  if (expression) {
-    const damageParts = damageRollParts(caster.effects, { damageType: run.damageType }, abilities);
-    damageRoll = rollDice(withRollParts(expression, damageParts));
+  if (expression && !successExpr) {
+    damageRoll = rollDice(withRollParts(expression, rollParts));
     pushRollMessage(ctx, room, {
       author: run.author,
       roll: damageRoll,
@@ -405,9 +408,23 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
       if (run.def.force && !save.success) {
         applyForcedMovement(run.ctx, run.room, run.mapId, run.caster, save.target, run.def.force);
       }
-      if (!damageRoll) continue;
-      if (save.success && (!half || saveNoDamage(save.target.effects))) continue;
-      const result = applyResult(run, save.target, damageRoll, { halve: save.success, silent: true });
+      if (!damageRoll && !successExpr) continue;
+      if (save.success && saveNoDamage(save.target.effects)) continue;
+      if (successExpr) {
+        const expr = save.success ? successExpr : expression;
+        if (!expr) continue;
+        const roll = rollDice(withRollParts(expr, rollParts));
+        pushRollMessage(ctx, room, {
+          author: run.author,
+          roll,
+          kind: 'damage',
+          params: { subject: `${run.subject} · ${save.target.name}`, damageType: run.damageType },
+        });
+        applyResult(run, save.target, roll, { silent: true });
+        continue;
+      }
+      if (save.success && !half) continue;
+      const result = applyResult(run, save.target, damageRoll!, { halve: save.success, silent: true });
       // Harm: провал спасброска снижает максимум HP на фактически полученный урон.
       if (def.maxHpFromDamage && !save.success && result.applied && result.amount > 0) {
         applyMaxHpFromDamage(run, save.target, result.amount);
