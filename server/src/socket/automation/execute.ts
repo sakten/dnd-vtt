@@ -47,7 +47,7 @@ import { openRedirectWindow } from '../reactions/features';
 import { maybeRollAnim } from '../rollAnim';
 import { runSummon, familiarCannotAttack } from '../summons';
 import { applyPolymorphForm } from '../forms';
-import { createZoneFromDef } from '../zones';
+import { applyWallPush, createZoneFromDef } from '../zones';
 import {
   anchorConcentration,
   applyEffectLight,
@@ -595,8 +595,17 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
   const zoneOrigin =
     input.origin ??
     (def.zone?.anchor === 'source' || def.zone?.origin === 'self' ? { x: caster.x, y: caster.y } : null);
+  // Тонкая стена при появлении выталкивает разрезанных существ на выбранную сторону (до зоны).
+  if (def.zone?.wall && zoneOrigin) {
+    applyWallPush(ctx, room, caster, mapId, def.zone, {
+      path: input.path,
+      origin: input.origin,
+      direction: input.direction,
+      side: input.pushSide ?? undefined,
+    });
+  }
   if (def.zone && zoneOrigin) {
-    createZoneFromDef(ctx, { caster, mapId, def, stats, origin: zoneOrigin, direction: input.direction });
+    createZoneFromDef(ctx, { caster, mapId, def, stats, origin: zoneOrigin, direction: input.direction, path: input.path });
   }
 
   if (kind === 'effect') {

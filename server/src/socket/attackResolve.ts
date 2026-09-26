@@ -37,6 +37,7 @@ import {
   takenDamageParts,
   tokenVisibleFrom,
   unseenBetween,
+  wallsWithZones,
   weaponRolls,
   weaponHasProperty,
   withAdvantage,
@@ -78,6 +79,17 @@ export interface AttackResolveInput {
   author: string;
   /** Атака по возможности: цель уже вышла из досягаемости, дистанцию не проверяем. */
   ignoreRange?: boolean;
+  /**
+   * Дистанция до цели-объекта (секция стены): расчёт по токену не подходит,
+   * вызывающий передаёт футы до ближайшей точки и помеху от дистанции.
+   */
+  rangeOverride?: {
+    distanceFeet: number;
+    disadvantage?: boolean;
+    disadvantageCode?: RollLabelParams['disadvantage'];
+  };
+  /** КЗ цели-объекта вместо `acForToken` (секция стены). */
+  targetAcOverride?: number;
   /** Типизированные кости урона от заклинания-наездника (`1d8fire`) — на попадании. */
   riderDice?: string;
   /** Броски атаки/урона от этой характеристики вместо Силы/Ловкости (True Strike). */
@@ -101,7 +113,7 @@ export function attackSight(room: Room, map: MapInfo): SightContext {
   // Свет заклинаний (Light, Daylight, факелы-эффекты) — как в вуали: в «Темноте» он снимает невидимость.
   return {
     ...sightContextOf(map, grid),
-    light: mapLightCells(map.tokens, map.zones ?? [], grid, map.walls),
+    light: mapLightCells(map.tokens, map.zones ?? [], grid, wallsWithZones(map.walls, map.zones, grid)),
   };
 }
 
@@ -246,6 +258,7 @@ export function prepareWeaponAttack(
     const map = manager.findMap(room, attackerMapId);
     if (map) {
       const size = gridSizeOfMap(map);
+      const grid = { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY };
       distanceFeet = gridDistanceFeet(attacker, target, size);
       if (!input.ignoreRange) {
         const adjacentEnemy = map.tokens.some(
@@ -261,7 +274,7 @@ export function prepareWeaponAttack(
         forcedDisadvantageCode = range.disadvantageCode;
       }
       // 5e: атака требует видимой цели — достаточно одной видимой клетки подошвы.
-      if (!input.ignoreRange && !tokenVisibleFrom(attacker, target, map.walls, { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY })) {
+      if (!input.ignoreRange && !tokenVisibleFrom(attacker, target, wallsWithZones(map.walls, map.zones, grid), grid)) {
         return { error: { code: 'noClearPath' } };
       }
       hasTarget = true;
@@ -281,11 +294,18 @@ export function prepareWeaponAttack(
         isSurrounded({
           target,
           tokens: map.tokens,
-          grid: { size, offsetX: map.grid.offsetX, offsetY: map.grid.offsetY },
-          walls: map.walls,
+          grid,
+          walls: wallsWithZones(map.walls, map.zones, grid),
           bounds: { width: map.width, height: map.height },
         });
     }
+  } else if (attacker && attackerMapId && input.rangeOverride) {
+    // Цель-объект (секция стены): дистанцию и помеху считал вызывающий (до ближайшей точки);
+    // скрытность, сумерки и окружение к объекту неприменимы.
+    distanceFeet = input.rangeOverride.distanceFeet;
+    hasTarget = true;
+    forcedDisadvantage = input.rangeOverride.disadvantage ?? false;
+    forcedDisadvantageCode = input.rangeOverride.disadvantageCode;
   }
 
   const { hit: rawHit, damage: rawDamage } = weaponRolls(attack);
@@ -349,7 +369,7 @@ export function prepareWeaponAttack(
     sources: sources.length ? sources : undefined,
   };
 
-  const targetAc = target ? manager.acForToken(room, target) : 0;
+  const targetAc = target ? manager.acForToken(room, target) : (input.targetAcOverride ?? 0);
   const attackExpr = hit ? withRollParts(attackRollExpression(hit), { flat: effectParts.flat, dice: effectParts.dice }) : '';
   const damageParts = combineRollParts([
     damageRollParts(

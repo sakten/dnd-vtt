@@ -264,6 +264,10 @@ export interface GameState {
   aimToCursor: (cursor: { x: number; y: number }) => void;
   cancelAim: () => void;
   confirmAim: () => void;
+  /** Тонкая стена цепочкой: завершить постановку и скастовать (≥1 панели). */
+  finishWall: () => void;
+  /** Тонкая стена: переключить сторону выталкивания (авто → A → B). */
+  cycleWallPush: () => void;
   skipPassenger: () => void;
   /** Досрочно прекратить концентрацию персонажа. */
   endConcentration: (tokenId: string) => void;

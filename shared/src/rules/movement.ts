@@ -1,8 +1,12 @@
 import { gridDistanceFeet, type GridBox } from './combat';
 import type { ZoneInstance } from '../domain/automation';
 import { snapToGrid, type Wall } from '../domain/scene';
-import { areaCellKey, areaCellsSpread, cellCenter, pointCell, tokenCells, type AreaGrid } from './areas';
+import { areaCellKey, areaCellsSpread, cellCenter, footprintCells, footprintHits, pointCell, tokenCells, type AreaGrid } from './areas';
 import { crossesWalls } from './walls';
+import { wallsWithZones } from './zoneWalls';
+
+// Клетки подошвы — общие примитивы геометрии (`areas`), реэкспорт для совместимости.
+export { footprintCells, footprintHits } from './areas';
 
 export const DEFAULT_FEET_PER_CELL = 5;
 
@@ -298,29 +302,6 @@ export function nearestFreeCell(
   return null;
 }
 
-/** Клетки подошвы токена для клетки-якоря (чётные размеры — от пересечения, нечётные — от центра). */
-export function footprintCells(cx: number, cy: number, cells: number): string[] {
-  const lo = Math.floor(cells / 2);
-  const hi = cells % 2 === 0 ? cells / 2 - 1 : lo;
-  const keys: string[] = [];
-  for (let x = cx - lo; x <= cx + hi; x++) {
-    for (let y = cy - lo; y <= cy + hi; y++) keys.push(areaCellKey(x, y));
-  }
-  return keys;
-}
-
-/** Пересекается ли подошва токена (якорь `cx,cy`, размер `cells`) с множеством клеток. */
-export function footprintHits(cx: number, cy: number, cells: number, set: Set<string>): boolean {
-  const lo = Math.floor(cells / 2);
-  const hi = cells % 2 === 0 ? cells / 2 - 1 : lo;
-  for (let x = cx - lo; x <= cx + hi; x++) {
-    for (let y = cy - lo; y <= cy + hi; y++) {
-      if (set.has(areaCellKey(x, y))) return true;
-    }
-  }
-  return false;
-}
-
 /** Множитель стоимости клетки: сложная местность ×2, особая зона (`costly`) — сильнее. */
 function cellCostMultiplier(
   cx: number,
@@ -378,7 +359,10 @@ export interface PlanWalkInput {
  * цель, чья подошва накрывает другого, — отмена. Первая точка — ровно текущая позиция.
  */
 export function planWalk(input: PlanWalkInput): FoundPath | null {
-  const { grid, walls } = input;
+  const { grid } = input;
+  const zones = input.zones ?? [];
+  // Тонкие стены-зоны добавляются к препятствиям (сегменты по границам клеток).
+  const walls = wallsWithZones(input.walls, zones, grid);
   const cells = Math.max(1, Math.round(input.cells || 1));
   const cols = Math.max(1, Math.ceil(input.mapWidth / grid.size));
   const rows = Math.max(1, Math.ceil(input.mapHeight / grid.size));
@@ -407,7 +391,7 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   }
   if (!input.ignoreDifficult) {
     const mover = input.tokens.find((t) => t.id === input.moverId);
-    for (const zone of input.zones) {
+    for (const zone of zones) {
       const zoneCost = zone.flags?.movementCost;
       if (!zone.flags?.difficultTerrain && !zoneCost) continue;
       // Сложная местность «для врагов» (Conjure Minor Elementals): только враждебные источнику.

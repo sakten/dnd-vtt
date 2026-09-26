@@ -17,7 +17,9 @@ import {
   spellCastAreaOverride,
   spellRangeFeet,
   spellVariantDef,
+  isThinWallSpell,
   wallArea,
+  wallMaxPanels,
   type AbilityKey,
   type ActionCost,
   type Spell,
@@ -150,6 +152,8 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     const common = abilityAction
       ? { actionId: abilityAction.id, slot: abilityAction.slot }
       : { spellKey: spell.key, slotLevel: info.slotLevel };
+    // Тонкая стена цепочкой (Wall of Ice, вариант «wall»): пошаговая постановка секций.
+    const chainWall = isThinWallSpell(spell.key) && variant !== 'ring';
     if (info.area && castArea) {
       startAim({
         tokenId,
@@ -159,6 +163,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         originKind: spellAreaOrigin(spell),
         rangeFeet: spellRangeFeet(spell),
         ...(variant ? { variant } : {}),
+        ...(chainWall
+          ? { chain: true, wallMax: wallMaxPanels(spell.key) }
+          : {}),
       });
     } else if (info.multi) {
       startMultiTarget({

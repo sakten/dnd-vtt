@@ -19,6 +19,7 @@
   sheetProficiencyBonus,
   statNumber,
   tokenCells,
+  wallsWithZones,
   withAdvantage,
   withRollParts,
   type AbilityKey,
@@ -77,7 +78,7 @@ function spotFree(
       w: token.w - inset * 2,
       h: token.h - inset * 2,
     },
-    map.walls ?? [],
+    wallsWithZones(map.walls ?? [], map.zones, grid),
     'move'
   );
 }

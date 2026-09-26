@@ -18,6 +18,11 @@ import {
   spellTargetKind,
   spellUpcastAt,
   spellUpcastDice,
+  snapWallJoint,
+  snapWallAnchor,
+  wallMaxPanels,
+  wallPanelFeet,
+  wallPathIssue,
 } from './spellCast';
 
 function makeSpell(partial: Partial<Spell>): Spell {
@@ -412,5 +417,64 @@ describe('casterStats', () => {
     });
     expect(casterStats(sheet, 'wizard')).toEqual({ ability: 'int', mod: 4, dc: 15, attack: 7 });
     expect(casterStats(sheet, 'barbarian')).toBeNull();
+  });
+});
+
+describe('цепочка панелей тонкой стены (Wall of Ice)', () => {
+  const grid = { size: 50 };
+  const panel = 100; // 10 фт на сетке 50px
+
+  it('параметры панели и лимит — только у тонких стен', () => {
+    expect(wallPanelFeet('XPHB:Wall of Ice')).toBe(10);
+    expect(wallMaxPanels('XPHB:Wall of Ice')).toBe(10);
+    expect(wallPanelFeet('XPHB:Wall of Fire')).toBeUndefined();
+  });
+
+  it('снап в узлы: ортогонально 2 клетки и полудиагональ 1×2, без 45° 2×2', () => {
+    expect(snapWallJoint({ x: 0, y: 0 }, { x: 100, y: 10 }, 50)).toEqual({ x: 100, y: 0 });
+    expect(snapWallJoint({ x: 0, y: 0 }, { x: 50, y: 90 }, 50)).toEqual({ x: 50, y: 100 });
+    // Курсор ровно на 45°: шаг 2×2 запрещён — берём ближайшую полудиагональ.
+    const diagonal = snapWallJoint({ x: 0, y: 0 }, { x: 100, y: 100 }, 50);
+    expect(
+      (diagonal.x === 50 && diagonal.y === 100) || (diagonal.x === 100 && diagonal.y === 50)
+    ).toBe(true);
+  });
+
+  it('якорь садится на пересечение сетки (с учётом смещения)', () => {
+    expect(snapWallAnchor({ x: 63, y: 38 }, 50)).toEqual({ x: 50, y: 50 });
+    expect(snapWallAnchor({ x: 73, y: 43 }, 50, { x: 10, y: 5 })).toEqual({ x: 60, y: 55 });
+  });
+
+  it('валидация пути: шаги-узлы, лимит и дистанция панелей', () => {
+    const caster = { x: 125, y: 125 };
+    const path = [
+      { x: 325, y: 125 },
+      { x: 425, y: 125 },
+      { x: 425, y: 225 },
+    ];
+    expect(wallPathIssue(path, 'XPHB:Wall of Ice', caster, grid, 120)).toBeUndefined();
+    // Полудиагональ 1×2 разрешена.
+    expect(
+      wallPathIssue([{ x: 325, y: 125 }, { x: 375, y: 225 }], 'XPHB:Wall of Ice', caster, grid, 120)
+    ).toBeUndefined();
+    // 45° 2×2 запрещена.
+    expect(
+      wallPathIssue([{ x: 325, y: 125 }, { x: 425, y: 225 }], 'XPHB:Wall of Ice', caster, grid, 120)
+    ).toEqual({ code: 'wallPathBad' });
+    // Шаг в полторы клетки — не узел.
+    expect(wallPathIssue([path[0]!, { x: 400, y: 125 }], 'XPHB:Wall of Ice', caster, grid, 120)).toEqual({
+      code: 'wallPathBad',
+    });
+    // Панель за пределами дистанции каста.
+    const far = [
+      { x: 1400, y: 125 },
+      { x: 1500, y: 125 },
+    ];
+    expect(wallPathIssue(far, 'XPHB:Wall of Ice', caster, grid, 120)).toMatchObject({ code: 'outOfRange' });
+  });
+
+  it('лимит панелей: одиннадцатая панель запрещена', () => {
+    const path = Array.from({ length: 12 }, (_, i) => ({ x: 125 + i * panel, y: 125 }));
+    expect(wallPathIssue(path, 'XPHB:Wall of Ice', { x: 125, y: 125 }, grid, 9999)).toEqual({ code: 'wallPathBad' });
   });
 });

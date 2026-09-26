@@ -1,4 +1,4 @@
-import { Line, Shape, Text } from 'react-konva';
+import { Line, Rect, Shape, Text } from 'react-konva';
 import type { GridSettings, Wall, ZoneInstance } from 'shared';
 import ZoneLayer from '../ZoneLayer';
 import type { CellRect, WorldPoint } from '../../lib/fog';
@@ -17,11 +17,13 @@ interface Props {
   walls?: Wall[];
   measure: { from: WorldPoint; to: WorldPoint; feet: number; attackMode: 'a' | 'd' | null | undefined } | null;
   attackCursor: WorldPoint | null;
+  /** Превью выталкивания стеной: куда уйдут разрезанные существа (поверх токенов). */
+  pushGhosts?: { x: number; y: number; w: number; h: number }[];
   viewScale: number;
 }
 
 /** Вуаль обзора, разметка вижн-зон, линейка измерения и значок преимущества атаки. */
-export default function VeilLayer({ visionView, zones, grid, walls = [], measure, attackCursor, viewScale }: Props) {
+export default function VeilLayer({ visionView, zones, grid, walls = [], measure, attackCursor, pushGhosts = [], viewScale }: Props) {
   return (
     <>
       {visionView && visionView.rects.length > 0 && (
@@ -45,6 +47,20 @@ export default function VeilLayer({ visionView, zones, grid, walls = [], measure
           visibleByZone={visionView.byZone}
         />
       )}
+      {pushGhosts.map((g, i) => (
+        <Rect
+          key={`push-${i}`}
+          x={g.x - g.w / 2}
+          y={g.y - g.h / 2}
+          width={g.w}
+          height={g.h}
+          fill="rgba(81, 207, 102, 0.18)"
+          stroke="#51cf66"
+          strokeWidth={2 / viewScale}
+          dash={[6 / viewScale, 4 / viewScale]}
+          listening={false}
+        />
+      ))}
       {measure && (
         <>
           <Line

@@ -324,6 +324,32 @@ export interface AutomationPayload {
   containment?: 'anyCell' | 'fullyWithin';
 }
 
+/**
+ * Тонкая стена-зона (Wall of Ice и подобные): сегменты по границам клеток,
+ * секции с HP. Непробитые секции блокируют переход и обзор (движок стен),
+ * пробитые — «лист» с payload `breach` при проходе.
+ */
+export interface ZoneWallDef {
+  /** Длина секции вдоль геометрии (футы; RAW — 10). */
+  sectionFeet: number;
+  /** HP секции (RAW — 30 на 10-футовую секцию). */
+  hp: number;
+  ac: number;
+  immunities?: string[];
+  resistances?: string[];
+  vulnerabilities?: string[];
+  /** Урон/эффект прохода сквозь пробитую секцию («лист холода»). */
+  breach?: AutomationPayload;
+}
+
+/** Состояние секции стены (индекс — вдоль геометрии: длина/дуга). */
+export interface ZoneSection {
+  hp: number;
+  maxHp: number;
+  /** Разрушена: сегменты больше не блокируют, проход бьёт `breach`. */
+  broken?: boolean;
+}
+
 export interface ZoneDef {
   area: AreaSpec;
   origin: 'self' | 'point';
@@ -375,6 +401,8 @@ export interface ZoneDef {
     /** Зона молчания (Silence, Jallarzi): внутри нельзя кастовать с вербальным компонентом. */
     silence?: boolean;
   };
+  /** Тонкая стена: секции с HP вместо клеточной блокировки (Wall of Ice). */
+  wall?: ZoneWallDef;
 }
 
 /** Созданная на карте зона (Web, Spirit Guardians, Hunger of Hadar). */
@@ -424,6 +452,14 @@ export interface ZoneInstance {
     endOfTurn?: AutomationPayload;
   };
   flags?: ZoneDef['flags'];
+  /** Тонкая стена: секции с HP (Wall of Ice). */
+  wall?: ZoneWallDef;
+  /** Цепочка панелей тонкой стены (узлы, панели — между соседними): задаётся при касте. */
+  wallPath?: { x: number; y: number }[];
+  /** Состояние секций стены (`wall`); индекс — вдоль геометрии. */
+  sections?: ZoneSection[];
+  /** Кто проходил сквозь пробитую секцию в этом ходу: `tokenId -> turnKey`. */
+  sheetsThisTurn?: Record<string, string>;
   /** id токенов внутри (для enter/exit и аур). */
   occupants?: string[];
   /** Ключ хода, на котором токен уже входил (для `enterOncePerTurn`). */

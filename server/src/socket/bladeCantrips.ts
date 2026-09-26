@@ -10,6 +10,7 @@ import {
   seesInvisible,
   tokenVisibleFrom,
   tokensNearFeet,
+  wallsWithZones,
   weaponByKey,
   weaponContextOf,
   type AutomationDef,
@@ -105,7 +106,7 @@ function applySecondary(
       t.id !== primary.id &&
       !isBanished(t) &&
       hostileTokens(input.caster, t) &&
-      tokenVisibleFrom(input.caster, t, map.walls, grid) &&
+      tokenVisibleFrom(input.caster, t, wallsWithZones(map.walls, map.zones, grid), grid) &&
       (seesHidden || !t.conditions.some((c) => c.key === 'invisible'))
   );
   if (!victim) return;

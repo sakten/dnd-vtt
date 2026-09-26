@@ -17,6 +17,8 @@ export default function AimPanel() {
   const interaction = useGameStore((s) => s.interaction);
   const cancel = useGameStore((s) => s.cancelInteraction);
   const finish = useGameStore((s) => s.finishMultiTarget);
+  const finishWall = useGameStore((s) => s.finishWall);
+  const cycleWallPush = useGameStore((s) => s.cycleWallPush);
   const toPlaces = useGameStore((s) => s.scatterToPlaces);
   const back = useGameStore((s) => s.scatterBack);
   const skipPassenger = useGameStore((s) => s.skipPassenger);
@@ -47,6 +49,38 @@ export default function AimPanel() {
 
   if (interaction.mode === 'aim') {
     const aim = interaction.aim;
+    // Тонкая стена цепочкой (Wall of Ice): секции ставятся кликами, «Готово» завершает.
+    if (aim.chain) {
+      const placed = Math.max(0, (aim.wallPath?.length ?? 0) - 1);
+      const max = aim.wallMax ?? 1;
+      const pushLabel =
+        aim.pushSide === 'a'
+          ? t('ui.aim.wallPushA')
+          : aim.pushSide === 'b'
+            ? t('ui.aim.wallPushB')
+            : t('ui.aim.wallPushAuto');
+      return (
+        <div className="aim-panel" data-testid="aim-panel">
+          <span className="aim-title">{t('ui.aim.wallChain', { n: placed, max })}</span>
+          <span className={`aim-hint${aim.blocked ? ' aim-blocked' : ''}`}>
+            {aim.blocked
+              ? t('ui.aim.blocked')
+              : placed === 0
+                ? t('ui.aim.wallStart')
+                : t('ui.aim.wallNext')}
+          </span>
+          <button className="aim-apply aim-push" onClick={cycleWallPush}>
+            {t('ui.aim.wallPush', { side: pushLabel })}
+          </button>
+          <button className="aim-apply" disabled={placed < 1} onClick={finishWall}>
+            {t('ui.common.done')}
+          </button>
+          <button className="aim-cancel" onClick={cancel}>
+            {t('ui.common.cancel')}
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">

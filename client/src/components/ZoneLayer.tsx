@@ -1,6 +1,17 @@
 import { Group, Line, Rect, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
-import { areaCellsLit, areaCellsSpread, cellCenter, pointCell, type GridSettings, type Wall, type ZoneInstance } from 'shared';
+import {
+  areaCellKey,
+  areaCellsLit,
+  areaCellsSpread,
+  cellCenter,
+  pointCell,
+  zoneWallSectionMidpoint,
+  zoneWallSegments,
+  type GridSettings,
+  type Wall,
+  type ZoneInstance,
+} from 'shared';
 import { zoneColor, zoneStyle, type ZoneStyle } from '../lib/zoneRender';
 import { drawZoneTexture } from '../lib/zoneTextures';
 
@@ -139,6 +150,89 @@ export default function ZoneLayer({
                   listening={false}
                   shadowColor="#000000"
                   shadowBlur={3}
+                />
+              )}
+            </Group>
+          );
+        }
+        // Тонкая стена-зона (Wall of Ice): плиты по границам клеток, пробитые — «лист».
+        if (zone.wall) {
+          const segments = zoneWallSegments(zone, { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY });
+          const vis = mode === 'markings' ? visibleByZone?.get(zone.id) ?? visible : undefined;
+          const shown = vis
+            ? segments.filter((s) => {
+                // Панель видна, если видна любая её опорная клетка (концы или середина).
+                const samples = [
+                  s.a,
+                  { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 },
+                  s.b,
+                ];
+                return samples.some((p) => {
+                  const cell = pointCell(p, grid);
+                  return vis.has(areaCellKey(cell.cx, cell.cy));
+                });
+              })
+            : segments;
+          if (!shown.length) return null;
+          const sections = [...new Set(shown.map((s) => s.section))];
+          const thickness = Math.max(4, grid.size * 0.28);
+          const first = shown[0]!;
+          const nameAt = { x: (first.a.x + first.b.x) / 2, y: (first.a.y + first.b.y) / 2 };
+          return (
+            <Group key={zone.id} listening={false}>
+              {shown.map((s, i) => {
+                const broken = !!zone.sections?.[s.section]?.broken;
+                const points = [s.a.x, s.a.y, s.b.x, s.b.y];
+                return (
+                  <Group key={`${s.section}:${i}`}>
+                    <Line
+                      points={points}
+                      stroke={broken ? '#d9f2fb' : '#4f9fc4'}
+                      strokeWidth={broken ? Math.max(3, thickness * 0.45) : thickness}
+                      lineCap="round"
+                      opacity={broken ? 0.4 : 0.95}
+                      dash={broken ? [8, 6] : undefined}
+                    />
+                    {!broken && (
+                      <Line points={points} stroke="#d9f2fb" strokeWidth={thickness * 0.5} lineCap="round" opacity={0.95} />
+                    )}
+                  </Group>
+                );
+              })}
+              {mode !== 'fills' &&
+                sections.map((section) => {
+                  const state = zone.sections?.[section];
+                  if (!state || state.broken || state.hp >= state.maxHp) return null;
+                  const mid = zoneWallSectionMidpoint(segments, section);
+                  if (!mid) return null;
+                  return (
+                    <Text
+                      key={`hp-${section}`}
+                      text={`${state.hp}/${state.maxHp}`}
+                      x={mid.x}
+                      y={mid.y - thickness}
+                      fontSize={11}
+                      fill="#ffffff"
+                      stroke="#0d3b52"
+                      strokeWidth={3}
+                      fillAfterStrokeEnabled
+                      offsetX={14}
+                      listening={false}
+                    />
+                  );
+                })}
+              {mode !== 'fills' && (
+                <Text
+                  text={zone.name}
+                  x={nameAt.x}
+                  y={nameAt.y + thickness + 10}
+                  fontSize={14}
+                  fill="#2b6f8f"
+                  opacity={0.95}
+                  offsetX={zone.name.length * 3.5}
+                  listening={false}
+                  shadowColor="#ffffff"
+                  shadowBlur={4}
                 />
               )}
             </Group>

@@ -51,6 +51,8 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Wall of Fire': { param: 'effect', options: ['vertical', 'horizontal', 'ring'] },
   'XPHB:Blade Barrier': { param: 'effect', options: ['vertical', 'horizontal', 'ring'] },
   'XGE:Wall of Sand': { param: 'effect', options: ['vertical', 'horizontal'] },
+  // Wall of Ice: цепочка панелей по 10 фт (8 направлений) или купол/сфера r10 (секции с HP).
+  'XPHB:Wall of Ice': { param: 'effect', options: ['wall', 'ring'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */

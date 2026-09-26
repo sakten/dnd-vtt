@@ -1,4 +1,5 @@
 import type { Wall } from '../domain/scene';
+import type { Token } from '../domain/token';
 
 export interface Point {
   x: number;
@@ -75,13 +76,23 @@ export interface Rect {
   h: number;
 }
 
+/** Прямоугольник подошвы токена (центр + размеры). */
+export function tokenRect(token: Pick<Token, 'x' | 'y' | 'w' | 'h'>): Rect {
+  return { x: token.x - token.w / 2, y: token.y - token.h / 2, w: token.w, h: token.h };
+}
+
 function pointSegDistance(p: Point, a: Point, b: Point): number {
+  const q = nearestPointOnSegment(p, a, b);
+  return Math.hypot(p.x - q.x, p.y - q.y);
+}
+
+/** Ближайшая точка отрезка a→b к точке p. */
+export function nearestPointOnSegment(p: Point, a: Point, b: Point): Point {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return { x: a.x + t * dx, y: a.y + t * dy };
 }
 
 /** Минимальное расстояние между отрезками (0 — пересекаются/касаются). */

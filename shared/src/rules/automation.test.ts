@@ -3,7 +3,7 @@ import type { ActionDef } from '../domain/actions';
 import { automationForAction, automationForSpell, spellAutomated, spellByDesign, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
 import { SPELL_BASES } from './automation/bases';
 import { findBaseAction } from './actions';
-import { spellExtraTargets } from './spellCast';
+import { spellExtraTargets, isThinWallSpell } from './spellCast';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
@@ -1894,8 +1894,8 @@ describe('automationForSpell', () => {
       'XPHB:Enlarge/Reduce',
       'XPHB:Conjure Elemental',
       'XPHB:Conjure Fey',
-      'XPHB:Wall of Ice',
       'XGE:Wall of Light',
+      'XPHB:Wind Wall',
       'XPHB:Glyph of Warding',
     ];
     for (const key of keys) {
@@ -2459,6 +2459,48 @@ describe('Составной урон (D)', () => {
     expect(sandDef.zone?.flags).toEqual({ obscured: 'heavy', movementCost: 3 });
     expect(spellVariantDef('XGE:Wall of Sand')?.options).toEqual(['vertical', 'horizontal']);
     for (const s of [fire, blades, sand]) expect(spellAutomated(s), s.key).toBe(true);
+  });
+
+  it('Wall of Ice: тонкая стена с секциями, купол r10 и пробой', () => {
+    const ice = makeSpell({
+      key: 'XPHB:Wall of Ice',
+      name: 'Wall of Ice',
+      level: 6,
+      concentration: true,
+      save: ['dex', 'con'],
+      saveHalf: true,
+      damage: {
+        dice: ['10d6', '5d6'],
+        types: ['cold'],
+        parts: [
+          { dice: '10d6', types: ['cold'], role: 'main' as const },
+          { dice: '5d6', types: ['cold'], role: 'trigger' as const },
+        ],
+      },
+      upcast: { above: 6, every: 1, dice: '1d6' },
+    });
+    const def = automationForSpell(ice, { variant: 'vertical' });
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'dex', half: true });
+    expect(def.damage?.dice).toBe('10d6cold');
+    expect(def.zone?.area).toEqual({ shape: 'line', size: 100, width: 1 });
+    expect(def.zone?.wall?.hp).toBe(30);
+    expect(def.zone?.wall?.ac).toBe(12);
+    expect(def.zone?.wall?.immunities).toEqual(['cold', 'poison', 'psychic']);
+    expect(def.zone?.wall?.vulnerabilities).toEqual(['fire']);
+    expect(def.zone?.wall?.breach?.save).toEqual({ ability: 'con', half: true });
+    expect(def.zone?.wall?.breach?.damage).toEqual({ dice: '5d6cold', types: ['cold'] });
+    expect(def.zone?.flags).toEqual({ blocksMovement: true, blocksLineOfSight: true });
+    // Купол/сфера: радиус 10, стена 1 фт (inner 9).
+    expect(automationForSpell(ice, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 9 });
+    // Апкаст: +2к6 появлению, +1к6 листу за круг выше 6.
+    const up = automationForSpell(ice, { castLevel: 8 });
+    expect(up.damage?.dice).toBe('14d6cold');
+    expect(up.zone?.wall?.breach?.damage?.dice).toBe('7d6cold');
+    expect(spellVariantDef('XPHB:Wall of Ice')?.options).toEqual(['wall', 'ring']);
+    expect(spellAutomated(ice)).toBe(true);
+    expect(isThinWallSpell('XPHB:Wall of Ice')).toBe(true);
+    expect(isThinWallSpell('XPHB:Wall of Fire')).toBe(false);
   });
 
   it('spellDamageParts: части для карточек (Destructive Wave — оба типа варианта)', () => {

@@ -40,6 +40,7 @@ export type ErrorCode =
   | 'strikeNotCharged'
   | 'noAreaPoint'
   | 'noClearPath'
+  | 'wallPathBad'
   | 'outOfRange'
   | 'noSlot'
   | 'noResource'

@@ -1,4 +1,4 @@
-import { crossesWalls, sizeAtMost, type Token } from 'shared';
+import { crossesWalls, gridOfMap, sizeAtMost, wallsWithZones, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { gridSizeOfMap } from '../rooms';
@@ -22,6 +22,7 @@ export function applyForcedMovement(
   const map = ctx.manager.findMap(room, mapId);
   if (!map) return;
   const size = gridSizeOfMap(map);
+  const walls = wallsWithZones(map.walls, map.zones, gridOfMap(map, room.scene.grid));
   const steps = Math.max(1, Math.round(force.feet / 5));
   const dx = target.x - source.x;
   const dy = target.y - source.y;
@@ -35,7 +36,7 @@ export function applyForcedMovement(
     const nx = target.x + stepX;
     const ny = target.y + stepY;
     if (nx < 0 || ny < 0 || nx > map.width || ny > map.height) break;
-    if (crossesWalls({ x: target.x, y: target.y }, { x: nx, y: ny }, map.walls, 'move')) break;
+    if (crossesWalls({ x: target.x, y: target.y }, { x: nx, y: ny }, walls, 'move')) break;
     const clash = map.tokens.some(
       (t) => t.id !== target.id && Math.hypot(t.x - nx, t.y - ny) < (size * (t.cells + target.cells)) / 2
     );

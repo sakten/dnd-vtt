@@ -13,6 +13,7 @@ import {
   sideMatches,
   statNumber,
   teleportCellsNearBoxes,
+  wallsWithZones,
   withAdvantage,
   withRollParts,
   type AbilityKey,
@@ -311,7 +312,7 @@ function teleportPassenger(ctx: ConnCtx, room: Room, input: AutomationInput, uti
   const passenger = ctx.manager.findToken(room, input.mapId, input.passengerId);
   if (!map || !passenger || passenger.id === input.caster.id || isBanished(passenger)) return;
   const grid = gridOfMap(map, room.scene.grid);
-  const cells = teleportCellsNearBoxes([input.caster], map.tokens, grid, map.walls, plan.destFeet, passenger.id);
+  const cells = teleportCellsNearBoxes([input.caster], map.tokens, grid, wallsWithZones(map.walls, map.zones, grid), plan.destFeet, passenger.id);
   if (!cells.length) return;
   const casterCell = pointCell(input.caster, grid);
   let best: { cx: number; cy: number } | null = null;

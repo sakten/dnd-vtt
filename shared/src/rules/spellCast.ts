@@ -2,9 +2,11 @@ import type { ActionCost, AreaSpec } from '../domain/actions';
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { CharacterSheet, ClassLevel, PlayerResources } from '../domain/sheet';
 import type { Spell } from './spells';
+import { FEET_PER_CELL } from './areas';
 import { clampLevel } from './classes';
 import { FEAT_CAST_PREFIX } from './feats';
 import { sheetProficiencyBonus, spellcastingAbility } from './spellLimits';
+import { nearestPointOnSegment } from './walls';
 
 /**
  * Чистые правила накладывания заклинаний (Ф6): время/слот действия, скейл
@@ -230,6 +232,10 @@ export interface WallDims {
   width: number;
   outerRadius: number;
   innerRadius: number;
+  /** Тонкая стена (1 фт): сегменты по границам клеток, занимает не клетки (Wall of Ice). */
+  thin?: boolean;
+  /** Длина панели тонкой стены (футы, RAW — 10): панели ставятся цепочкой. */
+  panelFeet?: number;
 }
 
 const WALL_DIMS: Record<string, WallDims> = {
@@ -241,11 +247,118 @@ const WALL_DIMS: Record<string, WallDims> = {
   'XPHB:Blade Barrier': { length: 100, width: 5, outerRadius: 30, innerRadius: 25 },
   // Wall of Sand: 30×10, без кольца.
   'XGE:Wall of Sand': { length: 30, width: 10, outerRadius: 0, innerRadius: 0 },
+  // Wall of Ice: десять панелей 10×10 фт (100×1), купол/сфера r10; секции с HP.
+  'XPHB:Wall of Ice': { length: 100, width: 1, outerRadius: 10, innerRadius: 9, thin: true, panelFeet: 10 },
 };
 
 /** Заклинание-стена (геометрия `wallArea`, варианты vertical/horizontal/ring). */
 export function isWallSpell(spellKey: string): boolean {
   return !!WALL_DIMS[spellKey];
+}
+
+/** Тонкая стена-сегмент (1 фт): не занимает клетки, блокирует переход граней (Wall of Ice). */
+export function isThinWallSpell(spellKey: string): boolean {
+  return WALL_DIMS[spellKey]?.thin === true;
+}
+
+/** Длина панели тонкой стены (футы) — номинальная; лимит панелей считается по ней. */
+export function wallPanelFeet(spellKey: string): number | undefined {
+  const dims = WALL_DIMS[spellKey];
+  return dims?.thin ? (dims.panelFeet ?? 10) : undefined;
+}
+
+/** Лимит панелей тонкой стены (100 фт / 10 фт = 10). */
+export function wallMaxPanels(spellKey: string): number | undefined {
+  const dims = WALL_DIMS[spellKey];
+  const feet = wallPanelFeet(spellKey);
+  if (!dims || !feet) return undefined;
+  return Math.max(1, Math.round(dims.length / feet));
+}
+
+/**
+ * Разрешённые шаги панели в клетках: ортогонально 2 (10 фт) и полудиагонали
+ * 1×2 / 2×1 (~11.18 фт); 45° 2×2 запрещена. Концы панелей — на узлах сетки.
+ */
+export const WALL_PANEL_STEPS: readonly (readonly [number, number])[] = [
+  [2, 0],
+  [-2, 0],
+  [0, 2],
+  [0, -2],
+  [1, 2],
+  [-1, 2],
+  [1, -2],
+  [-1, -2],
+  [2, 1],
+  [-2, 1],
+  [2, -1],
+  [-2, -1],
+];
+
+/** Ближайшее пересечение сетки (угол клетки) — привязка якоря стены. */
+export function snapWallAnchor(
+  point: { x: number; y: number },
+  gridSize: number,
+  offset: { x: number; y: number } = { x: 0, y: 0 }
+): { x: number; y: number } {
+  return {
+    x: Math.round((point.x - offset.x) / gridSize) * gridSize + offset.x,
+    y: Math.round((point.y - offset.y) / gridSize) * gridSize + offset.y,
+  };
+}
+
+/** Узел следующей панели: ближайший разрешённый шаг от узла (концы — на пересечениях сетки). */
+export function snapWallJoint(
+  from: { x: number; y: number },
+  cursor: { x: number; y: number },
+  cellPx: number
+): { x: number; y: number } {
+  let best = WALL_PANEL_STEPS[0]!;
+  let bestDist = Infinity;
+  for (const step of WALL_PANEL_STEPS) {
+    const dist = Math.hypot(cursor.x - (from.x + step[0] * cellPx), cursor.y - (from.y + step[1] * cellPx));
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = step;
+    }
+  }
+  return { x: from.x + best[0] * cellPx, y: from.y + best[1] * cellPx };
+}
+
+/**
+ * Проблема цепочки панелей тонкой стены: шаги-узлы (10 фт или полудиагональ),
+ * лимит панелей и дистанция каждой панели от кастера.
+ */
+export function wallPathIssue(
+  path: { x: number; y: number }[],
+  spellKey: string,
+  caster: { x: number; y: number },
+  grid: { size: number },
+  rangeFeet: number | null
+): { code: 'wallPathBad' | 'outOfRange'; feet?: number } | undefined {
+  const maxPanels = wallMaxPanels(spellKey);
+  if (!maxPanels) return { code: 'wallPathBad' };
+  if (path.length < 2 || path.length - 1 > maxPanels) return { code: 'wallPathBad' };
+  let nearestFeet = Infinity;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]!;
+    const b = path[i]!;
+    const dcx = (b.x - a.x) / grid.size;
+    const dcy = (b.y - a.y) / grid.size;
+    const step: [number, number] = [Math.round(dcx), Math.round(dcy)];
+    if (Math.abs(dcx - step[0]) > 0.01 || Math.abs(dcy - step[1]) > 0.01) return { code: 'wallPathBad' };
+    if (!WALL_PANEL_STEPS.some((s) => s[0] === step[0] && s[1] === step[1])) return { code: 'wallPathBad' };
+    if (rangeFeet !== null) {
+      const nearest = nearestPointOnSegment(caster, a, b);
+      nearestFeet = Math.min(
+        nearestFeet,
+        (Math.hypot(caster.x - nearest.x, caster.y - nearest.y) / grid.size) * FEET_PER_CELL
+      );
+    }
+  }
+  if (rangeFeet !== null && nearestFeet > rangeFeet + 1e-6) {
+    return { code: 'outOfRange', feet: Math.round(nearestFeet) };
+  }
+  return undefined;
 }
 
 /** Геометрия стены: линия `length×width` или кольцо `inner..outer` (variant 'ring'). */

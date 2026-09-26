@@ -38,3 +38,4 @@ export * from './rules/wildShape';
 export * from './rules/weapons';
 export * from './rules/walls';
 export * from './rules/vision';
+export * from './rules/zoneWalls';

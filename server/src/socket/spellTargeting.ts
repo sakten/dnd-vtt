@@ -5,6 +5,7 @@ import {
   hostileTokens,
   isBanished,
   isRecord,
+  isThinWallSpell,
   spellAreaOrigin,
   spellCastArea,
   spellCastDirection,
@@ -12,12 +13,14 @@ import {
   spellIsSelf,
   spellRangeFeet,
   tokenVisibleFrom,
+  tokensCrossingSegments,
   tokensNearFeet,
+  wallsWithZones,
+  zoneWallSegments,
   type Spell,
   type SpellStats,
   type Token,
-} from 'shared';
-import type { ConnCtx } from './context';
+} from 'shared';import type { ConnCtx } from './context';
 import { areaTokens } from './areaTokens';
 import { fail } from './errors';
 import type { SpellCastInput } from './spellResolve';
@@ -37,6 +40,10 @@ export interface SpellCastParams {
   advantage?: 'a' | 'd';
   origin?: unknown;
   direction?: unknown;
+  /** Тонкая стена цепочкой панелей: узлы. */
+  path?: unknown;
+  /** Тонкая стена: сторона выталкивания разрезанных существ. */
+  pushSide?: unknown;
   /** Выбранная форма призыва (Find Familiar). */
   summonKey?: string;
   /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
@@ -68,6 +75,39 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
   let area = false;
   let areaOrigin: { x: number; y: number } | null = null;
   let areaDirection: { x: number; y: number } | null = null;
+  const pushSide = params.pushSide === 'a' || params.pushSide === 'b' ? params.pushSide : undefined;
+  // Тонкая стена цепочкой панелей (Wall of Ice): узлы задают геометрию, цели — разрезанные.
+  const wallPath = (Array.isArray(params.path) ? params.path : []).filter(isPoint).slice(0, 12);
+  if (isThinWallSpell(spell.key) && wallPath.length >= 2) {
+    const map = ctx.manager.findMap(room, mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const wallAreaSpec = spellCastArea(spell, params.variant) ?? { shape: 'line', size: wallPath.length, width: 1 };
+    const segments = zoneWallSegments(
+      { area: wallAreaSpec, origin: wallPath[0]!, direction: null, wallPath },
+      grid
+    );
+    const cut = map
+      ? tokensCrossingSegments(map.tokens.filter((t) => !isBanished(t) && t.id !== caster.id), segments)
+      : [];
+    return {
+      caster,
+      mapId,
+      spell,
+      castLevel: params.castLevel,
+      characterLevel: params.characterLevel,
+      stats: params.stats,
+      targets: cut,
+      advantage: params.advantage,
+      area: true,
+      origin: wallPath[0]!,
+      direction: null,
+      path: wallPath,
+      ...(pushSide ? { pushSide } : {}),
+      ...(params.variant ? { variant: params.variant } : {}),
+      ...(params.condition ? { condition: params.condition } : {}),
+      author: params.author,
+    };
+  }
   const castArea = spellCastArea(spell, params.variant);
   if (spellHasArea(spell) && castArea) {
     const map = ctx.manager.findMap(room, mapId);
@@ -86,7 +126,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         return undefined;
       }
       // 5e: до точки накладывания нужен чистый путь (закрытая дверь/стена блокируют).
-      if (map && crossesWalls(caster, originPt, map.walls, 'sight')) {
+      if (map && crossesWalls(caster, originPt, wallsWithZones(map.walls, map.zones, grid), 'sight')) {
         fail(ctx, 'noClearPath');
         return undefined;
       }
@@ -94,11 +134,21 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     // Ось стены (Wall of Thorns) задаёт вариант каста, а не направление клика.
     areaDirection =
       spellCastDirection(spell.key, params.variant, originPt) ?? (isPoint(params.direction) ? params.direction : null);
-    const affected = areaTokens(ctx, room, mapId, castArea, originPt, {
-      direction: areaDirection,
-      excludeId: caster.id,
-    });
-    for (const t of affected) targets.push(t);
+    if (map && isThinWallSpell(spell.key)) {
+      // Тонкая стена (Wall of Ice): появление бьёт существ, чью подошву разрезают сегменты.
+      const segments = zoneWallSegments({ area: castArea, origin: originPt, direction: areaDirection }, grid);
+      const cut = tokensCrossingSegments(
+        map.tokens.filter((t) => !isBanished(t) && t.id !== caster.id),
+        segments
+      );
+      for (const t of cut) targets.push(t);
+    } else {
+      const affected = areaTokens(ctx, room, mapId, castArea, originPt, {
+        direction: areaDirection,
+        excludeId: caster.id,
+      });
+      for (const t of affected) targets.push(t);
+    }
     area = true;
     areaOrigin = originPt;
   } else {
@@ -114,7 +164,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         return undefined;
       }
       // 5e: цель доступна, если видна хотя бы одна её клетка (стена/закрытая дверь рушат линию).
-      if (map && found.id !== caster.id && !tokenVisibleFrom(caster, found, map.walls, grid)) {
+      if (map && found.id !== caster.id && !tokenVisibleFrom(caster, found, wallsWithZones(map.walls, map.zones, grid), grid)) {
         fail(ctx, 'noClearPath');
         return undefined;
       }
@@ -139,6 +189,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     area,
     origin: areaOrigin ?? (isPoint(params.origin) ? params.origin : null),
     direction: areaDirection ?? (isPoint(params.direction) ? params.direction : null),
+    ...(pushSide ? { pushSide } : {}),
     summonKey: params.summonKey,
     variant: params.variant,
     condition: params.condition,

@@ -4,6 +4,7 @@ import {
   sideMatches,
   tokenFullyInArea,
   tokensInArea,
+  wallsWithZones,
   type AreaSpec,
   type Token,
 } from 'shared';
@@ -41,10 +42,12 @@ export function areaTokens(
   if (!map) return [];
   const grid = gridOfMap(map, room.scene.grid);
   const direction = opts.direction ?? null;
+  // Тонкие стены-зоны (Wall of Ice) обрывают области как обычные стены.
+  const walls = wallsWithZones(map.walls, map.zones, grid);
   const inside =
     opts.containment === 'fullyWithin'
-      ? map.tokens.filter((t) => tokenFullyInArea(t, area, origin, direction, grid, 'euclidean', map.walls))
-      : tokensInArea(map.tokens, area, origin, direction, grid, 'euclidean', map.walls);
+      ? map.tokens.filter((t) => tokenFullyInArea(t, area, origin, direction, grid, 'euclidean', walls))
+      : tokensInArea(map.tokens, area, origin, direction, grid, 'euclidean', walls);
   return inside.filter((token) => {
     // Изгнанные (Banishment) вне поля: цели и аур их не видят.
     if (isBanished(token)) return false;

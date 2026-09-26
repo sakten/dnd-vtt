@@ -9,6 +9,7 @@ import {
   handOf,
   hasInvocation,
   INVOCATION_PACT_KEYS,
+  isThinWallSpell,
   loadoutOf,
   nearestTarget,
   passengerIssue,
@@ -18,6 +19,8 @@ import {
   spellCastArea,
   spellIsSelf,
   tokenVisibleFrom,
+  wallPathIssue,
+  wallsWithZones,
   weaponContextOf,
   type ErrorPayload,
   type Spell,
@@ -49,6 +52,10 @@ export interface SpellCastInput {
   /** Точка/направление каста (для создания зон). */
   origin?: { x: number; y: number } | null;
   direction?: { x: number; y: number } | null;
+  /** Тонкая стена цепочкой панелей (Wall of Ice): узлы пути. */
+  path?: { x: number; y: number }[];
+  /** Тонкая стена: сторона выталкивания разрезанных существ. */
+  pushSide?: 'a' | 'b';
   /** Выбранная форма призыва (Find Familiar). */
   summonKey?: string;
   /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */
@@ -84,14 +91,24 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return { code: 'silenced' };
   }
 
+  // Тонкая стена цепочкой (Wall of Ice): непрерывность, 45°, лимит и дистанция каждой панели.
+  if (isThinWallSpell(spell.key) && input.path?.length) {
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const issue = wallPathIssue(input.path, spell.key, caster, grid, effectiveSpellRangeFeet(spell, invocations));
+    if (issue?.code === 'outOfRange') return { code: 'outOfRange', params: { feet: issue.feet ?? 0 } };
+    if (issue) return { code: 'wallPathBad' };
+    return undefined;
+  }
+
   // Зона от точки без режима области (Faithful Hound): точка в пределах дистанции и видна кастеру.
   if (def.zone && def.zone.origin === 'point' && input.origin && !input.area) {
     const map = room.scene.maps.find((m) => m.id === input.mapId);
-    const gridSize = gridOfMap(map, room.scene.grid).size;
-    const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / gridSize) * 5;
+    const grid = gridOfMap(map, room.scene.grid);
+    const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / grid.size) * 5;
     const range = effectiveSpellRangeFeet(spell, invocations);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
-    if (map && crossesWalls(caster, input.origin, map.walls, 'sight')) return { code: 'noClearPath' };
+    if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) return { code: 'noClearPath' };
   }
 
   if (def.effects?.some((d) => d.markTarget) && !targets[0]) {
@@ -132,7 +149,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
       ? held.rangeLong || held.rangeNormal || 5
       : held.rangeNormal || 5;
     if (feet > maxFeet) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
-    if (map && targets[0].id !== caster.id && !tokenVisibleFrom(caster, targets[0], map.walls, grid)) {
+    if (map && targets[0].id !== caster.id && !tokenVisibleFrom(caster, targets[0], wallsWithZones(map.walls, map.zones, grid), grid)) {
       return { code: 'noClearPath' };
     }
     return undefined;
@@ -192,11 +209,11 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     const entry = key ? summonEntry(key) : undefined;
     if (!entry) return { code: 'summonNoForm' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
-    const gridSize = gridOfMap(map, room.scene.grid).size;
-    const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / gridSize) * 5;
+    const grid = gridOfMap(map, room.scene.grid);
+    const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / grid.size) * 5;
     const range = effectiveSpellRangeFeet(spell, invocations);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
-    if (map && crossesWalls(caster, input.origin, map.walls, 'sight')) return { code: 'noClearPath' };
+    if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) return { code: 'noClearPath' };
     if (!hasFreeSummonSpot(room, input.mapId, entry.cells, input.origin)) return { code: 'summonNoSpace' };
     return undefined;
   }
@@ -283,7 +300,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
       if (!target || !map) return { code: 'spellNoTarget' };
       const toTarget = gridDistanceFeet(caster, target, grid.size);
       if (toTarget > sourceFeet) return { code: 'outOfRange', params: { feet: Math.round(toTarget) } };
-      if (target.id !== caster.id && !tokenVisibleFrom(caster, target, map.walls, grid)) {
+      if (target.id !== caster.id && !tokenVisibleFrom(caster, target, wallsWithZones(map.walls, map.zones, grid), grid)) {
         return { code: 'noClearPath' };
       }
       const issue = teleportIssue(room, input.mapId, target, { x: placement.x, y: placement.y }, limit, caster);
@@ -312,7 +329,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
       if (target.id === caster.id) continue;
       const feet = gridDistanceFeet(caster, target, grid.size);
       if (feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
-      if (map && !tokenVisibleFrom(caster, target, map.walls, grid)) return { code: 'noClearPath' };
+      if (map && !tokenVisibleFrom(caster, target, wallsWithZones(map.walls, map.zones, grid), grid)) return { code: 'noClearPath' };
     }
     return undefined;
   }
@@ -322,7 +339,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const grid = gridOfMap(map, room.scene.grid);
   for (const target of targets) {
     if (target.id === caster.id) continue;
-    const issue = creatureTargetIssue(caster, target, map?.walls ?? [], grid, rangeFeet);
+    const issue = creatureTargetIssue(caster, target, wallsWithZones(map?.walls ?? [], map?.zones, grid), grid, rangeFeet);
     if (issue?.code === 'outOfRange') return { code: 'outOfRange', params: { feet: Math.round(issue.feet) } };
     if (issue) return { code: issue.code };
   }
@@ -358,6 +375,8 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     advantage: input.advantage,
     origin: input.origin ?? null,
     direction: input.direction ?? null,
+    ...(input.path ? { path: input.path } : {}),
+    ...(input.pushSide ? { pushSide: input.pushSide } : {}),
     area: spellCastArea(input.spell, input.variant) ?? null,
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     ...(input.condition ? { choice: input.condition } : {}),

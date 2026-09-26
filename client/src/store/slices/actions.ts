@@ -13,9 +13,10 @@ import {
   startScatter,
   startTargeting,
   toggleScatterTarget,
+  type AimState,
   type InteractionCommand,
 } from '../../domain/interaction';
-import { areaCellKey, crossesWalls, isBanished, passengerIssue, pointCell, teleportCellsNearTargets } from 'shared';
+import { areaCellKey, crossesWalls, isBanished, passengerIssue, pointCell, teleportCellsNearTargets, wallsWithZones } from 'shared';
 import { emitInMap } from '../helpers';
 import { activeGridOf, activeMapOf, tokenById } from '../selectors';
 import type { GameState, Slice } from '../types';
@@ -35,6 +36,8 @@ export const createActionSlice: Slice<
     | 'aimToCursor'
     | 'cancelAim'
     | 'confirmAim'
+    | 'finishWall'
+    | 'cycleWallPush'
     | 'skipPassenger'
     | 'endConcentration'
     | 'startMultiTarget'
@@ -55,6 +58,23 @@ export const createActionSlice: Slice<
     if (command.type === 'runAction') get().runAction(command.tokenId, command.actionId, command.extra);
     else if (command.type === 'castSpell') get().castSpell(command.payload);
     else get().rollAttack(command.payload);
+  };
+
+  /** Каст тонкой стены цепочкой: узлы уже заданы (≥1 панели). */
+  const castWallPath = (aim: AimState) => {
+    const path = aim.wallPath ?? [];
+    if (path.length < 2) return;
+    _set({ interaction: null });
+    get().castSpell({
+      tokenId: aim.tokenId,
+      spellKey: aim.spellKey ?? '',
+      slotLevel: aim.slotLevel,
+      advantage: aim.advantage,
+      origin: path[0]!,
+      path,
+      ...(aim.variant ? { variant: aim.variant } : {}),
+      ...(aim.pushSide ? { pushSide: aim.pushSide } : {}),
+    });
   };
 
   return {
@@ -134,7 +154,7 @@ export const createActionSlice: Slice<
       const map = activeMapOf(state);
       const token = tokenById(map, it.aim.tokenId);
       const grid = activeGridOf(state);
-      const next = aimToCursor(it, cursor, token, grid.size || 50);
+      const next = aimToCursor(it, cursor, token, grid.size || 50, { x: grid.offsetX, y: grid.offsetY });
       if (!next || next.mode !== 'aim') {
         _set({ interaction: next });
         return;
@@ -145,13 +165,18 @@ export const createActionSlice: Slice<
         _set({ interaction: next });
         return;
       }
+      // Цепочка панелей: blocked уже посчитан в `aimToCursor` (панель вне дистанции).
+      if (aim.chain) {
+        _set({ interaction: { mode: 'aim', aim } });
+        return;
+      }
       // Подсветка: путь до точки перекрыт стеной/закрытой дверью — применять нельзя
       // (Dimension Door: точку можно не видеть — путь не проверяем).
-      let blocked = !!map && !!token && !aim.ignoreSight && crossesWalls(token, origin, map.walls, 'sight');
+      let blocked = !!map && !!token && !aim.ignoreSight && crossesWalls(token, origin, wallsWithZones(map.walls, map.zones, grid), 'sight');
       // Steel Wind Strike: точка телепорта должна быть рядом с одной из выбранных целей.
       if (!blocked && map && token && aim.nearTargets && aim.nearFeet) {
         const targets = (aim.targetIds ?? []).map((id) => tokenById(map, id)).filter((t) => !!t);
-        const cells = teleportCellsNearTargets(targets, map.tokens, grid, map.walls, aim.nearFeet, aim.tokenId);
+        const cells = teleportCellsNearTargets(targets, map.tokens, grid, wallsWithZones(map.walls, map.zones, grid), aim.nearFeet, aim.tokenId);
         const cell = pointCell({ x: origin.x, y: origin.y }, grid);
         if (!cells.includes(areaCellKey(cell.cx, cell.cy))) blocked = true;
       }
@@ -178,6 +203,25 @@ export const createActionSlice: Slice<
     confirmAim: () => {
       const it = get().interaction;
       if (it?.mode === 'aim' && it.aim.blocked) return;
+      // Тонкая стена цепочкой (Wall of Ice): клики ставят секции, «Готово» завершает.
+      if (it?.mode === 'aim' && it.aim.chain) {
+        const aim = it.aim;
+        const path = aim.wallPath ?? [];
+        if (!path.length) {
+          if (!aim.origin) return;
+          _set({ interaction: { mode: 'aim', aim: { ...aim, wallPath: [{ ...aim.origin }], direction: null } } });
+          return;
+        }
+        if (!aim.direction) return;
+        const nextPath = [...path, { ...aim.direction }];
+        // Лимит панелей (10): последняя секция завершает каст автоматически.
+        if (nextPath.length - 1 >= (aim.wallMax ?? 1)) {
+          castWallPath({ ...aim, wallPath: nextPath });
+          return;
+        }
+        _set({ interaction: { mode: 'aim', aim: { ...aim, wallPath: nextPath, direction: null } } });
+        return;
+      }
       // Телепорт с пассажиром (Dimension Door/Thunder Step): перед кастом —
       // выбор существа рядом; нет подходящих — кастуем без пассажира.
       if (it?.mode === 'aim') {
@@ -218,6 +262,19 @@ export const createActionSlice: Slice<
       const { next, command } = confirmArea(it);
       _set({ interaction: next });
       runCommand(command);
+    },
+
+    finishWall: () => {
+      const it = get().interaction;
+      if (it?.mode !== 'aim' || !it.aim.chain) return;
+      castWallPath(it.aim);
+    },
+
+    cycleWallPush: () => {
+      const it = get().interaction;
+      if (it?.mode !== 'aim' || !it.aim.chain) return;
+      const next = it.aim.pushSide === undefined ? 'a' : it.aim.pushSide === 'a' ? 'b' : undefined;
+      _set({ interaction: { mode: 'aim', aim: { ...it.aim, pushSide: next } } });
     },
 
     endConcentration: (tokenId) => {

@@ -1,6 +1,7 @@
 import {
   DiceParseError,
   loadoutOf,
+  parseZoneTargetId,
   restrictionsFor,
   rollDice,
   weaponContextOf,
@@ -19,6 +20,7 @@ import { pushRollMessage } from './messages';
 import { resolveWeaponAttackWithReactions } from './reactions';
 import { maybeRollAnim } from './rollAnim';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
+import { resolveZoneSectionAttack } from './zoneAttacks';
 
 export function registerDiceHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, cleanLabel } = ctx;
@@ -120,6 +122,38 @@ export function registerDiceHandlers(ctx: ConnCtx) {
         return true;
       };
 
+      // Списание атаки в момент броска (общее для цели-токена и секции стены).
+      const spendAttack = () => {
+        if (!canSpend()) return false;
+        if (inCombat && combatant) {
+          manager.consumeAttack(room, combatant.mapId, combatant.token, {
+            unarmed: entry.kind === 'unarmed',
+            loading: weaponHasProperty(entry, 'LD'),
+          });
+          syncCombat(room, combatant.mapId);
+        }
+        return true;
+      };
+
+      // Атака по секции тонкой стены (бросок со листа): тот же путь, что у способностей.
+      const zoneRef = parseZoneTargetId(typeof targetId === 'string' ? targetId : undefined);
+      if (zoneRef) {
+        if (!attacker || !attackerMapId) {
+          fail(ctx, 'spellNoTarget');
+          return;
+        }
+        resolveZoneSectionAttack(ctx, room, {
+          attacker,
+          mapId: attackerMapId,
+          attack: entry,
+          ref: zoneRef,
+          author,
+          advantage,
+          beforeRoll: spendAttack,
+        });
+        return;
+      }
+
       const targetFound = typeof targetId === 'string' && targetId ? manager.locateToken(room, targetId) : null;
 
       const result = resolveWeaponAttackWithReactions(
@@ -135,17 +169,7 @@ export function registerDiceHandlers(ctx: ConnCtx) {
           author,
         },
         {
-          beforeRoll: () => {
-            if (!canSpend()) return false;
-            if (inCombat && combatant) {
-              manager.consumeAttack(room, combatant.mapId, combatant.token, {
-                unarmed: entry.kind === 'unarmed',
-                loading: weaponHasProperty(entry, 'LD'),
-              });
-              syncCombat(room, combatant.mapId);
-            }
-            return true;
-          },
+          beforeRoll: spendAttack,
           afterCommit: () => {
             if (attackerMapId) markShadowBladeThrown(ctx, room, attackerMapId, attacker, entry);
           },

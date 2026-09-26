@@ -70,9 +70,9 @@ const actual = {
 };
 
 const EXPECTED = {
-  catalog: 'e9d8fe34fb93f9ed',
+  catalog: 'e78af02f50934142',
   additions: '1b3ac2b7685ff142',
-  derived: 'c2af831b807b5df1',
+  derived: '9cf637fb0801d4ca',
   green: 237,
   red: 183,
 };

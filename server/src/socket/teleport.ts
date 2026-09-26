@@ -1,4 +1,4 @@
-import { cellCenter, crossesWalls, gridOfMap, isBanished, pointCell, tokenCells, type ErrorPayload, type Token } from 'shared';
+import { cellCenter, crossesWalls, gridOfMap, isBanished, pointCell, tokenCells, wallsWithZones, type ErrorPayload, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { handleMovementZones } from './zones';
@@ -29,7 +29,7 @@ export function teleportIssue(
   if (map.width > 0 && (origin.x < 0 || origin.y < 0 || origin.x > map.width || origin.y > map.height)) {
     return { code: 'teleportNoSpace' };
   }
-  if (!opts.skipSight && crossesWalls(anchor, origin, map.walls, 'sight')) return { code: 'noClearPath' };
+  if (!opts.skipSight && crossesWalls(anchor, origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) return { code: 'noClearPath' };
   // Точка назначения должна быть ровно свободна (без «подбора» соседней клетки).
   const cell = pointCell(origin, grid);
   const dest = cellCenter(cell.cx, cell.cy, grid);

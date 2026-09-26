@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { automationForSpell, type AutomationDef } from 'shared';
+import { automationForSpell, tokensCrossingSegments, zoneWallSegments, type AttackEntry, type AutomationDef } from 'shared';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
-import { createZoneFromDef, handleMovementZones, removeZonesOfSource, tickZones } from './zones';
+import { applyWallPush, createZoneFromDef, handleMovementZones, hitZoneSection, removeZonesOfSource, tickZones } from './zones';
+import { collectSpellCast } from './spellTargeting';
+import { validateSpellCast } from './spellResolve';
+import { resolveZoneSectionAttack } from './zoneAttacks';
 import { executeAutomation } from './automation';
 
 /** Синтетическая зона: аура-слепота внутри + урон в начале хода (аналог HoH). */
@@ -707,5 +710,204 @@ describe('зоны с зарядами и появлением (C-хвосты)'
     }
     rand.mockRestore();
     expect(zone?.charges).toBe(3);
+  });
+});
+
+describe('стена льда (Wall of Ice)', () => {
+  const stats = { ability: 'wis' as const, mod: 3, dc: 14, attack: 5 };
+  const wallSpell = () => findSpell('XPHB:Wall of Ice')!;
+
+  function iceSetup() {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { x: 175, y: 125, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    // Якорь концентрации кастера — как его ставит executeAutomation (иначе зона гаснет при движении).
+    caster.effects.push({
+      id: 'anchor-ice',
+      name: 'Wall of Ice',
+      sourceKey: 'XPHB:Wall of Ice',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    const def = automationForSpell(wallSpell(), { variant: 'vertical' });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats,
+      origin: { x: 125, y: 125 },
+      direction: { x: 125, y: 225 },
+    })!;
+    return { room, f, map, caster, zone };
+  }
+
+  /** Дубина без модификаторов: d20 vs КЗ 12; урон 1d4. */
+  const club = (damageType: string): AttackEntry => ({
+    name: 'Дубина',
+    hit: 'd20',
+    damage: '1d4',
+    rangeType: 'melee',
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType,
+  });
+
+  it('создание: 10 секций по 30 HP, КЗ 12, иммунитеты и уязвимость', () => {
+    const { zone } = iceSetup();
+    expect(zone.wall?.ac).toBe(12);
+    expect(zone.wall?.immunities).toEqual(['cold', 'poison', 'psychic']);
+    expect(zone.wall?.vulnerabilities).toEqual(['fire']);
+    expect(zone.sections).toHaveLength(10);
+    expect(zone.sections!.every((s) => s.hp === 30 && s.maxHp === 30 && !s.broken)).toBe(true);
+  });
+
+  it('атака по секции: d20 vs КЗ, уязвимость к огню удваивает урон', () => {
+    const { room, f, zone } = iceSetup();
+    const attacker = room.scene.maps[0]!.tokens[1]!;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // d20=13 (попадание), 1d4=3
+    resolveZoneSectionAttack(f.ctx, room, {
+      attacker,
+      mapId: 'm1',
+      attack: club('fire'),
+      ref: { zoneId: zone.id, section: 0 },
+      author: 'DM',
+    });
+    rand.mockRestore();
+    // Огонь: 3 × 2 = 6.
+    expect(zone.sections![0]!.hp).toBe(24);
+    expect(!!zone.sections![0]!.broken).toBe(false);
+    expect(f.emitted.some((e) => e.event === 'zones:update')).toBe(true);
+  });
+
+  it('иммунитет холоду: атака не пробивает; ручной урон добивает секцию', () => {
+    const { room, f, zone } = iceSetup();
+    const attacker = room.scene.maps[0]!.tokens[1]!;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6);
+    resolveZoneSectionAttack(f.ctx, room, {
+      attacker,
+      mapId: 'm1',
+      attack: club('cold'),
+      ref: { zoneId: zone.id, section: 0 },
+      author: 'DM',
+    });
+    rand.mockRestore();
+    expect(zone.sections![0]!.hp).toBe(30);
+    const hit = hitZoneSection(f.ctx, room, 'm1', zone, 0, [{ damageType: 'slashing', amount: 30 }]);
+    expect(hit).toMatchObject({ applied: 30, broken: true });
+  });
+
+  it('проход сквозь пробитую секцию: спас CON и урон раз за ход', () => {
+    const { room, f, map, zone } = iceSetup();
+    hitZoneSection(f.ctx, room, 'm1', zone, 0, [{ damageType: 'slashing', amount: 30 }]);
+    const mover = map.tokens[1]!;
+    f.emitted.length = 0;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // d20=13 < СЛ 14 → 5d6=20
+    f.invoke('token:step', { mapId: 'm1', id: 't2', x: 125, y: 125 });
+    rand.mockRestore();
+    expect(mover.hpCurrent).toBe(10);
+    // Второй проход в этом же ходу — без урона (раз за ход на секцию).
+    const rand2 = vi.spyOn(Math, 'random').mockReturnValue(0.6);
+    f.invoke('token:step', { mapId: 'm1', id: 't2', x: 175, y: 125 });
+    rand2.mockRestore();
+    expect(mover.hpCurrent).toBe(10);
+  });
+
+  it('появление: разрезанное стеной существо попадает в цели, соседнее — нет', () => {
+    const { f, map } = iceSetup();
+    const straddle = makeToken('t3', { x: 150, y: 125, hpMax: '20', hpCurrent: 20 });
+    map.tokens.push(straddle);
+    const caster = map.tokens[0]!;
+    const input = collectSpellCast(f.ctx, {
+      mapId: 'm1',
+      caster,
+      spell: wallSpell(),
+      castLevel: 6,
+      characterLevel: 11,
+      stats,
+      variant: 'vertical',
+      origin: { x: 125, y: 125 },
+      author: 'DM',
+    });
+    expect(input?.targets.some((t) => t.id === 't3')).toBe(true);
+    // t2 стоит вплотную (касание грани) — не цель.
+    expect(input?.targets.some((t) => t.id === 't2')).toBe(false);
+  });
+
+  it('цепочка панелей: зона по узлам пути, секции по панелям, разрезанные — в цели каста', () => {
+    const { room, f, map, caster } = iceSetup();
+    const def = automationForSpell(wallSpell(), { variant: 'wall' });
+    const path = [
+      { x: 325, y: 125 },
+      { x: 425, y: 125 },
+      { x: 425, y: 225 },
+    ];
+    const zone = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def, stats, origin: path[0]!, path })!;
+    expect(zone.wallPath).toEqual(path);
+    expect(zone.sections).toHaveLength(2);
+
+    const straddle = makeToken('t3', { x: 425, y: 125, hpMax: '20', hpCurrent: 20 });
+    map.tokens.push(straddle);
+    const input = collectSpellCast(f.ctx, {
+      mapId: 'm1',
+      caster,
+      spell: wallSpell(),
+      castLevel: 6,
+      characterLevel: 11,
+      stats,
+      variant: 'wall',
+      path,
+      author: 'DM',
+    });
+    expect(input?.path).toEqual(path);
+    expect(input?.targets.some((t) => t.id === 't3')).toBe(true);
+    // Неконтинуальный путь отклоняется явной ошибкой; 45° 2×2 — запрещённый шаг.
+    const bad = validateSpellCast(room, { ...input!, path: [{ x: 325, y: 125 }, { x: 400, y: 125 }] });
+    expect(bad?.code).toBe('wallPathBad');
+    const diagonal = validateSpellCast(room, { ...input!, path: [{ x: 325, y: 125 }, { x: 425, y: 225 }] });
+    expect(diagonal?.code).toBe('wallPathBad');
+  });
+
+  it('большой токен (3×3) бьёт стену вплотную: дистанция от подошвы, а не от центра', () => {
+    const { room, f, zone } = iceSetup();
+    const map = room.scene.maps[0]!;
+    const big = makeToken('big', { x: 225, y: 125, w: 150, h: 150, hpMax: '60', hpCurrent: 60 });
+    map.tokens.push(big);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.6); // d20=13, 1d4=3
+    resolveZoneSectionAttack(f.ctx, room, {
+      attacker: big,
+      mapId: 'm1',
+      attack: club('fire'),
+      ref: { zoneId: zone.id, section: 0 },
+      author: 'DM',
+    });
+    rand.mockRestore();
+    expect(zone.sections![0]!.hp).toBe(24);
+  });
+
+  it('выталкивание при появлении: разрезанное существо смещается и больше не разрезано', () => {
+    const { room, f, map, caster } = iceSetup();
+    const dummy = makeToken('dummy', { x: 350, y: 100, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(dummy);
+    const def = automationForSpell(wallSpell(), { variant: 'wall' });
+    const path = [
+      { x: 300, y: 100 },
+      { x: 400, y: 100 },
+    ];
+    applyWallPush(f.ctx, room, caster, 'm1', def.zone!, { path, side: 'a' });
+    expect({ x: dummy.x, y: dummy.y }).toEqual({ x: 375, y: 175 });
+    const segments = zoneWallSegments(
+      { area: def.zone!.area, origin: path[0]!, direction: null, wallPath: path },
+      { size: 50, offsetX: 0, offsetY: 0 }
+    );
+    expect(tokensCrossingSegments([dummy], segments)).toHaveLength(0);
   });
 });

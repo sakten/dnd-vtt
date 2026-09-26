@@ -1,4 +1,4 @@
-import { spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type Token } from 'shared';
+import { nearestPointOnSegment, snapWallAnchor, snapWallJoint, spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type Token, type WallPushSide } from 'shared';
 
 /** Точка в мировых координатах карты. */
 export interface Point {
@@ -40,6 +40,14 @@ export interface AimState {
   passenger?: { feet: number; destFeet: number; maxSize?: boolean };
   /** Dimension Door: точка может быть невидимой/за стеной — клиент не блокирует путь. */
   ignoreSight?: boolean;
+  /** Тонкая стена цепочкой панелей (Wall of Ice): клики ставят секции, «Готово» завершает. */
+  chain?: boolean;
+  /** Узлы уже поставленных панелей (первый — якорь); концы панелей — в центрах клеток. */
+  wallPath?: Point[];
+  /** Лимит панелей. */
+  wallMax?: number;
+  /** Сторона выталкивания разрезанных существ; нет — сторона кастера (авто). */
+  pushSide?: WallPushSide;
 }
 
 /** Режим выбора цели на каждый луч/снаряд (Scorching Ray, Eldritch Blast, Magic Missile). */
@@ -167,6 +175,8 @@ export interface SpellCastPayload {
   placements?: { targetId: string; x: number; y: number }[];
   /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
   passengerId?: string;
+  /** Тонкая стена цепочкой панелей: узлы пути (панель между соседними). */
+  path?: Point[];
 }
 
 /** Команда, которую стор исполняет после перехода машины. */
@@ -222,11 +232,23 @@ export function aimToCursor(
   interaction: Interaction | null,
   cursor: Point,
   caster: Token | null,
-  gridSize: number
+  gridSize: number,
+  gridOffset: Point = { x: 0, y: 0 }
 ): Interaction | null {
   if (interaction?.mode !== 'aim' || !caster) return interaction;
   const aim = interaction.aim;
   const directional = aim.spec.shape === 'cone' || aim.spec.shape === 'line';
+  // Точка с клампом по дистанции накладывания от якоря.
+  const clampToRange = (point: Point): Point => {
+    if (aim.rangeFeet === null) return point;
+    const anchor = aim.anchor ?? { x: caster.x, y: caster.y };
+    const dx = point.x - anchor.x;
+    const dy = point.y - anchor.y;
+    const dist = Math.hypot(dx, dy);
+    const maxPx = (aim.rangeFeet / 5) * gridSize;
+    if (dist <= maxPx || dist === 0) return point;
+    return { x: anchor.x + (dx / dist) * maxPx, y: anchor.y + (dy / dist) * maxPx };
+  };
   if (aim.originKind === 'self') {
     if (!directional) return { mode: 'aim', aim: { ...aim, direction: null } };
     // Конус/линия: направление от вершины к курсору; вплотную к вершине угол
@@ -235,19 +257,21 @@ export function aimToCursor(
     if (Math.hypot(cursor.x - origin.x, cursor.y - origin.y) < gridSize) return { mode: 'aim', aim };
     return { mode: 'aim', aim: { ...aim, direction: cursor } };
   }
-  // Линия от точки (Wall of Thorns): ось стены задаёт вариант каста.
-  let origin = cursor;
-  if (aim.rangeFeet !== null) {
-    const anchor = aim.anchor ?? { x: caster.x, y: caster.y };
-    const dx = cursor.x - anchor.x;
-    const dy = cursor.y - anchor.y;
-    const dist = Math.hypot(dx, dy);
-    const maxPx = (aim.rangeFeet / 5) * gridSize;
-    if (dist > maxPx && dist > 0) {
-      origin = { x: anchor.x + (dx / dist) * maxPx, y: anchor.y + (dy / dist) * maxPx };
+  // Цепочка панелей тонкой стены: первый клик фиксирует узел-якорь, дальше узел за курсором.
+  if (aim.chain) {
+    const last = aim.wallPath?.length ? aim.wallPath[aim.wallPath.length - 1]! : null;
+    if (!last) {
+      const anchor = snapWallAnchor(clampToRange(cursor), gridSize, gridOffset);
+      return { mode: 'aim', aim: { ...aim, origin: anchor, direction: null } };
     }
+    const joint = snapWallJoint(last, cursor, gridSize);
+    const nearest = nearestPointOnSegment(caster, last, joint);
+    const panelFeet = (Math.hypot(caster.x - nearest.x, caster.y - nearest.y) / gridSize) * 5;
+    const blocked = aim.rangeFeet !== null && panelFeet > aim.rangeFeet + 1e-6;
+    return { mode: 'aim', aim: { ...aim, direction: joint, blocked } };
   }
-  // Линия/конус от точки: направление-заготовка от варианта (стена), иначе — как раньше.
+  // Линия от точки (Wall of Thorns): ось стены задаёт вариант каста.
+  const origin = clampToRange(cursor);
   const fixed = directional && aim.spellKey ? spellCastDirection(aim.spellKey, aim.variant, origin) : null;
   return { mode: 'aim', aim: { ...aim, origin, direction: directional ? fixed : origin } };
 }

@@ -76,7 +76,7 @@ function feet(a: AreaPoint, b: AreaPoint, grid: AreaGrid, metric: DistanceMetric
 }
 
 /** Единичное направление от центра к `direction` (null, если направление не задано). */
-function directionUnit(direction: AreaPoint | null, center: AreaPoint): AreaPoint | null {
+export function directionUnit(direction: AreaPoint | null, center: AreaPoint): AreaPoint | null {
   if (!direction || (direction.x === center.x && direction.y === center.y)) return null;
   const dx = direction.x - center.x;
   const dy = direction.y - center.y;
@@ -147,6 +147,29 @@ export function areaContainsPoint(
   const originCell = pointCell(origin, grid);
   const center = cellCenter(originCell.cx, originCell.cy, grid);
   return pointInShape(spec, center, directionUnit(direction, center), point, grid, metric);
+}
+
+/** Клетки подошвы токена для клетки-якоря (чётные размеры — от пересечения, нечётные — от центра). */
+export function footprintCells(cx: number, cy: number, cells: number): string[] {
+  const lo = Math.floor(cells / 2);
+  const hi = cells % 2 === 0 ? cells / 2 - 1 : lo;
+  const keys: string[] = [];
+  for (let x = cx - lo; x <= cx + hi; x++) {
+    for (let y = cy - lo; y <= cy + hi; y++) keys.push(areaCellKey(x, y));
+  }
+  return keys;
+}
+
+/** Пересекается ли подошва токена (якорь `cx,cy`, размер `cells`) с множеством клеток. */
+export function footprintHits(cx: number, cy: number, cells: number, set: Set<string>): boolean {
+  const lo = Math.floor(cells / 2);
+  const hi = cells % 2 === 0 ? cells / 2 - 1 : lo;
+  for (let x = cx - lo; x <= cx + hi; x++) {
+    for (let y = cy - lo; y <= cy + hi; y++) {
+      if (set.has(areaCellKey(x, y))) return true;
+    }
+  }
+  return false;
 }
 
 /**

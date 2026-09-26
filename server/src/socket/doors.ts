@@ -1,4 +1,4 @@
-import { abilityMod, combineRollMode, d20Check, d20Expr, rollDice, segmentRectDistance, SKILLS, withAdvantage, withRollParts, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
+import { abilityMod, combineRollMode, d20Check, d20Expr, rollDice, segmentRectDistance, SKILLS, tokenRect, withAdvantage, withRollParts, type DiceRollResult, type SystemText, type Token, type Wall } from 'shared';
 import { gridSizeOfMap, sheetOfToken } from '../rooms';
 import { checkPartsForToken } from '../room/effects';
 import type { Room } from '../roomTypes';
@@ -9,11 +9,6 @@ import { maybeRollAnim } from './rollAnim';
 
 /** Дистанция взаимодействия с дверью: 5 фт = сторона клетки. */
 const DOOR_REACH_CELLS = 1;
-
-/** Подошва токена в мировых координатах (anchor — центр фигуры). */
-function tokenRect(token: Pick<Token, 'x' | 'y' | 'w' | 'h'>) {
-  return { x: token.x - token.w / 2, y: token.y - token.h / 2, w: token.w, h: token.h };
-}
 
 /** Токен дотягивается до двери от края подошвы (в пределах одной клетки). */
 export function inDoorReach(

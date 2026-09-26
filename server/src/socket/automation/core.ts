@@ -18,6 +18,7 @@ import {
   type LibraryItem,
   type SpellStats,
   type Token,
+  type WallPushSide,
 } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { ConnCtx } from '../context';
@@ -49,6 +50,10 @@ export interface AutomationInput {
   /** Точка привязки/направление каста — для создания зон (`def.zone`). */
   origin?: { x: number; y: number } | null;
   direction?: { x: number; y: number } | null;
+  /** Тонкая стена цепочкой панелей (Wall of Ice): узлы пути. */
+  path?: { x: number; y: number }[] | null;
+  /** Тонкая стена: сторона выталкивания разрезанных существ ('a'/'b'; нет — сторона кастера). */
+  pushSide?: WallPushSide | null;
   /** Область применения, если её нет в `def` (заклинания: `spell.areaSpec`). */
   area?: AreaSpec | null;
   /** Выбранная форма призыва (Find Familiar): ключ каталога бестиария. */

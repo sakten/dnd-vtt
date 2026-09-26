@@ -1083,7 +1083,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // геометрии, Glyph — спасом без триггера. Лочим до реализации
   // механик (TODO_SPELLS B4/C/F/G), чтобы «зелёный» не врал.
   // Реализованы билдерами: Dimension Door/Thunder Step, Healing Spirit/Cordon of Arrows/
-  // Storm Sphere, Wall of Thorns/Wall of Fire/Blade Barrier/Wall of Sand.
+  // Storm Sphere, Wall of Thorns/Wall of Fire/Blade Barrier/Wall of Sand/Wall of Ice.
   "XGE:Tenser's Transformation": manualSpell("XGE:Tenser's Transformation", "Tenser's Transformation", true),
   'XGE:Investiture of Flame': manualSpell('XGE:Investiture of Flame', 'Investiture of Flame', true),
   'XGE:Investiture of Ice': manualSpell('XGE:Investiture of Ice', 'Investiture of Ice', true),
@@ -1093,8 +1093,10 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Enlarge/Reduce': manualSpell('XPHB:Enlarge/Reduce', 'Enlarge/Reduce', true),
   'XPHB:Conjure Elemental': manualSpell('XPHB:Conjure Elemental', 'Conjure Elemental', true),
   'XPHB:Conjure Fey': manualSpell('XPHB:Conjure Fey', 'Conjure Fey', true),
-  'XPHB:Wall of Ice': manualSpell('XPHB:Wall of Ice', 'Wall of Ice', true),
   'XGE:Wall of Light': manualSpell('XGE:Wall of Light', 'Wall of Light', true),
+  // Wind Wall: стена 50×15 без геометрии и блокировок (туман/дым, стрелы, мелкие
+  // летуны, газообразные) — generic-спас 4к8 по одной цели врал; лочим до реализации.
+  'XPHB:Wind Wall': manualSpell('XPHB:Wind Wall', 'Wind Wall', true),
   'XPHB:Glyph of Warding': manualSpell('XPHB:Glyph of Warding', 'Glyph of Warding'),
   // Решение владельца (сессия 14): очарование — ручная механика, каст вешает только
   // плашку «Очарован»; поведение/перемещение ведёт мастер, красный маркер не рисуется.

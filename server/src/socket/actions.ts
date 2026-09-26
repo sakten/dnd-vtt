@@ -22,6 +22,7 @@
   loadoutOf,
   masteryAccessible,
   monsterStats,
+  parseZoneTargetId,
   pointCell,
   restrictionsFor,
   rightGrip,
@@ -29,6 +30,7 @@
   savedAgainst,
   slotSpendable,
   tokenVisibleFrom,
+  wallsWithZones,
   unarmedStrikeEntry as computedUnarmedStrike,
   weaponAttackEntry,
   weaponByKey,
@@ -56,6 +58,7 @@ import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedT
 import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone } from './zones';
+import { resolveZoneSectionAttack } from './zoneAttacks';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
 import { resolveSpellCastWithReactions, resolveWeaponAttackWithReactions } from './reactions';
@@ -184,7 +187,7 @@ function retargetMark(
     fail(ctx, 'outOfRange', { feet: Math.round(feet) });
     return;
   }
-  if (map && !tokenVisibleFrom(token, newTarget, map.walls, grid)) {
+  if (map && !tokenVisibleFrom(token, newTarget, wallsWithZones(map.walls, map.zones, grid), grid)) {
     fail(ctx, 'noClearPath');
     return;
   }
@@ -371,7 +374,7 @@ function useZoneAction(
     fail(ctx, 'outOfRange', { feet: Math.round(feet) });
     return;
   }
-  if (map && crossesWalls(caster, origin, map.walls, 'sight')) {
+  if (map && crossesWalls(caster, origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) {
     fail(ctx, 'noClearPath');
     return;
   }
@@ -693,7 +696,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
             return;
           }
           // Чистый путь до точки области (стена/закрытая дверь блокируют).
-          if (map && crossesWalls(token, anchoredOrigin, map.walls, 'sight')) {
+          if (map && crossesWalls(token, anchoredOrigin, wallsWithZones(map.walls, map.zones, grid), 'sight')) {
             fail(ctx, 'noClearPath');
             return;
           }
@@ -707,7 +710,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
               fail(ctx, 'outOfRange', { feet: Math.round(feet) });
               return;
             }
-            if (map && !tokenVisibleFrom(token, found, map.walls, grid)) {
+            if (map && !tokenVisibleFrom(token, found, wallsWithZones(map.walls, map.zones, grid), grid)) {
               fail(ctx, 'noClearPath');
               return;
             }
@@ -838,6 +841,41 @@ export function registerActionHandlers(ctx: ConnCtx) {
           }
         }
 
+        // Списание обычной атаки (не Cleave/offhand) в момент броска; ошибки до броска ресурс не тратят.
+        const spendPlainAttack = () => {
+          if (!manager.canAttack(room, mapId, token, { unarmed })) {
+            fail(ctx, 'actionSpent');
+            return false;
+          }
+          manager.consumeAttack(room, mapId, token, {
+            unarmed,
+            loading: weaponHasProperty(attackEntry, 'LD'),
+          });
+          const turn = manager.turnStateFor(room, mapId, token);
+          if (turn) turn.lastWeaponKey = attackEntry.weaponKey;
+          syncCombat(room, mapId);
+          return true;
+        };
+
+        // Тонкая стена-зона (Wall of Ice): атака по секции `zone:<id>#<n>`.
+        const zoneRef = typeof targetIds?.[0] === 'string' ? parseZoneTargetId(targetIds[0]) : undefined;
+        if (zoneRef) {
+          if (cleave || offhand) {
+            fail(ctx, 'actionSpent');
+            return;
+          }
+          resolveZoneSectionAttack(ctx, room, {
+            attacker: token,
+            mapId,
+            attack: attackEntry,
+            ref: zoneRef,
+            author,
+            advantage,
+            beforeRoll: spendPlainAttack,
+          });
+          return;
+        }
+
         const targetId = targetIds?.[0];
         const target: Token | null = typeof targetId === 'string' ? manager.findToken(room, mapId, targetId) ?? null : null;
         const result = resolveWeaponAttackWithReactions(
@@ -888,20 +926,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
                 syncCombat(room, mapId);
                 return true;
               }
-              if (!manager.canAttack(room, mapId, token, { unarmed })) {
-                fail(ctx, 'actionSpent');
-                return false;
-              }
-              manager.consumeAttack(room, mapId, token, {
-                unarmed,
-                loading: weaponHasProperty(attackEntry, 'LD'),
-              });
-              {
-                const turn = manager.turnStateFor(room, mapId, token);
-                if (turn) turn.lastWeaponKey = attackEntry.weaponKey;
-              }
-              syncCombat(room, mapId);
-              return true;
+              return spendPlainAttack();
             },
             // Shadow Blade: метание — клинок исчезает из руки (возврат бонусным действием).
             afterCommit: () => markShadowBladeThrown(ctx, room, mapId, token, attackEntry),

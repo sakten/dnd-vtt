@@ -7,6 +7,8 @@ interface Props {
   movementCells: CellRect[];
   aim: { origin: WorldPoint | null; blocked?: boolean; summon?: boolean } | null;
   aimCells: CellRect[];
+  /** Тонкая стена (Wall of Ice): предпросмотр плиты по границам клеток. */
+  wallSegments?: { a: WorldPoint; b: WorldPoint }[];
   /** Радиус досягаемости действия зоны (якорь + лимит): подсказка при прицеле. */
   rangeCircle?: { x: number; y: number; radius: number } | null;
   multiTargetTokens: Pick<Token, 'id' | 'x' | 'y' | 'w' | 'h'>[];
@@ -20,7 +22,7 @@ interface Props {
 }
 
 /** Подсветка движения, прицеливания области и выбранных целей мультиатаки. */
-export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, multiTargetTokens, eligibleTokens = [], teleportCells = [], scatterPins = [], viewScale }: Props) {
+export default function AimLayer({ movementCells, aim, aimCells, wallSegments = [], rangeCircle, multiTargetTokens, eligibleTokens = [], teleportCells = [], scatterPins = [], viewScale }: Props) {
   return (
     <>
       {rangeCircle && (
@@ -68,6 +70,17 @@ export default function AimLayer({ movementCells, aim, aimCells, rangeCircle, mu
           height={c.size}
           fill={aim?.blocked ? '#ff6b6b' : '#ff9f43'}
           opacity={0.34}
+          listening={false}
+        />
+      ))}
+      {wallSegments.map((s, i) => (
+        <Line
+          key={`wall-${i}`}
+          points={[s.a.x, s.a.y, s.b.x, s.b.y]}
+          stroke={aim?.blocked ? '#ff6b6b' : '#ff9f43'}
+          strokeWidth={Math.max(4, 14 / viewScale)}
+          opacity={0.5}
+          lineCap="round"
           listening={false}
         />
       ))}

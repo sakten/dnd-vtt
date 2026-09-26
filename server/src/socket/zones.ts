@@ -1,18 +1,27 @@
 import { randomUUID } from 'node:crypto';
 import {
   areaCells,
+  createZoneSections,
+  damageZoneSection,
   gridOfMap,
   isBanished,
   rollDice,
   saveNoDamage,
+  tokensCrossingSegments,
   tokensInArea,
+  wallPushPlan,
+  wallsWithZones,
+  zoneSheetCrossings,
   zoneVisionKind,
+  zoneWallSectionCount,
+  zoneWallSegments,
   type AutomationDef,
   type AutomationPayload,
   type EffectInstance,
   type MapInfo,
   type SpellStats,
   type Token,
+  type WallPushSide,
   type ZoneInstance,
 } from 'shared';
 import type { Room } from '../roomTypes';
@@ -23,6 +32,7 @@ import { pushSaveMessage } from './messages';
 import { applyEffectTo, removeZoneEffects } from './effectsApply';
 import { findSpell } from '../spells';
 import { actorStats, creatureTypeOf } from '../room/actor';
+import { syncSurrounded } from './surrounded';
 
 /**
  * Зоны на карте (R8.1, движок областей): создание при касте, аура внутри,
@@ -314,6 +324,8 @@ export interface CreateZoneInput {
   stats: SpellStats | null;
   origin: { x: number; y: number };
   direction?: { x: number; y: number } | null;
+  /** Тонкая стена цепочкой панелей (Wall of Ice): узлы пути. */
+  path?: { x: number; y: number }[] | null;
 }
 
 export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneInstance | null {
@@ -357,6 +369,19 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     flags: zoneDef.flags,
     occupants: [],
   };
+  // Тонкая стена (Wall of Ice): секции с HP по геометрии (цепочка панелей, длина/дуга).
+  if (zoneDef.wall) {
+    zone.wall = zoneDef.wall;
+    const grid = gridOfMap(map, room.scene.grid);
+    zone.wallPath = input.path && input.path.length >= 2 ? input.path.map((p) => ({ x: p.x, y: p.y })) : undefined;
+    const count = zone.wallPath
+      ? zone.wallPath.length - 1
+      : zoneWallSectionCount(
+          { area: zone.area, origin: zone.origin, direction: zone.direction ?? null, wall: zoneDef.wall },
+          grid
+        );
+    zone.sections = createZoneSections(zoneDef.wall, count);
+  }
   map.zones.push(zone);
   // Появившиеся внутри сразу получают ауру (HoH: «полностью внутри — ослеплён»).
   syncZone(ctx, room, input.mapId, zone, { aura: true, enterExit: false });
@@ -462,8 +487,33 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
   if (movedAny) resolveLightDispels(ctx, room, mapId);
 }
 
-/** После перемещения: аура и триггеры enter/exit для зон. */
-export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): void {
+/** Шаг перемещения токена (мировые точки до/после) для триггеров прохода сквозь листы. */
+export interface MovedStep {
+  token: Token;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+}
+
+/** Проход сквозь пробитую секцию стены: payload `breach` («лист холода»), раз за ход на секцию. */
+function applySheetCrossings(ctx: ConnCtx, room: Room, mapId: string, moved: MovedStep): void {
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map?.zones?.length) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const key = turnKey(map);
+  for (const zone of map.zones) {
+    if (!zone.wall?.breach) continue;
+    const crossed = zoneSheetCrossings(zone, moved.token, moved.from, moved.to, grid);
+    for (const section of crossed) {
+      const guard = `${section}:${moved.token.id}`;
+      if (key !== null && zone.sheetsThisTurn?.[guard] === key) continue;
+      if (key !== null) zone.sheetsThisTurn = { ...(zone.sheetsThisTurn ?? {}), [guard]: key };
+      applyZonePayload(ctx, room, mapId, zone, zone.wall.breach, [moved.token]);
+    }
+  }
+}
+
+/** После перемещения: аура и триггеры enter/exit для зон; `moved` — проход сквозь листы стен. */
+export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string, moved?: MovedStep): void {
   const map = ctx.manager.findMap(room, mapId);
   if (!map?.zones?.length) return;
   let changed = false;
@@ -484,8 +534,74 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string): vo
     if (!map.zones.some((z) => z.id === zone.id)) changed = true;
   }
   if (changed) ctx.broadcastZones(room, mapId);
+  if (moved) applySheetCrossings(ctx, room, mapId, moved);
   // Токен со светом мог войти в тьму (или зона-аура сдвинулась за источником).
   resolveLightDispels(ctx, room, mapId);
+}
+
+/** Выталкивание разрезанных стеной существ при её появлении (сторона — `side`, иначе кастер). */
+export function applyWallPush(
+  ctx: ConnCtx,
+  room: Room,
+  caster: Token,
+  mapId: string,
+  zoneDef: NonNullable<AutomationDef['zone']>,
+  opts: {
+    path?: { x: number; y: number }[] | null;
+    origin?: { x: number; y: number } | null;
+    direction?: { x: number; y: number } | null;
+    side?: WallPushSide;
+  }
+): void {
+  if (!zoneDef.wall) return;
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map) return;
+  const grid = gridOfMap(map, room.scene.grid);
+  const segments = zoneWallSegments(
+    {
+      area: zoneDef.area,
+      origin: opts.path?.[0] ?? opts.origin ?? { x: caster.x, y: caster.y },
+      direction: opts.direction ?? null,
+      wallPath: opts.path ?? undefined,
+    },
+    grid
+  );
+  if (!segments.length) return;
+  const tokens = map.tokens.filter((t) => !isBanished(t));
+  const cut = tokensCrossingSegments(tokens, segments);
+  if (!cut.length) return;
+  // Карта без размеров (тестовые/пустые) — границ нет.
+  const bounds =
+    map.width > 0 && map.height > 0
+      ? { cols: Math.ceil(map.width / grid.size), rows: Math.ceil(map.height / grid.size) }
+      : null;
+  const walls = wallsWithZones(map.walls, map.zones, grid);
+  const moves = wallPushPlan({ segments, tokens, cut, grid, bounds, walls, side: opts.side, caster });
+  for (const move of moves) {
+    const token = map.tokens.find((t) => t.id === move.tokenId);
+    if (!token) continue;
+    const from = { x: token.x, y: token.y };
+    token.x = move.x;
+    token.y = move.y;
+    ctx.emitToken(room, 'token:update', mapId, token);
+    handleMovementZones(ctx, room, mapId, { token, from, to: { x: move.x, y: move.y } });
+    syncSurrounded(ctx, room, mapId);
+  }
+}
+
+/** Урон по секции стены (атака): HP секции, пробой — на сервере; рассылает зоны. */
+export function hitZoneSection(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  zone: ZoneInstance,
+  section: number,
+  parts: { damageType?: string; amount: number }[],
+  mainType?: string
+): ReturnType<typeof damageZoneSection> {
+  const result = damageZoneSection(zone, section, parts, mainType);
+  if (result) ctx.broadcastZones(room, mapId);
+  return result;
 }
 
 /** Перемещает зону-точку: новый центр, пересчёт ауры и триггеров входа/выхода. */

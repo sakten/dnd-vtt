@@ -93,7 +93,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       token.y = y;
       emitToken(room, 'token:update', mapId, token);
       // Перетаскивание (в т.ч. в чужой ход): аура и enter/exit зон тоже срабатывают.
-      handleMovementZones(ctx, room, mapId);
+      handleMovementZones(ctx, room, mapId, { token, from: { x: fromX, y: fromY }, to: { x, y } });
       handleWillingMoveEffects(ctx, room, mapId, token, fromX, fromY);
       syncSurrounded(ctx, room, mapId);
     });
@@ -122,7 +122,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       token.x = x;
       token.y = y;
       // Вход/выход зон по ходу движения; позицию фиксирует финальный token:move.
-      handleMovementZones(ctx, room, mapId);
+      handleMovementZones(ctx, room, mapId, { token, from: { x: fromX, y: fromY }, to: { x, y } });
       handleWillingMoveEffects(ctx, room, mapId, token, fromX, fromY);
       syncSurrounded(ctx, room, mapId);
     });

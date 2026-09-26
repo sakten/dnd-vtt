@@ -1,4 +1,4 @@
-﻿import { actionSlotAvailable, characterLevel, crValue, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type ErrorPayload, type MapInfo, type Token } from 'shared';
+﻿import { actionSlotAvailable, characterLevel, crValue, gridOfMap, polymorphFormIssue, rectCrossesWalls, shapeAllowsSpellcast, snapToGrid, tokenCells, wallsWithZones, wildShapeFormIssue, wildShapeLimit, wildShapeTempHp, druidLevelOf, hasMoonCircle, type BestiaryEntry, type ErrorPayload, type MapInfo, type Token } from 'shared';
 import bestiaryData from 'shared/bestiaryData';
 import type { Room } from '../roomTypes';
 import { sheetOfToken, controllerIdOfItem } from '../room/helpers';
@@ -75,7 +75,7 @@ function shapeSpotFree(map: MapInfo, token: Token, cells: number): boolean {
     w: cells * size - inset * 2,
     h: cells * size - inset * 2,
   };
-  if (rectCrossesWalls(rect, map.walls ?? [], 'move')) return false;
+  if (rectCrossesWalls(rect, wallsWithZones(map.walls ?? [], map.zones, { size, offsetX: grid.offsetX, offsetY: grid.offsetY }), 'move')) return false;
   return true;
 }
 

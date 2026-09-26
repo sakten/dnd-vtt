@@ -14,6 +14,7 @@ import {
   hostileTokens,
   isBanished,
   isSurrounded,
+  isThinWallSpell,
   lightLevelAt,
   loadoutOf,
   modifiedValue,
@@ -29,10 +30,15 @@ import {
   spreadCells,
   teleportCellsNearTargets,
   tokenCells,
+  tokensCrossingSegments,
   unseenBetween,
+  wallPushPlan,
+  wallsWithZones,
   weaponContextOf,
   weaponHasProperty,
   zoneVisionKind,
+  zoneTargetId,
+  zoneWallSegments,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
@@ -59,6 +65,7 @@ import TokenNameHint from './TokenNameHint';
 import { useSpellByKey } from '../lib/useSpells';
 import ObjectsLayer from './table/ObjectsLayer';
 import AimLayer from './table/AimLayer';
+import ZoneTargetLayer from './table/ZoneTargetLayer';
 import TokenLayer from './table/TokenLayer';
 import VeilLayer from './table/VeilLayer';
 import { buildFxMask, type FxMask } from './spellFx/mask';
@@ -157,6 +164,7 @@ export default function TableTop() {
   const isDm = useIsDm();
   const interaction = useGameStore((s) => s.interaction);
   const cancelInteraction = useGameStore((s) => s.cancelInteraction);
+  const resolveTargeting = useGameStore((s) => s.resolveTargeting);
   const hoverTokenId = useGameStore((s) => s.hoverTokenId);
   const optionalRules = useGameStore((s) => s.optionalRules);
   const fogMode = useGameStore((s) => s.fogMode);
@@ -252,6 +260,8 @@ export default function TableTop() {
 
   const aimCells = useMemo(() => {
     if (!aim || !aim.origin) return [];
+    // Тонкая стена (Wall of Ice): предпросмотр — плита по границе клеток (`aimWallSegments`), не клетки.
+    if (aim.spellKey && isThinWallSpell(aim.spellKey)) return [];
     const size = grid.size || 50;
     const g = { size, offsetX: grid.offsetX, offsetY: grid.offsetY };
     // Призыв: клетка выбирается как место токена — подсвечиваем ровно её.
@@ -281,6 +291,57 @@ export default function TableTop() {
     }
     return out;
   }, [aim, grid, activeMap, isDm, hiddenSet]);
+
+  // Предпросмотр тонкой стены: цепочка панелей или сегменты по границам клеток (совпадает с сервером).
+  const aimWallSegments = useMemo(() => {
+    if (aim?.chain) {
+      const path = aim.wallPath ?? [];
+      const segments: { a: { x: number; y: number }; b: { x: number; y: number } }[] = [];
+      for (let i = 1; i < path.length; i++) segments.push({ a: path[i - 1]!, b: path[i]! });
+      if (path.length && aim.direction) segments.push({ a: path[path.length - 1]!, b: aim.direction });
+      return segments;
+    }
+    if (!aim?.origin || !aim.spellKey || !isThinWallSpell(aim.spellKey)) return [];
+    const size = grid.size || 50;
+    return zoneWallSegments(
+      { area: aim.spec, origin: aim.origin, direction: aim.direction },
+      { size, offsetX: grid.offsetX, offsetY: grid.offsetY }
+    );
+  }, [aim, grid.size, grid.offsetX, grid.offsetY]);
+
+  // Превью выталкивания: куда уйдут существа, которых режет стена — поставленные панели
+  // и панель под курсором (клик её поставит). Рисуется поверх токенов (VeilLayer).
+  const wallPushGhosts = useMemo(() => {
+    if (!aim?.chain || !activeMap) return [];
+    const path = aim.wallPath ?? [];
+    if (!path.length) return [];
+    const size = grid.size || 50;
+    const area = { size, offsetX: grid.offsetX, offsetY: grid.offsetY };
+    const segments = zoneWallSegments({ area: aim.spec, origin: path[0]!, direction: null, wallPath: path }, area);
+    if (aim.direction) segments.push({ a: path[path.length - 1]!, b: aim.direction, section: segments.length });
+    if (!segments.length) return [];
+    const tokens = activeMap.tokens.filter((t) => !isBanished(t));
+    const cut = tokensCrossingSegments(tokens, segments);
+    if (!cut.length) return [];
+    const bounds =
+      activeMap.width > 0 && activeMap.height > 0
+        ? { cols: Math.ceil(activeMap.width / size), rows: Math.ceil(activeMap.height / size) }
+        : null;
+    const moves = wallPushPlan({
+      segments,
+      tokens,
+      cut,
+      grid: area,
+      bounds,
+      walls: wallsWithZones(activeMap.walls ?? [], activeMap.zones, area),
+      side: aim.pushSide,
+      caster: tokenById(activeMap, aim.tokenId) ?? null,
+    });
+    return moves.map((move) => {
+      const token = tokens.find((t) => t.id === move.tokenId);
+      return { x: move.x, y: move.y, w: token?.w ?? size, h: token?.h ?? size };
+    });
+  }, [aim, activeMap, grid.size, grid.offsetX, grid.offsetY]);
 
   const multiTargetTokens = useMemo(() => {
     if (!multiTarget || !activeMap) return [];
@@ -828,11 +889,21 @@ export default function TableTop() {
               subtleLabels={isDm}
             />
           </Layer>
+          {targeting && (
+            <Layer>
+              <ZoneTargetLayer
+                zones={activeMap?.zones ?? []}
+                grid={grid}
+                onPick={(zoneId, section) => resolveTargeting(zoneTargetId(zoneId, section))}
+              />
+            </Layer>
+          )}
           <Layer ref={tokenLayerRef}>
             <AimLayer
               movementCells={movementCells}
               aim={aim}
               aimCells={aimCells}
+              wallSegments={aimWallSegments}
               rangeCircle={aimRangeCircle}
               multiTargetTokens={scatter ? scatterTokens : multiTargetTokens}
               eligibleTokens={multiTarget ? eligibleTargets : targetEligible}
@@ -860,6 +931,7 @@ export default function TableTop() {
               walls={activeMap?.walls ?? []}
               measure={measure}
               attackCursor={attackCursor}
+              pushGhosts={wallPushGhosts}
               viewScale={view.scale}
             />
           </Layer>

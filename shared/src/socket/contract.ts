@@ -162,6 +162,10 @@ export interface ClientToServerEvents {
     origin?: { x: number; y: number };
     /** Направление конуса/линии (мировая точка). */
     direction?: { x: number; y: number };
+    /** Тонкая стена цепочкой панелей: узлы (панель 10 фт, 8 направлений). */
+    path?: { x: number; y: number }[];
+    /** Тонкая стена: сторона выталкивания разрезанных существ ('a'/'b'; нет — сторона кастера). */
+    pushSide?: 'a' | 'b';
     /** Выбранная форма призыва (Find Familiar): ключ каталога бестиария. */
     summonKey?: string;
     /** Вариант заклинания (Dragon's Breath: тип урона выдоха). */

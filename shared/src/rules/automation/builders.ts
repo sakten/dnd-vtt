@@ -78,6 +78,7 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Wall of Fire',
   'XPHB:Blade Barrier',
   'XGE:Wall of Sand',
+  'XPHB:Wall of Ice',
   'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
   'XPHB:False Life',
@@ -1917,6 +1918,45 @@ export function wallOfSandDef(spell: Spell, opts: AutomationOptions): Automation
       duration: CONCENTRATION,
       aura: { effects: [effect] },
       flags: { obscured: 'heavy', movementCost: 3 },
+    },
+  };
+}
+
+/**
+ * Wall of Ice (XPHB 2024): стена льда 100×1 фт или купол/сфера r10 (концентрация, 10 мин).
+ * Появление: спас DEX, 10к6 холодом (+2к6 за круг выше 6), половина при успехе.
+ * Секции по 10 фт: КЗ 12, 30 HP, иммунитеты холод/яд/психика, уязвимость к огню;
+ * пробой оставляет «лист холода» — проход сквозь секцию, спас CON 5к6 (+1к6 за круг).
+ */
+export function wallOfIceDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Wall of Ice') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, castLevel);
+  const appear = scaledDice(partDice(spell, 'main', '10d6'), '2d6', steps);
+  const sheet = scaledDice(partDice(spell, 'trigger', '5d6'), '1d6', steps);
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: `${appear}cold`, types: ['cold'] },
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      wall: {
+        sectionFeet: 10,
+        hp: 30,
+        ac: 12,
+        immunities: ['cold', 'poison', 'psychic'],
+        vulnerabilities: ['fire'],
+        breach: {
+          save: { ability: 'con', half: true },
+          damage: { dice: `${sheet}cold`, types: ['cold'] },
+        },
+      },
+      flags: { blocksMovement: true, blocksLineOfSight: true },
     },
   };
 }

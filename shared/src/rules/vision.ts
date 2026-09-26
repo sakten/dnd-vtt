@@ -5,6 +5,7 @@ import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
 import { areaCellKey, areaCellsSpread, cellCenter, cellChebyshev, pointCell, type AreaGrid } from './areas';
 import { crossesWalls, type Point } from './walls';
+import { wallsWithZones } from './zoneWalls';
 
 /** Уровень света клетки от заклинаний: яркий или сумеречный. */
 export type LightLevel = 'bright' | 'dim';
@@ -128,7 +129,8 @@ export function sightContextOf(
   grid: AreaGrid
 ): SightContext {
   return {
-    walls: map.walls,
+    // Тонкие стены-зоны (Wall of Ice) блокируют обзор непробитыми сегментами.
+    walls: wallsWithZones(map.walls ?? [], map.zones, grid),
     darkness: map.vision.darkness,
     cellSize: grid.size || 50,
     offsetX: grid.offsetX,
