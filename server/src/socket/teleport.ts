@@ -29,6 +29,7 @@ export function teleportIssue(
   if (map.width > 0 && (origin.x < 0 || origin.y < 0 || origin.x > map.width || origin.y > map.height)) {
     return { code: 'teleportNoSpace' };
   }
+  // Телепорт не режется силовым полем (обзор сквозь него свободен); обычные стены — режут.
   if (!opts.skipSight && crossesWalls(anchor, origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) return { code: 'noClearPath' };
   // Точка назначения должна быть ровно свободна (без «подбора» соседней клетки).
   const cell = pointCell(origin, grid);

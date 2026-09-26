@@ -42,6 +42,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.noAreaPoint': 'No area point selected',
   'error.noClearPath': 'No clear path to the target: a wall or door blocks it',
   'error.wallPathBad': 'The wall must be a continuous chain of sections within range',
+  'error.wallImmune': '{name}: the wall is immune to damage',
   'error.outOfRange': 'Out of range: {feet} ft',
   'error.noSlot': 'No spell slot of the required level',
   'error.noResource': 'Not enough resource: {name}',

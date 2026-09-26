@@ -142,7 +142,8 @@ export function zoneWallSectionCount(zone: ZoneWallSource, grid: AreaGrid): numb
 
 /** Начальное состояние секций стены. */
 export function createZoneSections(wall: ZoneWallDef, count: number): ZoneSection[] {
-  return Array.from({ length: count }, () => ({ hp: wall.hp, maxHp: wall.hp }));
+  const hp = wall.hp ?? 0;
+  return Array.from({ length: count }, () => ({ hp, maxHp: hp }));
 }
 
 /** Защиты секции стены (иммунитеты/сопротивления/уязвимости) в формате урона. */
@@ -160,24 +161,32 @@ export function zoneWallDefenses(wall: ZoneWallDef): DamageDefense[] {
   return list;
 }
 
-function segmentWalls(zoneId: string, segments: ZoneWallSegment[]): Wall[] {
+function segmentWalls(
+  zoneId: string,
+  segments: ZoneWallSegment[],
+  kind: Wall['kind'] = 'wall',
+  blocksActions = false
+): Wall[] {
   return segments.map((segment, i) => ({
     id: `zw:${zoneId}:${i}`,
     x1: segment.a.x,
     y1: segment.a.y,
     x2: segment.b.x,
     y2: segment.b.y,
-    kind: 'wall' as const,
+    kind,
+    ...(blocksActions ? { blocksActions: true } : {}),
   }));
 }
 
-/** Препятствия-сегменты непробитых секций всех стен-зон. */
+/** Препятствия-сегменты непробитых секций всех стен-зон (прозрачные — `window`). */
 export function zoneWallObstacles(zones: ZoneInstance[] | undefined, grid: AreaGrid): Wall[] {
   const walls: Wall[] = [];
   for (const zone of zones ?? []) {
     if (!zone.wall) continue;
     const intact = zoneWallSegments(zone, grid).filter((s) => !zone.sections?.[s.section]?.broken);
-    walls.push(...segmentWalls(zone.id, intact));
+    // Wall of Force прозрачна: движение и действия блокирует, обзор сквозь неё проходит.
+    const seeThrough = zone.wall.blocksLineOfSight === false;
+    walls.push(...segmentWalls(zone.id, intact, seeThrough ? 'window' : 'wall', seeThrough));
   }
   return walls;
 }

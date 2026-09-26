@@ -25,6 +25,19 @@ interface CellRect {
 /** `full` — заливка и разметка, `fills` — только заливка, `markings` — только штриховка и имя. */
 export type ZoneLayerMode = 'full' | 'fills' | 'markings';
 
+/** Цвета плит тонких стен по заклинанию: лёд / камень / силовое поле. */
+const WALL_COLORS: Record<string, { edge: string; core: string; dash?: number[]; opacity?: number }> = {
+  'XPHB:Wall of Ice': { edge: '#4f9fc4', core: '#d9f2fb' },
+  'XPHB:Wall of Stone': { edge: '#6f6353', core: '#cfc6b4' },
+  'XPHB:Wall of Force': {
+    edge: 'rgba(150, 170, 255, 0.8)',
+    core: 'rgba(228, 234, 255, 0.6)',
+    dash: [10, 7],
+    opacity: 0.75,
+  },
+};
+const WALL_ICE = WALL_COLORS['XPHB:Wall of Ice']!;
+
 /**
  * Заштрихованная заливка клеток зоны: диагональные штрихи поверх лёгкой заливки —
  * визуально не путается с ровной подсветкой доступного движения.
@@ -176,25 +189,40 @@ export default function ZoneLayer({
           if (!shown.length) return null;
           const sections = [...new Set(shown.map((s) => s.section))];
           const thickness = Math.max(4, grid.size * 0.28);
-          const first = shown[0]!;
+          const colors = WALL_COLORS[zone.sourceKey] ?? WALL_ICE;
+          // Пробитая панель без «листа» (камень) исчезает — остаётся дыра.
+          const drawn = shown.filter((s) => {
+            const state = zone.sections?.[s.section];
+            return !state?.broken || !!zone.wall?.breach;
+          });
+          if (!drawn.length) return null;
+          const first = drawn[0]!;
           const nameAt = { x: (first.a.x + first.b.x) / 2, y: (first.a.y + first.b.y) / 2 };
           return (
             <Group key={zone.id} listening={false}>
-              {shown.map((s, i) => {
+              {drawn.map((s, i) => {
                 const broken = !!zone.sections?.[s.section]?.broken;
                 const points = [s.a.x, s.a.y, s.b.x, s.b.y];
+                const opacity = broken ? 0.4 : colors.opacity ?? 0.95;
                 return (
                   <Group key={`${s.section}:${i}`}>
                     <Line
                       points={points}
-                      stroke={broken ? '#d9f2fb' : '#4f9fc4'}
+                      stroke={broken ? '#d9f2fb' : colors.edge}
                       strokeWidth={broken ? Math.max(3, thickness * 0.45) : thickness}
                       lineCap="round"
-                      opacity={broken ? 0.4 : 0.95}
-                      dash={broken ? [8, 6] : undefined}
+                      opacity={opacity}
+                      dash={broken ? [8, 6] : colors.dash}
                     />
                     {!broken && (
-                      <Line points={points} stroke="#d9f2fb" strokeWidth={thickness * 0.5} lineCap="round" opacity={0.95} />
+                      <Line
+                        points={points}
+                        stroke={colors.core}
+                        strokeWidth={thickness * 0.5}
+                        lineCap="round"
+                        opacity={colors.opacity ?? 0.95}
+                        dash={colors.dash}
+                      />
                     )}
                   </Group>
                 );

@@ -369,18 +369,21 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     flags: zoneDef.flags,
     occupants: [],
   };
-  // Тонкая стена (Wall of Ice): секции с HP по геометрии (цепочка панелей, длина/дуга).
+  // Тонкая стена (Wall of Ice/Stone/Force): секции с HP по геометрии (цепочка панелей, длина/дуга).
   if (zoneDef.wall) {
     zone.wall = zoneDef.wall;
     const grid = gridOfMap(map, room.scene.grid);
     zone.wallPath = input.path && input.path.length >= 2 ? input.path.map((p) => ({ x: p.x, y: p.y })) : undefined;
-    const count = zone.wallPath
-      ? zone.wallPath.length - 1
-      : zoneWallSectionCount(
-          { area: zone.area, origin: zone.origin, direction: zone.direction ?? null, wall: zoneDef.wall },
-          grid
-        );
-    zone.sections = createZoneSections(zoneDef.wall, count);
+    // Неуязвимая стена (Wall of Force) секций не имеет.
+    if (!zoneDef.wall.immune) {
+      const count = zone.wallPath
+        ? zone.wallPath.length - 1
+        : zoneWallSectionCount(
+            { area: zone.area, origin: zone.origin, direction: zone.direction ?? null, wall: zoneDef.wall },
+            grid
+          );
+      zone.sections = createZoneSections(zoneDef.wall, count);
+    }
   }
   map.zones.push(zone);
   // Появившиеся внутри сразу получают ауру (HoH: «полностью внутри — ослеплён»).

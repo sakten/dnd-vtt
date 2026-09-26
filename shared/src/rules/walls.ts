@@ -42,14 +42,20 @@ export function segmentsIntersect(p1: Point, p2: Point, q1: Point, q2: Point): b
   return false;
 }
 
-/** Режим проверки: `sight` — обзор, `move` — проход. */
-export type WallCheckMode = 'sight' | 'move';
+/** Режим проверки: `sight` — обзор, `move` — проход, `action` — каст/атаки/телепорт. */
+export type WallCheckMode = 'sight' | 'move' | 'action';
 
-/** Блокирует ли стена проход/обзор в данном режиме (закрытая дверь — да, открытая — нет). */
+/**
+ * Блокирует ли стена проход/обзор/действия в данном режиме.
+ * Окна свободны для обзора и действий; силовое поле (`blocksActions`) —
+ * прозрачно, но режет каст/атаки/телепорт как обычная стена.
+ */
 function blocks(w: Wall, mode: WallCheckMode): boolean {
   if (w.kind === 'wall') return true;
   if (w.kind === 'door') return !w.open;
-  return mode === 'move';
+  if (mode === 'move') return true;
+  if (mode === 'action') return w.blocksActions === true;
+  return false;
 }
 
 /** Пересекает ли отрезок a→b хотя бы одну блокирующую стену (по умолчанию — для обзора). */

@@ -332,14 +332,18 @@ export interface AutomationPayload {
 export interface ZoneWallDef {
   /** Длина секции вдоль геометрии (футы; RAW — 10). */
   sectionFeet: number;
-  /** HP секции (RAW — 30 на 10-футовую секцию). */
-  hp: number;
-  ac: number;
+  /** HP секции (нет — стена неуязвима, Wall of Force). */
+  hp?: number;
+  ac?: number;
   immunities?: string[];
   resistances?: string[];
   vulnerabilities?: string[];
   /** Урон/эффект прохода сквозь пробитую секцию («лист холода»). */
   breach?: AutomationPayload;
+  /** Полный иммунитет к урону (Wall of Force): секции не создаются, атаки отклоняются. */
+  immune?: boolean;
+  /** Блокирует обзор; `false` — прозрачная стена (Wall of Force). */
+  blocksLineOfSight?: boolean;
 }
 
 /** Состояние секции стены (индекс — вдоль геометрии: длина/дуга). */

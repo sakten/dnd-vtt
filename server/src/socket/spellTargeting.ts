@@ -126,7 +126,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         return undefined;
       }
       // 5e: до точки накладывания нужен чистый путь (закрытая дверь/стена блокируют).
-      if (map && crossesWalls(caster, originPt, wallsWithZones(map.walls, map.zones, grid), 'sight')) {
+      if (map && crossesWalls(caster, originPt, wallsWithZones(map.walls, map.zones, grid), 'action')) {
         fail(ctx, 'noClearPath');
         return undefined;
       }

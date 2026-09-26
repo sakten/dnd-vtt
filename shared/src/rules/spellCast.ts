@@ -249,6 +249,10 @@ const WALL_DIMS: Record<string, WallDims> = {
   'XGE:Wall of Sand': { length: 30, width: 10, outerRadius: 0, innerRadius: 0 },
   // Wall of Ice: десять панелей 10×10 фт (100×1), купол/сфера r10; секции с HP.
   'XPHB:Wall of Ice': { length: 100, width: 1, outerRadius: 10, innerRadius: 9, thin: true, panelFeet: 10 },
+  // Wall of Force: панели 10×10 (1/4 дюйма), купол/сфера r10; прозрачна, неуязвима.
+  'XPHB:Wall of Force': { length: 100, width: 0.25, outerRadius: 10, innerRadius: 9, thin: true, panelFeet: 10 },
+  // Wall of Stone: панели 10×10 (6 дюймов); секции с HP, без купола.
+  'XPHB:Wall of Stone': { length: 100, width: 0.5, outerRadius: 0, innerRadius: 0, thin: true, panelFeet: 10 },
 };
 
 /** Заклинание-стена (геометрия `wallArea`, варианты vertical/horizontal/ring). */

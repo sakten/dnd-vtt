@@ -47,8 +47,17 @@ export function resolveZoneSectionAttack(ctx: ConnCtx, room: Room, input: ZoneSe
   const { manager } = ctx;
   const map = manager.findMap(room, input.mapId);
   const zone: ZoneInstance | undefined = map?.zones?.find((z) => z.id === input.ref.zoneId);
-  const section = zone?.sections?.[input.ref.section];
-  if (!map || !zone?.wall || !section || section.broken) {
+  if (!map || !zone?.wall) {
+    fail(ctx, 'spellNoTarget');
+    return;
+  }
+  // Wall of Force: иммунитет ко всему урону (секций нет).
+  if (zone.wall.immune) {
+    fail(ctx, 'wallImmune', { name: zone.name });
+    return;
+  }
+  const section = zone.sections?.[input.ref.section];
+  if (!section || section.broken) {
     fail(ctx, 'spellNoTarget');
     return;
   }
@@ -100,7 +109,7 @@ export function resolveZoneSectionAttack(ctx: ConnCtx, room: Room, input: ZoneSe
       distanceFeet,
       ...(range.disadvantage ? { disadvantage: true, disadvantageCode: range.disadvantageCode } : {}),
     },
-    targetAcOverride: zone.wall.ac,
+    targetAcOverride: zone.wall.ac ?? 0,
   });
   if (error) {
     ctx.socket.emit('chat:error', error);

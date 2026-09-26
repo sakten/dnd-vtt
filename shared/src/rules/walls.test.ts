@@ -74,6 +74,15 @@ describe('crossesWalls', () => {
     const window = { ...wallAlongEdge, kind: 'window' as const };
     expect(crossesWalls(P(-25, 0), P(25, 0), [window], 'sight')).toBe(false);
     expect(crossesWalls(P(-25, 0), P(25, 0), [window], 'move')).toBe(true);
+    // Действия (каст/атаки/телепорт) сквозь окно проходят.
+    expect(crossesWalls(P(-25, 0), P(25, 0), [window], 'action')).toBe(false);
+  });
+
+  it('силовое поле: прозрачно для обзора, блокирует проход и действия', () => {
+    const force = { ...wallAlongEdge, kind: 'window' as const, blocksActions: true };
+    expect(crossesWalls(P(-25, 0), P(25, 0), [force], 'sight')).toBe(false);
+    expect(crossesWalls(P(-25, 0), P(25, 0), [force], 'move')).toBe(true);
+    expect(crossesWalls(P(-25, 0), P(25, 0), [force], 'action')).toBe(true);
   });
 });
 

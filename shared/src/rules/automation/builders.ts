@@ -79,6 +79,8 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Blade Barrier',
   'XGE:Wall of Sand',
   'XPHB:Wall of Ice',
+  'XPHB:Wall of Force',
+  'XPHB:Wall of Stone',
   'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
   'XPHB:False Life',
@@ -1955,6 +1957,57 @@ export function wallOfIceDef(spell: Spell, opts: AutomationOptions): AutomationD
           save: { ability: 'con', half: true },
           damage: { dice: `${sheet}cold`, types: ['cold'] },
         },
+      },
+      flags: { blocksMovement: true, blocksLineOfSight: true },
+    },
+  };
+}
+
+/**
+ * Wall of Force (XPHB 2024): невидимая стена 1/4 дюйма — цепочка панелей 10×10
+ * или купол/сфера r10 (концентрация, 10 мин). Ничего не проходит физически,
+ * обзор сквозь неё свободен, урона нет: неуязвима (секции не создаются),
+ * разрезанных при появлении выталкивает.
+ */
+export function wallOfForceDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Wall of Force') return undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      wall: { sectionFeet: 10, immune: true, blocksLineOfSight: false },
+      flags: { blocksMovement: true },
+    },
+  };
+}
+
+/**
+ * Wall of Stone (XPHB 2024): каменная стена 6 дюймов — цепочка панелей 10×10
+ * (концентрация, 10 мин; постоянство за полную длительность пока не отслеживаем).
+ * Секции: КЗ 15, 30 HP за дюйм → 180 HP, иммунитет яд/психика; пробой — дыра.
+ */
+export function wallOfStoneDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Wall of Stone') return undefined;
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      wall: {
+        sectionFeet: 10,
+        hp: 180,
+        ac: 15,
+        immunities: ['poison', 'psychic'],
+        blocksLineOfSight: true,
       },
       flags: { blocksMovement: true, blocksLineOfSight: true },
     },

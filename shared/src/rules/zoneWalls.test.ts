@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ZoneInstance, ZoneWallDef } from '../domain/automation';
 import { findPath } from './movement';
+import { crossesWalls } from './walls';
 import {
   createZoneSections,
   damageZoneSection,
@@ -161,6 +162,22 @@ describe('zoneWalls: геометрия тонкой стены', () => {
         walls: wallsWithZones([], [zone], grid),
       })
     ).not.toBeNull();
+  });
+
+  it('прозрачная стена (Force): обзор свободен, проход и действия — как стена', () => {
+    const force = iceZone({
+      origin: { x: 125, y: 25 },
+      wall: { sectionFeet: 10, immune: true, blocksLineOfSight: false },
+    });
+    const walls = wallsWithZones([], [force], GRID);
+    expect(walls.every((w) => w.kind === 'window' && w.blocksActions === true)).toBe(true);
+    // Обзор сквозь стену — свободен; проход и действия (каст/атаки/телепорт) — блокируются.
+    expect(crossesWalls({ x: 125, y: 25 }, { x: 175, y: 25 }, walls, 'sight')).toBe(false);
+    expect(crossesWalls({ x: 125, y: 25 }, { x: 175, y: 25 }, walls, 'move')).toBe(true);
+    expect(crossesWalls({ x: 125, y: 25 }, { x: 175, y: 25 }, walls, 'action')).toBe(true);
+    expect(
+      findPath({ from: { x: 125, y: 25 }, to: { x: 175, y: 25 }, grid: GRID, bounds: { cols: 10, rows: 10 }, walls })
+    ).toBeNull();
   });
 
   it('разрезанные стеной существа: разрезана подошва, а не касание грани', () => {

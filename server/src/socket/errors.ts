@@ -41,6 +41,7 @@ export type ErrorCode =
   | 'noAreaPoint'
   | 'noClearPath'
   | 'wallPathBad'
+  | 'wallImmune'
   | 'outOfRange'
   | 'noSlot'
   | 'noResource'

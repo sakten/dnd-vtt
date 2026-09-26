@@ -3,7 +3,7 @@ import type { ActionDef } from '../domain/actions';
 import { automationForAction, automationForSpell, spellAutomated, spellByDesign, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
 import { SPELL_BASES } from './automation/bases';
 import { findBaseAction } from './actions';
-import { spellExtraTargets, isThinWallSpell } from './spellCast';
+import { spellExtraTargets, isThinWallSpell, wallMaxPanels } from './spellCast';
 import { deriveAttackCount, deriveCantripTiers, deriveUpcast, type Spell } from './spells';
 
 function makeAction(partial: Partial<ActionDef>): ActionDef {
@@ -2501,6 +2501,40 @@ describe('Составной урон (D)', () => {
     expect(spellAutomated(ice)).toBe(true);
     expect(isThinWallSpell('XPHB:Wall of Ice')).toBe(true);
     expect(isThinWallSpell('XPHB:Wall of Fire')).toBe(false);
+  });
+
+  it('Wall of Force / Wall of Stone: тонкие стены — прозрачная неуязвимая и каменная с HP', () => {
+    const force = makeSpell({ key: 'XPHB:Wall of Force', name: 'Wall of Force', level: 5, concentration: true });
+    const forceDef = automationForSpell(force, { variant: 'wall' });
+    expect(forceDef.resolution).toBe('effect');
+    expect(forceDef.save).toBeUndefined();
+    expect(forceDef.damage).toBeUndefined();
+    expect(forceDef.zone?.area).toEqual({ shape: 'line', size: 100, width: 0.25 });
+    expect(forceDef.zone?.wall).toEqual({ sectionFeet: 10, immune: true, blocksLineOfSight: false });
+    expect(forceDef.zone?.flags).toEqual({ blocksMovement: true });
+    expect(automationForSpell(force, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 9 });
+    expect(spellVariantDef('XPHB:Wall of Force')?.options).toEqual(['wall', 'ring']);
+    expect(spellAutomated(force)).toBe(true);
+
+    const stone = makeSpell({
+      key: 'XPHB:Wall of Stone',
+      name: 'Wall of Stone',
+      level: 5,
+      concentration: true,
+      save: ['dex'],
+    });
+    const stoneDef = automationForSpell(stone, { variant: 'wall' });
+    expect(stoneDef.save).toBeUndefined();
+    expect(stoneDef.zone?.area).toEqual({ shape: 'line', size: 100, width: 0.5 });
+    expect(stoneDef.zone?.wall?.hp).toBe(180);
+    expect(stoneDef.zone?.wall?.ac).toBe(15);
+    expect(stoneDef.zone?.wall?.immunities).toEqual(['poison', 'psychic']);
+    expect(stoneDef.zone?.wall?.blocksLineOfSight).toBe(true);
+    expect(stoneDef.zone?.flags).toEqual({ blocksMovement: true, blocksLineOfSight: true });
+    expect(spellVariantDef('XPHB:Wall of Stone')?.options).toEqual(['wall']);
+    expect(spellAutomated(stone)).toBe(true);
+    expect(wallMaxPanels('XPHB:Wall of Force')).toBe(10);
+    expect(wallMaxPanels('XPHB:Wall of Stone')).toBe(10);
   });
 
   it('spellDamageParts: части для карточек (Destructive Wave — оба типа варианта)', () => {

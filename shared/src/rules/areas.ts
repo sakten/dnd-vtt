@@ -1,7 +1,7 @@
 import type { AreaSpec } from '../domain/actions';
 import type { Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
-import { crossesWalls } from './walls';
+import { crossesWalls, type WallCheckMode } from './walls';
 
 /**
  * Геометрия областей (Ф7) на квадратной сетке: набор клеток шаблона и сбор
@@ -210,24 +210,30 @@ export function tokenFullyInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   direction: AreaPoint | null,
   grid: AreaGrid,
   metric: DistanceMetric = 'euclidean',
-  walls?: Wall[]
+  walls?: Wall[],
+  mode: WallCheckMode = 'sight'
 ): boolean {
-  const cells = areaCellsSpread(spec, origin, direction, grid, walls ?? [], metric);
+  const cells = areaCellsSpread(spec, origin, direction, grid, walls ?? [], metric, mode);
   const own = tokenCells(token, grid);
   return own.length > 0 && own.every((key) => cells.has(key));
 }
 
-/** Клетки шаблона c распространением: сплошные стены обрывают путь, углы огибаются. */
+/**
+ * Клетки шаблона c распространением: стены обрывают путь, углы огибаются.
+ * `mode`: `sight` — обзор/свет (прозрачные стены Force не мешают), `action` —
+ * применение заклинаний/эффектов (Force режет как обычная стена).
+ */
 export function areaCellsSpread(
   spec: AreaSpec,
   origin: AreaPoint,
   direction: AreaPoint | null,
   grid: AreaGrid,
   walls: Wall[],
-  metric: DistanceMetric = 'euclidean'
+  metric: DistanceMetric = 'euclidean',
+  mode: WallCheckMode = 'sight'
 ): Set<string> {
   const cells = new Set(areaCells(spec, origin, direction, grid, metric));
-  return walls.length > 0 ? spreadCells(cells, origin, grid, walls) : cells;
+  return walls.length > 0 ? spreadCells(cells, origin, grid, walls, mode) : cells;
 }
 
 /**
@@ -260,16 +266,18 @@ export function tokensInArea<S extends Pick<Token, 'x' | 'y' | 'w' | 'h'>>(
   direction: AreaPoint | null,
   grid: AreaGrid,
   metric: DistanceMetric = 'euclidean',
-  walls?: Wall[]
+  walls?: Wall[],
+  mode: WallCheckMode = 'sight'
 ): S[] {
-  // 5e: эффект распространяется по клеткам области и огибает углы; сплошная стена обрывает путь.
-  const cells = areaCellsSpread(spec, origin, direction, grid, walls ?? [], metric);
+  // 5e: эффект распространяется по клеткам области и огибает углы; стена обрывает путь.
+  const cells = areaCellsSpread(spec, origin, direction, grid, walls ?? [], metric, mode);
   return tokens.filter((t) => tokenCells(t, grid).some((key) => cells.has(key)));
 }
 
 /**
  * Видна ли от точки хотя бы одна клетка подошвы токена (5e: цель за укрытием
  * доступна, если виден её край; большие токены бьются через видимую клетку).
+ * Проверка для действий (каст/атаки/реакции): силовое поле её не пропускает.
  */
 export function tokenVisibleFrom(
   from: AreaPoint,
@@ -280,7 +288,7 @@ export function tokenVisibleFrom(
   for (const key of tokenCells(token, grid)) {
     const [cx, cy] = key.split(',').map(Number);
     if (cx === undefined || cy === undefined) continue;
-    if (!crossesWalls(from, cellCenter(cx, cy, grid), walls, 'sight')) return true;
+    if (!crossesWalls(from, cellCenter(cx, cy, grid), walls, 'action')) return true;
   }
   return false;
 }
@@ -295,7 +303,8 @@ export function spreadCells(
   cells: Set<string>,
   origin: AreaPoint,
   grid: AreaGrid,
-  walls: Wall[]
+  walls: Wall[],
+  mode: WallCheckMode = 'sight'
 ): Set<string> {
   const start = pointCell(origin, grid);
   const startKey = areaCellKey(start.cx, start.cy);
@@ -318,7 +327,7 @@ export function spreadCells(
       const next = { cx: cur.cx + dx, cy: cur.cy + dy };
       const key = areaCellKey(next.cx, next.cy);
       if (!cells.has(key) || reached.has(key)) continue;
-      if (crossesWalls(a, cellCenter(next.cx, next.cy, grid), walls, 'sight')) continue;
+      if (crossesWalls(a, cellCenter(next.cx, next.cy, grid), walls, mode)) continue;
       reached.add(key);
       queue.push(next);
     }

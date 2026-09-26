@@ -6,6 +6,7 @@ import { findSpell } from '../spells';
 import { applyWallPush, createZoneFromDef, handleMovementZones, hitZoneSection, removeZonesOfSource, tickZones } from './zones';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
+import { teleportIssue } from './teleport';
 import { resolveZoneSectionAttack } from './zoneAttacks';
 import { executeAutomation } from './automation';
 
@@ -909,5 +910,53 @@ describe('стена льда (Wall of Ice)', () => {
       { size: 50, offsetX: 0, offsetY: 0 }
     );
     expect(tokensCrossingSegments([dummy], segments)).toHaveLength(0);
+  });
+
+  it('Wall of Force: секций нет, атака отклоняется; Wall of Stone: 180 HP/КЗ 15 и иммунитет яду', () => {
+    const { room, f, map, caster } = iceSetup();
+    const path = [
+      { x: 300, y: 100 },
+      { x: 400, y: 100 },
+    ];
+    // Force: неуязвимая зона без секций, попытка ударить — явная ошибка.
+    const forceDef = automationForSpell(findSpell('XPHB:Wall of Force')!, { variant: 'wall' });
+    const force = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: forceDef, stats, origin: path[0]!, path })!;
+    expect(force.wall?.immune).toBe(true);
+    expect(force.sections).toBeUndefined();
+    const attacker = makeToken('fa', { x: 375, y: 125, hpMax: '10', hpCurrent: 10 });
+    map.tokens.push(attacker);
+    f.emitted.length = 0;
+    resolveZoneSectionAttack(f.ctx, room, {
+      attacker,
+      mapId: 'm1',
+      attack: club('slashing'),
+      ref: { zoneId: force.id, section: 0 },
+      author: 'DM',
+    });
+    expect(
+      f.emitted.some(
+        (e) => e.event === 'chat:error' && (e.payload as { code?: string } | undefined)?.code === 'wallImmune'
+      )
+    ).toBe(true);
+    // Телепорт сквозь Force проходит (обзор свободен); обычная стена на том же месте — режет.
+    expect(teleportIssue(room, 'm1', attacker, { x: 350, y: 50 }, 30)).toBeUndefined();
+    map.walls = [{ id: 'w2', x1: 300, y1: 100, x2: 400, y2: 100, kind: 'wall' }];
+    expect(teleportIssue(room, 'm1', attacker, { x: 350, y: 50 }, 30)?.code).toBe('noClearPath');
+    map.walls = [];
+
+    // Stone: секции 180 HP, КЗ 15, иммунитет яду/психике, пробой на 0 HP.
+    const stoneDef = automationForSpell(findSpell('XPHB:Wall of Stone')!, { variant: 'wall' });
+    const stone = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: stoneDef, stats, origin: path[0]!, path })!;
+    expect(stone.sections).toHaveLength(1);
+    expect(stone.sections![0]).toEqual({ hp: 180, maxHp: 180 });
+    expect(stone.wall?.ac).toBe(15);
+    expect(hitZoneSection(f.ctx, room, 'm1', stone, 0, [{ damageType: 'poison', amount: 50 }])).toMatchObject({
+      applied: 0,
+      note: 'immunity',
+    });
+    expect(hitZoneSection(f.ctx, room, 'm1', stone, 0, [{ damageType: 'slashing', amount: 180 }])).toMatchObject({
+      applied: 180,
+      broken: true,
+    });
   });
 });

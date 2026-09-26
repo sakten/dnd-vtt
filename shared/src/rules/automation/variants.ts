@@ -53,6 +53,10 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XGE:Wall of Sand': { param: 'effect', options: ['vertical', 'horizontal'] },
   // Wall of Ice: цепочка панелей по 10 фт (8 направлений) или купол/сфера r10 (секции с HP).
   'XPHB:Wall of Ice': { param: 'effect', options: ['wall', 'ring'] },
+  // Wall of Force: цепочка панелей или купол/сфера r10 (прозрачная, неуязвимая).
+  'XPHB:Wall of Force': { param: 'effect', options: ['wall', 'ring'] },
+  // Wall of Stone: только цепочка панелей (секции с HP, без купола).
+  'XPHB:Wall of Stone': { param: 'effect', options: ['wall'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */

@@ -46,8 +46,8 @@ export function areaTokens(
   const walls = wallsWithZones(map.walls, map.zones, grid);
   const inside =
     opts.containment === 'fullyWithin'
-      ? map.tokens.filter((t) => tokenFullyInArea(t, area, origin, direction, grid, 'euclidean', walls))
-      : tokensInArea(map.tokens, area, origin, direction, grid, 'euclidean', walls);
+      ? map.tokens.filter((t) => tokenFullyInArea(t, area, origin, direction, grid, 'euclidean', walls, 'action'))
+      : tokensInArea(map.tokens, area, origin, direction, grid, 'euclidean', walls, 'action');
   return inside.filter((token) => {
     // Изгнанные (Banishment) вне поля: цели и аур их не видят.
     if (isBanished(token)) return false;

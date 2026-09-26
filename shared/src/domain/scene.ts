@@ -55,6 +55,8 @@ export interface Wall {
   dmOnly?: boolean;
   /** Дверь: Сл проверки Ловкости рук (0/нет — замок не заперт). */
   pickDc?: number;
+  /** Окно-сегмент зоны (Wall of Force): прозрачно для обзора, но блокирует каст/атаки. */
+  blocksActions?: boolean;
 }
 
 export const DEFAULT_GRID: GridSettings = {

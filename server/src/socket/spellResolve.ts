@@ -108,7 +108,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / grid.size) * 5;
     const range = effectiveSpellRangeFeet(spell, invocations);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
-    if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) return { code: 'noClearPath' };
+    if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'action')) return { code: 'noClearPath' };
   }
 
   if (def.effects?.some((d) => d.markTarget) && !targets[0]) {
@@ -213,7 +213,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / grid.size) * 5;
     const range = effectiveSpellRangeFeet(spell, invocations);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
-    if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) return { code: 'noClearPath' };
+    if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'action')) return { code: 'noClearPath' };
     if (!hasFreeSummonSpot(room, input.mapId, entry.cells, input.origin)) return { code: 'summonNoSpace' };
     return undefined;
   }

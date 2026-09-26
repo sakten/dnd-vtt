@@ -374,7 +374,7 @@ function useZoneAction(
     fail(ctx, 'outOfRange', { feet: Math.round(feet) });
     return;
   }
-  if (map && crossesWalls(caster, origin, wallsWithZones(map.walls, map.zones, grid), 'sight')) {
+  if (map && crossesWalls(caster, origin, wallsWithZones(map.walls, map.zones, grid), 'action')) {
     fail(ctx, 'noClearPath');
     return;
   }
@@ -696,7 +696,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
             return;
           }
           // Чистый путь до точки области (стена/закрытая дверь блокируют).
-          if (map && crossesWalls(token, anchoredOrigin, wallsWithZones(map.walls, map.zones, grid), 'sight')) {
+          if (map && crossesWalls(token, anchoredOrigin, wallsWithZones(map.walls, map.zones, grid), 'action')) {
             fail(ctx, 'noClearPath');
             return;
           }
