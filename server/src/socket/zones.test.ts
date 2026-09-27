@@ -80,6 +80,10 @@ describe('движок зон', () => {
     tickZones(f.ctx, room, 'm1', target, 'start');
     expect(zone.dealtTotal).toBe(20);
     expect(room.scene.maps[0]!.zones).toHaveLength(1);
+    // Клиенты получают обновлённый счётчик (для плашки «осталось/60»).
+    const updates = f.emitted.filter((e) => e.event === 'zones:update');
+    const last = updates[updates.length - 1]!.payload as { zones: { dealtTotal?: number }[] };
+    expect(last.zones[0]?.dealtTotal).toBe(20);
     zone.enteredThisTurn = {};
     tickZones(f.ctx, room, 'm1', target, 'start');
     zone.enteredThisTurn = {};
