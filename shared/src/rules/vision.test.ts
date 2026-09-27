@@ -88,6 +88,15 @@ describe('свет заклинаний', () => {
     expect(shadowed.get('2,0')).toBeUndefined(); // за стеной света нет
   });
 
+  it('lightCells: bounds ограничивает расчёт границами карты (большой свет не считает поле)', () => {
+    const emitter = [{ x: 25, y: 25, light: { bright: 120, dim: 120 } }];
+    const full = lightCells(emitter, grid);
+    const clipped = lightCells(emitter, grid, [], { cx0: 0, cy0: 0, cx1: 1, cy1: 1 });
+    expect(full.size).toBeGreaterThan(clipped.size);
+    expect(clipped.size).toBe(4);
+    expect([...clipped.keys()].sort()).toEqual(['0,0', '0,1', '1,0', '1,1']);
+  });
+
   it('canSee: свет перекрывает обычную тьму, но не мглу и магическую тьму', () => {
     const light = lightCells([{ x: 625, y: 75, light: { bright: 20, dim: 0 } }], grid);
     expect(canSee({ x: 25, y: 25 }, { x: 625, y: 75 }, undefined, { ...DARK_SIGHT, light })).toBe(true);

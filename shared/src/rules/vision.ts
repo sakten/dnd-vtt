@@ -104,10 +104,12 @@ export function mapLightCells(
   tokens: Token[],
   zones: ZoneInstance[],
   grid: AreaGrid,
-  walls: Wall[] = []
+  walls: Wall[] = [],
+  /** Границы расчёта в клетках (карта); без значения — всё поле источника. */
+  bounds?: { cx0: number; cy0: number; cx1: number; cy1: number } | null
 ): Map<string, LightLevel> {
   const emitters: LightEmitter[] = mapLights(tokens, zones, grid.size).map((l) => ({ x: l.x, y: l.y, light: l.light }));
-  return lightCells(emitters, grid, walls);
+  return lightCells(emitters, grid, walls, bounds);
 }
 
 export interface SightContext {
