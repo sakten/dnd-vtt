@@ -62,6 +62,8 @@
 ### 3.4. `movement` — перемещение (выделяется)
 `force` (push/pull: Repelling Blast, Thunderwave), `utility.teleport` (+`passenger`/`blockedDamage`/`ignoreSight`, Thunder Step `fromBurst`), `teleportAfter` (Steel Wind Strike), `scatter`, `telekinesis` (`placements`), `utility.moveZone` (Moonbeam/Spiritual Weapon), `onWillingMove` (Booming Blade), `ignoresDifficultTerrain`/`immuneToSpeedReduction` (Freedom of Movement), модификаторы скорости (Longstrider, Zephyr Strike). Стратегии: `teleport | push | pull | scatter | moveZone | punishMove`.
 
+Реализовано: `UtilitySpec` (кости `blockedDamage`/`fromBurst` — ссылки), `MovementSpec` (`teleportAfter`) и `EffectMovementSpec` (`zephyrStrike`); `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (+ Zephyr Strike под `movement`); `force`/`onWillingMove`/медленностные флаги — по мере миграции остальных (Repelling Blast — инвокация, Thunderwave/FoM — дальше).
+
 ### 3.5. `choices` — выбор при касте (выделяется)
 Сейчас отдельный реестр `SPELL_VARIANTS` (18 заклинаний): `damageType` (Dragon's Breath, Destructive Wave, Elemental Weapon, Resistance, Protection from Energy, Spirit Shroud, CME, True Strike, Elemental Bane), `effect` (Eyebite, Blindness/Deafness, Bestow Curse, Fire Shield, формы стен), `ability` (Enhance Ability), `skill` (Skill Empowerment), `command` (Command). Сюда же — формы Polymorph/призывов.
 
@@ -178,7 +180,8 @@ CUSTOM:Jallarzi-Fire {
 - батч составного урона и базовых стен: `DamageSpec.parts`, `part.index`, `choice.optional`, `zone.area: { wall: 'spell' }`; мигрированы Destructive Wave, Wall of Fire, Blade Barrier, Wall of Sand (30 спеков). Тонкие стены (Ice/Force/Stone: `zone.wall` + `breach`), Wall of Light (`shrinkFeet`), Wall of Thorns — следующим шаблоном `wallZone`;
 - батч стен через `wallZone`: параметрические габариты (`WallDims | { from: 'spell' }`, `wallAreaOf`), секции с `breach`, литеральный `scale.by`, `ActionSpec` (`count`/`shrinkFeet`/`defKey`); мигрированы Thorns, Ice, Force, Stone, Light (35 спеков, все 9 стен);
 - батч carrier'ов `choices`: `Leveled<T>` (круг каста), гейты `wakeOnDamage`/`turnDodge`/`takesExtraDamage`, `markSaved`, вложенные эффекты действий; мигрированы Eyebite и Bestow Curse — `choices` закрыт (37 спеков);
-- батч `hooks` (damageHooks): `HookSpec` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage/saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction), `ValueExpr` (`upcastFlat`/`sum`); регрупп 7 спеков + мигрированы Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward (42 спека); билдеры и каталожные записи удалены.
+- батч `hooks` (damageHooks): `HookSpec` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage/saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction), `ValueExpr` (`upcastFlat`/`sum`); регрупп 7 спеков + мигрированы Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward (42 спека); билдеры и каталожные записи удалены;
+- батч `movement`: `UtilitySpec` (ссылки в blockedDamage/fromBurst), `MovementSpec`/`EffectMovementSpec`, `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (48 спеков), билдеры/каталог удалены.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

@@ -1,4 +1,4 @@
-import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, GrantedAction, ZoneDef } from '../../domain/automation';
+import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
 import type { Spell } from '../spells';
@@ -15,6 +15,7 @@ import type {
   ModifierSpec,
   PayloadSpec,
   UsesSpec,
+  UtilitySpec,
   ValueExpr,
   WeaponAttackSpec,
   ZoneSpec,
@@ -178,6 +179,24 @@ function compileLoadout(ctx: CompileCtx, loadout: LoadoutSpec): Partial<Automati
   return { modifiers, ...(loadout.magic ? { magicWeapon: true } : {}) };
 }
 
+/** Блок `utility`: кости провала/вспышки резолвятся, остальное — pass-through. */
+function compileUtility(ctx: CompileCtx, utility: UtilitySpec): AutomationUtility {
+  const { blockedDamage, fromBurst, ...rest } = utility;
+  return {
+    ...rest,
+    ...(blockedDamage ? { blockedDamage: compileDamage(ctx, blockedDamage) } : {}),
+    ...(fromBurst
+      ? {
+          fromBurst: {
+            feet: fromBurst.feet,
+            save: { ...fromBurst.save },
+            ...(fromBurst.damage ? { damage: compileDamage(ctx, fromBurst.damage) } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
   const dice = action.damage ? resolveValue(ctx, action.damage.dice) : undefined;
   const area =
@@ -215,7 +234,7 @@ function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
     ...(action.count !== undefined ? { count: action.count } : {}),
     ...(action.effects?.length ? { effects: action.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(targeting ? { targeting: { ...targeting } } : {}),
-    ...(action.utility ? { utility: { ...action.utility } } : {}),
+    ...(action.utility ? { utility: compileUtility(ctx, action.utility) } : {}),
   };
   return {
     id: action.id,
@@ -370,7 +389,7 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(effect.turnDodge ? (turnDodge ? { turnDodge } : {}) : {}),
     ...(effect.markSaved ? { markSaved: true } : {}),
     ...(effect.restrictions ? { restrictions: { ...effect.restrictions } } : {}),
-    ...(effect.zephyrStrike ? { zephyrStrike: { ...effect.zephyrStrike } } : {}),
+    ...(effect.movement?.zephyrStrike ? { zephyrStrike: { ...effect.movement.zephyrStrike } } : {}),
     ...(effect.actions?.length ? { actions: effect.actions.map((a) => compileAction(ctx, a)) } : {}),
     ...loadout,
   };
@@ -523,7 +542,10 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.damage ? { damage: compileDamage(ctx, spec.damage) } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
+    ...(spec.targets !== undefined ? { targets: spec.targets } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),
+    ...(spec.utility ? { utility: compileUtility(ctx, spec.utility) } : {}),
+    ...(spec.movement?.teleportAfter ? { teleportAfter: { ...spec.movement.teleportAfter } } : {}),
     ...(spec.excludeCreatureTypes?.length ? { excludeCreatureTypes: [...spec.excludeCreatureTypes] } : {}),
     ...(spec.effects?.length ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
@@ -631,8 +653,8 @@ export function validateSpec(spec: AutomationSpec): string[] {
     errors.push('attack без attack/weaponAttack');
   }
   if (spec.primary !== 'attack' && spec.weaponAttack) errors.push('weaponAttack допустим только с attack');
-  if (spec.effects?.length && !['attack', 'save', 'auto', 'effect'].includes(spec.primary)) {
-    errors.push('effects допустимы только для attack/save/auto/effect');
+  if (spec.effects?.length && !['attack', 'save', 'auto', 'effect', 'utility'].includes(spec.primary)) {
+    errors.push('effects допустимы только для attack/save/auto/effect/utility (Far Step — носитель)');
   }
   if (spec.weaponAttack && (spec.weaponAttack.riderDice === undefined && !spec.weaponAttack.secondary && !spec.weaponAttack.hitEffect && !spec.weaponAttack.anyWeapon && !spec.weaponAttack.spellAbility && !spec.weaponAttack.replace)) {
     errors.push('weaponAttack без стратегии');
@@ -698,6 +720,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
         refs.push(action.damage.dice);
         for (const t of action.damage.types ?? []) refs.push(t);
       }
+      collectUtility(action.utility as UtilitySpec | undefined);
       for (const nested of action.effects ?? []) collectEffect(nested);
     }
   };
@@ -717,7 +740,13 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (payload.successDamage) refs.push(payload.successDamage.dice);
     for (const effect of payload.effects ?? []) collectEffect(effect);
   };
+  function collectUtility(utility?: UtilitySpec) {
+    if (!utility) return;
+    if (utility.blockedDamage) pushDamageRefs(utility.blockedDamage);
+    if (utility.fromBurst?.damage) pushDamageRefs(utility.fromBurst.damage);
+  }
   if (spec.damage) pushDamageRefs(spec.damage);
+  collectUtility(spec.utility);
   if (spec.zone) {
     if (spec.zone.charges !== undefined) refs.push(spec.zone.charges);
     collectPayload(spec.zone.onCreate);

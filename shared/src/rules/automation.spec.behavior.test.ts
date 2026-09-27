@@ -262,4 +262,47 @@ describe('поведение спеков (RAW, реальные данные)',
       { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
     ]);
   });
+
+  it('Misty Step / Dimension Door: телепорт 30 и 500 (пассажир, сквозь стены, урон провала)', () => {
+    const misty = automationForSpell(find('XPHB:Misty Step'));
+    expect(misty.utility).toEqual({ kind: 'teleport', amount: 30 });
+    expect(misty.targeting).toEqual({ kind: 'point', range: 30 });
+    const dd = automationForSpell(find('XPHB:Dimension Door'));
+    expect(dd.utility).toMatchObject({
+      kind: 'teleport',
+      amount: 500,
+      passenger: { feet: 5, destFeet: 5 },
+      ignoreSight: true,
+    });
+    expect(dd.utility?.blockedDamage).toEqual({ dice: '4d6', types: ['force'] });
+    expect(dd.targeting).toEqual({ kind: 'point', range: 500 });
+  });
+
+  it('Thunder Step: 90 фт, вспышка 3d10 (+1d10/круг) в покинутой точке', () => {
+    const spell = find('XGE:Thunder Step');
+    const base = automationForSpell(spell, { castLevel: 3 });
+    expect(base.utility).toMatchObject({ kind: 'teleport', amount: 90, passenger: { maxSize: true } });
+    expect(base.utility?.fromBurst?.save).toEqual({ ability: 'con', half: true });
+    expect(base.utility?.fromBurst?.damage).toEqual({ dice: '3d10', types: ['thunder'] });
+    expect(automationForSpell(spell, { castLevel: 5 }).utility?.fromBurst?.damage?.dice).toBe('5d10');
+  });
+
+  it('Steel Wind Strike: 5 атак, апкаста нет, телепорт 5 фт после', () => {
+    const spell = find('XPHB:Steel Wind Strike');
+    const def = automationForSpell(spell, { castLevel: 7 });
+    expect(def.targets).toBe(5);
+    expect(def.count).toBe(5);
+    expect(def.damage).toEqual({ dice: '6d10', types: ['force'] });
+    expect(def.teleportAfter).toEqual({ feet: 5 });
+  });
+
+  it('Far Step: телепорт 60 при касте и бонусным действием под концентрацией', () => {
+    const def = automationForSpell(find('XGE:Far Step'));
+    expect(def.concentration).toBe(true);
+    expect(def.utility).toEqual({ kind: 'teleport', amount: 60 });
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(action).toMatchObject({ id: 'farStep', name: 'Прыжок', cost: 'bonus' });
+    expect(action?.def?.utility).toEqual({ kind: 'teleport', amount: 60 });
+    expect(action?.def?.targeting).toEqual({ kind: 'point', range: 60 });
+  });
 });

@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, chainLightningDef, compositeDamageDef, conjureFeyDef, dimensionDoorDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, farStepDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, steelWindStrikeDef, stormSphereDef, sunbeamDef, telekinesisDef, thunderStepDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, chainLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, telekinesisDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -77,9 +77,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const chainLightning = chainLightningDef(spell, opts);
   if (chainLightning) return chainLightning;
 
-  const steelWindStrike = steelWindStrikeDef(spell);
-  if (steelWindStrike) return steelWindStrike;
-
   const spiritualWeapon = spiritualWeaponDef(spell, opts);
   if (spiritualWeapon) return spiritualWeapon;
 
@@ -118,15 +115,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
-
-  const farStep = farStepDef(spell);
-  if (farStep) return farStep;
-
-  const dimensionDoor = dimensionDoorDef(spell);
-  if (dimensionDoor) return dimensionDoor;
-
-  const thunderStep = thunderStepDef(spell, opts);
-  if (thunderStep) return thunderStep;
 
   const stormSphere = stormSphereDef(spell, opts);
   if (stormSphere) return stormSphere;

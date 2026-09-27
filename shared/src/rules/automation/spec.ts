@@ -97,7 +97,7 @@ export interface ActionSpec {
   damage?: { dice: ValueExpr; types?: ValueExpr[]; abilityMod?: boolean };
   /** Эффекты действия (Eyebite: сон/паника/тошнота при провале спасброска). */
   effects?: EffectSpec[];
-  utility?: AutomationUtility;
+  utility?: UtilitySpec;
 }
 
 /** Стратегия `augment`: бонусы к существующему оружию (Magic/Elemental Weapon, Flame Arrows). */
@@ -241,6 +241,27 @@ export interface HookSpec {
   damageReaction?: { ability: ValueExpr; feet: number; condition: ConditionKey };
 }
 
+/**
+ * Блок `utility` спека (R16): как `AutomationUtility`, но кости провала/вспышки —
+ * ссылки (`DamageSpec`). Компилируется в поля `AutomationDef.utility`.
+ */
+export interface UtilitySpec extends Omit<AutomationUtility, 'blockedDamage' | 'fromBurst'> {
+  /** Урон провала телепорта (Dimension Door: 4к6 силовым). */
+  blockedDamage?: DamageSpec;
+  /** Вспышка в покинутой точке (Thunder Step: спас CON, 3к10 звуком). */
+  fromBurst?: { feet: number; save: AutomationSave; damage?: DamageSpec };
+}
+
+/** Блок `movement` спека: телепорт после атаки (Steel Wind Strike). */
+export interface MovementSpec {
+  teleportAfter?: { feet: number };
+}
+
+/** Блок `movement` эффекта: одноразовая атака Zephyr Strike (расход — через `uses`). */
+export interface EffectMovementSpec {
+  zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
+}
+
 /** Эффект спека: длительность/цель + блоки (loadout/uses/actions/vision). */
 export interface EffectSpec {
   id: string;
@@ -266,8 +287,8 @@ export interface EffectSpec {
   markSaved?: boolean;
   /** Ограничения экономики (Zephyr Strike: перемещение не провоцирует OA). */
   restrictions?: Restrictions;
-  /** Zephyr Strike: одноразовая атака — кости, тип и скорость (расход через `uses`). */
-  zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
+  /** Блок `movement` эффекта: Zephyr Strike (расход через `uses.consumeOnAttack`). */
+  movement?: EffectMovementSpec;
   actions?: ActionSpec[];
   loadout?: LoadoutSpec;
 }
@@ -307,7 +328,13 @@ export interface AutomationSpec {
   damage?: DamageSpec;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
+  /** Массовая цель без области: до N существ (Steel Wind Strike — 5). */
+  targets?: number;
   targeting?: ActionTargeting;
+  /** Утилита спека (телепорт, scatter, tempHp): кости провала/вспышки — ссылки. */
+  utility?: UtilitySpec;
+  /** Блок `movement` спека: телепорт после атаки (Steel Wind Strike). */
+  movement?: MovementSpec;
   /** Типы существ, на которых не действует (Command: нежить). */
   excludeCreatureTypes?: string[];
   effects?: EffectSpec[];

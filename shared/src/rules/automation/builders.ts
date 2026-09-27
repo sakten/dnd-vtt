@@ -493,73 +493,6 @@ export function dominateDef(spell: Spell, opts: AutomationOptions): AutomationDe
   };
 }
 
-/** Far Step (XGE): телепорт 60 фт при касте; пока концентрация — тем же бонусным действием. */export function farStepDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XGE:Far Step') return undefined;
-  const jump: AutomationDef = {
-    key: spell.key,
-    name: 'Прыжок',
-    resolution: 'utility',
-    utility: { kind: 'teleport', amount: 60 },
-    targeting: { kind: 'point', range: 60 },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'utility',
-    concentration: true,
-    utility: { kind: 'teleport', amount: 60 },
-    effects: [actionCarrier(spell, { id: 'farStep', name: 'Прыжок', cost: 'bonus', def: jump })],
-  };
-}
-
-/**
- * Dimension Door (XPHB 2024): телепорт до 500 фт, можно взять одно согласное
- * существо в 5 фт (приземляется в 5 фт от точки прибытия). Точку можно не видеть
- * (сквозь стены); занятая/непроходимая точка — провал: ячейка тратится, кастер
- * и пассажир получают 4к6 силового урона, никто не перемещается.
- */
-export function dimensionDoorDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Dimension Door') return undefined;
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'utility',
-    utility: {
-      kind: 'teleport',
-      amount: 500,
-      passenger: { feet: 5, destFeet: 5 },
-      // RAW: точку можно не видеть (сквозь стены); занятая точка — провал каста
-      // с уроном 4к6 силовым кастеру и пассажиру (ячейка уже потрачена).
-      ignoreSight: true,
-      blockedDamage: { dice: spell.damage?.dice?.[0] ?? '4d6', types: ['force'] },
-    },
-    targeting: { kind: 'point', range: 500 },
-  };
-}
-
-/**
- * Thunder Step (XGE): телепорт до 90 фт; пассажир не крупнее кастера (нет места
- * рядом с точкой — остаётся); сразу после исчезновения — спас CON всем в 10 фт
- * от покинутой точки, 3к10 звуком (половина при успехе), +1к10 за круг выше 3-го.
- */
-export function thunderStepDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XGE:Thunder Step') return undefined;
-  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const dice = scaledDice(partDice(spell, 'main', '3d10'), spell.upcast?.dice, upcastSteps(spell, level));
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'utility',
-    utility: {
-      kind: 'teleport',
-      amount: 90,
-      passenger: { feet: 5, destFeet: 5, maxSize: true },
-      fromBurst: { feet: 10, save: { ability: 'con', half: true }, damage: { dice, types: ['thunder'] } },
-    },
-    targeting: { kind: 'point', range: 90 },
-  };
-}
-
 /**
  * Shadow Blade: выданное действие «Вернуть клинок» (живёт в эффекте всегда;
  * клиент показывает его, только пока клинок брошен — `shadowBlade.inHand`).
@@ -783,25 +716,6 @@ export function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationD
     resolution: 'auto',
     heal: { dice: String(amount) },
     endConditions: ['blinded', 'deafened', 'poisoned'],
-  };
-}
-
-/**
- * Steel Wind Strike (XPHB 2024): до 5 существ в 30 фт — заклинательная атака
- * 6к10 силовым, апкаста нет (в источниках нет higher-level абзаца); после
- * атак телепорт в 5 фт от любой цели.
- */
-export function steelWindStrikeDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Steel Wind Strike') return undefined;
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'attack',
-    attack: { rangeType: 'melee' },
-    targets: 5,
-    count: 5,
-    damage: { dice: partDice(spell, 'main', '6d10'), types: ['force'] },
-    teleportAfter: { feet: 5 },
   };
 }
 

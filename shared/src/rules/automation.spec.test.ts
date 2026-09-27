@@ -43,7 +43,7 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
     const bad = {
       key: 'TEST:Bad',
       name: 'Bad',
-      primary: 'utility',
+      primary: 'summon',
       effects: [{ id: 'e', name: 'E', duration: { type: 'permanent' }, modifiers: [] }],
     } as unknown as AutomationSpec;
     expect(validateSpec(bad).length).toBeGreaterThan(0);
