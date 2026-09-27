@@ -405,8 +405,8 @@ export interface ZoneDef {
     blocksLineOfSight?: boolean;
     /** Почти незаметный визуал зоны (туча Call Lightning): только тонкий контур. */
     subtle?: boolean;
-    /** Спрайт-маркер зоны (Spiritual Weapon — жёлтый молот силы; Conjure Fey — огонёк). */
-    sprite?: 'hammer' | 'fey';
+    /** Спрайт-маркер зоны (Spiritual Weapon — молот силы; Conjure Fey — огонёк; Guardian — страж). */
+    sprite?: 'hammer' | 'fey' | 'guardian';
     /** Зона молчания (Silence, Jallarzi): внутри нельзя кастовать с вербальным компонентом. */
     silence?: boolean;
   };

@@ -88,10 +88,10 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
     return def.utility?.kind === 'teleport' ? def.utility : undefined;
   })();
-  // Scatter: до N целей, затем точка назначения на каждую.
+  // Scatter/Telekinesis: цель(и), затем точка назначения; Telekinesis применяется сразу при касте.
   const scatterDef = (() => {
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
-    return def.utility?.kind === 'scatter' ? def.utility : undefined;
+    return def.utility?.kind === 'scatter' || def.utility?.kind === 'telekinesis' ? def.utility : undefined;
   })();
   // Self-заклинание, выбирающее цель-существо (Eyebite): вместо каста «в себя» — клик по цели.
   const targetCreatureDef = (() => {
@@ -201,12 +201,14 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         ...(teleportDef.ignoreSight ? { ignoreSight: true } : {}),
       });
     } else if (scatterDef) {
+      const telekinesis = scatterDef.kind === 'telekinesis';
       startScatter({
         tokenId,
         spellKey: spell.key,
         slotLevel: info.slotLevel,
         advantage: mode,
-        maxTargets: scatterDef.targets ?? 5,
+        maxTargets: telekinesis ? 1 : scatterDef.targets ?? 5,
+        ...(telekinesis ? { kind: 'telekinesis', destFeet: scatterDef.amount ?? 30 } : {}),
       });
     } else if (info.self && targetCreatureDef) {
       startTargeting({

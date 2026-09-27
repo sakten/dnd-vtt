@@ -270,6 +270,7 @@ describe('automationForSpell', () => {
     expect(zone?.excludeSource).toBe(true);
     expect(zone?.enterOncePerTurn).toBe(true);
     expect(zone?.dealtLimit).toBe(60);
+    expect(zone?.flags).toEqual({ sprite: 'guardian' });
     expect(zone?.triggers?.enter).toEqual({
       save: { ability: 'dex', half: true },
       damage: { dice: '20', types: ['radiant'] },
@@ -301,7 +302,7 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
-  it('Telekinesis: каст выдаёт «Телекинез» — STR-спас, перемещение 30 фт, restrained', () => {
+  it('Telekinesis: каст сразу применяется, носитель даёт повтор действием', () => {
     const spell = makeSpell({
       key: 'XPHB:Telekinesis',
       name: 'Telekinesis',
@@ -310,8 +311,11 @@ describe('automationForSpell', () => {
       duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 10 } }],
     });
     const def = automationForSpell(spell);
-    expect(def.resolution).toBe('effect');
+    expect(def.resolution).toBe('utility');
+    expect(def.utility).toMatchObject({ kind: 'telekinesis', amount: 30, maxSize: 'huge' });
+    expect(def.save).toEqual({ ability: 'str' });
     expect(def.concentration).toBe(true);
+    expect(def.targeting).toEqual({ kind: 'creature', range: 60 });
     const action = def.effects?.[0]?.actions?.[0];
     expect(action).toMatchObject({ id: 'grip', name: 'Телекинез', cost: 'action' });
     expect(action?.def).toMatchObject({
@@ -320,10 +324,7 @@ describe('automationForSpell', () => {
       utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
       targeting: { kind: 'creature', range: 60 },
     });
-    expect(action?.def?.effects?.[0]).toMatchObject({
-      conditions: ['restrained'],
-      duration: { type: 'endOfTurn', of: 'source' },
-    });
+    expect(action?.def?.effects).toBeUndefined();
     expect(spellAutomated(spell)).toBe(true);
   });
 

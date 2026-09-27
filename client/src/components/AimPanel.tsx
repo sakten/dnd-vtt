@@ -104,7 +104,7 @@ export default function AimPanel() {
 
   if (interaction.mode === 'scatter') {
     const s = interaction.scatter;
-    const tk = !!s.actionId;
+    const tk = s.kind === 'telekinesis';
     if (s.phase === 'targets') {
       return (
         <div className="aim-panel" data-testid="aim-panel">

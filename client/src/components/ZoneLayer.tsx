@@ -175,6 +175,139 @@ export default function ZoneLayer({
             </Group>
           );
         }
+        // Guardian of Faith: спектральный страж (фигура) + остаток урона (60 − нанесено).
+        if (zone.flags?.sprite === 'guardian') {
+          const spread = areaCellsSpread(zone.area, zone.origin, zone.direction ?? null, grid, walls);
+          const all: CellRect[] = [...spread].map((key) => {
+            const [cx, cy] = key.split(',').map(Number);
+            return {
+              key,
+              x: grid.offsetX + (cx ?? 0) * grid.size,
+              y: grid.offsetY + (cy ?? 0) * grid.size,
+              size: grid.size,
+            };
+          });
+          const vis = mode === 'markings' ? visibleByZone?.get(zone.id) ?? visible : undefined;
+          const cells = vis ? all.filter((c) => vis.has(c.key)) : all;
+          if (!cells.length) return null;
+          const anchor = pointCell(zone.origin, grid);
+          const center = cellCenter(anchor.cx, anchor.cy, grid);
+          const s = grid.size;
+          const remaining = zone.dealtLimit != null ? Math.max(0, zone.dealtLimit - (zone.dealtTotal ?? 0)) : null;
+          return (
+            <Group key={zone.id} listening={false}>
+              {cells.map((cell) => (
+                <Rect
+                  key={cell.key}
+                  x={cell.x}
+                  y={cell.y}
+                  width={cell.size}
+                  height={cell.size}
+                  fill="#93c5fd"
+                  opacity={0.12}
+                  listening={false}
+                />
+              ))}
+              {/* Ореол ауры 10 фт */}
+              <Circle
+                x={center.x}
+                y={center.y}
+                radius={s * 1.4}
+                stroke="#bfdbfe"
+                strokeWidth={1.5}
+                dash={[7, 7]}
+                opacity={0.35}
+                listening={false}
+              />
+              {/* Фигура: мантия, голова, щит и меч */}
+              <Line
+                points={[
+                  center.x - s * 0.26,
+                  center.y - s * 0.34,
+                  center.x + s * 0.26,
+                  center.y - s * 0.34,
+                  center.x,
+                  center.y + s * 0.08,
+                ]}
+                closed
+                fill="#dbeafe"
+                opacity={0.9}
+                stroke="#818cf8"
+                strokeWidth={1.2}
+                shadowColor="#93c5fd"
+                shadowBlur={14}
+                listening={false}
+              />
+              <Circle
+                x={center.x}
+                y={center.y - s * 0.42}
+                radius={s * 0.11}
+                fill="#eef2ff"
+                opacity={0.95}
+                stroke="#818cf8"
+                strokeWidth={1.2}
+                shadowColor="#93c5fd"
+                shadowBlur={10}
+                listening={false}
+              />
+              <Line
+                points={[center.x + s * 0.3, center.y - s * 0.4, center.x + s * 0.3, center.y + s * 0.3]}
+                stroke="#e0e7ff"
+                strokeWidth={3}
+                opacity={0.95}
+                listening={false}
+              />
+              <Line
+                points={[center.x + s * 0.22, center.y - s * 0.34, center.x + s * 0.38, center.y - s * 0.34]}
+                stroke="#e0e7ff"
+                strokeWidth={3}
+                opacity={0.95}
+                listening={false}
+              />
+              {/* Остаток урона стража: 60 минус нанесённое */}
+              {mode !== 'fills' && remaining != null && (
+                <>
+                  <Rect
+                    x={center.x - s * 0.5}
+                    y={center.y + s * 0.32}
+                    width={s}
+                    height={s * 0.28}
+                    cornerRadius={s * 0.06}
+                    fill="#1e3a8a"
+                    opacity={0.78}
+                    listening={false}
+                  />
+                  <Text
+                    text={`${remaining} / ${zone.dealtLimit}`}
+                    x={center.x - s * 0.5}
+                    y={center.y + s * 0.36}
+                    width={s}
+                    align="center"
+                    fontSize={s * 0.18}
+                    fontStyle="bold"
+                    fill="#ffffff"
+                    listening={false}
+                  />
+                </>
+              )}
+              {subtleLabels && (
+                <Text
+                  text={zone.name}
+                  x={center.x - s * 0.75}
+                  y={center.y + s * 0.66}
+                  width={s * 1.5}
+                  align="center"
+                  fontSize={11}
+                  fill="#bfdbfe"
+                  opacity={0.8}
+                  listening={false}
+                  shadowColor="#000000"
+                  shadowBlur={3}
+                />
+              )}
+            </Group>
+          );
+        }
         // Тонкая стена-зона (Wall of Ice): плиты по границам клеток, пробитые — «лист».
         if (zone.wall) {
           const segments = zoneWallSegments(zone, { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY });

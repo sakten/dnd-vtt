@@ -16,6 +16,7 @@ import {
   pointCell,
   polymorphFormIssue,
   silencedByZones,
+  sizeAtMost,
   spellCastArea,
   spellIsSelf,
   tokenVisibleFrom,
@@ -304,6 +305,36 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
         return { code: 'noClearPath' };
       }
       const issue = teleportIssue(room, input.mapId, target, { x: placement.x, y: placement.y }, limit, caster);
+      if (issue) return issue;
+    }
+    return undefined;
+  }
+
+  // Telekinesis: цель до Huge в 60 фт; точка переноса — до 30 фт от цели (свободна, внутри карты).
+  if (def.utility?.kind === 'telekinesis') {
+    const placements = input.placements ?? [];
+    if (!placements.length) return { code: 'spellNoTarget' };
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const rangeFeet = effectiveSpellRangeFeet(spell, invocations) ?? def.targeting?.range ?? 60;
+    for (const placement of placements) {
+      const target = map?.tokens.find((t) => t.id === placement.targetId);
+      if (!target || !map) return { code: 'spellNoTarget' };
+      if (def.utility.maxSize && !sizeAtMost(target.cells, def.utility.maxSize)) return { code: 'spellNoTarget' };
+      const toTarget = gridDistanceFeet(caster, target, grid.size);
+      if (toTarget > rangeFeet) return { code: 'outOfRange', params: { feet: Math.round(toTarget) } };
+      if (target.id !== caster.id && !tokenVisibleFrom(caster, target, wallsWithZones(map.walls, map.zones, grid), grid)) {
+        return { code: 'noClearPath' };
+      }
+      const issue = teleportIssue(
+        room,
+        input.mapId,
+        target,
+        { x: placement.x, y: placement.y },
+        def.utility.amount ?? 30,
+        undefined,
+        { skipSight: true }
+      );
       if (issue) return issue;
     }
     return undefined;

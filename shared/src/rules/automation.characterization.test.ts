@@ -72,7 +72,7 @@ const actual = {
 const EXPECTED = {
   catalog: 'dece4e0444c55426',
   additions: '1b3ac2b7685ff142',
-  derived: '48fa89dc51fd485c',
+  derived: '593b31ced9debfd3',
   green: 244,
   red: 176,
 };

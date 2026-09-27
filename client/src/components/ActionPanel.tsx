@@ -399,7 +399,14 @@ export default function ActionPanel() {
           const slot = featureSlot(f, turnCtx);
           // Телекинез: цель + точка назначения (как Scatter), уходит командой action:use.
           if (f.utilityKind === 'telekinesis' && f.targeting?.kind === 'creature') {
-            startScatter({ tokenId: token.id, actionId: f.id, slot, maxTargets: 1 });
+            startScatter({
+              tokenId: token.id,
+              actionId: f.id,
+              slot,
+              maxTargets: 1,
+              kind: 'telekinesis',
+              destFeet: f.utilityAmount ?? 30,
+            });
             return;
           }
           const auto = sheet ? featureActionAutomation(f.id, sheet.classes) : undefined;

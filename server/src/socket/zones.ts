@@ -80,7 +80,7 @@ function insideTokens(
   return inside.filter((t) => !zone.excludeCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''));
 }
 
-/** Применяет payload зоны к целям: спас → урон (half) → эффекты (с zoneId). */
+/** Применяет payload зоны к целям: спас → урон (half) → эффекты (с zoneId). true — состояние зоны изменилось. */
 function applyZonePayload(
   ctx: ConnCtx,
   room: Room,
@@ -88,8 +88,9 @@ function applyZonePayload(
   zone: ZoneInstance,
   payload: AutomationPayload | undefined,
   targets: Token[]
-): void {
-  if (!payload || !targets.length) return;
+): boolean {
+  if (!payload || !targets.length) return false;
+  let changed = false;
   const damageType = singleDamageType(payload.damage?.types);
   for (const target of targets) {
     // Лечение при полном HP бесполезно: заряд не тратится, карта не выходит
@@ -102,6 +103,7 @@ function applyZonePayload(
     if (zone.charges !== undefined) {
       if (zone.charges <= 0) break;
       zone.charges -= 1;
+      changed = true;
     }
     // Aura of Life: союзник на 0 HP (у нас HP уходят в минус) в начале хода поднимается до `healTo`.
     // Мёртвых не оживляет.
@@ -157,7 +159,10 @@ function applyZonePayload(
         params: { subject: `${zone.name} · ${target.name}`, damageType },
       });
       // Guardian of Faith: счётчик фактически нанесённого урона (60 — исчезает).
-      if (zone.dealtLimit != null) zone.dealtTotal = (zone.dealtTotal ?? 0) + dealt.amount;
+      if (zone.dealtLimit != null) {
+        zone.dealtTotal = (zone.dealtTotal ?? 0) + dealt.amount;
+        changed = true;
+      }
     }
     for (const effectDef of payload.effects ?? []) {
       applyEffectTo(ctx, room, {
@@ -176,16 +181,17 @@ function applyZonePayload(
   if (zone.charges !== undefined && zone.charges <= 0) removeZone(ctx, room, mapId, zone);
   // Guardian of Faith: нанеся суммарно 60 урона, страж исчезает.
   if (zone.dealtLimit != null && (zone.dealtTotal ?? 0) >= zone.dealtLimit) removeZone(ctx, room, mapId, zone);
+  return changed;
 }
 
-/** Пересчитывает состав зоны: аура на вошедших, снятие с вышедших, enter/exit. */
+/** Пересчитывает состав зоны: аура на вошедших, снятие с вышедших, enter/exit. true — состояние зоны изменилось. */
 function syncZone(
   ctx: ConnCtx,
   room: Room,
   mapId: string,
   zone: ZoneInstance,
   opts: { aura?: boolean; enterExit?: boolean } = {}
-): void {
+): boolean {
   const inside = insideTokens(ctx, room, mapId, zone);
   const ids = new Set(inside.map((t) => t.id));
   const prev = new Set(zone.occupants ?? []);
@@ -198,7 +204,8 @@ function syncZone(
 
   for (const token of exited) removeZoneEffects(ctx, room, mapId, token, zone.id);
 
-  if (opts.aura && zone.aura) applyZonePayload(ctx, room, mapId, zone, zone.aura, entered);
+  let changed = false;
+  if (opts.aura && zone.aura) changed = applyZonePayload(ctx, room, mapId, zone, zone.aura, entered) || changed;
 
   if (opts.enterExit && zone.triggers?.enter && entered.length) {
     const key = turnKey(ctx.manager.findMap(room, mapId)!);
@@ -211,11 +218,12 @@ function syncZone(
         zone.enteredThisTurn = { ...(zone.enteredThisTurn ?? {}), [t.id]: key };
       }
     }
-    applyZonePayload(ctx, room, mapId, zone, zone.triggers.enter, fresh);
+    changed = applyZonePayload(ctx, room, mapId, zone, zone.triggers.enter, fresh) || changed;
   }
   if (opts.enterExit && zone.triggers?.exit) {
-    applyZonePayload(ctx, room, mapId, zone, zone.triggers.exit, exited);
+    changed = applyZonePayload(ctx, room, mapId, zone, zone.triggers.exit, exited) || changed;
   }
+  return changed;
 }
 
 /** Снимает зону и её аура-эффекты со всех токенов карты. */
@@ -465,7 +473,7 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
         continue;
       }
     }
-    syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
+    if (syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true })) changed = true;
     // Зона могла погаснуть от исчерпания зарядов (Cordon of Arrows).
     if (!map.zones.some((z) => z.id === zone.id)) {
       changed = true;
@@ -483,7 +491,7 @@ export function tickZones(ctx: ConnCtx, room: Room, mapId: string, token: Token,
           if (zone.enterOncePerTurn && key !== null) {
             zone.enteredThisTurn = { ...(zone.enteredThisTurn ?? {}), [token.id]: key };
           }
-          applyZonePayload(ctx, room, mapId, zone, payload, [token]);
+          if (applyZonePayload(ctx, room, mapId, zone, payload, [token])) changed = true;
           // Последний заряд мог уйти в этом триггере (Cordon of Arrows, Healing Spirit):
           // без отметки изменения клиент не получит снятие зоны до перезагрузки.
           if (!map.zones.some((z) => z.id === zone.id)) changed = true;
@@ -554,7 +562,7 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string, mov
       continue;
     }
     if (origin === 'moved') changed = true;
-    syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true });
+    if (syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true })) changed = true;
     if (!map.zones.some((z) => z.id === zone.id)) changed = true;
   }
   if (changed) ctx.broadcastZones(room, mapId);

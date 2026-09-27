@@ -1475,6 +1475,7 @@ export function guardianOfFaithDef(spell: Spell): AutomationDef | undefined {
       enterOncePerTurn: true,
       dealtLimit: 60,
       triggers: { enter: trigger, startOfTurn: trigger },
+      flags: { sprite: 'guardian' },
     },
   };
 }
@@ -1506,35 +1507,31 @@ export function dispelEvilGoodDef(spell: Spell): AutomationDef | undefined {
 }
 
 /**
- * Telekinesis (XPHB 2024): каст (концентрация) выдаёт действие «Телекинез» (Magic action,
- * повторяется каждый ход): существо до Huge в 60 фт, спас STR; на провале его двигают
- * кликом до 30 фт (по клеткам, вынужденно) и он restrained до начала вашего след. хода.
+ * Telekinesis (XPHB 2024): каст сразу применяется — существо до Huge в 60 фт,
+ * спас STR; на провале его двигают кликом до 30 фт (по клеткам, вынужденно) и он
+ * restrained до начала вашего след. хода. Каст вешает носитель концентрации с
+ * действием «Телекинез» (Magic action) для повторения на следующих ходах.
  * Предметы/носимые вещи и высота — вне скоупа (решение владельца, сессия 18).
  */
 export function telekinesisDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Telekinesis') return undefined;
-  const restrained: AutomationEffect = {
-    name: spell.name,
-    duration: UNTIL_NEXT_TURN,
-    to: 'targets',
-    modifiers: [],
-    conditions: ['restrained'],
-    concentration: true,
-  };
   const grip: AutomationDef = {
     key: spell.key,
     name: 'Телекинез',
     resolution: 'utility',
     save: { ability: 'str' },
-    effects: [restrained],
     utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
     targeting: { kind: 'creature', range: 60 },
   };
   return {
     key: spell.key,
     name: spell.name,
-    resolution: 'effect',
+    resolution: 'utility',
+    save: { ability: 'str' },
+    utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
+    targeting: { kind: 'creature', range: 60 },
     concentration: true,
+    // Носитель концентрации: выдаёт «Телекинез» бонусом к касту (сам каст уже применил эффект).
     effects: [actionCarrier(spell, { id: 'grip', name: 'Телекинез', cost: 'action', def: grip })],
   };
 }

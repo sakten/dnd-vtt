@@ -582,12 +582,22 @@ export default function TableTop() {
     });
   }, [targeting, activeMap, grid, isDm, hiddenSet, visionView, invisibility.hidden]);
 
-  // Steel Wind Strike: клетки телепорта рядом с выбранными целями.
+  // Клетки-кандидаты: Steel Wind Strike (телепорт рядом с целями) и Telekinesis (перенос цели).
   const teleportCells = useMemo(() => {
-    if (!aim?.nearTargets || !aim.nearFeet || !aim.targetIds?.length || !activeMap) return [];
+    if (!activeMap) return [];
     const g = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
-    const targets = aim.targetIds.map((id) => tokenById(activeMap, id)).filter((t) => !!t);
-    const keys = teleportCellsNearTargets(targets, activeMap.tokens, g, activeMap.walls, aim.nearFeet, aim.tokenId);
+    let keys: string[] | null = null;
+    if (aim?.nearTargets && aim.nearFeet && aim.targetIds?.length) {
+      const targets = aim.targetIds.map((id) => tokenById(activeMap, id)).filter((t) => !!t);
+      keys = teleportCellsNearTargets(targets, activeMap.tokens, g, activeMap.walls, aim.nearFeet, aim.tokenId);
+    } else if (scatter?.kind === 'telekinesis' && scatter.phase === 'places' && scatter.destFeet) {
+      const currentId = scatter.targets[scatter.placements.length];
+      const target = currentId ? tokenById(activeMap, currentId) : null;
+      if (target) {
+        keys = teleportCellsNearTargets([target], activeMap.tokens, g, activeMap.walls, scatter.destFeet, target.id);
+      }
+    }
+    if (!keys) return [];
     const bounded = activeMap.width > 0 && activeMap.height > 0;
     const maxCx = Math.ceil(activeMap.width / g.size);
     const maxCy = Math.ceil(activeMap.height / g.size);
@@ -600,7 +610,7 @@ export default function TableTop() {
       out.push({ x: g.offsetX + cx * g.size, y: g.offsetY + cy * g.size, size: g.size });
     }
     return out;
-  }, [aim, activeMap, grid, isDm, hiddenSet]);
+  }, [aim, scatter, activeMap, grid, isDm, hiddenSet]);
 
   // Маска для оверлея эффектов: игрок видит анимацию только в видимых клетках (DM — везде).
   const fxMask = useMemo<FxMask | null>(() => {

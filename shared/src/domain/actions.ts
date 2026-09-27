@@ -95,6 +95,8 @@ export interface ActionDef {
   moveFeet?: number;
   /** Вид механики выданного действия (Telekinesis: выбор цели и точки на клиенте). */
   utilityKind?: AutomationUtility['kind'];
+  /** Лимит механики выданного действия, футы (Telekinesis: 30 — предел переноса). */
+  utilityAmount?: number;
   /** Ключ иконки действия (`<ключ заклинания-источника>:<id действия>`); пусто — общий глиф. */
   iconKey?: string;
 }

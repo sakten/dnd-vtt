@@ -149,6 +149,7 @@ export function useActionContext(): ActionContext | null {
           costs: [a.cost],
           targeting: a.def?.targeting,
           utilityKind: a.def?.utility?.kind,
+          utilityAmount: a.def?.utility?.amount,
           description: e.name,
           iconKey: e.sourceKey ? `${e.sourceKey}:${a.id}` : undefined,
         }))

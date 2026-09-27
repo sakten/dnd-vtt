@@ -707,15 +707,21 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     ctx.emitToken(room, 'token:update', input.mapId, target);
     syncSurrounded(ctx, room, input.mapId);
     // Restrained — до начала следующего хода кастера (снятие — тик эффектов источника).
-    for (const effectDef of input.def.effects ?? []) {
-      applyEffectLight(ctx, room, input.mapId, {
-        sourceKey: input.def.key,
-        sourceId: input.caster.id,
-        mapId: input.mapId,
-        effectDef,
-        target,
-      });
-    }
+    const restrained: AutomationEffect = {
+      name: input.def.name,
+      duration: { type: 'endOfTurn', of: 'source' },
+      to: 'targets',
+      modifiers: [],
+      conditions: ['restrained'],
+      concentration: true,
+    };
+    applyEffectLight(ctx, room, input.mapId, {
+      sourceKey: input.def.key,
+      sourceId: input.caster.id,
+      mapId: input.mapId,
+      effectDef: restrained,
+      target,
+    });
   },
   /** Scatter: не-союзники кидают WIS-спас (успех — остаётся); невалидные точки пропускаем. */
   scatter: ({ ctx, room, input, utility }) => {
