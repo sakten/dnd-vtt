@@ -919,16 +919,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     },
   },
   // Slow: помеха-эффект с ограничениями экономики (реакции, действие/бонус, атаки, соматика).
-  // Mirror Image: три образа; попадание принимает образ (d6 ≥ 3), заряды кончаются.
-  'XPHB:Mirror Image': spellEffect('XPHB:Mirror Image', 'Mirror Image', [
-    {
-      name: 'Mirror Image',
-      duration: { type: 'rounds', rounds: 10 },
-      to: 'self',
-      modifiers: [],
-      misdirect: { ...SPELL_BASES.mirrorImage.misdirect },
-    },
-  ]),
   'XPHB:Slow': spellEffect('XPHB:Slow', 'Slow', [
     {
       name: 'Slow',

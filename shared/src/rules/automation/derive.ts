@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, armorOfAgathysDef, bestowCurseDef, bladeBarrierDef, blindnessDeafnessDef, boomingBladeDef, breathSpellDef, callLightningDef, chainLightningDef, commandDef, compositeDamageDef, conjureFeyDef, conjureMinorElementalsDef, cordonOfArrowsDef, dimensionDoorDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, elementalBaneDef, elementalWeaponDef, enervationDef, enhanceAbilityDef, ensnaringStrikeDef, eyebiteDef, falseLifeDef, farStepDef, fireShieldDef, flameArrowsDef, flameBladeDef, greenFlameBladeDef, guardianOfFaithDef, healSpellDef, healingSpiritDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, invisibilityDef, jallarziDef, lifeTransferenceDef, magicStoneDef, magicWeaponDef, minuteMeteorsDef, negativeEnergyFloodDef, protectionFromEnergyDef, resistanceDef, searingSmiteDef, shadowBladeDef, shadowOfMoilDef, shillelaghDef, skillEmpowermentDef, spellBuiltinAutomated, spiritShroudDef, spiritualWeaponDef, steelWindStrikeDef, stormSphereDef, sunbeamDef, telekinesisDef, thunderStepDef, trueStrikeDef, vampiricTouchDef, vitriolicSphereDef, wallOfFireDef, wallOfForceDef, wallOfIceDef, wallOfLightDef, wallOfSandDef, wallOfStoneDef, wallOfThornsDef, witchBoltDef, xphbSmiteDef, zephyrStrikeDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, armorOfAgathysDef, callLightningDef, chainLightningDef, compositeDamageDef, conjureFeyDef, dimensionDoorDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, farStepDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, invisibilityDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, shadowOfMoilDef, spellBuiltinAutomated, spiritualWeaponDef, steelWindStrikeDef, stormSphereDef, sunbeamDef, telekinesisDef, thunderStepDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -44,35 +44,8 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);
 
-  const greenFlame = greenFlameBladeDef(spell, opts);
-  if (greenFlame) return greenFlame;
-
-  const booming = boomingBladeDef(spell, opts);
-  if (booming) return booming;
-
-  const trueStrike = trueStrikeDef(spell, opts);
-  if (trueStrike) return trueStrike;
-
-  const zephyr = zephyrStrikeDef(spell);
-  if (zephyr) return zephyr;
-
-  const breath = breathSpellDef(spell, opts);
-  if (breath) return breath;
-
-  const protectionEnergy = protectionFromEnergyDef(spell, opts);
-  if (protectionEnergy) return protectionEnergy;
-
-  const resistance = resistanceDef(spell, opts);
-  if (resistance) return resistance;
-
-  const elementalBane = elementalBaneDef(spell, opts);
-  if (elementalBane) return elementalBane;
-
   const vampiric = vampiricTouchDef(spell, opts);
   if (vampiric) return vampiric;
-
-  const flameBlade = flameBladeDef(spell, opts);
-  if (flameBlade) return flameBlade;
 
   const sunbeam = sunbeamDef(spell, opts);
   if (sunbeam) return sunbeam;
@@ -113,9 +86,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const conjureFey = conjureFeyDef(spell, opts);
   if (conjureFey) return conjureFey;
 
-  const guardianOfFaith = guardianOfFaithDef(spell);
-  if (guardianOfFaith) return guardianOfFaith;
-
   const dispelEvilGood = dispelEvilGoodDef(spell);
   if (dispelEvilGood) return dispelEvilGood;
 
@@ -130,30 +100,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const jallarzi = jallarziDef(spell, opts);
   if (jallarzi) return jallarzi;
-
-  const wallOfThorns = wallOfThornsDef(spell, opts);
-  if (wallOfThorns) return wallOfThorns;
-
-  const wallOfFire = wallOfFireDef(spell, opts);
-  if (wallOfFire) return wallOfFire;
-
-  const bladeBarrier = bladeBarrierDef(spell, opts);
-  if (bladeBarrier) return bladeBarrier;
-
-  const wallOfSand = wallOfSandDef(spell, opts);
-  if (wallOfSand) return wallOfSand;
-
-  const wallOfIce = wallOfIceDef(spell, opts);
-  if (wallOfIce) return wallOfIce;
-
-  const wallOfForce = wallOfForceDef(spell, opts);
-  if (wallOfForce) return wallOfForce;
-
-  const wallOfStone = wallOfStoneDef(spell, opts);
-  if (wallOfStone) return wallOfStone;
-
-  const wallOfLight = wallOfLightDef(spell, opts);
-  if (wallOfLight) return wallOfLight;
 
   const iceKnife = iceKnifeDef(spell, opts);
   if (iceKnife) return iceKnife;
@@ -173,12 +119,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
 
-  const enhance = enhanceAbilityDef(spell, opts);
-  if (enhance) return enhance;
-
-  const skillEmpowerment = skillEmpowermentDef(spell, opts);
-  if (skillEmpowerment) return skillEmpowerment;
-
   const farStep = farStepDef(spell);
   if (farStep) return farStep;
 
@@ -187,12 +127,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const thunderStep = thunderStepDef(spell, opts);
   if (thunderStep) return thunderStep;
-
-  const healingSpirit = healingSpiritDef(spell, opts);
-  if (healingSpirit) return healingSpirit;
-
-  const cordon = cordonOfArrowsDef(spell, opts);
-  if (cordon) return cordon;
 
   const stormSphere = stormSphereDef(spell, opts);
   if (stormSphere) return stormSphere;
@@ -206,53 +140,14 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const heroesFeast = heroesFeastDef(spell);
   if (heroesFeast) return heroesFeast;
 
-  const bestowCurse = bestowCurseDef(spell, opts);
-  if (bestowCurse) return bestowCurse;
-
   const invisibility = invisibilityDef(spell, opts);
   if (invisibility) return invisibility;
-
-  const magicWeapon = magicWeaponDef(spell, opts);
-  if (magicWeapon) return magicWeapon;
-
-  const shillelagh = shillelaghDef(spell, opts);
-  if (shillelagh) return shillelagh;
-
-  const shadowBlade = shadowBladeDef(spell, opts);
-  if (shadowBlade) return shadowBlade;
-
-  const magicStone = magicStoneDef(spell);
-  if (magicStone) return magicStone;
-
-  const minorElementals = conjureMinorElementalsDef(spell, opts);
-  if (minorElementals) return minorElementals;
-
-  const elementalWeapon = elementalWeaponDef(spell, opts);
-  if (elementalWeapon) return elementalWeapon;
-
-  const spiritShroud = spiritShroudDef(spell, opts);
-  if (spiritShroud) return spiritShroud;
-
-  const flameArrows = flameArrowsDef(spell);
-  if (flameArrows) return flameArrows;
-
-  const fireShield = fireShieldDef(spell, opts);
-  if (fireShield) return fireShield;
 
   const shadowOfMoil = shadowOfMoilDef(spell);
   if (shadowOfMoil) return shadowOfMoil;
 
-  const eyebite = eyebiteDef(spell, opts);
-  if (eyebite) return eyebite;
-
-  const command = commandDef(spell, opts);
-  if (command) return command;
-
   const dominate = dominateDef(spell, opts);
   if (dominate) return dominate;
-
-  const blindness = blindnessDeafnessDef(spell, opts);
-  if (blindness) return blindness;
 
   const smite = xphbSmiteDef(spell, opts);
   if (smite) return smite;
@@ -435,6 +330,8 @@ export function spellDamageParts(spell: Spell): { dice: string; types: string[] 
  * данных (`automation: 'full'`). Остальным рисуем красный маркер на иконке.
  */
 export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolean {
+  const spec = AUTOMATION_SPECS[spell.key];
+  if (spec) return spec.primary !== 'manual';
   const def = AUTOMATION_SPELLS[spell.key];
   if (def) return def.resolution !== 'manual';
   if (spellBuiltinAutomated(spell.key)) return true;

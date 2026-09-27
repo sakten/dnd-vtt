@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import {
   AUTOMATION_ADDITIONS,
+  AUTOMATION_SPECS,
   AUTOMATION_SPELLS,
-  SPELL_VARIANTS,
   automationForSpell,
   spellAutomated,
   spellDamageParts,
@@ -49,11 +49,13 @@ for (const spell of SPELLS) {
   const tempHp = spellTempHp(spell, base, 17);
   if (tempHp) cases.push([`${spell.key}#tempHp`, tempHp]);
 }
-for (const [key, variant] of Object.entries(SPELL_VARIANTS)) {
+for (const [key, spec] of Object.entries(AUTOMATION_SPECS)) {
+  const choice = spec.choices?.[0];
+  if (!choice) continue;
   const spell = SPELLS.find((s) => s.key === key);
   if (!spell) continue;
   const castLevel = Math.max(1, spell.level);
-  for (const option of variant.options) {
+  for (const option of choice.options) {
     cases.push([
       `${key}@${castLevel}/${option}`,
       automationForSpell(spell, { castLevel, characterLevel: 17, variant: option }),
@@ -70,9 +72,9 @@ const actual = {
 };
 
 const EXPECTED = {
-  catalog: 'dece4e0444c55426',
+  catalog: '25f517ec9bcde1e9',
   additions: '1b3ac2b7685ff142',
-  derived: '2f4b5660c8ff9464',
+  derived: '6aed211f4163b8fd',
   green: 245,
   red: 175,
 };

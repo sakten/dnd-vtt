@@ -99,6 +99,8 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     key: 'XPHB:True Strike',
     name: 'True Strike',
     primary: 'attack',
+    // Выбор базового типа урона сохраняется как поверхность каста (механику ведёт оружие).
+    choices: [{ id: 'damageType', param: 'damageType', options: ['weapon', 'radiant'] }],
     weaponAttack: {
       anyWeapon: true,
       spellAbility: true,
