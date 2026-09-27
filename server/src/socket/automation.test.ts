@@ -332,6 +332,52 @@ describe('Telekinesis', () => {
     ).toBe(true);
   });
 
+  it('сброс концентрации: действие и restrained снимаются вместе', () => {
+    const { room, f, caster, target } = setupTk();
+    const original = Math.random;
+    Math.random = () => 0;
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: tkDef(),
+        targets: [target],
+        stats,
+        author: 'DM',
+        placements: placement(target.id, 250),
+      });
+    } finally {
+      Math.random = original;
+    }
+    f.invoke('spell:endConcentration', { mapId: 'm1', tokenId: caster.id });
+    expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Telekinesis')).toBe(false);
+    expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(false);
+    expect(room.scene.maps[0]!.combat.turns.e1!.concentrationId).toBeNull();
+  });
+
+  it('провал кон-сейва на удержание: действие и restrained снимаются', () => {
+    const { room, f, caster, target } = setupTk();
+    const original = Math.random;
+    Math.random = () => 0;
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: tkDef(),
+        targets: [target],
+        stats,
+        author: 'DM',
+        placements: placement(target.id, 250),
+      });
+      // Урон кастеру: d20 = 1 → кон-сейв (СЛ 15) провален.
+      f.ctx.applyHp(room, 'm1', caster, -30);
+    } finally {
+      Math.random = original;
+    }
+    expect(caster.effects.some((e) => e.sourceKey === 'XPHB:Telekinesis')).toBe(false);
+    expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(false);
+  });
+
   it('повтор действием на следующем ходу: снова спас и перенос', () => {
     const { f, map, caster, target } = setupTk();
     const original = Math.random;
