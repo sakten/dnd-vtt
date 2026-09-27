@@ -85,19 +85,17 @@
 - `defense` (`conditionImmunities*`, `saveNoDamage`, `deathSaveAdvantage`) — пересекается с `damageHooks`/`effects`;
 - `triggers`/`timing` — приводится к одному формату payload + слот (`startOfTurn`/`endOfTurn`/`enter`/`exit`/`onCreate`), отдельным классом не является.
 
-## 4. DiceRef
+## 4. ValueExpr (DiceRef)
 
-Единая ссылка на кости вместо строк с уже посчитанным скейлом:
+Значения спека (кости, типы, бонусы) — ссылки `ValueExpr`, резолвит компилятор:
 
-```
-type DiceRef =
-  | { from: 'spell'; part: DamagePartRole; scale?: 'upcast' | 'cantrip' }
-  | { dice: string }
-  | { flat: number; perLevel?: number; above?: number }
-  | { choice: string };
-```
+- `{ ref: 'cantrip' | 'damage' | 'part' | 'upcastDice' | 'spellDamage' | 'upcastAttack' | 'type0' | 'spellMod' | 'castLevel' | 'characterLevel' | 'choice'; part?; choice?; fallback? }` — данные заклинания, опции каста, выбор из `choices`;
+- `{ add: [expr, '1d8'] }` — сложение однотипных костей (`addDice`: `1d8` + `1d8` → `2d8`, без базы — добавка);
+- `{ concat: [...] }` — `${кость}${тип}`: любое нерешённое слагаемое опускает всё поле (`riderDice` у GFB/True Strike);
+- `{ tiers: [{ above, value }] }` — литеральные ступени (Magic Weapon: +1/+2/+3 с 1/3/6 круга);
+- литералы; `undefined` — поле опускается, обязательное нерезолвленное — ошибка компиляции (`mustValue`).
 
-Модификаторы кости остаются на узле payload: `abilityMod` (Flame Blade), `abilityDice` (Sear Undead), `classLevelBonus` (Second Wind). Рантайм `AutomationDice.dice` получает уже разрешённую строку — компилятор, а не исполнитель.
+Рантайм `AutomationDice.dice` получает уже разрешённую строку — компилятор, а не исполнитель.
 
 ## 5. Стабильные имена и патч-пути
 
@@ -155,7 +153,8 @@ CUSTOM:Jallarzi-Fire {
 - выделяются `loadout`, `damageHooks`, `uses`, `movement`, `choices`, `selection`, `vision`;
 - `mark`/`markTarget`/`markSaved` остаются в `effects`; `retarget` — в `selection`;
 - `economy`/`defense` не выделяются; `triggers` — единый формат payload + слот;
-- шаблоны — конструкторы над композицией.
+- шаблоны — конструкторы над композицией;
+- `ValueExpr` (ref/tiers/add/concat) — реализован; пилот `loadout` (10 спеков: GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) компилируется из `AUTOMATION_SPECS`, равенство вывода билдерам — замок `automation.spec.test.ts`.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

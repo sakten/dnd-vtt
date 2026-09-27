@@ -6,3 +6,6 @@ export { SPELL_VARIANTS, spellVariantDef } from './variants';
 export { shadowBladeReturnAction, spellBuiltinAutomated } from './builders';
 export { automationForSpell, automationForAction, spellEffectDefs, spellTempHp, spellDamageParts, spellAutomated, spellByDesign, spellWeaponOverride } from './derive';
 export type { ActionAutomationOptions } from './derive';
+export { AUTOMATION_SPECS } from './specs';
+export { compileSpec, validateSpec } from './compile';
+export type { ActionSpec, AutomationSpec, ChoiceSpec, EffectSpec, LoadoutSpec, ValueExpr, WeaponAttackSpec } from './spec';
