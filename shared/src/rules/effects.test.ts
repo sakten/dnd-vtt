@@ -30,8 +30,10 @@ import {
   saveRollParts,
   withRollParts,
 } from './effects';
-import { spellAutomated, spellEffectDefs } from './automation';
+import { automationForSpell, spellAutomated, spellEffectDefs } from './automation';
+import spellsRaw from '../data/spells.json';
 import { normalizeEffects } from '../normalize/effects';
+import type { Spell } from './spells';
 import { effectFieldsFromDef, type AutomationEffect } from '../domain/automation';
 import type { EffectInstance, Modifier } from '../domain/effects';
 
@@ -457,7 +459,8 @@ describe('каталог эффектов заклинаний', () => {
   });
 
   it('Hex привязывает бонус урона к метке', () => {
-    const defs = spellEffectDefs('XPHB:Hex');
+    const spell = (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === 'XPHB:Hex')!;
+    const defs = automationForSpell(spell).effects;
     expect(defs?.[0]!.markTarget).toBe(true);
     expect(defs?.[0]!.to).toBe('self');
     expect(defs![0]!.modifiers[0]!).toMatchObject({ target: 'damage', mode: 'add', value: '1d6necrotic' });

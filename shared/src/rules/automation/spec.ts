@@ -84,6 +84,8 @@ export interface ActionSpec {
   defKey?: string;
   /** Суффикс ключа `def`: `${spec.key}:${subKey}` (Shadow Blade: return). */
   subKey?: string;
+  /** Перенос метки (Hex/Hunter's Mark): доступен только после смерти текущей цели. */
+  retarget?: boolean;
   primary: AutomationResolution;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
@@ -286,6 +288,10 @@ export interface EffectSpec {
   seesInvisible?: Gated<boolean>;
   /** Подпись выбранного варианта (`variant`), если он виден в чипе. */
   variant?: ValueExpr;
+  /** Привязка модификаторов к цели каста (метка Hex/Hunter's Mark на кастере). */
+  markTarget?: boolean;
+  /** Метка-прицел на цели (второй эффект Hex/Hunter's Mark). */
+  mark?: boolean;
   /** Максимум целей эффекта (Bless — 3, Elemental Bane — 1). */
   targets?: ValueExpr;
   /** Блок `uses`: заряды/счётчики эффекта. */

@@ -256,6 +256,7 @@ function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
     ...damage,
     ...(action.count !== undefined ? { count: action.count } : {}),
     ...(action.effects?.length ? { effects: action.effects.map((e) => compileEffect(ctx, e)) } : {}),
+    ...(action.retarget ? { retarget: true } : {}),
     ...(targeting ? { targeting: { ...targeting } } : {}),
     ...(action.utility ? { utility: compileUtility(ctx, action.utility) } : {}),
   };
@@ -417,6 +418,8 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(conditionImmunities.length ? { conditionImmunities } : {}),
     ...(effect.banish ? { banish: true } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
+    ...(effect.markTarget ? { markTarget: true } : {}),
+    ...(effect.mark ? { mark: true } : {}),
     ...(senses?.length ? { senses } : {}),
     ...(seesInvisible ? { seesInvisible: true } : {}),
 

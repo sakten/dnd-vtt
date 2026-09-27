@@ -1,6 +1,6 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
 import { DAMAGE_TYPES } from '../../labels';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, UNTIL_NEXT_TURN, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, remarkAction, spellEffect, zoneMoveAction } from './header';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, UNTIL_NEXT_TURN, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
 import { SPELL_BASES } from './bases';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
@@ -174,30 +174,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'targets',
       modifiers: [{ target: 'check', mode: 'add', value: SPELL_BASES.d4Bonus }],
     },
-  ]),
-  'XPHB:Hex': spellEffect('XPHB:Hex', 'Hex', [
-    {
-      name: 'Hex',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'self',
-      markTarget: true,
-      modifiers: [{ target: 'damage', mode: 'add', value: '1d6necrotic' }],
-      actions: [remarkAction('XPHB:Hex', 'Hex')],
-    },
-    { name: 'Hex', duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [], mark: true },
-  ]),
-  "XPHB:Hunter's Mark": spellEffect("XPHB:Hunter's Mark", "Hunter's Mark", [
-    {
-      name: "Hunter's Mark",
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'self',
-      markTarget: true,
-      modifiers: [{ target: 'damage', mode: 'add', value: '1d6force' }],
-      actions: [remarkAction("XPHB:Hunter's Mark", "Hunter's Mark")],
-    },
-    { name: "Hunter's Mark", duration: CONCENTRATION, concentration: true, to: 'targets', modifiers: [], mark: true },
   ]),
   'XPHB:Hold Person': spellEffect('XPHB:Hold Person', 'Hold Person', [
     {

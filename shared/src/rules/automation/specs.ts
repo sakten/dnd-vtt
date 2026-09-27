@@ -1478,4 +1478,80 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     },
   },
+
+  // Батч `selection` (метки): эффект на кастере с привязкой к цели + чип-метка + перенос.
+  'XPHB:Hex': {
+    key: 'XPHB:Hex',
+    name: 'Hex',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'hex',
+        name: 'Hex',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        markTarget: true,
+        modifiers: [{ target: 'damage', mode: 'add', value: '1d6necrotic' }],
+        actions: [
+          {
+            id: 'remark',
+            name: 'Перенести метку',
+            defName: 'Hex',
+            cost: 'bonus',
+            primary: 'manual',
+            retarget: true,
+            targeting: { kind: 'creature', range: 90 },
+          },
+        ],
+      },
+      {
+        id: 'mark',
+        name: 'Hex',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        mark: true,
+      },
+    ],
+  },
+  "XPHB:Hunter's Mark": {
+    key: "XPHB:Hunter's Mark",
+    name: "Hunter's Mark",
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'markTarget',
+        name: "Hunter's Mark",
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        markTarget: true,
+        modifiers: [{ target: 'damage', mode: 'add', value: '1d6force' }],
+        actions: [
+          {
+            id: 'remark',
+            name: 'Перенести метку',
+            defName: "Hunter's Mark",
+            cost: 'bonus',
+            primary: 'manual',
+            retarget: true,
+            targeting: { kind: 'creature', range: 90 },
+          },
+        ],
+      },
+      {
+        id: 'mark',
+        name: "Hunter's Mark",
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        mark: true,
+      },
+    ],
+  },
 };
