@@ -1,3 +1,4 @@
+import { SKILLS } from '../../labels';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN, zoneMoveAction } from './header';
 import type { AutomationSpec, ValueExpr } from './spec';
@@ -443,5 +444,165 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         variant: { ref: 'choice' },
       },
     ],
+  },
+
+  "XPHB:Dragon's Breath": {
+    key: "XPHB:Dragon's Breath",
+    name: "Dragon's Breath",
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'damageType', param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'poison'] }],
+    effects: [
+      {
+        id: 'breath',
+        name: "Dragon's Breath",
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        variant: { ref: 'choice' },
+        actions: [
+          {
+            id: 'breath',
+            name: 'Выдох',
+            cost: 'action',
+            primary: 'save',
+            save: { ability: 'dex', half: true },
+            damage: { dice: { ref: 'spellDamage' }, types: [{ ref: 'choice' }] },
+            area: { from: 'spell', fallback: { shape: 'cone', size: 15 } },
+            targeting: { kind: 'area', fromArea: true },
+          },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Command': {
+    key: 'XPHB:Command',
+    name: 'Command',
+    primary: 'effect',
+    save: { ability: 'wis' },
+    excludeCreatureTypes: ['undead'],
+    choices: [
+      { id: 'command', param: 'command', options: ['approach', 'drop', 'flee', 'grovel', 'halt'], default: 'halt' },
+    ],
+    effects: [
+      {
+        id: 'command',
+        name: 'Command',
+        duration: { type: 'endOfTurn', of: 'target' },
+        to: 'targets',
+        targets: 1,
+        modifiers: [
+          {
+            if: { includes: { of: { ref: 'choice' }, values: ['halt', 'grovel'] } },
+            then: { target: 'speed', mode: 'multiply', value: 0 },
+          },
+        ],
+        conditions: [{ if: { includes: { of: { ref: 'choice' }, values: ['grovel'] } }, then: 'prone' }],
+        restrictions: { noActions: true, noBonus: true },
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XPHB:Enhance Ability': {
+    key: 'XPHB:Enhance Ability',
+    name: 'Enhance Ability',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'ability', param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] }],
+    effects: [
+      {
+        id: 'enhance',
+        name: 'Enhance Ability',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        targets: { perLevel: { base: 1, per: 1, above: 2 } },
+        modifiers: [{ target: 'check', mode: 'advantage', filter: { ability: { ref: 'choice' } } }],
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XGE:Skill Empowerment': {
+    key: 'XGE:Skill Empowerment',
+    name: 'Skill Empowerment',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'skill', param: 'skill', options: SKILLS.map((s) => s.key) }],
+    effects: [
+      {
+        id: 'skill',
+        name: 'Skill Empowerment',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'check', mode: 'add', value: '$proficiency', filter: { skill: { ref: 'choice' } } }],
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'TCE:Spirit Shroud': {
+    key: 'TCE:Spirit Shroud',
+    name: 'Spirit Shroud',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'damageType', param: 'damageType', options: ['cold', 'necrotic', 'radiant'] }],
+    zone: {
+      area: { shape: 'sphere', size: 10 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'hostile',
+      aura: {
+        effects: [
+          {
+            id: 'shroud',
+            name: 'Spirit Shroud',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'speed', mode: 'add', value: -10 }],
+            takesExtraDamage: {
+              dice: { add: [{ ref: 'damage', fallback: '1d8' }, { ref: 'upcastDice' }] },
+              damageType: { ref: 'choice' },
+            },
+            variant: { ref: 'choice' },
+          },
+        ],
+      },
+    },
+  },
+
+  'XPHB:Conjure Minor Elementals': {
+    key: 'XPHB:Conjure Minor Elementals',
+    name: 'Conjure Minor Elementals',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'damageType', param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning'] }],
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'hostile',
+      flags: { difficultTerrain: true },
+      aura: {
+        effects: [
+          {
+            id: 'cme',
+            name: 'Conjure Minor Elementals',
+            duration: PERMANENT,
+            to: 'targets',
+            takesExtraDamage: {
+              dice: { add: [{ ref: 'damage', fallback: '2d8' }, { ref: 'upcastDice' }] },
+              damageType: { ref: 'choice' },
+            },
+            variant: { ref: 'choice' },
+          },
+        ],
+      },
+    },
   },
 };

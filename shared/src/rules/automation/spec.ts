@@ -1,4 +1,4 @@
-import type { ActionTargeting } from '../../domain/actions';
+import type { ActionTargeting, AreaSpec } from '../../domain/actions';
 import type {
   AutomationResolution,
   AutomationSave,
@@ -37,9 +37,11 @@ export type ValueExpr =
       fallback?: ValueExpr;
     }
   /** Сложение костей одного вида: `1d8` + `1d8` → `2d8` (нет базы — берётся добавка). */
-  | { add: [ValueExpr, string] }
+  | { add: [ValueExpr, ValueExpr] }
   /** Конкатенация: `${кость}${тип}`; любое нерешённое слагаемое опускает всё выражение. */
   | { concat: ValueExpr[] }
+  /** `'1'`, если значение входит в список — гейт для `{ if, then }` (Command: halt/grovel). */
+  | { includes: { of: ValueExpr; values: string[] } }
   /** Литеральные ступени значения по кругу (Magic Weapon: +1/+2/+3 с 1/3/6 круга). */
   | { tiers: { above: number; value: number }[] }
   /** `base + per × (круг − above)`; `above:'spell'` — базовый круг заклинания (Cordon). */
@@ -54,7 +56,7 @@ export type ValueExpr =
 /** Выбор, делаемый при касте (Dragon's Breath: тип урона; Elemental Weapon: тип и т.п.). */
 export interface ChoiceSpec {
   id: string;
-  param: 'damageType' | 'ability' | 'skill' | 'condition' | 'mode' | 'effect';
+  param: 'damageType' | 'ability' | 'skill' | 'condition' | 'mode' | 'effect' | 'command';
   options: string[];
   default?: string;
 }
@@ -70,8 +72,13 @@ export interface ActionSpec {
   subKey?: string;
   primary: AutomationResolution;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
-  targeting?: ActionTargeting;
-  damage?: { dice: ValueExpr; types?: string[]; abilityMod?: boolean };
+  /** Область действия: литерал или `spell.areaSpec` с fallback (Dragon's Breath). */
+  area?: AreaSpec | { from: 'spell'; fallback: AreaSpec };
+  /** Прицеливание: литерал или область из `area` (range = max(5, size)). */
+  targeting?: ActionTargeting | { kind: 'area'; fromArea: true };
+  /** Действие зоны (Dragon's Breath): спас и урон (кость/типы — ссылки). */
+  save?: AutomationSave;
+  damage?: { dice: ValueExpr; types?: ValueExpr[]; abilityMod?: boolean };
   utility?: AutomationUtility;
 }
 
@@ -142,10 +149,17 @@ export interface ZoneSpec extends Omit<Partial<ZoneDef>, 'charges' | 'triggers' 
   };
 }
 
-/** Модификатор спека: `value`/`filter.damageType` — `ValueExpr` (выбор при касте). */
+/** Элемент списка под условием: `if` непусто/истинно — `then` попадает в результат. */
+export type Gated<T> = T | { if: ValueExpr; then: T };
+
+/** Модификатор спека: `value`/`filter.*` — `ValueExpr` (выбор при касте). */
 export interface ModifierSpec extends Omit<Modifier, 'id' | 'value' | 'filter'> {
   value?: ValueExpr;
-  filter?: Omit<ModifierFilter, 'damageType'> & { damageType?: ValueExpr };
+  filter?: Omit<ModifierFilter, 'damageType' | 'ability' | 'skill'> & {
+    damageType?: ValueExpr;
+    ability?: ValueExpr;
+    skill?: ValueExpr;
+  };
 }
 
 /** Эффект спека: длительность/цель + блоки (loadout/uses/actions/vision). */
@@ -155,20 +169,22 @@ export interface EffectSpec {
   duration: EffectDuration;
   concentration?: boolean;
   to?: 'self' | 'targets';
-  /** Модификаторы (id присваивает сервер); значения/фильтры — ссылки. */
-  modifiers?: ModifierSpec[];
-  conditions?: ValueExpr[];
+  /** Модификаторы (id присваивает сервер); значения/фильтры — ссылки; гейт по выбору. */
+  modifiers?: Gated<ModifierSpec>[];
+  conditions?: Gated<ValueExpr>[];
   light?: LightSource;
   /** Подпись выбранного варианта (`variant`), если он виден в чипе. */
   variant?: ValueExpr;
   /** Максимум целей эффекта (Bless — 3, Elemental Bane — 1). */
-  targets?: number;
+  targets?: ValueExpr;
   /** Блок `uses`: заряды/счётчики эффекта. */
   uses?: UsesSpec;
   /** Resistance: уменьшение получаемого урона типов на кость. */
   damageReduce?: { dice: ValueExpr; types: ValueExpr[] };
   /** Elemental Bane: потеря сопротивления и доп. урон первого попадания за ход. */
   elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
+  /** Spirit Shroud/CME: доп. урон атак источника по носителю (аура-метка). */
+  takesExtraDamage?: { dice: ValueExpr; damageType: ValueExpr };
   /** Ограничения экономики (Zephyr Strike: перемещение не провоцирует OA). */
   restrictions?: Restrictions;
   /** Ответный урон (Armor of Agathys, Fire Shield); тип — ссылка. */
@@ -214,6 +230,8 @@ export interface AutomationSpec {
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
   targeting?: ActionTargeting;
+  /** Типы существ, на которых не действует (Command: нежить). */
+  excludeCreatureTypes?: string[];
   effects?: EffectSpec[];
   zone?: ZoneSpec;
   weaponAttack?: WeaponAttackSpec;

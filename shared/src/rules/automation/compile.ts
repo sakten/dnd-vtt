@@ -1,8 +1,9 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, GrantedAction, ZoneDef } from '../../domain/automation';
+import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
 import type { Spell } from '../spells';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt } from '../spellCast';
-import { addDice, scaledDice, upcastSteps } from './builders';
+import { addDiceExpression, scaledDice, upcastSteps } from './builders';
 import type {
   ActionSpec,
   AutomationSpec,
@@ -54,7 +55,14 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
   }
   if ('add' in expr) {
     const base = resolveValue(ctx, expr.add[0]);
-    return addDice(typeof base === 'string' ? base : undefined, expr.add[1]);
+    const extra = resolveValue(ctx, expr.add[1]);
+    if (extra === undefined) return base;
+    if (base === undefined) return extra;
+    return addDiceExpression(String(base), String(extra));
+  }
+  if ('includes' in expr) {
+    const value = resolveValue(ctx, expr.includes.of);
+    return value !== undefined && expr.includes.values.includes(String(value)) ? '1' : '';
   }
   if ('tiers' in expr) {
     const tier = [...expr.tiers].filter((t) => ctx.castLevel >= t.above).pop();
@@ -153,21 +161,40 @@ function compileLoadout(ctx: CompileCtx, loadout: LoadoutSpec): Partial<Automati
 }
 
 function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
+  const dice = action.damage ? resolveValue(ctx, action.damage.dice) : undefined;
+  const area =
+    action.area === undefined
+      ? undefined
+      : 'from' in action.area
+        ? (ctx.spell.areaSpec ?? action.area.fallback)
+        : action.area;
+  const targeting =
+    action.targeting && 'fromArea' in action.targeting
+      ? area
+        ? { kind: 'area' as const, area, range: Math.max(5, area.size) }
+        : undefined
+      : action.targeting;
+  const damage =
+    action.damage && dice !== undefined
+      ? {
+          damage: {
+            dice: String(dice),
+            ...(action.damage.types?.length
+              ? { types: action.damage.types.map((t) => String(mustValue(ctx, t, `action.${action.id}.damage.types`))) }
+              : {}),
+            ...(action.damage.abilityMod ? { abilityMod: true } : {}),
+          },
+        }
+      : {};
   const def: AutomationDef = {
     key: action.subKey ? `${ctx.spec.key}:${action.subKey}` : ctx.spec.key,
     name: action.defName ?? action.name,
     resolution: action.primary,
     ...(action.attack ? { attack: { ...action.attack } } : {}),
-    ...(action.damage
-      ? {
-          damage: {
-            dice: String(mustValue(ctx, action.damage.dice, `action.${action.id}.damage`)),
-            ...(action.damage.types ? { types: [...action.damage.types] } : {}),
-            ...(action.damage.abilityMod ? { abilityMod: true } : {}),
-          },
-        }
-      : {}),
-    ...(action.targeting ? { targeting: { ...action.targeting } } : {}),
+    ...(action.save ? { save: { ...action.save } } : {}),
+    ...(area ? { area } : {}),
+    ...damage,
+    ...(targeting ? { targeting: { ...targeting } } : {}),
     ...(action.utility ? { utility: { ...action.utility } } : {}),
   };
   return { id: action.id, name: action.name, cost: action.cost, def };
@@ -183,15 +210,25 @@ function compileUses(ctx: CompileCtx, uses: UsesSpec): Partial<AutomationEffect>
   return { misdirect: { charges: uses.charges, die: uses.die, threshold: uses.threshold } };
 }
 
+/** Элемент списка с гейтом `{ if, then }`: гейт пуст — элемент опускается. */
+function compileGated<T>(ctx: CompileCtx, entry: T | { if: ValueExpr; then: T }, compile: (value: T) => T): T | undefined {
+  if (entry && typeof entry === 'object' && 'if' in entry && 'then' in entry) {
+    return resolveValue(ctx, entry.if) ? compile(entry.then) : undefined;
+  }
+  return compile(entry as T);
+}
+
 function compileModifier(ctx: CompileCtx, spec: ModifierSpec): Omit<Modifier, 'id'> {
   const { value, filter, ...rest } = spec;
   const out: Omit<Modifier, 'id'> = { ...rest };
   if (value !== undefined) out.value = mustValue(ctx, value, 'modifier.value');
   if (filter) {
-    const { damageType, ...restFilter } = filter;
+    const { damageType, ability, skill, ...restFilter } = filter;
     out.filter = {
       ...restFilter,
       ...(damageType !== undefined ? { damageType: String(mustValue(ctx, damageType, 'modifier.filter.damageType')) } : {}),
+      ...(ability !== undefined ? { ability: String(mustValue(ctx, ability, 'modifier.filter.ability')) as AbilityKey } : {}),
+      ...(skill !== undefined ? { skill: String(mustValue(ctx, skill, 'modifier.filter.skill')) } : {}),
     };
   }
   return out;
@@ -199,19 +236,23 @@ function compileModifier(ctx: CompileCtx, spec: ModifierSpec): Omit<Modifier, 'i
 
 function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
   const loadout = effect.loadout ? compileLoadout(ctx, effect.loadout) : {};
-  const modifiers = [...(effect.modifiers ?? []).map((m) => compileModifier(ctx, m)), ...(loadout.modifiers ?? [])];
+  const gated = (effect.modifiers ?? [])
+    .map((entry) => compileGated(ctx, entry, (m) => compileModifier(ctx, m)))
+    .filter((m): m is Omit<Modifier, 'id'> => m !== undefined);
+  const modifiers = [...gated, ...(loadout.modifiers ?? [])];
   const variant = effect.variant !== undefined ? String(mustValue(ctx, effect.variant, `effect.${effect.id}.variant`)) : undefined;
-  const conditions = effect.conditions?.map(
-    (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditions`)) as ConditionKey
-  );
+  const conditions = (effect.conditions ?? [])
+    .map((entry) => compileGated(ctx, entry, (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditions`)) as ConditionKey))
+    .filter((c): c is ConditionKey => c !== undefined);
+  const targets = effect.targets !== undefined ? Number(mustValue(ctx, effect.targets, `effect.${effect.id}.targets`)) : undefined;
   return {
     name: effect.name,
     duration: effect.duration,
     ...(effect.concentration ? { concentration: true } : {}),
     ...(effect.to ? { to: effect.to } : {}),
-    ...(effect.targets !== undefined ? { targets: effect.targets } : {}),
+    ...(targets !== undefined ? { targets } : {}),
     modifiers,
-    ...(conditions?.length ? { conditions } : {}),
+    ...(conditions.length ? { conditions } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(variant ? { variant } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
@@ -228,6 +269,14 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
           elementalBane: {
             damageType: String(mustValue(ctx, effect.elementalBane.damageType, `effect.${effect.id}.elementalBane`)),
             dice: String(mustValue(ctx, effect.elementalBane.dice, `effect.${effect.id}.elementalBane`)),
+          },
+        }
+      : {}),
+    ...(effect.takesExtraDamage
+      ? {
+          takesExtraDamage: {
+            dice: String(mustValue(ctx, effect.takesExtraDamage.dice, `effect.${effect.id}.takesExtraDamage`)),
+            damageType: String(mustValue(ctx, effect.takesExtraDamage.damageType, `effect.${effect.id}.takesExtraDamage`)),
           },
         }
       : {}),
@@ -366,6 +415,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),
+    ...(spec.excludeCreatureTypes?.length ? { excludeCreatureTypes: [...spec.excludeCreatureTypes] } : {}),
     ...(spec.effects?.length ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
     ...(spec.weaponAttack ? { weaponAttack: compileWeaponAttack(ctx, spec.weaponAttack) } : {}),
@@ -486,17 +536,31 @@ export function validateSpec(spec: AutomationSpec): string[] {
   if (spec.zone && (!spec.zone.area || !spec.zone.duration)) errors.push('zone без area/duration');
   const choiceIds = new Set((spec.choices ?? []).map((c) => c.id));
   const refs: ValueExpr[] = [];
+  const pushGated = <T>(entry: T | { if: ValueExpr; then: T }, push: (value: T) => void) => {
+    if (entry && typeof entry === 'object' && 'if' in entry && 'then' in entry) {
+      refs.push(entry.if);
+      push(entry.then);
+    } else {
+      push(entry as T);
+    }
+  };
   const collectEffect = (effect: EffectSpec) => {
     if (effect.variant !== undefined) refs.push(effect.variant);
-    for (const c of effect.conditions ?? []) refs.push(c);
-    for (const m of effect.modifiers ?? []) {
-      if (m.value !== undefined) refs.push(m.value);
-      if (m.filter?.damageType !== undefined) refs.push(m.filter.damageType);
+    for (const entry of effect.conditions ?? []) pushGated(entry, (c) => refs.push(c));
+    for (const entry of effect.modifiers ?? []) {
+      pushGated(entry, (m) => {
+        if (m.value !== undefined) refs.push(m.value);
+        if (m.filter?.damageType !== undefined) refs.push(m.filter.damageType);
+        if (m.filter?.ability !== undefined) refs.push(m.filter.ability);
+        if (m.filter?.skill !== undefined) refs.push(m.filter.skill);
+      });
     }
     if (effect.retaliate) refs.push(effect.retaliate.damageType);
     if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
     if (effect.damageReduce) refs.push(effect.damageReduce.dice, ...effect.damageReduce.types);
     if (effect.elementalBane) refs.push(effect.elementalBane.damageType, effect.elementalBane.dice);
+    if (effect.takesExtraDamage) refs.push(effect.takesExtraDamage.dice, effect.takesExtraDamage.damageType);
+    if (effect.targets !== undefined) refs.push(effect.targets);
     if (effect.loadout) {
       const l = effect.loadout;
       if (l.kind === 'weaponOverride') refs.push(l.dice, l.damageType, l.abilityMod);
@@ -506,7 +570,12 @@ export function validateSpec(spec: AutomationSpec): string[] {
         if (l.damage !== undefined) refs.push(l.damage);
       }
     }
-    for (const action of effect.actions ?? []) if (action.damage) refs.push(action.damage.dice);
+    for (const action of effect.actions ?? []) {
+      if (action.damage) {
+        refs.push(action.damage.dice);
+        for (const t of action.damage.types ?? []) refs.push(t);
+      }
+    }
   };
   for (const effect of spec.effects ?? []) collectEffect(effect);
   const collectPayload = (payload?: PayloadSpec) => {
@@ -536,6 +605,11 @@ export function validateSpec(spec: AutomationSpec): string[] {
     }
     if ('add' in expr) {
       checkRef(expr.add[0]);
+      checkRef(expr.add[1]);
+      return;
+    }
+    if ('includes' in expr) {
+      checkRef(expr.includes.of);
       return;
     }
     if ('tiers' in expr) return;

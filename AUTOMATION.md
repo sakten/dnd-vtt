@@ -66,7 +66,7 @@
 
 Блок: `choices: [{ id, param, options, default? }]`; `param` — типизированный enum, значение подставляется ссылками в `DiceRef.types`, `effect.conditions`, `ability`, `zone.area` (форма стены). Клиент выбирает вариант в `SpellPopover`, сервер валидирует (`spellResolve`).
 
-Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType` — ссылки), условия эффекта и `retaliate` принимают ссылки. Мигрированы: Elemental Weapon (пилот), Resistance/Elemental Bane (батч `uses`), Protection from Energy, Blindness/Deafness, Fire Shield (`mapped`). Остальные носители `SPELL_VARIANTS` (Dragon's Breath, Eyebite, Command, Bestow Curse, Enhance Ability, Skill Empowerment, Spirit Shroud, CME, Destructive Wave, стены) — со следующими батчами.
+Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType|ability|skill` — ссылки), условия/`retaliate`/`takesExtraDamage` и действия (`save`/`area`/`damage.types`) принимают ссылки, условные элементы списков `{ if, then }` (Command), `ValueExpr.add/includes/mapped`. Мигрированы: Elemental Weapon (пилот), Resistance/Elemental Bane (батч `uses`), Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME. Остальные носители `SPELL_VARIANTS`: Eyebite (carrier с 3 действиями), Bestow Curse (режимы), Destructive Wave (составной урон), формы стен (нужен `wallArea` в спеке).
 
 ### 3.6. `selection` — как выбираются цели (выделяется)
 - `mode`: `single` / `multi` (`targets`, `targetsAbility`) / `area` (`areaSpec`, `origin`) / `chain` (`jumps`, `feet`) / `scatter` / `radius` (`radiusFeet`, `autoTargets`);
@@ -94,7 +94,8 @@
 Значения спека (кости, типы, бонусы) — ссылки `ValueExpr`, резолвит компилятор:
 
 - `{ ref: 'cantrip' | 'damage' | 'part' | 'upcastDice' | 'spellDamage' | 'upcastAttack' | 'type0' | 'spellMod' | 'castLevel' | 'characterLevel' | 'choice'; part?; choice?; fallback? }` — данные заклинания, опции каста, выбор из `choices`;
-- `{ add: [expr, '1d8'] }` — сложение однотипных костей (`addDice`: `1d8` + `1d8` → `2d8`, без базы — добавка);
+- `{ add: [expr, expr] }` — сложение однотипных костей (`addDiceExpression`: `1d8` + `1d8 + 1d8` → `3d8`, без базы — добавка);
+- `{ includes: { of, values } }` — гейт `'1'`/`''` для условных элементов `{ if, then }` (Command: halt/grovel);
 - `{ concat: [...] }` — `${кость}${тип}`: любое нерешённое слагаемое опускает всё поле (`riderDice` у GFB/True Strike);
 - `{ tiers: [{ above, value }] }` — литеральные ступени (Magic Weapon: +1/+2/+3 с 1/3/6 круга);
 - `{ perLevel: { base, per, above } }` — `base + per × (круг − above)` (Cordon: 4 + 2 стрелы за круг);
@@ -166,7 +167,7 @@ CUSTOM:Jallarzi-Fire {
 - `ValueExpr` (ref/tiers/add/concat) — реализован; пилот `loadout` (10 спеков: GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) компилируется из `AUTOMATION_SPECS`, равенство вывода билдерам — замок `automation.spec.test.ts`;
 - блок `uses` (charges/consumeOnAttack/misdirect) — реализован; мигрированы Resistance, Elemental Bane, Zephyr Strike, Mirror Image; спеки перехватывают и каталог, и билдеры (`derive.ts`);
 - блок `zone` + `PayloadSpec` — реализованы (pass-through + ValueExpr); мигрированы Guardian of Faith, Cordon of Arrows, Healing Spirit: `uses` закрыт;
-- батч `choices`: `ModifierSpec` (ссылки в value/filter), условия/`retaliate` со ссылками, узел `mapped`; мигрированы Protection from Energy, Blindness/Deafness, Fire Shield (20 спеков).
+- батч `choices`: `ModifierSpec` (ссылки в value/filter), условия/`retaliate`/`takesExtraDamage`/действия со ссылками, `{ if, then }`, `add/includes/mapped`; мигрированы 10 заклинаний выбора (26 спеков);
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

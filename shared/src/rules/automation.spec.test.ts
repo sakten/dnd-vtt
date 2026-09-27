@@ -6,9 +6,13 @@ import { AUTOMATION_SPELLS } from './automation';
 import {
   blindnessDeafnessDef,
   boomingBladeDef,
+  breathSpellDef,
+  commandDef,
+  conjureMinorElementalsDef,
   cordonOfArrowsDef,
   elementalBaneDef,
   elementalWeaponDef,
+  enhanceAbilityDef,
   fireShieldDef,
   flameArrowsDef,
   flameBladeDef,
@@ -21,6 +25,8 @@ import {
   resistanceDef,
   shadowBladeDef,
   shillelaghDef,
+  skillEmpowermentDef,
+  spiritShroudDef,
   trueStrikeDef,
   zephyrStrikeDef,
 } from './automation/builders';
@@ -52,6 +58,12 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XPHB:Protection from Energy': protectionFromEnergyDef,
   'XPHB:Blindness/Deafness': blindnessDeafnessDef,
   'XPHB:Fire Shield': fireShieldDef,
+  "XPHB:Dragon's Breath": breathSpellDef,
+  'XPHB:Command': commandDef,
+  'XPHB:Enhance Ability': enhanceAbilityDef,
+  'XGE:Skill Empowerment': skillEmpowermentDef,
+  'TCE:Spirit Shroud': spiritShroudDef,
+  'XPHB:Conjure Minor Elementals': conjureMinorElementalsDef,
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {
