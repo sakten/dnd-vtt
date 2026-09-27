@@ -563,6 +563,8 @@ export interface GrantedAction {
   def?: AutomationDef;
   /** Использование действия завершает эффект-носитель (Holy Weapon: разряд). */
   endsEffect?: boolean;
+  /** Использование действия сокращает зону на N футов (Wall of Light: луч −10 фт). */
+  shrinkFeet?: number;
 }
 
 export interface AutomationDef extends AutomationPayload {

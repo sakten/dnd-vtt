@@ -1093,7 +1093,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Enlarge/Reduce': manualSpell('XPHB:Enlarge/Reduce', 'Enlarge/Reduce', true),
   'XPHB:Conjure Elemental': manualSpell('XPHB:Conjure Elemental', 'Conjure Elemental', true),
   'XPHB:Conjure Fey': manualSpell('XPHB:Conjure Fey', 'Conjure Fey', true),
-  'XGE:Wall of Light': manualSpell('XGE:Wall of Light', 'Wall of Light', true),
   // Wind Wall: стена 50×15 без геометрии и блокировок (туман/дым, стрелы, мелкие
   // летуны, газообразные) — generic-спас 4к8 по одной цели врал; лочим до реализации.
   'XPHB:Wind Wall': manualSpell('XPHB:Wind Wall', 'Wind Wall', true),

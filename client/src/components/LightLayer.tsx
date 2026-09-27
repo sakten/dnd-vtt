@@ -19,7 +19,7 @@ export default function LightLayer({
   const alpha = dimmed ? 0.55 : 1;
   return (
     <>
-      {mapLights(tokens, zones).map((l) => {
+      {mapLights(tokens, zones, grid.size || 50).map((l) => {
         const brightR = l.light.bright * px;
         const outerR = (l.light.bright + l.light.dim) * px;
         const warm = l.light.sunlight ? '255, 248, 214' : '255, 236, 179';

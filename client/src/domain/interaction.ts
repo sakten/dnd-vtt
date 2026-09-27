@@ -1,4 +1,4 @@
-import { nearestPointOnSegment, snapWallAnchor, snapWallJoint, spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type Token, type WallPushSide } from 'shared';
+import { cellCenter, nearestPointOnSegment, pointCell, snapWallAnchor, snapWallJoint, spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type Token, type WallPushSide } from 'shared';
 
 /** Точка в мировых координатах карты. */
 export interface Point {
@@ -270,9 +270,14 @@ export function aimToCursor(
     const blocked = aim.rangeFeet !== null && panelFeet > aim.rangeFeet + 1e-6;
     return { mode: 'aim', aim: { ...aim, direction: joint, blocked } };
   }
-  // Линия от точки (Wall of Thorns): ось стены задаёт вариант каста.
-  const origin = clampToRange(cursor);
-  const fixed = directional && aim.spellKey ? spellCastDirection(aim.spellKey, aim.variant, origin) : null;
+  // Линия от точки (стена): якорь — центр клетки, ось задаёт вариант каста.
+  // Сырой курсор как якорь смещал ось на полклетки — стена косила (60 фт уезжали на клетки).
+  const raw = clampToRange(cursor);
+  const grid = { size: gridSize, offsetX: gridOffset.x, offsetY: gridOffset.y };
+  const rawCell = pointCell(raw, grid);
+  const snapped = cellCenter(rawCell.cx, rawCell.cy, grid);
+  const fixed = directional && aim.spellKey ? spellCastDirection(aim.spellKey, aim.variant, snapped) : null;
+  const origin = fixed ? snapped : raw;
   return { mode: 'aim', aim: { ...aim, origin, direction: directional ? fixed : origin } };
 }
 

@@ -1,11 +1,13 @@
 import {
   automationForSpell,
+  cellCenter,
   crossesWalls,
   gridOfMap,
   hostileTokens,
   isBanished,
   isRecord,
   isThinWallSpell,
+  pointCell,
   spellAreaOrigin,
   spellCastArea,
   spellCastDirection,
@@ -113,7 +115,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     const map = ctx.manager.findMap(room, mapId);
     const grid = gridOfMap(map, room.scene.grid);
     const originKind = spellAreaOrigin(spell);
-    const originPt = originKind === 'self' ? { x: caster.x, y: caster.y } : isPoint(params.origin) ? params.origin : null;
+    let originPt = originKind === 'self' ? { x: caster.x, y: caster.y } : isPoint(params.origin) ? params.origin : null;
     if (!originPt) {
       fail(ctx, 'noAreaPoint');
       return undefined;
@@ -131,9 +133,13 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
         return undefined;
       }
     }
-    // Ось стены (Wall of Thorns) задаёт вариант каста, а не направление клика.
-    areaDirection =
-      spellCastDirection(spell.key, params.variant, originPt) ?? (isPoint(params.direction) ? params.direction : null);
+    // Ось стены задаёт вариант каста, а якорь — центр клетки: сырой курсор
+    // смещал ось на полклетки, и длинная стена косила (60 фт уезжали на клетки).
+    const wallCell = pointCell(originPt, grid);
+    const wallAnchor = cellCenter(wallCell.cx, wallCell.cy, grid);
+    const axis = spellCastDirection(spell.key, params.variant, wallAnchor);
+    if (axis) originPt = wallAnchor;
+    areaDirection = axis ?? (isPoint(params.direction) ? params.direction : null);
     if (map && isThinWallSpell(spell.key)) {
       // Тонкая стена (Wall of Ice): появление бьёт существ, чью подошву разрезают сегменты.
       const segments = zoneWallSegments({ area: castArea, origin: originPt, direction: areaDirection }, grid);

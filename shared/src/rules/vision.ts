@@ -69,7 +69,7 @@ function brighterLight(a: LightSource, b: LightSource): boolean {
 }
 
 /** Источники света карты: сильнейший видимый свет эффекта на токен + светящиеся зоны. */
-export function mapLights(tokens: Token[], zones: ZoneInstance[]): MapLightSource[] {
+export function mapLights(tokens: Token[], zones: ZoneInstance[], gridSize = 50): MapLightSource[] {
   const items: MapLightSource[] = [];
   for (const token of tokens) {
     let best: LightSource | undefined;
@@ -81,7 +81,20 @@ export function mapLights(tokens: Token[], zones: ZoneInstance[]): MapLightSourc
   }
   for (const zone of zones) {
     if (!zone.light || !zone.origin) continue;
-    items.push({ key: `z:${zone.id}`, x: zone.origin.x, y: zone.origin.y, light: zone.light });
+    // Линейная светящаяся зона (Wall of Light) светит всей полосой: источник — её середина.
+    let x = zone.origin.x;
+    let y = zone.origin.y;
+    if (zone.area.shape === 'line' && zone.direction) {
+      const dx = zone.direction.x - zone.origin.x;
+      const dy = zone.direction.y - zone.origin.y;
+      const len = Math.hypot(dx, dy);
+      if (len > 1e-6) {
+        const halfPx = ((zone.area.size / 2) / 5) * gridSize;
+        x += (dx / len) * halfPx;
+        y += (dy / len) * halfPx;
+      }
+    }
+    items.push({ key: `z:${zone.id}`, x, y, light: zone.light });
   }
   return items;
 }
@@ -93,7 +106,7 @@ export function mapLightCells(
   grid: AreaGrid,
   walls: Wall[] = []
 ): Map<string, LightLevel> {
-  const emitters: LightEmitter[] = mapLights(tokens, zones).map((l) => ({ x: l.x, y: l.y, light: l.light }));
+  const emitters: LightEmitter[] = mapLights(tokens, zones, grid.size).map((l) => ({ x: l.x, y: l.y, light: l.light }));
   return lightCells(emitters, grid, walls);
 }
 
@@ -115,10 +128,11 @@ export interface SightContext {
   light?: Map<string, LightLevel>;
 }
 
-/** Вижн-вид зоны по флагам: `blocksLight` — магическая тьма, `obscured: heavy` — мгла. */
+/** Вижн-вид зоны по флагам: `blocksLight` — магическая тьма, `obscured: heavy` — мгла, `blocksLineOfSight` — светящаяся непрозрачная стена (Wall of Light). */
 export function zoneVisionKind(zone: ZoneInstance): LightAreaKind | null {
   if (!zone.flags) return null;
   if (zone.flags.blocksLight) return 'magical';
+  if (zone.flags.blocksLineOfSight) return 'opaque';
   if (zone.flags.obscured === 'heavy') return 'obscured';
   return null;
 }
@@ -230,7 +244,9 @@ export function areaKindAt(areas: LightArea[], point: Point): LightAreaKind | nu
  * (Shadow Blade: преимущество в сумерках/темноте).
  */
 export function lightLevelAt(ctx: SightContext, point: Point): LightLevel | 'dark' {
-  if (visionKindAt(ctx, point)) return 'dark';
+  const kind = visionKindAt(ctx, point);
+  // Непрозрачная светящаяся стена (Wall of Light) светит сама — тьмой не считается.
+  if (kind && kind !== 'opaque') return 'dark';
   const grid: AreaGrid = { size: ctx.cellSize || 50, offsetX: ctx.offsetX, offsetY: ctx.offsetY };
   const cell = pointCell(point, grid);
   const lit = ctx.light?.get(areaCellKey(cell.cx, cell.cy));
@@ -238,7 +254,7 @@ export function lightLevelAt(ctx: SightContext, point: Point): LightLevel | 'dar
   return ctx.darkness ? 'dark' : 'bright';
 }
 
-const KIND_SEVERITY: Record<LightAreaKind, number> = { darkness: 1, magical: 2, obscured: 3 };
+const KIND_SEVERITY: Record<LightAreaKind, number> = { darkness: 1, magical: 2, obscured: 3, opaque: 4 };
 
 /** Более строгий из двух видов области (мгла строже магической тьмы, та — обычной). */
 export function strongestKind(a: LightAreaKind | null, b: LightAreaKind | null): LightAreaKind | null {
@@ -247,9 +263,10 @@ export function strongestKind(a: LightAreaKind | null, b: LightAreaKind | null):
   return KIND_SEVERITY[a] >= KIND_SEVERITY[b] ? a : b;
 }
 
-/** Какие сенсы работают в области: магическая тьма — кроме тёмного зрения, мгла — только слепое. */
+/** Какие сенсы работают в области: магическая тьма — кроме тёмного зрения, мгла — только слепое, непрозрачная стена — никакие. */
 function sensesForKind(senses: Sense[] | undefined, kind: LightAreaKind): Sense[] {
   const list = senses ?? [];
+  if (kind === 'opaque') return [];
   if (kind === 'magical') return list.filter((s) => s.type !== 'darkvision');
   if (kind === 'obscured') return list.filter((s) => s.type === 'blindsight');
   return list;
@@ -269,7 +286,7 @@ export function visionRadiiCells(
   const allowed = kind ? sensesForKind(senses, kind) : senses ?? [];
   const radii = allowed.map((s) => Math.floor(Math.max(0, s.range) / 5)).filter((r) => r > 0);
   if (radii.length > 0) return radii;
-  return kind === 'magical' || kind === 'obscured' ? [0] : [1];
+  return kind === 'magical' || kind === 'obscured' || kind === 'opaque' ? [0] : [1];
 }
 
 /**
@@ -304,6 +321,14 @@ function zoneCrossingKind(
   let kind: LightAreaKind | null = null;
   const blockedHere = (x: number, y: number): boolean => {
     const k = zoneCells.get(areaCellKey(x, y));
+    if (k === 'opaque') {
+      // Светящаяся непрозрачная стена (Wall of Light) режет взгляд только «сквозь»:
+      // её собственные клетки (концы луча) видны как источник света.
+      const endpoint = (x === start.cx && y === start.cy) || (x === end.cx && y === end.cy);
+      if (endpoint) return false;
+      kind = strongestKind(kind, k);
+      return true;
+    }
     if (k !== 'magical' && k !== 'obscured') return false;
     kind = strongestKind(kind, k);
     return kind === 'obscured';
@@ -378,6 +403,10 @@ export function canSee(
   const fromKind = visionKindAt(sight, from);
   const toKind = visionKindAt(sight, target);
   const rayKind = opts.ignoreAreas ? null : sightCrossingKind(from, target, sight, grid);
+  // Светящаяся непрозрачная стена (Wall of Light) видна сама: цель/наблюдатель на её клетках —
+  // видимы (луч идёт вдоль стены), а взгляд «сквозь» режется ниже.
+  if (fromKind === 'opaque' || toKind === 'opaque') return true;
+  if (rayKind === 'opaque') return false;
   // Мгла и магическая тьма свет игнорируют; обычная тьма у цели — перекрывается светом.
   const blocked =
     fromKind === 'magical' || fromKind === 'obscured' || toKind === 'magical' || toKind === 'obscured' || rayKind !== null;

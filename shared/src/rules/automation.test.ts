@@ -1894,7 +1894,6 @@ describe('automationForSpell', () => {
       'XPHB:Enlarge/Reduce',
       'XPHB:Conjure Elemental',
       'XPHB:Conjure Fey',
-      'XGE:Wall of Light',
       'XPHB:Wind Wall',
       'XPHB:Glyph of Warding',
     ];
@@ -2535,6 +2534,50 @@ describe('Составной урон (D)', () => {
     expect(spellAutomated(stone)).toBe(true);
     expect(wallMaxPanels('XPHB:Wall of Force')).toBe(10);
     expect(wallMaxPanels('XPHB:Wall of Stone')).toBe(10);
+  });
+
+  it('Wall of Light: спас CON, слепота с повтором, урон конца хода, свет и луч с сокращением', () => {
+    const light = makeSpell({
+      key: 'XGE:Wall of Light',
+      name: 'Wall of Light',
+      level: 5,
+      concentration: true,
+      save: ['con'],
+      saveHalf: true,
+      damage: {
+        dice: ['4d8'],
+        types: ['radiant'],
+        parts: [
+          { dice: '4d8', types: ['radiant'], role: 'main' as const },
+          { dice: '4d8', types: ['radiant'], role: 'repeat' as const },
+          { dice: '4d8', types: ['radiant'], role: 'repeat' as const },
+        ],
+      },
+      upcast: { above: 5, every: 1, dice: '1d8' },
+    });
+    const def = automationForSpell(light, { variant: 'vertical' });
+    expect(def.resolution).toBe('save');
+    expect(def.save).toEqual({ ability: 'con', half: true });
+    expect(def.damage?.dice).toBe('4d8radiant');
+    expect(def.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(def.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'end' });
+    expect(def.zone?.area).toEqual({ shape: 'line', size: 60, width: 5 });
+    expect(def.zone?.light).toEqual({ bright: 120, dim: 120 });
+    expect(def.zone?.flags).toEqual({ blocksLineOfSight: true });
+    expect(def.zone?.triggers?.endOfTurn?.damage).toEqual({ dice: '4d8radiant', types: ['radiant'] });
+    const beam = def.zone?.actions?.[0];
+    expect(beam?.id).toBe('beam');
+    expect(beam?.shrinkFeet).toBe(10);
+    expect(beam?.def?.attack).toEqual({ rangeType: 'ranged' });
+    expect(beam?.def?.targeting).toEqual({ kind: 'creature', range: 60, from: 'origin' });
+    expect(beam?.def?.damage).toEqual({ dice: '4d8radiant', types: ['radiant'] });
+    // Апкаст: +1к8 появлению, концу хода и лучу.
+    const up = automationForSpell(light, { castLevel: 7 });
+    expect(up.damage?.dice).toBe('6d8radiant');
+    expect(up.zone?.triggers?.endOfTurn?.damage?.dice).toBe('6d8radiant');
+    expect(up.zone?.actions?.[0]?.def?.damage?.dice).toBe('6d8radiant');
+    expect(spellVariantDef('XGE:Wall of Light')?.options).toEqual(['vertical', 'horizontal']);
+    expect(spellAutomated(light)).toBe(true);
   });
 
   it('spellDamageParts: части для карточек (Destructive Wave — оба типа варианта)', () => {

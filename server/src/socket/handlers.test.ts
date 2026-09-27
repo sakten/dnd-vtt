@@ -1245,6 +1245,50 @@ describe('action:use', () => {
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.zoneMoved')).toBe(true);
   });
 
+  it('Wall of Light: луч без состоявшейся атаки (фамильяр без Pact) не сокращает стену', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, faction: 'ally' }),
+        makeToken('t2', { x: 100, y: 200, hpMax: '40', hpCurrent: 40, faction: 'enemy' }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = { ...casterSheet(), spells: [{ key: 'XGE:Wall of Light', className: 'wizard' }] };
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      spellSlots: [{ level: 5, current: 1, max: 1 }],
+    });
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f.ctx);
+    registerActionHandlers(f.ctx);
+    f.invoke('spell:cast', {
+      mapId: 'm1',
+      tokenId: 't1',
+      spellKey: 'XGE:Wall of Light',
+      slotLevel: 5,
+      origin: { x: 100, y: 300 },
+      direction: { x: 200, y: 300 },
+    });
+    const zone = room.scene.maps[0]!.zones.find((z) => z.sourceKey === 'XGE:Wall of Light')!;
+    expect(zone.area.size).toBe(60);
+    // Фамильяр без Pact of the Chain атаковать не может — броска нет, стена не меняется.
+    room.scene.maps[0]!.tokens[0]!.summon = { casterTokenId: 't1', spellKey: 'XPHB:Find Familiar', pact: false };
+    combatOf(room).turns.e1!.actionUsed = false; // каст израсходовал действие — вернём под луч
+    f.emitted.length = 0;
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: `zone:${zone.id}:beam`,
+      targetIds: ['t2'],
+    });
+    expect(zone.area.size).toBe(60);
+    expect(
+      f.emitted.some(
+        (e) => e.event === 'chat:error' && (e.payload as { code?: string } | undefined)?.code === 'familiarNoAttack'
+      )
+    ).toBe(true);
+  });
+
   it('Moonbeam: перемещение дальше лимита и чужим игроком отклоняется', () => {
     const room = makeRoom(
       [

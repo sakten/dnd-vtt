@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee, lightCells, lightLevelAt, tokenSenses, zoneVisionCells, zoneVisionKindAt } from './vision';
+import { canSee, lightCells, lightLevelAt, tokenSenses, zoneVisionCells, zoneVisionKind, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -23,6 +23,29 @@ describe('canSee', () => {
     expect(canSee({ x: 25, y: 75 }, { x: 625, y: 75 }, undefined, { ...SIGHT, walls: [wall(300, 0, 300, 150)] })).toBe(
       false
     );
+  });
+
+  it('Wall of Light: непрозрачная светящаяся стена — сквозь неё не видно, сама стена видна', () => {
+    const zone: ZoneInstance = {
+      id: 'z1',
+      name: 'Wall of Light',
+      sourceKey: 'XGE:Wall of Light',
+      sourceId: 'c1',
+      origin: { x: 225, y: 25 },
+      direction: { x: 325, y: 25 },
+      area: { shape: 'line', size: 60, width: 5 },
+      duration: { type: 'concentration' },
+      flags: { blocksLineOfSight: true },
+      light: { bright: 120, dim: 120 },
+    };
+    expect(zoneVisionKind(zone)).toBe('opaque');
+    const ctx = { ...SIGHT, zones: [zone] };
+    // Сама стена видна по всей длине (в т.ч. дальние клетки и луч вдоль стены), за стеной — нет.
+    expect(canSee({ x: 0, y: 0 }, { x: 200, y: 0 }, undefined, ctx)).toBe(true);
+    expect(canSee({ x: 0, y: 0 }, { x: 600, y: 0 }, undefined, ctx)).toBe(true);
+    expect(canSee({ x: 0, y: 0 }, { x: 400, y: 50 }, undefined, ctx)).toBe(false);
+    // Клетка стены не считается тьмой (светит).
+    expect(lightLevelAt(ctx, { x: 225, y: 25 })).toBe('bright');
   });
 
   it('в темноте без сенсов — 1 клетка вокруг; тёмное зрение расширяет радиус', () => {

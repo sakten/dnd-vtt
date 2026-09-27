@@ -13,6 +13,8 @@ const LIGHT_AREA_COLORS: Record<LightArea['kind'], string> = {
   darkness: '#3b4f8a',
   magical: '#9d5cf6',
   obscured: '#9aa0a6',
+  // Светящаяся непрозрачная стена — вид зон, у ручных областей не встречается.
+  opaque: '#fde68a',
 };
 
 interface Props {

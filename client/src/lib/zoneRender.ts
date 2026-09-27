@@ -72,6 +72,17 @@ export function zoneStyle(zone: ZoneInstance): ZoneStyle {
       texture: wall.texture,
     };
   }
+  // Wall of Light: светящаяся полоса — тёплая заливка без текстуры.
+  if (zone.sourceKey === 'XGE:Wall of Light') {
+    return {
+      kind: 'effect',
+      fill: '#fde68a',
+      fillAlpha: 0.32,
+      stripe: '#fef9c3',
+      stripeAlpha: 0.35,
+      labelColor: '#fde047',
+    };
+  }
   const color = zoneColor(zone.sourceKey);
   // Зоны молчания (Silence, Jallarzi): прозрачная фиолетовая штриховка.
   if (zone.flags?.silence) {

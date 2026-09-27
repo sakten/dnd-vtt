@@ -132,10 +132,10 @@ function applyLeavingBurst(
   executeAutomation(ctx, { ...input, def, targets });
 }
 
-/** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. */
-function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
+/** Атака заклинанием (лучи/снаряды): попадание, урон, эффекты на попадании. `true` — бросок атаки состоялся. */
+function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
   const { ctx, room, def, caster, mapId, targets, author, abilities, expression, subject, damageType, adv, count } = run;
-  if (!def.attack) return;
+  if (!def.attack) return false;
   const { rangeType, advantageInZone } = def.attack;
   const castMap = ctx.manager.findMap(room, mapId);
   const gridSize = castMap ? gridSizeOfMap(castMap) : 50;
@@ -146,6 +146,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
 
   /** Конец последовательности: телепорт после атак (Steel Wind Strike). */
   let finished = false;
+  /** Был ли хотя бы один бросок атаки (для действий, привязанных к выстрелу: луч Wall of Light). */
+  let rolled = false;
   const finishSequence = () => {
     if (finished) return;
     finished = true;
@@ -216,6 +218,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
       targetAc: ac,
       autoCrit: autoCrit(target.conditions, distance, rangeType),
     });
+    rolled = true;
     pushRollMessage(ctx, room, {
       author,
       roll: hit.hitRoll,
@@ -320,6 +323,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): void {
   };
 
   resolveRay(0);
+  return rolled;
 }
 
 /** Способность без атаки и сейва: урон и эффекты срабатывают сразу. */
@@ -397,7 +401,8 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
   // Один бросок урона на всё заклинание (5e: AoE кидает урон один раз). При
   // `successDamage` бросок свой на каждую цель: успех и провал — разные кости.
   let damageRoll: DiceRollResult | null = null;
-  if (expression && !successExpr) {
+  // Пустая область (некого бить) — урон не бросаем и карточку не сыпем.
+  if (expression && !successExpr && targets.length > 0) {
     damageRoll = rollDice(withRollParts(expression, rollParts));
     pushRollMessage(ctx, room, {
       author: run.author,
@@ -512,7 +517,7 @@ function runSingleTargets(run: AutomationRun): void {
   }
 }
 
-export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
+export function executeAutomation(ctx: ConnCtx, input: AutomationInput): { attackRolled?: boolean } | undefined {
   const room = ctx.getRoom();
   if (!room) return;
   const { caster, def, mapId, stats, author } = input;
@@ -637,8 +642,9 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     if (def.concentration) anchorConcentration(ctx, room, caster, mapId, def);
   }
 
-  // Зонная концентрация без целевых эффектов: якорь на кастере — чип и «Прекратить».
-  if (def.zone && def.concentration && !def.effects?.length) {
+  // Зонная концентрация: якорь на кастере, если его ещё нет (self-эффекты ставят выше).
+  // Без этого зона с целевыми эффектами (Web, Wall of Light) гасла при первом движении.
+  if (def.zone && def.concentration && !caster.effects.some((e) => e.concentration && e.sourceKey === def.key)) {
     anchorConcentration(ctx, room, caster, mapId, def);
   }
 
@@ -665,11 +671,23 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };
 
-  if (kind === 'lifeTransfer') return runLifeTransfer(run);
-  if (kind === 'attack') return runWeaponAttacks(run, stats!);
-  if (kind === 'healOrDamage') return runHealOrDamage(run, stats!);
-  if (kind === 'save') return runSave(run, stats!);
-  if (kind === 'auto') return runAutoAbility(run, stats);
+  if (kind === 'lifeTransfer') {
+    runLifeTransfer(run);
+    return;
+  }
+  if (kind === 'attack') return { attackRolled: runWeaponAttacks(run, stats!) };
+  if (kind === 'healOrDamage') {
+    runHealOrDamage(run, stats!);
+    return;
+  }
+  if (kind === 'save') {
+    runSave(run, stats!);
+    return;
+  }
+  if (kind === 'auto') {
+    runAutoAbility(run, stats);
+    return;
+  }
 
   if (kind === 'manual') {
     // Ручные спеллы «ведёт мастер» (Charm Monster/Compulsion): каст вешает плашку;
@@ -729,6 +747,9 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): void {
     return;
   }
 
-  if (kind === 'multi') return runMultiTarget(run);
+  if (kind === 'multi') {
+    runMultiTarget(run);
+    return;
+  }
   runSingleTargets(run);
 }

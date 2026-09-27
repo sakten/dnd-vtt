@@ -29,7 +29,7 @@ export const DEFAULT_VISION: VisionSettings = { los: false, darkness: false };
 
 export type WallKind = 'wall' | 'door' | 'window';
 
-export type LightAreaKind = 'darkness' | 'magical' | 'obscured';
+export type LightAreaKind = 'darkness' | 'magical' | 'obscured' | 'opaque';
 
 /** Область тьмы/мглы: прямоугольник по узлам сетки; вид задаёт правила восприятия. */
 export interface LightArea {

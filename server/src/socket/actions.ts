@@ -57,7 +57,7 @@ import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { checkPartsForToken } from '../room/effects';
-import { moveZone } from './zones';
+import { moveZone, shrinkZone } from './zones';
 import { resolveZoneSectionAttack } from './zoneAttacks';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -343,7 +343,7 @@ function useZoneAction(
     ctx.broadcastZones(room, mapId);
     ctx.syncCombat(room, mapId);
     const author = room.players.find((p) => p.id === ctx.playerId)?.name ?? '?';
-    executeAutomation(ctx, {
+    const outcome = executeAutomation(ctx, {
       caster,
       mapId,
       def: { ...def, name: granted.name },
@@ -355,6 +355,9 @@ function useZoneAction(
       area: null,
       zoneId: zone.id,
     });
+    // Луч Wall of Light: попадание или промах укорачивают стену на 10 фт (RAW);
+    // если атака вообще не состоялась (нет броска), стена не меняется.
+    if (granted.shrinkFeet && outcome?.attackRolled) shrinkZone(ctx, room, mapId, zone, granted.shrinkFeet);
     return;
   }
 

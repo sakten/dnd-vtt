@@ -515,6 +515,21 @@ function applySheetCrossings(ctx: ConnCtx, room: Room, mapId: string, moved: Mov
   }
 }
 
+/** Сокращает зону на N футов (Wall of Light: луч −10 фт); при 0 — зона гаснет и концентрация снимается. */
+export function shrinkZone(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneInstance, feet: number): void {
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map?.zones?.some((z) => z.id === zone.id)) return;
+  zone.area = { ...zone.area, size: Math.max(0, zone.area.size - feet) };
+  if (zone.area.size <= 0) {
+    removeZone(ctx, room, mapId, zone);
+    // Длина 0 — заклинание оканчивается вместе с концентрацией.
+    for (const changed of ctx.manager.clearConcentration(room, zone.sourceId)) {
+      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    }
+  }
+  ctx.broadcastZones(room, mapId);
+}
+
 /** После перемещения: аура и триггеры enter/exit для зон; `moved` — проход сквозь листы стен. */
 export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string, moved?: MovedStep): void {
   const map = ctx.manager.findMap(room, mapId);

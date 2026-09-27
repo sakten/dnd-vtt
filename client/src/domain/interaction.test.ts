@@ -62,14 +62,20 @@ describe('области прицеливания', () => {
       caster
     );
 
+    // Курсор у угла клетки: якорь всё равно садится в центр клетки, ось строго по варианту —
+    // иначе сырой курсор смещал ось и длинная стена косила.
     const moved = aimToCursor(aim, { x: 200, y: 100 }, caster, 50);
-    expect(moved?.mode === 'aim' ? moved.aim.origin : null).toEqual({ x: 200, y: 100 });
-    expect(moved?.mode === 'aim' ? moved.aim.direction : null).toEqual({ x: 300, y: 100 });
+    expect(moved?.mode === 'aim' ? moved.aim.origin : null).toEqual({ x: 225, y: 125 });
+    expect(moved?.mode === 'aim' ? moved.aim.direction : null).toEqual({ x: 325, y: 125 });
+    // Внутри той же клетки — тот же якорь и ось (нет дрожания).
+    const jitter = aimToCursor(aim, { x: 240, y: 140 }, caster, 50);
+    expect(jitter?.mode === 'aim' ? jitter.aim.origin : null).toEqual({ x: 225, y: 125 });
+    expect(jitter?.mode === 'aim' ? jitter.aim.direction : null).toEqual({ x: 325, y: 125 });
 
     const cast = confirmArea(moved);
     expect(cast.command).toMatchObject({
       type: 'castSpell',
-      payload: { spellKey: 'XPHB:Wall of Thorns', origin: { x: 200, y: 100 }, direction: { x: 300, y: 100 } },
+      payload: { spellKey: 'XPHB:Wall of Thorns', origin: { x: 225, y: 125 }, direction: { x: 325, y: 125 } },
     });
   });
 

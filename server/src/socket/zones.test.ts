@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { automationForSpell, tokensCrossingSegments, zoneWallSegments, type AttackEntry, type AutomationDef } from 'shared';
+import { automationForSpell, tokensCrossingSegments, zoneVisionKind, zoneWallSegments, type AttackEntry, type AutomationDef } from 'shared';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { findSpell } from '../spells';
-import { applyWallPush, createZoneFromDef, handleMovementZones, hitZoneSection, removeZonesOfSource, tickZones } from './zones';
+import { applyWallPush, createZoneFromDef, handleMovementZones, hitZoneSection, removeZonesOfSource, shrinkZone, tickZones } from './zones';
 import { collectSpellCast } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { teleportIssue } from './teleport';
@@ -958,5 +958,86 @@ describe('стена льда (Wall of Ice)', () => {
       applied: 180,
       broken: true,
     });
+  });
+
+  it('Wall of Light: светящаяся непрозрачная полоса; луч сокращает зону и гасит её на нуле', () => {
+    const { room, f, map, caster } = iceSetup();
+    const def = automationForSpell(findSpell('XGE:Wall of Light')!, { variant: 'horizontal' });
+    const zone = createZoneFromDef(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      stats,
+      origin: { x: 200, y: 100 },
+      direction: { x: 300, y: 100 },
+    })!;
+    expect(zone.area).toEqual({ shape: 'line', size: 60, width: 5 });
+    expect(zone.light).toEqual({ bright: 120, dim: 120 });
+    expect(zone.flags?.blocksLineOfSight).toBe(true);
+    expect(zoneVisionKind(zone)).toBe('opaque');
+    // Каст из угла клетки: якорь — центр клетки, ось строго по варианту (без наклона).
+    const input = collectSpellCast(f.ctx, {
+      mapId: 'm1',
+      caster,
+      spell: findSpell('XGE:Wall of Light')!,
+      castLevel: 5,
+      characterLevel: 9,
+      stats,
+      variant: 'horizontal',
+      origin: { x: 100, y: 200 },
+      direction: { x: 200, y: 200 },
+      author: 'DM',
+    });
+    expect(input?.origin).toEqual({ x: 125, y: 225 });
+    expect(input?.direction).toEqual({ x: 225, y: 225 });
+    caster.effects.push({
+      id: 'anchor-light',
+      name: 'Wall of Light',
+      sourceKey: 'XGE:Wall of Light',
+      sourceId: caster.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    f.emitted.length = 0;
+    shrinkZone(f.ctx, room, 'm1', zone, 10);
+    expect(zone.area.size).toBe(50);
+    expect(f.emitted.some((e) => e.event === 'zones:update')).toBe(true);
+    shrinkZone(f.ctx, room, 'm1', zone, 50);
+    expect(map.zones.some((z) => z.id === zone.id)).toBe(false);
+    // Длина 0 — спелл оканчивается вместе с концентрацией кастера.
+    expect(caster.effects.some((e) => e.concentration && e.sourceKey === 'XGE:Wall of Light')).toBe(false);
+  });
+
+  it('Wall of Light: каст ставит анкер концентрации, пустая стена не сыпет урон, шаг не снимает зону', () => {
+    const { room, f, map, caster } = iceSetup();
+    const def = automationForSpell(findSpell('XGE:Wall of Light')!, { variant: 'horizontal' });
+    f.emitted.length = 0;
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def,
+      targets: [],
+      stats,
+      author: 'DM',
+      origin: { x: 100, y: 200 },
+      direction: { x: 200, y: 200 },
+      area: def.zone!.area,
+    });
+    // Анкер концентрации на кастере (иначе зона гаснет при первом движении).
+    expect(caster.effects.some((e) => e.concentration && e.sourceKey === 'XGE:Wall of Light')).toBe(true);
+    // Пустая область — без карточки урона в чате.
+    expect(
+      f.emitted.some(
+        (e) => e.event === 'chat:message' && (e.payload as { rollKind?: string } | undefined)?.rollKind === 'damage'
+      )
+    ).toBe(false);
+    // Шаг кастера (не в стену) — концентрация и зона держатся.
+    handleMovementZones(f.ctx, room, 'm1', {
+      token: caster,
+      from: { x: 100, y: 100 },
+      to: { x: 150, y: 100 },
+    });
+    expect(map.zones.some((z) => z.sourceKey === 'XGE:Wall of Light')).toBe(true);
   });
 });

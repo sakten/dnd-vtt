@@ -49,6 +49,31 @@ describe('parity: visibleCells и canSee', () => {
       }
     }
   });
+
+  it('Wall of Light: вуаль совпадает с canSee (стена видна целиком, сквозь — нет)', () => {
+    const zone: ZoneInstance = {
+      id: 'z1',
+      name: 'Wall of Light',
+      sourceKey: 'XGE:Wall of Light',
+      sourceId: 'c1',
+      origin: { x: 75, y: 75 },
+      direction: { x: 175, y: 75 },
+      area: { shape: 'line', size: 60, width: 5 },
+      duration: { type: 'concentration' },
+      flags: { blocksLineOfSight: true },
+      light: { bright: 120, dim: 120 },
+    };
+    const viewers = [viewer(75, 125)];
+    const cells = visibleCells({ ...VISION_BASE, zones: [zone], viewers })!;
+    const ctx = { walls: [], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0, zones: [zone] };
+    const grid = { size: 50, offsetX: 0, offsetY: 0 };
+    for (let cx = 0; cx < 5; cx++) {
+      for (let cy = 0; cy < 3; cy++) {
+        const expected = canSee({ x: 75, y: 125 }, cellCenter(cx, cy, grid), undefined, ctx);
+        expect(cells.has(`${cx},${cy}`), `клетка ${cx},${cy}`).toBe(expected);
+      }
+    }
+  });
 });
 
 describe('visionRadiiCells', () => {

@@ -81,6 +81,7 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Wall of Ice',
   'XPHB:Wall of Force',
   'XPHB:Wall of Stone',
+  'XGE:Wall of Light',
   'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
   'XPHB:False Life',
@@ -2010,6 +2011,64 @@ export function wallOfStoneDef(spell: Spell, opts: AutomationOptions): Automatio
         blocksLineOfSight: true,
       },
       flags: { blocksMovement: true, blocksLineOfSight: true },
+    },
+  };
+}
+
+/**
+ * Wall of Light (XGE): светящаяся полоса 60×5 фт (концентрация, 10 мин), проходима.
+ * Появление: спас CON, 4к8 излучением (половина при успехе) + `blinded` до конца
+ * спасброска в конце хода; конец хода внутри — 4к8 без спасброска; стена блокирует
+ * обзор, но не проход; свет 120/120. Действие «Луч»: дальняя заклинательная атака
+ * (60 фт от стены, 4к8 излучением), после попадания или промаха стена короче на 10 фт.
+ */
+export function wallOfLightDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XGE:Wall of Light') return undefined;
+  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
+  const steps = upcastSteps(spell, castLevel);
+  const appear = scaledDice(partsOfRole(spell, 'main')[0]?.dice ?? '4d8', spell.upcast?.dice, steps);
+  const repeats = partsOfRole(spell, 'repeat');
+  const endDice = scaledDice(repeats[0]?.dice ?? '4d8', spell.upcast?.dice, steps);
+  const beamDice = scaledDice(repeats[1]?.dice ?? '4d8', spell.upcast?.dice, steps);
+  const blind: AutomationEffect = {
+    name: spell.name,
+    duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'end' },
+    to: 'targets',
+    modifiers: [],
+    conditions: ['blinded'],
+  };
+  const beam: GrantedAction = {
+    id: 'beam',
+    name: 'Луч',
+    cost: 'action',
+    shrinkFeet: 10,
+    def: {
+      key: spell.key,
+      name: 'Луч света',
+      resolution: 'attack',
+      attack: { rangeType: 'ranged' },
+      count: 1,
+      damage: { dice: `${beamDice}radiant`, types: ['radiant'] },
+      targeting: { kind: 'creature', range: 60, from: 'origin' },
+    },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'save',
+    concentration: true,
+    save: { ability: 'con', half: true },
+    damage: { dice: `${appear}radiant`, types: ['radiant'] },
+    effects: [blind],
+    zone: {
+      area: wallArea(spell.key, opts.variant)!,
+      origin: 'point',
+      duration: CONCENTRATION,
+      light: { bright: 120, dim: 120 },
+      // Стена блокирует обзор, но проходима: непрозрачные клетки, не мгла.
+      flags: { blocksLineOfSight: true },
+      triggers: { endOfTurn: { damage: { dice: `${endDice}radiant`, types: ['radiant'] } } },
+      actions: [beam],
     },
   };
 }

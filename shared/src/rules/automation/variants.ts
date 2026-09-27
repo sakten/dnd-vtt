@@ -57,6 +57,8 @@ export const SPELL_VARIANTS: Record<string, SpellVariantDef> = {
   'XPHB:Wall of Force': { param: 'effect', options: ['wall', 'ring'] },
   // Wall of Stone: только цепочка панелей (секции с HP, без купола).
   'XPHB:Wall of Stone': { param: 'effect', options: ['wall'] },
+  // Wall of Light: светящаяся полоса 60×5 (вертикально/горизонтально).
+  'XGE:Wall of Light': { param: 'effect', options: ['vertical', 'horizontal'] },
 };
 
 /** Варианты каста заклинания (undefined — выбора нет). */

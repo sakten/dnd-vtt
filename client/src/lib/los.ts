@@ -89,6 +89,12 @@ export function visibleCells(input: VisionInput): Set<string> | null {
         if (crossesWalls({ x: viewer.x, y: viewer.y }, center, walls, 'sight')) continue;
         const lit = light?.get(key);
         const cellKind = visionKindAt(sight, center);
+        // Светящаяся непрозрачная стена (Wall of Light): её клетки (и клетка зрителя в ней)
+        // видны как источник света; взгляд сквозь неё не проходит — как в `canSee`.
+        if (viewerKind === 'opaque' || cellKind === 'opaque') {
+          visible.add(key);
+          continue;
+        }
         const atEnds =
           viewerKind === 'magical' ||
           viewerKind === 'obscured' ||
@@ -96,6 +102,7 @@ export function visibleCells(input: VisionInput): Set<string> | null {
           cellKind === 'obscured';
         // Мгла/магическая тьма блокируют и обзор сквозь: луч до клетки не проходит их клетки.
         const rayKind = atEnds ? null : sightCrossingKind({ x: viewer.x, y: viewer.y }, center, sight, grid);
+        if (rayKind === 'opaque') continue;
         // Мгла и магическая тьма свет игнорируют; обычная тьма (в т.ч. глобальная) — перекрывается.
         const blocked = atEnds || rayKind !== null;
         const kind = lit && !blocked ? null : strongestKind(strongestKind(viewerKind, cellKind), rayKind);

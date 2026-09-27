@@ -253,6 +253,8 @@ const WALL_DIMS: Record<string, WallDims> = {
   'XPHB:Wall of Force': { length: 100, width: 0.25, outerRadius: 10, innerRadius: 9, thin: true, panelFeet: 10 },
   // Wall of Stone: панели 10×10 (6 дюймов); секции с HP, без купола.
   'XPHB:Wall of Stone': { length: 100, width: 0.5, outerRadius: 0, innerRadius: 0, thin: true, panelFeet: 10 },
+  // Wall of Light: полоса света 60×5 фт (клеточная зона), без купола и панелей.
+  'XGE:Wall of Light': { length: 60, width: 5, outerRadius: 0, innerRadius: 0 },
 };
 
 /** Заклинание-стена (геометрия `wallArea`, варианты vertical/horizontal/ring). */
