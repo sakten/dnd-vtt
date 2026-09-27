@@ -1,6 +1,5 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, AutomationSave, GrantedAction, LightSource, ZoneDef } from '../../domain/automation';
-import type { AbilityKey } from '../../domain/core';
-import { spellDamageExpression, spellUpcastAt, spellUpcastDice } from '../spellCast';
+import { spellDamageExpression, spellUpcastAt } from '../spellCast';
 import type { DamagePartRole, Spell } from '../spells';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, UNTIL_NEXT_TURN, zoneMoveAction } from './header';
@@ -60,15 +59,6 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Greater Invisibility',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
-  'XPHB:Divine Smite',
-  'XPHB:Thunderous Smite',
-  'XPHB:Wrathful Smite',
-  'XPHB:Blinding Smite',
-  'XPHB:Shining Smite',
-  'XPHB:Staggering Smite',
-  'XPHB:Banishing Smite',
-  'XPHB:Hail of Thorns',
-  'XPHB:Lightning Arrow',
   'XPHB:Protection from Energy',
   'XPHB:Aid',
   "XPHB:Heroes' Feast",
@@ -569,138 +559,6 @@ export function ensnaringStrikeDef(spell: Spell, opts: AutomationOptions): Autom
         triggers: { startOfTurn: { damage: { dice, types: ['piercing'] } } },
       },
     ],
-  };
-}
-
-/** Конфигурация XPHB-смайта (2024): тип урона, спас и эффект при провале. */
-export interface SmiteConfig {
-  /** Тип добавочного урона. */
-  type: string;
-  save?: AbilityKey;
-  effect?: Omit<AutomationEffect, 'name'>;
-  concentration?: boolean;
-  /** Вынужденный сдвиг при провале спаса (Thunderous: толчок на 10 фт). */
-  forceFeet?: number;
-  /** Кости заменяют урон оружия, а не добавляются (Lightning Arrow). */
-  replace?: boolean;
-  /** Вторичный спас вокруг цели (Hail — 5 фт, Lightning — 10 фт). */
-  burst?: {
-    rangeFeet: number;
-    save: AbilityKey;
-    /** Индекс базовой кости всплеска в `damage.dice` (Lightning: 1 → 2d8). */
-    diceIndex?: number;
-    type?: string;
-    includePrimary?: boolean;
-  };
-}
-
-/**
- * Смайты XPHB (2024): бонусным действием сразу после попадания — доп. кости
- * урона и, при провале спаса, эффект/сдвиг. База и апкаст — из данных
- * (`damage.dice` + `upcast`), не захардкожены.
- */
-export const SMITE_CONFIGS: Record<string, SmiteConfig> = {
-  'XPHB:Divine Smite': { type: 'radiant' },
-  'XPHB:Thunderous Smite': {
-    type: 'thunder',
-    save: 'str',
-    forceFeet: 10,
-    effect: { duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
-  },
-  'XPHB:Wrathful Smite': {
-    type: 'necrotic',
-    save: 'wis',
-    concentration: true,
-    effect: {
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'start' },
-      concentration: true,
-      to: 'targets',
-      modifiers: [],
-      conditions: ['frightened'],
-    },
-  },
-  'XPHB:Blinding Smite': {
-    type: 'radiant',
-    save: 'con',
-    concentration: true,
-    effect: {
-      duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'start' },
-      concentration: true,
-      to: 'targets',
-      modifiers: [],
-      conditions: ['blinded'],
-    },
-  },
-  'XPHB:Shining Smite': {
-    type: 'radiant',
-    concentration: true,
-    effect: {
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [{ target: 'attack', mode: 'advantage', filter: { direction: 'against' } }],
-      conditions: [],
-      conditionImmunities: ['invisible'],
-      light: { bright: 0, dim: 5 },
-    },
-  },
-  'XPHB:Staggering Smite': {
-    type: 'psychic',
-    save: 'wis',
-    effect: { duration: UNTIL_NEXT_TURN, to: 'targets', modifiers: [], conditions: ['stunned'] },
-  },
-  'XPHB:Banishing Smite': {
-    type: 'force',
-    save: 'cha',
-    concentration: true,
-    effect: {
-      duration: { type: 'rounds', rounds: 10 },
-      concentration: true,
-      to: 'targets',
-      modifiers: [],
-      conditions: ['incapacitated'],
-      banish: true,
-    },
-  },
-  'XPHB:Hail of Thorns': {
-    type: 'piercing',
-    burst: { rangeFeet: 5, save: 'dex', includePrimary: true },
-  },
-  'XPHB:Lightning Arrow': {
-    type: 'lightning',
-    replace: true,
-    burst: { rangeFeet: 10, save: 'dex', diceIndex: 1 },
-  },
-};
-
-/** Билдер XPHB-смайта: кости/апкаст из данных, спас и эффект при провале. */
-export function xphbSmiteDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  const cfg = SMITE_CONFIGS[spell.key];
-  if (!cfg || !spell.damage?.dice?.length) return undefined;
-  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const up = spellUpcastDice(spell, level);
-  const dice = spellDamageExpression(spell, level, opts.characterLevel ?? 1) ?? spell.damage.dice[0]!;
-  const secondary = cfg.burst
-    ? {
-        rangeFeet: cfg.burst.rangeFeet,
-        dice: [spell.damage.dice[cfg.burst.diceIndex ?? 0] ?? spell.damage.dice[0]!, up].filter(Boolean).join(' + '),
-        damageType: cfg.burst.type ?? cfg.type,
-        save: { ability: cfg.burst.save, half: true },
-        ...(cfg.burst.includePrimary ? { includePrimary: true } : {}),
-      }
-    : undefined;
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'auto',
-    ...(cfg.concentration ? { concentration: true } : {}),
-    damage: { dice, types: [cfg.type] },
-    ...(cfg.save ? { save: { ability: cfg.save } } : {}),
-    ...(cfg.forceFeet ? { force: { kind: 'push' as const, feet: cfg.forceFeet } } : {}),
-    ...(cfg.effect ? { effects: [{ name: spell.name, ...cfg.effect }] } : {}),
-    ...(secondary || cfg.replace
-      ? { weaponAttack: { ...(cfg.replace ? { replace: true } : {}), ...(secondary ? { secondary } : {}) } }
-      : {}),
   };
 }
 

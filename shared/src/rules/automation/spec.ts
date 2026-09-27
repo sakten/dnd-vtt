@@ -50,6 +50,8 @@ export type ValueExpr =
   | { sum: ValueExpr[] }
   /** Конкатенация: `${кость}${тип}`; любое нерешённое слагаемое опускает всё выражение. */
   | { concat: ValueExpr[] }
+  /** Склейка непустых слагаемых разделителем: `1d10 + 1d10` (Hail/Lightning: база + апкаст). */
+  | { join: { parts: ValueExpr[]; sep: string } }
   /** `'1'`, если значение входит в список — гейт для `{ if, then }` (Command: halt/grovel). */
   | { includes: { of: ValueExpr; values: string[] } }
   /** Литеральные ступени значения по кругу (Magic Weapon: +1/+2/+3 с 1/3/6 круга). */
@@ -273,6 +275,10 @@ export interface EffectSpec {
   /** Модификаторы (id присваивает сервер); значения/фильтры — ссылки; гейт по выбору. */
   modifiers?: Gated<ModifierSpec>[];
   conditions?: Gated<ValueExpr>[];
+  /** Иммунитеты к состояниям (Shining Smite: невидимость); значения — ссылки/гейты. */
+  conditionImmunities?: Gated<ValueExpr>[];
+  /** Banishing Smite: провал спасброска изгоняет существо (конец каста — возврат). */
+  banish?: boolean;
   light?: LightSource;
   /** Восприятие, выдаваемое эффектом (Darkvision); гейт по выбору. */
   senses?: Gated<Sense[]>;
@@ -330,6 +336,8 @@ export interface AutomationSpec {
   concentration?: Leveled<boolean>;
   maxRounds?: Leveled<number | null>;
   save?: AutomationSave;
+  /** Вынужденное перемещение проваливших спас (Thunderous Smite: толчок 10 фт). */
+  force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   damage?: DamageSpec;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;

@@ -76,7 +76,7 @@
 - `filters`: `side`, `excludeCreatureTypes`, `requiresCreatureTypes`, `containment`;
 - метки: поля `mark`/`markTarget`/`markSaved` остаются в `effects` (компилируются в `EffectInstance` с `filter.targetId`); `retarget` (Hex/Hunter's Mark) — операция `selection` над меткой.
 
-Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); `burst` читается и веткой атаки (луч/райдер), и веткой сейва (вспышка вокруг каждой цели, независимо от исхода её сейва); остальные фильтры/метки — по мере миграции (Bless/Bane, Hex/Hunter's Mark — из каталога; Hail of Thorns/Lightning Arrow — райдеры `weaponAttack.secondary` из билдеров, к `selection` не относятся).
+Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); `burst` читается и веткой атаки (луч/райдер), и веткой сейва (вспышка вокруг каждой цели, независимо от исхода её сейва); остальные фильтры/метки — по мере миграции (Bless/Bane, Hex/Hunter's Mark — из каталога; Hail of Thorns/Lightning Arrow — спеки смайтов, к `selection` не относятся).
 
 Часть правил уже в `shared/src/rules/targeting.ts`; блок описывает только декларацию, выбор остаётся за `interaction.ts`/клиентом.
 
@@ -110,6 +110,7 @@
 - `Leveled<T>` — значение по кругу каста: `{ levels: [{ above, value }], fallback? }` (Bestow Curse: длительность/концентрация/лимит; `null` — без лимита, `fallback: undefined` — дефолт движка);
 - `Gated<T>` — элемент под условием выбора: `{ if, then }` (условия, модификаторы, `takesExtraDamage`, `turnDodge`, `wakeOnDamage`);
 - `{ concat: [...] }` — `${кость}${тип}`: любое нерешённое слагаемое опускает всё поле (`riderDice` у GFB/True Strike);
+- `{ join: { parts, sep } }` — склейка непустых слагаемых разделителем (Hail/Lightning Arrow: `2d8 + 1d8` — база + апкаст сохраняются раздельно);
 - `{ tiers: [{ above, value }] }` — литеральные ступени (Magic Weapon: +1/+2/+3 с 1/3/6 круга);
 - `{ perLevel: { base, per, above } }` — `base + per × (круг − above)` (Cordon: 4 + 2 стрелы за круг);
 - `{ spellMod: { base, min } }` — `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2);
@@ -187,7 +188,8 @@ CUSTOM:Jallarzi-Fire {
 - батч `hooks` (damageHooks): `HookSpec` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage/saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction), `ValueExpr` (`upcastFlat`/`sum`); регрупп 7 спеков + мигрированы Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward (42 спека); билдеры и каталожные записи удалены;
 - батч `movement`: `UtilitySpec` (ссылки в blockedDamage/fromBurst), `MovementSpec`/`EffectMovementSpec`, `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (48 спеков), билдеры/каталог удалены;
 - батч `selection` (начало): `chain` (`jumps` — ссылка) и `burst` (Ice Knife); мигрированы Chain Lightning и Ice Knife (50 спеков), билдеры удалены; `burst` читается и веткой сейва (вспышка вокруг каждой цели);
-- батч `vision` (начало): `EffectSpec.senses`/`seesInvisible` (+ гейты `{ if, then }`); мигрированы Light, Continual Flame, Darkvision, See Invisibility, Pass without Trace, Silence, Darkness, Fog Cloud (58 спеков), каталожные записи удалены. Дальше: `mark`/`retarget` (Bless/Hex/Hail of Thorns), `side`/`autoTargets`/радиус.
+- батч `vision` (начало): `EffectSpec.senses`/`seesInvisible` (+ гейты `{ if, then }`); мигрированы Light, Continual Flame, Darkvision, See Invisibility, Pass without Trace, Silence, Darkness, Fog Cloud (58 спеков), каталожные записи удалены;
+- батч смайтов: `AutomationSpec.force`, `EffectSpec.conditionImmunities`/`banish`, `ValueExpr.join`; мигрированы 9 XPHB-смайтов (67 спеков), билдер удалён. Дальше: `selection` добор (`mark`/`retarget` — Hex/Hunter's Mark, `autoTargets`, мультивыбор Bless/Bane).
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

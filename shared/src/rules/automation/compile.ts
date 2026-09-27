@@ -98,6 +98,14 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
     if (mapped !== undefined) return mapped;
     return expr.mapped.fallback !== undefined ? resolveValue(ctx, expr.mapped.fallback) : undefined;
   }
+  if ('join' in expr) {
+    const parts: (string | number)[] = [];
+    for (const item of expr.join.parts) {
+      const value = resolveValue(ctx, item);
+      if (value !== undefined) parts.push(value);
+    }
+    return parts.length ? parts.join(expr.join.sep) : undefined;
+  }
   let value: string | number | undefined;
   switch (expr.ref) {
     case 'cantrip':
@@ -378,6 +386,11 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
   const conditions = (effect.conditions ?? [])
     .map((entry) => compileGated(ctx, entry, (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditions`)) as ConditionKey))
     .filter((c): c is ConditionKey => c !== undefined);
+  const conditionImmunities = (effect.conditionImmunities ?? [])
+    .map((entry) =>
+      compileGated(ctx, entry, (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditionImmunities`)) as ConditionKey)
+    )
+    .filter((c): c is ConditionKey => c !== undefined);
   const targets = effect.targets !== undefined ? Number(mustValue(ctx, effect.targets, `effect.${effect.id}.targets`)) : undefined;
   const duration = resolveLeveled(ctx, effect.duration);
   if (!duration) throw new Error(`AutomationSpec ${ctx.spec.key}: effect.${effect.id} без duration`);
@@ -401,6 +414,8 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(targets !== undefined ? { targets } : {}),
     modifiers,
     ...(conditions.length ? { conditions } : {}),
+    ...(conditionImmunities.length ? { conditionImmunities } : {}),
+    ...(effect.banish ? { banish: true } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(senses?.length ? { senses } : {}),
     ...(seesInvisible ? { seesInvisible: true } : {}),
@@ -561,6 +576,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(concentration ? { concentration: true } : {}),
     ...(maxRounds !== undefined ? { maxRounds } : {}),
     ...(spec.save ? { save: { ...spec.save } } : {}),
+    ...(spec.force ? { force: { ...spec.force } } : {}),
     ...(spec.damage ? { damage: compileDamage(ctx, spec.damage) } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
@@ -676,7 +692,9 @@ export function validateSpec(spec: AutomationSpec): string[] {
   if (spec.primary === 'attack' && !spec.attack && !spec.weaponAttack) {
     errors.push('attack без attack/weaponAttack');
   }
-  if (spec.primary !== 'attack' && spec.weaponAttack) errors.push('weaponAttack допустим только с attack');
+  if (!['attack', 'auto'].includes(spec.primary) && spec.weaponAttack) {
+    errors.push('weaponAttack допустим только с attack/auto (смайты — райдер после попадания)');
+  }
   if (spec.effects?.length && !['attack', 'save', 'auto', 'effect', 'utility'].includes(spec.primary)) {
     errors.push('effects допустимы только для attack/save/auto/effect/utility (Far Step — носитель)');
   }
@@ -720,6 +738,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
     for (const entry of effect.conditions ?? []) pushGated(entry, (c) => refs.push(c));
     if (effect.senses !== undefined) pushGated(effect.senses, () => undefined);
     if (effect.seesInvisible !== undefined) pushGated(effect.seesInvisible, () => undefined);
+    for (const entry of effect.conditionImmunities ?? []) pushGated(entry, (c) => refs.push(c));
     for (const entry of effect.modifiers ?? []) {
       pushGated(entry, (m) => {
         if (m.value !== undefined) refs.push(m.value);
@@ -795,6 +814,10 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (typeof expr === 'string' || typeof expr === 'number') return;
     if ('concat' in expr) {
       for (const item of expr.concat) checkRef(item);
+      return;
+    }
+    if ('join' in expr) {
+      for (const item of expr.join.parts) checkRef(item);
       return;
     }
     if ('add' in expr) {
