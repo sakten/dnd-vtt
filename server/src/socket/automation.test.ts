@@ -1639,6 +1639,58 @@ describe('Ice Knife (D)', () => {
   });
 });
 
+describe('Burst в ветке спасброска (D)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const def: AutomationDef = {
+    key: 'TEST:SaveBurst',
+    name: 'Сейв со вспышкой',
+    resolution: 'save',
+    save: { ability: 'dex', half: false },
+    damage: { dice: '1d6', types: ['fire'] },
+    burst: { rangeFeet: 5, dice: '2d6', damageType: 'lightning', save: { ability: 'dex', half: false } },
+  };
+
+  const setupPair = () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    caster.x = 1000; // вне радиуса вспышек
+    caster.y = 1000;
+    const neighbor = makeToken('t3', { x: 200, y: 100, hpMax: '30', hpCurrent: 30 });
+    map.tokens.push(neighbor);
+    return { room, f, caster, target: map.tokens[1]!, neighbor };
+  };
+
+  it('вспышка вокруг каждой цели; сама цель в свою вспышку не входит', () => {
+    const { f, caster, target, neighbor } = setupPair();
+    vi.spyOn(Math, 'random').mockReturnValue(0); // все сейвы провалены, все кости — 1
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target, neighbor], stats, author: 'DM' });
+    // Каждая цель: 1 основного урона + 2 от вспышки соседа (своя вспышка центр не бьёт).
+    expect(target.hpCurrent).toBe(27);
+    expect(neighbor.hpCurrent).toBe(27);
+  });
+
+  it('вспышка срабатывает, даже если центральная цель прошла спас', () => {
+    const { f, caster, target, neighbor } = setupPair();
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0) // основной урон 1d6 = 1
+      .mockReturnValueOnce(0.99) // спас цели — успех
+      .mockReturnValueOnce(0) // спас соседа — провал
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0) // вспышка у цели: 2d6 = 2
+      .mockReturnValueOnce(0) // спас соседа по вспышке — провал
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0) // вспышка у соседа: 2d6 = 2
+      .mockReturnValueOnce(0.99); // спас цели по вспышке — успех, урона нет
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target, neighbor], stats, author: 'DM' });
+    // Цель: основной спас — 0, своя вспышка центр не бьёт, соседскую отбила спасом.
+    expect(target.hpCurrent).toBe(30);
+    // Сосед: 1 основной (провал) + 2 вспышка от цели.
+    expect(neighbor.hpCurrent).toBe(27);
+  });
+});
+
 describe('Vitriolic Sphere (D)', () => {
   afterEach(() => vi.restoreAllMocks());
 

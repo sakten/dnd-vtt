@@ -35,7 +35,11 @@ export interface AutomationSave {
   half?: boolean;
 }
 
-/** Всплеск вокруг цели: спас и урон по всем существам в радиусе (Ice Knife, Hail of Thorns). */
+/**
+ * Всплеск вокруг цели: спас и урон по всем существам в радиусе (Ice Knife, Hail of Thorns).
+ * В ветке атаки центр — цель луча (независимо от попадания); в ветке сейва — каждая
+ * цель заклинания (независимо от исхода её сейва).
+ */
 export interface AttackBurst {
   /** Радиус от центра, футы. */
   rangeFeet: number;
@@ -647,7 +651,8 @@ export interface AutomationDef extends AutomationPayload {
   banishOnFail?: boolean;
   /**
    * Всплеск вокруг цели: спас и урон по всем существам в `rangeFeet`
-   * (Ice Knife — независимо от попадания; Hail of Thorns/Lightning Arrow — райдер).
+   * (Ice Knife — независимо от попадания; Hail of Thorns/Lightning Arrow — райдер;
+   * в ветке сейва — вокруг каждой цели, независимо от её сейва).
    */
   burst?: AttackBurst;
   /**

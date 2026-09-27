@@ -478,6 +478,12 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
         applyMaxHpFromDamage(run, save.target, result.amount);
       }
     }
+    // Вспышка вокруг каждой цели (ветка спасброска): независимо от исхода её сейва.
+    if (run.def.burst) {
+      for (const target of targets) {
+        runBurst(run.ctx, run.room, run.mapId, run.caster, target, run.def, run.def.burst, stats, run.author);
+      }
+    }
     // Self-эффекты «только при провале» (Enervation: повтор действием).
     const failed = saves.some((save) => !save.success);
     const onFailSelf = (def.effects ?? []).filter((e) => e.to === 'self' && e.selfOnFail);
