@@ -528,9 +528,17 @@ export interface AutomationUtility {
     /** Lesser/Greater Restoration: снять одно состояние из `endConditions` (выбор при касте). */
     | 'endCondition'
     /** Compulsion: отметить направление над целями источника (механику ведёт мастер). */
-    | 'direction';
+    | 'direction'
+    /**
+     * Telekinesis: выбранное существо на провале STR-спасброска перемещается в точку
+     * (`placements`, ≤ `amount` фт от него) и получает `restrained` до начала вашего
+     * следующего хода; предметы не двигаем (решение владельца).
+     */
+    | 'telekinesis';
   amount?: number;
   ability?: AbilityKey;
+  /** Телекинез: максимальный размер двигаемого существа (`huge` — Huge и меньше). */
+  maxSize?: 'normal' | 'large' | 'huge';
   /** Scatter: максимальное число целей (5). */
   targets?: number;
   /** Scatter: предел дистанции точки назначения от кастера, футы (120). */

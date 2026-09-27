@@ -301,6 +301,32 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('Telekinesis: каст выдаёт «Телекинез» — STR-спас, перемещение 30 фт, restrained', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Telekinesis',
+      name: 'Telekinesis',
+      level: 5,
+      automation: 'manual',
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 10 } }],
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(action).toMatchObject({ id: 'grip', name: 'Телекинез', cost: 'action' });
+    expect(action?.def).toMatchObject({
+      resolution: 'utility',
+      save: { ability: 'str' },
+      utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
+      targeting: { kind: 'creature', range: 60 },
+    });
+    expect(action?.def?.effects?.[0]).toMatchObject({
+      conditions: ['restrained'],
+      duration: { type: 'endOfTurn', of: 'source' },
+    });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Crown of Madness / Enemies Abound — плашки «ведёт мастер» (вторая без глифа)', () => {
     const crown = makeSpell({ key: 'XPHB:Crown of Madness', name: 'Crown of Madness', level: 2, automation: 'manual' });
     const crownDef = automationForSpell(crown);

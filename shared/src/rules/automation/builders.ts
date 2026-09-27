@@ -26,6 +26,7 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Guardian of Faith',
   'XPHB:Conjure Fey',
   'XPHB:Dispel Evil and Good',
+  'XPHB:Telekinesis',
   'TCE:Green-Flame Blade',
   'TCE:Booming Blade',
   'XPHB:True Strike',
@@ -1501,6 +1502,40 @@ export function dispelEvilGoodDef(spell: Spell): AutomationDef | undefined {
     resolution: 'effect',
     concentration: true,
     effects: [actionCarrier(spell, { id: 'banish', name: 'Изгнание', cost: 'action', def: banish })],
+  };
+}
+
+/**
+ * Telekinesis (XPHB 2024): каст (концентрация) выдаёт действие «Телекинез» (Magic action,
+ * повторяется каждый ход): существо до Huge в 60 фт, спас STR; на провале его двигают
+ * кликом до 30 фт (по клеткам, вынужденно) и он restrained до начала вашего след. хода.
+ * Предметы/носимые вещи и высота — вне скоупа (решение владельца, сессия 18).
+ */
+export function telekinesisDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Telekinesis') return undefined;
+  const restrained: AutomationEffect = {
+    name: spell.name,
+    duration: UNTIL_NEXT_TURN,
+    to: 'targets',
+    modifiers: [],
+    conditions: ['restrained'],
+    concentration: true,
+  };
+  const grip: AutomationDef = {
+    key: spell.key,
+    name: 'Телекинез',
+    resolution: 'utility',
+    save: { ability: 'str' },
+    effects: [restrained],
+    utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
+    targeting: { kind: 'creature', range: 60 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    effects: [actionCarrier(spell, { id: 'grip', name: 'Телекинез', cost: 'action', def: grip })],
   };
 }
 

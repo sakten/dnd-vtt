@@ -70,7 +70,10 @@ export interface MultiTargetState {
 /** Scatter: до N целей, затем точка назначения на каждую (последний клик кастует). */
 export interface ScatterState {
   tokenId: string;
-  spellKey: string;
+  spellKey?: string;
+  /** Выданное действие-телекинез вместо каста (actionId из панели действий). */
+  actionId?: string;
+  slot?: ActionCost;
   slotLevel?: number;
   advantage?: 'a' | 'd';
   maxTargets: number;
@@ -194,6 +197,8 @@ export type InteractionCommand =
         advantage?: 'a' | 'd';
         offhand?: boolean;
         cleave?: boolean;
+        /** Telekinesis: точка назначения для цели. */
+        placements?: { targetId: string; x: number; y: number }[];
       };
     }
   | { type: 'castSpell'; payload: SpellCastPayload }
@@ -521,11 +526,20 @@ function scatterCommand(
   s: ScatterState,
   placements: { targetId: string; x: number; y: number }[]
 ): InteractionCommand {
+  // Telekinesis: выданное действие вместо каста — команда action:use с точкой.
+  if (s.actionId) {
+    return {
+      type: 'runAction',
+      tokenId: s.tokenId,
+      actionId: s.actionId,
+      extra: { targetIds: [], slot: s.slot ?? 'action', placements },
+    };
+  }
   return {
     type: 'castSpell',
     payload: {
       tokenId: s.tokenId,
-      spellKey: s.spellKey,
+      spellKey: s.spellKey ?? '',
       slotLevel: s.slotLevel,
       advantage: s.advantage,
       placements,

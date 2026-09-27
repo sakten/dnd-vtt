@@ -104,11 +104,14 @@ export default function AimPanel() {
 
   if (interaction.mode === 'scatter') {
     const s = interaction.scatter;
+    const tk = !!s.actionId;
     if (s.phase === 'targets') {
       return (
         <div className="aim-panel" data-testid="aim-panel">
-          <span className="aim-title">{t('ui.aim.scatterTargets', { n: s.targets.length, max: s.maxTargets })}</span>
-          <span className="aim-hint">{t('ui.aim.scatterHintTargets')}</span>
+          <span className="aim-title">
+            {t(tk ? 'ui.aim.tkTargets' : 'ui.aim.scatterTargets', { n: s.targets.length, max: s.maxTargets })}
+          </span>
+          <span className="aim-hint">{t(tk ? 'ui.aim.tkHintTargets' : 'ui.aim.scatterHintTargets')}</span>
           <button className="aim-apply" disabled={!s.targets.length} onClick={toPlaces}>
             {t('ui.aim.next')}
           </button>
@@ -123,9 +126,9 @@ export default function AimPanel() {
     return (
       <div className="aim-panel" data-testid="aim-panel">
         <span className="aim-title">
-          {t('ui.aim.scatterPlace', { name, i: s.placements.length + 1, n: s.targets.length })}
+          {t(tk ? 'ui.aim.tkPlace' : 'ui.aim.scatterPlace', { name, i: s.placements.length + 1, n: s.targets.length })}
         </span>
-        <span className="aim-hint">{t('ui.aim.scatterHintPlace')}</span>
+        <span className="aim-hint">{t(tk ? 'ui.aim.tkHintPlace' : 'ui.aim.scatterHintPlace')}</span>
         <button className="aim-cancel" onClick={back}>
           {t('ui.aim.back')}
         </button>

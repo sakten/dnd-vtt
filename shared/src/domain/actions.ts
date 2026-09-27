@@ -1,5 +1,6 @@
 import type { AbilityKey } from './core';
 import type { ConditionKey, EffectDuration } from './effects';
+import type { AutomationUtility } from './automation';
 
 export type ActionCost =
   | 'action'
@@ -92,6 +93,8 @@ export interface ActionDef {
   zoneId?: string;
   /** Лимит перемещения зоны за действие, футы (Spiritual Weapon: 20). */
   moveFeet?: number;
+  /** Вид механики выданного действия (Telekinesis: выбор цели и точки на клиенте). */
+  utilityKind?: AutomationUtility['kind'];
   /** Ключ иконки действия (`<ключ заклинания-источника>:<id действия>`); пусто — общий глиф. */
   iconKey?: string;
 }

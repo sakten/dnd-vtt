@@ -96,6 +96,7 @@ export default function ActionPanel() {
   const runAction = useGameStore((s) => s.runAction);
   const startTargeting = useGameStore((s) => s.startTargeting);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
+  const startScatter = useGameStore((s) => s.startScatter);
   const startAim = useGameStore((s) => s.startAim);
   const rollMode = useGameStore((s) => s.rollMode);
   const setRollMode = useGameStore((s) => s.setRollMode);
@@ -396,6 +397,11 @@ export default function ActionPanel() {
             return;
           }
           const slot = featureSlot(f, turnCtx);
+          // Телекинез: цель + точка назначения (как Scatter), уходит командой action:use.
+          if (f.utilityKind === 'telekinesis' && f.targeting?.kind === 'creature') {
+            startScatter({ tokenId: token.id, actionId: f.id, slot, maxTargets: 1 });
+            return;
+          }
           const auto = sheet ? featureActionAutomation(f.id, sheet.classes) : undefined;
           const maxTargets = auto?.targetsAbility
             ? Math.max(1, abilityMod(sheet?.abilities[auto.targetsAbility] ?? 10))

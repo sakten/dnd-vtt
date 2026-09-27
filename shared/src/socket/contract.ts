@@ -149,6 +149,8 @@ export interface ClientToServerEvents {
     origin?: { x: number; y: number };
     /** Направление конуса/линии (мировая точка). */
     direction?: { x: number; y: number };
+    /** Telekinesis: точка назначения для выбранной цели (мировые координаты). */
+    placements?: { targetId: string; x: number; y: number }[];
   }) => void;
   'spell:cast': (payload: {
     mapId: string;

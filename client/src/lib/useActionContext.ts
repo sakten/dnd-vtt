@@ -148,6 +148,7 @@ export function useActionContext(): ActionContext | null {
           source: 'spell' as const,
           costs: [a.cost],
           targeting: a.def?.targeting,
+          utilityKind: a.def?.utility?.kind,
           description: e.name,
           iconKey: e.sourceKey ? `${e.sourceKey}:${a.id}` : undefined,
         }))

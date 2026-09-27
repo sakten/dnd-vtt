@@ -244,6 +244,68 @@ describe('Dispel Evil and Good', () => {
   });
 });
 
+describe('Telekinesis', () => {
+  function castTelekinesis() {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    caster.statblock = {
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 16 },
+      spellcasting: { ability: 'cha', dc: 15 },
+    };
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Telekinesis')!),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+    const effect = caster.effects.find((e) => e.sourceKey === 'XPHB:Telekinesis' && !!e.actions?.length);
+    return { room, f, map, caster, target, actionId: `spell:${effect!.id}:grip` };
+  }
+
+  it('провал STR-спаса: цель перемещена к точке и restrained', () => {
+    const { f, map, caster, target, actionId } = castTelekinesis();
+    const original = Math.random;
+    Math.random = () => 0; // d20 = 1 → спас провален
+    try {
+      f.invoke('action:use', {
+        mapId: 'm1',
+        tokenId: caster.id,
+        actionId,
+        placements: [{ targetId: target.id, x: 150, y: 250 }],
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.y).toBe(275);
+    expect(target.x).toBe(175);
+    expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(true);
+    expect(map.tokens.some((t) => t.id === target.id)).toBe(true);
+  });
+
+  it('успех STR-спаса: цель остаётся на месте, restrained не вешается', () => {
+    const { f, caster, target, actionId } = castTelekinesis();
+    const original = Math.random;
+    Math.random = () => 0.99; // d20 = 20 → спас успешен
+    try {
+      f.invoke('action:use', {
+        mapId: 'm1',
+        tokenId: caster.id,
+        actionId,
+        placements: [{ targetId: target.id, x: 150, y: 250 }],
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.x).toBe(150);
+    expect(target.y).toBe(100);
+    expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(false);
+  });
+});
+
 describe('Harm', () => {
   it('провал спасброска снижает максимум HP на полученный урон; снятие эффекта возвращает', () => {
     const { room, f } = setup();

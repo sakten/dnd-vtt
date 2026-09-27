@@ -456,6 +456,8 @@ function useGrantedAction(
     origin?: { x: number; y: number };
     direction?: { x: number; y: number };
     targetIds?: string[];
+    /** Telekinesis: точка назначения для выбранной цели. */
+    placements?: { targetId: string; x: number; y: number }[];
   }
 ): void {
   const { room, mapId, token } = scope;
@@ -581,6 +583,7 @@ function useGrantedAction(
     origin,
     direction: opts.direction ?? null,
     area: area ?? null,
+    ...(opts.placements?.length ? { placements: opts.placements } : {}),
   });
   // Заряды эффекта, выдавшего действие (Magic Stone: бросок тратит камень, hit or miss).
   if (effect.charges && !effect.charges.on) {
@@ -618,7 +621,7 @@ function unarmedStrikeEntry(
 export function registerActionHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
-    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction }) => {
+    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction, placements }) => {
       if (!ctx.playerId || typeof actionId !== 'string') return;
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, tokenId);
@@ -640,7 +643,22 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       // Действия, выданные эффектами (Expeditious Retreat: Рывок бонусным действием).
       if (actionId.startsWith('spell:')) {
-        useGrantedAction(ctx, scope, actionId, { advantage, slot, origin, direction, targetIds });
+        const parsedPlacements = Array.isArray(placements)
+          ? placements
+              .filter(
+                (p) =>
+                  p && typeof p.targetId === 'string' && Number.isFinite(p.x) && Number.isFinite(p.y)
+              )
+              .slice(0, 5)
+          : [];
+        useGrantedAction(ctx, scope, actionId, {
+          advantage,
+          slot,
+          origin,
+          direction,
+          targetIds,
+          ...(parsedPlacements.length ? { placements: parsedPlacements } : {}),
+        });
         return;
       }
 

@@ -72,9 +72,9 @@ const actual = {
 const EXPECTED = {
   catalog: 'dece4e0444c55426',
   additions: '1b3ac2b7685ff142',
-  derived: '002e6927211cae06',
-  green: 243,
-  red: 177,
+  derived: '48fa89dc51fd485c',
+  green: 244,
+  red: 176,
 };
 
 describe('характеризация автоматизации', () => {

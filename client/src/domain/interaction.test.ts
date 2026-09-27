@@ -224,6 +224,20 @@ describe('Scatter: цели → точки', () => {
       },
     });
   });
+
+  it('Telekinesis: та же машина, но команда — action:use с точкой', () => {
+    let it = startScatter({ tokenId: 't1', actionId: 'spell:e1:grip', slot: 'action', maxTargets: 1 });
+    it = toggleScatterTarget(it, 't2')!;
+    expect(it.mode === 'scatter' ? it.scatter.phase : null).toBe('places');
+    const place = placeScatterPoint(it, { x: 150, y: 250 });
+    expect(place.next).toBeNull();
+    expect(place.command).toEqual({
+      type: 'runAction',
+      tokenId: 't1',
+      actionId: 'spell:e1:grip',
+      extra: { targetIds: [], slot: 'action', placements: [{ targetId: 't2', x: 150, y: 250 }] },
+    });
+  });
 });
 
 describe('пассажир телепорта', () => {

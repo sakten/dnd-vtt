@@ -4,6 +4,7 @@ import {
   cellCenter,
   combineRollMode,
   d20Expr,
+  findPath,
   gridDistanceFeet,
   gridOfMap,
   isBanished,
@@ -11,6 +12,7 @@ import {
   pointCell,
   rollDice,
   sideMatches,
+  sizeAtMost,
   statNumber,
   teleportCellsNearBoxes,
   wallsWithZones,
@@ -37,6 +39,8 @@ import { pushRollMessage, pushSaveMessage } from '../messages';
 import { startMovementTurns } from '../moveTurns';
 import { executeTeleport, teleportIssue } from '../teleport';
 import { maybeRollAnim } from '../rollAnim';
+import { handleMovementZones } from '../zones';
+import { syncSurrounded } from '../surrounded';
 import { audienceOf, type ReactionChoice } from '../reactions/internal';
 import { openReactionWindow, type ReactionOfferInput } from '../reactions/queue';
 import {
@@ -634,6 +638,84 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     }
     executeTeleport(ctx, room, input.mapId, input.caster, input.origin);
     teleportPassenger(ctx, room, input, utility);
+  },
+  /**
+   * Telekinesis: цель до Huge, спас STR; на провале — вынужденное перемещение
+   * по клеткам (A*, зоны срабатывают) в точку ≤30 фт и restrained до вашего
+   * следующего хода; успех — цель остаётся на месте.
+   */
+  telekinesis: ({ ctx, room, input, utility }) => {
+    const placement = (input.placements ?? [])[0];
+    const target = placement ? ctx.manager.findToken(room, input.mapId, placement.targetId) : undefined;
+    if (!placement || !target) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    const map = ctx.manager.findMap(room, input.mapId);
+    if (!map) return;
+    const grid = gridOfMap(map, room.scene.grid);
+    const rangeFeet = input.def.targeting?.range ?? 60;
+    const feet = gridDistanceFeet(input.caster, target, grid.size);
+    if (feet > rangeFeet) {
+      fail(ctx, 'outOfRange', { feet: Math.round(feet) });
+      return;
+    }
+    if (utility.maxSize && !sizeAtMost(target.cells, utility.maxSize)) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    // Точка: ≤30 фт от цели, внутри карты и свободна; путь — по клеткам (A*, не сквозь стены).
+    const issue = teleportIssue(room, input.mapId, target, { x: placement.x, y: placement.y }, utility.amount ?? 30, undefined, {
+      skipSight: true,
+    });
+    if (issue) {
+      fail(ctx, issue.code as ErrorCode, issue.params);
+      return;
+    }
+    const cell = pointCell({ x: placement.x, y: placement.y }, grid);
+    const dest = cellCenter(cell.cx, cell.cy, grid);
+    const path = findPath({
+      from: { x: target.x, y: target.y },
+      to: dest,
+      grid,
+      bounds:
+        map.width > 0 && map.height > 0
+          ? { cols: Math.ceil(map.width / grid.size), rows: Math.ceil(map.height / grid.size) }
+          : null,
+      walls: wallsWithZones(map.walls, map.zones, grid),
+      moverCells: target.cells,
+    });
+    if (!path) {
+      fail(ctx, 'noClearPath');
+      return;
+    }
+    const ability = input.def.save?.ability ?? 'str';
+    const { roll, success } = ctx.manager.rollSave(room, target, ability, input.stats?.dc ?? 10, {});
+    pushSaveMessage(ctx, room, {
+      author: input.author,
+      subject: `${input.def.name} · ${target.name}`,
+      roll,
+      success,
+    });
+    if (success) return;
+    for (const point of path.points.slice(1)) {
+      const from = { x: target.x, y: target.y };
+      target.x = point.x;
+      target.y = point.y;
+      handleMovementZones(ctx, room, input.mapId, { token: target, from, to: { x: point.x, y: point.y } });
+    }
+    ctx.emitToken(room, 'token:update', input.mapId, target);
+    syncSurrounded(ctx, room, input.mapId);
+    // Restrained — до начала следующего хода кастера (снятие — тик эффектов источника).
+    for (const effectDef of input.def.effects ?? []) {
+      applyEffectLight(ctx, room, input.mapId, {
+        sourceKey: input.def.key,
+        sourceId: input.caster.id,
+        mapId: input.mapId,
+        effectDef,
+        target,
+      });
+    }
   },
   /** Scatter: не-союзники кидают WIS-спас (успех — остаётся); невалидные точки пропускаем. */
   scatter: ({ ctx, room, input, utility }) => {
