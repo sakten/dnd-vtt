@@ -1,5 +1,5 @@
 import { SPELL_BASES } from './bases';
-import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
+import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN, zoneMoveAction } from './header';
 import type { AutomationSpec, ValueExpr } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
@@ -316,5 +316,66 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         uses: { kind: 'misdirect', ...SPELL_BASES.mirrorImage.misdirect },
       },
     ],
+  },
+
+  'XPHB:Guardian of Faith': {
+    key: 'XPHB:Guardian of Faith',
+    name: 'Guardian of Faith',
+    primary: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      duration: PERMANENT,
+      side: 'hostile',
+      excludeSource: true,
+      enterOncePerTurn: true,
+      dealtLimit: 60,
+      triggers: {
+        enter: { save: { ability: 'dex', half: true }, damage: { dice: '20', types: ['radiant'] } },
+        startOfTurn: { save: { ability: 'dex', half: true }, damage: { dice: '20', types: ['radiant'] } },
+      },
+      flags: { sprite: 'guardian' },
+    },
+  },
+
+  'XPHB:Cordon of Arrows': {
+    key: 'XPHB:Cordon of Arrows',
+    name: 'Cordon of Arrows',
+    primary: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      duration: PERMANENT,
+      enterOncePerTurn: true,
+      excludeSource: true,
+      side: 'hostile',
+      charges: { perLevel: { base: 4, per: 2, above: 2 } },
+      triggers: {
+        enter: { save: { ability: 'dex' }, damage: { dice: { ref: 'part', part: 'main', fallback: '2d4' }, types: ['piercing'] } },
+        endOfTurn: { save: { ability: 'dex' }, damage: { dice: { ref: 'part', part: 'main', fallback: '2d4' }, types: ['piercing'] } },
+      },
+    },
+  },
+
+  'XGE:Healing Spirit': {
+    key: 'XGE:Healing Spirit',
+    name: 'Healing Spirit',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'cube', size: 5 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      movable: true,
+      side: 'ally',
+      charges: { spellMod: { base: 1, min: 2 } },
+      excludeCreatureTypes: ['construct', 'undead'],
+      actions: [zoneMoveAction('Перемещение духа', 'bonus', 30)],
+      triggers: {
+        enter: { heal: { dice: { scale: { dice: { ref: 'part', part: 'main', fallback: '1d6' }, by: 'upcast' } } } },
+        startOfTurn: { heal: { dice: { scale: { dice: { ref: 'part', part: 'main', fallback: '1d6' }, by: 'upcast' } } } },
+      },
+    },
   },
 };

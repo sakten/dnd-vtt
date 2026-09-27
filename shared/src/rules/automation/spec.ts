@@ -4,6 +4,7 @@ import type {
   AutomationSave,
   AutomationUtility,
   LightSource,
+  ZoneDef,
 } from '../../domain/automation';
 import type { ConditionKey, EffectDuration, Modifier, Restrictions } from '../../domain/effects';
 import type { DamagePartRole } from '../spells';
@@ -40,7 +41,13 @@ export type ValueExpr =
   /** Конкатенация: `${кость}${тип}`; любое нерешённое слагаемое опускает всё выражение. */
   | { concat: ValueExpr[] }
   /** Литеральные ступени значения по кругу (Magic Weapon: +1/+2/+3 с 1/3/6 круга). */
-  | { tiers: { above: number; value: number }[] };
+  | { tiers: { above: number; value: number }[] }
+  /** `base + per × (круг − above)` (Cordon of Arrows: 4 + 2 стрелы за круг выше 2). */
+  | { perLevel: { base: number; per: number; above: number } }
+  /** `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2). */
+  | { spellMod: { base: number; min?: number } }
+  /** Кость с апкаст-скейлом (Healing Spirit: 1к6 + 1к6 за круг). */
+  | { scale: { dice: ValueExpr; by: 'upcast' } };
 
 /** Выбор, делаемый при касте (Dragon's Breath: тип урона; Elemental Weapon: тип и т.п.). */
 export interface ChoiceSpec {
@@ -108,6 +115,31 @@ export type UsesSpec =
   /** Подмена попадания образами (Mirror Image): заряды, кость, порог. */
   | { kind: 'misdirect'; charges: number; die: string; threshold: number };
 
+/** Payload спека (триггеры зон/эффектов): кости и эффекты — ссылки `ValueExpr`. */
+export interface PayloadSpec {
+  save?: AutomationSave;
+  damage?: { dice: ValueExpr; types?: string[]; abilityMod?: boolean };
+  heal?: { dice: ValueExpr };
+  successDamage?: { dice: ValueExpr; types?: string[] };
+  effects?: EffectSpec[];
+  endConditions?: ConditionKey[];
+  healTo?: number;
+  containment?: 'anyCell' | 'fullyWithin';
+}
+
+/** Блок `zone` (R16): pass-through полей `ZoneDef` + `ValueExpr` в зарядах и триггерах. */
+export interface ZoneSpec extends Omit<Partial<ZoneDef>, 'charges' | 'triggers' | 'onCreate' | 'aura' | 'wall'> {
+  charges?: ValueExpr;
+  onCreate?: PayloadSpec;
+  aura?: PayloadSpec;
+  triggers?: {
+    enter?: PayloadSpec;
+    exit?: PayloadSpec;
+    startOfTurn?: PayloadSpec;
+    endOfTurn?: PayloadSpec;
+  };
+}
+
 /** Эффект спека: длительность/цель + блоки (loadout/uses/actions/vision). */
 export interface EffectSpec {
   id: string;
@@ -173,6 +205,7 @@ export interface AutomationSpec {
   count?: number;
   targeting?: ActionTargeting;
   effects?: EffectSpec[];
+  zone?: ZoneSpec;
   weaponAttack?: WeaponAttackSpec;
   choices?: ChoiceSpec[];
 }

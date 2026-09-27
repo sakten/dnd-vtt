@@ -5,11 +5,14 @@ import type { AutomationOptions, AutomationSpec } from './automation';
 import { AUTOMATION_SPELLS } from './automation';
 import {
   boomingBladeDef,
+  cordonOfArrowsDef,
   elementalBaneDef,
   elementalWeaponDef,
   flameArrowsDef,
   flameBladeDef,
   greenFlameBladeDef,
+  guardianOfFaithDef,
+  healingSpiritDef,
   magicStoneDef,
   magicWeaponDef,
   resistanceDef,
@@ -40,6 +43,9 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XGE:Elemental Bane': elementalBaneDef,
   'XGE:Zephyr Strike': (spell) => zephyrStrikeDef(spell),
   'XPHB:Mirror Image': () => AUTOMATION_SPELLS['XPHB:Mirror Image'],
+  'XPHB:Guardian of Faith': (spell) => guardianOfFaithDef(spell),
+  'XPHB:Cordon of Arrows': cordonOfArrowsDef,
+  'XGE:Healing Spirit': healingSpiritDef,
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {

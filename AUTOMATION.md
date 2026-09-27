@@ -56,7 +56,7 @@
 ### 3.3. `uses` — заряды и счётчики (выделяется)
 `effect.charges {count, on}` (Flame Arrows — 12 боеприпасов, Magic Stone — 3 камня, Resistance), `charges.on: 'rangedWeaponAttack'`, `zone.charges` (Cordon of Arrows, Healing Spirit), `zone.dealtLimit` (Guardian of Faith — 60), `misdirect.charges` (Mirror Image), `bonusDieUses` (Бардовское вдохновение), `consumeOnAttackRoll` (Zephyr Strike), `elementalBane.usedTurn`. Общий вид: `uses: { count, spendOn, endsWhen, replenish }`.
 
-Реализовано (`UsesSpec`): `charges` (count + `on`), `consumeOnAttack` (Zephyr Strike), `misdirect` (Mirror Image) — компилируются в существующие поля эффекта, пока серверные потребители не унифицированы. Мигрированы: Flame Arrows, Magic Stone, Resistance, Zephyr Strike, Mirror Image. Зонные счётчики (`zone.charges`/`dealtLimit`) — со следующим батчем (нужен блок `zone` в спеке).
+Реализовано (`UsesSpec`): `charges` (count + `on`), `consumeOnAttack` (Zephyr Strike), `misdirect` (Mirror Image) — компилируются в существующие поля эффекта, пока серверные потребители не унифицированы. Мигрированы: Flame Arrows, Magic Stone, Resistance, Zephyr Strike, Mirror Image; зонные счётчики — Guardian of Faith (`dealtLimit`), Cordon of Arrows (`charges: perLevel`), Healing Spirit (`charges: spellMod`).
 
 ### 3.4. `movement` — перемещение (выделяется)
 `force` (push/pull: Repelling Blast, Thunderwave), `utility.teleport` (+`passenger`/`blockedDamage`/`ignoreSight`, Thunder Step `fromBurst`), `teleportAfter` (Steel Wind Strike), `scatter`, `telekinesis` (`placements`), `utility.moveZone` (Moonbeam/Spiritual Weapon), `onWillingMove` (Booming Blade), `ignoresDifficultTerrain`/`immuneToSpeedReduction` (Freedom of Movement), модификаторы скорости (Longstrider, Zephyr Strike). Стратегии: `teleport | push | pull | scatter | moveZone | punishMove`.
@@ -77,7 +77,7 @@
 Общий блок эффекта и зоны: `light` (Light, Moonbeam, Flame Blade), `senses` (Darkvision, Devil's Sight), `seesInvisible` (See Invisibility), `obscures` (zone flag `obscured`), `blocksLight` (Darkness/Fog Cloud), `silence` (Silence, Jallarzi). Компилируется в те же поля `EffectInstance`/`ZoneInstance`; правила — `rules/vision.ts`.
 
 ### 3.8. Существующие блоки (не меняются)
-- `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами;
+- `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами; в спеке — `ZoneSpec` (pass-through + `ValueExpr` в charges/триггерах через `PayloadSpec`);
 - `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (мигрируют в `damageHooks`), выданные действия;
 - `utility` (`kind` — готовый образец «блока со стратегиями», 21 значение);
 - `summon`, `shape`, payload (`save`/`damage`/`heal`/…).
@@ -95,6 +95,9 @@
 - `{ add: [expr, '1d8'] }` — сложение однотипных костей (`addDice`: `1d8` + `1d8` → `2d8`, без базы — добавка);
 - `{ concat: [...] }` — `${кость}${тип}`: любое нерешённое слагаемое опускает всё поле (`riderDice` у GFB/True Strike);
 - `{ tiers: [{ above, value }] }` — литеральные ступени (Magic Weapon: +1/+2/+3 с 1/3/6 круга);
+- `{ perLevel: { base, per, above } }` — `base + per × (круг − above)` (Cordon: 4 + 2 стрелы за круг);
+- `{ spellMod: { base, min } }` — `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2);
+- `{ scale: { dice, by: 'upcast' } }` — кость с апкаст-скейлом (Healing Spirit: 1к6 + 1к6/круг);
 - литералы; `undefined` — поле опускается, обязательное нерезолвленное — ошибка компиляции (`mustValue`).
 
 Рантайм `AutomationDice.dice` получает уже разрешённую строку — компилятор, а не исполнитель.
@@ -157,7 +160,8 @@ CUSTOM:Jallarzi-Fire {
 - `economy`/`defense` не выделяются; `triggers` — единый формат payload + слот;
 - шаблоны — конструкторы над композицией;
 - `ValueExpr` (ref/tiers/add/concat) — реализован; пилот `loadout` (10 спеков: GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) компилируется из `AUTOMATION_SPECS`, равенство вывода билдерам — замок `automation.spec.test.ts`;
-- блок `uses` (charges/consumeOnAttack/misdirect) — реализован; мигрированы Resistance, Elemental Bane, Zephyr Strike, Mirror Image; спеки перехватывают и каталог, и билдеры (`derive.ts`).
+- блок `uses` (charges/consumeOnAttack/misdirect) — реализован; мигрированы Resistance, Elemental Bane, Zephyr Strike, Mirror Image; спеки перехватывают и каталог, и билдеры (`derive.ts`);
+- блок `zone` + `PayloadSpec` — реализованы (pass-through + ValueExpr); мигрированы Guardian of Faith, Cordon of Arrows, Healing Spirit: `uses` закрыт.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

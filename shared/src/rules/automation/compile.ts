@@ -1,8 +1,18 @@
-import type { AutomationDef, AutomationEffect, GrantedAction } from '../../domain/automation';
+import type { AutomationDef, AutomationEffect, AutomationPayload, GrantedAction, ZoneDef } from '../../domain/automation';
 import type { Spell } from '../spells';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt } from '../spellCast';
-import { addDice } from './builders';
-import type { ActionSpec, AutomationSpec, EffectSpec, LoadoutSpec, UsesSpec, ValueExpr, WeaponAttackSpec } from './spec';
+import { addDice, scaledDice, upcastSteps } from './builders';
+import type {
+  ActionSpec,
+  AutomationSpec,
+  EffectSpec,
+  LoadoutSpec,
+  PayloadSpec,
+  UsesSpec,
+  ValueExpr,
+  WeaponAttackSpec,
+  ZoneSpec,
+} from './spec';
 import type { AutomationOptions } from './variants';
 
 /** Контекст компиляции: заклинание + опции каста (R16, `AUTOMATION.md` §7). */
@@ -45,6 +55,17 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
   if ('tiers' in expr) {
     const tier = [...expr.tiers].filter((t) => ctx.castLevel >= t.above).pop();
     return tier?.value;
+  }
+  if ('perLevel' in expr) {
+    return expr.perLevel.base + expr.perLevel.per * Math.max(0, ctx.castLevel - expr.perLevel.above);
+  }
+  if ('spellMod' in expr) {
+    return Math.max(expr.spellMod.min ?? Number.NEGATIVE_INFINITY, expr.spellMod.base + Math.round(ctx.opts.spellMod ?? 0));
+  }
+  if ('scale' in expr) {
+    const base = resolveValue(ctx, expr.scale.dice);
+    if (base === undefined) return undefined;
+    return scaledDice(String(base), ctx.spell.upcast?.dice, upcastSteps(ctx.spell, ctx.castLevel));
   }
   let value: string | number | undefined;
   switch (expr.ref) {
@@ -228,6 +249,66 @@ function compileWeaponAttack(ctx: CompileCtx, spec: WeaponAttackSpec): NonNullab
   return out;
 }
 
+/** Компиляция payload спека (урон/лечение/эффекты триггера): кости — из `ValueExpr`. */
+function compilePayload(ctx: CompileCtx, payload: PayloadSpec): AutomationPayload {
+  return {
+    ...(payload.save ? { save: { ...payload.save } } : {}),
+    ...(payload.damage
+      ? {
+          damage: {
+            dice: String(mustValue(ctx, payload.damage.dice, 'payload.damage')),
+            ...(payload.damage.types ? { types: [...payload.damage.types] } : {}),
+            ...(payload.damage.abilityMod ? { abilityMod: true } : {}),
+          },
+        }
+      : {}),
+    ...(payload.heal ? { heal: { dice: String(mustValue(ctx, payload.heal.dice, 'payload.heal')) } } : {}),
+    ...(payload.successDamage
+      ? {
+          successDamage: {
+            dice: String(mustValue(ctx, payload.successDamage.dice, 'payload.successDamage')),
+            ...(payload.successDamage.types ? { types: [...payload.successDamage.types] } : {}),
+          },
+        }
+      : {}),
+    ...(payload.effects?.length ? { effects: payload.effects.map((e) => compileEffect(ctx, e)) } : {}),
+    ...(payload.endConditions?.length ? { endConditions: [...payload.endConditions] } : {}),
+    ...(payload.healTo !== undefined ? { healTo: payload.healTo } : {}),
+    ...(payload.containment ? { containment: payload.containment } : {}),
+  };
+}
+
+/** Компиляция блока `zone`: pass-through полей + `ValueExpr` в зарядах и триггерах. */
+function compileZone(ctx: CompileCtx, zone: ZoneSpec): ZoneDef {
+  const triggers = zone.triggers
+    ? Object.fromEntries(
+        Object.entries(zone.triggers)
+          .filter(([, payload]) => payload !== undefined)
+          .map(([slot, payload]) => [slot, compilePayload(ctx, payload!)])
+      )
+    : undefined;
+  return {
+    area: zone.area!,
+    origin: zone.origin ?? 'point',
+    duration: zone.duration!,
+    ...(zone.actions?.length ? { actions: zone.actions.map((a) => ({ ...a })) } : {}),
+    ...(zone.anchor ? { anchor: zone.anchor } : {}),
+    ...(zone.containment ? { containment: zone.containment } : {}),
+    ...(zone.side ? { side: zone.side } : {}),
+    ...(zone.light ? { light: { ...zone.light } } : {}),
+    ...(zone.enterOncePerTurn ? { enterOncePerTurn: true } : {}),
+    ...(zone.movable ? { movable: true } : {}),
+    ...(zone.onCreate ? { onCreate: compilePayload(ctx, zone.onCreate) } : {}),
+    ...(zone.charges !== undefined ? { charges: Number(mustValue(ctx, zone.charges, 'zone.charges')) } : {}),
+    ...(zone.dealtLimit !== undefined ? { dealtLimit: zone.dealtLimit } : {}),
+    ...(zone.excludeCreatureTypes?.length ? { excludeCreatureTypes: [...zone.excludeCreatureTypes] } : {}),
+    ...(zone.aura ? { aura: compilePayload(ctx, zone.aura) } : {}),
+    ...(zone.excludeSource ? { excludeSource: true } : {}),
+    ...(triggers ? { triggers } : {}),
+    ...(zone.flags ? { flags: { ...zone.flags } } : {}),
+  };
+}
+
 /** Компиляция спека в рантайм-формат `AutomationDef` (движок не меняется). */
 export function compileSpec(spec: AutomationSpec, input: CompileInput): AutomationDef {
   const errors = validateSpec(spec);
@@ -249,6 +330,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),
     ...(spec.effects?.length ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
+    ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
     ...(spec.weaponAttack ? { weaponAttack: compileWeaponAttack(ctx, spec.weaponAttack) } : {}),
   };
 }
@@ -260,7 +342,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
  */
 export function validateSpec(spec: AutomationSpec): string[] {
   const errors: string[] = [];
-  if (spec.primary === 'effect' && !spec.effects?.length) errors.push('effect без effects');
+  if (spec.primary === 'effect' && !spec.effects?.length && !spec.zone) errors.push('effect без effects/zone');
   if (spec.primary === 'attack' && !spec.attack && !spec.weaponAttack) {
     errors.push('attack без attack/weaponAttack');
   }
@@ -276,6 +358,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (effectIds.has(effect.id)) errors.push(`дублирующийся id эффекта ${effect.id}`);
     effectIds.add(effect.id);
   }
+  if (spec.zone && (!spec.zone.area || !spec.zone.duration)) errors.push('zone без area/duration');
   const choiceIds = new Set((spec.choices ?? []).map((c) => c.id));
   const refs: ValueExpr[] = [];
   const collectEffect = (effect: EffectSpec) => {
@@ -295,6 +378,19 @@ export function validateSpec(spec: AutomationSpec): string[] {
     for (const action of effect.actions ?? []) if (action.damage) refs.push(action.damage.dice);
   };
   for (const effect of spec.effects ?? []) collectEffect(effect);
+  const collectPayload = (payload?: PayloadSpec) => {
+    if (!payload) return;
+    if (payload.damage) refs.push(payload.damage.dice);
+    if (payload.heal) refs.push(payload.heal.dice);
+    if (payload.successDamage) refs.push(payload.successDamage.dice);
+    for (const effect of payload.effects ?? []) collectEffect(effect);
+  };
+  if (spec.zone) {
+    if (spec.zone.charges !== undefined) refs.push(spec.zone.charges);
+    collectPayload(spec.zone.onCreate);
+    collectPayload(spec.zone.aura);
+    for (const payload of Object.values(spec.zone.triggers ?? {})) collectPayload(payload);
+  }
   const wa = spec.weaponAttack;
   if (wa) {
     if (wa.riderDice !== undefined) refs.push(wa.riderDice);
@@ -312,6 +408,12 @@ export function validateSpec(spec: AutomationSpec): string[] {
       return;
     }
     if ('tiers' in expr) return;
+    if ('perLevel' in expr) return;
+    if ('spellMod' in expr) return;
+    if ('scale' in expr) {
+      checkRef(expr.scale.dice);
+      return;
+    }
     if (expr.ref === 'choice' && expr.choice && !choiceIds.has(expr.choice)) {
       errors.push(`ссылка на неизвестный выбор ${expr.choice}`);
     }
