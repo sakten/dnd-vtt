@@ -565,21 +565,9 @@ export function concentratingEffectsOf(room: Room, token: Token): EffectInstance
   return out;
 }
 
-/** Служебный якорь концентрации: пустая запись на кастере (без цели, состояний, модификаторов и выданных действий). */
+/** Служебный якорь концентрации — явный флаг при создании (не эвристика по форме). */
 function isConcentrationAnchor(effect: EffectInstance): boolean {
-  return (
-    effect.duration.type === 'concentration' &&
-    !effect.conditions?.length &&
-    !effect.modifiers.length &&
-    !effect.mark &&
-    !effect.bonusDie &&
-    !effect.light &&
-    !effect.restrictions &&
-    !effect.wakeOnDamage &&
-    // Носитель выданных действий (Telekinesis, Far Step, Sunbeam) — не служебный якорь:
-    // снятие последнего целевого эффекта не должно гасить саму концентрацию.
-    !effect.actions?.length
-  );
+  return effect.anchor === true;
 }
 
 /**

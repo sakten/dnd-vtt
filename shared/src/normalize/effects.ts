@@ -184,6 +184,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (typeof e.sourceKey === 'string' && e.sourceKey) effect.sourceKey = e.sourceKey;
     if (typeof e.sourceId === 'string' && e.sourceId) effect.sourceId = e.sourceId;
     if (e.concentration === true) effect.concentration = true;
+    if (e.anchor === true) effect.anchor = true;
     if (typeof e.maxRounds === 'number' && Number.isFinite(e.maxRounds)) {
       effect.maxRounds = clampInt(e.maxRounds, 1, 9999, 10);
     }

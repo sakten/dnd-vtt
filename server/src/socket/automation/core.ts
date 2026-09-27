@@ -144,6 +144,7 @@ export function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, map
     sourceKey: def.key,
     sourceId: caster.id,
     concentration: true,
+    anchor: true,
     duration: { type: 'concentration' },
     modifiers: [],
   });

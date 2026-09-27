@@ -7077,6 +7077,7 @@ describe('отдых и удаление токена', () => {
         id: 'anchor',
         name: 'Sleep',
         concentration: true,
+        anchor: true,
         sourceId: 't1',
         sourceKey: 'XPHB:Sleep',
         duration: { type: 'concentration' },

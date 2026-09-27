@@ -138,6 +138,7 @@ describe('движок зон', () => {
       sourceKey: 'TEST:Zone',
       sourceId: caster.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -227,6 +228,7 @@ describe('движок зон', () => {
       sourceKey: 'XPHB:Wall of Thorns',
       sourceId: caster.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -513,6 +515,7 @@ describe('диспел света и тьмы', () => {
       sourceKey: 'XPHB:Darkness',
       sourceId: caster.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -565,6 +568,7 @@ describe('зоны с зарядами и появлением (C-хвосты)'
       sourceKey: 'XGE:Healing Spirit',
       sourceId: caster.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -771,6 +775,7 @@ describe('стена льда (Wall of Ice)', () => {
       sourceKey: 'XPHB:Wall of Ice',
       sourceId: caster.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -1031,6 +1036,7 @@ describe('стена льда (Wall of Ice)', () => {
       sourceKey: 'XGE:Wall of Light',
       sourceId: caster.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });

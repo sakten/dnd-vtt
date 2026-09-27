@@ -208,6 +208,7 @@ describe('hydrateRoom', () => {
                   name: 'Spirit Guardians',
                   sourceId: 't2',
                   concentration: true,
+                  anchor: true,
                   duration: { type: 'concentration' },
                   modifiers: [],
                 },

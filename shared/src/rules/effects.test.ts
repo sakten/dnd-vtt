@@ -586,4 +586,19 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       expect(out![key as keyof EffectInstance], key).toEqual(JSON.parse(JSON.stringify(fields[key])));
     }
   });
+
+  it('флаг якоря концентрации переживает нормализацию, отсутствие — не появляется', () => {
+    const raw = (extra: Partial<EffectInstance>): EffectInstance => ({
+      id: 'e1',
+      name: 'Якорь',
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+      ...extra,
+    });
+    const [anchor] = normalizeEffects(JSON.parse(JSON.stringify([raw({ anchor: true })])));
+    const [target] = normalizeEffects(JSON.parse(JSON.stringify([raw({ conditions: ['blinded'] })])));
+    expect(anchor!.anchor).toBe(true);
+    expect(target!.anchor).toBeUndefined();
+  });
 });

@@ -1252,6 +1252,7 @@ describe('RoomManager эффекты', () => {
           id: 'anchor',
           name: 'Sleep',
           concentration: true,
+          anchor: true,
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
@@ -1292,6 +1293,99 @@ describe('RoomManager эффекты', () => {
     expect(changed.some((c) => c.token.id === 't1')).toBe(true);
   });
 
+  it('пустой эффект-цель без флага не считается якорем: концентрация остаётся', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1', {
+      effects: [
+        {
+          id: 'anchor',
+          name: 'Enemies Abound',
+          concentration: true,
+          anchor: true,
+          sourceId: 't1',
+          sourceKey: 'XGE:Enemies Abound',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+    });
+    const target = token('t2', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [
+        {
+          id: 'chip',
+          name: 'Enemies Abound',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XGE:Enemies Abound',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+        {
+          id: 'ef1',
+          name: 'Enemies Abound',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XGE:Enemies Abound',
+          duration: { type: 'concentration' },
+          wakeOnDamage: true,
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [caster, target];
+
+    manager.adjustTokenHp(room, 'm1', target, -3);
+
+    expect(target.effects.map((e) => e.id)).toEqual(['chip']);
+    expect(caster.effects.map((e) => e.id)).toEqual(['anchor']);
+  });
+
+  it('якорь с полем (anchor: true) всё равно считается якорем при prune', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1', {
+      effects: [
+        {
+          id: 'anchor',
+          name: 'Sleep',
+          concentration: true,
+          anchor: true,
+          // Старая эвристика по форме из-за этого поля сочла бы запись целью.
+          restrictions: { noActions: true },
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          modifiers: [],
+        },
+      ],
+    });
+    const target = token('t2', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [
+        {
+          id: 'ef1',
+          name: 'Sleep',
+          concentration: true,
+          sourceId: 't1',
+          sourceKey: 'XPHB:Sleep',
+          duration: { type: 'concentration' },
+          wakeOnDamage: true,
+          modifiers: [],
+        },
+      ],
+    });
+    room.scene.maps[0]!.tokens = [caster, target];
+
+    manager.adjustTokenHp(room, 'm1', target, -3);
+
+    expect(target.effects).toHaveLength(0);
+    expect(caster.effects).toHaveLength(0);
+  });
+
   it('пока держится другая цель Sleep — концентрация остаётся', () => {
     const manager = setup();
     const room = makeRoom();
@@ -1301,6 +1395,7 @@ describe('RoomManager эффекты', () => {
           id: 'anchor',
           name: 'Sleep',
           concentration: true,
+          anchor: true,
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
@@ -1419,6 +1514,7 @@ describe('RoomManager эффекты', () => {
         id: 'anchor',
         name: 'Hold Person',
         concentration: true,
+        anchor: true,
         sourceId: 't1',
         sourceKey: 'XPHB:Hold Person',
         duration: { type: 'concentration' },

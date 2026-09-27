@@ -239,6 +239,7 @@ export function applyDefEffects(ctx: ConnCtx, input: AutomationInput): void {
         sourceKey: def.key,
         sourceId: caster.id,
         concentration: true,
+        anchor: true,
         duration: { type: 'concentration' },
         modifiers: [],
       });

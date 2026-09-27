@@ -318,6 +318,7 @@ describe('концентрация от урона (Greater Invisibility)', () =
       sourceKey: 'XPHB:Greater Invisibility',
       sourceId,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     },

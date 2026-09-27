@@ -464,6 +464,7 @@ describe('Dispel Magic', () => {
       sourceKey: 'XPHB:Bless',
       sourceId: sourceA.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -473,6 +474,7 @@ describe('Dispel Magic', () => {
       sourceKey: 'XPHB:Greater Invisibility',
       sourceId: sourceB.id,
       concentration: true,
+      anchor: true,
       duration: { type: 'concentration' },
       modifiers: [],
     });
@@ -1784,6 +1786,7 @@ describe('Polymorph: якорь концентрации', () => {
     expect(target.shape?.sourceTokenId).toBe(caster.id);
     const anchor = caster.effects.find((e) => e.concentration && e.sourceKey === 'XPHB:Polymorph');
     expect(anchor).toBeTruthy();
+    expect(anchor!.anchor).toBe(true);
     expect(map.combat.turns['e1']?.concentrationId).toBe(anchor!.id);
   });
 
