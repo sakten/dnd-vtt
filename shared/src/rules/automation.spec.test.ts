@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import type { AutomationDef } from '../domain/automation';
 import type { AutomationOptions, AutomationSpec } from './automation';
+import { AUTOMATION_SPELLS } from './automation';
 import {
   boomingBladeDef,
+  elementalBaneDef,
   elementalWeaponDef,
   flameArrowsDef,
   flameBladeDef,
   greenFlameBladeDef,
   magicStoneDef,
   magicWeaponDef,
+  resistanceDef,
   shadowBladeDef,
   shillelaghDef,
   trueStrikeDef,
+  zephyrStrikeDef,
 } from './automation/builders';
 import { compileSpec, validateSpec } from './automation/compile';
 import { AUTOMATION_SPECS } from './automation/specs';
@@ -32,6 +36,10 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XGE:Shadow Blade': shadowBladeDef,
   'XGE:Magic Stone': (spell) => magicStoneDef(spell),
   'XPHB:Flame Blade': flameBladeDef,
+  'XPHB:Resistance': resistanceDef,
+  'XGE:Elemental Bane': elementalBaneDef,
+  'XGE:Zephyr Strike': (spell) => zephyrStrikeDef(spell),
+  'XPHB:Mirror Image': () => AUTOMATION_SPELLS['XPHB:Mirror Image'],
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {

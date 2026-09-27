@@ -1,4 +1,5 @@
-import { CONCENTRATION, PERMANENT, UNTIL_NEXT_TURN } from './header';
+import { SPELL_BASES } from './bases';
+import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
 import type { AutomationSpec, ValueExpr } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
@@ -150,7 +151,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
             filter: { weapon: true, unarmed: false, attackType: 'ranged' },
           },
         ],
-        charges: { count: 12, on: 'rangedWeaponAttack' },
+        uses: { kind: 'charges', count: 12, on: 'rangedWeaponAttack' },
       },
     ],
   },
@@ -196,7 +197,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         name: 'Magic Stone',
         duration: PERMANENT,
         to: 'self',
-        charges: { count: 3 },
+        uses: { kind: 'charges', count: 3 },
         actions: [
           {
             id: 'throw',
@@ -237,6 +238,82 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
             targeting: { kind: 'creature', range: 5 },
           },
         ],
+      },
+    ],
+  },
+
+  'XPHB:Resistance': {
+    key: 'XPHB:Resistance',
+    name: 'Resistance',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'damageType', param: 'damageType', options: RESISTANCE_TYPES }],
+    effects: [
+      {
+        id: 'resistance',
+        name: 'Resistance',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        damageReduce: { dice: SPELL_BASES.resistance.damageReduceDice, types: [{ ref: 'choice' }] },
+        uses: { kind: 'charges', count: 1 },
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XGE:Elemental Bane': {
+    key: 'XGE:Elemental Bane',
+    name: 'Elemental Bane',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'con' },
+    choices: [{ id: 'damageType', param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] }],
+    effects: [
+      {
+        id: 'bane',
+        name: 'Elemental Bane',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        targets: 1,
+        elementalBane: { damageType: { ref: 'choice' }, dice: SPELL_BASES.elementalBane.extraDice },
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XGE:Zephyr Strike': {
+    key: 'XGE:Zephyr Strike',
+    name: 'Zephyr Strike',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'zephyr',
+        name: 'Zephyr Strike',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [{ target: 'attack', mode: 'advantage', filter: { weapon: true } }],
+        restrictions: { ignoresOpportunityAttacks: true },
+        uses: { kind: 'consumeOnAttack' },
+        zephyrStrike: { dice: '1d8', damageType: 'force', speedFeet: 30 },
+      },
+    ],
+  },
+
+  'XPHB:Mirror Image': {
+    key: 'XPHB:Mirror Image',
+    name: 'Mirror Image',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'images',
+        name: 'Mirror Image',
+        duration: { type: 'rounds', rounds: 10 },
+        to: 'self',
+        uses: { kind: 'misdirect', ...SPELL_BASES.mirrorImage.misdirect },
       },
     ],
   },

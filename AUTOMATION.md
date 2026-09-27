@@ -56,6 +56,8 @@
 ### 3.3. `uses` — заряды и счётчики (выделяется)
 `effect.charges {count, on}` (Flame Arrows — 12 боеприпасов, Magic Stone — 3 камня, Resistance), `charges.on: 'rangedWeaponAttack'`, `zone.charges` (Cordon of Arrows, Healing Spirit), `zone.dealtLimit` (Guardian of Faith — 60), `misdirect.charges` (Mirror Image), `bonusDieUses` (Бардовское вдохновение), `consumeOnAttackRoll` (Zephyr Strike), `elementalBane.usedTurn`. Общий вид: `uses: { count, spendOn, endsWhen, replenish }`.
 
+Реализовано (`UsesSpec`): `charges` (count + `on`), `consumeOnAttack` (Zephyr Strike), `misdirect` (Mirror Image) — компилируются в существующие поля эффекта, пока серверные потребители не унифицированы. Мигрированы: Flame Arrows, Magic Stone, Resistance, Zephyr Strike, Mirror Image. Зонные счётчики (`zone.charges`/`dealtLimit`) — со следующим батчем (нужен блок `zone` в спеке).
+
 ### 3.4. `movement` — перемещение (выделяется)
 `force` (push/pull: Repelling Blast, Thunderwave), `utility.teleport` (+`passenger`/`blockedDamage`/`ignoreSight`, Thunder Step `fromBurst`), `teleportAfter` (Steel Wind Strike), `scatter`, `telekinesis` (`placements`), `utility.moveZone` (Moonbeam/Spiritual Weapon), `onWillingMove` (Booming Blade), `ignoresDifficultTerrain`/`immuneToSpeedReduction` (Freedom of Movement), модификаторы скорости (Longstrider, Zephyr Strike). Стратегии: `teleport | push | pull | scatter | moveZone | punishMove`.
 
@@ -154,7 +156,8 @@ CUSTOM:Jallarzi-Fire {
 - `mark`/`markTarget`/`markSaved` остаются в `effects`; `retarget` — в `selection`;
 - `economy`/`defense` не выделяются; `triggers` — единый формат payload + слот;
 - шаблоны — конструкторы над композицией;
-- `ValueExpr` (ref/tiers/add/concat) — реализован; пилот `loadout` (10 спеков: GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) компилируется из `AUTOMATION_SPECS`, равенство вывода билдерам — замок `automation.spec.test.ts`.
+- `ValueExpr` (ref/tiers/add/concat) — реализован; пилот `loadout` (10 спеков: GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) компилируется из `AUTOMATION_SPECS`, равенство вывода билдерам — замок `automation.spec.test.ts`;
+- блок `uses` (charges/consumeOnAttack/misdirect) — реализован; мигрированы Resistance, Elemental Bane, Zephyr Strike, Mirror Image; спеки перехватывают и каталог, и билдеры (`derive.ts`).
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

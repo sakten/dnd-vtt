@@ -2,7 +2,7 @@ import type { AutomationDef, AutomationEffect, GrantedAction } from '../../domai
 import type { Spell } from '../spells';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt } from '../spellCast';
 import { addDice } from './builders';
-import type { ActionSpec, AutomationSpec, EffectSpec, LoadoutSpec, ValueExpr, WeaponAttackSpec } from './spec';
+import type { ActionSpec, AutomationSpec, EffectSpec, LoadoutSpec, UsesSpec, ValueExpr, WeaponAttackSpec } from './spec';
 import type { AutomationOptions } from './variants';
 
 /** Контекст компиляции: заклинание + опции каста (R16, `AUTOMATION.md` §7). */
@@ -141,6 +141,16 @@ function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
   return { id: action.id, name: action.name, cost: action.cost, def };
 }
 
+function compileUses(ctx: CompileCtx, uses: UsesSpec): Partial<AutomationEffect> {
+  if (uses.kind === 'charges') {
+    return {
+      charges: { count: Number(mustValue(ctx, uses.count, 'uses.count')), ...(uses.on ? { on: uses.on } : {}) },
+    };
+  }
+  if (uses.kind === 'consumeOnAttack') return { consumeOnAttackRoll: true };
+  return { misdirect: { charges: uses.charges, die: uses.die, threshold: uses.threshold } };
+}
+
 function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
   const loadout = effect.loadout ? compileLoadout(ctx, effect.loadout) : {};
   const modifiers = [...(effect.modifiers ?? []).map((m) => ({ ...m })), ...(loadout.modifiers ?? [])];
@@ -150,11 +160,30 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     duration: effect.duration,
     ...(effect.concentration ? { concentration: true } : {}),
     ...(effect.to ? { to: effect.to } : {}),
+    ...(effect.targets !== undefined ? { targets: effect.targets } : {}),
     modifiers,
     ...(effect.conditions?.length ? { conditions: [...effect.conditions] } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(variant ? { variant } : {}),
-    ...(effect.charges ? { charges: { ...effect.charges } } : {}),
+    ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
+    ...(effect.damageReduce
+      ? {
+          damageReduce: {
+            dice: String(mustValue(ctx, effect.damageReduce.dice, `effect.${effect.id}.damageReduce.dice`)),
+            types: effect.damageReduce.types.map((t) => String(mustValue(ctx, t, `effect.${effect.id}.damageReduce.types`))),
+          },
+        }
+      : {}),
+    ...(effect.elementalBane
+      ? {
+          elementalBane: {
+            damageType: String(mustValue(ctx, effect.elementalBane.damageType, `effect.${effect.id}.elementalBane`)),
+            dice: String(mustValue(ctx, effect.elementalBane.dice, `effect.${effect.id}.elementalBane`)),
+          },
+        }
+      : {}),
+    ...(effect.restrictions ? { restrictions: { ...effect.restrictions } } : {}),
+    ...(effect.zephyrStrike ? { zephyrStrike: { ...effect.zephyrStrike } } : {}),
     ...(effect.actions?.length ? { actions: effect.actions.map((a) => compileAction(ctx, a)) } : {}),
     ...loadout,
   };
@@ -215,6 +244,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     resolution: spec.primary,
     ...(spec.concentration ? { concentration: true } : {}),
     ...(spec.maxRounds !== undefined ? { maxRounds: spec.maxRounds } : {}),
+    ...(spec.save ? { save: { ...spec.save } } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),
@@ -250,6 +280,9 @@ export function validateSpec(spec: AutomationSpec): string[] {
   const refs: ValueExpr[] = [];
   const collectEffect = (effect: EffectSpec) => {
     if (effect.variant !== undefined) refs.push(effect.variant);
+    if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
+    if (effect.damageReduce) refs.push(effect.damageReduce.dice, ...effect.damageReduce.types);
+    if (effect.elementalBane) refs.push(effect.elementalBane.damageType, effect.elementalBane.dice);
     if (effect.loadout) {
       const l = effect.loadout;
       if (l.kind === 'weaponOverride') refs.push(l.dice, l.damageType, l.abilityMod);

@@ -1,10 +1,11 @@
 import type { ActionTargeting } from '../../domain/actions';
 import type {
   AutomationResolution,
+  AutomationSave,
   AutomationUtility,
   LightSource,
 } from '../../domain/automation';
-import type { ConditionKey, EffectDuration, Modifier } from '../../domain/effects';
+import type { ConditionKey, EffectDuration, Modifier, Restrictions } from '../../domain/effects';
 import type { DamagePartRole } from '../spells';
 
 /**
@@ -94,6 +95,19 @@ export interface LoadoutShadowBlade {
 
 export type LoadoutSpec = LoadoutAugment | LoadoutWeaponOverride | LoadoutShadowBlade;
 
+/**
+ * Блок `uses` (R16, `AUTOMATION.md` §3.3): заряды и счётчики. Компилируется в
+ * существующие поля эффекта (`charges`/`consumeOnAttackRoll`/`misdirect`), пока
+ * серверные потребители не унифицированы.
+ */
+export type UsesSpec =
+  /** Расходуемые заряды: Flame Arrows (12), Magic Stone (3), Resistance (1 за ход). */
+  | { kind: 'charges'; count: ValueExpr; on?: 'rangedWeaponAttack' }
+  /** Одноразовый эффект: сгорает после ближайшего броска атаки носителя (Zephyr Strike). */
+  | { kind: 'consumeOnAttack' }
+  /** Подмена попадания образами (Mirror Image): заряды, кость, порог. */
+  | { kind: 'misdirect'; charges: number; die: string; threshold: number };
+
 /** Эффект спека: длительность/цель + блоки (loadout/uses/actions/vision). */
 export interface EffectSpec {
   id: string;
@@ -107,8 +121,18 @@ export interface EffectSpec {
   light?: LightSource;
   /** Подпись выбранного варианта (`variant`), если он виден в чипе. */
   variant?: ValueExpr;
-  /** `uses`: заряды эффекта и событие траты. */
-  charges?: { count: number; on?: 'rangedWeaponAttack' };
+  /** Максимум целей эффекта (Bless — 3, Elemental Bane — 1). */
+  targets?: number;
+  /** Блок `uses`: заряды/счётчики эффекта. */
+  uses?: UsesSpec;
+  /** Resistance: уменьшение получаемого урона типов на кость. */
+  damageReduce?: { dice: ValueExpr; types: ValueExpr[] };
+  /** Elemental Bane: потеря сопротивления и доп. урон первого попадания за ход. */
+  elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
+  /** Ограничения экономики (Zephyr Strike: перемещение не провоцирует OA). */
+  restrictions?: Restrictions;
+  /** Zephyr Strike: одноразовая атака — кости, тип и скорость (расход через `uses`). */
+  zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
   actions?: ActionSpec[];
   loadout?: LoadoutSpec;
 }
@@ -144,6 +168,7 @@ export interface AutomationSpec {
   primary: AutomationResolution;
   concentration?: boolean;
   maxRounds?: number | null;
+  save?: AutomationSave;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
   targeting?: ActionTargeting;

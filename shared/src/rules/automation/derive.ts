@@ -38,11 +38,11 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 }
 
 function buildSpellAutomation(spell: Spell, opts: AutomationOptions): AutomationDef {
-  const catalog = AUTOMATION_SPELLS[spell.key];
-  if (catalog) return withSpellDice(catalog, spell, opts);
-
   const spec = AUTOMATION_SPECS[spell.key];
   if (spec) return compileSpec(spec, { spell, opts });
+
+  const catalog = AUTOMATION_SPELLS[spell.key];
+  if (catalog) return withSpellDice(catalog, spell, opts);
 
   const greenFlame = greenFlameBladeDef(spell, opts);
   if (greenFlame) return greenFlame;
