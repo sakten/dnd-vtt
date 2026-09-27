@@ -584,6 +584,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targets !== undefined ? { targets: spec.targets } : {}),
+    ...(spec.autoTargets ? { autoTargets: { ...spec.autoTargets } } : {}),
     ...(spec.chain ? { chain: { jumps: Number(mustValue(ctx, spec.chain.jumps, 'chain.jumps')), feet: spec.chain.feet } } : {}),
     ...(spec.burst ? { burst: compileBurst(ctx, spec.burst) } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),

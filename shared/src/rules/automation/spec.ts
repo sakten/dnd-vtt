@@ -349,6 +349,8 @@ export interface AutomationSpec {
   count?: number;
   /** Массовая цель без области: до N существ (Steel Wind Strike — 5). */
   targets?: number;
+  /** Авто-цели по радиусу от кастера без выбора (Beacon of Hope: союзники в 30 фт). */
+  autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any'; includeSelf?: boolean };
   /** Chain Lightning: первая цель выбирается, `jumps` существ в `feet` — авто. */
   chain?: { jumps: ValueExpr; feet: number };
   /** Всплеск вокруг цели (Ice Knife — независимо от попадания). */

@@ -76,7 +76,7 @@
 - `filters`: `side`, `excludeCreatureTypes`, `requiresCreatureTypes`, `containment`;
 - метки: поля `mark`/`markTarget`/`markSaved` остаются в `effects` (компилируются в `EffectInstance` с `filter.targetId`); `retarget` (Hex/Hunter's Mark) — операция `selection` над меткой.
 
-Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); `burst` читается и веткой атаки (луч/райдер), и веткой сейва (вспышка вокруг каждой цели, независимо от исхода её сейва); метки — `EffectSpec.mark`/`markTarget` + `ActionSpec.retarget` (Hex/Hunter's Mark); остальные фильтры/метки — по мере миграции (Bless/Bane — `effect.targets`, Beacon of Hope — `autoTargets`; Hail of Thorns/Lightning Arrow — спеки смайтов, к `selection` не относятся).
+Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); `burst` читается и веткой атаки (луч/райдер), и веткой сейва (вспышка вокруг каждой цели, независимо от исхода её сейва); метки — `EffectSpec.mark`/`markTarget` + `ActionSpec.retarget` (Hex/Hunter's Mark), мультивыбор — `effect.targets` (Bless/Bane), авто-цели — `AutomationSpec.autoTargets` (Beacon of Hope); остальные фильтры — по мере миграции (`side`/`$spell` — Spirit Guardians/Conjure Woodland Beings, Dominate-поля, `placements` Телекинеза; Hail of Thorns/Lightning Arrow — спеки смайтов, к `selection` не относятся).
 
 Часть правил уже в `shared/src/rules/targeting.ts`; блок описывает только декларацию, выбор остаётся за `interaction.ts`/клиентом.
 

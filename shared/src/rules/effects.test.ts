@@ -444,7 +444,8 @@ describe('каталог эффектов заклинаний', () => {
   });
 
   it('Bless — концентрация, +1d4 к атакам и спасброскам', () => {
-    const defs = spellEffectDefs('XPHB:Bless');
+    const spell = (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === 'XPHB:Bless')!;
+    const defs = automationForSpell(spell).effects;
     expect(defs?.[0]!.concentration).toBe(true);
     expect(defs?.[0]!.modifiers.map((m) => m.target)).toEqual(['attack', 'save']);
   });

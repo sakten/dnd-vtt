@@ -140,32 +140,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       ignoresDifficultTerrain: true,
     },
   ]),
-  'XPHB:Bless': spellEffect('XPHB:Bless', 'Bless', [
-    {
-      name: 'Bless',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      targets: 3,
-      modifiers: [
-        { target: 'attack', mode: 'add', value: SPELL_BASES.d4Bonus },
-        { target: 'save', mode: 'add', value: SPELL_BASES.d4Bonus },
-      ],
-    },
-  ]),
-  'XPHB:Bane': spellEffect('XPHB:Bane', 'Bane', [
-    {
-      name: 'Bane',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      targets: 3,
-      modifiers: [
-        { target: 'attack', mode: 'add', value: `-${SPELL_BASES.d4Bonus}` },
-        { target: 'save', mode: 'add', value: `-${SPELL_BASES.d4Bonus}` },
-      ],
-    },
-  ]),
   'XPHB:Guidance': spellEffect('XPHB:Guidance', 'Guidance', [
     {
       name: 'Guidance',
@@ -649,25 +623,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         ],
       },
     },
-  },
-  /** Beacon of Hope (XPHB): все союзники в 30 фт — преимущество WIS- и death-сейвов, максимум лечения. */
-  'XPHB:Beacon of Hope': {
-    key: 'XPHB:Beacon of Hope',
-    name: 'Beacon of Hope',
-    resolution: 'effect',
-    concentration: true,
-    autoTargets: { feet: 30, side: 'ally', includeSelf: true },
-    effects: [
-      {
-        name: 'Beacon of Hope',
-        duration: CONCENTRATION,
-        concentration: true,
-        to: 'targets',
-        modifiers: [{ target: 'save', mode: 'advantage', filter: { ability: 'wis' } }],
-        maximizeHealing: true,
-        deathSaveAdvantage: true,
-      },
-    ],
   },
   'XPHB:Warding Bond': {
     key: 'XPHB:Warding Bond',

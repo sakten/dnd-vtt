@@ -1517,6 +1517,64 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     ],
   },
+  'XPHB:Bless': {
+    key: 'XPHB:Bless',
+    name: 'Bless',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'bless',
+        name: 'Bless',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        targets: 3,
+        modifiers: [
+          { target: 'attack', mode: 'add', value: SPELL_BASES.d4Bonus },
+          { target: 'save', mode: 'add', value: SPELL_BASES.d4Bonus },
+        ],
+      },
+    ],
+  },
+  'XPHB:Bane': {
+    key: 'XPHB:Bane',
+    name: 'Bane',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'bane',
+        name: 'Bane',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        targets: 3,
+        modifiers: [
+          { target: 'attack', mode: 'add', value: `-${SPELL_BASES.d4Bonus}` },
+          { target: 'save', mode: 'add', value: `-${SPELL_BASES.d4Bonus}` },
+        ],
+      },
+    ],
+  },
+  'XPHB:Beacon of Hope': {
+    key: 'XPHB:Beacon of Hope',
+    name: 'Beacon of Hope',
+    primary: 'effect',
+    concentration: true,
+    autoTargets: { feet: 30, side: 'ally', includeSelf: true },
+    effects: [
+      {
+        id: 'beacon',
+        name: 'Beacon of Hope',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'save', mode: 'advantage', filter: { ability: 'wis' } }],
+        hooks: { maximizeHealing: true, deathSaveAdvantage: true },
+      },
+    ],
+  },
   "XPHB:Hunter's Mark": {
     key: "XPHB:Hunter's Mark",
     name: "Hunter's Mark",

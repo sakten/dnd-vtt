@@ -72,7 +72,7 @@ const actual = {
 };
 
 const EXPECTED = {
-  catalog: 'd2282ac79688aa01',
+  catalog: 'b05058ff11c61c82',
   additions: '1b3ac2b7685ff142',
   derived: 'b39b4fde0d02394c',
   green: 245,
