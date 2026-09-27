@@ -1,13 +1,14 @@
-import type { AutomationDef, AutomationEffect, AutomationPayload, GrantedAction, ZoneDef } from '../../domain/automation';
+import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, GrantedAction, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
 import type { Spell } from '../spells';
-import { spellCantripDice, spellDamageExpression, spellUpcastAt } from '../spellCast';
+import { spellCantripDice, spellDamageExpression, spellUpcastAt, wallArea } from '../spellCast';
 import { addDiceExpression, scaledDice, upcastSteps } from './builders';
 import type {
   ActionSpec,
   AutomationSpec,
   AutomationSpecCopy,
+  DamageSpec,
   EffectSpec,
   LoadoutSpec,
   ModifierSpec,
@@ -94,9 +95,12 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
     case 'damage':
       value = ctx.spell.damage?.dice?.[0];
       break;
-    case 'part':
-      value = ctx.spell.damage?.parts?.find((p) => p.role === expr.part)?.dice;
+    case 'part': {
+      const list = (ctx.spell.damage?.parts ?? []).filter((p) => p.role === expr.part);
+      const part = expr.index !== undefined ? list[expr.index] : list[0];
+      value = part?.dice;
       break;
+    }
     case 'upcastDice':
       value = spellUpcastAt(ctx.spell, ctx.castLevel).dice;
       break;
@@ -120,6 +124,7 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
       break;
     case 'choice':
       value = choiceValue(ctx.spec, ctx.opts, expr.choice);
+      if (value !== undefined && expr.optional && ctx.opts.variant === undefined) value = undefined;
       break;
   }
   if (value === undefined && expr.fallback !== undefined) return resolveValue(ctx, expr.fallback);
@@ -240,7 +245,7 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     .map((entry) => compileGated(ctx, entry, (m) => compileModifier(ctx, m)))
     .filter((m): m is Omit<Modifier, 'id'> => m !== undefined);
   const modifiers = [...gated, ...(loadout.modifiers ?? [])];
-  const variant = effect.variant !== undefined ? String(mustValue(ctx, effect.variant, `effect.${effect.id}.variant`)) : undefined;
+  const variant = effect.variant !== undefined ? resolveValue(ctx, effect.variant) : undefined;
   const conditions = (effect.conditions ?? [])
     .map((entry) => compileGated(ctx, entry, (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditions`)) as ConditionKey))
     .filter((c): c is ConditionKey => c !== undefined);
@@ -254,7 +259,7 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     modifiers,
     ...(conditions.length ? { conditions } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
-    ...(variant ? { variant } : {}),
+    ...(variant !== undefined ? { variant: String(variant) } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
     ...(effect.damageReduce
       ? {
@@ -335,19 +340,30 @@ function compileWeaponAttack(ctx: CompileCtx, spec: WeaponAttackSpec): NonNullab
   return out;
 }
 
+/** Урон payload'а: одиночная часть или составной (кости + типы в строку). */
+function compileDamage(ctx: CompileCtx, spec: DamageSpec): AutomationDice {
+  if ('parts' in spec) {
+    const parts = spec.parts.map((p) => ({
+      dice: String(mustValue(ctx, p.dice, 'damage.parts.dice')),
+      type: String(mustValue(ctx, p.type, 'damage.parts.type')),
+    }));
+    return {
+      dice: parts.map((p) => `${p.dice}${p.type}`).join(' + '),
+      types: [...new Set(parts.map((p) => p.type))],
+    };
+  }
+  return {
+    dice: String(mustValue(ctx, spec.dice, 'damage.dice')),
+    ...(spec.types?.length ? { types: spec.types.map((t) => String(mustValue(ctx, t, 'damage.types'))) } : {}),
+    ...(spec.abilityMod ? { abilityMod: true } : {}),
+  };
+}
+
 /** Компиляция payload спека (урон/лечение/эффекты триггера): кости — из `ValueExpr`. */
 function compilePayload(ctx: CompileCtx, payload: PayloadSpec): AutomationPayload {
   return {
     ...(payload.save ? { save: { ...payload.save } } : {}),
-    ...(payload.damage
-      ? {
-          damage: {
-            dice: String(mustValue(ctx, payload.damage.dice, 'payload.damage')),
-            ...(payload.damage.types ? { types: [...payload.damage.types] } : {}),
-            ...(payload.damage.abilityMod ? { abilityMod: true } : {}),
-          },
-        }
-      : {}),
+    ...(payload.damage ? { damage: compileDamage(ctx, payload.damage) } : {}),
     ...(payload.heal ? { heal: { dice: String(mustValue(ctx, payload.heal.dice, 'payload.heal')) } } : {}),
     ...(payload.successDamage
       ? {
@@ -373,8 +389,14 @@ function compileZone(ctx: CompileCtx, zone: ZoneSpec): ZoneDef {
           .map(([slot, payload]) => [slot, compilePayload(ctx, payload!)])
       )
     : undefined;
+  const area = zone.area
+    ? 'wall' in zone.area
+      ? wallArea(ctx.spell.key, ctx.opts.variant)
+      : zone.area
+    : undefined;
+  if (!area) throw new Error(`AutomationSpec ${ctx.spec.key}: не определена область стены`);
   return {
-    area: zone.area!,
+    area,
     origin: zone.origin ?? 'point',
     duration: zone.duration!,
     ...(zone.actions?.length ? { actions: zone.actions.map((a) => ({ ...a })) } : {}),
@@ -412,6 +434,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.concentration ? { concentration: true } : {}),
     ...(spec.maxRounds !== undefined ? { maxRounds: spec.maxRounds } : {}),
     ...(spec.save ? { save: { ...spec.save } } : {}),
+    ...(spec.damage ? { damage: compileDamage(ctx, spec.damage) } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),
@@ -578,13 +601,22 @@ export function validateSpec(spec: AutomationSpec): string[] {
     }
   };
   for (const effect of spec.effects ?? []) collectEffect(effect);
+  const pushDamageRefs = (damage: DamageSpec) => {
+    if ('parts' in damage) {
+      for (const part of damage.parts) refs.push(part.dice, part.type);
+    } else {
+      refs.push(damage.dice);
+      for (const t of damage.types ?? []) refs.push(t);
+    }
+  };
   const collectPayload = (payload?: PayloadSpec) => {
     if (!payload) return;
-    if (payload.damage) refs.push(payload.damage.dice);
+    if (payload.damage) pushDamageRefs(payload.damage);
     if (payload.heal) refs.push(payload.heal.dice);
     if (payload.successDamage) refs.push(payload.successDamage.dice);
     for (const effect of payload.effects ?? []) collectEffect(effect);
   };
+  if (spec.damage) pushDamageRefs(spec.damage);
   if (spec.zone) {
     if (spec.zone.charges !== undefined) refs.push(spec.zone.charges);
     collectPayload(spec.zone.onCreate);

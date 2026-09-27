@@ -32,8 +32,12 @@ export type ValueExpr =
         | 'choice';
       /** Роль части (`part`): main/repeat/success/trigger/choice. */
       part?: DamagePartRole;
+      /** Индекс части с этой ролью (составной урон: две `main`). */
+      index?: number;
       /** id выбора из `choices` (без id — единственный выбор спека). */
       choice?: string;
+      /** Для `choice`: без явно переданного варианта значение не подставляется. */
+      optional?: boolean;
       fallback?: ValueExpr;
     }
   /** Сложение костей одного вида: `1d8` + `1d8` → `2d8` (нет базы — берётся добавка). */
@@ -127,7 +131,7 @@ export type UsesSpec =
 /** Payload спека (триггеры зон/эффектов): кости и эффекты — ссылки `ValueExpr`. */
 export interface PayloadSpec {
   save?: AutomationSave;
-  damage?: { dice: ValueExpr; types?: string[]; abilityMod?: boolean };
+  damage?: DamageSpec;
   heal?: { dice: ValueExpr };
   successDamage?: { dice: ValueExpr; types?: string[] };
   effects?: EffectSpec[];
@@ -136,8 +140,15 @@ export interface PayloadSpec {
   containment?: 'anyCell' | 'fullyWithin';
 }
 
+/** Урон: одиночная часть или составной (`5d6thunder + 5d6radiant`, защиты по частям). */
+export type DamageSpec =
+  | { dice: ValueExpr; types?: ValueExpr[]; abilityMod?: boolean }
+  | { parts: { dice: ValueExpr; type: ValueExpr }[] };
+
 /** Блок `zone` (R16): pass-through полей `ZoneDef` + `ValueExpr` в зарядах и триггерах. */
-export interface ZoneSpec extends Omit<Partial<ZoneDef>, 'charges' | 'triggers' | 'onCreate' | 'aura' | 'wall'> {
+export interface ZoneSpec extends Omit<Partial<ZoneDef>, 'area' | 'charges' | 'triggers' | 'onCreate' | 'aura' | 'wall'> {
+  /** Область: литерал или `wallArea(spell, variant)` (стены). */
+  area?: AreaSpec | { wall: 'spell' };
   charges?: ValueExpr;
   onCreate?: PayloadSpec;
   aura?: PayloadSpec;
@@ -227,6 +238,7 @@ export interface AutomationSpec {
   concentration?: boolean;
   maxRounds?: number | null;
   save?: AutomationSave;
+  damage?: DamageSpec;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
   targeting?: ActionTargeting;

@@ -605,4 +605,118 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     },
   },
+
+  'XPHB:Destructive Wave': {
+    key: 'XPHB:Destructive Wave',
+    name: 'Destructive Wave',
+    primary: 'save',
+    save: { ability: 'con', half: true },
+    choices: [{ id: 'damageType', param: 'damageType', options: ['radiant', 'necrotic'] }],
+    damage: {
+      parts: [
+        { dice: { ref: 'part', part: 'main', index: 0, fallback: '5d6' }, type: 'thunder' },
+        { dice: { ref: 'part', part: 'main', index: 1, fallback: '5d6' }, type: { ref: 'choice' } },
+      ],
+    },
+    effects: [{ id: 'prone', name: 'Destructive Wave', duration: PERMANENT, to: 'targets', conditions: ['prone'] }],
+  },
+
+  'XPHB:Wall of Fire': {
+    key: 'XPHB:Wall of Fire',
+    name: 'Wall of Fire',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal', 'ring'] }],
+    damage: {
+      dice: {
+        concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
+      },
+      types: ['fire'],
+    },
+    zone: {
+      area: { wall: 'spell' },
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      triggers: {
+        enter: {
+          containment: 'anyCell',
+          save: { ability: 'dex', half: true },
+          damage: {
+            dice: {
+              concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
+            },
+            types: ['fire'],
+          },
+        },
+        endOfTurn: {
+          containment: 'anyCell',
+          save: { ability: 'dex', half: true },
+          damage: {
+            dice: {
+              concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
+            },
+            types: ['fire'],
+          },
+        },
+      },
+      flags: { obscured: 'heavy' },
+    },
+  },
+
+  'XPHB:Blade Barrier': {
+    key: 'XPHB:Blade Barrier',
+    name: 'Blade Barrier',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal', 'ring'] }],
+    damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] }, types: ['force'] },
+    zone: {
+      area: { wall: 'spell' },
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      triggers: {
+        enter: {
+          containment: 'anyCell',
+          save: { ability: 'dex', half: true },
+          damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] }, types: ['force'] },
+        },
+        endOfTurn: {
+          containment: 'anyCell',
+          save: { ability: 'dex', half: true },
+          damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] }, types: ['force'] },
+        },
+      },
+      flags: { difficultTerrain: true },
+    },
+  },
+
+  'XGE:Wall of Sand': {
+    key: 'XGE:Wall of Sand',
+    name: 'Wall of Sand',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal'] }],
+    zone: {
+      area: { wall: 'spell' },
+      origin: 'point',
+      duration: CONCENTRATION,
+      aura: {
+        effects: [
+          {
+            id: 'sand',
+            name: 'Wall of Sand',
+            duration: PERMANENT,
+            to: 'targets',
+            conditions: ['blinded'],
+            variant: { ref: 'choice', optional: true },
+          },
+        ],
+      },
+      flags: { obscured: 'heavy', movementCost: 3 },
+    },
+  },
 };

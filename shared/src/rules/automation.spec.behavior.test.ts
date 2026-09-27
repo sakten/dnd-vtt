@@ -95,4 +95,44 @@ describe('поведение спеков (RAW, реальные данные)',
     // Без выбора — первый тип варианта.
     expect(automationForSpell(spell, { castLevel: 3 }).zone?.aura?.effects?.[0]?.variant).toBe('cold');
   });
+
+  it('Destructive Wave: составной урон (гром + тип выбора), prone при провале', () => {
+    const spell = find('XPHB:Destructive Wave');
+    const radiant = automationForSpell(spell, { variant: 'radiant' });
+    expect(radiant.save).toEqual({ ability: 'con', half: true });
+    expect(radiant.damage).toEqual({ dice: '5d6thunder + 5d6radiant', types: ['thunder', 'radiant'] });
+    expect(radiant.effects?.[0]?.conditions).toEqual(['prone']);
+    expect(automationForSpell(spell, { variant: 'necrotic' }).damage).toEqual({
+      dice: '5d6thunder + 5d6necrotic',
+      types: ['thunder', 'necrotic'],
+    });
+    // Без выбора — тип по умолчанию (излучение).
+    expect(automationForSpell(spell).damage?.types).toEqual(['thunder', 'radiant']);
+  });
+
+  it('Wall of Fire: полоса 60×10 / кольцо r10, 5d8 огнём (+1d8/круг), мгла и триггеры', () => {
+    const spell = find('XPHB:Wall of Fire');
+    const vertical = automationForSpell(spell, { variant: 'vertical' });
+    expect(vertical.zone?.area).toEqual({ shape: 'line', size: 60, width: 10 });
+    expect(vertical.zone?.origin).toBe('point');
+    expect(vertical.zone?.enterOncePerTurn).toBe(true);
+    expect(vertical.damage).toEqual({ dice: '5d8fire', types: ['fire'] });
+    expect(vertical.zone?.triggers?.enter?.save).toEqual({ ability: 'dex', half: true });
+    expect(vertical.zone?.triggers?.enter?.damage).toEqual({ dice: '5d8fire', types: ['fire'] });
+    expect(vertical.zone?.triggers?.endOfTurn?.damage).toEqual({ dice: '5d8fire', types: ['fire'] });
+    expect(vertical.zone?.flags).toEqual({ obscured: 'heavy' });
+    // Кольцо: внешний радиус 10, свободная середина 5; апкаст +1d8/круг.
+    expect(automationForSpell(spell, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 5 });
+    expect(automationForSpell(spell, { castLevel: 6, variant: 'vertical' }).damage?.dice).toBe('7d8fire');
+  });
+
+  it('Wall of Sand: слепота и ×3 движение в мгле, вариант — подпись при выборе', () => {
+    const spell = find('XGE:Wall of Sand');
+    const horizontal = automationForSpell(spell, { variant: 'horizontal' });
+    expect(horizontal.zone?.area).toEqual({ shape: 'line', size: 30, width: 10 });
+    expect(horizontal.zone?.flags).toEqual({ obscured: 'heavy', movementCost: 3 });
+    expect(horizontal.zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(horizontal.zone?.aura?.effects?.[0]?.variant).toBe('horizontal');
+    expect(automationForSpell(spell).zone?.aura?.effects?.[0]?.variant).toBeUndefined();
+  });
 });

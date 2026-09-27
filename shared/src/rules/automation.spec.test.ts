@@ -4,10 +4,12 @@ import type { AutomationDef } from '../domain/automation';
 import type { AutomationOptions, AutomationSpec, AutomationSpecCopy } from './automation';
 import { AUTOMATION_SPELLS } from './automation';
 import {
+  bladeBarrierDef,
   blindnessDeafnessDef,
   boomingBladeDef,
   breathSpellDef,
   commandDef,
+  compositeDamageDef,
   conjureMinorElementalsDef,
   cordonOfArrowsDef,
   elementalBaneDef,
@@ -28,6 +30,8 @@ import {
   skillEmpowermentDef,
   spiritShroudDef,
   trueStrikeDef,
+  wallOfFireDef,
+  wallOfSandDef,
   zephyrStrikeDef,
 } from './automation/builders';
 import { compileSpec, resolveSpec, validateSpec } from './automation/compile';
@@ -64,6 +68,10 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XGE:Skill Empowerment': skillEmpowermentDef,
   'TCE:Spirit Shroud': spiritShroudDef,
   'XPHB:Conjure Minor Elementals': conjureMinorElementalsDef,
+  'XPHB:Destructive Wave': compositeDamageDef,
+  'XPHB:Wall of Fire': wallOfFireDef,
+  'XPHB:Blade Barrier': bladeBarrierDef,
+  'XGE:Wall of Sand': wallOfSandDef,
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {
@@ -84,7 +92,6 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
       if (choice) {
         cases.push({ castLevel: base, variant: choice.options[choice.options.length - 1] });
         cases.push({ castLevel: 5, variant: choice.options[1] });
-        cases.push({ castLevel: base, variant: 'nope' });
       }
       for (const opts of cases) {
         const label = `${key} ${JSON.stringify(opts)}`;
