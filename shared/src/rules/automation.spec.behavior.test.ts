@@ -135,4 +135,43 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(horizontal.zone?.aura?.effects?.[0]?.variant).toBe('horizontal');
     expect(automationForSpell(spell).zone?.aura?.effects?.[0]?.variant).toBeUndefined();
   });
+
+  it('Wall of Ice: секции с HP, лист холода и литеральные шаги апкаста (+2к6/+1к6)', () => {
+    const spell = find('XPHB:Wall of Ice');
+    const def = automationForSpell(spell, { variant: 'wall' });
+    expect(def.zone?.wall?.hp).toBe(30);
+    expect(def.zone?.wall?.ac).toBe(12);
+    expect(def.zone?.wall?.immunities).toEqual(['cold', 'poison', 'psychic']);
+    expect(def.zone?.wall?.vulnerabilities).toEqual(['fire']);
+    expect(def.zone?.wall?.breach?.save).toEqual({ ability: 'con', half: true });
+    expect(def.damage).toEqual({ dice: '10d6cold', types: ['cold'] });
+    expect(def.zone?.wall?.breach?.damage).toEqual({ dice: '5d6cold', types: ['cold'] });
+    const up = automationForSpell(spell, { castLevel: 8, variant: 'wall' });
+    expect(up.damage?.dice).toBe('14d6cold');
+    expect(up.zone?.wall?.breach?.damage?.dice).toBe('7d6cold');
+    expect(automationForSpell(spell, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 9 });
+  });
+
+  it('Wall of Light: полоса 60×5, свет 120, урон конца хода и луч с сокращением', () => {
+    const spell = find('XGE:Wall of Light');
+    const def = automationForSpell(spell, { variant: 'vertical' });
+    expect(def.zone?.area).toEqual({ shape: 'line', size: 60, width: 5 });
+    expect(def.zone?.light).toEqual({ bright: 120, dim: 120 });
+    expect(def.zone?.flags).toEqual({ blocksLineOfSight: true });
+    expect(def.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(def.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'end' });
+    expect(def.zone?.triggers?.endOfTurn?.damage).toEqual({ dice: '4d8radiant', types: ['radiant'] });
+    const beam = def.zone?.actions?.[0];
+    expect(beam?.shrinkFeet).toBe(10);
+    expect(beam?.def?.name).toBe('Луч света');
+    expect(beam?.def?.count).toBe(1);
+    expect(beam?.def?.attack).toEqual({ rangeType: 'ranged' });
+    expect(beam?.def?.targeting).toEqual({ kind: 'creature', range: 60, from: 'origin' });
+    expect(beam?.def?.damage).toEqual({ dice: '4d8radiant', types: ['radiant'] });
+    // Апкаст +1d8 всем частям: появление, конец хода, луч.
+    const up = automationForSpell(spell, { castLevel: 7, variant: 'vertical' });
+    expect(up.damage?.dice).toBe('6d8radiant');
+    expect(up.zone?.triggers?.endOfTurn?.damage?.dice).toBe('6d8radiant');
+    expect(up.zone?.actions?.[0]?.def?.damage?.dice).toBe('6d8radiant');
+  });
 });

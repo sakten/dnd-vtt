@@ -1,7 +1,8 @@
 import { SKILLS } from '../../labels';
+import type { EffectDuration } from '../../domain/effects';
 import { SPELL_BASES } from './bases';
-import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN, zoneMoveAction } from './header';
-import type { AutomationSpec, ValueExpr } from './spec';
+import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
+import type { AutomationSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
 const MAGIC_WEAPON_BONUS: ValueExpr = {
@@ -11,6 +12,42 @@ const MAGIC_WEAPON_BONUS: ValueExpr = {
     { above: 6, value: 3 },
   ],
 };
+
+/**
+ * Шаблон стены (R16): общая шапка зоны (габариты `WALL_DIMS`, точка, концентрация),
+ * параметры — триггеры/секции/флаги/свет/действия. Литералы габаритов доступны копиям.
+ */
+function wallZone(
+  params: Omit<ZoneSpec, 'area' | 'origin' | 'duration'> & { dims?: WallDimsSpec; duration?: EffectDuration } = {}
+): ZoneSpec {
+  const { dims, duration, ...rest } = params;
+  return { area: { wall: dims ?? { from: 'spell' } }, origin: 'point', duration: duration ?? CONCENTRATION, ...rest };
+}
+
+/** Payload стены: спас DEX и урон (свежие объекты — без алиасов между триггерами). */
+function wallPayload(dice: ValueExpr, type: string): PayloadSpec {
+  return { containment: 'anyCell', save: { ability: 'dex', half: true }, damage: { dice, types: [type] } };
+}
+
+const fireDice = (): ValueExpr => ({
+  concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
+});
+const barrierDice = (): ValueExpr => ({ concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] });
+const thornSlashDice = (): ValueExpr => ({
+  concat: [{ scale: { dice: { ref: 'part', part: 'trigger', fallback: '7d8' }, by: 'upcast' } }, 'slashing'],
+});
+const iceAppearDice = (): ValueExpr => ({
+  concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '10d6' }, by: { dice: '2d6' } } }, 'cold'],
+});
+const iceSheetDice = (): ValueExpr => ({
+  concat: [{ scale: { dice: { ref: 'part', part: 'trigger', fallback: '5d6' }, by: { dice: '1d6' } } }, 'cold'],
+});
+const lightDice = (part: 'main' | 'repeat', index?: number): ValueExpr => ({
+  concat: [
+    { scale: { dice: { ref: 'part', part, index, fallback: '4d8' }, by: 'upcast' } },
+    'radiant',
+  ],
+});
 
 /**
  * Реестр спеков (R16, пилот `loadout`): специализированные заклинания оружия и
@@ -372,7 +409,17 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       side: 'ally',
       charges: { spellMod: { base: 1, min: 2 } },
       excludeCreatureTypes: ['construct', 'undead'],
-      actions: [zoneMoveAction('Перемещение духа', 'bonus', 30)],
+      actions: [
+        {
+          id: 'move',
+          name: 'Перемещение духа',
+          cost: 'bonus',
+          defKey: 'zone:move',
+          primary: 'utility',
+          utility: { kind: 'moveZone', amount: 30 },
+          targeting: { kind: 'point', range: 30 },
+        },
+      ],
       triggers: {
         enter: { heal: { dice: { scale: { dice: { ref: 'part', part: 'main', fallback: '1d6' }, by: 'upcast' } } } },
         startOfTurn: { heal: { dice: { scale: { dice: { ref: 'part', part: 'main', fallback: '1d6' }, by: 'upcast' } } } },
@@ -628,41 +675,12 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     concentration: true,
     save: { ability: 'dex', half: true },
     choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal', 'ring'] }],
-    damage: {
-      dice: {
-        concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
-      },
-      types: ['fire'],
-    },
-    zone: {
-      area: { wall: 'spell' },
-      origin: 'point',
-      duration: CONCENTRATION,
+    damage: { dice: fireDice(), types: ['fire'] },
+    zone: wallZone({
       enterOncePerTurn: true,
-      triggers: {
-        enter: {
-          containment: 'anyCell',
-          save: { ability: 'dex', half: true },
-          damage: {
-            dice: {
-              concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
-            },
-            types: ['fire'],
-          },
-        },
-        endOfTurn: {
-          containment: 'anyCell',
-          save: { ability: 'dex', half: true },
-          damage: {
-            dice: {
-              concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '5d8' }, by: 'upcast' } }, 'fire'],
-            },
-            types: ['fire'],
-          },
-        },
-      },
+      triggers: { enter: wallPayload(fireDice(), 'fire'), endOfTurn: wallPayload(fireDice(), 'fire') },
       flags: { obscured: 'heavy' },
-    },
+    }),
   },
 
   'XPHB:Blade Barrier': {
@@ -672,26 +690,78 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     concentration: true,
     save: { ability: 'dex', half: true },
     choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal', 'ring'] }],
-    damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] }, types: ['force'] },
-    zone: {
-      area: { wall: 'spell' },
-      origin: 'point',
-      duration: CONCENTRATION,
+    damage: { dice: barrierDice(), types: ['force'] },
+    zone: wallZone({
+      enterOncePerTurn: true,
+      triggers: { enter: wallPayload(barrierDice(), 'force'), endOfTurn: wallPayload(barrierDice(), 'force') },
+      flags: { difficultTerrain: true },
+    }),
+  },
+
+  'XPHB:Wall of Thorns': {
+    key: 'XPHB:Wall of Thorns',
+    name: 'Wall of Thorns',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal', 'ring'] }],
+    damage: {
+      dice: { concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '7d8' }, by: 'upcast' } }, 'piercing'] },
+      types: ['piercing'],
+    },
+    zone: wallZone({
       enterOncePerTurn: true,
       triggers: {
-        enter: {
-          containment: 'anyCell',
-          save: { ability: 'dex', half: true },
-          damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] }, types: ['force'] },
-        },
-        endOfTurn: {
-          containment: 'anyCell',
-          save: { ability: 'dex', half: true },
-          damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '6d10' }, 'force'] }, types: ['force'] },
-        },
+        enter: wallPayload(thornSlashDice(), 'slashing'),
+        endOfTurn: wallPayload(thornSlashDice(), 'slashing'),
       },
-      flags: { difficultTerrain: true },
-    },
+      flags: { difficultTerrain: true, obscured: 'heavy', movementCost: 4 },
+    }),
+  },
+
+  'XPHB:Wall of Ice': {
+    key: 'XPHB:Wall of Ice',
+    name: 'Wall of Ice',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    choices: [{ id: 'mode', param: 'effect', options: ['wall', 'ring'] }],
+    damage: { dice: iceAppearDice(), types: ['cold'] },
+    zone: wallZone({
+      wall: {
+        sectionFeet: 10,
+        hp: 30,
+        ac: 12,
+        immunities: ['cold', 'poison', 'psychic'],
+        vulnerabilities: ['fire'],
+        breach: { save: { ability: 'con', half: true }, damage: { dice: iceSheetDice(), types: ['cold'] } },
+      },
+      flags: { blocksMovement: true, blocksLineOfSight: true },
+    }),
+  },
+
+  'XPHB:Wall of Force': {
+    key: 'XPHB:Wall of Force',
+    name: 'Wall of Force',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'mode', param: 'effect', options: ['wall', 'ring'] }],
+    zone: wallZone({
+      wall: { sectionFeet: 10, immune: true, blocksLineOfSight: false },
+      flags: { blocksMovement: true },
+    }),
+  },
+
+  'XPHB:Wall of Stone': {
+    key: 'XPHB:Wall of Stone',
+    name: 'Wall of Stone',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'mode', param: 'effect', options: ['wall'] }],
+    zone: wallZone({
+      wall: { sectionFeet: 10, hp: 180, ac: 15, immunities: ['poison', 'psychic'], blocksLineOfSight: true },
+      flags: { blocksMovement: true, blocksLineOfSight: true },
+    }),
   },
 
   'XGE:Wall of Sand': {
@@ -700,10 +770,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     primary: 'effect',
     concentration: true,
     choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal'] }],
-    zone: {
-      area: { wall: 'spell' },
-      origin: 'point',
-      duration: CONCENTRATION,
+    zone: wallZone({
       aura: {
         effects: [
           {
@@ -717,6 +784,44 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         ],
       },
       flags: { obscured: 'heavy', movementCost: 3 },
-    },
+    }),
+  },
+
+  'XGE:Wall of Light': {
+    key: 'XGE:Wall of Light',
+    name: 'Wall of Light',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'con', half: true },
+    choices: [{ id: 'mode', param: 'effect', options: ['vertical', 'horizontal'] }],
+    damage: { dice: lightDice('main'), types: ['radiant'] },
+    effects: [
+      {
+        id: 'blind',
+        name: 'Wall of Light',
+        duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'end' },
+        to: 'targets',
+        conditions: ['blinded'],
+      },
+    ],
+    zone: wallZone({
+      triggers: { endOfTurn: { damage: { dice: lightDice('repeat', 0), types: ['radiant'] } } },
+      flags: { blocksLineOfSight: true },
+      light: { bright: 120, dim: 120 },
+      actions: [
+        {
+          id: 'beam',
+          name: 'Луч',
+          defName: 'Луч света',
+          cost: 'action',
+          shrinkFeet: 10,
+          primary: 'attack',
+          attack: { rangeType: 'ranged' },
+          count: 1,
+          damage: { dice: lightDice('repeat', 1), types: ['radiant'] },
+          targeting: { kind: 'creature', range: 60, from: 'origin' },
+        },
+      ],
+    }),
   },
 };

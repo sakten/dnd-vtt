@@ -2,7 +2,7 @@ import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier } from '../../domain/effects';
 import type { Spell } from '../spells';
-import { spellCantripDice, spellDamageExpression, spellUpcastAt, wallArea } from '../spellCast';
+import { spellCantripDice, spellDamageExpression, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
 import { addDiceExpression, scaledDice, upcastSteps } from './builders';
 import type {
   ActionSpec,
@@ -79,7 +79,8 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
   if ('scale' in expr) {
     const base = resolveValue(ctx, expr.scale.dice);
     if (base === undefined) return undefined;
-    return scaledDice(String(base), ctx.spell.upcast?.dice, upcastSteps(ctx.spell, ctx.castLevel));
+    const extra = expr.scale.by === 'upcast' ? ctx.spell.upcast?.dice : expr.scale.by.dice;
+    return scaledDice(String(base), extra, upcastSteps(ctx.spell, ctx.castLevel));
   }
   if ('mapped' in expr) {
     const key = resolveValue(ctx, expr.mapped.of);
@@ -192,17 +193,25 @@ function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
         }
       : {};
   const def: AutomationDef = {
-    key: action.subKey ? `${ctx.spec.key}:${action.subKey}` : ctx.spec.key,
+    key: action.defKey ?? (action.subKey ? `${ctx.spec.key}:${action.subKey}` : ctx.spec.key),
     name: action.defName ?? action.name,
     resolution: action.primary,
     ...(action.attack ? { attack: { ...action.attack } } : {}),
     ...(action.save ? { save: { ...action.save } } : {}),
     ...(area ? { area } : {}),
     ...damage,
+    ...(action.count !== undefined ? { count: action.count } : {}),
     ...(targeting ? { targeting: { ...targeting } } : {}),
     ...(action.utility ? { utility: { ...action.utility } } : {}),
   };
-  return { id: action.id, name: action.name, cost: action.cost, def };
+  return {
+    id: action.id,
+    name: action.name,
+    cost: action.cost,
+    def,
+    ...(action.shrinkFeet !== undefined ? { shrinkFeet: action.shrinkFeet } : {}),
+    ...(action.endsEffect ? { endsEffect: true } : {}),
+  };
 }
 
 function compileUses(ctx: CompileCtx, uses: UsesSpec): Partial<AutomationEffect> {
@@ -389,17 +398,25 @@ function compileZone(ctx: CompileCtx, zone: ZoneSpec): ZoneDef {
           .map(([slot, payload]) => [slot, compilePayload(ctx, payload!)])
       )
     : undefined;
-  const area = zone.area
-    ? 'wall' in zone.area
-      ? wallArea(ctx.spell.key, ctx.opts.variant)
-      : zone.area
+  let area = zone.area && !('wall' in zone.area) ? zone.area : undefined;
+  if (zone.area && 'wall' in zone.area) {
+    const dimsSpec = zone.area.wall;
+    const dims = 'from' in dimsSpec ? WALL_DIMS[ctx.spell.key] : dimsSpec;
+    if (!dims) throw new Error(`AutomationSpec ${ctx.spec.key}: нет габаритов стены`);
+    area = wallAreaOf(dims, ctx.opts.variant);
+  }
+  if (!area) throw new Error(`AutomationSpec ${ctx.spec.key}: не определена область`);
+  const wall = zone.wall
+    ? (() => {
+        const { breach, ...rest } = zone.wall;
+        return { ...rest, ...(breach ? { breach: compilePayload(ctx, breach) } : {}) };
+      })()
     : undefined;
-  if (!area) throw new Error(`AutomationSpec ${ctx.spec.key}: не определена область стены`);
   return {
     area,
     origin: zone.origin ?? 'point',
     duration: zone.duration!,
-    ...(zone.actions?.length ? { actions: zone.actions.map((a) => ({ ...a })) } : {}),
+    ...(zone.actions?.length ? { actions: zone.actions.map((a) => compileAction(ctx, a)) } : {}),
     ...(zone.anchor ? { anchor: zone.anchor } : {}),
     ...(zone.containment ? { containment: zone.containment } : {}),
     ...(zone.side ? { side: zone.side } : {}),
@@ -413,6 +430,7 @@ function compileZone(ctx: CompileCtx, zone: ZoneSpec): ZoneDef {
     ...(zone.aura ? { aura: compilePayload(ctx, zone.aura) } : {}),
     ...(zone.excludeSource ? { excludeSource: true } : {}),
     ...(triggers ? { triggers } : {}),
+    ...(wall ? { wall } : {}),
     ...(zone.flags ? { flags: { ...zone.flags } } : {}),
   };
 }
@@ -621,6 +639,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (spec.zone.charges !== undefined) refs.push(spec.zone.charges);
     collectPayload(spec.zone.onCreate);
     collectPayload(spec.zone.aura);
+    collectPayload(spec.zone.wall?.breach);
     for (const payload of Object.values(spec.zone.triggers ?? {})) collectPayload(payload);
   }
   const wa = spec.weaponAttack;

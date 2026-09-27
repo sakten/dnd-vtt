@@ -238,7 +238,7 @@ export interface WallDims {
   panelFeet?: number;
 }
 
-const WALL_DIMS: Record<string, WallDims> = {
+export const WALL_DIMS: Record<string, WallDims> = {
   // Wall of Thorns: линия 60×5; круг — свободно 10 фт, стена 5 фт наружу (r15).
   'XPHB:Wall of Thorns': { length: 60, width: 5, outerRadius: 15, innerRadius: 10 },
   // Wall of Fire: 60×10 (решение владельца: полоса бьёт с обеих сторон); кольцо r10/r5.
@@ -368,13 +368,17 @@ export function wallPathIssue(
 }
 
 /** Геометрия стены: линия `length×width` или кольцо `inner..outer` (variant 'ring'). */
-export function wallArea(spellKey: string, variant?: string): AreaSpec | undefined {
-  const dims = WALL_DIMS[spellKey];
-  if (!dims) return undefined;
+/** Геометрия стены из набора габаритов: кольцо (`outerRadius>0`) либо полоса. */
+export function wallAreaOf(dims: WallDims, variant?: string): AreaSpec {
   if (variant === 'ring' && dims.outerRadius > 0) {
     return { shape: 'ring', size: dims.outerRadius, inner: dims.innerRadius };
   }
   return { shape: 'line', size: dims.length, width: dims.width };
+}
+
+export function wallArea(spellKey: string, variant?: string): AreaSpec | undefined {
+  const dims = WALL_DIMS[spellKey];
+  return dims ? wallAreaOf(dims, variant) : undefined;
 }
 
 /**

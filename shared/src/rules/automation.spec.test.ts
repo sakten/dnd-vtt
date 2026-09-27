@@ -31,7 +31,12 @@ import {
   spiritShroudDef,
   trueStrikeDef,
   wallOfFireDef,
+  wallOfForceDef,
+  wallOfIceDef,
+  wallOfLightDef,
   wallOfSandDef,
+  wallOfStoneDef,
+  wallOfThornsDef,
   zephyrStrikeDef,
 } from './automation/builders';
 import { compileSpec, resolveSpec, validateSpec } from './automation/compile';
@@ -72,6 +77,11 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XPHB:Wall of Fire': wallOfFireDef,
   'XPHB:Blade Barrier': bladeBarrierDef,
   'XGE:Wall of Sand': wallOfSandDef,
+  'XPHB:Wall of Thorns': wallOfThornsDef,
+  'XPHB:Wall of Ice': wallOfIceDef,
+  'XPHB:Wall of Force': wallOfForceDef,
+  'XPHB:Wall of Stone': wallOfStoneDef,
+  'XGE:Wall of Light': wallOfLightDef,
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {

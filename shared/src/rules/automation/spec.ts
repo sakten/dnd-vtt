@@ -5,8 +5,10 @@ import type {
   AutomationUtility,
   LightSource,
   ZoneDef,
+  ZoneWallDef,
 } from '../../domain/automation';
 import type { ConditionKey, EffectDuration, Modifier, ModifierFilter, Restrictions } from '../../domain/effects';
+import type { WallDims } from '../spellCast';
 import type { DamagePartRole } from '../spells';
 
 /**
@@ -52,8 +54,8 @@ export type ValueExpr =
   | { perLevel: { base: number; per: number; above: number | 'spell' } }
   /** `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2). */
   | { spellMod: { base: number; min?: number } }
-  /** Кость с апкаст-скейлом (Healing Spirit: 1к6 + 1к6 за круг). */
-  | { scale: { dice: ValueExpr; by: 'upcast' } }
+  /** Кость с апкаст-скейлом: данные (`upcast`) или литеральная добавка за шаг (Ice: +2d6). */
+  | { scale: { dice: ValueExpr; by: 'upcast' | { dice: string } } }
   /** Отображение значения по таблице (Fire Shield: warm → сопротивление холоду, ответ огнём). */
   | { mapped: { of: ValueExpr; values: Record<string, string>; fallback?: ValueExpr } };
 
@@ -72,10 +74,17 @@ export interface ActionSpec {
   cost: 'action' | 'bonus' | 'free';
   /** Имя внутреннего `def`, если отличается от имени действия (Flame Blade: «Огненный клинок»). */
   defName?: string;
+  /** Явный ключ `def` (действия зон: `zone:move`); иначе ключ спека (+`subKey`). */
+  defKey?: string;
   /** Суффикс ключа `def`: `${spec.key}:${subKey}` (Shadow Blade: return). */
   subKey?: string;
   primary: AutomationResolution;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
+  count?: number;
+  /** Сокращение зоны после использования действия (Wall of Light: луч −10 фт). */
+  shrinkFeet?: number;
+  /** Использование действия завершает эффект-носитель (Holy Weapon: разряд). */
+  endsEffect?: boolean;
   /** Область действия: литерал или `spell.areaSpec` с fallback (Dragon's Breath). */
   area?: AreaSpec | { from: 'spell'; fallback: AreaSpec };
   /** Прицеливание: литерал или область из `area` (range = max(5, size)). */
@@ -145,13 +154,21 @@ export type DamageSpec =
   | { dice: ValueExpr; types?: ValueExpr[]; abilityMod?: boolean }
   | { parts: { dice: ValueExpr; type: ValueExpr }[] };
 
+/** Габариты стены в спеке: явные или из данных заклинания (`WALL_DIMS`). */
+export type WallDimsSpec = WallDims | { from: 'spell' };
+
 /** Блок `zone` (R16): pass-through полей `ZoneDef` + `ValueExpr` в зарядах и триггерах. */
-export interface ZoneSpec extends Omit<Partial<ZoneDef>, 'area' | 'charges' | 'triggers' | 'onCreate' | 'aura' | 'wall'> {
-  /** Область: литерал или `wallArea(spell, variant)` (стены). */
-  area?: AreaSpec | { wall: 'spell' };
+export interface ZoneSpec
+  extends Omit<Partial<ZoneDef>, 'area' | 'charges' | 'triggers' | 'onCreate' | 'aura' | 'wall' | 'actions'> {
+  /** Область: литерал или стена из габаритов (`wallAreaOf`). */
+  area?: AreaSpec | { wall: WallDimsSpec };
+  /** Секции тонкой стены (Ice/Force/Stone); `breach` — payload пробоя. */
+  wall?: Omit<ZoneWallDef, 'breach'> & { breach?: PayloadSpec };
   charges?: ValueExpr;
   onCreate?: PayloadSpec;
   aura?: PayloadSpec;
+  /** Действия владельца зоны (перемещение, луч) — спеки действий. */
+  actions?: ActionSpec[];
   triggers?: {
     enter?: PayloadSpec;
     exit?: PayloadSpec;
