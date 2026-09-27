@@ -10,6 +10,7 @@ import type {
   AutomationSpecCopy,
   DamageSpec,
   EffectSpec,
+  HookSpec,
   LoadoutSpec,
   ModifierSpec,
   PayloadSpec,
@@ -61,6 +62,14 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
     if (base === undefined) return extra;
     return addDiceExpression(String(base), String(extra));
   }
+  if ('sum' in expr) {
+    let total = 0;
+    for (const item of expr.sum) {
+      const value = resolveValue(ctx, item);
+      total += typeof value === 'number' ? value : value !== undefined ? Number(value) || 0 : 0;
+    }
+    return total;
+  }
   if ('includes' in expr) {
     const value = resolveValue(ctx, expr.includes.of);
     return value !== undefined && expr.includes.values.includes(String(value)) ? '1' : '';
@@ -110,6 +119,9 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
       break;
     case 'upcastAttack':
       value = spellUpcastAt(ctx.spell, ctx.castLevel).attack;
+      break;
+    case 'upcastFlat':
+      value = spellUpcastAt(ctx.spell, ctx.castLevel).flat;
       break;
     case 'type0':
       value = ctx.spell.damage?.types?.[0];
@@ -263,6 +275,65 @@ function compileModifier(ctx: CompileCtx, spec: ModifierSpec): Omit<Modifier, 'i
   return out;
 }
 
+/** Блок `hooks`: реактивные перехваты урона/HP → поля эффекта (R16, `AUTOMATION.md` §3.2). */
+function compileHooks(ctx: CompileCtx, hooks: HookSpec): Partial<AutomationEffect> {
+  const out: Partial<AutomationEffect> = {};
+  if (hooks.retaliate) {
+    const retaliate = compileGated(ctx, hooks.retaliate, (v) => ({
+      damageType: String(mustValue(ctx, v.damageType, 'hooks.retaliate')),
+      ...(v.dice ? { dice: v.dice } : {}),
+      ...(v.amount !== undefined ? { amount: Number(mustValue(ctx, v.amount, 'hooks.retaliate')) } : {}),
+    }));
+    if (retaliate) out.retaliate = retaliate;
+  }
+  if (hooks.damageReduce) {
+    out.damageReduce = {
+      dice: String(mustValue(ctx, hooks.damageReduce.dice, 'hooks.damageReduce')),
+      types: hooks.damageReduce.types.map((t) => String(mustValue(ctx, t, 'hooks.damageReduce'))),
+    };
+  }
+  if (hooks.elementalBane) {
+    out.elementalBane = {
+      damageType: String(mustValue(ctx, hooks.elementalBane.damageType, 'hooks.elementalBane')),
+      dice: String(mustValue(ctx, hooks.elementalBane.dice, 'hooks.elementalBane')),
+    };
+  }
+  if (hooks.takesExtraDamage) {
+    const extra = compileGated(ctx, hooks.takesExtraDamage, (v) => ({
+      dice: String(mustValue(ctx, v.dice, 'hooks.takesExtraDamage')),
+      damageType: String(mustValue(ctx, v.damageType, 'hooks.takesExtraDamage')),
+    }));
+    if (extra) out.takesExtraDamage = extra;
+  }
+  if (hooks.wakeOnDamage) {
+    const wake = compileGated(ctx, hooks.wakeOnDamage, (v) => v);
+    if (wake) out.wakeOnDamage = true;
+  }
+  if (hooks.saveOnDamage) {
+    const save = compileGated(ctx, hooks.saveOnDamage, (v) => ({ ...v }));
+    if (save) out.saveOnDamage = save;
+  }
+  if (hooks.breakOn?.length) out.breakOn = [...hooks.breakOn];
+  if (hooks.sanctuary) out.sanctuary = true;
+  if (hooks.deathWard) out.deathWard = true;
+  if (hooks.damageLink) out.damageLink = true;
+  if (hooks.tempHp !== undefined) out.tempHp = Number(mustValue(ctx, hooks.tempHp, 'hooks.tempHp'));
+  if (hooks.noHeal) out.noHeal = true;
+  if (hooks.maximizeHealing) out.maximizeHealing = true;
+  if (hooks.deathSaveAdvantage) out.deathSaveAdvantage = true;
+  if (hooks.saveNoDamage) out.saveNoDamage = true;
+  if (hooks.dominates) out.dominates = true;
+  if (hooks.ward?.length) out.ward = [...hooks.ward];
+  if (hooks.damageReaction) {
+    out.damageReaction = {
+      ability: String(mustValue(ctx, hooks.damageReaction.ability, 'hooks.damageReaction')) as AbilityKey,
+      feet: hooks.damageReaction.feet,
+      condition: hooks.damageReaction.condition,
+    };
+  }
+  return out;
+}
+
 function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
   const loadout = effect.loadout ? compileLoadout(ctx, effect.loadout) : {};
   const gated = (effect.modifiers ?? [])
@@ -277,20 +348,13 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
   const duration = resolveLeveled(ctx, effect.duration);
   if (!duration) throw new Error(`AutomationSpec ${ctx.spec.key}: effect.${effect.id} без duration`);
   const concentration = effect.concentration !== undefined ? resolveLeveled(ctx, effect.concentration) : undefined;
-  const wake = effect.wakeOnDamage !== undefined ? compileGated(ctx, effect.wakeOnDamage, (v) => v) : undefined;
   const turnDodge =
     effect.turnDodge !== undefined
       ? compileGated(ctx, effect.turnDodge, (v) => ({
           ability: String(mustValue(ctx, v.ability, `effect.${effect.id}.turnDodge`)) as AbilityKey,
         }))
       : undefined;
-  const takesExtra =
-    effect.takesExtraDamage !== undefined
-      ? compileGated(ctx, effect.takesExtraDamage, (v) => ({
-          dice: String(mustValue(ctx, v.dice, `effect.${effect.id}.takesExtraDamage`)),
-          damageType: String(mustValue(ctx, v.damageType, `effect.${effect.id}.takesExtraDamage`)),
-        }))
-      : undefined;
+  const hooks = effect.hooks ? compileHooks(ctx, effect.hooks) : {};
   return {
     name: effect.name,
     duration,
@@ -302,40 +366,10 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(variant !== undefined ? { variant: String(variant) } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
-    ...(effect.damageReduce
-      ? {
-          damageReduce: {
-            dice: String(mustValue(ctx, effect.damageReduce.dice, `effect.${effect.id}.damageReduce.dice`)),
-            types: effect.damageReduce.types.map((t) => String(mustValue(ctx, t, `effect.${effect.id}.damageReduce.types`))),
-          },
-        }
-      : {}),
-    ...(effect.elementalBane
-      ? {
-          elementalBane: {
-            damageType: String(mustValue(ctx, effect.elementalBane.damageType, `effect.${effect.id}.elementalBane`)),
-            dice: String(mustValue(ctx, effect.elementalBane.dice, `effect.${effect.id}.elementalBane`)),
-          },
-        }
-      : {}),
-    ...(effect.takesExtraDamage
-      ? takesExtra
-        ? { takesExtraDamage: takesExtra }
-        : {}
-      : {}),
+    ...hooks,
     ...(effect.turnDodge ? (turnDodge ? { turnDodge } : {}) : {}),
-    ...(effect.wakeOnDamage ? (wake ? { wakeOnDamage: true } : {}) : {}),
     ...(effect.markSaved ? { markSaved: true } : {}),
     ...(effect.restrictions ? { restrictions: { ...effect.restrictions } } : {}),
-    ...(effect.retaliate
-      ? {
-          retaliate: {
-            damageType: String(mustValue(ctx, effect.retaliate.damageType, `effect.${effect.id}.retaliate`)),
-            ...(effect.retaliate.dice ? { dice: effect.retaliate.dice } : {}),
-            ...(effect.retaliate.amount !== undefined ? { amount: effect.retaliate.amount } : {}),
-          },
-        }
-      : {}),
     ...(effect.zephyrStrike ? { zephyrStrike: { ...effect.zephyrStrike } } : {}),
     ...(effect.actions?.length ? { actions: effect.actions.map((a) => compileAction(ctx, a)) } : {}),
     ...loadout,
@@ -619,6 +653,22 @@ export function validateSpec(spec: AutomationSpec): string[] {
       push(entry as T);
     }
   };
+  const collectHooks = (hooks?: HookSpec) => {
+    if (!hooks) return;
+    if (hooks.retaliate) {
+      pushGated(hooks.retaliate, (v) => {
+        refs.push(v.damageType);
+        if (v.amount !== undefined) refs.push(v.amount);
+      });
+    }
+    if (hooks.damageReduce) refs.push(hooks.damageReduce.dice, ...hooks.damageReduce.types);
+    if (hooks.elementalBane) refs.push(hooks.elementalBane.damageType, hooks.elementalBane.dice);
+    if (hooks.takesExtraDamage) pushGated(hooks.takesExtraDamage, (v) => refs.push(v.dice, v.damageType));
+    if (hooks.saveOnDamage) pushGated(hooks.saveOnDamage, () => undefined);
+    if (hooks.wakeOnDamage) pushGated(hooks.wakeOnDamage, () => undefined);
+    if (hooks.tempHp !== undefined) refs.push(hooks.tempHp);
+    if (hooks.damageReaction) refs.push(hooks.damageReaction.ability);
+  };
   const collectEffect = (effect: EffectSpec) => {
     if (effect.variant !== undefined) refs.push(effect.variant);
     for (const entry of effect.conditions ?? []) pushGated(entry, (c) => refs.push(c));
@@ -630,13 +680,9 @@ export function validateSpec(spec: AutomationSpec): string[] {
         if (m.filter?.skill !== undefined) refs.push(m.filter.skill);
       });
     }
-    if (effect.retaliate) refs.push(effect.retaliate.damageType);
+    collectHooks(effect.hooks);
     if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
-    if (effect.damageReduce) refs.push(effect.damageReduce.dice, ...effect.damageReduce.types);
-    if (effect.elementalBane) refs.push(effect.elementalBane.damageType, effect.elementalBane.dice);
-    if (effect.takesExtraDamage) pushGated(effect.takesExtraDamage, (v) => refs.push(v.dice, v.damageType));
     if (effect.turnDodge) pushGated(effect.turnDodge, (v) => refs.push(v.ability));
-    if (effect.wakeOnDamage) pushGated(effect.wakeOnDamage, () => undefined);
     if (effect.targets !== undefined) refs.push(effect.targets);
     if (effect.loadout) {
       const l = effect.loadout;
@@ -694,6 +740,10 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if ('add' in expr) {
       checkRef(expr.add[0]);
       checkRef(expr.add[1]);
+      return;
+    }
+    if ('sum' in expr) {
+      for (const item of expr.sum) checkRef(item);
       return;
     }
     if ('includes' in expr) {

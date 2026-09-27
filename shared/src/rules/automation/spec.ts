@@ -25,8 +25,9 @@ export type ValueExpr =
         | 'damage'
         | 'part'
         | 'upcastDice'
-        | 'spellDamage'
         | 'upcastAttack'
+        | 'upcastFlat'
+        | 'spellDamage'
         | 'type0'
         | 'spellMod'
         | 'castLevel'
@@ -44,6 +45,8 @@ export type ValueExpr =
     }
   /** Сложение костей одного вида: `1d8` + `1d8` → `2d8` (нет базы — берётся добавка). */
   | { add: [ValueExpr, ValueExpr] }
+  /** Числовая сумма (нераскрытое слагаемое — 0): `5 + flat апкаста` (Armor of Agathys). */
+  | { sum: ValueExpr[] }
   /** Конкатенация: `${кость}${тип}`; любое нерешённое слагаемое опускает всё выражение. */
   | { concat: ValueExpr[] }
   /** `'1'`, если значение входит в список — гейт для `{ if, then }` (Command: halt/grovel). */
@@ -195,6 +198,49 @@ export interface ModifierSpec extends Omit<Modifier, 'id' | 'value' | 'filter'> 
   };
 }
 
+/**
+ * Блок `hooks` (AUTOMATION.md §3.2): реактивные перехваты урона/падения и поток HP.
+ * Компилируется в существующие поля эффекта, пока серверный диспетчер (R14) не выделен.
+ */
+export interface HookSpec {
+  /** Ответный урон атакующему в ближнем бою (Armor of Agathys, Fire Shield, Shadow of Moil). */
+  retaliate?: Gated<{ damageType: ValueExpr; dice?: string; amount?: ValueExpr }>;
+  /** Уменьшение получаемого урона типов на кость, заряд раз в ход (Resistance). */
+  damageReduce?: { dice: ValueExpr; types: ValueExpr[] };
+  /** Elemental Bane: потеря сопротивления и доп. урон первого попадания за ход. */
+  elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
+  /** Spirit Shroud/CME: доп. урон атак источника по носителю (аура-метка). */
+  takesExtraDamage?: Gated<{ dice: ValueExpr; damageType: ValueExpr }>;
+  /** Урон/встряска снимает эффект (Sleep, Eyebite: сон). */
+  wakeOnDamage?: Gated<boolean>;
+  /** Повторный спасбросок при получении урона; успех снимает эффект (Hideous Laughter). */
+  saveOnDamage?: Gated<{ advantage?: boolean }>;
+  /** Досрочный обрыв: носитель атаковал, применил заклинание или нанёс урон (Invisibility). */
+  breakOn?: ('attack' | 'spell' | 'damage')[];
+  /** Sanctuary: атакующие носителя обязаны пройти спас WIS или потерять атаку/заклинание. */
+  sanctuary?: boolean;
+  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
+  deathWard?: boolean;
+  /** Warding Bond: переносить получаемый урон на источник эффекта. */
+  damageLink?: boolean;
+  /** Временные HP при наложении (Armor of Agathys, Heroism-подобные). */
+  tempHp?: ValueExpr;
+  /** Chill Touch: носитель не может восстанавливать HP, пока эффект жив. */
+  noHeal?: boolean;
+  /** Лечение носителя берёт максимум костей (Beacon of Hope). */
+  maximizeHealing?: boolean;
+  /** Преимущество на спасброски от смерти (Beacon of Hope). */
+  deathSaveAdvantage?: boolean;
+  /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
+  saveNoDamage?: boolean;
+  /** Dominate: носитель под контролем источника, пока эффект жив. */
+  dominates?: boolean;
+  /** Primordial Ward: типы, по которым реакцией можно получить иммунитет. */
+  ward?: string[];
+  /** Fount of Moonlight: реакция носителя на урон от видимого существа. */
+  damageReaction?: { ability: ValueExpr; feet: number; condition: ConditionKey };
+}
+
 /** Эффект спека: длительность/цель + блоки (loadout/uses/actions/vision). */
 export interface EffectSpec {
   id: string;
@@ -212,22 +258,14 @@ export interface EffectSpec {
   targets?: ValueExpr;
   /** Блок `uses`: заряды/счётчики эффекта. */
   uses?: UsesSpec;
-  /** Resistance: уменьшение получаемого урона типов на кость. */
-  damageReduce?: { dice: ValueExpr; types: ValueExpr[] };
-  /** Elemental Bane: потеря сопротивления и доп. урон первого попадания за ход. */
-  elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
-  /** Spirit Shroud/CME: доп. урон атак источника по носителю (аура-метка). */
-  takesExtraDamage?: Gated<{ dice: ValueExpr; damageType: ValueExpr }>;
+  /** Блок `hooks`: реактивные перехваты урона/HP (`HookSpec`). */
+  hooks?: HookSpec;
   /** Bestow Curse («Уклонение»): спас в начале хода, при провале — принудительное Уклонение. */
   turnDodge?: Gated<{ ability: ValueExpr }>;
-  /** Урон/встряска снимает эффект (Sleep); гейт — только для части вариантов (Eyebite: сон). */
-  wakeOnDamage?: Gated<boolean>;
   /** Eyebite: метка спасшейся цели — повторно не выбрать до конца каста. */
   markSaved?: boolean;
   /** Ограничения экономики (Zephyr Strike: перемещение не провоцирует OA). */
   restrictions?: Restrictions;
-  /** Ответный урон (Armor of Agathys, Fire Shield); тип — ссылка. */
-  retaliate?: { damageType: ValueExpr; dice?: string; amount?: number };
   /** Zephyr Strike: одноразовая атака — кости, тип и скорость (расход через `uses`). */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
   actions?: ActionSpec[];

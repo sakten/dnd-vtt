@@ -227,4 +227,39 @@ describe('поведение спеков (RAW, реальные данные)',
       filter: { ability: 'str' },
     });
   });
+
+  it('Armor of Agathys: врем. HP и ответный холод растут на +5 за круг', () => {
+    const spell = find('XPHB:Armor of Agathys');
+    const base = automationForSpell(spell, { castLevel: 1 }).effects?.[0];
+    expect(base?.tempHp).toBe(5);
+    expect(base?.retaliate).toEqual({ damageType: 'cold', amount: 5 });
+    const up = automationForSpell(spell, { castLevel: 3 }).effects?.[0];
+    expect(up?.tempHp).toBe(15);
+    expect(up?.retaliate).toEqual({ damageType: 'cold', amount: 15 });
+  });
+
+  it('Invisibility: цели по кругу, обрыв атакой/кастом; Greater — без обрыва', () => {
+    const spell = find('XPHB:Invisibility');
+    const base = automationForSpell(spell, { castLevel: 2 });
+    expect(base.concentration).toBe(true);
+    expect(base.effects?.[0]?.targets).toBe(1);
+    expect(base.effects?.[0]?.conditions).toEqual(['invisible']);
+    expect(base.effects?.[0]?.breakOn).toEqual(['attack', 'spell']);
+    expect(automationForSpell(spell, { castLevel: 4 }).effects?.[0]?.targets).toBe(3);
+    const greater = automationForSpell(find('XPHB:Greater Invisibility'));
+    expect(greater.effects?.[0]?.targets).toBe(1);
+    expect(greater.effects?.[0]?.breakOn).toBeUndefined();
+  });
+
+  it('Death Ward и Shadow of Moil: страховка от смерти и ответная тьма', () => {
+    const ward = automationForSpell(find('XPHB:Death Ward')).effects?.[0];
+    expect(ward?.deathWard).toBe(true);
+    expect(ward?.to).toBe('targets');
+    const moil = automationForSpell(find('XGE:Shadow of Moil')).effects?.[0];
+    expect(moil?.retaliate).toEqual({ damageType: 'necrotic', dice: '2d8' });
+    expect(moil?.modifiers).toEqual([
+      { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
+    ]);
+  });
 });

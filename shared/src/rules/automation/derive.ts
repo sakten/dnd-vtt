@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, armorOfAgathysDef, callLightningDef, chainLightningDef, compositeDamageDef, conjureFeyDef, dimensionDoorDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, farStepDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, invisibilityDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, shadowOfMoilDef, spellBuiltinAutomated, spiritualWeaponDef, steelWindStrikeDef, stormSphereDef, sunbeamDef, telekinesisDef, thunderStepDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, chainLightningDef, compositeDamageDef, conjureFeyDef, dimensionDoorDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, farStepDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, steelWindStrikeDef, stormSphereDef, sunbeamDef, telekinesisDef, thunderStepDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -131,20 +131,11 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const stormSphere = stormSphereDef(spell, opts);
   if (stormSphere) return stormSphere;
 
-  const armorOfAgathys = armorOfAgathysDef(spell, opts);
-  if (armorOfAgathys) return armorOfAgathys;
-
   const aid = aidDef(spell, opts);
   if (aid) return aid;
 
   const heroesFeast = heroesFeastDef(spell);
   if (heroesFeast) return heroesFeast;
-
-  const invisibility = invisibilityDef(spell, opts);
-  if (invisibility) return invisibility;
-
-  const shadowOfMoil = shadowOfMoilDef(spell);
-  if (shadowOfMoil) return shadowOfMoil;
 
   const dominate = dominateDef(spell, opts);
   if (dominate) return dominate;

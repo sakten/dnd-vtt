@@ -307,7 +307,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         duration: CONCENTRATION,
         concentration: true,
         to: 'targets',
-        damageReduce: { dice: SPELL_BASES.resistance.damageReduceDice, types: [{ ref: 'choice' }] },
+        hooks: { damageReduce: { dice: SPELL_BASES.resistance.damageReduceDice, types: [{ ref: 'choice' }] } },
         uses: { kind: 'charges', count: 1 },
         variant: { ref: 'choice' },
       },
@@ -329,7 +329,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         concentration: true,
         to: 'targets',
         targets: 1,
-        elementalBane: { damageType: { ref: 'choice' }, dice: SPELL_BASES.elementalBane.extraDice },
+        hooks: { elementalBane: { damageType: { ref: 'choice' }, dice: SPELL_BASES.elementalBane.extraDice } },
         variant: { ref: 'choice' },
       },
     ],
@@ -498,9 +498,11 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
             filter: { damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'cold', chill: 'fire' } } } },
           },
         ],
-        retaliate: {
-          damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'fire', chill: 'cold' } } },
-          dice: '2d8',
+        hooks: {
+          retaliate: {
+            damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'fire', chill: 'cold' } } },
+            dice: '2d8',
+          },
         },
         variant: { ref: 'choice' },
       },
@@ -625,9 +627,11 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
             duration: PERMANENT,
             to: 'targets',
             modifiers: [{ target: 'speed', mode: 'add', value: -10 }],
-            takesExtraDamage: {
-              dice: { add: [{ ref: 'damage', fallback: '1d8' }, { ref: 'upcastDice' }] },
-              damageType: { ref: 'choice' },
+            hooks: {
+              takesExtraDamage: {
+                dice: { add: [{ ref: 'damage', fallback: '1d8' }, { ref: 'upcastDice' }] },
+                damageType: { ref: 'choice' },
+              },
             },
             variant: { ref: 'choice' },
           },
@@ -656,9 +660,11 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
             name: 'Conjure Minor Elementals',
             duration: PERMANENT,
             to: 'targets',
-            takesExtraDamage: {
-              dice: { add: [{ ref: 'damage', fallback: '2d8' }, { ref: 'upcastDice' }] },
-              damageType: { ref: 'choice' },
+            hooks: {
+              takesExtraDamage: {
+                dice: { add: [{ ref: 'damage', fallback: '2d8' }, { ref: 'upcastDice' }] },
+                damageType: { ref: 'choice' },
+              },
             },
             variant: { ref: 'choice' },
           },
@@ -871,7 +877,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
                 concentration: true,
                 to: 'targets',
                 conditions: ['unconscious'],
-                wakeOnDamage: true,
+                hooks: { wakeOnDamage: true },
               },
             ],
           },
@@ -929,7 +935,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
             },
           },
         ],
-        wakeOnDamage: { if: { includes: { of: { ref: 'choice' }, values: ['asleep'] } }, then: true },
+        hooks: { wakeOnDamage: { if: { includes: { of: { ref: 'choice' }, values: ['asleep'] } }, then: true } },
         markSaved: true,
       },
     ],
@@ -980,11 +986,103 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
           },
         ],
         turnDodge: { if: { includes: { of: { ref: 'choice' }, values: ['dodge'] } }, then: { ability: 'wis' } },
-        takesExtraDamage: {
-          if: { includes: { of: { ref: 'choice' }, values: ['necrotic'] } },
-          then: { dice: '1d8', damageType: 'necrotic' },
+        hooks: {
+          takesExtraDamage: {
+            if: { includes: { of: { ref: 'choice' }, values: ['necrotic'] } },
+            then: { dice: '1d8', damageType: 'necrotic' },
+          },
         },
         variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XPHB:Armor of Agathys': {
+    key: 'XPHB:Armor of Agathys',
+    name: 'Armor of Agathys',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'agathys',
+        name: 'Armor of Agathys',
+        duration: PERMANENT,
+        to: 'self',
+        hooks: {
+          tempHp: { sum: [5, { ref: 'upcastFlat' }] },
+          retaliate: { damageType: 'cold', amount: { sum: [5, { ref: 'upcastFlat' }] } },
+        },
+      },
+    ],
+  },
+
+  'XPHB:Invisibility': {
+    key: 'XPHB:Invisibility',
+    name: 'Invisibility',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'invisible',
+        name: 'Invisibility',
+        duration: PERMANENT,
+        concentration: true,
+        to: 'targets',
+        targets: { perLevel: { base: 1, per: 1, above: 2 } },
+        conditions: ['invisible'],
+        hooks: { breakOn: ['attack', 'spell'] },
+      },
+    ],
+  },
+
+  'XPHB:Greater Invisibility': {
+    key: 'XPHB:Greater Invisibility',
+    name: 'Greater Invisibility',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'invisible',
+        name: 'Greater Invisibility',
+        duration: PERMANENT,
+        concentration: true,
+        to: 'targets',
+        targets: 1,
+        conditions: ['invisible'],
+      },
+    ],
+  },
+
+  'XGE:Shadow of Moil': {
+    key: 'XGE:Shadow of Moil',
+    name: 'Shadow of Moil',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'moil',
+        name: 'Shadow of Moil',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [
+          { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
+        ],
+        hooks: { retaliate: { damageType: 'necrotic', dice: '2d8' } },
+      },
+    ],
+  },
+
+  'XPHB:Death Ward': {
+    key: 'XPHB:Death Ward',
+    name: 'Death Ward',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'ward',
+        name: 'Death Ward',
+        duration: { type: 'rounds', rounds: 4800 },
+        to: 'targets',
+        hooks: { deathWard: true },
       },
     ],
   },

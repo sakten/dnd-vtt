@@ -47,11 +47,12 @@
 Стратегии блока: `augment` (подмена/бонус существующего оружия), `inject` (синтетическое оружие в лоадаут), `rider` (добавка к атаке при касте), `grant` (выданное attack-действие).
 
 ### 3.2. `damageHooks` — перехват урона и HP (выделяется; это и есть R14)
-- Входящий урон: `retaliate` (Armor of Agathys, Fire Shield), `damageReduce` (Resistance), `elementalBane`, `ward` (Primordial Ward), `damageReaction` (Fount of Moonlight), `damageLink` (Warding Bond), `deathWard`, `saveOnDamage` (Hideous Laughter), `wakeOnDamage` (Sleep), `breakOn` (Invisibility);
+- Входящий урон: `retaliate` (Armor of Agathys, Fire Shield, Shadow of Moil), `damageReduce` (Resistance), `elementalBane`, `ward` (Primordial Ward), `damageReaction` (Fount of Moonlight), `damageLink` (Warding Bond), `deathWard`, `saveOnDamage` (Hideous Laughter), `wakeOnDamage` (Sleep, Eyebite), `breakOn` (Invisibility);
 - гейты: `sanctuary` (нельзя выбрать целью);
 - поток HP: `lifesteal` (Vampiric Touch), `lifeTransfer`, `maxHpFromDamage` (Harm), `undeadTempHp` (Negative Energy Flood), `healTo` (Aura of Life), `tempHp`, `maxHpBonus`, `noHeal`, `maximizeHealing`.
 
 Порядок критичен — фиксируется тестами; целевой диспетчер — `gateAttackOnTarget` (до окна реакций) и `afterDamage` (после урона), окна реакций (`ward`/Absorb Elements) остаются в `reactions/*`.
+Реализовано (`HookSpec`, компилируется в поля эффекта): группа перехватчиков переведена под `hooks` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage), добавлены saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction. Мигрированы: Fire Shield, Resistance, Elemental Bane, Spirit Shroud, CME, Eyebite, Bestow Curse (регрупп) + Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward. Серверный диспетчер (`afterDamage`/`gateAttackOnTarget`, R14) — отдельным срезом.
 
 ### 3.3. `uses` — заряды и счётчики (выделяется)
 `effect.charges {count, on}` (Flame Arrows — 12 боеприпасов, Magic Stone — 3 камня, Resistance), `charges.on: 'rangedWeaponAttack'`, `zone.charges` (Cordon of Arrows, Healing Spirit), `zone.dealtLimit` (Guardian of Faith — 60), `misdirect.charges` (Mirror Image), `bonusDieUses` (Бардовское вдохновение), `consumeOnAttackRoll` (Zephyr Strike), `elementalBane.usedTurn`. Общий вид: `uses: { count, spendOn, endsWhen, replenish }`.
@@ -97,6 +98,7 @@
 - `{ add: [expr, expr] }` — сложение однотипных костей (`addDiceExpression`: `1d8` + `1d8 + 1d8` → `3d8`, без базы — добавка);
 - `{ includes: { of, values } }` — гейт `'1'`/`''` для условных элементов `{ if, then }` (Command: halt/grovel);
 - `{ ref: 'part', part, index?, fallback? }` — часть данных по роли и индексу (составной урон: две `main`);
+- `{ ref: 'upcastFlat' }` — плоская прибавка апкаста (Armor of Agathys: +5/круг); `{ sum: [...] }` — числовая сумма (нераскрытое — 0);
 - `{ ref: 'choice', optional? }` — выбор при касте; `optional` — без явного варианта поле опускается (Wall of Sand);
 - урон — `DamageSpec`: одиночная часть (`dice`/`types`) или `parts: [{ dice, type }]` (Destructive Wave: `5d6thunder + 5d6radiant` с уникальными типами);
 - `Leveled<T>` — значение по кругу каста: `{ levels: [{ above, value }], fallback? }` (Bestow Curse: длительность/концентрация/лимит; `null` — без лимита, `fallback: undefined` — дефолт движка);
@@ -175,7 +177,8 @@ CUSTOM:Jallarzi-Fire {
 - батч `choices`: `ModifierSpec` (ссылки в value/filter), условия/`retaliate`/`takesExtraDamage`/действия со ссылками, `{ if, then }`, `add/includes/mapped`; мигрированы 10 заклинаний выбора (26 спеков);
 - батч составного урона и базовых стен: `DamageSpec.parts`, `part.index`, `choice.optional`, `zone.area: { wall: 'spell' }`; мигрированы Destructive Wave, Wall of Fire, Blade Barrier, Wall of Sand (30 спеков). Тонкие стены (Ice/Force/Stone: `zone.wall` + `breach`), Wall of Light (`shrinkFeet`), Wall of Thorns — следующим шаблоном `wallZone`;
 - батч стен через `wallZone`: параметрические габариты (`WallDims | { from: 'spell' }`, `wallAreaOf`), секции с `breach`, литеральный `scale.by`, `ActionSpec` (`count`/`shrinkFeet`/`defKey`); мигрированы Thorns, Ice, Force, Stone, Light (35 спеков, все 9 стен);
-- батч carrier'ов `choices`: `Leveled<T>` (круг каста), гейты `wakeOnDamage`/`turnDodge`/`takesExtraDamage`, `markSaved`, вложенные эффекты действий; мигрированы Eyebite и Bestow Curse — `choices` закрыт (37 спеков).
+- батч carrier'ов `choices`: `Leveled<T>` (круг каста), гейты `wakeOnDamage`/`turnDodge`/`takesExtraDamage`, `markSaved`, вложенные эффекты действий; мигрированы Eyebite и Bestow Curse — `choices` закрыт (37 спеков);
+- батч `hooks` (damageHooks): `HookSpec` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage/saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction), `ValueExpr` (`upcastFlat`/`sum`); регрупп 7 спеков + мигрированы Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward (42 спека); билдеры и каталожные записи удалены.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

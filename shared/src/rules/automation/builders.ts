@@ -421,22 +421,6 @@ export function heroismDef(spell: Spell, opts: AutomationOptions): AutomationDef
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
-/** Armor of Agathys (XPHB): 5 врем. HP и ответный холод атакующему (+5 за круг выше 1). */
-export function armorOfAgathysDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Armor of Agathys') return undefined;
-  const castLevel = Math.max(1, opts.castLevel ?? Math.max(1, spell.level));
-  const amount = 5 + (spellUpcastAt(spell, castLevel).flat ?? 0);
-  const effect: AutomationEffect = {
-    name: spell.name,
-    duration: PERMANENT,
-    to: 'self',
-    modifiers: [],
-    tempHp: amount,
-    retaliate: { damageType: 'cold', amount },
-  };
-  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
-}
-
 /** Aid (XPHB): +5 к максимуму HP, ещё +5 за каждый круг выше 2 (до 3 целей). */
 export function aidDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Aid') return undefined;
@@ -577,28 +561,6 @@ export function thunderStepDef(spell: Spell, opts: AutomationOptions): Automatio
 }
 
 /**
- * Invisibility: цель невидима до конца концентрации; бросок атаки или каст
- * носителя досрочно обрывают эффект. Апкаст: +1 цель за круг выше 2-го.
- * Greater Invisibility — без обрыва и апкаста.
- */
-export function invisibilityDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Invisibility' && spell.key !== 'XPHB:Greater Invisibility') return undefined;
-  const greater = spell.key === 'XPHB:Greater Invisibility';
-  const targets = greater ? 1 : Math.max(1, (opts.castLevel ?? Math.max(1, spell.level)) - 1);
-  const effect: AutomationEffect = {
-    name: spell.name,
-    duration: PERMANENT,
-    concentration: true,
-    to: 'targets',
-    targets,
-    modifiers: [],
-    conditions: ['invisible'],
-    ...(greater ? {} : { breakOn: ['attack', 'spell'] as const }),
-  };
-  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
-}
-
-/**
  * Shadow Blade: выданное действие «Вернуть клинок» (живёт в эффекте всегда;
  * клиент показывает его, только пока клинок брошен — `shadowBlade.inHand`).
  */
@@ -627,23 +589,6 @@ export function addDiceExpression(base: string, extra: string | undefined): stri
     .filter(Boolean);
   if (!terms.length || terms.some((term) => !new RegExp(`^\\d*d${m[2]}$`).test(term))) return `${base} + ${extra}`;
   return `${Number(m[1] || 1) + terms.length}d${m[2]}`;
-}
-
-/** Shadow of Moil (XGE): помеха атакам по носителю, сопротивление излучению, ответные 2d8 некротикой. */
-export function shadowOfMoilDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XGE:Shadow of Moil') return undefined;
-  const effect: AutomationEffect = {
-    name: spell.name,
-    duration: CONCENTRATION,
-    concentration: true,
-    to: 'self',
-    modifiers: [
-      { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
-      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
-    ],
-    retaliate: { damageType: 'necrotic', dice: '2d8' },
-  };
-  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
 
 /** Searing Smite: доп. 1d6 огня при попадании + урон и спас CON в начале каждого хода цели. */

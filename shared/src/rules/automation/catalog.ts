@@ -144,16 +144,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     endConditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
     targeting: { kind: 'creature', range: 5 },
   },
-  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет (8 часов). */
-  'XPHB:Death Ward': spellEffect('XPHB:Death Ward', 'Death Ward', [
-    {
-      name: 'Death Ward',
-      duration: { type: 'rounds', rounds: 4800 },
-      to: 'targets',
-      modifiers: [],
-      deathWard: true,
-    },
-  ]),
   /** Freedom of Movement: иммунитет к параличу/опутыванию, скорость и местность (1 час). */
   'XPHB:Freedom of Movement': spellEffect('XPHB:Freedom of Movement', 'Freedom of Movement', [
     {
