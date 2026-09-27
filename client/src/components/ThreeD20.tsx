@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { createWebGLRenderer } from '../lib/webgl';
 
 const COLS = 5;
 const ROWS = 4;
@@ -157,7 +158,12 @@ export default function ThreeD20({
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
     camera.position.z = 12;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const renderer = createWebGLRenderer({ alpha: true, antialias: true });
+    if (!renderer) {
+      geometry.dispose();
+      atlas.dispose();
+      return;
+    }
     renderer.setClearAlpha(0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);

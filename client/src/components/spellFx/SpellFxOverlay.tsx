@@ -8,6 +8,7 @@ import { buildFxPlan, type FxAnchor, type FxPhase, type FxPlan, type WorldPoint 
 import type { FxMask } from './mask';
 import { createConeFlame } from './flameCone';
 import { canvasTexture, coneTex, glowTex } from './textures';
+import { createWebGLRenderer } from '../../lib/webgl';
 
 /** Ударная волна/кольцо ауры. */
 const ringTex = canvasTexture((ctx) => {
@@ -539,7 +540,12 @@ export default function SpellFxOverlay({ mask }: { mask?: FxMask | null }) {
   useEffect(() => {
     const container = ref.current;
     if (!container) return;
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    const renderer = createWebGLRenderer({ alpha: true, antialias: true });
+    if (!renderer) {
+      // Без WebGL эффекты не рисуем; очередь чистим, чтобы не копилась.
+      useGameStore.getState().clearFxQueue();
+      return;
+    }
     renderer.setClearAlpha(0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     Object.assign(renderer.domElement.style, { position: 'absolute', inset: '0', display: 'block' });
