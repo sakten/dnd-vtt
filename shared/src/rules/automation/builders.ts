@@ -25,6 +25,7 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Flame Blade',
   'XPHB:Guardian of Faith',
   'XPHB:Conjure Fey',
+  'XPHB:Dispel Evil and Good',
   'TCE:Green-Flame Blade',
   'TCE:Booming Blade',
   'XPHB:True Strike',
@@ -1474,6 +1475,32 @@ export function guardianOfFaithDef(spell: Spell): AutomationDef | undefined {
       dealtLimit: 60,
       triggers: { enter: trigger, startOfTurn: trigger },
     },
+  };
+}
+
+/**
+ * Dispel Evil and Good (XPHB 2024): каст (концентрация) выдаёт действие «Изгнание» —
+ * существо типов Celestial/Elemental/Fey/Fiend/Undead в 5 фт, спас CHA; провал —
+ * отправка на родной план (токен удаляется навсегда). Бафф «помеха их атакам по вам»
+ * и снятие очарования/испуга касанием — TODO (решение владельца, сессия 18).
+ */
+export function dispelEvilGoodDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Dispel Evil and Good') return undefined;
+  const banish: AutomationDef = {
+    key: spell.key,
+    name: 'Изгнание',
+    resolution: 'save',
+    save: { ability: 'cha' },
+    banishOnFail: true,
+    requiresCreatureTypes: ['celestial', 'elemental', 'fey', 'fiend', 'undead'],
+    targeting: { kind: 'creature', range: 5 },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    effects: [actionCarrier(spell, { id: 'banish', name: 'Изгнание', cost: 'action', def: banish })],
   };
 }
 

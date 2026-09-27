@@ -278,6 +278,29 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('Dispel Evil and Good: каст выдаёт «Изгнание» — спас CHA по типам, без возврата', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Dispel Evil and Good',
+      name: 'Dispel Evil and Good',
+      level: 5,
+      automation: 'manual',
+      range: { type: 'point', distance: { type: 'self' } },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const action = def.effects?.[0]?.actions?.[0];
+    expect(action).toMatchObject({ id: 'banish', name: 'Изгнание', cost: 'action' });
+    expect(action?.def).toMatchObject({
+      resolution: 'save',
+      save: { ability: 'cha' },
+      banishOnFail: true,
+      requiresCreatureTypes: ['celestial', 'elemental', 'fey', 'fiend', 'undead'],
+      targeting: { kind: 'creature', range: 5 },
+    });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Crown of Madness / Enemies Abound — плашки «ведёт мастер» (вторая без глифа)', () => {
     const crown = makeSpell({ key: 'XPHB:Crown of Madness', name: 'Crown of Madness', level: 2, automation: 'manual' });
     const crownDef = automationForSpell(crown);

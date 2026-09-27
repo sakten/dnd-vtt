@@ -113,6 +113,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.automation.zoneMoved': '{name}: {feature} moved',
   'system.automation.dispelled': '{name} dispelled',
   'system.automation.banishGone': '{name}: banishment lasted a full minute — the creature does not return',
+  'system.automation.banishHome': '{name}: sent to its home plane',
+
   'system.automation.utility': '{name}: {feature}',
   'system.automation.extraAttacks': '{name}: {feature} (+{amount})',
   'system.automation.weaponAttacks': '{name}: {feature} (+{amount} weapon attack)',

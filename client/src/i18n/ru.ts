@@ -110,6 +110,8 @@
   'system.automation.zoneMoved': '{name}: {feature} перемещена',
   'system.automation.dispelled': '{name} рассеяно',
   'system.automation.banishGone': '{name}: изгнание длилось полную минуту — существо не возвращается',
+  'system.automation.banishHome': '{name}: отправлен на родной план',
+
   'system.automation.utility': '{name}: {feature}',
   'system.automation.extraAttacks': '{name}: {feature} (+{amount})',
   'system.automation.weaponAttacks': '{name}: {feature} (+{amount} атака оружием)',

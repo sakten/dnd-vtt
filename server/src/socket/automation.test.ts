@@ -196,6 +196,54 @@ describe('Compulsion', () => {
   });
 });
 
+describe('Dispel Evil and Good', () => {
+  it('«Изгнание»: провал CHA-спаса удаляет существо, успех — оставляет', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    caster.statblock = {
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 16 },
+      spellcasting: { ability: 'cha', dc: 15 },
+    };
+    target.statblock = {
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      creatureType: 'fiend',
+    };
+
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('XPHB:Dispel Evil and Good')!),
+      targets: [],
+      stats,
+      author: 'DM',
+    });
+    const effect = caster.effects.find((e) => e.sourceKey === 'XPHB:Dispel Evil and Good' && !!e.actions?.length);
+    expect(effect?.actions?.[0]?.id).toBe('banish');
+    const actionId = `spell:${effect!.id}:banish`;
+
+    const original = Math.random;
+    Math.random = () => 0.99; // d20 = 20 → спас успешен: существо остаётся
+    try {
+      f.invoke('action:use', { mapId: 'm1', tokenId: caster.id, actionId, targetIds: [target.id] });
+    } finally {
+      Math.random = original;
+    }
+    expect(map.tokens.some((t) => t.id === target.id)).toBe(true);
+
+    map.combat.turns.e1!.actionUsed = false;
+    Math.random = () => 0; // d20 = 1 → провал: уходит на родной план
+    try {
+      f.invoke('action:use', { mapId: 'm1', tokenId: caster.id, actionId, targetIds: [target.id] });
+    } finally {
+      Math.random = original;
+    }
+    expect(map.tokens.some((t) => t.id === target.id)).toBe(false);
+    expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.banishHome')).toBe(true);
+  });
+});
+
 describe('Harm', () => {
   it('провал спасброска снижает максимум HP на полученный урон; снятие эффекта возвращает', () => {
     const { room, f } = setup();

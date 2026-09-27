@@ -38,6 +38,7 @@ import { attackDamageRoll, attackHitRoll, attackUnseen, type WeaponDamageMods } 
 import { fail } from '../errors';
 import { removeConditionInstances } from '../effectsApply';
 import { applyForcedMovement } from '../force';
+import { removeTokenCompletely } from '../tokenRemove';
 import { executeTeleport } from '../teleport';
 import { emitSpellFx } from '../fx';
 import { pushRollMessage } from '../messages';
@@ -441,6 +442,12 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
       }
     }
     for (const save of saves) {
+      // Dispel Evil and Good: провал — существо уходит на родной план (без возврата).
+      if (run.def.banishOnFail && !save.success) {
+        ctx.systemMessage(room, { code: 'automation.banishHome', params: { name: save.target.name } });
+        removeTokenCompletely(run.ctx, run.room, run.mapId, save.target);
+        continue;
+      }
       if (!save.success) applyTargetEffects(run, save.target, stats);
       // Polymorph: провалившийся сейв превращается в выбранного зверя (концентрация — до конца).
       if (run.def.shape && !save.success) {

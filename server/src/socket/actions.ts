@@ -56,6 +56,7 @@ import { fail, type ErrorCode } from './errors';
 import { applyEffectTo } from './effectsApply';
 import { rejectIfIncapacitated, rejectIfReaction, rejectIfSpellsBlocked, scopedToken, type Scope } from './guards';
 import { shapeAttacks, shapeStatblock } from '../room/shape';
+import { creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone, shrinkZone } from './zones';
 import { resolveZoneSectionAttack } from './zoneAttacks';
@@ -543,6 +544,14 @@ function useGrantedAction(
     targets = targets.filter((t) => !savedAgainst(t.effects, caster.id, def.key));
     if (!targets.length) {
       fail(ctx, 'targetSaved');
+      return;
+    }
+  }
+  // Типы существ для выданного действия (Dispel Evil and Good: изгнание по типам).
+  if (def.requiresCreatureTypes?.length) {
+    const wrong = targets.some((t) => !def.requiresCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''));
+    if (wrong) {
+      fail(ctx, 'spellNoTarget');
       return;
     }
   }

@@ -628,6 +628,11 @@ export interface AutomationDef extends AutomationPayload {
   /** Вынужденное перемещение попавших/проваливших сейв целей (Repelling Blast, Thunderwave). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   /**
+   * Dispel Evil and Good: провал спасброска отправляет существо на родной план —
+   * токен удаляется навсегда (без возврата).
+   */
+  banishOnFail?: boolean;
+  /**
    * Всплеск вокруг цели: спас и урон по всем существам в `rangeFeet`
    * (Ice Knife — независимо от попадания; Hail of Thorns/Lightning Arrow — райдер).
    */
