@@ -1391,11 +1391,11 @@ export function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationD
 
 /**
  * Steel Wind Strike (XPHB 2024): до 5 существ в 30 фт — заклинательная атака
- * 6к10 силовым (+1к10 за круг выше 5); после атак телепорт в 5 фт от любой цели.
+ * 6к10 силовым, апкаста нет (в источниках нет higher-level абзаца); после
+ * атак телепорт в 5 фт от любой цели.
  */
-export function steelWindStrikeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+export function steelWindStrikeDef(spell: Spell): AutomationDef | undefined {
   if (spell.key !== 'XPHB:Steel Wind Strike') return undefined;
-  const castLevel = Math.max(5, opts.castLevel ?? spell.level);
   return {
     key: spell.key,
     name: spell.name,
@@ -1403,7 +1403,7 @@ export function steelWindStrikeDef(spell: Spell, opts: AutomationOptions): Autom
     attack: { rangeType: 'melee' },
     targets: 5,
     count: 5,
-    damage: { dice: scaledDice('6d10', '1d10', castLevel - 5), types: ['force'] },
+    damage: { dice: partDice(spell, 'main', '6d10'), types: ['force'] },
     teleportAfter: { feet: 5 },
   };
 }

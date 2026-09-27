@@ -181,7 +181,7 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
-  it('Steel Wind Strike: до 5 целей-атак, +1к10/круг, телепорт после', () => {
+  it('Steel Wind Strike: до 5 целей-атак, апкаста нет (XPHB), телепорт после', () => {
     const spell = makeSpell({
       key: 'XPHB:Steel Wind Strike',
       name: 'Steel Wind Strike',
@@ -195,7 +195,8 @@ describe('automationForSpell', () => {
     expect(def.targets).toBe(5);
     expect(def.damage).toEqual({ dice: '6d10', types: ['force'] });
     expect(def.teleportAfter).toEqual({ feet: 5 });
-    expect(automationForSpell(spell, { castLevel: 7 }).damage?.dice).toBe('8d10');
+    // В XPHB у заклинания нет higher-level абзаца: урон не растёт с кругом.
+    expect(automationForSpell(spell, { castLevel: 7 }).damage?.dice).toBe('6d10');
     expect(spellAutomated(spell)).toBe(true);
   });
 

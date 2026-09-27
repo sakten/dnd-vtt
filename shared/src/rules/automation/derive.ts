@@ -99,7 +99,7 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const chainLightning = chainLightningDef(spell, opts);
   if (chainLightning) return chainLightning;
 
-  const steelWindStrike = steelWindStrikeDef(spell, opts);
+  const steelWindStrike = steelWindStrikeDef(spell);
   if (steelWindStrike) return steelWindStrike;
 
   const spiritualWeapon = spiritualWeaponDef(spell, opts);
