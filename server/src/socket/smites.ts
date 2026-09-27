@@ -178,7 +178,9 @@ export function applySmiteChoice(
 
   let failed = true;
   let resisted = false;
-  if (effectDef && def.save) {
+  // Banishing Smite: спас CHA — только после урона атаки и лишь при остатке ≤ 50 HP
+  // (`applyBanishing`); общий блок спасброска для него не бросается вообще.
+  if (effectDef && def.save && !effectDef.banish) {
     const save = ctx.manager.rollSave(room, target, def.save.ability, dc, {
       conditionsAutoFail: true,
       condition: effectDef.conditions?.[0],

@@ -2731,10 +2731,14 @@ describe('action:use', () => {
     // Урон 4 + 5 = 9: у цели с 200 HP остаётся 191 — спаса нет, изгнания нет.
     const high = setup(200);
     expect(high.scene.maps[0]!.tokens[1]!.effects.some((e) => e.banish)).toBe(false);
+    // HP > 50: спас CHA не бросается вовсе — ни броска, ни сообщения об отражении.
+    expect(high.chat.filter((m) => m.kind === 'roll' && m.rollKind === 'save')).toHaveLength(0);
+    expect(high.chat.some((m) => m.kind === 'text' && m.system?.code === 'spells.smiteResisted')).toBe(false);
 
-    // У цели с 40 HP остаётся 31 — спас CHA провален, изгнание и концентрация.
+    // У цели с 40 HP остаётся 31 — ровно один спас CHA (после урона), изгнание и концентрация.
     const low = setup(40);
     const target = low.scene.maps[0]!.tokens[1]!;
+    expect(low.chat.filter((m) => m.kind === 'roll' && m.rollKind === 'save')).toHaveLength(1);
     const effect = target.effects.find((e) => e.banish);
     expect(effect?.sourceKey).toBe('XPHB:Banishing Smite');
     expect(effect?.duration).toEqual({ type: 'rounds', rounds: 10 });
