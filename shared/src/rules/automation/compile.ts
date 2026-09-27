@@ -6,6 +6,7 @@ import { addDice, scaledDice, upcastSteps } from './builders';
 import type {
   ActionSpec,
   AutomationSpec,
+  AutomationSpecCopy,
   EffectSpec,
   LoadoutSpec,
   ModifierSpec,
@@ -15,6 +16,7 @@ import type {
   WeaponAttackSpec,
   ZoneSpec,
 } from './spec';
+import { AUTOMATION_SPECS } from './specs';
 import type { AutomationOptions } from './variants';
 
 /** Контекст компиляции: заклинание + опции каста (R16, `AUTOMATION.md` §7). */
@@ -59,7 +61,8 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
     return tier?.value;
   }
   if ('perLevel' in expr) {
-    return expr.perLevel.base + expr.perLevel.per * Math.max(0, ctx.castLevel - expr.perLevel.above);
+    const above = expr.perLevel.above === 'spell' ? ctx.spell.level : expr.perLevel.above;
+    return expr.perLevel.base + expr.perLevel.per * Math.max(0, ctx.castLevel - above);
   }
   if ('spellMod' in expr) {
     return Math.max(expr.spellMod.min ?? Number.NEGATIVE_INFINITY, expr.spellMod.base + Math.round(ctx.opts.spellMod ?? 0));
@@ -367,6 +370,94 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
     ...(spec.weaponAttack ? { weaponAttack: compileWeaponAttack(ctx, spec.weaponAttack) } : {}),
   };
+}
+
+/** Шаг пути патча: элементы массивов — по `id`, иначе числовой индекс. */
+function stepPath(container: unknown, segment: string, path: string): unknown {
+  if (Array.isArray(container)) {
+    const byId = container.find((el) => el && typeof el === 'object' && (el as { id?: unknown }).id === segment);
+    if (byId) return byId;
+    const index = Number(segment);
+    if (Number.isInteger(index) && index >= 0 && index < container.length) return container[index];
+    throw new Error(`AutomationSpec patch ${path}: нет элемента ${segment}`);
+  }
+  if (container && typeof container === 'object' && segment in (container as Record<string, unknown>)) {
+    return (container as Record<string, unknown>)[segment];
+  }
+  throw new Error(`AutomationSpec patch ${path}: нет узла ${segment}`);
+}
+
+function assignPath(container: unknown, segment: string, value: unknown, path: string): void {
+  if (Array.isArray(container)) {
+    const index = container.findIndex((el) => el && typeof el === 'object' && (el as { id?: unknown }).id === segment);
+    if (index >= 0) {
+      container[index] = value;
+      return;
+    }
+    const numeric = Number(segment);
+    if (Number.isInteger(numeric) && numeric >= 0 && numeric < container.length) {
+      container[numeric] = value;
+      return;
+    }
+    throw new Error(`AutomationSpec patch ${path}: нет элемента ${segment}`);
+  }
+  if (!container || typeof container !== 'object' || !(segment in (container as Record<string, unknown>))) {
+    throw new Error(`AutomationSpec patch ${path}: нет узла ${segment}`);
+  }
+  (container as Record<string, unknown>)[segment] = value;
+}
+
+function parentOfPath(root: Record<string, unknown>, path: string): { parent: unknown; last: string } {
+  const segments = path.split('.');
+  let current: unknown = root;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    current = stepPath(current, segments[i]!, segments.slice(0, i + 1).join('.'));
+  }
+  return { parent: current, last: segments[segments.length - 1]! };
+}
+
+function setByPath(root: Record<string, unknown>, path: string, value: unknown): void {
+  const { parent, last } = parentOfPath(root, path);
+  assignPath(parent, last, value, path);
+}
+
+function removeByPath(root: Record<string, unknown>, path: string): void {
+  const { parent, last } = parentOfPath(root, path);
+  if (Array.isArray(parent)) {
+    const index = parent.findIndex((el) => el && typeof el === 'object' && (el as { id?: unknown }).id === last);
+    const numeric = index >= 0 ? index : Number(last);
+    if (Number.isInteger(numeric) && numeric >= 0 && numeric < parent.length) {
+      parent.splice(numeric, 1);
+      return;
+    }
+    throw new Error(`AutomationSpec patch ${path}: нечего удалять (${last})`);
+  }
+  if (parent && typeof parent === 'object' && last in (parent as Record<string, unknown>)) {
+    delete (parent as Record<string, unknown>)[last];
+    return;
+  }
+  throw new Error(`AutomationSpec patch ${path}: нечего удалять (${last})`);
+}
+
+/**
+ * Резолв спека: копия `extends` разворачивается в базовый спек + `patch`/`remove`
+ * (R16 шаг 4, `AUTOMATION.md` §5). Неизвестные база/путь — ошибка.
+ */
+export function resolveSpec(
+  spec: AutomationSpec | AutomationSpecCopy,
+  registry: Record<string, AutomationSpec | AutomationSpecCopy> = AUTOMATION_SPECS
+): AutomationSpec {
+  if (!('extends' in spec) || !spec.extends) return spec as AutomationSpec;
+  const base = registry[spec.extends];
+  if (!base) throw new Error(`AutomationSpec ${spec.key}: база ${spec.extends} не найдена`);
+  const resolved = structuredClone(resolveSpec(base, registry));
+  resolved.key = spec.key;
+  resolved.name = spec.name;
+  for (const [path, value] of Object.entries(spec.patch ?? {})) {
+    setByPath(resolved as unknown as Record<string, unknown>, path, structuredClone(value));
+  }
+  for (const path of spec.remove ?? []) removeByPath(resolved as unknown as Record<string, unknown>, path);
+  return resolved;
 }
 
 /**

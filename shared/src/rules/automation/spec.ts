@@ -42,8 +42,8 @@ export type ValueExpr =
   | { concat: ValueExpr[] }
   /** Литеральные ступени значения по кругу (Magic Weapon: +1/+2/+3 с 1/3/6 круга). */
   | { tiers: { above: number; value: number }[] }
-  /** `base + per × (круг − above)` (Cordon of Arrows: 4 + 2 стрелы за круг выше 2). */
-  | { perLevel: { base: number; per: number; above: number } }
+  /** `base + per × (круг − above)`; `above:'spell'` — базовый круг заклинания (Cordon). */
+  | { perLevel: { base: number; per: number; above: number | 'spell' } }
   /** `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2). */
   | { spellMod: { base: number; min?: number } }
   /** Кость с апкаст-скейлом (Healing Spirit: 1к6 + 1к6 за круг). */
@@ -218,4 +218,18 @@ export interface AutomationSpec {
   zone?: ZoneSpec;
   weaponAttack?: WeaponAttackSpec;
   choices?: ChoiceSpec[];
+}
+
+/**
+ * Копия спека (`CUSTOM:`, R16 шаг 4): база + патч по именованным путям.
+ * Патч адресует массивы по `id` элементов (`effects.<id>`, `choices.<id>`,
+ * `zone.actions.<id>`); присваивание массива заменяет его целиком; неизвестный
+ * путь — ошибка (`resolveSpec`), а не молчаливый no-op.
+ */
+export interface AutomationSpecCopy {
+  key: string;
+  name: string;
+  extends: string;
+  patch?: Record<string, unknown>;
+  remove?: string[];
 }

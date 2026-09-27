@@ -9,7 +9,7 @@ import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
 import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, armorOfAgathysDef, bestowCurseDef, bladeBarrierDef, blindnessDeafnessDef, boomingBladeDef, breathSpellDef, callLightningDef, chainLightningDef, commandDef, compositeDamageDef, conjureFeyDef, conjureMinorElementalsDef, cordonOfArrowsDef, dimensionDoorDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, elementalBaneDef, elementalWeaponDef, enervationDef, enhanceAbilityDef, ensnaringStrikeDef, eyebiteDef, falseLifeDef, farStepDef, fireShieldDef, flameArrowsDef, flameBladeDef, greenFlameBladeDef, guardianOfFaithDef, healSpellDef, healingSpiritDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, invisibilityDef, jallarziDef, lifeTransferenceDef, magicStoneDef, magicWeaponDef, minuteMeteorsDef, negativeEnergyFloodDef, protectionFromEnergyDef, resistanceDef, searingSmiteDef, shadowBladeDef, shadowOfMoilDef, shillelaghDef, skillEmpowermentDef, spellBuiltinAutomated, spiritShroudDef, spiritualWeaponDef, steelWindStrikeDef, stormSphereDef, sunbeamDef, telekinesisDef, thunderStepDef, trueStrikeDef, vampiricTouchDef, vitriolicSphereDef, wallOfFireDef, wallOfForceDef, wallOfIceDef, wallOfLightDef, wallOfSandDef, wallOfStoneDef, wallOfThornsDef, witchBoltDef, xphbSmiteDef, zephyrStrikeDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
-import { compileSpec } from './compile';
+import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
 import { spellVariantDef } from './variants';
 import type { AutomationOptions } from './variants';
@@ -39,7 +39,7 @@ export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): 
 
 function buildSpellAutomation(spell: Spell, opts: AutomationOptions): AutomationDef {
   const spec = AUTOMATION_SPECS[spell.key];
-  if (spec) return compileSpec(spec, { spell, opts });
+  if (spec) return compileSpec(resolveSpec(spec), { spell, opts });
 
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);

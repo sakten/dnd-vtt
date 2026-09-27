@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import type { AutomationDef } from '../domain/automation';
-import type { AutomationOptions, AutomationSpec } from './automation';
+import type { AutomationOptions, AutomationSpec, AutomationSpecCopy } from './automation';
 import { AUTOMATION_SPELLS } from './automation';
 import {
   blindnessDeafnessDef,
@@ -24,7 +24,7 @@ import {
   trueStrikeDef,
   zephyrStrikeDef,
 } from './automation/builders';
-import { compileSpec, validateSpec } from './automation/compile';
+import { compileSpec, resolveSpec, validateSpec } from './automation/compile';
 import { AUTOMATION_SPECS } from './automation/specs';
 import type { Spell } from './spells';
 
@@ -79,6 +79,38 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
         expect(compileSpec(spec, { spell: spell!, opts }), label).toEqual(build(spell!, opts));
       }
     }
+  });
+
+  it('копия (extends+patch) меняет механику без кода: пути по id, above:spell, remove', () => {
+    const copy: AutomationSpecCopy = {
+      key: 'CUSTOM:Пылающий кордон',
+      name: 'Пылающий кордон',
+      extends: 'XPHB:Cordon of Arrows',
+      patch: {
+        'zone.charges': { perLevel: { base: 6, per: 3, above: 'spell' } },
+        'zone.triggers.enter.damage': { dice: '3d6', types: ['fire'] },
+        'zone.triggers.endOfTurn.damage.types': ['fire'],
+      },
+      remove: ['zone.excludeSource'],
+    };
+    const spell = SPELLS.find((s) => s.key === 'XPHB:Cordon of Arrows')!;
+    const def = compileSpec(resolveSpec(copy), { spell, opts: { castLevel: 4 } });
+    expect(def.key).toBe('CUSTOM:Пылающий кордон');
+    expect(def.zone?.charges).toBe(6 + 3 * (4 - spell.level));
+    expect(def.zone?.triggers?.enter?.damage).toEqual({ dice: '3d6', types: ['fire'] });
+    expect(def.zone?.triggers?.endOfTurn?.damage?.types).toEqual(['fire']);
+    expect(def.zone?.triggers?.endOfTurn?.damage?.dice).toBe('2d4');
+    expect(def.zone?.excludeSource).toBeUndefined();
+  });
+
+  it('копия: неизвестный путь — ошибка, а не молчаливый no-op', () => {
+    const bad: AutomationSpecCopy = {
+      key: 'CUSTOM:Bad',
+      name: 'Bad',
+      extends: 'XPHB:Cordon of Arrows',
+      patch: { 'zone.nope': 1 },
+    };
+    expect(() => resolveSpec(bad)).toThrow();
   });
 
   it('валидатор: недопустимые комбинации — ошибка компиляции, а не молчание', () => {

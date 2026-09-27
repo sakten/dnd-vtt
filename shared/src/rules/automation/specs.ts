@@ -349,7 +349,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       enterOncePerTurn: true,
       excludeSource: true,
       side: 'hostile',
-      charges: { perLevel: { base: 4, per: 2, above: 2 } },
+      charges: { perLevel: { base: 4, per: 2, above: 'spell' } },
       triggers: {
         enter: { save: { ability: 'dex' }, damage: { dice: { ref: 'part', part: 'main', fallback: '2d4' }, types: ['piercing'] } },
         endOfTurn: { save: { ability: 'dex' }, damage: { dice: { ref: 'part', part: 'main', fallback: '2d4' }, types: ['piercing'] } },
