@@ -1174,4 +1174,29 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     damage: { dice: { ref: 'part', part: 'main', fallback: '6d10' }, types: ['force'] },
     movement: { teleportAfter: { feet: 5 } },
   },
+
+  'XPHB:Chain Lightning': {
+    key: 'XPHB:Chain Lightning',
+    name: 'Chain Lightning',
+    primary: 'save',
+    save: { ability: 'dex', half: true },
+    damage: { dice: { ref: 'damage', fallback: '10d8' }, types: ['lightning'] },
+    chain: { jumps: { sum: [3, { ref: 'castLevel' }, -6] }, feet: 30 },
+  },
+
+  'XPHB:Ice Knife': {
+    key: 'XPHB:Ice Knife',
+    name: 'Ice Knife',
+    primary: 'attack',
+    attack: { rangeType: 'ranged' },
+    count: 1,
+    damage: { dice: { concat: [{ ref: 'part', part: 'main', fallback: '1d10' }, 'piercing'] }, types: ['piercing'] },
+    burst: {
+      rangeFeet: 5,
+      dice: { concat: [{ scale: { dice: { ref: 'part', part: 'trigger', fallback: '2d6' }, by: 'upcast' } }, 'cold'] },
+      damageType: 'cold',
+      save: { ability: 'dex', half: false },
+      includePrimary: true,
+    },
+  },
 };

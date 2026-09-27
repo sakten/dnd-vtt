@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, chainLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, iceKnifeDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, telekinesisDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, dispelMagicDef, dominateDef, enervationDef, ensnaringStrikeDef, falseLifeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, telekinesisDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef, xphbSmiteDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -74,9 +74,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const heal = healSpellDef(spell, opts);
   if (heal) return heal;
 
-  const chainLightning = chainLightningDef(spell, opts);
-  if (chainLightning) return chainLightning;
-
   const spiritualWeapon = spiritualWeaponDef(spell, opts);
   if (spiritualWeapon) return spiritualWeapon;
 
@@ -97,9 +94,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const jallarzi = jallarziDef(spell, opts);
   if (jallarzi) return jallarzi;
-
-  const iceKnife = iceKnifeDef(spell, opts);
-  if (iceKnife) return iceKnife;
 
   const vitriolic = vitriolicSphereDef(spell, opts);
   if (vitriolic) return vitriolic;

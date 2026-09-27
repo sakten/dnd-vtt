@@ -330,6 +330,16 @@ export interface AutomationSpec {
   count?: number;
   /** Массовая цель без области: до N существ (Steel Wind Strike — 5). */
   targets?: number;
+  /** Chain Lightning: первая цель выбирается, `jumps` существ в `feet` — авто. */
+  chain?: { jumps: ValueExpr; feet: number };
+  /** Всплеск вокруг цели (Ice Knife — независимо от попадания). */
+  burst?: {
+    rangeFeet: number;
+    dice?: ValueExpr;
+    damageType: ValueExpr;
+    save?: AutomationSave;
+    includePrimary?: boolean;
+  };
   targeting?: ActionTargeting;
   /** Утилита спека (телепорт, scatter, tempHp): кости провала/вспышки — ссылки. */
   utility?: UtilitySpec;

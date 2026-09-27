@@ -76,6 +76,8 @@
 - `filters`: `side`, `excludeCreatureTypes`, `requiresCreatureTypes`, `containment`;
 - метки: поля `mark`/`markTarget`/`markSaved` остаются в `effects` (компилируются в `EffectInstance` с `filter.targetId`); `retarget` (Hex/Hunter's Mark) — операция `selection` над меткой.
 
+Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); остальные фильтры/метки — по мере миграции (Bless/Hex/Hail of Thorns — из каталога/деривации).
+
 Часть правил уже в `shared/src/rules/targeting.ts`; блок описывает только декларацию, выбор остаётся за `interaction.ts`/клиентом.
 
 ### 3.7. `vision` — свет, сенсы, скрытие (выделяется)
@@ -181,7 +183,8 @@ CUSTOM:Jallarzi-Fire {
 - батч стен через `wallZone`: параметрические габариты (`WallDims | { from: 'spell' }`, `wallAreaOf`), секции с `breach`, литеральный `scale.by`, `ActionSpec` (`count`/`shrinkFeet`/`defKey`); мигрированы Thorns, Ice, Force, Stone, Light (35 спеков, все 9 стен);
 - батч carrier'ов `choices`: `Leveled<T>` (круг каста), гейты `wakeOnDamage`/`turnDodge`/`takesExtraDamage`, `markSaved`, вложенные эффекты действий; мигрированы Eyebite и Bestow Curse — `choices` закрыт (37 спеков);
 - батч `hooks` (damageHooks): `HookSpec` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage/saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction), `ValueExpr` (`upcastFlat`/`sum`); регрупп 7 спеков + мигрированы Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward (42 спека); билдеры и каталожные записи удалены;
-- батч `movement`: `UtilitySpec` (ссылки в blockedDamage/fromBurst), `MovementSpec`/`EffectMovementSpec`, `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (48 спеков), билдеры/каталог удалены.
+- батч `movement`: `UtilitySpec` (ссылки в blockedDamage/fromBurst), `MovementSpec`/`EffectMovementSpec`, `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (48 спеков), билдеры/каталог удалены;
+- батч `selection` (начало): `chain` (`jumps` — ссылка) и `burst` (Ice Knife); мигрированы Chain Lightning и Ice Knife (50 спеков), билдеры удалены.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

@@ -179,6 +179,21 @@ function compileLoadout(ctx: CompileCtx, loadout: LoadoutSpec): Partial<Automati
   return { modifiers, ...(loadout.magic ? { magicWeapon: true } : {}) };
 }
 
+/** Блок `selection`: всплеск вокруг цели (Ice Knife) с резолвом кости/типа. */
+function compileBurst(
+  ctx: CompileCtx,
+  burst: NonNullable<AutomationSpec['burst']>
+): NonNullable<AutomationDef['burst']> {
+  const dice = burst.dice !== undefined ? resolveValue(ctx, burst.dice) : undefined;
+  return {
+    rangeFeet: burst.rangeFeet,
+    damageType: String(mustValue(ctx, burst.damageType, 'burst.damageType')),
+    ...(dice !== undefined ? { dice: String(dice) } : {}),
+    ...(burst.save ? { save: { ...burst.save } } : {}),
+    ...(burst.includePrimary ? { includePrimary: true } : {}),
+  };
+}
+
 /** Блок `utility`: кости провала/вспышки резолвятся, остальное — pass-through. */
 function compileUtility(ctx: CompileCtx, utility: UtilitySpec): AutomationUtility {
   const { blockedDamage, fromBurst, ...rest } = utility;
@@ -543,6 +558,8 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targets !== undefined ? { targets: spec.targets } : {}),
+    ...(spec.chain ? { chain: { jumps: Number(mustValue(ctx, spec.chain.jumps, 'chain.jumps')), feet: spec.chain.feet } } : {}),
+    ...(spec.burst ? { burst: compileBurst(ctx, spec.burst) } : {}),
     ...(spec.targeting ? { targeting: { ...spec.targeting } } : {}),
     ...(spec.utility ? { utility: compileUtility(ctx, spec.utility) } : {}),
     ...(spec.movement?.teleportAfter ? { teleportAfter: { ...spec.movement.teleportAfter } } : {}),
@@ -747,6 +764,11 @@ export function validateSpec(spec: AutomationSpec): string[] {
   }
   if (spec.damage) pushDamageRefs(spec.damage);
   collectUtility(spec.utility);
+  if (spec.chain) refs.push(spec.chain.jumps);
+  if (spec.burst) {
+    if (spec.burst.dice !== undefined) refs.push(spec.burst.dice);
+    refs.push(spec.burst.damageType);
+  }
   if (spec.zone) {
     if (spec.zone.charges !== undefined) refs.push(spec.zone.charges);
     collectPayload(spec.zone.onCreate);

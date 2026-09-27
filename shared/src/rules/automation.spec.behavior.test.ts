@@ -305,4 +305,28 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(action?.def?.utility).toEqual({ kind: 'teleport', amount: 60 });
     expect(action?.def?.targeting).toEqual({ kind: 'point', range: 60 });
   });
+
+  it('Chain Lightning: первая цель + 3 скачка (+1/круг), 10d8 электричеством', () => {
+    const spell = find('XPHB:Chain Lightning');
+    const base = automationForSpell(spell, { castLevel: 6 });
+    expect(base.save).toEqual({ ability: 'dex', half: true });
+    expect(base.damage).toEqual({ dice: '10d8', types: ['lightning'] });
+    expect(base.chain).toEqual({ jumps: 3, feet: 30 });
+    expect(automationForSpell(spell, { castLevel: 8 }).chain?.jumps).toBe(5);
+  });
+
+  it('Ice Knife: атака 1d10 колющим, взрыв 2d6 холодом (+1d6/круг) и по основной цели', () => {
+    const spell = find('XPHB:Ice Knife');
+    const base = automationForSpell(spell, { castLevel: 1 });
+    expect(base.attack).toEqual({ rangeType: 'ranged' });
+    expect(base.damage).toEqual({ dice: '1d10piercing', types: ['piercing'] });
+    expect(base.burst).toEqual({
+      rangeFeet: 5,
+      damageType: 'cold',
+      dice: '2d6cold',
+      save: { ability: 'dex', half: false },
+      includePrimary: true,
+    });
+    expect(automationForSpell(spell, { castLevel: 3 }).burst?.dice).toBe('4d6cold');
+  });
 });

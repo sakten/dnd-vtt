@@ -933,50 +933,6 @@ export function stormSphereDef(spell: Spell, opts: AutomationOptions): Automatio
 }
 
 /**
- * Chain Lightning (XPHB 2024): игрок выбирает первую цель (150 фт); три скачка
- * (+1 за круг выше 6) добираются авто по враждебным существам в 30 фт от неё;
- * все цели — спас DEX, один бросок 10к8 электричеством (половина при успехе).
- */
-export function chainLightningDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Chain Lightning') return undefined;
-  const castLevel = Math.max(6, opts.castLevel ?? spell.level);
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    save: { ability: 'dex', half: true },
-    damage: { dice: spell.damage?.dice?.[0] ?? '10d8', types: ['lightning'] },
-    chain: { jumps: 3 + (castLevel - 6), feet: 30 },
-  };
-}
-
-/**
- * Ice Knife (XPHB 2024): дальняя заклинательная атака (1к10 колющим); вне
- * зависимости от попадания осколок взрывается — цель и все в 5 фт проходят
- * спас DEX и получают 2к6 холодом (апкаст +1к6; при успехе урона нет).
- */
-export function iceKnifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Ice Knife') return undefined;
-  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const cold = scaledDice(partDice(spell, 'trigger', '2d6'), spell.upcast?.dice, upcastSteps(spell, level));
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'attack',
-    attack: { rangeType: 'ranged' },
-    count: 1,
-    damage: { dice: `${partDice(spell, 'main', '1d10')}piercing`, types: ['piercing'] },
-    burst: {
-      rangeFeet: 5,
-      dice: `${cold}cold`,
-      damageType: 'cold',
-      save: { ability: 'dex', half: false },
-      includePrimary: true,
-    },
-  };
-}
-
-/**
  * Vitriolic Sphere (XPHB 2024): спас DEX (успех — половина первичного урона),
  * 10к4 кислотой (+2к4 за круг выше 4); провал — в конце следующего хода
  * носителя ещё 5к4 кислотой (одноразовый `triggers.endOfTurn`).
