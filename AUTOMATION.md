@@ -66,7 +66,7 @@
 
 Блок: `choices: [{ id, param, options, default? }]`; `param` — типизированный enum, значение подставляется ссылками в `DiceRef.types`, `effect.conditions`, `ability`, `zone.area` (форма стены). Клиент выбирает вариант в `SpellPopover`, сервер валидирует (`spellResolve`).
 
-Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType|ability|skill` — ссылки), условия/`retaliate`/`takesExtraDamage` и действия (`save`/`area`/`damage.types`) принимают ссылки, условные элементы списков `{ if, then }` (Command), `ValueExpr.add/includes/mapped`. Мигрированы: Elemental Weapon (пилот), Resistance/Elemental Bane (батч `uses`), Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME. Остальные носители `SPELL_VARIANTS`: Eyebite (carrier с 3 действиями), Bestow Curse (режимы), Destructive Wave (составной урон), формы стен (нужен `wallArea` в спеке).
+Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType|ability|skill` — ссылки), условия/`retaliate`/`takesExtraDamage`/`turnDodge`/`wakeOnDamage` и действия (`save`/`area`/`damage.types`/`effects`) принимают ссылки и гейты `{ if, then }`, `Leveled` для круга каста. Мигрированы все носители `SPELL_VARIANTS`: Elemental Weapon, Resistance, Elemental Bane, Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME, Eyebite (carrier с 3 действиями, `markSaved`), Bestow Curse (режимы, `turnDodge`, `Leveled`-длительность). Реестр `SPELL_VARIANTS` остаётся только устаревшим билдерам — удаляется вместе с ними.
 
 ### 3.6. `selection` — как выбираются цели (выделяется)
 - `mode`: `single` / `multi` (`targets`, `targetsAbility`) / `area` (`areaSpec`, `origin`) / `chain` (`jumps`, `feet`) / `scatter` / `radius` (`radiusFeet`, `autoTargets`);
@@ -99,6 +99,8 @@
 - `{ ref: 'part', part, index?, fallback? }` — часть данных по роли и индексу (составной урон: две `main`);
 - `{ ref: 'choice', optional? }` — выбор при касте; `optional` — без явного варианта поле опускается (Wall of Sand);
 - урон — `DamageSpec`: одиночная часть (`dice`/`types`) или `parts: [{ dice, type }]` (Destructive Wave: `5d6thunder + 5d6radiant` с уникальными типами);
+- `Leveled<T>` — значение по кругу каста: `{ levels: [{ above, value }], fallback? }` (Bestow Curse: длительность/концентрация/лимит; `null` — без лимита, `fallback: undefined` — дефолт движка);
+- `Gated<T>` — элемент под условием выбора: `{ if, then }` (условия, модификаторы, `takesExtraDamage`, `turnDodge`, `wakeOnDamage`);
 - `{ concat: [...] }` — `${кость}${тип}`: любое нерешённое слагаемое опускает всё поле (`riderDice` у GFB/True Strike);
 - `{ tiers: [{ above, value }] }` — литеральные ступени (Magic Weapon: +1/+2/+3 с 1/3/6 круга);
 - `{ perLevel: { base, per, above } }` — `base + per × (круг − above)` (Cordon: 4 + 2 стрелы за круг);
@@ -172,7 +174,8 @@ CUSTOM:Jallarzi-Fire {
 - блок `zone` + `PayloadSpec` — реализованы (pass-through + ValueExpr); мигрированы Guardian of Faith, Cordon of Arrows, Healing Spirit: `uses` закрыт;
 - батч `choices`: `ModifierSpec` (ссылки в value/filter), условия/`retaliate`/`takesExtraDamage`/действия со ссылками, `{ if, then }`, `add/includes/mapped`; мигрированы 10 заклинаний выбора (26 спеков);
 - батч составного урона и базовых стен: `DamageSpec.parts`, `part.index`, `choice.optional`, `zone.area: { wall: 'spell' }`; мигрированы Destructive Wave, Wall of Fire, Blade Barrier, Wall of Sand (30 спеков). Тонкие стены (Ice/Force/Stone: `zone.wall` + `breach`), Wall of Light (`shrinkFeet`), Wall of Thorns — следующим шаблоном `wallZone`;
-- батч стен через `wallZone`: параметрические габариты (`WallDims | { from: 'spell' }`, `wallAreaOf`), секции с `breach`, литеральный `scale.by`, `ActionSpec` (`count`/`shrinkFeet`/`defKey`); мигрированы Thorns, Ice, Force, Stone, Light (35 спеков, все 9 стен).
+- батч стен через `wallZone`: параметрические габариты (`WallDims | { from: 'spell' }`, `wallAreaOf`), секции с `breach`, литеральный `scale.by`, `ActionSpec` (`count`/`shrinkFeet`/`defKey`); мигрированы Thorns, Ice, Force, Stone, Light (35 спеков, все 9 стен);
+- батч carrier'ов `choices`: `Leveled<T>` (круг каста), гейты `wakeOnDamage`/`turnDodge`/`takesExtraDamage`, `markSaved`, вложенные эффекты действий; мигрированы Eyebite и Bestow Curse — `choices` закрыт (37 спеков).
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

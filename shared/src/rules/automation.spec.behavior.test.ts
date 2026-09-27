@@ -174,4 +174,57 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(up.zone?.triggers?.endOfTurn?.damage?.dice).toBe('6d8radiant');
     expect(up.zone?.actions?.[0]?.def?.damage?.dice).toBe('6d8radiant');
   });
+
+  it('Eyebite: три действия на выбор, метка спасшимся, сон снимается уроном', () => {
+    const spell = find('XPHB:Eyebite');
+    const def = automationForSpell(spell, { variant: 'sickened' });
+    expect(def.save).toEqual({ ability: 'wis' });
+    expect(def.targeting).toEqual({ kind: 'creature', range: 60 });
+    const carrier = def.effects?.[0];
+    expect(carrier?.to).toBe('self');
+    expect(carrier?.actions?.map((a) => a.id)).toEqual(['eyebite:asleep', 'eyebite:panicked', 'eyebite:sickened']);
+    const asleep = carrier?.actions?.[0]?.def;
+    expect(asleep?.save).toEqual({ ability: 'wis' });
+    expect(asleep?.effects?.[0]?.conditions).toEqual(['unconscious']);
+    expect(asleep?.effects?.[0]?.wakeOnDamage).toBe(true);
+    const mark = def.effects?.[1];
+    expect(mark?.conditions).toEqual(['poisoned']);
+    expect(mark?.markSaved).toBe(true);
+    expect(mark?.wakeOnDamage).toBeUndefined();
+    const asleepDef = automationForSpell(spell, { variant: 'asleep' });
+    expect(asleepDef.effects?.[1]?.conditions).toEqual(['unconscious']);
+    expect(asleepDef.effects?.[1]?.wakeOnDamage).toBe(true);
+  });
+
+  it('Bestow Curse: режимы и длительность по кругу (10 раундов / 100 / постоянно)', () => {
+    const spell = find('XPHB:Bestow Curse');
+    const base = automationForSpell(spell, { castLevel: 3, variant: 'checks-dex' });
+    expect(base.concentration).toBe(true);
+    expect(base.maxRounds).toBe(10);
+    expect(base.effects?.[0]?.duration).toEqual({ type: 'concentration' });
+    expect(base.effects?.[0]?.modifiers).toEqual([
+      { target: 'check', mode: 'disadvantage', filter: { ability: 'dex' } },
+      { target: 'save', mode: 'disadvantage', filter: { ability: 'dex' } },
+    ]);
+    const lvl4 = automationForSpell(spell, { castLevel: 4, variant: 'attacks' });
+    expect(lvl4.maxRounds).toBe(100);
+    expect(lvl4.effects?.[0]?.modifiers).toEqual([
+      { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+    ]);
+    const lvl5 = automationForSpell(spell, { castLevel: 5, variant: 'dodge' });
+    expect(lvl5.concentration).toBeUndefined();
+    expect(lvl5.maxRounds).toBeNull();
+    expect(lvl5.effects?.[0]?.duration).toEqual({ type: 'permanent' });
+    expect(lvl5.effects?.[0]?.turnDodge).toEqual({ ability: 'wis' });
+    expect(automationForSpell(spell, { castLevel: 3, variant: 'necrotic' }).effects?.[0]?.takesExtraDamage).toEqual({
+      dice: '1d8',
+      damageType: 'necrotic',
+    });
+    // Без выбора — проверки Силы.
+    expect(automationForSpell(spell, { castLevel: 3 }).effects?.[0]?.modifiers?.[0]).toEqual({
+      target: 'check',
+      mode: 'disadvantage',
+      filter: { ability: 'str' },
+    });
+  });
 });

@@ -614,7 +614,7 @@ export function bestowCurseDef(spell: Spell, opts: AutomationOptions): Automatio
   const effect: AutomationEffect = {
     name: spell.name,
     duration: castLevel >= 5 ? PERMANENT : CONCENTRATION,
-    concentration: castLevel < 5,
+    ...(castLevel < 5 ? { concentration: true } : {}),
     to: 'targets',
     targets: 1,
     modifiers: [],

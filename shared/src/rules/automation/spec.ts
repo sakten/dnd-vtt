@@ -92,6 +92,8 @@ export interface ActionSpec {
   /** Действие зоны (Dragon's Breath): спас и урон (кость/типы — ссылки). */
   save?: AutomationSave;
   damage?: { dice: ValueExpr; types?: ValueExpr[]; abilityMod?: boolean };
+  /** Эффекты действия (Eyebite: сон/паника/тошнота при провале спасброска). */
+  effects?: EffectSpec[];
   utility?: AutomationUtility;
 }
 
@@ -180,6 +182,9 @@ export interface ZoneSpec
 /** Элемент списка под условием: `if` непусто/истинно — `then` попадает в результат. */
 export type Gated<T> = T | { if: ValueExpr; then: T };
 
+/** Значение, зависящее от круга каста: ближайшая ступень `above` (включительно) или `fallback`. */
+export type Leveled<T> = T | { levels: { above: number; value: T }[]; fallback?: T };
+
 /** Модификатор спека: `value`/`filter.*` — `ValueExpr` (выбор при касте). */
 export interface ModifierSpec extends Omit<Modifier, 'id' | 'value' | 'filter'> {
   value?: ValueExpr;
@@ -194,8 +199,8 @@ export interface ModifierSpec extends Omit<Modifier, 'id' | 'value' | 'filter'> 
 export interface EffectSpec {
   id: string;
   name: string;
-  duration: EffectDuration;
-  concentration?: boolean;
+  duration: Leveled<EffectDuration>;
+  concentration?: Leveled<boolean>;
   to?: 'self' | 'targets';
   /** Модификаторы (id присваивает сервер); значения/фильтры — ссылки; гейт по выбору. */
   modifiers?: Gated<ModifierSpec>[];
@@ -212,7 +217,13 @@ export interface EffectSpec {
   /** Elemental Bane: потеря сопротивления и доп. урон первого попадания за ход. */
   elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
   /** Spirit Shroud/CME: доп. урон атак источника по носителю (аура-метка). */
-  takesExtraDamage?: { dice: ValueExpr; damageType: ValueExpr };
+  takesExtraDamage?: Gated<{ dice: ValueExpr; damageType: ValueExpr }>;
+  /** Bestow Curse («Уклонение»): спас в начале хода, при провале — принудительное Уклонение. */
+  turnDodge?: Gated<{ ability: ValueExpr }>;
+  /** Урон/встряска снимает эффект (Sleep); гейт — только для части вариантов (Eyebite: сон). */
+  wakeOnDamage?: Gated<boolean>;
+  /** Eyebite: метка спасшейся цели — повторно не выбрать до конца каста. */
+  markSaved?: boolean;
   /** Ограничения экономики (Zephyr Strike: перемещение не провоцирует OA). */
   restrictions?: Restrictions;
   /** Ответный урон (Armor of Agathys, Fire Shield); тип — ссылка. */
@@ -252,8 +263,8 @@ export interface AutomationSpec {
   name: string;
   /** Ведущая ветка диспетчера (см. `AUTOMATION.md` §2). */
   primary: AutomationResolution;
-  concentration?: boolean;
-  maxRounds?: number | null;
+  concentration?: Leveled<boolean>;
+  maxRounds?: Leveled<number | null>;
   save?: AutomationSave;
   damage?: DamageSpec;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };

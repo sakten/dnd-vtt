@@ -2338,7 +2338,7 @@ describe('automationForSpell', () => {
     expect(upcast.concentration).toBeUndefined();
     expect(upcast.maxRounds).toBeNull();
     expect(upcast.effects?.[0]?.duration).toEqual({ type: 'permanent' });
-    expect(upcast.effects?.[0]?.concentration).toBe(false);
+    expect(upcast.effects?.[0]?.concentration).toBeUndefined();
     expect(spellAutomated({ key: 'XPHB:Bestow Curse', automation: 'manual' })).toBe(true);
   });
 

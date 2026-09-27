@@ -49,6 +49,18 @@ const lightDice = (part: 'main' | 'repeat', index?: number): ValueExpr => ({
   ],
 });
 
+/** Bestow Curse: режимы проклятия и карта «режим проверки → характеристика». */
+const CHECK_ABILITIES: Record<string, string> = {
+  'checks-str': 'str',
+  'checks-dex': 'dex',
+  'checks-con': 'con',
+  'checks-int': 'int',
+  'checks-wis': 'wis',
+  'checks-cha': 'cha',
+};
+const CHECK_ABILITY_KEYS = Object.keys(CHECK_ABILITIES);
+const BESTOW_CURSE_OPTIONS = [...CHECK_ABILITY_KEYS, 'attacks', 'dodge', 'necrotic'];
+
 /**
  * Реестр спеков (R16, пилот `loadout`): специализированные заклинания оружия и
  * атак. Компилируются в `AutomationDef` (`compileSpec`) и перехватывают билдеры
@@ -823,5 +835,155 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         },
       ],
     }),
+  },
+
+  'XPHB:Eyebite': {
+    key: 'XPHB:Eyebite',
+    name: 'Eyebite',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    targeting: { kind: 'creature', range: 60 },
+    choices: [{ id: 'effect', param: 'effect', options: ['asleep', 'panicked', 'sickened'] }],
+    effects: [
+      {
+        id: 'carrier',
+        name: 'Eyebite',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        actions: [
+          {
+            id: 'eyebite:asleep',
+            name: 'Eyebite: Сон',
+            cost: 'action',
+            subKey: 'asleep',
+            primary: 'save',
+            save: { ability: 'wis' },
+            targeting: { kind: 'creature', range: 60 },
+            effects: [
+              {
+                id: 'asleep',
+                name: 'Eyebite: Сон',
+                duration: CONCENTRATION,
+                concentration: true,
+                to: 'targets',
+                conditions: ['unconscious'],
+                wakeOnDamage: true,
+              },
+            ],
+          },
+          {
+            id: 'eyebite:panicked',
+            name: 'Eyebite: Паника',
+            cost: 'action',
+            subKey: 'panicked',
+            primary: 'save',
+            save: { ability: 'wis' },
+            targeting: { kind: 'creature', range: 60 },
+            effects: [
+              {
+                id: 'panicked',
+                name: 'Eyebite: Паника',
+                duration: CONCENTRATION,
+                concentration: true,
+                to: 'targets',
+                conditions: ['frightened'],
+              },
+            ],
+          },
+          {
+            id: 'eyebite:sickened',
+            name: 'Eyebite: Тошнота',
+            cost: 'action',
+            subKey: 'sickened',
+            primary: 'save',
+            save: { ability: 'wis' },
+            targeting: { kind: 'creature', range: 60 },
+            effects: [
+              {
+                id: 'sickened',
+                name: 'Eyebite: Тошнота',
+                duration: CONCENTRATION,
+                concentration: true,
+                to: 'targets',
+                conditions: ['poisoned'],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'mark',
+        name: 'Eyebite',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        conditions: [
+          {
+            mapped: {
+              of: { ref: 'choice' },
+              values: { asleep: 'unconscious', panicked: 'frightened', sickened: 'poisoned' },
+            },
+          },
+        ],
+        wakeOnDamage: { if: { includes: { of: { ref: 'choice' }, values: ['asleep'] } }, then: true },
+        markSaved: true,
+      },
+    ],
+  },
+
+  'XPHB:Bestow Curse': {
+    key: 'XPHB:Bestow Curse',
+    name: 'Bestow Curse',
+    primary: 'effect',
+    save: { ability: 'wis' },
+    concentration: { levels: [{ above: 5, value: false }], fallback: true },
+    maxRounds: {
+      levels: [
+        { above: 4, value: 100 },
+        { above: 5, value: null },
+      ],
+      fallback: undefined,
+    },
+    choices: [{ id: 'curse', param: 'effect', options: BESTOW_CURSE_OPTIONS }],
+    effects: [
+      {
+        id: 'curse',
+        name: 'Bestow Curse',
+        duration: { levels: [{ above: 5, value: PERMANENT }], fallback: CONCENTRATION },
+        concentration: { levels: [{ above: 5, value: false }], fallback: true },
+        to: 'targets',
+        targets: 1,
+        modifiers: [
+          {
+            if: { includes: { of: { ref: 'choice' }, values: CHECK_ABILITY_KEYS } },
+            then: {
+              target: 'check',
+              mode: 'disadvantage',
+              filter: { ability: { mapped: { of: { ref: 'choice' }, values: CHECK_ABILITIES } } },
+            },
+          },
+          {
+            if: { includes: { of: { ref: 'choice' }, values: CHECK_ABILITY_KEYS } },
+            then: {
+              target: 'save',
+              mode: 'disadvantage',
+              filter: { ability: { mapped: { of: { ref: 'choice' }, values: CHECK_ABILITIES } } },
+            },
+          },
+          {
+            if: { includes: { of: { ref: 'choice' }, values: ['attacks'] } },
+            then: { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
+          },
+        ],
+        turnDodge: { if: { includes: { of: { ref: 'choice' }, values: ['dodge'] } }, then: { ability: 'wis' } },
+        takesExtraDamage: {
+          if: { includes: { of: { ref: 'choice' }, values: ['necrotic'] } },
+          then: { dice: '1d8', damageType: 'necrotic' },
+        },
+        variant: { ref: 'choice' },
+      },
+    ],
   },
 };

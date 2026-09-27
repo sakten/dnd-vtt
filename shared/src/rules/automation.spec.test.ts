@@ -4,6 +4,7 @@ import type { AutomationDef } from '../domain/automation';
 import type { AutomationOptions, AutomationSpec, AutomationSpecCopy } from './automation';
 import { AUTOMATION_SPELLS } from './automation';
 import {
+  bestowCurseDef,
   bladeBarrierDef,
   blindnessDeafnessDef,
   boomingBladeDef,
@@ -15,6 +16,7 @@ import {
   elementalBaneDef,
   elementalWeaponDef,
   enhanceAbilityDef,
+  eyebiteDef,
   fireShieldDef,
   flameArrowsDef,
   flameBladeDef,
@@ -82,6 +84,8 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XPHB:Wall of Force': wallOfForceDef,
   'XPHB:Wall of Stone': wallOfStoneDef,
   'XGE:Wall of Light': wallOfLightDef,
+  'XPHB:Eyebite': eyebiteDef,
+  'XPHB:Bestow Curse': bestowCurseDef,
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {
