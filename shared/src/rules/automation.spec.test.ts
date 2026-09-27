@@ -4,10 +4,12 @@ import type { AutomationDef } from '../domain/automation';
 import type { AutomationOptions, AutomationSpec } from './automation';
 import { AUTOMATION_SPELLS } from './automation';
 import {
+  blindnessDeafnessDef,
   boomingBladeDef,
   cordonOfArrowsDef,
   elementalBaneDef,
   elementalWeaponDef,
+  fireShieldDef,
   flameArrowsDef,
   flameBladeDef,
   greenFlameBladeDef,
@@ -15,6 +17,7 @@ import {
   healingSpiritDef,
   magicStoneDef,
   magicWeaponDef,
+  protectionFromEnergyDef,
   resistanceDef,
   shadowBladeDef,
   shillelaghDef,
@@ -46,6 +49,9 @@ const BUILDERS: Record<string, (spell: Spell, opts: AutomationOptions) => Automa
   'XPHB:Guardian of Faith': (spell) => guardianOfFaithDef(spell),
   'XPHB:Cordon of Arrows': cordonOfArrowsDef,
   'XGE:Healing Spirit': healingSpiritDef,
+  'XPHB:Protection from Energy': protectionFromEnergyDef,
+  'XPHB:Blindness/Deafness': blindnessDeafnessDef,
+  'XPHB:Fire Shield': fireShieldDef,
 };
 
 describe('AutomationSpec (R16, пилот loadout)', () => {

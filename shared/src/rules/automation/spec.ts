@@ -6,7 +6,7 @@ import type {
   LightSource,
   ZoneDef,
 } from '../../domain/automation';
-import type { ConditionKey, EffectDuration, Modifier, Restrictions } from '../../domain/effects';
+import type { ConditionKey, EffectDuration, Modifier, ModifierFilter, Restrictions } from '../../domain/effects';
 import type { DamagePartRole } from '../spells';
 
 /**
@@ -47,7 +47,9 @@ export type ValueExpr =
   /** `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2). */
   | { spellMod: { base: number; min?: number } }
   /** Кость с апкаст-скейлом (Healing Spirit: 1к6 + 1к6 за круг). */
-  | { scale: { dice: ValueExpr; by: 'upcast' } };
+  | { scale: { dice: ValueExpr; by: 'upcast' } }
+  /** Отображение значения по таблице (Fire Shield: warm → сопротивление холоду, ответ огнём). */
+  | { mapped: { of: ValueExpr; values: Record<string, string>; fallback?: ValueExpr } };
 
 /** Выбор, делаемый при касте (Dragon's Breath: тип урона; Elemental Weapon: тип и т.п.). */
 export interface ChoiceSpec {
@@ -140,6 +142,12 @@ export interface ZoneSpec extends Omit<Partial<ZoneDef>, 'charges' | 'triggers' 
   };
 }
 
+/** Модификатор спека: `value`/`filter.damageType` — `ValueExpr` (выбор при касте). */
+export interface ModifierSpec extends Omit<Modifier, 'id' | 'value' | 'filter'> {
+  value?: ValueExpr;
+  filter?: Omit<ModifierFilter, 'damageType'> & { damageType?: ValueExpr };
+}
+
 /** Эффект спека: длительность/цель + блоки (loadout/uses/actions/vision). */
 export interface EffectSpec {
   id: string;
@@ -147,9 +155,9 @@ export interface EffectSpec {
   duration: EffectDuration;
   concentration?: boolean;
   to?: 'self' | 'targets';
-  /** Модификаторы, заданные литералом (id присваивает сервер). */
-  modifiers?: Omit<Modifier, 'id'>[];
-  conditions?: ConditionKey[];
+  /** Модификаторы (id присваивает сервер); значения/фильтры — ссылки. */
+  modifiers?: ModifierSpec[];
+  conditions?: ValueExpr[];
   light?: LightSource;
   /** Подпись выбранного варианта (`variant`), если он виден в чипе. */
   variant?: ValueExpr;
@@ -163,6 +171,8 @@ export interface EffectSpec {
   elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
   /** Ограничения экономики (Zephyr Strike: перемещение не провоцирует OA). */
   restrictions?: Restrictions;
+  /** Ответный урон (Armor of Agathys, Fire Shield); тип — ссылка. */
+  retaliate?: { damageType: ValueExpr; dice?: string; amount?: number };
   /** Zephyr Strike: одноразовая атака — кости, тип и скорость (расход через `uses`). */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
   actions?: ActionSpec[];

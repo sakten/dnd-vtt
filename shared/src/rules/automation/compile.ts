@@ -1,4 +1,5 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, GrantedAction, ZoneDef } from '../../domain/automation';
+import type { ConditionKey, Modifier } from '../../domain/effects';
 import type { Spell } from '../spells';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt } from '../spellCast';
 import { addDice, scaledDice, upcastSteps } from './builders';
@@ -7,6 +8,7 @@ import type {
   AutomationSpec,
   EffectSpec,
   LoadoutSpec,
+  ModifierSpec,
   PayloadSpec,
   UsesSpec,
   ValueExpr,
@@ -66,6 +68,12 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
     const base = resolveValue(ctx, expr.scale.dice);
     if (base === undefined) return undefined;
     return scaledDice(String(base), ctx.spell.upcast?.dice, upcastSteps(ctx.spell, ctx.castLevel));
+  }
+  if ('mapped' in expr) {
+    const key = resolveValue(ctx, expr.mapped.of);
+    const mapped = key !== undefined ? expr.mapped.values[String(key)] : undefined;
+    if (mapped !== undefined) return mapped;
+    return expr.mapped.fallback !== undefined ? resolveValue(ctx, expr.mapped.fallback) : undefined;
   }
   let value: string | number | undefined;
   switch (expr.ref) {
@@ -172,10 +180,27 @@ function compileUses(ctx: CompileCtx, uses: UsesSpec): Partial<AutomationEffect>
   return { misdirect: { charges: uses.charges, die: uses.die, threshold: uses.threshold } };
 }
 
+function compileModifier(ctx: CompileCtx, spec: ModifierSpec): Omit<Modifier, 'id'> {
+  const { value, filter, ...rest } = spec;
+  const out: Omit<Modifier, 'id'> = { ...rest };
+  if (value !== undefined) out.value = mustValue(ctx, value, 'modifier.value');
+  if (filter) {
+    const { damageType, ...restFilter } = filter;
+    out.filter = {
+      ...restFilter,
+      ...(damageType !== undefined ? { damageType: String(mustValue(ctx, damageType, 'modifier.filter.damageType')) } : {}),
+    };
+  }
+  return out;
+}
+
 function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
   const loadout = effect.loadout ? compileLoadout(ctx, effect.loadout) : {};
-  const modifiers = [...(effect.modifiers ?? []).map((m) => ({ ...m })), ...(loadout.modifiers ?? [])];
+  const modifiers = [...(effect.modifiers ?? []).map((m) => compileModifier(ctx, m)), ...(loadout.modifiers ?? [])];
   const variant = effect.variant !== undefined ? String(mustValue(ctx, effect.variant, `effect.${effect.id}.variant`)) : undefined;
+  const conditions = effect.conditions?.map(
+    (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditions`)) as ConditionKey
+  );
   return {
     name: effect.name,
     duration: effect.duration,
@@ -183,7 +208,7 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(effect.to ? { to: effect.to } : {}),
     ...(effect.targets !== undefined ? { targets: effect.targets } : {}),
     modifiers,
-    ...(effect.conditions?.length ? { conditions: [...effect.conditions] } : {}),
+    ...(conditions?.length ? { conditions } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(variant ? { variant } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
@@ -204,6 +229,15 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
         }
       : {}),
     ...(effect.restrictions ? { restrictions: { ...effect.restrictions } } : {}),
+    ...(effect.retaliate
+      ? {
+          retaliate: {
+            damageType: String(mustValue(ctx, effect.retaliate.damageType, `effect.${effect.id}.retaliate`)),
+            ...(effect.retaliate.dice ? { dice: effect.retaliate.dice } : {}),
+            ...(effect.retaliate.amount !== undefined ? { amount: effect.retaliate.amount } : {}),
+          },
+        }
+      : {}),
     ...(effect.zephyrStrike ? { zephyrStrike: { ...effect.zephyrStrike } } : {}),
     ...(effect.actions?.length ? { actions: effect.actions.map((a) => compileAction(ctx, a)) } : {}),
     ...loadout,
@@ -363,6 +397,12 @@ export function validateSpec(spec: AutomationSpec): string[] {
   const refs: ValueExpr[] = [];
   const collectEffect = (effect: EffectSpec) => {
     if (effect.variant !== undefined) refs.push(effect.variant);
+    for (const c of effect.conditions ?? []) refs.push(c);
+    for (const m of effect.modifiers ?? []) {
+      if (m.value !== undefined) refs.push(m.value);
+      if (m.filter?.damageType !== undefined) refs.push(m.filter.damageType);
+    }
+    if (effect.retaliate) refs.push(effect.retaliate.damageType);
     if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
     if (effect.damageReduce) refs.push(effect.damageReduce.dice, ...effect.damageReduce.types);
     if (effect.elementalBane) refs.push(effect.elementalBane.damageType, effect.elementalBane.dice);
@@ -412,6 +452,11 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if ('spellMod' in expr) return;
     if ('scale' in expr) {
       checkRef(expr.scale.dice);
+      return;
+    }
+    if ('mapped' in expr) {
+      checkRef(expr.mapped.of);
+      if (expr.mapped.fallback !== undefined) checkRef(expr.mapped.fallback);
       return;
     }
     if (expr.ref === 'choice' && expr.choice && !choiceIds.has(expr.choice)) {

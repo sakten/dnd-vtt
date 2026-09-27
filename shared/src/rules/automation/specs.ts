@@ -378,4 +378,70 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     },
   },
+
+  'XPHB:Protection from Energy': {
+    key: 'XPHB:Protection from Energy',
+    name: 'Protection from Energy',
+    primary: 'effect',
+    concentration: true,
+    choices: [{ id: 'damageType', param: 'damageType', options: ['acid', 'cold', 'fire', 'lightning', 'thunder'] }],
+    effects: [
+      {
+        id: 'protection',
+        name: 'Protection from Energy',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: { ref: 'choice' } } }],
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XPHB:Blindness/Deafness': {
+    key: 'XPHB:Blindness/Deafness',
+    name: 'Blindness/Deafness',
+    primary: 'effect',
+    save: { ability: 'con' },
+    choices: [{ id: 'condition', param: 'condition', options: ['blinded', 'deafened'] }],
+    effects: [
+      {
+        id: 'condition',
+        name: 'Blindness/Deafness',
+        duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'end' },
+        to: 'targets',
+        targets: 1,
+        conditions: [{ ref: 'choice', fallback: 'blinded' }],
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
+
+  'XPHB:Fire Shield': {
+    key: 'XPHB:Fire Shield',
+    name: 'Fire Shield',
+    primary: 'effect',
+    choices: [{ id: 'mode', param: 'effect', options: ['warm', 'chill'] }],
+    effects: [
+      {
+        id: 'shield',
+        name: 'Fire Shield',
+        duration: PERMANENT,
+        to: 'self',
+        modifiers: [
+          {
+            target: 'damage',
+            mode: 'resistance',
+            value: 0,
+            filter: { damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'cold', chill: 'fire' } } } },
+          },
+        ],
+        retaliate: {
+          damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'fire', chill: 'cold' } } },
+          dice: '2d8',
+        },
+        variant: { ref: 'choice' },
+      },
+    ],
+  },
 };

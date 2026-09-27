@@ -66,6 +66,8 @@
 
 Блок: `choices: [{ id, param, options, default? }]`; `param` — типизированный enum, значение подставляется ссылками в `DiceRef.types`, `effect.conditions`, `ability`, `zone.area` (форма стены). Клиент выбирает вариант в `SpellPopover`, сервер валидирует (`spellResolve`).
 
+Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType` — ссылки), условия эффекта и `retaliate` принимают ссылки. Мигрированы: Elemental Weapon (пилот), Resistance/Elemental Bane (батч `uses`), Protection from Energy, Blindness/Deafness, Fire Shield (`mapped`). Остальные носители `SPELL_VARIANTS` (Dragon's Breath, Eyebite, Command, Bestow Curse, Enhance Ability, Skill Empowerment, Spirit Shroud, CME, Destructive Wave, стены) — со следующими батчами.
+
 ### 3.6. `selection` — как выбираются цели (выделяется)
 - `mode`: `single` / `multi` (`targets`, `targetsAbility`) / `area` (`areaSpec`, `origin`) / `chain` (`jumps`, `feet`) / `scatter` / `radius` (`radiusFeet`, `autoTargets`);
 - `filters`: `side`, `excludeCreatureTypes`, `requiresCreatureTypes`, `containment`;
@@ -98,6 +100,7 @@
 - `{ perLevel: { base, per, above } }` — `base + per × (круг − above)` (Cordon: 4 + 2 стрелы за круг);
 - `{ spellMod: { base, min } }` — `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2);
 - `{ scale: { dice, by: 'upcast' } }` — кость с апкаст-скейлом (Healing Spirit: 1к6 + 1к6/круг);
+- `{ mapped: { of, values, fallback? } }` — отображение значения по таблице (Fire Shield: warm → сопротивление холоду, ответ огнём);
 - литералы; `undefined` — поле опускается, обязательное нерезолвленное — ошибка компиляции (`mustValue`).
 
 Рантайм `AutomationDice.dice` получает уже разрешённую строку — компилятор, а не исполнитель.
@@ -161,7 +164,8 @@ CUSTOM:Jallarzi-Fire {
 - шаблоны — конструкторы над композицией;
 - `ValueExpr` (ref/tiers/add/concat) — реализован; пилот `loadout` (10 спеков: GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) компилируется из `AUTOMATION_SPECS`, равенство вывода билдерам — замок `automation.spec.test.ts`;
 - блок `uses` (charges/consumeOnAttack/misdirect) — реализован; мигрированы Resistance, Elemental Bane, Zephyr Strike, Mirror Image; спеки перехватывают и каталог, и билдеры (`derive.ts`);
-- блок `zone` + `PayloadSpec` — реализованы (pass-through + ValueExpr); мигрированы Guardian of Faith, Cordon of Arrows, Healing Spirit: `uses` закрыт.
+- блок `zone` + `PayloadSpec` — реализованы (pass-through + ValueExpr); мигрированы Guardian of Faith, Cordon of Arrows, Healing Spirit: `uses` закрыт;
+- батч `choices`: `ModifierSpec` (ссылки в value/filter), условия/`retaliate` со ссылками, узел `mapped`; мигрированы Protection from Energy, Blindness/Deafness, Fire Shield (20 спеков).
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;
