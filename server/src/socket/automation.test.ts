@@ -306,6 +306,32 @@ describe('Telekinesis', () => {
     expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(false);
   });
 
+  it('начало следующего хода: restrained снимается, концентрация и действие остаются', () => {
+    const { room, f, caster, target } = setupTk();
+    const original = Math.random;
+    Math.random = () => 0;
+    try {
+      executeAutomation(f.ctx, {
+        caster,
+        mapId: 'm1',
+        def: tkDef(),
+        targets: [target],
+        stats,
+        author: 'DM',
+        placements: placement(target.id, 250),
+      });
+    } finally {
+      Math.random = original;
+    }
+    expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(true);
+    // Следующий ход кастера: временный restrained гаснет, но каст (концентрация + действие) жив.
+    f.manager.tickEffects(room, caster, 'start');
+    expect(target.effects.some((e) => e.conditions?.includes('restrained'))).toBe(false);
+    expect(
+      caster.effects.some((e) => e.sourceKey === 'XPHB:Telekinesis' && e.concentration === true && !!e.actions?.length)
+    ).toBe(true);
+  });
+
   it('повтор действием на следующем ходу: снова спас и перенос', () => {
     const { f, map, caster, target } = setupTk();
     const original = Math.random;
