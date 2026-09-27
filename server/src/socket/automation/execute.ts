@@ -692,14 +692,14 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): { attac
   if (kind === 'manual') {
     // Ручные спеллы «ведёт мастер» (Charm Monster/Compulsion): каст вешает плашку;
     // действия направления — скрытым эффектом на кастере (концентрация — на нём же).
-    if (def.chip && targets.length) {
+    if (def.byDesign && targets.length) {
       const chipEffect: AutomationEffect = {
         name: def.name,
         duration: def.concentration ? { type: 'concentration' } : { type: 'permanent' },
         ...(def.concentration ? { concentration: true } : {}),
         to: 'targets',
         modifiers: [],
-        conditions: [def.chip],
+        ...(def.chip ? { conditions: [def.chip] } : {}),
       };
       for (const target of targets) {
         applyEffectLight(ctx, room, mapId, {

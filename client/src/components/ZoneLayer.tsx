@@ -1,4 +1,4 @@
-import { Group, Line, Rect, Shape, Text } from 'react-konva';
+import { Circle, Group, Line, Rect, Shape, Text } from 'react-konva';
 import type Konva from 'konva';
 import {
   areaCellKey,
@@ -109,7 +109,8 @@ export default function ZoneLayer({
           const x = center.x;
           const y = center.y;
           const hammer = zone.flags.sprite === 'hammer';
-          const color = hammer ? '#ffd43b' : zoneColor(zone.sourceKey);
+          const fey = zone.flags.sprite === 'fey';
+          const color = hammer || fey ? (hammer ? '#ffd43b' : '#c084fc') : zoneColor(zone.sourceKey);
           const s = grid.size;
           return (
             <Group key={zone.id} listening={false}>
@@ -139,6 +140,12 @@ export default function ZoneLayer({
                     opacity={0.95}
                     listening={false}
                   />
+                </>
+              ) : fey ? (
+                <>
+                  <Circle x={x} y={y} radius={s * 0.17} fill={color} opacity={0.9} stroke="#000000" strokeWidth={1} listening={false} />
+                  <Circle x={x + s * 0.22} y={y - s * 0.2} radius={s * 0.055} fill="#ffffff" opacity={0.9} listening={false} />
+                  <Circle x={x - s * 0.2} y={y + s * 0.18} radius={s * 0.04} fill="#ffffff" opacity={0.7} listening={false} />
                 </>
               ) : (
                 <Line

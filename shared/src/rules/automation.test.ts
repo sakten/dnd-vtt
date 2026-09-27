@@ -224,6 +224,78 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('Conjure Fey: дух-зона как Spiritual Weapon, удар с испугом, бонусный шаг 30', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Conjure Fey',
+      name: 'Conjure Fey',
+      level: 6,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
+      spellAttack: 'melee',
+      damage: { dice: ['3d12'], types: ['psychic'] },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    expect(def.zone?.origin).toBe('point');
+    expect(def.zone?.flags).toEqual({ subtle: true, sprite: 'fey' });
+    const [move, strike] = def.zone?.actions ?? [];
+    expect(move).toMatchObject({ id: 'move', cost: 'bonus', def: { utility: { kind: 'moveZone', amount: 30 } } });
+    expect(strike).toMatchObject({
+      id: 'strike',
+      cost: 'free',
+      def: { targeting: { kind: 'creature', range: 5, from: 'origin' } },
+    });
+    expect(strike?.def?.damage).toEqual({ dice: '3d12', types: ['psychic'], abilityMod: true });
+    expect(strike?.def?.effects?.[0]).toMatchObject({
+      duration: { type: 'endOfTurn', of: 'source' },
+      conditions: ['frightened'],
+    });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('Guardian of Faith: аура 10 фт по врагам, счётчик 60 урона', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Guardian of Faith',
+      name: 'Guardian of Faith',
+      level: 4,
+      automation: 'manual',
+      range: { type: 'point', distance: { type: 'feet', amount: 30 } },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('effect');
+    const zone = def.zone;
+    expect(zone?.area).toEqual({ shape: 'sphere', size: 15 });
+    expect(zone?.origin).toBe('point');
+    expect(zone?.side).toBe('hostile');
+    expect(zone?.excludeSource).toBe(true);
+    expect(zone?.enterOncePerTurn).toBe(true);
+    expect(zone?.dealtLimit).toBe(60);
+    expect(zone?.triggers?.enter).toEqual({
+      save: { ability: 'dex', half: true },
+      damage: { dice: '20', types: ['radiant'] },
+    });
+    expect(zone?.triggers?.startOfTurn).toEqual(zone?.triggers?.enter);
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
+  it('Crown of Madness / Enemies Abound — плашки «ведёт мастер» (вторая без глифа)', () => {
+    const crown = makeSpell({ key: 'XPHB:Crown of Madness', name: 'Crown of Madness', level: 2, automation: 'manual' });
+    const crownDef = automationForSpell(crown);
+    expect(crownDef).toMatchObject({
+      resolution: 'manual',
+      byDesign: true,
+      chip: 'charmed',
+      concentration: true,
+      targeting: { kind: 'creature', range: 120 },
+    });
+    expect(spellByDesign(crown)).toBe(true);
+    const enemies = makeSpell({ key: 'XGE:Enemies Abound', name: 'Enemies Abound', level: 3, automation: 'manual' });
+    const enemiesDef = automationForSpell(enemies);
+    expect(enemiesDef).toMatchObject({ resolution: 'manual', byDesign: true, concentration: true, targeting: { kind: 'creature', range: 120 } });
+    expect(enemiesDef.chip).toBeUndefined();
+    expect(spellByDesign(enemies)).toBe(true);
+  });
+
   it('Lesser Restoration — каталог: endCondition и допустимые состояния', () => {
     const lesser = makeSpell({
       key: 'XPHB:Lesser Restoration',
@@ -1893,7 +1965,6 @@ describe('automationForSpell', () => {
       'XPHB:Alter Self',
       'XPHB:Enlarge/Reduce',
       'XPHB:Conjure Elemental',
-      'XPHB:Conjure Fey',
       'XPHB:Wind Wall',
       'XPHB:Glyph of Warding',
     ];

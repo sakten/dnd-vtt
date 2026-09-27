@@ -143,7 +143,7 @@ function applyZonePayload(
     }
     if (payload.damage) {
       const roll = rollDice(payload.damage.dice);
-      applyDamage(ctx, {
+      const dealt = applyDamage(ctx, {
         target,
         mapId,
         amount: roll.total,
@@ -156,6 +156,8 @@ function applyZonePayload(
         kind: 'damage',
         params: { subject: `${zone.name} · ${target.name}`, damageType },
       });
+      // Guardian of Faith: счётчик фактически нанесённого урона (60 — исчезает).
+      if (zone.dealtLimit != null) zone.dealtTotal = (zone.dealtTotal ?? 0) + dealt.amount;
     }
     for (const effectDef of payload.effects ?? []) {
       applyEffectTo(ctx, room, {
@@ -172,6 +174,8 @@ function applyZonePayload(
   }
   // Заряды кончились (Cordon of Arrows): стрелы истрачены — зона гаснет.
   if (zone.charges !== undefined && zone.charges <= 0) removeZone(ctx, room, mapId, zone);
+  // Guardian of Faith: нанеся суммарно 60 урона, страж исчезает.
+  if (zone.dealtLimit != null && (zone.dealtTotal ?? 0) >= zone.dealtLimit) removeZone(ctx, room, mapId, zone);
 }
 
 /** Пересчитывает состав зоны: аура на вошедших, снятие с вышедших, enter/exit. */
@@ -362,6 +366,8 @@ export function createZoneFromDef(ctx: ConnCtx, input: CreateZoneInput): ZoneIns
     actions: zoneDef.actions,
     readyStrike: zoneDef.actions?.some((a) => a.def?.attack && a.cost === 'free') ? true : undefined,
     charges: zoneDef.charges,
+    dealtLimit: zoneDef.dealtLimit,
+    dealtTotal: zoneDef.dealtLimit != null ? 0 : undefined,
     excludeCreatureTypes: zoneDef.excludeCreatureTypes ? [...zoneDef.excludeCreatureTypes] : undefined,
     dc: input.stats?.dc,
     aura: zoneDef.aura,

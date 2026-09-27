@@ -70,11 +70,11 @@ const actual = {
 };
 
 const EXPECTED = {
-  catalog: '1894b3f7e7e3fe63',
+  catalog: 'dece4e0444c55426',
   additions: '1b3ac2b7685ff142',
-  derived: 'f87542fa0a5e299f',
-  green: 240,
-  red: 180,
+  derived: 'c548619f77d4a01d',
+  green: 242,
+  red: 178,
 };
 
 describe('характеризация автоматизации', () => {

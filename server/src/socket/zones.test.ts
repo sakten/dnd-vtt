@@ -57,6 +57,37 @@ describe('движок зон', () => {
     expect(aura?.conditions).toEqual(['blinded']);
   });
 
+  it('Guardian of Faith: нанеся суммарно 60 урона, зона исчезает', () => {
+    const { room, f } = setup();
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+    const guardian: AutomationDef = {
+      key: 'TEST:Guardian',
+      name: 'Страж',
+      resolution: 'auto',
+      zone: {
+        area: { shape: 'sphere', size: 15 },
+        origin: 'point',
+        duration: { type: 'permanent' },
+        dealtLimit: 60,
+        triggers: { startOfTurn: { damage: { dice: '20', types: ['radiant'] } } },
+      },
+    };
+    const zone = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: guardian, stats: null, origin: { x: target.x, y: target.y } })!;
+    expect(zone.dealtTotal).toBe(0);
+    // Три начала хода по 20 — ровно порог 60: зона гаснет.
+    zone.enteredThisTurn = {};
+    tickZones(f.ctx, room, 'm1', target, 'start');
+    expect(zone.dealtTotal).toBe(20);
+    expect(room.scene.maps[0]!.zones).toHaveLength(1);
+    zone.enteredThisTurn = {};
+    tickZones(f.ctx, room, 'm1', target, 'start');
+    zone.enteredThisTurn = {};
+    tickZones(f.ctx, room, 'm1', target, 'start');
+    expect(room.scene.maps[0]!.zones).toHaveLength(0);
+    expect(target.hpCurrent).toBe(-30);
+  });
+
   it('сплошная стена не пропускает ауру зоны', () => {
     const { room, f } = setup();
     room.scene.maps[0]!.tokens.push(makeToken('t3', { x: 350, y: 100, hpMax: '30', hpCurrent: 30 }));

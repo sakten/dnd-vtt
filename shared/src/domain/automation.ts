@@ -378,6 +378,11 @@ export interface ZoneDef {
   onCreate?: AutomationPayload;
   /** Заряды зоны (Cordon of Arrows — стрелы; Healing Spirit — лимит лечений). */
   charges?: number;
+  /**
+   * Суммарный урон, после которого зона исчезает (Guardian of Faith: 60).
+   * Считается по фактически нанесённому урону от триггеров зоны.
+   */
+  dealtLimit?: number;
   /** Типы существ, на которых не действуют аура и триггеры (Healing Spirit: конструкты/нежить). */
   excludeCreatureTypes?: string[];
   aura?: AutomationPayload;
@@ -400,8 +405,8 @@ export interface ZoneDef {
     blocksLineOfSight?: boolean;
     /** Почти незаметный визуал зоны (туча Call Lightning): только тонкий контур. */
     subtle?: boolean;
-    /** Спрайт-маркер зоны (Spiritual Weapon — жёлтый молот силы). */
-    sprite?: 'hammer';
+    /** Спрайт-маркер зоны (Spiritual Weapon — жёлтый молот силы; Conjure Fey — огонёк). */
+    sprite?: 'hammer' | 'fey';
     /** Зона молчания (Silence, Jallarzi): внутри нельзя кастовать с вербальным компонентом. */
     silence?: boolean;
   };
@@ -439,6 +444,9 @@ export interface ZoneInstance {
   excludeCreatureTypes?: string[];
   /** Оставшиеся заряды зоны (Cordon of Arrows, Healing Spirit); 0 — зона исчезает. */
   charges?: number;
+  /** Суммарно нанесённый урон и порог исчезновения (Guardian of Faith: 60). */
+  dealtLimit?: number;
+  dealtTotal?: number;
   /** Действия владельца зоны, пока она на карте (перемещение). */
   actions?: GrantedAction[];
   /**

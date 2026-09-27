@@ -23,6 +23,8 @@ export const BUILTIN_AUTOMATION = new Set([
   "XPHB:Dragon's Breath",
   'XPHB:Vampiric Touch',
   'XPHB:Flame Blade',
+  'XPHB:Guardian of Faith',
+  'XPHB:Conjure Fey',
   'TCE:Green-Flame Blade',
   'TCE:Booming Blade',
   'XPHB:True Strike',
@@ -1442,6 +1444,81 @@ export function spiritualWeaponDef(spell: Spell, opts: AutomationOptions): Autom
       movable: true,
       actions: [zoneMoveAction('Перенос силы', 'bonus', 20), strike],
       flags: { subtle: true, sprite: 'hammer' },
+    },
+  };
+}
+
+/**
+ * Guardian of Faith (XPHB 2024): призрачный страж (спектральный, проход не блокирует)
+ * в 30 фт; враг, впервые за ход вошедший в 10 фт или начавший там ход, — спас DEX,
+ * 20 излучением (половина при успехе). Страж исчезает, нанеся суммарно 60 урона.
+ * Сетка квантует центр: аура r15 от клетки стража ≈ 10 фт по всем направлениям (5×5).
+ */
+export function guardianOfFaithDef(spell: Spell): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Guardian of Faith') return undefined;
+  const trigger: AutomationPayload = {
+    save: { ability: 'dex', half: true },
+    damage: { dice: '20', types: ['radiant'] },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      duration: PERMANENT,
+      side: 'hostile',
+      excludeSource: true,
+      enterOncePerTurn: true,
+      dealtLimit: 60,
+      triggers: { enter: trigger, startOfTurn: trigger },
+    },
+  };
+}
+
+/**
+ * Conjure Fey (XPHB 2024): дух-зона как у Spiritual Weapon: при касте — удар
+ * (3к12 + мод. характеристики психическим, испуг до начала вашего след. хода),
+ * далее бонусным действием телепорт духа на 30 фт и повторный удар.
+ */
+export function conjureFeyDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
+  if (spell.key !== 'XPHB:Conjure Fey') return undefined;
+  const dice = spellDice(spell, opts, '3d12');
+  const frightened: AutomationEffect = {
+    name: spell.name,
+    duration: UNTIL_NEXT_TURN,
+    to: 'targets',
+    modifiers: [],
+    conditions: ['frightened'],
+  };
+  const strike: GrantedAction = {
+    id: 'strike',
+    name: 'Удар духа',
+    cost: 'free',
+    def: {
+      key: spell.key,
+      name: spell.name,
+      resolution: 'attack',
+      attack: { rangeType: 'melee' },
+      count: 1,
+      damage: { dice, types: ['psychic'], abilityMod: true },
+      effects: [frightened],
+      targeting: { kind: 'creature', range: 5, from: 'origin' },
+    },
+  };
+  return {
+    key: spell.key,
+    name: spell.name,
+    resolution: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 0 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      movable: true,
+      actions: [zoneMoveAction('Шаг духа', 'bonus', 30), strike],
+      flags: { subtle: true, sprite: 'fey' },
     },
   };
 }

@@ -7,12 +7,13 @@ export { AUTOMATION_ACTIONS };
 /**
  * Ручное заклинание «ведёт мастер» (решение владельца): каст вешает только плашку
  * состояния `chip` и не рисует красный маркер (Charm Monster, Compulsion).
+ * `chip: null` — плашка без состояния (Enemies Abound: в RAW состояния нет).
  * `actions` — выданные действия на кастере (Compulsion: 4 направления).
  */
 export function chipSpell(
   key: string,
   name: string,
-  chip: ConditionKey,
+  chip: ConditionKey | null,
   opts: { concentration?: boolean; range?: number; actions?: GrantedAction[] } = {}
 ): AutomationDef {
   return {
@@ -20,7 +21,7 @@ export function chipSpell(
     name,
     resolution: 'manual',
     byDesign: true,
-    chip,
+    ...(chip ? { chip } : {}),
     ...(opts.concentration ? { concentration: true } : {}),
     ...(opts.actions?.length ? { chipActions: opts.actions } : {}),
     targeting: { kind: 'creature', range: opts.range ?? 30 },

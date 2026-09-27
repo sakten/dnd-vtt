@@ -1092,7 +1092,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   'XPHB:Alter Self': manualSpell('XPHB:Alter Self', 'Alter Self', true),
   'XPHB:Enlarge/Reduce': manualSpell('XPHB:Enlarge/Reduce', 'Enlarge/Reduce', true),
   'XPHB:Conjure Elemental': manualSpell('XPHB:Conjure Elemental', 'Conjure Elemental', true),
-  'XPHB:Conjure Fey': manualSpell('XPHB:Conjure Fey', 'Conjure Fey', true),
   // Wind Wall: стена 50×15 без геометрии и блокировок (туман/дым, стрелы, мелкие
   // летуны, газообразные) — generic-спас 4к8 по одной цели врал; лочим до реализации.
   'XPHB:Wind Wall': manualSpell('XPHB:Wind Wall', 'Wind Wall', true),
@@ -1100,6 +1099,16 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // Решение владельца (сессия 14): очарование — ручная механика, каст вешает только
   // плашку «Очарован»; поведение/перемещение ведёт мастер, красный маркер не рисуется.
   'XPHB:Charm Monster': chipSpell('XPHB:Charm Monster', 'Charm Monster', 'charmed'),
+  // Crown of Madness: очарование, вынужденные атаки ведёт мастер; Enemies Abound:
+  // в RAW состояния нет — плашка без глифа (решение владельца, сессия 18).
+  'XPHB:Crown of Madness': chipSpell('XPHB:Crown of Madness', 'Crown of Madness', 'charmed', {
+    concentration: true,
+    range: 120,
+  }),
+  'XGE:Enemies Abound': chipSpell('XGE:Enemies Abound', 'Enemies Abound', null, {
+    concentration: true,
+    range: 120,
+  }),
   'XPHB:Compulsion': chipSpell('XPHB:Compulsion', 'Compulsion', 'charmed', {
     concentration: true,
     actions: [
