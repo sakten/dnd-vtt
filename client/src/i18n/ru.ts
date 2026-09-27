@@ -111,6 +111,7 @@
   'system.automation.dispelled': '{name} рассеяно',
   'system.automation.banishGone': '{name}: изгнание длилось полную минуту — существо не возвращается',
   'system.automation.banishHome': '{name}: отправлен на родной план',
+  'system.automation.dispelNone': '{name}: рассеивать нечего',
 
   'system.automation.utility': '{name}: {feature}',
   'system.automation.extraAttacks': '{name}: {feature} (+{amount})',
@@ -162,6 +163,7 @@
   'error.attackTooFar': 'Слишком далеко: {feet} фт',
   'error.attackOutOfRange': 'Вне зоны: {feet} фт',
   'error.spellNoTarget': 'Не выбрана цель',
+  'error.nothingToDispel': 'На цели нечего рассеивать',
   'error.spellNoAttack': 'Нет заклинательной атаки',
   'error.spellNoDc': 'Нет сложности заклинаний',
   'error.markTargetAlive': 'Метку можно перенести только после смерти текущей цели',

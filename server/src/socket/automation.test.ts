@@ -13,6 +13,7 @@ import {
   type ActionDef,
   type AutomationDef,
   type ChatMessage,
+  type Token,
 } from 'shared';
 import { makeCombatRoom, makeResources, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
@@ -411,6 +412,156 @@ describe('Telekinesis', () => {
     }
     expect(target.x).toBe(175);
     expect(target.y).toBe(425);
+  });
+});
+
+describe('Dispel Magic', () => {
+  function setupDispel() {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    caster.statblock = {
+      abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+      spellcasting: { ability: 'int', dc: 15 },
+    };
+    const sourceA = makeToken('t3', { x: 300, y: 300 });
+    const sourceB = makeToken('t4', { x: 350, y: 300 });
+    map.tokens.push(sourceA, sourceB);
+    // Bless (1 круг, концентрация) и Mage Armor (1 круг, без концентрации) от A;
+    // Greater Invisibility (4 круг, концентрация) от B.
+    target.effects.push(
+      {
+        id: 'ef-bless',
+        name: 'Bless',
+        sourceKey: 'XPHB:Bless',
+        sourceId: sourceA.id,
+        concentration: true,
+        duration: { type: 'concentration' },
+        modifiers: [],
+      },
+      {
+        id: 'ef-armor',
+        name: 'Mage Armor',
+        sourceKey: 'XPHB:Mage Armor',
+        sourceId: target.id,
+        duration: { type: 'permanent' },
+        modifiers: [],
+      },
+      {
+        id: 'ef-gi',
+        name: 'Greater Invisibility',
+        sourceKey: 'XPHB:Greater Invisibility',
+        sourceId: sourceB.id,
+        concentration: true,
+        duration: { type: 'concentration' },
+        modifiers: [],
+      }
+    );
+    sourceA.effects.push({
+      id: 'anchor-a',
+      name: 'Bless',
+      sourceKey: 'XPHB:Bless',
+      sourceId: sourceA.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    sourceB.effects.push({
+      id: 'anchor-b',
+      name: 'Greater Invisibility',
+      sourceKey: 'XPHB:Greater Invisibility',
+      sourceId: sourceB.id,
+      concentration: true,
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+    return { room, f, map, caster, target, sourceA, sourceB };
+  }
+  const castInput = (caster: Token, target: Token, castLevel = 3) => ({
+    caster,
+    mapId: 'm1',
+    def: automationForSpell(findSpell('XPHB:Dispel Magic')!, { castLevel }),
+    targets: [target],
+    stats,
+    author: 'DM',
+    manual: { castLevel },
+  });
+
+  it('≤3 круга гаснут автоматически, 4+ — проверка характеристики', () => {
+    const { f, caster, target, sourceA, sourceB } = setupDispel();
+    const original = Math.random;
+    Math.random = () => 0; // d20 = 1 → проверка против СЛ 14 провалена
+    try {
+      executeAutomation(f.ctx, castInput(caster, target, 3));
+    } finally {
+      Math.random = original;
+    }
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Bless')).toBe(false);
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Mage Armor')).toBe(false);
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Greater Invisibility')).toBe(true);
+    // Источник Bless снят вместе с концентрацией, источник GI не тронут.
+    expect(sourceA.effects.some((e) => e.concentration)).toBe(false);
+    expect(sourceB.effects.some((e) => e.concentration)).toBe(true);
+  });
+
+  it('апкаст ячейкой 4: заклинание 4 круга гаснет без проверки', () => {
+    const { f, caster, target } = setupDispel();
+    executeAutomation(f.ctx, castInput(caster, target, 4));
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Greater Invisibility')).toBe(false);
+  });
+
+  it('Jack of All Trades (+2 к проверке) превращает провал в успех', () => {
+    const { f, caster, target } = setupDispel();
+    // Пассивка барда: модификатор проверки +2 (как кладёт syncFeatureEffects).
+    caster.effects.push({
+      id: 'joat',
+      name: 'Всезнайка',
+      duration: { type: 'permanent' },
+      modifiers: [{ id: 'joat-mod', target: 'check', mode: 'add', value: 2 }],
+    });
+    const original = Math.random;
+    Math.random = () => 0.4; // d20 = 9: 9 + 3 = 12 < 14, с +2 → 14 = успех
+    try {
+      executeAutomation(f.ctx, castInput(caster, target, 3));
+    } finally {
+      Math.random = original;
+    }
+    expect(target.effects.some((e) => e.sourceKey === 'XPHB:Greater Invisibility')).toBe(false);
+  });
+
+  it('цель-зона: Web (2 круг) снимается вместе с концентрацией источника', () => {
+    const { f, map, caster, sourceA } = setupDispel();
+    map.zones.push({
+      id: 'zone-web',
+      name: 'Web',
+      sourceKey: 'XPHB:Web',
+      sourceId: sourceA.id,
+      origin: { x: 300, y: 300 },
+      area: { shape: 'cube', size: 20 },
+      duration: { type: 'concentration' },
+      concentration: true,
+    });
+    executeAutomation(f.ctx, { ...castInput(caster, sourceA, 3), targets: [], dispelZoneId: 'zone-web' });
+    expect((map.zones ?? []).some((z) => z.id === 'zone-web')).toBe(false);
+    expect(sourceA.effects.some((e) => e.concentration)).toBe(false);
+  });
+
+  it('нет снимаемых заклинаний — отказ до списания ячейки', () => {
+    const { room, caster } = setupDispel();
+    const inert = makeToken('t9', { x: 400, y: 100 });
+    room.scene.maps[0]!.tokens.push(inert);
+    const invalid = validateSpellCast(room, {
+      caster,
+      mapId: 'm1',
+      spell: findSpell('XPHB:Dispel Magic')!,
+      castLevel: 3,
+      characterLevel: 5,
+      stats,
+      targets: [inert],
+      author: 'DM',
+    });
+    expect(invalid).toEqual({ code: 'nothingToDispel' });
   });
 });
 

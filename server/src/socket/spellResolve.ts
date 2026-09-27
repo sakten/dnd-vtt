@@ -37,6 +37,7 @@ import { runBladeCantrip } from './bladeCantrips';
 import { summonEntry, summonFormIssue, hasFreeSummonSpot } from './summons';
 import { polymorphMaxCr, shapePlacementIssue } from './forms';
 import { teleportIssue } from './teleport';
+import { dispellableEffects, zoneSpellLevel } from './dispel';
 
 export interface SpellCastInput {
   caster: Token;
@@ -65,6 +66,8 @@ export interface SpellCastInput {
   condition?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
+  /** Dispel Magic: id зоны-цели (заклинание на карте). */
+  dispelZoneId?: string;
   /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
   passengerId?: string;
   author: string;
@@ -340,6 +343,28 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     return undefined;
   }
 
+  // Dispel Magic: существо с заклинаниями или зона-заклинание; иначе ячейка не тратится.
+  if (def.utility?.kind === 'dispel') {
+    const map = room.scene.maps.find((m) => m.id === input.mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const range = effectiveSpellRangeFeet(spell, invocations) ?? 120;
+    if (input.dispelZoneId) {
+      const zone = map?.zones?.find((z) => z.id === input.dispelZoneId);
+      if (!zone) return { code: 'spellNoTarget' };
+      if (zoneSpellLevel(zone) === undefined) return { code: 'nothingToDispel' };
+      const feet = (Math.hypot(zone.origin.x - caster.x, zone.origin.y - caster.y) / grid.size) * 5;
+      if (feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+      return undefined;
+    }
+    for (const target of targets) {
+      if (target.id === caster.id) continue;
+      const feet = gridDistanceFeet(caster, target, grid.size);
+      if (feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
+    }
+    if (!targets.some((t) => dispellableEffects(t).length > 0)) return { code: 'nothingToDispel' };
+    return undefined;
+  }
+
   if (input.area) return undefined;
 
   // Creature-таргетинг: от кастера (Eyebite) или от точки каста (сила Spiritual Weapon).
@@ -412,6 +437,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     ...(input.summonKey ? { summonKey: input.summonKey } : {}),
     ...(input.condition ? { choice: input.condition } : {}),
     ...(input.placements ? { placements: input.placements } : {}),
+    ...(input.dispelZoneId ? { dispelZoneId: input.dispelZoneId } : {}),
     ...(input.passengerId ? { passengerId: input.passengerId } : {}),
     manual: {
       description: input.spell.description,

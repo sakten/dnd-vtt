@@ -118,6 +118,8 @@ export type TargetingState =
       variant?: string;
       /** Lesser/Greater Restoration: снимаемые состояния — после цели показываем выбор. */
       endConditionKeys?: ConditionKey[];
+      /** Dispel Magic: можно выбрать зону на карте (клик по её клеткам). */
+      zones?: boolean;
     }
   | {
       kind: 'rollAttack';

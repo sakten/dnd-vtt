@@ -38,6 +38,7 @@ import { removeConditionInstances } from '../effectsApply';
 import { pushRollMessage, pushSaveMessage } from '../messages';
 import { startMovementTurns } from '../moveTurns';
 import { executeTeleport, teleportIssue } from '../teleport';
+import { dispellableEffects, effectSpellLevel, endDispelledEffect, endDispelledZone, zoneSpellLevel } from '../dispel';
 import { maybeRollAnim } from '../rollAnim';
 import { handleMovementZones } from '../zones';
 import { syncSurrounded } from '../surrounded';
@@ -722,6 +723,56 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       effectDef: restrained,
       target,
     });
+  },
+  /**
+   * Dispel Magic: цель — существо или зона на карте. Заклинания уровня ≤ круга
+   * ячейки (мин. 3) гаснут автоматически; для 4+ — проверка характеристики кастера
+   * (d20 + мод + модификаторы проверок, напр. Jack of All Trades) против СЛ 10 + уровень.
+   */
+  dispel: ({ ctx, room, input }) => {
+    const autoLevel = Math.max(3, input.manual?.castLevel ?? 3);
+    const ability = input.stats?.ability ?? 'int';
+    const check = (level: number, label: string): boolean => {
+      if (level <= autoLevel) return true;
+      const parts = checkPartsForToken(room, input.caster, { ability });
+      const roll = rollDice(withRollParts(d20Expr(input.stats?.mod ?? 0), parts));
+      pushRollMessage(ctx, room, {
+        author: input.author,
+        roll,
+        kind: 'check',
+        params: { subject: `${input.def.name}: ${label} (${level})` },
+      });
+      return roll.total >= 10 + level;
+    };
+    // Цель-зона: заклинание на карте (Web, Wall of Fire, Conjure Fey и подобные).
+    if (input.dispelZoneId) {
+      const map = ctx.manager.findMap(room, input.mapId);
+      const zone = map?.zones?.find((z) => z.id === input.dispelZoneId);
+      const level = zone ? zoneSpellLevel(zone) : undefined;
+      if (!zone || level === undefined) {
+        fail(ctx, 'spellNoTarget');
+        return;
+      }
+      if (!check(level, zone.name)) {
+        ctx.systemMessage(room, { code: 'automation.dispelNone', params: { name: zone.name } });
+        return;
+      }
+      endDispelledZone(ctx, room, input.mapId, zone);
+      return;
+    }
+    const target = input.targets[0];
+    if (!target) {
+      fail(ctx, 'spellNoTarget');
+      return;
+    }
+    let ended = false;
+    for (const effect of dispellableEffects(target)) {
+      const level = effectSpellLevel(effect);
+      if (level === undefined || !check(level, effect.name)) continue;
+      endDispelledEffect(ctx, room, input.mapId, target, effect);
+      ended = true;
+    }
+    if (!ended) ctx.systemMessage(room, { code: 'automation.dispelNone', params: { name: target.name } });
   },
   /** Scatter: не-союзники кидают WIS-спас (успех — остаётся); невалидные точки пропускаем. */
   scatter: ({ ctx, room, input, utility }) => {

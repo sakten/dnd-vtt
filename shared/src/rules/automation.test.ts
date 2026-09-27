@@ -328,6 +328,21 @@ describe('automationForSpell', () => {
     expect(spellAutomated(spell)).toBe(true);
   });
 
+  it('Dispel Magic: utility-механика, цель-существо или зона', () => {
+    const spell = makeSpell({
+      key: 'XPHB:Dispel Magic',
+      name: 'Dispel Magic',
+      level: 3,
+      automation: 'manual',
+      range: { type: 'point', distance: { type: 'feet', amount: 120 } },
+    });
+    const def = automationForSpell(spell);
+    expect(def.resolution).toBe('utility');
+    expect(def.utility).toEqual({ kind: 'dispel' });
+    expect(def.targeting).toEqual({ kind: 'creature', range: 120 });
+    expect(spellAutomated(spell)).toBe(true);
+  });
+
   it('Crown of Madness / Enemies Abound — плашки «ведёт мастер» (вторая без глифа)', () => {
     const crown = makeSpell({ key: 'XPHB:Crown of Madness', name: 'Crown of Madness', level: 2, automation: 'manual' });
     const crownDef = automationForSpell(crown);

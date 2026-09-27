@@ -111,6 +111,11 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
     return def.utility?.kind === 'endCondition' ? def.endConditions : undefined;
   })();
+  // Dispel Magic: цель — существо или зона на карте (клик по клеткам зоны).
+  const dispelDef = (() => {
+    const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
+    return def.utility?.kind === 'dispel';
+  })();
   // Вариант каста (Dragon's Breath: тип урона); значение по умолчанию — первый вариант.
   const variantDef = spellVariantDef(spell.key);
   // At-will инвокация «на себя» (Armor of Shadows): цель не выбирается.
@@ -290,6 +295,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         label: spellDisplayName(spell),
         ...(variant ? { variant } : {}),
         ...(endConditionDef ? { endConditionKeys: endConditionDef } : {}),
+        ...(dispelDef ? { zones: true } : {}),
       });
     }
     onClose();

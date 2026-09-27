@@ -904,7 +904,10 @@ export default function TableTop() {
               <ZoneTargetLayer
                 zones={activeMap?.zones ?? []}
                 grid={grid}
+                walls={activeMap?.walls ?? []}
+                whole={targeting.kind === 'spell' && targeting.zones === true}
                 onPick={(zoneId, section) => resolveTargeting(zoneTargetId(zoneId, section))}
+                onPickZone={(zoneId) => resolveTargeting(zoneTargetId(zoneId, 0))}
               />
             </Layer>
           )}

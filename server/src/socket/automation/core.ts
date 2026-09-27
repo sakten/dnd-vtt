@@ -62,6 +62,8 @@ export interface AutomationInput {
   choice?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
+  /** Dispel Magic: id зоны-цели (магический эффект на карте). */
+  dispelZoneId?: string;
   /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
   passengerId?: string;
   /** Зона-источник действия (кнопки зоны): для преимуществ «цель внутри зоны». */

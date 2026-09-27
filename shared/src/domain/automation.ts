@@ -534,7 +534,12 @@ export interface AutomationUtility {
      * (`placements`, ≤ `amount` фт от него) и получает `restrained` до начала вашего
      * следующего хода; предметы не двигаем (решение владельца).
      */
-    | 'telekinesis';
+    | 'telekinesis'
+    /**
+     * Dispel Magic: заклинания цели уровнем ≤ круга ячейки (мин. 3) гаснут,
+     * для 4+ — проверка характеристики (СЛ 10 + уровень).
+     */
+    | 'dispel';
   amount?: number;
   ability?: AbilityKey;
   /** Телекинез: максимальный размер двигаемого существа (`huge` — Huge и меньше). */

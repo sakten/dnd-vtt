@@ -54,6 +54,7 @@ export type ErrorCode =
   | 'spellNoTarget'
   | 'spellNoAttack'
   | 'spellNoDc'
+  | 'nothingToDispel'
   | 'markTargetAlive'
   | 'nothingToWake'
   | 'helpHostile'

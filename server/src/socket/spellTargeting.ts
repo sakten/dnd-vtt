@@ -8,6 +8,7 @@ import {
   isRecord,
   isThinWallSpell,
   pointCell,
+  parseZoneTargetId,
   spellAreaOrigin,
   spellCastArea,
   spellCastDirection,
@@ -77,6 +78,8 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
   let area = false;
   let areaOrigin: { x: number; y: number } | null = null;
   let areaDirection: { x: number; y: number } | null = null;
+  /** Dispel Magic: цель-зона на карте (`zone:<id>#<секция>`). */
+  let dispelZoneId: string | undefined;
   const pushSide = params.pushSide === 'a' || params.pushSide === 'b' ? params.pushSide : undefined;
   // Тонкая стена цепочкой панелей (Wall of Ice): узлы задают геометрию, цели — разрезанные.
   const wallPath = (Array.isArray(params.path) ? params.path : []).filter(isPoint).slice(0, 12);
@@ -162,6 +165,12 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     const grid = gridOfMap(map, room.scene.grid);
     for (const id of Array.isArray(params.targetIds) ? params.targetIds : []) {
       if (typeof id !== 'string') continue;
+      // Dispel Magic: цель-зона (`zone:<id>#<секция>`) — секция не важна, берём id зоны.
+      const zoneRef = parseZoneTargetId(id);
+      if (zoneRef) {
+        dispelZoneId = dispelZoneId ?? zoneRef.zoneId;
+        continue;
+      }
       const found = ctx.manager.findToken(room, mapId, id);
       if (!found) continue;
       // Изгнанный (Banishment) — не на поле: целью быть не может.
@@ -200,6 +209,7 @@ export function collectSpellCast(ctx: ConnCtx, params: SpellCastParams): SpellCa
     variant: params.variant,
     condition: params.condition,
     ...(placements.length ? { placements } : {}),
+    ...(dispelZoneId ? { dispelZoneId } : {}),
     ...(params.passengerId ? { passengerId: params.passengerId } : {}),
     author: params.author,
   };

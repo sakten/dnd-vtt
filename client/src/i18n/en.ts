@@ -114,6 +114,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'system.automation.dispelled': '{name} dispelled',
   'system.automation.banishGone': '{name}: banishment lasted a full minute — the creature does not return',
   'system.automation.banishHome': '{name}: sent to its home plane',
+  'system.automation.dispelNone': '{name}: nothing to dispel',
 
   'system.automation.utility': '{name}: {feature}',
   'system.automation.extraAttacks': '{name}: {feature} (+{amount})',
@@ -165,6 +166,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.attackTooFar': 'Too far: {feet} ft',
   'error.attackOutOfRange': 'Out of range: {feet} ft',
   'error.spellNoTarget': 'No target selected',
+  'error.nothingToDispel': 'Nothing to dispel on the target',
   'error.spellNoAttack': 'No spell attack',
   'error.spellNoDc': 'No spell save DC',
   'error.markTargetAlive': 'The mark can be moved only after the current target dies',
