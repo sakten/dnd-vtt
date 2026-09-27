@@ -1,13 +1,14 @@
 # TODO_SPELLS.md
 
-Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 25.09.2026, сессия 15; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–15).
+Аудит автоматизации заклинаний (первичный — 24.09.2026; актуализирован 27.09.2026, сессия 18; дополнен классом I — контроль/утилита). Здесь только **открытые** пункты: сделанное — в истории git (коммиты сессий 10–18).
 Источники: снимок `shared/src/data/spells.json`, RU-тексты `shared/src/data/text.ru/spells.json`.
 Метод проверки: прямые вызовы `automationForSpell` / `spellAutomated` / `spellAttackCount` / `spellExtraTargets` + сверка с описанием и кодом исполнителя (`server/src/socket/automation/`, `shared/src/rules/automation/`, `shared/src/rules/spellCast.ts`).
 
 ## Сводка
 
-- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **240**, красных (`manual`) — **180**.
-- Открыто из аудита: **B4** (трансформации — 7 спеллов), **F** (Conjure Elemental/Fey — 2), **I** (контроль/утилита — 9), **H** (закрыт: «нет типа» не автоматизируем). Charm Monster и Compulsion закрыты плашкой, Glyph of Warding решено не делать, Watery Sphere отложен владельцем.
+- Всего 420 заклинаний; «зелёных» (`spellAutomated()` = true) — **244**, красных (`manual`) — **176**.
+- Открыто из аудита: **B4** (трансформации — 7 спеллов), **F** (Conjure Elemental — 1), **I** (контроль/утилита — 4: Gust of Wind, Dispel Magic, Magic Circle, Resilient Sphere), **H** (закрыт: «нет типа» не автоматизируем). Charm Monster и Compulsion закрыты плашкой, Glyph of Warding решено не делать, Watery Sphere отложен владельцем.
+- **Закрыто (сессия 18):** Guardian of Faith (аура 10 фт по врагам, вход раз/ход + начало хода, 20 излучением с половиной, счётчик 60 нанесённого урона гасит зону; спектральный — проход не блокирует; сетка квантует центр: 5×5); Conjure Fey (дух-зона как Spiritual Weapon: удар при касте 3к12+мод психикой с испугом, бонусный шаг 30 фт и повтор); Crown of Madness (плашка charmed, атаки ведёт мастер) и Enemies Abound (плашка без глифа — в RAW состояния нет); Dispel Evil and Good (пока только изгнание: действие «Изгнание», спас CHA по типам Celestial/Elemental/Fey/Fiend/Undead, успех — токен удаляется навсегда; бафф «помеха их атакам» и снятие charmed/frightened — TODO); Telekinesis (действие Magic action: цель до Huge в 60 фт, спас STR; провал — вынужденное перемещение по клеткам до 30 фт кликом и restrained до начала вашего след. хода; предметы/высота — вне скоупа).
 - **Закрыто (сессия 17):** стены — Wall of Ice, Wall of Force, Wall of Stone, Wall of Light (подробности ниже); выталкивание существ стеной — общий `wallPushPlan`; Wind Wall помечен manual-замком (ложная автоматизация).
 - **Закрыто (сессия 15):** G — Dimension Door и Thunder Step; C-хвосты — Healing Spirit, Cordon of Arrows, Storm Sphere; **стены (сессия 15, продолжение):** Wall of Fire, Blade Barrier, Wall of Sand — геометрия параметризована (`WALL_DIMS`: `length`/`width`/`outerRadius`/`innerRadius` в `spellCast.ts`, `wallArea(spellKey, variant)`); варианты формы vertical/horizontal/ring общие для всех стен. Wall of Fire — полоса 60×10, бьёт с обеих сторон (упрощение RAW-выбора стороны); круг r10/r5. Blade Barrier — 100×5 / r30/r25, 6к10 силовым, труднопроходима. Wall of Sand — 30×10, мгла, внутри `blinded` и ×3 движения. Остались: Wall of Ice (секции с HP), Wall of Light (свет/луч/ослепление), Wall of Force/Stone (панели с HP, непроницаемость). Новые примитивы зон: `charges`, `onCreate`, `excludeCreatureTypes`.
 - **Manual-замки (сессия 14):** B4 (Guardian of Nature, Tenser's Transformation, Alter Self, Enlarge/Reduce, Investiture of Flame/Ice/Wind), C (Wall of Light), F (Conjure Elemental/Fey) — деривация из описаний давала ложную/неверную механику. Вернуть в автоматизацию по мере реализации механик.
@@ -43,9 +44,9 @@
 - **Решено не делать (сессия 14):** `XPHB:Glyph of Warding` — остаётся manual-замком.
 - Остальные зоны с триггерами (Create Bonfire, Cloud of Daggers, Spike Growth, Tasha's Caustic Brew, Sickening Radiance, Wind Wall, Black Tentacles, Maelstrom, Dawn, Insect Plague, Conjure Animals, Wrath of Nature, Yolande, Dust Devil, Maximilian's) — механизм есть, доработок по аудиту не требуют.
 
-## F. Духи-атаки — 2
+## F. Духи-атаки — 1
 
-- `XPHB:Conjure Elemental`, `XPHB:Conjure Fey` — нужен дух + повторяющаяся атака (грантованный attack-action, как Flame Blade). Сейчас manual-замок (был ложный прямой урон).
+- `XPHB:Conjure Elemental` — зона-дух: триггер enter/start в 5 фт, спас DEX, 8к8 стихией, restrained до конца заклинания (один одновременно), повтор сейва в начале хода цели на 4к8; обсудить отдельно (владелец, сессия 18).
 
 ## G. Перемещение — 0 открыто
 
@@ -65,17 +66,10 @@ Manual: `automationForSpell` → `resolution:'manual'`. Часть опирае�
 
 | Ур. | Заклинание | Что нужно |
 |---|---|---|
-| 2 | `XPHB:Crown of Madness` | очарование + вынужденная атака и поддержка контролем действием (движка принуждения нет) |
-| 2 | `XPHB:Gust of Wind` | зона-линия 10×60: толчок 15 фт и повтор спасброска в конце хода, ×2 движение против ветра, бонус-смена направления |
+| 2 | `XPHB:Gust of Wind` | отложено владельцем (сессия 18): зона-линия 10×60, толчок 15 фт, повтор сейва, ×2 движение против ветра и стрелка направления |
 | 3 | `XPHB:Dispel Magic` | оканчивает заклинания ≤3 круга, для 4+ — проверка характеристики; движка снятия чужих эффектов/зон нет |
-| 3 | `XGE:Enemies Abound` | спас Инт. + «все вокруг враги» (случайные цели, провокации, повтор спасброска при уроне) |
 | 3 | `XPHB:Magic Circle` | зона-цилиндр r10 h20 на выбранные типы: запрет входа, очарования, испуга, одержимости |
-| 4 | `XPHB:Guardian of Faith` | зона-страж: 20 излучением (спас Лов.) при перемещении впервые за ход/начале хода в 10 фт, исчезает после 60 суммарного урона |
 | 4 | `XPHB:Otiluke's Resilient Sphere` | сфера-барьер вокруг цели: непроницаема для атак/эффектов, спас Лов., катится действием; нужна механика барьера |
-| 5 | `XPHB:Dispel Evil and Good` | бафф против типов (помеха их атакам по вам) + режимы: изгнание на родной план, снятие очарования/испуга/одержимости |
-| 5 | `XPHB:Telekinesis` | спас Сил. + перемещение существа/объекта на 30 фт, подвешивание, тонкие манипуляции |
-| 5 | `XPHB:Wall of Force` | стена (плиты/сфера/купол): непроницаема, неуязвима, снимается только Дезинтеграцией |
-| 5 | `XPHB:Wall of Stone` | стена-камень из плит (КЗ/Хиты, можно сделать постоянной) — панели с HP |
 
 **Отложено владельцем (сессия 14):** `XGE:Watery Sphere` — вне скоупа; при реализации мало чипа: нужно состояние `restrained` + перемещение/сбивание с ног.
 
@@ -90,7 +84,7 @@ Manual: `automationForSpell` → `resolution:'manual'`. Часть опирае�
 |---|---|
 | effect-баффы | 7 (B4-трансформации) |
 | zone/повтор | — |
-| духи-атаки | 2 (Conjure Elemental/Fey) |
+| духи-атаки | 1 (Conjure Elemental) |
 | перемещение | 0 |
-| отложено | Ray of Enfeeblement, Arcane Hand (H) |
-| контроль/утилита (I) | 11 |
+| отложено | Ray of Enfeeblement, Arcane Hand (H), Watery Sphere, Gust of Wind |
+| контроль/утилита (I) | 4 |
