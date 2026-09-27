@@ -329,4 +329,74 @@ describe('поведение спеков (RAW, реальные данные)',
     });
     expect(automationForSpell(spell, { castLevel: 3 }).burst?.dice).toBe('4d6cold');
   });
+
+  it('Light/Continual Flame: источник света 20/20 на цель, без концентрации', () => {
+    for (const key of ['XPHB:Light', 'XPHB:Continual Flame']) {
+      const def = automationForSpell(find(key));
+      expect(def.resolution).toBe('effect');
+      expect(def.concentration).toBeUndefined();
+      const effect = def.effects?.[0];
+      expect(effect?.to).toBe('targets');
+      expect(effect?.duration).toEqual({ type: 'permanent' });
+      expect(effect?.light).toEqual({ bright: 20, dim: 20 });
+    }
+  });
+
+  it('Darkvision: тёмное зрение 150 фт на 8 часов (4800 раундов) на цель', () => {
+    const def = automationForSpell(find('XPHB:Darkvision'));
+    const effect = def.effects?.[0];
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 4800 });
+    expect(effect?.senses).toEqual([{ type: 'darkvision', range: 150 }]);
+  });
+
+  it('See Invisibility: носитель видит невидимых (без концентрации)', () => {
+    const def = automationForSpell(find('XPHB:See Invisibility'));
+    const effect = def.effects?.[0];
+    expect(effect?.to).toBe('self');
+    expect(effect?.duration).toEqual({ type: 'permanent' });
+    expect(effect?.seesInvisible).toBe(true);
+  });
+
+  it('Pass without Trace: аура 30 фт от кастера, +10 к Скрытности, концентрация', () => {
+    const def = automationForSpell(find('XPHB:Pass without Trace'));
+    expect(def.concentration).toBe(true);
+    expect(def.zone).toMatchObject({
+      origin: 'self',
+      anchor: 'source',
+      area: { shape: 'sphere', size: 30 },
+      duration: { type: 'concentration' },
+    });
+    expect(def.zone?.aura?.effects?.[0]?.modifiers).toEqual([
+      { target: 'check', mode: 'add', value: 10, filter: { skill: 'stealth' } },
+    ]);
+  });
+
+  it('Silence: зона только целиком внутри, немагическая тишина и глухота в ауре', () => {
+    const def = automationForSpell(find('XPHB:Silence'));
+    expect(def.zone).toMatchObject({
+      area: { shape: 'sphere', size: 20 },
+      containment: 'fullyWithin',
+      flags: { silence: true },
+    });
+    const aura = def.zone?.aura?.effects?.[0];
+    expect(aura?.conditions).toEqual(['deafened']);
+    expect(aura?.modifiers).toEqual([
+      { target: 'damage', mode: 'immunity', value: 0, filter: { damageType: 'thunder' } },
+    ]);
+  });
+
+  it('Darkness/Fog Cloud: флаги зон — магическая тьма и сильное заслонение', () => {
+    const darkness = automationForSpell(find('XPHB:Darkness'));
+    expect(darkness.zone).toMatchObject({
+      area: { shape: 'sphere', size: 15 },
+      flags: { blocksLight: true },
+    });
+    expect(darkness.concentration).toBe(true);
+
+    const fog = automationForSpell(find('XPHB:Fog Cloud'));
+    expect(fog.zone).toMatchObject({
+      area: { shape: 'sphere', size: 20 },
+      flags: { obscured: 'heavy' },
+    });
+  });
 });

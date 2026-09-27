@@ -252,12 +252,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     },
   ]),
   /** Светящиеся заклинания без боевой механики: источник света для обзора и вида. */
-  'XPHB:Light': spellEffect('XPHB:Light', 'Light', [
-    { name: 'Light', duration: PERMANENT, to: 'targets', modifiers: [], light: { bright: 20, dim: 20 } },
-  ]),
-  'XPHB:Continual Flame': spellEffect('XPHB:Continual Flame', 'Continual Flame', [
-    { name: 'Continual Flame', duration: PERMANENT, to: 'targets', modifiers: [], light: { bright: 20, dim: 20 } },
-  ]),
   'XPHB:Daylight': {
     key: 'XPHB:Daylight',
     name: 'Daylight',
@@ -273,30 +267,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
    * Silence (XPHB 2024): сфера r20 — звук не возникает и не проходит; целиком
    * внутри — оглохший и иммунитет к звуку; вербальные заклинания невозможны.
    */
-  'XPHB:Silence': {
-    key: 'XPHB:Silence',
-    name: 'Silence',
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      containment: 'fullyWithin',
-      flags: { silence: true },
-      aura: {
-        effects: [
-          {
-            name: 'Silence',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [{ target: 'damage', mode: 'immunity', value: 0, filter: { damageType: 'thunder' } }],
-            conditions: ['deafened'],
-          },
-        ],
-      },
-    },
-  },
   /** Moonbeam (XPHB 2024): появление/вход/конец хода — спас CON; сумерки; действие — двигать до 60 фт. */
   'XPHB:Moonbeam': {
     key: 'XPHB:Moonbeam',
@@ -563,28 +533,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
-  'XPHB:Pass without Trace': {
-    key: 'XPHB:Pass without Trace',
-    name: 'Pass without Trace',
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 30 },
-      origin: 'self',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      aura: {
-        effects: [
-          {
-            name: 'Pass without Trace',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [{ target: 'check', mode: 'add', value: 10, filter: { skill: 'stealth' } }],
-          },
-        ],
-      },
-    },
-  },
   'XPHB:Protection from Poison': {
     key: 'XPHB:Protection from Poison',
     name: 'Protection from Poison',
@@ -768,21 +716,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
-  // See Invisibility: носитель видит невидимых (клиентский рендер + снятие adv/dis невидимости).
-  'XPHB:See Invisibility': {
-    key: 'XPHB:See Invisibility',
-    name: 'See Invisibility',
-    resolution: 'effect',
-    effects: [
-      {
-        name: 'See Invisibility',
-        duration: PERMANENT,
-        to: 'self',
-        modifiers: [],
-        seesInvisible: true,
-      },
-    ],
-  },
   // Primordial Ward (XGE): сопротивления 5 типам; реакцией на урон типа — иммунитет к нему
   // (движок `ward` + `offerDamageReactions`, включая спровоцировавший урон).
   'XGE:Primordial Ward': {
@@ -821,42 +754,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       flags: { obscured: 'heavy' },
     },
   },
-  // Darkness: магическая тьма (сфера 15); Fog Cloud: сильное заслонение (сфера 20).
-  // Вижн-эффект — через флаги зоны (`blocksLight` / `obscured: heavy`).
-  'XPHB:Darkness': {
-    key: 'XPHB:Darkness',
-    name: 'Darkness',
-    resolution: 'auto',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 15 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      flags: { blocksLight: true },
-    },
-  },
-  'XPHB:Fog Cloud': {
-    key: 'XPHB:Fog Cloud',
-    name: 'Fog Cloud',
-    resolution: 'auto',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      flags: { obscured: 'heavy' },
-    },
-  },
-  // Darkvision: выдаёт тёмное зрение 150 фт на 8 часов (сенсы эффекта).
-  'XPHB:Darkvision': spellEffect('XPHB:Darkvision', 'Darkvision', [
-    {
-      name: 'Darkvision',
-      duration: { type: 'rounds', rounds: 4800 },
-      to: 'targets',
-      modifiers: [],
-      senses: [{ type: 'darkvision', range: 150 }],
-    },
-  ]),
+  // Darkness/Fog Cloud/Darkvision — спеки (батч `vision`): флаги зон и сенсы эффекта.
   // Cloudkill: сфера 20, сильное заслонение; спас CON и 5d8 яда на входе/в начале хода.
   'XPHB:Cloudkill': {
     key: 'XPHB:Cloudkill',

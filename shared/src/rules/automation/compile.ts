@@ -389,6 +389,10 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
         }))
       : undefined;
   const hooks = effect.hooks ? compileHooks(ctx, effect.hooks) : {};
+  const senses =
+    effect.senses !== undefined ? compileGated(ctx, effect.senses, (list) => list.map((s) => ({ ...s }))) : undefined;
+  const seesInvisible =
+    effect.seesInvisible !== undefined ? compileGated(ctx, effect.seesInvisible, (value) => value) : undefined;
   return {
     name: effect.name,
     duration,
@@ -398,6 +402,9 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     modifiers,
     ...(conditions.length ? { conditions } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
+    ...(senses?.length ? { senses } : {}),
+    ...(seesInvisible ? { seesInvisible: true } : {}),
+
     ...(variant !== undefined ? { variant: String(variant) } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
     ...hooks,
@@ -711,6 +718,8 @@ export function validateSpec(spec: AutomationSpec): string[] {
   const collectEffect = (effect: EffectSpec) => {
     if (effect.variant !== undefined) refs.push(effect.variant);
     for (const entry of effect.conditions ?? []) pushGated(entry, (c) => refs.push(c));
+    if (effect.senses !== undefined) pushGated(effect.senses, () => undefined);
+    if (effect.seesInvisible !== undefined) pushGated(effect.seesInvisible, () => undefined);
     for (const entry of effect.modifiers ?? []) {
       pushGated(entry, (m) => {
         if (m.value !== undefined) refs.push(m.value);

@@ -83,6 +83,8 @@
 ### 3.7. `vision` — свет, сенсы, скрытие (выделяется)
 Общий блок эффекта и зоны: `light` (Light, Moonbeam, Flame Blade), `senses` (Darkvision, Devil's Sight), `seesInvisible` (See Invisibility), `obscures` (zone flag `obscured`), `blocksLight` (Darkness/Fog Cloud), `silence` (Silence, Jallarzi). Компилируется в те же поля `EffectInstance`/`ZoneInstance`; правила — `rules/vision.ts`.
 
+Реализовано (начало батча): `EffectSpec.senses`/`seesInvisible` с гейтами; мигрированы Light, Continual Flame (свет 20/20), Darkvision (150 фт, 8 ч), See Invisibility, Pass without Trace (аура 30 фт, +10 Скрытность), Silence, Darkness, Fog Cloud. `light` и флаги зон (`blocksLight`/`obscured`/`silence`) — pass-through, уже работали.
+
 ### 3.8. Существующие блоки (не меняются)
 - `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами; в спеке — `ZoneSpec` (pass-through + `ValueExpr` в charges/триггерах через `PayloadSpec`); стены — параметрически: `zone.area: { wall: WallDims | { from: 'spell' } }` (`wallAreaOf(dims, variant)`, габариты — `WALL_DIMS`), секции — `zone.wall` (+`breach: PayloadSpec`), общий шаблон `wallZone(...)` в `specs.ts` (шапка + параметры: триггеры/секции/флаги/свет/действия);
 - `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (мигрируют в `damageHooks`), выданные действия;
@@ -184,7 +186,8 @@ CUSTOM:Jallarzi-Fire {
 - батч carrier'ов `choices`: `Leveled<T>` (круг каста), гейты `wakeOnDamage`/`turnDodge`/`takesExtraDamage`, `markSaved`, вложенные эффекты действий; мигрированы Eyebite и Bestow Curse — `choices` закрыт (37 спеков);
 - батч `hooks` (damageHooks): `HookSpec` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage/saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction), `ValueExpr` (`upcastFlat`/`sum`); регрупп 7 спеков + мигрированы Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward (42 спека); билдеры и каталожные записи удалены;
 - батч `movement`: `UtilitySpec` (ссылки в blockedDamage/fromBurst), `MovementSpec`/`EffectMovementSpec`, `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (48 спеков), билдеры/каталог удалены;
-- батч `selection` (начало): `chain` (`jumps` — ссылка) и `burst` (Ice Knife); мигрированы Chain Lightning и Ice Knife (50 спеков), билдеры удалены.
+- батч `selection` (начало): `chain` (`jumps` — ссылка) и `burst` (Ice Knife); мигрированы Chain Lightning и Ice Knife (50 спеков), билдеры удалены; `burst` читается и веткой сейва (вспышка вокруг каждой цели);
+- батч `vision` (начало): `EffectSpec.senses`/`seesInvisible` (+ гейты `{ if, then }`); мигрированы Light, Continual Flame, Darkvision, See Invisibility, Pass without Trace, Silence, Darkness, Fog Cloud (58 спеков), каталожные записи удалены. Дальше: `mark`/`retarget` (Bless/Hex/Hail of Thorns), `side`/`autoTargets`/радиус.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

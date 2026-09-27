@@ -8,6 +8,7 @@ import type {
   ZoneWallDef,
 } from '../../domain/automation';
 import type { ConditionKey, EffectDuration, Modifier, ModifierFilter, Restrictions } from '../../domain/effects';
+import type { Sense } from '../../domain/sense';
 import type { WallDims } from '../spellCast';
 import type { DamagePartRole } from '../spells';
 
@@ -273,6 +274,10 @@ export interface EffectSpec {
   modifiers?: Gated<ModifierSpec>[];
   conditions?: Gated<ValueExpr>[];
   light?: LightSource;
+  /** Восприятие, выдаваемое эффектом (Darkvision); гейт по выбору. */
+  senses?: Gated<Sense[]>;
+  /** Носитель видит невидимых (See Invisibility); гейт по выбору. */
+  seesInvisible?: Gated<boolean>;
   /** Подпись выбранного варианта (`variant`), если он виден в чипе. */
   variant?: ValueExpr;
   /** Максимум целей эффекта (Bless — 3, Elemental Bane — 1). */
