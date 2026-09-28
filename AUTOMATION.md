@@ -86,7 +86,7 @@
 Реализовано (начало батча): `EffectSpec.senses`/`seesInvisible` с гейтами; мигрированы Light, Continual Flame (свет 20/20), Darkvision (150 фт, 8 ч), See Invisibility, Pass without Trace (аура 30 фт, +10 Скрытность), Silence, Darkness, Fog Cloud. `light` и флаги зон (`blocksLight`/`obscured`/`silence`) — pass-through, уже работали.
 
 ### 3.8. Существующие блоки (не меняются)
-- `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами; в спеке — `ZoneSpec` (pass-through + `ValueExpr` в charges/триггерах через `PayloadSpec`); стены — параметрически: `zone.area: { wall: WallDims | { from: 'spell' } }` (`wallAreaOf(dims, variant)`, габариты — `WALL_DIMS`), секции — `zone.wall` (+`breach: PayloadSpec`), общий шаблон `wallZone(...)` в `specs.ts` (шапка + параметры: триггеры/секции/флаги/свет/действия);
+- `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами; в спеке — `ZoneSpec` (pass-through + `ValueExpr` в charges/триггерах через `PayloadSpec`); стены — параметрически: `zone.area: { wall: WallDims | { from: 'spell' } }` (`wallAreaOf(dims, variant)`, габариты — `WALL_DIMS`), секции — `zone.wall` (+`breach: PayloadSpec`), общий шаблон `wallZone(...)` в `specs/factories.ts` (шапка + параметры: триггеры/секции/флаги/свет/действия);
 - `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (мигрируют в `damageHooks`), выданные действия;
 - `utility` (`kind` — готовый образец «блока со стратегиями», 21 значение);
 - `summon`, `shape`, payload (`save`/`damage`/`heal`/…).

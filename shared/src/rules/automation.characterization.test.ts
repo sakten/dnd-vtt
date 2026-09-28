@@ -66,7 +66,14 @@ for (const [key, spec] of Object.entries(AUTOMATION_SPECS)) {
 const actual = {
   catalog: hash(AUTOMATION_SPELLS),
   additions: hash(AUTOMATION_ADDITIONS),
-  derived: hash(cases.map(([name, def]) => `${name}=${stable(def)}`).join('\n')),
+  // Кейсы сортируются по имени: порядок обхода спеков не должен влиять на замок
+  // (разбиение specs на модули/перестановка записей — не смена механики).
+  derived: hash(
+    [...cases]
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      .map(([name, def]) => `${name}=${stable(def)}`)
+      .join('\n')
+  ),
   green: SPELLS.filter((s) => spellAutomated(s)).length,
   red: SPELLS.filter((s) => !spellAutomated(s)).length,
 };
@@ -74,8 +81,9 @@ const actual = {
 const EXPECTED = {
   catalog: '4cfa839af64cba8c',
   additions: '50790d561072456f',
-  // derived изменён осознанно (R18): Faerie Fire получил conditionImmunities: ['invisible'].
-  derived: '592606dfb0dcd0ff',
+  // derived изменён осознанно: кейсы выбора теперь хешируются в сортированном виде,
+  // чтобы порядок записей спеков (в т.ч. разбиение specs.ts на модули) не влиял на замок.
+  derived: '68d23c853fd8dda0',
   green: 245,
   red: 175,
 };

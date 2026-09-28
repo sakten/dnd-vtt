@@ -53,7 +53,7 @@
 
 ## R16. AutomationSpec: декларативные спеки заклинаний + копии с правкой механики. P2, L (старт — только после закрытия очереди спелов).
 **Дизайн (шаг 2) — `AUTOMATION.md`:** модель «композиция блоков + одна ведущая ветка»; 7 выделяемых классов (`loadout`, `damageHooks`, `uses`, `movement`, `choices`, `selection`, `vision`), `DiceRef`, стабильные id массивов и патч-пути, матрица валидатора `primary` × блоки.
-**Пилот (шаг 3, `loadout`):** 10 спеков (GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) — `automation/spec.ts` + `compile.ts` + `specs.ts`, билдеры перехвачены в `derive.ts`; равенство вывода билдерам замком `automation.spec.test.ts`, характеризация не менялась.
+**Пилот (шаг 3, `loadout`):** 10 спеков (GFB/Booming Blade, True Strike, Shillelagh, Magic/Elemental Weapon, Flame Arrows, Shadow Blade, Magic Stone, Flame Blade) — `automation/spec.ts` + `compile.ts` + `specs/`, билдеры перехвачены в `derive.ts`; равенство вывода билдерам замком `automation.spec.test.ts`, характеризация не менялась.
 **Батч `uses`:** Resistance, Elemental Bane, Zephyr Strike, Mirror Image (+ charges Flame Arrows/Magic Stone переведены на блок `uses`); спеки идут раньше каталога и билдеров.
 **Батч `zone`:** Guardian of Faith, Cordon of Arrows, Healing Spirit — `ZoneSpec`/`PayloadSpec`, `ValueExpr` (`perLevel`/`spellMod`/`scale`); `uses` закрыт (17 спеков).
 **Батч `choices`:** Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME — `ModifierSpec`, ссылки в действиях/`takesExtraDamage`, условные `{ if, then }`, `add/includes/mapped` (26 спеков). Осталось: Eyebite, Bestow Curse (сложные carrier'ы).
