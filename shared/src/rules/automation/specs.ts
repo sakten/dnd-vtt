@@ -162,6 +162,201 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     ],
   },
 
+  // Батч A2 (R16): остаток effect-записей каталога (баффы, контроль).
+  'XPHB:Haste': {
+    key: 'XPHB:Haste',
+    name: 'Haste',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'haste',
+        name: 'Haste',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [
+          { target: 'ac', mode: 'add', value: 2 },
+          { target: 'speed', mode: 'multiply', value: 2 },
+          { target: 'extraActions', mode: 'add', value: 1 },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Stoneskin': {
+    key: 'XPHB:Stoneskin',
+    name: 'Stoneskin',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'stoneskin',
+        name: 'Stoneskin',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'piercing' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'bludgeoning' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalSlashing' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalPiercing' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalBludgeoning' } },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Guidance': {
+    key: 'XPHB:Guidance',
+    name: 'Guidance',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'guidance',
+        name: 'Guidance',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'check', mode: 'add', value: '1d4' }],
+      },
+    ],
+  },
+
+  'XPHB:Hold Person': {
+    key: 'XPHB:Hold Person',
+    name: 'Hold Person',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'holdPerson',
+        name: 'Hold Person',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        conditions: ['paralyzed'],
+        modifiers: [],
+      },
+    ],
+  },
+
+  'XPHB:Entangle': {
+    key: 'XPHB:Entangle',
+    name: 'Entangle',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'str' },
+    effects: [
+      {
+        id: 'entangle',
+        name: 'Entangle',
+        duration: { type: 'untilSave', ability: 'str', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        conditions: ['restrained'],
+        modifiers: [],
+      },
+    ],
+  },
+
+  'XPHB:Fear': {
+    key: 'XPHB:Fear',
+    name: 'Fear',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'fear',
+        name: 'Fear',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        conditions: ['frightened'],
+        modifiers: [],
+      },
+    ],
+  },
+
+  'XPHB:Color Spray': {
+    key: 'XPHB:Color Spray',
+    name: 'Color Spray',
+    primary: 'effect',
+    save: { ability: 'con' },
+    effects: [
+      {
+        id: 'colorSpray',
+        name: 'Color Spray',
+        duration: UNTIL_NEXT_TURN,
+        to: 'targets',
+        conditions: ['blinded'],
+        modifiers: [],
+      },
+    ],
+  },
+
+  'XPHB:Hold Monster': {
+    key: 'XPHB:Hold Monster',
+    name: 'Hold Monster',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'holdMonster',
+        name: 'Hold Monster',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        conditions: ['paralyzed'],
+        modifiers: [],
+      },
+    ],
+  },
+
+  'XPHB:Slow': {
+    key: 'XPHB:Slow',
+    name: 'Slow',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'slow',
+        name: 'Slow',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        targets: 6,
+        modifiers: [
+          { target: 'speed', mode: 'multiply', value: 0.5 },
+          { target: 'ac', mode: 'add', value: -2 },
+          { target: 'save', mode: 'add', value: -2, filter: { ability: 'dex' } },
+        ],
+        restrictions: { noReactions: true, actionOrBonusOnly: true, oneAttackOnly: true, spellFailureChance: 25 },
+      },
+    ],
+  },
+
+  'XPHB:Divine Favor': {
+    key: 'XPHB:Divine Favor',
+    name: 'Divine Favor',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'divineFavor',
+        name: 'Divine Favor',
+        duration: PERMANENT,
+        to: 'self',
+        modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true, unarmed: false } }],
+      },
+    ],
+  },
+
   'TCE:Green-Flame Blade': {
     key: 'TCE:Green-Flame Blade',
     name: 'Green-Flame Blade',

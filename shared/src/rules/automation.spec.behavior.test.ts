@@ -410,6 +410,36 @@ describe('поведение спеков (RAW, реальные данные)',
     });
   });
 
+  it('Батч A2 каталога: Haste, Hold Person, Slow, Divine Favor', () => {
+    const haste = automationForSpell(find('XPHB:Haste'));
+    expect(haste.concentration).toBe(true);
+    expect(haste.effects?.[0]?.modifiers).toEqual([
+      { target: 'ac', mode: 'add', value: 2 },
+      { target: 'speed', mode: 'multiply', value: 2 },
+      { target: 'extraActions', mode: 'add', value: 1 },
+    ]);
+
+    const hold = automationForSpell(find('XPHB:Hold Person'));
+    expect(hold.save).toEqual({ ability: 'wis' });
+    expect(hold.effects?.[0]?.conditions).toEqual(['paralyzed']);
+    expect(hold.effects?.[0]?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' });
+
+    const slow = automationForSpell(find('XPHB:Slow'));
+    expect(slow.effects?.[0]?.targets).toBe(6);
+    expect(slow.effects?.[0]?.restrictions).toEqual({
+      noReactions: true,
+      actionOrBonusOnly: true,
+      oneAttackOnly: true,
+      spellFailureChance: 25,
+    });
+
+    const favor = automationForSpell(find('XPHB:Divine Favor')).effects?.[0];
+    expect(favor?.to).toBe('self');
+    expect(favor?.modifiers).toEqual([
+      { target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true, unarmed: false } },
+    ]);
+  });
+
   it('Батч A каталога: Shield, Mage Armor, Barkskin, Longstrider, Blur', () => {
     const shield = automationForSpell(find('XPHB:Shield')).effects?.[0];
     expect(shield?.to).toBe('self');

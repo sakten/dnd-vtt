@@ -1,7 +1,6 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
 import { DAMAGE_TYPES } from '../../labels';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, UNTIL_NEXT_TURN, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
-import { SPELL_BASES } from './bases';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -22,35 +21,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'self',
       modifiers: [],
       actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
-    },
-  ]),
-  'XPHB:Haste': spellEffect('XPHB:Haste', 'Haste', [
-    {
-      name: 'Haste',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [
-        { target: 'ac', mode: 'add', value: 2 },
-        { target: 'speed', mode: 'multiply', value: 2 },
-        { target: 'extraActions', mode: 'add', value: 1 },
-      ],
-    },
-  ]),
-  'XPHB:Stoneskin': spellEffect('XPHB:Stoneskin', 'Stoneskin', [
-    {
-      name: 'Stoneskin',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [
-        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'slashing' } },
-        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'piercing' } },
-        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'bludgeoning' } },
-        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalSlashing' } },
-        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalPiercing' } },
-        { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'magicalBludgeoning' } },
-      ],
     },
   ]),
   /** Revivify: возвращает мёртвую цель к жизни с 1 HP (касание, без проверки «≤1 мин» — DM). */
@@ -90,25 +60,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       ignoresDifficultTerrain: true,
     },
   ]),
-  'XPHB:Guidance': spellEffect('XPHB:Guidance', 'Guidance', [
-    {
-      name: 'Guidance',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [{ target: 'check', mode: 'add', value: SPELL_BASES.d4Bonus }],
-    },
-  ]),
-  'XPHB:Hold Person': spellEffect('XPHB:Hold Person', 'Hold Person', [
-    {
-      name: 'Hold Person',
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      conditions: ['paralyzed'],
-      modifiers: [],
-    },
-  ], { ability: 'wis' }),
   /** Hideous Laughter (XPHB 2024): спас WIS в конце хода и от урона (с преимуществом). */
   "XPHB:Tasha's Hideous Laughter": spellEffect("XPHB:Tasha's Hideous Laughter", 'Hideous Laughter', [
     {
@@ -119,26 +70,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       conditions: ['incapacitated', 'prone'],
       modifiers: [],
       saveOnDamage: { advantage: true },
-    },
-  ], { ability: 'wis' }),
-  'XPHB:Entangle': spellEffect('XPHB:Entangle', 'Entangle', [
-    {
-      name: 'Entangle',
-      duration: { type: 'untilSave', ability: 'str', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      conditions: ['restrained'],
-      modifiers: [],
-    },
-  ], { ability: 'str' }),
-  'XPHB:Fear': spellEffect('XPHB:Fear', 'Fear', [
-    {
-      name: 'Fear',
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      conditions: ['frightened'],
-      modifiers: [],
     },
   ], { ability: 'wis' }),
   'XPHB:Faerie Fire': spellEffect('XPHB:Faerie Fire', 'Faerie Fire', [
@@ -224,29 +155,10 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   },
   // Контроль (спас → состояние); «до конца следующего хода» трактуется движком
   // как до начала следующего хода источника.
-  'XPHB:Color Spray': spellEffect('XPHB:Color Spray', 'Color Spray', [
-    {
-      name: 'Color Spray',
-      duration: UNTIL_NEXT_TURN,
-      to: 'targets',
-      conditions: ['blinded'],
-      modifiers: [],
-    },
-  ], { ability: 'con' }),
   // Charm Person/Charm Monster/Animal Friendship/Suggestion — manual: «очарован»
   // в движке не имеет авто-эффектов, поведение (не атаковать очаровавшего,
   // выполнять внушение) не автоматизировано. Вернуться, когда будет механика
   // charmed/отношений.
-  'XPHB:Hold Monster': spellEffect('XPHB:Hold Monster', 'Hold Monster', [
-    {
-      name: 'Hold Monster',
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      conditions: ['paralyzed'],
-      modifiers: [],
-    },
-  ], { ability: 'wis' }),
   /**
    * Banishment (XPHB 2024): спас CHA; провал — изгнание на 10 раундов (1 мин,
    * концентрация). Возврат при снятии эффекта; экстрапланетные по истечении
@@ -635,38 +547,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     },
   },
-  // Slow: помеха-эффект с ограничениями экономики (реакции, действие/бонус, атаки, соматика).
-  'XPHB:Slow': spellEffect('XPHB:Slow', 'Slow', [
-    {
-      name: 'Slow',
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      targets: 6,
-      modifiers: [
-        { target: 'speed', mode: 'multiply', value: 0.5 },
-        { target: 'ac', mode: 'add', value: -2 },
-        { target: 'save', mode: 'add', value: -2, filter: { ability: 'dex' } },
-      ],
-      restrictions: { noReactions: true, actionOrBonusOnly: true, oneAttackOnly: true, spellFailureChance: 25 },
-    },
-  ], { ability: 'wis' }),
   // B1: баффы оружия. Divine Favor — свои атаки, Crusader's Mantle — аура союзникам,
   // Holy Weapon — цель-носитель + выданный бонусным действием «Разряд».
-  /** Divine Favor (XPHB 2024): бонусным действием — оружейные атаки +1d4 излучением, без концентрации. */
-  'XPHB:Divine Favor': {
-    key: 'XPHB:Divine Favor',
-    name: 'Divine Favor',
-    resolution: 'effect',
-    effects: [
-      {
-        name: 'Divine Favor',
-        duration: PERMANENT,
-        to: 'self',
-        modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true, unarmed: false } }],
-      },
-    ],
-  },
   /** Crusader's Mantle (XPHB 2024): эманация 30 фт — вы и союзники +1d4 излучением оружием и безоружным ударом. */
   "XPHB:Crusader's Mantle": {
     key: "XPHB:Crusader's Mantle",
