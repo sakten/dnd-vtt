@@ -7,7 +7,6 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS } from './helpers';
 import { AUTOMATION_SPELLS } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -138,40 +137,41 @@ export function spellTempHp(spell: Spell, castLevel?: number, characterLevel?: n
   return def.utility?.kind === 'tempHp' ? def.utility.dice : undefined;
 }
 
+/** Совпадают ли наборы типов (порядок не важен). */
+function sameTypeSet(a: string[], b: string[]): boolean {
+  return a.length === b.length && [...a].sort().join('\u0000') === [...b].sort().join('\u0000');
+}
+
 /**
- * Части составного урона заклинания для карточек/тултипов (Wall of Thorns — обе
- * порции: появление и вход/конец хода). undefined — у заклинания обычная строка данных.
+ * Части урона для карточек/тултипов: смысл костей — роли частей данных.
+ * Составной — все `main` (Flame Strike); иначе одна `main` + `trigger` другого типа
+ * (Ice Knife — всплеск, Wall of Thorns — стена). Меньше двух строк — undefined:
+ * карточка показывает данные заклинания, как и раньше.
  */
 export function spellDamageParts(spell: Spell): { dice: string; types: string[] }[] | undefined {
-  const cfg = COMPOSITE_CONFIGS[spell.key];
-  if (cfg) {
-    const variant = spellVariantDef(spell.key);
-    return cfg.parts.map((part, i) => ({
-      dice: part.dice,
-      types: cfg.variantPart === i && variant ? [...variant.options] : [part.type],
-    }));
+  const parts = spell.damage?.parts ?? [];
+  const mains = parts.filter((p) => p.role === 'main');
+  let rows: { dice: string; types: string[] }[];
+  if (mains.length >= 2) {
+    rows = mains.map((p) => ({ dice: p.dice, types: [...p.types] }));
+  } else if (mains.length === 1) {
+    const main = mains[0]!;
+    const extra = parts.filter((p) => p.role === 'trigger' && !sameTypeSet(p.types, main.types));
+    rows = extra.length
+      ? [{ dice: main.dice, types: [...main.types] }, ...extra.map((p) => ({ dice: p.dice, types: [...p.types] }))]
+      : [];
+  } else {
+    rows = [];
   }
-  if (spell.key === 'XPHB:Wall of Thorns') {
-    return [
-      { dice: '7d8', types: ['piercing'] },
-      { dice: '7d8', types: ['slashing'] },
-    ];
+  if (rows.length < 2) return undefined;
+  // Типы-выборы (Destructive Wave: излучение/некротика) — в порядке спековых `choices`.
+  const options = spellVariantDef(spell.key)?.options;
+  if (options) {
+    for (const row of rows) {
+      if (sameTypeSet(row.types, options)) row.types = [...options];
+    }
   }
-  // Ice Knife: атака колющим + взрыв холодом вокруг цели (не один броском).
-  if (spell.key === 'XPHB:Ice Knife') {
-    return [
-      { dice: '1d10', types: ['piercing'] },
-      { dice: '2d6', types: ['cold'] },
-    ];
-  }
-  // Jallarzi's Storm of Radiance: 2d10 излучением + 2d10 звуком одним броском.
-  if (spell.key === "XPHB:Jallarzi's Storm of Radiance") {
-    return [
-      { dice: '2d10', types: ['radiant'] },
-      { dice: '2d10', types: ['thunder'] },
-    ];
-  }
-  return undefined;
+  return rows;
 }
 
 /**

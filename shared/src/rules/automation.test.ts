@@ -2470,7 +2470,14 @@ describe('Составной урон (D)', () => {
       level: 5,
       save: ['dex'],
       saveHalf: true,
-      damage: { dice: ['5d6'], types: ['fire', 'radiant'] },
+      damage: {
+        dice: ['5d6'],
+        types: ['fire', 'radiant'],
+        parts: [
+          { dice: '5d6', types: ['fire'], role: 'main' },
+          { dice: '5d6', types: ['radiant'], role: 'main' },
+        ],
+      },
       upcast: { above: 5, every: 1, dice: '1d6' },
     });
 
@@ -2728,17 +2735,95 @@ describe('Составной урон (D)', () => {
     expect(spellAutomated(light)).toBe(true);
   });
 
-  it('spellDamageParts: части для карточек (Destructive Wave — оба типа варианта)', () => {
+  it('spellDamageParts: строки по ролям частей данных (Destructive Wave — оба типа варианта)', () => {
     expect(spellDamageParts(flameStrike())).toEqual([
       { dice: '5d6', types: ['fire'] },
       { dice: '5d6', types: ['radiant'] },
     ]);
-    const wave = makeSpell({ key: 'XPHB:Destructive Wave', name: 'Destructive Wave', level: 5 });
+    const wave = makeSpell({
+      key: 'XPHB:Destructive Wave',
+      name: 'Destructive Wave',
+      level: 5,
+      damage: {
+        dice: ['5d6'],
+        types: ['necrotic', 'radiant', 'thunder'],
+        parts: [
+          { dice: '5d6', types: ['thunder'], role: 'main' },
+          { dice: '5d6', types: ['necrotic', 'radiant'], role: 'main' },
+        ],
+      },
+    });
     expect(spellDamageParts(wave)).toEqual([
       { dice: '5d6', types: ['thunder'] },
       { dice: '5d6', types: ['radiant', 'necrotic'] },
     ]);
     expect(spellDamageParts(makeSpell({}))).toBeUndefined();
+    // Wall of Thorns: появление (`main`) + стена (`trigger` другого типа).
+    const thorns = makeSpell({
+      key: 'XPHB:Wall of Thorns',
+      name: 'Wall of Thorns',
+      level: 4,
+      damage: {
+        dice: ['7d8'],
+        types: ['piercing', 'slashing'],
+        parts: [
+          { dice: '7d8', types: ['piercing'], role: 'main' },
+          { dice: '7d8', types: ['slashing'], role: 'trigger' },
+        ],
+      },
+    });
+    expect(spellDamageParts(thorns)).toEqual([
+      { dice: '7d8', types: ['piercing'] },
+      { dice: '7d8', types: ['slashing'] },
+    ]);
+    // Jallarzi: две `main`-части одним броском.
+    const jallarzi = makeSpell({
+      key: "XPHB:Jallarzi's Storm of Radiance",
+      name: 'Storm of Radiance',
+      level: 6,
+      damage: {
+        dice: ['2d10'],
+        types: ['radiant', 'thunder'],
+        parts: [
+          { dice: '2d10', types: ['radiant'], role: 'main' },
+          { dice: '2d10', types: ['thunder'], role: 'main' },
+        ],
+      },
+    });
+    expect(spellDamageParts(jallarzi)).toEqual([
+      { dice: '2d10', types: ['radiant'] },
+      { dice: '2d10', types: ['thunder'] },
+    ]);
+    // Immolation: main + repeat — карточка не составная (repeat не строка карточки).
+    const immolation = makeSpell({
+      key: 'XGE:Immolation',
+      name: 'Immolation',
+      level: 4,
+      damage: {
+        dice: ['8d6', '4d6'],
+        types: ['fire'],
+        parts: [
+          { dice: '8d6', types: ['fire'], role: 'main' },
+          { dice: '4d6', types: ['fire'], role: 'repeat' },
+        ],
+      },
+    });
+    expect(spellDamageParts(immolation)).toBeUndefined();
+    // Lightning Arrow: trigger того же типа, что main — второй строки нет.
+    const arrow = makeSpell({
+      key: 'XPHB:Lightning Arrow',
+      name: 'Lightning Arrow',
+      level: 3,
+      damage: {
+        dice: ['4d8', '2d8'],
+        types: ['lightning'],
+        parts: [
+          { dice: '4d8', types: ['lightning'], role: 'main' },
+          { dice: '2d8', types: ['lightning'], role: 'trigger' },
+        ],
+      },
+    });
+    expect(spellDamageParts(arrow)).toBeUndefined();
   });
 
   it('Ice Knife: атака колющим + взрыв 2к6 холодом (спас DEX, и по основной цели)', () => {
@@ -2749,7 +2834,14 @@ describe('Составной урон (D)', () => {
         level: 1,
         spellAttack: 'ranged',
         save: ['dex'],
-        damage: { dice: ['1d10', '2d6'], types: ['cold', 'piercing'] },
+        damage: {
+          dice: ['1d10', '2d6'],
+          types: ['cold', 'piercing'],
+          parts: [
+            { dice: '1d10', types: ['piercing'], role: 'main' },
+            { dice: '2d6', types: ['cold'], role: 'trigger' },
+          ],
+        },
         upcast: { above: 1, every: 1, dice: '1d6' },
         ...opts,
       });
