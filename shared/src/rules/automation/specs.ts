@@ -1,7 +1,7 @@
 import { DAMAGE_TYPES, SKILLS } from '../../labels';
 import type { EffectDuration } from '../../domain/effects';
 import { SPELL_BASES } from './bases';
-import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
+import { CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
 import type { AutomationSpec, ActionSpec, EffectSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
@@ -2723,5 +2723,149 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     utility: { kind: 'endCondition' },
     endConditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
     targeting: { kind: 'creature', range: 5 },
+  },
+
+  // Батч Е (R16): оставшиеся каталожные записи — shape (Polymorph), флаги движения
+  // (Freedom of Movement), conditionImmunitiesFrom (Protection from Evil and Good)
+  // и saveSuccess (Otto's Irresistible Dance).
+  'XPHB:Polymorph': {
+    key: 'XPHB:Polymorph',
+    name: 'Polymorph',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'wis' },
+    shape: { kind: 'polymorph', crByTarget: true },
+  },
+
+  'XPHB:Freedom of Movement': {
+    key: 'XPHB:Freedom of Movement',
+    name: 'Freedom of Movement',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'freedom',
+        name: 'Freedom of Movement',
+        duration: { type: 'rounds', rounds: 600 },
+        to: 'targets',
+        modifiers: [],
+        conditionImmunities: ['paralyzed', 'restrained'],
+        immuneToSpeedReduction: true,
+        ignoresDifficultTerrain: true,
+      },
+    ],
+  },
+
+  'XPHB:Protection from Evil and Good': {
+    key: 'XPHB:Protection from Evil and Good',
+    name: 'Protection from Evil and Good',
+    primary: 'effect',
+    concentration: true,
+    targeting: { kind: 'creature', range: 5 },
+    effects: [
+      {
+        id: 'protection',
+        name: 'Protection from Evil and Good',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [
+          {
+            target: 'attack',
+            mode: 'disadvantage',
+            filter: { direction: 'against', creatureTypes: EVIL_GOOD_TYPES },
+          },
+          { target: 'save', mode: 'advantage', filter: { conditions: ['charmed', 'frightened'] } },
+        ],
+        conditionImmunitiesFrom: { conditions: ['charmed', 'frightened'], types: EVIL_GOOD_TYPES },
+      },
+    ],
+  },
+
+  "XPHB:Otto's Irresistible Dance": {
+    key: "XPHB:Otto's Irresistible Dance",
+    name: 'Irresistible Dance',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    targeting: { kind: 'creature', range: 30 },
+    saveSuccess: [
+      {
+        id: 'success',
+        name: 'Irresistible Dance',
+        duration: { type: 'endOfTurn', of: 'target' },
+        to: 'targets',
+        modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
+      },
+    ],
+    effects: [
+      {
+        id: 'dance',
+        name: 'Irresistible Dance',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        // Чип `charmed` не ставим: у состояния нет движковой механики (deploy-инвариант),
+        // эффект целиком выражен модификаторами ниже + действие «Собраться».
+        modifiers: [
+          { target: 'speed', mode: 'multiply', value: 0 },
+          { target: 'save', mode: 'disadvantage', filter: { ability: 'dex' } },
+          { target: 'attack', mode: 'disadvantage', filter: { direction: 'self' } },
+          { target: 'attack', mode: 'advantage', filter: { direction: 'against' } },
+        ],
+        escape: {
+          kind: 'save',
+          ability: 'wis',
+          dc: 10,
+          label: 'Собраться',
+          iconKey: "XPHB:Otto's Irresistible Dance:stopDancing",
+        },
+      },
+    ],
+  },
+
+  // Primordial Ward и Fount of Moonlight — последние боевые записи каталога на спеках.
+  'XGE:Primordial Ward': {
+    key: 'XGE:Primordial Ward',
+    name: 'Primordial Ward',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'ward',
+        name: 'Primordial Ward',
+        duration: PERMANENT,
+        concentration: true,
+        to: 'self',
+        modifiers: ['acid', 'cold', 'fire', 'lightning', 'thunder'].map((type) => ({
+          target: 'damage' as const,
+          mode: 'resistance' as const,
+          value: 0,
+          filter: { damageType: type },
+        })),
+        hooks: { ward: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+      },
+    ],
+  },
+
+  'XPHB:Fount of Moonlight': {
+    key: 'XPHB:Fount of Moonlight',
+    name: 'Fount of Moonlight',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'fount',
+        name: 'Fount of Moonlight',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [
+          { target: 'damage', mode: 'add', value: '2d6radiant', filter: { attackType: 'melee' } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
+        ],
+        light: { bright: 20, dim: 20 },
+        hooks: { damageReaction: { ability: 'con', feet: 60, condition: 'blinded' } },
+      },
+    ],
   },
 };

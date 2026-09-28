@@ -4,6 +4,7 @@ import type {
   AutomationSave,
   AutomationUtility,
   LightSource,
+  ShapeDef,
   ZoneDef,
   ZoneWallDef,
 } from '../../domain/automation';
@@ -284,6 +285,12 @@ export interface EffectSpec {
   conditions?: Gated<ValueExpr>[];
   /** Иммунитеты к состояниям (Shining Smite: невидимость); значения — ссылки/гейты. */
   conditionImmunities?: Gated<ValueExpr>[];
+  /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
+  conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
+  /** Скорость не снижается магией/состояниями (Freedom of Movement). */
+  immuneToSpeedReduction?: boolean;
+  /** Сложная местность не замедляет (Freedom of Movement). */
+  ignoresDifficultTerrain?: boolean;
   /** Выпутывание действием (Web): проверка/спас против СЛ каста; СЛ подставляет сервер. */
   escape?: { kind?: 'check' | 'save'; ability: ValueExpr; skill?: ValueExpr; dc?: number; label?: string; iconKey?: string };
   /** Эскалация состояния при провале повторного спасброска (Sleep: incapacitated → unconscious). */
@@ -351,6 +358,8 @@ export interface AutomationSpec {
   concentration?: Leveled<boolean>;
   maxRounds?: Leveled<number | null>;
   save?: AutomationSave;
+  /** Трансформа цели (Polymorph): спасбросок + форма-зверь. */
+  shape?: ShapeDef;
   /** Вынужденное перемещение проваливших спас (Thunderous Smite: толчок 10 фт). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   damage?: DamageSpec;
@@ -386,6 +395,8 @@ export interface AutomationSpec {
   /** Спасбросок в бою с преимуществом (Dominate). */
   saveAdvantageInCombat?: boolean;
   effects?: EffectSpec[];
+  /** Эффекты при успешном спасброске (Irresistible Dance: короткий танец до конца след. хода). */
+  saveSuccess?: EffectSpec[];
   zone?: ZoneSpec;
   weaponAttack?: WeaponAttackSpec;
   choices?: ChoiceSpec[];

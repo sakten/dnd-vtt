@@ -191,6 +191,7 @@ CUSTOM:Jallarzi-Fire {
 - батч `vision` (начало): `EffectSpec.senses`/`seesInvisible` (+ гейты `{ if, then }`); мигрированы Light, Continual Flame, Darkvision, See Invisibility, Pass without Trace, Silence, Darkness, Fog Cloud (58 спеков), каталожные записи удалены;
 - батч смайтов: `AutomationSpec.force`, `EffectSpec.conditionImmunities`/`banish`, `ValueExpr.join`; мигрированы 9 XPHB-смайтов (67 спеков), билдер удалён;
 - `selection` добор: `mark`/`markTarget`/`retarget` (Hex/Hunter's Mark), `targets` (Bless/Bane), `autoTargets` (Beacon of Hope), `side`+`$spell` (Spirit Guardians, Conjure Woodland Beings, `baseActionId`), `requiresCreatureTypes`/`saveAdvantageInCombat`+`Leveled<null>` (Dominate Beast/Person), Telekinesis (utility + носитель-действие) — 77 спеков, `derived` не менялся, билдеры удалены. Батч `selection` закрыт.
+- каталог закрыт на спеках: `zone`-локации (Daylight/Moonbeam/Flaming Sphere/Faithful Hound/Crusader's Mantle/Holy Weapon), `escape`/`escalate` (Web/Sleep), `endConditions` (Protection from Poison/Lesser Restoration), `shape`/`saveSuccess`/`conditionImmunitiesFrom`/флаги движения (Polymorph/Freedom of Movement/Protection from Evil and Good/Otto/Primordial Ward/Fount of Moonlight); в `AUTOMATION_SPELLS` — только manual/chip и добавки.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;

@@ -1,4 +1,4 @@
-import type { AutomationDef, AutomationEffect, AutomationSave, GrantedAction } from '../../domain/automation';
+import type { AutomationDef, AutomationEffect, GrantedAction } from '../../domain/automation';
 import type { ConditionKey, DirectionKey, EffectDuration } from '../../domain/effects';
 import { AUTOMATION_ACTIONS } from '../automationActions';
 
@@ -96,23 +96,6 @@ export const CHILL_TOUCH: AutomationEffect = {
   modifiers: [],
   noHeal: true,
 };
-
-/** Строка каталога «заклинание с накладываемыми эффектами». */
-export function spellEffect(
-  key: string,
-  name: string,
-  effects: AutomationEffect[],
-  save?: { ability: AutomationSave['ability']; half?: boolean }
-): AutomationDef {
-  return {
-    key,
-    name,
-    resolution: 'effect',
-    concentration: effects.some((e) => e.concentration) || undefined,
-    save,
-    effects,
-  };
-}
 
 /** Явный manual-замок: отключает ложную деривацию из данных (решение владельца, класс H). */
 export function manualSpell(key: string, name: string, concentration = false): AutomationDef {

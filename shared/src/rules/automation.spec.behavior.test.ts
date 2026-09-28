@@ -675,4 +675,40 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(faerie?.modifiers).toEqual([{ target: 'attack', mode: 'advantage' }]);
     expect(faerie?.light).toEqual({ bright: 0, dim: 10 });
   });
+
+  it('Батч Е: Polymorph, Freedom of Movement, Protection from Evil and Good, Otto, Primordial Ward, Fount of Moonlight', () => {
+    const poly = automationForSpell(find('XPHB:Polymorph'));
+    expect(poly.resolution).toBe('save');
+    expect(poly.save).toEqual({ ability: 'wis' });
+    expect(poly.concentration).toBe(true);
+    expect(poly.shape).toEqual({ kind: 'polymorph', crByTarget: true });
+
+    const fom = automationForSpell(find('XPHB:Freedom of Movement')).effects?.[0];
+    expect(fom?.duration).toEqual({ type: 'rounds', rounds: 600 });
+    expect(fom?.conditionImmunities).toEqual(['paralyzed', 'restrained']);
+    expect(fom?.immuneToSpeedReduction).toBe(true);
+    expect(fom?.ignoresDifficultTerrain).toBe(true);
+
+    const peg = automationForSpell(find('XPHB:Protection from Evil and Good'));
+    expect(peg.targeting).toEqual({ kind: 'creature', range: 5 });
+    expect(peg.effects?.[0]?.conditionImmunitiesFrom).toEqual({
+      conditions: ['charmed', 'frightened'],
+      types: ['aberration', 'celestial', 'elemental', 'fey', 'fiend', 'undead'],
+    });
+
+    const otto = automationForSpell(find("XPHB:Otto's Irresistible Dance"));
+    expect(otto.saveSuccess?.[0]).toMatchObject({
+      duration: { type: 'endOfTurn', of: 'target' },
+      modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
+    });
+    expect(otto.effects?.[0]?.escape).toMatchObject({ kind: 'save', ability: 'wis', dc: 10, label: 'Собраться' });
+
+    const prim = automationForSpell(find('XGE:Primordial Ward')).effects?.[0];
+    expect(prim?.ward).toEqual(['acid', 'cold', 'fire', 'lightning', 'thunder']);
+    expect(prim?.modifiers).toHaveLength(5);
+
+    const fount = automationForSpell(find('XPHB:Fount of Moonlight')).effects?.[0];
+    expect(fount?.light).toEqual({ bright: 20, dim: 20 });
+    expect(fount?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
+  });
 });

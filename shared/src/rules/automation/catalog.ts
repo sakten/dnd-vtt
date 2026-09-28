@@ -1,29 +1,10 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, chipSpell, directionAction, manualSpell, spellEffect } from './header';
+import { CHILL_TOUCH, chipSpell, directionAction, manualSpell } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
-  /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
-  'XPHB:Polymorph': {
-    key: 'XPHB:Polymorph',
-    name: 'Polymorph',
-    resolution: 'save',
-    concentration: true,
-    save: { ability: 'wis' },
-    shape: { kind: 'polymorph', crByTarget: true },
-  },
-  /** Lesser Restoration и Protection from Poison — спеки (батч `endConditions`). */
-  /** Freedom of Movement: иммунитет к параличу/опутыванию, скорость и местность (1 час). */
-  'XPHB:Freedom of Movement': spellEffect('XPHB:Freedom of Movement', 'Freedom of Movement', [
-    {
-      name: 'Freedom of Movement',
-      duration: { type: 'rounds', rounds: 600 },
-      to: 'targets',
-      modifiers: [],
-      conditionImmunities: ['paralyzed', 'restrained'],
-      immuneToSpeedReduction: true,
-      ignoresDifficultTerrain: true,
-    },
-  ]),
+  // Polymorph, Freedom of Movement, Protection from Evil and Good и Otto's Irresistible
+  // Dance — спеки (батч Е): shape, флаги движения, conditionImmunitiesFrom, saveSuccess.
+  // Lesser Restoration и Protection from Poison — спеки (батч `endConditions`).
   // Daylight/Moonbeam/Flaming Sphere/Faithful Hound — спеки (батч `zone`-локаций):
   // свет, перемещаемые сферы и пёс-страж с действием «Переместить».
   // Sleep и Web — спеки (батч `escape`/`escalate`): эскалация сна и выпутывание.
@@ -33,128 +14,12 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // в движке не имеет авто-эффектов, поведение (не атаковать очаровавшего,
   // выполнять внушение) не автоматизировано. Вернуться, когда будет механика
   // charmed/отношений.
-  /**
-   * Banishment (XPHB 2024): спас CHA; провал — изгнание на 10 раундов (1 мин,
-   * концентрация). Возврат при снятии эффекта; экстрапланетные по истечении
-   * полного срока не возвращаются (удаляются) — решает исполнение тика.
-   */
-  /** Irresistible Dance (XPHB): танец на месте; провал — Charmed и повторный спас действием «Собраться». */
-  "XPHB:Otto's Irresistible Dance": {
-    key: "XPHB:Otto's Irresistible Dance",
-    name: 'Irresistible Dance',
-    resolution: 'effect',
-    concentration: true,
-    save: { ability: 'wis' },
-    targeting: { kind: 'creature', range: 30 },
-    saveSuccess: [
-      {
-        name: 'Irresistible Dance',
-        duration: { type: 'endOfTurn', of: 'target' },
-        to: 'targets',
-        modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
-      },
-    ],
-    effects: [
-      {
-        name: 'Irresistible Dance',
-        duration: CONCENTRATION,
-        concentration: true,
-        to: 'targets',
-        // Чип `charmed` не ставим: у состояния нет движковой механики (deploy-инвариант),
-        // эффект целиком выражен модификаторами ниже + действие «Собраться».
-        modifiers: [
-          { target: 'speed', mode: 'multiply', value: 0 },
-          { target: 'save', mode: 'disadvantage', filter: { ability: 'dex' } },
-          { target: 'attack', mode: 'disadvantage', filter: { direction: 'self' } },
-          { target: 'attack', mode: 'advantage', filter: { direction: 'against' } },
-        ],
-        escape: {
-          kind: 'save',
-          ability: 'wis',
-          dc: 10,
-          label: 'Собраться',
-          iconKey: "XPHB:Otto's Irresistible Dance:stopDancing",
-        },
-      },
-    ],
-  },
-  // Protection from Poison — спек (батч `endConditions`): снятие отравления при касте.
-  /** Protection from Evil and Good (XPHB): помеха атакам шести типов, иммунитет к charmed/frightened от них. */
-  'XPHB:Protection from Evil and Good': {
-    key: 'XPHB:Protection from Evil and Good',
-    name: 'Protection from Evil and Good',
-    resolution: 'effect',
-    concentration: true,
-    targeting: { kind: 'creature', range: 5 },
-    effects: [
-      {
-        name: 'Protection from Evil and Good',
-        duration: CONCENTRATION,
-        concentration: true,
-        to: 'targets',
-        modifiers: [
-          {
-            target: 'attack',
-            mode: 'disadvantage',
-            filter: { direction: 'against', creatureTypes: EVIL_GOOD_TYPES },
-          },
-          { target: 'save', mode: 'advantage', filter: { conditions: ['charmed', 'frightened'] } },
-        ],
-        conditionImmunitiesFrom: { conditions: ['charmed', 'frightened'], types: EVIL_GOOD_TYPES },
-      },
-    ],
-  },
-  // Primordial Ward (XGE): сопротивления 5 типам; реакцией на урон типа — иммунитет к нему
-  // (движок `ward` + `offerDamageReactions`, включая спровоцировавший урон).
-  'XGE:Primordial Ward': {
-    key: 'XGE:Primordial Ward',
-    name: 'Primordial Ward',
-    resolution: 'effect',
-    concentration: true,
-    effects: [
-      {
-        name: 'Primordial Ward',
-        duration: PERMANENT,
-        concentration: true,
-        to: 'self',
-        modifiers: ['acid', 'cold', 'fire', 'lightning', 'thunder'].map((type) => ({
-          target: 'damage' as const,
-          mode: 'resistance' as const,
-          value: 0,
-          filter: { damageType: type },
-        })),
-        ward: ['acid', 'cold', 'fire', 'lightning', 'thunder'],
-      },
-    ],
-  },
+  // Protection from Poison — спек (батч `endConditions`); Otto's и Protection from
+  // Evil and Good — спеки (батч Е). Primordial Ward и Fount of Moonlight — тоже спеки:
+  // боевых записей в каталоге не осталось, только manual/chip-замки и добавки.
   // Darkness/Fog Cloud/Darkvision — спеки (батч `vision`): флаги зон и сенсы эффекта.
   // Crusader's Mantle и Holy Weapon — спеки (батч `zone`-локаций): аура союзникам и
   // носитель с выданным бонусным действием «Разряд».
-  /**
-   * Fount of Moonlight (XPHB): сияние 20/20, сопротивление излучению, +2d6 излучением
-   * ближним атакам (в т.ч. заклинательным — контекст урона с `attackType`) и реакция
-   * «вспышка» на урон от видимого существа в 60 фт (CON-спас, слепота до след. хода).
-   */
-  'XPHB:Fount of Moonlight': {
-    key: 'XPHB:Fount of Moonlight',
-    name: 'Fount of Moonlight',
-    resolution: 'effect',
-    concentration: true,
-    effects: [
-      {
-        name: 'Fount of Moonlight',
-        duration: CONCENTRATION,
-        concentration: true,
-        to: 'self',
-        modifiers: [
-          { target: 'damage', mode: 'add', value: '2d6radiant', filter: { attackType: 'melee' } },
-          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
-        ],
-        light: { bright: 20, dim: 20 },
-        damageReaction: { ability: 'con', feet: 60, condition: 'blinded' },
-      },
-    ],
-  },
   // Animate Objects: до 10 предметов со своими статблоками — механика отдельным
   // срезом. Без записи деривация из данных давала ложный авто-урон 1d4 по цели.
   'XPHB:Animate Objects': {

@@ -72,7 +72,7 @@ const actual = {
 };
 
 const EXPECTED = {
-  catalog: '332f917bf174a5e9',
+  catalog: '4cfa839af64cba8c',
   additions: '50790d561072456f',
   // derived изменён осознанно (R18): Faerie Fire получил conditionImmunities: ['invisible'].
   derived: '592606dfb0dcd0ff',

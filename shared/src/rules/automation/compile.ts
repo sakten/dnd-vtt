@@ -447,6 +447,16 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     modifiers,
     ...(conditions.length ? { conditions } : {}),
     ...(conditionImmunities.length ? { conditionImmunities } : {}),
+    ...(effect.conditionImmunitiesFrom
+      ? {
+          conditionImmunitiesFrom: {
+            conditions: [...effect.conditionImmunitiesFrom.conditions],
+            types: [...effect.conditionImmunitiesFrom.types],
+          },
+        }
+      : {}),
+    ...(effect.immuneToSpeedReduction ? { immuneToSpeedReduction: true } : {}),
+    ...(effect.ignoresDifficultTerrain ? { ignoresDifficultTerrain: true } : {}),
     ...(escape ? { escape } : {}),
     ...(escalate ? { escalate } : {}),
     ...(effect.banish ? { banish: true } : {}),
@@ -612,6 +622,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(concentration ? { concentration: true } : {}),
     ...(maxRounds !== undefined ? { maxRounds } : {}),
     ...(spec.save ? { save: { ...spec.save } } : {}),
+    ...(spec.shape ? { shape: { ...spec.shape } } : {}),
     ...(spec.force ? { force: { ...spec.force } } : {}),
     ...(spec.damage ? { damage: compileDamage(ctx, spec.damage) } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
@@ -630,6 +641,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.endConditions?.length ? { endConditions: [...spec.endConditions] } : {}),
     // `effects: []` тоже валиден (SG: пустой массив после мержа добавок) — отличие от `undefined`.
     ...(spec.effects !== undefined ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
+    ...(spec.saveSuccess?.length ? { saveSuccess: spec.saveSuccess.map((e) => compileEffect(ctx, e)) } : {}),
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
     ...(spec.weaponAttack ? { weaponAttack: compileWeaponAttack(ctx, spec.weaponAttack) } : {}),
   };
@@ -731,6 +743,7 @@ export function resolveSpec(
 export function validateSpec(spec: AutomationSpec): string[] {
   const errors: string[] = [];
   if (spec.primary === 'effect' && !spec.effects?.length && !spec.zone) errors.push('effect без effects/zone');
+  if (spec.shape && spec.primary !== 'save') errors.push('shape допустим только с save');
   if (spec.primary === 'attack' && !spec.attack && !spec.weaponAttack) {
     errors.push('attack без attack/weaponAttack');
   }
