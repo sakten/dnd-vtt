@@ -81,7 +81,8 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
   }
   if ('perLevel' in expr) {
     const above = expr.perLevel.above === 'spell' ? ctx.spell.level : expr.perLevel.above;
-    return expr.perLevel.base + expr.perLevel.per * Math.max(0, ctx.castLevel - above);
+    const value = expr.perLevel.base + expr.perLevel.per * Math.max(0, ctx.castLevel - above);
+    return expr.perLevel.optional && value === 0 ? undefined : value;
   }
   if ('spellMod' in expr) {
     return Math.max(expr.spellMod.min ?? Number.NEGATIVE_INFINITY, expr.spellMod.base + Math.round(ctx.opts.spellMod ?? 0));
@@ -204,9 +205,10 @@ function compileBurst(
 
 /** Блок `utility`: кости провала/вспышки резолвятся, остальное — pass-through. */
 function compileUtility(ctx: CompileCtx, utility: UtilitySpec): AutomationUtility {
-  const { blockedDamage, fromBurst, ...rest } = utility;
+  const { blockedDamage, fromBurst, dice, ...rest } = utility;
   return {
     ...rest,
+    ...(dice !== undefined ? { dice: String(mustValue(ctx, dice, 'utility.dice')) } : {}),
     ...(blockedDamage ? { blockedDamage: compileDamage(ctx, blockedDamage) } : {}),
     ...(fromBurst
       ? {
@@ -267,6 +269,7 @@ function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
     ...(area ? { area } : {}),
     ...damage,
     ...(action.count !== undefined ? { count: action.count } : {}),
+    ...(action.lifesteal ? { lifesteal: true } : {}),
     ...(action.effects?.length ? { effects: action.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(action.retarget ? { retarget: true } : {}),
     ...(targeting ? { targeting: { ...targeting } } : {}),
@@ -625,6 +628,8 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.shape ? { shape: { ...spec.shape } } : {}),
     ...(spec.force ? { force: { ...spec.force } } : {}),
     ...(spec.damage ? { damage: compileDamage(ctx, spec.damage) } : {}),
+    ...(spec.lifesteal ? { lifesteal: true } : {}),
+    ...(spec.lifeTransfer ? { lifeTransfer: { ...spec.lifeTransfer } } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
     ...(spec.count !== undefined ? { count: spec.count } : {}),
     ...(spec.targets !== undefined ? { targets: spec.targets } : {}),
@@ -847,6 +852,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
   };
   function collectUtility(utility?: UtilitySpec) {
     if (!utility) return;
+    if (utility.dice !== undefined) refs.push(utility.dice);
     if (utility.blockedDamage) pushDamageRefs(utility.blockedDamage);
     if (utility.fromBurst?.damage) pushDamageRefs(utility.fromBurst.damage);
   }

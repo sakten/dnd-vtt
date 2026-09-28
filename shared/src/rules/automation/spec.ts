@@ -58,7 +58,7 @@ export type ValueExpr =
   /** Литеральные ступени значения по кругу (Magic Weapon: +1/+2/+3 с 1/3/6 круга). */
   | { tiers: { above: number; value: number }[] }
   /** `base + per × (круг − above)`; `above:'spell'` — базовый круг заклинания (Cordon). */
-  | { perLevel: { base: number; per: number; above: number | 'spell' } }
+  | { perLevel: { base: number; per: number; above: number | 'spell'; optional?: boolean } }
   /** `max(min, base + round(spellMod))` (Healing Spirit: заряды 1 + мод, мин 2). */
   | { spellMod: { base: number; min?: number } }
   /** Кость с апкаст-скейлом: данные (`upcast`) или литеральная добавка за шаг (Ice: +2d6). */
@@ -89,6 +89,8 @@ export interface ActionSpec {
   retarget?: boolean;
   /** Ссылка на базовое действие каталога вместо своей механики (`dash`/`disengage`). */
   baseActionId?: string;
+  /** Неубиваемое лечение от нанесённого урона (Vampiric Touch: половина). */
+  lifesteal?: boolean;
   /** Ветка механики действия; не нужна при `baseActionId` (payload берётся из каталога). */
   primary?: AutomationResolution;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
@@ -256,7 +258,9 @@ export interface HookSpec {
  * Блок `utility` спека (R16): как `AutomationUtility`, но кости провала/вспышки —
  * ссылки (`DamageSpec`). Компилируется в поля `AutomationDef.utility`.
  */
-export interface UtilitySpec extends Omit<AutomationUtility, 'blockedDamage' | 'fromBurst'> {
+export interface UtilitySpec extends Omit<AutomationUtility, 'blockedDamage' | 'fromBurst' | 'dice'> {
+  /** Кость временных HP (False Life: `2d4 + 4` + апкаст) — ссылка. */
+  dice?: ValueExpr;
   /** Урон провала телепорта (Dimension Door: 4к6 силовым). */
   blockedDamage?: DamageSpec;
   /** Вспышка в покинутой точке (Thunder Step: спас CON, 3к10 звуком). */
@@ -363,6 +367,13 @@ export interface AutomationSpec {
   /** Вынужденное перемещение проваливших спас (Thunderous Smite: толчок 10 фт). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
   damage?: DamageSpec;
+  /** Неубиваемое лечение кастера на половину нанесённого урона (Vampiric Touch). */
+  lifesteal?: boolean;
+  /**
+   * Life Transference: кастер получает урон неуменьшаемым, цель лечится на `factor` ×
+   * фактически полученный урон.
+   */
+  lifeTransfer?: { factor: number };
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
   /** Массовая цель без области: до N существ (Steel Wind Strike — 5). */

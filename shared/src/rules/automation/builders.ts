@@ -18,7 +18,6 @@ function partsOfRole(spell: Spell, role: DamagePartRole): { dice: string; types:
 /** Заклинания с собранной в коде автоматизацией (билдеры, не строки каталога). */
 export const BUILTIN_AUTOMATION = new Set([
   "XPHB:Dragon's Breath",
-  'XPHB:Vampiric Touch',
   'XPHB:Flame Blade',
   'XPHB:Guardian of Faith',
   'XPHB:Conjure Fey',
@@ -75,11 +74,9 @@ export const BUILTIN_AUTOMATION = new Set([
   'XGE:Wall of Light',
   'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
-  'XPHB:False Life',
   'XGE:Negative Energy Flood',
   "XPHB:Jallarzi's Storm of Radiance",
   'XPHB:Blindness/Deafness',
-  'XGE:Life Transference',
   'XPHB:Bestow Curse',
   'XPHB:Witch Bolt',
   "XPHB:Melf's Acid Arrow",
@@ -113,26 +110,6 @@ export function actionCarrier(
     ...(opts.variant ? { variant: opts.variant } : {}),
     ...(opts.light ? { light: opts.light } : {}),
     actions: [action],
-  };
-}
-
-/** Vampiric Touch (XPHB 2024): атака при касте, повтор магическим действием, лечение на половину урона. */
-export function vampiricTouchDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Vampiric Touch') return undefined;
-  const dice = spellDice(spell, opts);
-  const strike = (name: string, targeting?: AutomationDef['targeting']): AutomationDef => ({
-    key: spell.key,
-    name,
-    resolution: 'attack',
-    attack: { rangeType: 'melee' },
-    ...(dice ? { damage: { dice, types: ['necrotic'] } } : {}),
-    lifesteal: true,
-    ...(targeting ? { targeting } : {}),
-  });
-  return {
-    ...strike(spell.name),
-    concentration: true,
-    effects: [actionCarrier(spell, { id: 'touch', name: 'Касание', cost: 'action', def: strike('Касание', { kind: 'creature', range: 5 }) })],
   };
 }
 
@@ -726,41 +703,6 @@ export function vitriolicSphereDef(spell: Spell, opts: AutomationOptions): Autom
         triggers: { endOfTurn: { damage: { dice: `${partDice(spell, 'repeat', '5d4')}acid`, types: ['acid'] } } },
       },
     ],
-  };
-}
-
-/**
- * False Life (XPHB 2024): временные хиты 2к4 + 4 (+5 за круг выше 1) —
- * утилита `tempHp`: кость бросается один раз и выдаётся кастеру.
- */
-export function falseLifeDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:False Life') return undefined;
-  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const base = SPELL_BASES.falseLife;
-  const bonus = base.perLevel * Math.max(0, level - base.above);
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'utility',
-    utility: { kind: 'tempHp', dice: `${base.dice} + ${base.flat}${bonus ? ` + ${bonus}` : ''}` },
-  };
-}
-
-/**
- * Life Transference (XGE 2024): кастер получает 4к8 некротикой (неуменьшаемой,
- * +1к8 за круг выше 3), одна цель в 30 фт лечится на ×2 полученного урона.
- */
-export function lifeTransferenceDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XGE:Life Transference') return undefined;
-  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const dice = spellDamageExpression(spell, castLevel, opts.characterLevel ?? 1) ?? '4d8';
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'auto',
-    damage: { dice, types: ['necrotic'] },
-    lifeTransfer: { factor: 2 },
-    targeting: { kind: 'creature', range: 30 },
   };
 }
 

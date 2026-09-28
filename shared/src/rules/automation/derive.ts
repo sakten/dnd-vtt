@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, enervationDef, ensnaringStrikeDef, falseLifeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, enervationDef, ensnaringStrikeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, immolationDef, jallarziDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, vitriolicSphereDef, witchBoltDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -43,9 +43,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);
-
-  const vampiric = vampiricTouchDef(spell, opts);
-  if (vampiric) return vampiric;
 
   const sunbeam = sunbeamDef(spell, opts);
   if (sunbeam) return sunbeam;
@@ -92,14 +89,8 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const vitriolic = vitriolicSphereDef(spell, opts);
   if (vitriolic) return vitriolic;
 
-  const falseLife = falseLifeDef(spell, opts);
-  if (falseLife) return falseLife;
-
   const negativeEnergyFlood = negativeEnergyFloodDef(spell);
   if (negativeEnergyFlood) return negativeEnergyFlood;
-
-  const lifeTransference = lifeTransferenceDef(spell, opts);
-  if (lifeTransference) return lifeTransference;
 
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;

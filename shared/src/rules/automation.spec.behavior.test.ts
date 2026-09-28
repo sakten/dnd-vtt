@@ -711,4 +711,30 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(fount?.light).toEqual({ bright: 20, dim: 20 });
     expect(fount?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
   });
+
+  it('Батч Ж: поток HP — Vampiric Touch, Life Transference, False Life', () => {
+    const vamp = automationForSpell(find('XPHB:Vampiric Touch'), { castLevel: 3 });
+    expect(vamp.resolution).toBe('attack');
+    expect(vamp.lifesteal).toBe(true);
+    expect(vamp.damage).toMatchObject({ dice: '3d6', types: ['necrotic'] });
+    expect(vamp.effects?.[0]?.actions?.[0]?.def).toMatchObject({
+      lifesteal: true,
+      attack: { rangeType: 'melee' },
+      targeting: { kind: 'creature', range: 5 },
+    });
+    // Апкаст: +1d6 в узоре и у повторного касания.
+    const vampUp = automationForSpell(find('XPHB:Vampiric Touch'), { castLevel: 4 });
+    expect(vampUp.damage?.dice).toBe('3d6 + 1d6');
+    expect(vampUp.effects?.[0]?.actions?.[0]?.def?.damage?.dice).toBe('3d6 + 1d6');
+
+    const transfer = automationForSpell(find('XGE:Life Transference'), { castLevel: 3 });
+    expect(transfer.lifeTransfer).toEqual({ factor: 2 });
+    expect(transfer.damage).toMatchObject({ dice: '4d8', types: ['necrotic'] });
+    expect(transfer.targeting).toEqual({ kind: 'creature', range: 30 });
+
+    const falseLife = automationForSpell(find('XPHB:False Life'), { castLevel: 1 });
+    expect(falseLife.utility).toEqual({ kind: 'tempHp', dice: '2d4 + 4' });
+    const falseLifeUp = automationForSpell(find('XPHB:False Life'), { castLevel: 3 });
+    expect(falseLifeUp.utility?.dice).toBe('2d4 + 4 + 10');
+  });
 });

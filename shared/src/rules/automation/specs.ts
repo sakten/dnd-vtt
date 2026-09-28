@@ -2868,4 +2868,65 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     ],
   },
+
+  // Батч Ж (R16): поток HP — вампиризм (Vampiric Touch), перенос жизни (Life Transference)
+  // и временные хиты (False Life).
+  'XPHB:Vampiric Touch': {
+    key: 'XPHB:Vampiric Touch',
+    name: 'Vampiric Touch',
+    primary: 'attack',
+    concentration: true,
+    attack: { rangeType: 'melee' },
+    damage: { dice: { ref: 'spellDamage', fallback: '3d6' }, types: ['necrotic'] },
+    lifesteal: true,
+    effects: [
+      {
+        id: 'touch',
+        name: 'Vampiric Touch',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [
+          {
+            id: 'touch',
+            name: 'Касание',
+            cost: 'action',
+            primary: 'attack',
+            attack: { rangeType: 'melee' },
+            damage: { dice: { ref: 'spellDamage', fallback: '3d6' }, types: ['necrotic'] },
+            lifesteal: true,
+            targeting: { kind: 'creature', range: 5 },
+          },
+        ],
+      },
+    ],
+  },
+
+  'XGE:Life Transference': {
+    key: 'XGE:Life Transference',
+    name: 'Life Transference',
+    primary: 'auto',
+    damage: { dice: { ref: 'spellDamage', fallback: '4d8' }, types: ['necrotic'] },
+    lifeTransfer: { factor: 2 },
+    targeting: { kind: 'creature', range: 30 },
+  },
+
+  'XPHB:False Life': {
+    key: 'XPHB:False Life',
+    name: 'False Life',
+    primary: 'utility',
+    utility: {
+      kind: 'tempHp',
+      dice: {
+        join: {
+          parts: [
+            { ref: 'damage', fallback: `${SPELL_BASES.falseLife.dice} + ${SPELL_BASES.falseLife.flat}` },
+            { perLevel: { base: 0, per: SPELL_BASES.falseLife.perLevel, above: 'spell', optional: true } },
+          ],
+          sep: ' + ',
+        },
+      },
+    },
+  },
 };
