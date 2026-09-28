@@ -2627,7 +2627,10 @@ describe('Составной урон (D)', () => {
     expect(def.zone?.wall?.vulnerabilities).toEqual(['fire']);
     expect(def.zone?.wall?.breach?.save).toEqual({ ability: 'con', half: true });
     expect(def.zone?.wall?.breach?.damage).toEqual({ dice: '5d6cold', types: ['cold'] });
-    expect(def.zone?.flags).toEqual({ blocksMovement: true, blocksLineOfSight: true });
+    // Оси стены: проход и обзор — явные флаги стены; флаги зоны — только обзор.
+    expect(def.zone?.wall?.blocksMovement).toBe(true);
+    expect(def.zone?.wall?.blocksLineOfSight).toBe(true);
+    expect(def.zone?.flags).toEqual({ blocksLineOfSight: true });
     // Купол/сфера: радиус 10, стена 1 фт (inner 9).
     expect(automationForSpell(ice, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 9 });
     // Апкаст: +2к6 появлению, +1к6 листу за круг выше 6.
@@ -2647,8 +2650,14 @@ describe('Составной урон (D)', () => {
     expect(forceDef.save).toBeUndefined();
     expect(forceDef.damage).toBeUndefined();
     expect(forceDef.zone?.area).toEqual({ shape: 'line', size: 100, width: 0.25 });
-    expect(forceDef.zone?.wall).toEqual({ sectionFeet: 10, immune: true, blocksLineOfSight: false });
-    expect(forceDef.zone?.flags).toEqual({ blocksMovement: true });
+    expect(forceDef.zone?.wall).toEqual({
+      sectionFeet: 10,
+      immune: true,
+      blocksMovement: true,
+      blocksLineOfSight: false,
+      blocksActions: true,
+    });
+    expect(forceDef.zone?.flags).toBeUndefined();
     expect(automationForSpell(force, { variant: 'ring' }).zone?.area).toEqual({ shape: 'ring', size: 10, inner: 9 });
     expect(spellVariantDef('XPHB:Wall of Force')?.options).toEqual(['wall', 'ring']);
     expect(spellAutomated(force)).toBe(true);
@@ -2667,7 +2676,8 @@ describe('Составной урон (D)', () => {
     expect(stoneDef.zone?.wall?.ac).toBe(15);
     expect(stoneDef.zone?.wall?.immunities).toEqual(['poison', 'psychic']);
     expect(stoneDef.zone?.wall?.blocksLineOfSight).toBe(true);
-    expect(stoneDef.zone?.flags).toEqual({ blocksMovement: true, blocksLineOfSight: true });
+    expect(stoneDef.zone?.wall?.blocksMovement).toBe(true);
+    expect(stoneDef.zone?.flags).toEqual({ blocksLineOfSight: true });
     expect(spellVariantDef('XPHB:Wall of Stone')?.options).toEqual(['wall']);
     expect(spellAutomated(stone)).toBe(true);
     expect(wallMaxPanels('XPHB:Wall of Force')).toBe(10);

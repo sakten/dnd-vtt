@@ -84,6 +84,20 @@ describe('crossesWalls', () => {
     expect(crossesWalls(P(-25, 0), P(25, 0), [force], 'move')).toBe(true);
     expect(crossesWalls(P(-25, 0), P(25, 0), [force], 'action')).toBe(true);
   });
+
+  it('сегмент без движения (blocksMovement: false): проход свободен, обзор режет kind', () => {
+    const passable = { ...wallAlongEdge, blocksMovement: false };
+    expect(crossesWalls(P(-25, 0), P(25, 0), [passable], 'move')).toBe(false);
+    expect(crossesWalls(P(-25, 0), P(25, 0), [passable], 'sight')).toBe(true);
+    expect(crossesWalls(P(-25, 0), P(25, 0), [passable], 'action')).toBe(true);
+  });
+
+  it('сегмент без действий (blocksActions: false) не режет каст, но режет проход', () => {
+    const quiet = { ...wallAlongEdge, blocksActions: false };
+    expect(crossesWalls(P(-25, 0), P(25, 0), [quiet], 'action')).toBe(false);
+    expect(crossesWalls(P(-25, 0), P(25, 0), [quiet], 'move')).toBe(true);
+    expect(crossesWalls(P(-25, 0), P(25, 0), [quiet], 'sight')).toBe(true);
+  });
 });
 
 describe('segmentRectDistance / segmentsDistance', () => {

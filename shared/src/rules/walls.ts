@@ -47,15 +47,16 @@ export type WallCheckMode = 'sight' | 'move' | 'action';
 
 /**
  * Блокирует ли стена проход/обзор/действия в данном режиме.
- * Окна свободны для обзора и действий; силовое поле (`blocksActions`) —
- * прозрачно, но режет каст/атаки/телепорт как обычная стена.
+ * Оси независимы: `kind` задаёт обзор (`wall` — режет, `window` — нет); проход —
+ * `blocksMovement` (по умолчанию режет); действия — `blocksActions` (по умолчанию
+ * решает kind: `wall` блокирует, `window` — нет). Двери — по состоянию `open`.
  */
 function blocks(w: Wall, mode: WallCheckMode): boolean {
-  if (w.kind === 'wall') return true;
   if (w.kind === 'door') return !w.open;
-  if (mode === 'move') return true;
-  if (mode === 'action') return w.blocksActions === true;
-  return false;
+  if (mode === 'sight') return w.kind === 'wall';
+  if (mode === 'move') return w.blocksMovement !== false;
+  if (w.blocksActions !== undefined) return w.blocksActions;
+  return w.kind === 'wall';
 }
 
 /** Пересекает ли отрезок a→b хотя бы одну блокирующую стену (по умолчанию — для обзора). */

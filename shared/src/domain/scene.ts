@@ -41,7 +41,7 @@ export interface LightArea {
   h: number;
 }
 
-/** Сегмент стены по узлам сетки: блокирует обзор (и позже — движение). */
+/** Сегмент стены по узлам сетки: обзор (kind) и проход/действия — независимые оси. */
 export interface Wall {
   id: string;
   x1: number;
@@ -55,8 +55,10 @@ export interface Wall {
   dmOnly?: boolean;
   /** Дверь: Сл проверки Ловкости рук (0/нет — замок не заперт). */
   pickDc?: number;
-  /** Окно-сегмент зоны (Wall of Force): прозрачно для обзора, но блокирует каст/атаки. */
+  /** Каст/атаки/телепорт сквозь (нет — решает kind: `wall` блокирует, `window` — нет). */
   blocksActions?: boolean;
+  /** Проход (по умолчанию режет; false — сегмент зоны, не режущий движение). */
+  blocksMovement?: boolean;
 }
 
 export const DEFAULT_GRID: GridSettings = {

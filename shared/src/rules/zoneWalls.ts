@@ -164,9 +164,10 @@ export function zoneWallDefenses(wall: ZoneWallDef): DamageDefense[] {
 function segmentWalls(
   zoneId: string,
   segments: ZoneWallSegment[],
-  kind: Wall['kind'] = 'wall',
-  blocksActions = false
+  kind: Wall['kind'],
+  axes: { movement: boolean; actions: boolean }
 ): Wall[] {
+  const defaultActions = kind === 'wall';
   return segments.map((segment, i) => ({
     id: `zw:${zoneId}:${i}`,
     x1: segment.a.x,
@@ -174,19 +175,22 @@ function segmentWalls(
     x2: segment.b.x,
     y2: segment.b.y,
     kind,
-    ...(blocksActions ? { blocksActions: true } : {}),
+    ...(axes.movement ? {} : { blocksMovement: false }),
+    ...(axes.actions !== defaultActions ? { blocksActions: axes.actions } : {}),
   }));
 }
 
-/** Препятствия-сегменты непробитых секций всех стен-зон (прозрачные — `window`). */
+/** Препятствия-сегменты непробитых секций всех стен-зон (оси: движение/обзор/действия). */
 export function zoneWallObstacles(zones: ZoneInstance[] | undefined, grid: AreaGrid): Wall[] {
   const walls: Wall[] = [];
   for (const zone of zones ?? []) {
     if (!zone.wall) continue;
     const intact = zoneWallSegments(zone, grid).filter((s) => !zone.sections?.[s.section]?.broken);
-    // Wall of Force прозрачна: движение и действия блокирует, обзор сквозь неё проходит.
-    const seeThrough = zone.wall.blocksLineOfSight === false;
-    walls.push(...segmentWalls(zone.id, intact, seeThrough ? 'window' : 'wall', seeThrough));
+    // Оси стены независимы: обзор — kind (`wall`/`window`), движение и действия — флаги.
+    const movement = zone.wall.blocksMovement !== false;
+    const sight = zone.wall.blocksLineOfSight !== false;
+    const actions = zone.wall.blocksActions !== false;
+    walls.push(...segmentWalls(zone.id, intact, sight ? 'wall' : 'window', { movement, actions }));
   }
   return walls;
 }

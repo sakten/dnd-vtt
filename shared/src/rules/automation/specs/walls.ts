@@ -69,9 +69,11 @@ export const WALLS_SPECS: Record<string, AutomationSpec> = {
         ac: 12,
         immunities: ['cold', 'poison', 'psychic'],
         vulnerabilities: ['fire'],
+        blocksMovement: true,
+        blocksLineOfSight: true,
         breach: { save: { ability: 'con', half: true }, damage: { dice: iceSheetDice(), types: ['cold'] } },
       },
-      flags: { blocksMovement: true, blocksLineOfSight: true },
+      flags: { blocksLineOfSight: true },
     }),
   },
 
@@ -82,8 +84,13 @@ export const WALLS_SPECS: Record<string, AutomationSpec> = {
     concentration: true,
     choices: [{ id: 'mode', param: 'effect', options: ['wall', 'ring'] }],
     zone: wallZone({
-      wall: { sectionFeet: 10, immune: true, blocksLineOfSight: false },
-      flags: { blocksMovement: true },
+      wall: {
+        sectionFeet: 10,
+        immune: true,
+        blocksMovement: true,
+        blocksLineOfSight: false,
+        blocksActions: true,
+      },
     }),
   },
 
@@ -94,8 +101,15 @@ export const WALLS_SPECS: Record<string, AutomationSpec> = {
     concentration: true,
     choices: [{ id: 'mode', param: 'effect', options: ['wall'] }],
     zone: wallZone({
-      wall: { sectionFeet: 10, hp: 180, ac: 15, immunities: ['poison', 'psychic'], blocksLineOfSight: true },
-      flags: { blocksMovement: true, blocksLineOfSight: true },
+      wall: {
+        sectionFeet: 10,
+        hp: 180,
+        ac: 15,
+        immunities: ['poison', 'psychic'],
+        blocksMovement: true,
+        blocksLineOfSight: true,
+      },
+      flags: { blocksLineOfSight: true },
     }),
   },
 

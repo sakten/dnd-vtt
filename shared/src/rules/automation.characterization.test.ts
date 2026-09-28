@@ -81,9 +81,9 @@ const actual = {
 const EXPECTED = {
   catalog: '4cfa839af64cba8c',
   additions: '50790d561072456f',
-  // derived изменён осознанно: кейсы выбора теперь хешируются в сортированном виде,
-  // чтобы порядок записей спеков (в т.ч. разбиение specs.ts на модули) не влиял на замок.
-  derived: '68d23c853fd8dda0',
+  // derived изменён осознанно: оси стены (blocksMovement/blocksLineOfSight/blocksActions)
+  // объявляются в `zone.wall`, мёртвый `flags.blocksMovement` убран (Wall of Ice/Force/Stone).
+  derived: '21dcc4e4cec47878',
   green: 245,
   red: 175,
 };

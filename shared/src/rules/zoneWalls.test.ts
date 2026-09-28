@@ -180,6 +180,23 @@ describe('zoneWalls: геометрия тонкой стены', () => {
     ).toBeNull();
   });
 
+  it('проходимая сегментная стена: маршрут свободен, обзор/действия — по флагам', () => {
+    const passable = iceZone({
+      origin: { x: 125, y: 25 },
+      wall: { ...ICE_WALL, blocksMovement: false, blocksActions: false },
+    });
+    const walls = wallsWithZones([], [passable], GRID);
+    expect(walls.every((w) => w.blocksMovement === false && w.blocksActions === false && w.kind === 'wall')).toBe(
+      true
+    );
+    expect(crossesWalls({ x: 125, y: 25 }, { x: 175, y: 25 }, walls, 'move')).toBe(false);
+    expect(crossesWalls({ x: 125, y: 25 }, { x: 175, y: 25 }, walls, 'sight')).toBe(true);
+    expect(crossesWalls({ x: 125, y: 25 }, { x: 175, y: 25 }, walls, 'action')).toBe(false);
+    expect(
+      findPath({ from: { x: 125, y: 25 }, to: { x: 175, y: 25 }, grid: GRID, bounds: { cols: 10, rows: 10 }, walls })
+    ).not.toBeNull();
+  });
+
   it('разрезанные стеной существа: разрезана подошва, а не касание грани', () => {
     const zone = iceZone();
     const segments = zoneWallSegments(zone, GRID);

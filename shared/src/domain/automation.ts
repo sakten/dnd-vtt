@@ -349,8 +349,12 @@ export interface ZoneWallDef {
   breach?: AutomationPayload;
   /** Полный иммунитет к урону (Wall of Force): секции не создаются, атаки отклоняются. */
   immune?: boolean;
+  /** Режет проход непробитыми сегментами (по умолчанию true; false — проходимая стена). */
+  blocksMovement?: boolean;
   /** Блокирует обзор; `false` — прозрачная стена (Wall of Force). */
   blocksLineOfSight?: boolean;
+  /** Блокирует каст/атаки/телепорт сквозь стену (по умолчанию true). */
+  blocksActions?: boolean;
 }
 
 /** Состояние секции стены (индекс — вдоль геометрии: длина/дуга). */
@@ -408,7 +412,6 @@ export interface ZoneDef {
     movementCost?: number;
     obscured?: 'light' | 'heavy';
     blocksLight?: boolean;
-    blocksMovement?: boolean;
     blocksLineOfSight?: boolean;
     /** Почти незаметный визуал зоны (туча Call Lightning): только тонкий контур. */
     subtle?: boolean;
