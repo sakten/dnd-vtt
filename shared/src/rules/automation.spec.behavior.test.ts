@@ -648,4 +648,21 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(nap?.escalate).toEqual({ condition: 'unconscious', duration: { type: 'concentration' } });
     expect(nap?.wakeOnDamage).toBe(true);
   });
+
+  it('Батч Д: endConditions — Protection from Poison и Lesser Restoration', () => {
+    const pfp = automationForSpell(find('XPHB:Protection from Poison'));
+    expect(pfp.endConditions).toEqual(['poisoned']);
+    const ward = pfp.effects?.[0];
+    expect(ward?.duration).toEqual({ type: 'permanent' });
+    expect(ward?.modifiers).toEqual([
+      { target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } },
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
+    ]);
+
+    const lesser = automationForSpell(find('XPHB:Lesser Restoration'));
+    expect(lesser.resolution).toBe('utility');
+    expect(lesser.utility).toEqual({ kind: 'endCondition' });
+    expect(lesser.endConditions).toEqual(['blinded', 'deafened', 'paralyzed', 'poisoned']);
+    expect(lesser.targeting).toEqual({ kind: 'creature', range: 5 });
+  });
 });

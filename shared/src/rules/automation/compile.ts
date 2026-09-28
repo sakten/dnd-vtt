@@ -627,6 +627,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.requiresCreatureTypes?.length ? { requiresCreatureTypes: [...spec.requiresCreatureTypes] } : {}),
     ...(spec.saveAdvantageInCombat ? { saveAdvantageInCombat: true } : {}),
     ...(spec.side ? { side: spec.side } : {}),
+    ...(spec.endConditions?.length ? { endConditions: [...spec.endConditions] } : {}),
     // `effects: []` тоже валиден (SG: пустой массив после мержа добавок) — отличие от `undefined`.
     ...(spec.effects !== undefined ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),

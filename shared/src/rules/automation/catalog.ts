@@ -11,15 +11,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     save: { ability: 'wis' },
     shape: { kind: 'polymorph', crByTarget: true },
   },
-  /** Lesser Restoration: снять одно состояние (Blinded/Deafened/Paralyzed/Poisoned), касание. */
-  'XPHB:Lesser Restoration': {
-    key: 'XPHB:Lesser Restoration',
-    name: 'Lesser Restoration',
-    resolution: 'utility',
-    utility: { kind: 'endCondition' },
-    endConditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
-    targeting: { kind: 'creature', range: 5 },
-  },
+  /** Lesser Restoration и Protection from Poison — спеки (батч `endConditions`). */
   /** Freedom of Movement: иммунитет к параличу/опутыванию, скорость и местность (1 час). */
   'XPHB:Freedom of Movement': spellEffect('XPHB:Freedom of Movement', 'Freedom of Movement', [
     {
@@ -86,23 +78,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
-  'XPHB:Protection from Poison': {
-    key: 'XPHB:Protection from Poison',
-    name: 'Protection from Poison',
-    resolution: 'effect',
-    endConditions: ['poisoned'],
-    effects: [
-      {
-        name: 'Protection from Poison',
-        duration: PERMANENT,
-        to: 'targets',
-        modifiers: [
-          { target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } },
-          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
-        ],
-      },
-    ],
-  },
+  // Protection from Poison — спек (батч `endConditions`): снятие отравления при касте.
   /** Protection from Evil and Good (XPHB): помеха атакам шести типов, иммунитет к charmed/frightened от них. */
   'XPHB:Protection from Evil and Good': {
     key: 'XPHB:Protection from Evil and Good',

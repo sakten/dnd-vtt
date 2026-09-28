@@ -377,6 +377,8 @@ export interface AutomationSpec {
   utility?: UtilitySpec;
   /** Блок `movement` спека: телепорт после атаки (Steel Wind Strike). */
   movement?: MovementSpec;
+  /** Снятие состояний при касте/лечении (Protection from Poison, Lesser Restoration, Heal). */
+  endConditions?: ConditionKey[];
   /** Типы существ, на которых не действует (Command: нежить). */
   excludeCreatureTypes?: string[];
   /** Типы существ, на которых только действует (Dominate Beast/Person). */

@@ -2693,4 +2693,34 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       flags: { difficultTerrain: true },
     },
   },
+
+  // Батч Д (R16): `endConditions` — снятие состояний при касте (Protection from Poison)
+  // и утилита выбора состояния (Lesser Restoration).
+  'XPHB:Protection from Poison': {
+    key: 'XPHB:Protection from Poison',
+    name: 'Protection from Poison',
+    primary: 'effect',
+    endConditions: ['poisoned'],
+    effects: [
+      {
+        id: 'protection',
+        name: 'Protection from Poison',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [
+          { target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } },
+          { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Lesser Restoration': {
+    key: 'XPHB:Lesser Restoration',
+    name: 'Lesser Restoration',
+    primary: 'utility',
+    utility: { kind: 'endCondition' },
+    endConditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
+    targeting: { kind: 'creature', range: 5 },
+  },
 };
