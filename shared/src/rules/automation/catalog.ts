@@ -1,5 +1,5 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -32,77 +32,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       ignoresDifficultTerrain: true,
     },
   ]),
-  /** Светящиеся заклинания без боевой механики: источник света для обзора и вида. */
-  'XPHB:Daylight': {
-    key: 'XPHB:Daylight',
-    name: 'Daylight',
-    resolution: 'effect',
-    zone: {
-      area: { shape: 'sphere', size: 60 },
-      origin: 'point',
-      duration: PERMANENT,
-      light: { bright: 60, dim: 60, sunlight: true },
-    },
-  },
-  /**
-   * Silence (XPHB 2024): сфера r20 — звук не возникает и не проходит; целиком
-   * внутри — оглохший и иммунитет к звуку; вербальные заклинания невозможны.
-   */
-  /** Moonbeam (XPHB 2024): появление/вход/конец хода — спас CON; сумерки; действие — двигать до 60 фт. */
-  'XPHB:Moonbeam': {
-    key: 'XPHB:Moonbeam',
-    name: 'Moonbeam',
-    resolution: 'save',
-    concentration: true,
-    save: { ability: 'con', half: true },
-    damage: { dice: '$spell', types: ['radiant'] },
-    zone: {
-      area: { shape: 'sphere', size: 5 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      light: { bright: 0, dim: 5 },
-      triggers: {
-        enter: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['radiant'] } },
-        endOfTurn: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['radiant'] } },
-      },
-      actions: [zoneMoveAction('Переместить', 'action', 60)],
-    },
-  },
-  /** Flaming Sphere (XPHB 2024): сфера 5 фт; вход/конец хода — спас DEX; свет 20/20; бонус — катить 30 фт. */
-  'XPHB:Flaming Sphere': {
-    key: 'XPHB:Flaming Sphere',
-    name: 'Flaming Sphere',
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 5 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      light: { bright: 20, dim: 20 },
-      triggers: {
-        enter: { save: { ability: 'dex', half: true }, damage: { dice: '$spell', types: ['fire'] } },
-        endOfTurn: { save: { ability: 'dex', half: true }, damage: { dice: '$spell', types: ['fire'] } },
-      },
-      actions: [zoneMoveAction('Переместить', 'bonus', 30)],
-    },
-  },
-  /** Faithful Hound (XPHB 2024): невидимый пёс; враждебные в области в конце хода — спас DEX, 4d8 force. */
-  "XPHB:Mordenkainen's Faithful Hound": {
-    key: "XPHB:Mordenkainen's Faithful Hound",
-    name: 'Faithful Hound',
-    resolution: 'effect',
-    side: 'hostile',
-    zone: {
-      area: { shape: 'sphere', size: 5 },
-      origin: 'point',
-      duration: PERMANENT,
-      side: 'hostile',
-      triggers: {
-        endOfTurn: { save: { ability: 'dex' }, damage: { dice: '4d8', types: ['force'] } },
-      },
-      actions: [zoneMoveAction('Переместить', 'action', 30)],
-    },
-  },
+  // Daylight/Moonbeam/Flaming Sphere/Faithful Hound — спеки (батч `zone`-локаций):
+  // свет, перемещаемые сферы и пёс-страж с действием «Переместить».
   // Контроль (спас → состояние); «до конца следующего хода» трактуется движком
   // как до начала следующего хода источника.
   // Charm Person/Charm Monster/Animal Friendship/Suggestion — manual: «очарован»
@@ -252,77 +183,8 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     ],
   },
   // Darkness/Fog Cloud/Darkvision — спеки (батч `vision`): флаги зон и сенсы эффекта.
-  // B1: баффы оружия. Divine Favor — свои атаки, Crusader's Mantle — аура союзникам,
-  // Holy Weapon — цель-носитель + выданный бонусным действием «Разряд».
-  /** Crusader's Mantle (XPHB 2024): эманация 30 фт — вы и союзники +1d4 излучением оружием и безоружным ударом. */
-  "XPHB:Crusader's Mantle": {
-    key: "XPHB:Crusader's Mantle",
-    name: "Crusader's Mantle",
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 30 },
-      origin: 'self',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      side: 'ally',
-      aura: {
-        effects: [
-          {
-            // RAW 2024: оружие **и** безоружный удар, поэтому без `unarmed: false`.
-            name: "Crusader's Mantle",
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }],
-          },
-        ],
-      },
-    },
-  },
-  /** Holy Weapon (XGE): касание — оружие светит 30/30 и бьёт +2d8 излучением; «Разряд» завершает эффект. */
-  'XGE:Holy Weapon': {
-    key: 'XGE:Holy Weapon',
-    name: 'Holy Weapon',
-    resolution: 'effect',
-    concentration: true,
-    targeting: { kind: 'creature', range: 5 },
-    effects: [
-      {
-        name: 'Holy Weapon',
-        duration: CONCENTRATION,
-        concentration: true,
-        to: 'targets',
-        modifiers: [{ target: 'damage', mode: 'add', value: '2d8radiant', filter: { weapon: true, unarmed: false } }],
-        light: { bright: 30, dim: 30 },
-        actions: [
-          {
-            id: 'burst',
-            name: 'Разряд',
-            cost: 'bonus',
-            endsEffect: true,
-            def: {
-              key: 'XGE:Holy Weapon:burst',
-              name: 'Разряд',
-              resolution: 'save',
-              save: { ability: 'con', half: true },
-              damage: { dice: '4d8', types: ['radiant'] },
-              area: { shape: 'sphere', size: 30 },
-              targeting: { kind: 'area', area: { shape: 'sphere', size: 30 }, range: 30 },
-              effects: [
-                {
-                  name: 'Holy Weapon',
-                  duration: { type: 'endOfTurn', of: 'source' },
-                  to: 'targets',
-                  modifiers: [],
-                  conditions: ['blinded'],
-                },
-              ],
-            },
-          },
-        ],
-      },
-    ],
-  },
+  // Crusader's Mantle и Holy Weapon — спеки (батч `zone`-локаций): аура союзникам и
+  // носитель с выданным бонусным действием «Разряд».
   /**
    * Fount of Moonlight (XPHB): сияние 20/20, сопротивление излучению, +2d6 излучением
    * ближним атакам (в т.ч. заклинательным — контекст урона с `attackType`) и реакция

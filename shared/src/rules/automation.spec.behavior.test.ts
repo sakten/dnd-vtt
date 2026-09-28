@@ -551,4 +551,78 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(blur.maxRounds).toBe(10);
     expect(blur.effects?.[0]?.modifiers).toEqual([{ target: 'attack', mode: 'disadvantage' }]);
   });
+
+  it("Батч В: зоны-локации (Moonbeam, Flaming Sphere, Faithful Hound, Daylight, Crusader's Mantle, Holy Weapon)", () => {
+    const moon = automationForSpell(find('XPHB:Moonbeam'), { castLevel: 2 });
+    expect(moon.resolution).toBe('save');
+    expect(moon.save).toEqual({ ability: 'con', half: true });
+    expect(moon.damage).toMatchObject({ dice: '2d10', types: ['radiant'] });
+    expect(moon.zone?.area).toEqual({ shape: 'sphere', size: 5 });
+    expect(moon.zone?.light).toEqual({ bright: 0, dim: 5 });
+    expect(moon.zone?.triggers?.enter?.damage?.dice).toBe('2d10');
+    expect(moon.zone?.triggers?.endOfTurn?.save).toEqual({ ability: 'con', half: true });
+    expect(moon.zone?.actions?.[0]).toMatchObject({ id: 'move', cost: 'action' });
+    expect(moon.zone?.actions?.[0]?.def).toMatchObject({
+      key: 'zone:move',
+      utility: { kind: 'moveZone', amount: 60 },
+    });
+    // Апкаст: +1d10 в каждом броске (при касте, входе и в конце хода).
+    const moonUp = automationForSpell(find('XPHB:Moonbeam'), { castLevel: 3 });
+    expect(moonUp.damage?.dice).toBe('2d10 + 1d10');
+    expect(moonUp.zone?.triggers?.enter?.damage?.dice).toBe('2d10 + 1d10');
+
+    const sphere = automationForSpell(find('XPHB:Flaming Sphere'));
+    expect(sphere.zone?.triggers?.enter).toMatchObject({
+      save: { ability: 'dex', half: true },
+      damage: { dice: '2d6', types: ['fire'] },
+    });
+    expect(sphere.zone?.light).toEqual({ bright: 20, dim: 20 });
+    expect(sphere.zone?.actions?.[0]).toMatchObject({ cost: 'bonus' });
+    expect(sphere.zone?.actions?.[0]?.def?.utility).toMatchObject({ kind: 'moveZone', amount: 30 });
+
+    const hound = automationForSpell(find("XPHB:Mordenkainen's Faithful Hound"));
+    expect(hound.side).toBe('hostile');
+    expect(hound.concentration).toBeUndefined();
+    expect(hound.zone?.duration).toEqual({ type: 'permanent' });
+    expect(hound.zone?.side).toBe('hostile');
+    expect(hound.zone?.triggers?.endOfTurn).toMatchObject({
+      save: { ability: 'dex' },
+      damage: { dice: '4d8', types: ['force'] },
+    });
+
+    const daylight = automationForSpell(find('XPHB:Daylight'));
+    expect(daylight.zone).toMatchObject({
+      area: { shape: 'sphere', size: 60 },
+      duration: { type: 'permanent' },
+      light: { bright: 60, dim: 60, sunlight: true },
+    });
+
+    const mantle = automationForSpell(find("XPHB:Crusader's Mantle"));
+    expect(mantle.zone?.side).toBe('ally');
+    expect(mantle.zone?.aura?.effects?.[0]?.modifiers).toEqual([
+      { target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } },
+    ]);
+
+    const holy = automationForSpell(find('XGE:Holy Weapon'));
+    expect(holy.targeting).toEqual({ kind: 'creature', range: 5 });
+    const weapon = holy.effects?.[0];
+    expect(weapon?.duration).toEqual({ type: 'concentration' });
+    expect(weapon?.modifiers).toEqual([
+      { target: 'damage', mode: 'add', value: '2d8radiant', filter: { weapon: true, unarmed: false } },
+    ]);
+    expect(weapon?.light).toEqual({ bright: 30, dim: 30 });
+    const burst = weapon?.actions?.[0];
+    expect(burst).toMatchObject({ id: 'burst', cost: 'bonus', endsEffect: true });
+    expect(burst?.def).toMatchObject({
+      key: 'XGE:Holy Weapon:burst',
+      resolution: 'save',
+      save: { ability: 'con', half: true },
+      area: { shape: 'sphere', size: 30 },
+      damage: { dice: '4d8', types: ['radiant'] },
+    });
+    expect(burst?.def?.effects?.[0]).toMatchObject({
+      duration: { type: 'endOfTurn', of: 'source' },
+      conditions: ['blinded'],
+    });
+  });
 });

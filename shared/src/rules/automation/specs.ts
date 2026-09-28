@@ -2,7 +2,7 @@ import { DAMAGE_TYPES, SKILLS } from '../../labels';
 import type { EffectDuration } from '../../domain/effects';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
-import type { AutomationSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
+import type { AutomationSpec, ActionSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
 const MAGIC_WEAPON_BONUS: ValueExpr = {
@@ -60,6 +60,17 @@ const CHECK_ABILITIES: Record<string, string> = {
 };
 const CHECK_ABILITY_KEYS = Object.keys(CHECK_ABILITIES);
 const BESTOW_CURSE_OPTIONS = [...CHECK_ABILITY_KEYS, 'attacks', 'dodge', 'necrotic'];
+
+/** Перемещение зоны действием владельца (Moonbeam 60, Flaming Sphere 30, Faithful Hound 30). */
+const moveZoneAction = (cost: 'action' | 'bonus', feet: number): ActionSpec => ({
+  id: 'move',
+  name: 'Переместить',
+  cost,
+  defKey: 'zone:move',
+  primary: 'utility',
+  utility: { kind: 'moveZone', amount: feet },
+  targeting: { kind: 'point', range: feet },
+});
 
 /**
  * Реестр спеков (R16, пилот `loadout`): специализированные заклинания оружия и
@@ -2476,5 +2487,157 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         },
       },
     },
+  },
+
+  // Батч В (R16): зоны-локации — Daylight, перемещаемые сферы Moonbeam/Flaming Sphere,
+  // пёс-страж Faithful Hound, аура Crusader's Mantle и носитель Holy Weapon.
+  'XPHB:Daylight': {
+    key: 'XPHB:Daylight',
+    name: 'Daylight',
+    primary: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 60 },
+      origin: 'point',
+      duration: PERMANENT,
+      light: { bright: 60, dim: 60, sunlight: true },
+    },
+  },
+
+  'XPHB:Moonbeam': {
+    key: 'XPHB:Moonbeam',
+    name: 'Moonbeam',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'con', half: true },
+    damage: { dice: { ref: 'spellDamage', fallback: '2d10' }, types: ['radiant'] },
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      light: { bright: 0, dim: 5 },
+      triggers: {
+        enter: {
+          save: { ability: 'con', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '2d10' }, types: ['radiant'] },
+        },
+        endOfTurn: {
+          save: { ability: 'con', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '2d10' }, types: ['radiant'] },
+        },
+      },
+      actions: [moveZoneAction('action', 60)],
+    },
+  },
+
+  'XPHB:Flaming Sphere': {
+    key: 'XPHB:Flaming Sphere',
+    name: 'Flaming Sphere',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      light: { bright: 20, dim: 20 },
+      triggers: {
+        enter: {
+          save: { ability: 'dex', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '2d6' }, types: ['fire'] },
+        },
+        endOfTurn: {
+          save: { ability: 'dex', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '2d6' }, types: ['fire'] },
+        },
+      },
+      actions: [moveZoneAction('bonus', 30)],
+    },
+  },
+
+  // Пёс невидим и неапкастится (в данных нет upcast): кость — RAW-литерал 4d8.
+  "XPHB:Mordenkainen's Faithful Hound": {
+    key: "XPHB:Mordenkainen's Faithful Hound",
+    name: 'Faithful Hound',
+    primary: 'effect',
+    side: 'hostile',
+    zone: {
+      area: { shape: 'sphere', size: 5 },
+      origin: 'point',
+      duration: PERMANENT,
+      side: 'hostile',
+      triggers: {
+        endOfTurn: { save: { ability: 'dex' }, damage: { dice: '4d8', types: ['force'] } },
+      },
+      actions: [moveZoneAction('action', 30)],
+    },
+  },
+
+  // Аура 30 фт: союзники бьют оружием и безоружным ударом +1d4 излучением (RAW-литерал).
+  "XPHB:Crusader's Mantle": {
+    key: "XPHB:Crusader's Mantle",
+    name: "Crusader's Mantle",
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            id: 'mantle',
+            name: "Crusader's Mantle",
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true } }],
+          },
+        ],
+      },
+    },
+  },
+
+  // Касание: оружие-носитель светит 30/30 и бьёт +2d8 излучением; «Разряд» завершает эффект.
+  'XGE:Holy Weapon': {
+    key: 'XGE:Holy Weapon',
+    name: 'Holy Weapon',
+    primary: 'effect',
+    concentration: true,
+    targeting: { kind: 'creature', range: 5 },
+    effects: [
+      {
+        id: 'weapon',
+        name: 'Holy Weapon',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'damage', mode: 'add', value: '2d8radiant', filter: { weapon: true, unarmed: false } }],
+        light: { bright: 30, dim: 30 },
+        actions: [
+          {
+            id: 'burst',
+            name: 'Разряд',
+            cost: 'bonus',
+            subKey: 'burst',
+            endsEffect: true,
+            primary: 'save',
+            save: { ability: 'con', half: true },
+            damage: { dice: '4d8', types: ['radiant'] },
+            area: { shape: 'sphere', size: 30 },
+            targeting: { kind: 'area', area: { shape: 'sphere', size: 30 }, range: 30 },
+            effects: [
+              {
+                id: 'blind',
+                name: 'Holy Weapon',
+                duration: { type: 'endOfTurn', of: 'source' },
+                to: 'targets',
+                modifiers: [],
+                conditions: ['blinded'],
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
 };
