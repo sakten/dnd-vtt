@@ -4,7 +4,8 @@ import { deleteNewRooms, snapshotRoomCodes } from './lib/rooms-cleanup.mjs';
 
 S.URL = process.env.VTT_URL ?? 'http://localhost:3001';
 const baseline = await snapshotRoomCodes(S.URL);
-S.cleanup = () => deleteNewRooms(S.URL, baseline);
+if (!baseline) console.warn('SMOKE: снимок комнат не получен — очистка отключена');
+S.cleanup = () => (baseline ? deleteNewRooms(S.URL, baseline) : Promise.resolve());
 
 // Реестр сценариев: код (для SMOKE_ONLY) и файл. Порядок = порядок прогона.
 const SCENARIOS = [

@@ -24,7 +24,8 @@
 ## R9.2. Smoke: сценарии не самодостаточны, покрытие реакций дырявое. P2, M (частично закрыто).
 `scripts/smoke.mjs:10-24`: все сценарии в одной общей комнате, `SMOKE_ONLY` не подтягивает зависимости (`:26-39`) — изолированный дебаг ограничен; `scripts/lib/rooms-cleanup.mjs:3` хардкодит `ADMIN_TOKEN=''` — ломается при `VTT_ADMIN_TOKEN`; в скриптах нет `reaction:respond`/`combat:setMovement`; `absorbTypesOf`/`superiorityDie` без юнит-тестов.
 Сделано (сверка 19.09): `reactionFeatures` покрыт — `shared/src/rules/features.test.ts:250-273`.
-**Что сделать:** `makeRoom` для самодостаточных сценариев или явные зависимости; admin-токен из env; smoke на реакционные окна и OA; `shared/src/rules/reactions.test.ts`.
+Сделано (28.09): `rooms-cleanup.mjs` — admin-токен из `VTT_ADMIN_TOKEN`, снимок комнат с ретраями, при недостоверном снимке (`undefined`) очистка отключается; инцидент 28.09 (холодный старт → пустой baseline → `deleteNewRooms` снёс все комнаты) закрыт.
+**Что сделать:** `makeRoom` для самодостаточных сценариев или явные зависимости; smoke на реакционные окна и OA; `shared/src/rules/reactions.test.ts`.
 
 ## R9.3. E2E/скриншоты привязаны к окружению и пикселям. P3, S/M.
 Жёсткий путь Chrome (`scripts/e2e/00-setup.mjs:21`), вьюпорт 1440×900 (`:74`); `check-screenshots.mjs:122-188` сверяет точные RGB и координаты в составе `verify` (`package.json:23`) — косметика даёт ложные падения.

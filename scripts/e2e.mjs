@@ -38,7 +38,8 @@ if (only.length) console.log(`E2E_ONLY: 00, ${selected.map(([code]) => code).joi
 try {
   await import('./e2e/00-setup.mjs');
   const baseline = await snapshotRoomCodes(S.BASE);
-  S.cleanup = () => deleteNewRooms(S.BASE, baseline);
+  if (!baseline) console.warn('E2E: снимок комнат не получен — очистка отключена');
+  S.cleanup = () => (baseline ? deleteNewRooms(S.BASE, baseline) : Promise.resolve());
   for (const [, file] of selected) {
     await import(file);
   }
