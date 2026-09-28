@@ -190,6 +190,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     }
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
+    if (e.consumeOnSave === true) effect.consumeOnSave = true;
     if (e.deathWard === true) effect.deathWard = true;
     if (e.magicWeapon === true) effect.magicWeapon = true;
     if (e.weaponOverride && typeof e.weaponOverride === 'object') {

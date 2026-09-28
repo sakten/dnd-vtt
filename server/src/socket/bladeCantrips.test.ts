@@ -290,6 +290,14 @@ describe('Booming Blade, True Strike и Zephyr Strike', () => {
     expect(weapon.primary.hpCurrent).toBe(32); // 9 рубящего → 4 после сопротивления + 4 излучением
   });
 
+  it('True Strike: формулы-литералы листа (d20+5 / 1d10+3) пересчитываются на Инт', () => {
+    // Лист хранит литералы (weaponAttackEntry): +5 = pb 3 + Сил 2; Инт 16 → +6 и +3 к урону.
+    const attack: AttackEntry = { ...SWORD, hit: 'd20+5', damage: '1d10+3' };
+    const { primary, f, input } = setupSpell('XPHB:True Strike', { attacks: [attack], targetAc: '12' });
+    withRandom(0.5, () => resolveSpellCast(f.ctx, { ...input, variant: 'radiant' }));
+    expect(primary.hpCurrent).toBe(27); // d20 11 + Инт 6 = 17 ≥ 12; (1d10+3 = 9) + (1d6 = 4)
+  });
+
   it('Zephyr Strike: расход на атаку — преимущество, 1d8 силовым и скорость +30', () => {
     const { attacker, primary, f, input } = setupSpell('XGE:Zephyr Strike');
     withRandom(0.5, () => resolveSpellCast(f.ctx, input));

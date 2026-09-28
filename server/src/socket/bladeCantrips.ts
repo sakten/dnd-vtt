@@ -11,6 +11,7 @@ import {
   tokenVisibleFrom,
   tokensNearFeet,
   wallsWithZones,
+  weaponAttackEntry,
   weaponByKey,
   weaponContextOf,
   type AutomationDef,
@@ -45,10 +46,25 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
   const held = sheet ? handOf(loadout, 'right') : undefined;
   if (!held || (!spec.anyWeapon && held.rangeType !== 'melee')) return;
   const weapon = held.weaponKey ? weaponByKey(held.weaponKey) : undefined;
-  const base =
-    weapon && sheet
-      ? { ...held, damage: gripAdjustedDamage(held.damage, weapon, rightGrip(loadout.attacks, loadout.hands)) }
-      : held;
+  const grip = rightGrip(loadout.attacks, loadout.hands);
+  let base = held;
+  if (weapon && sheet) {
+    base = { ...held, damage: gripAdjustedDamage(held.damage, weapon, grip) };
+    // True Strike: формулы листа — литералы (`d20+5`, `1d8+3`), поэтому атака/урон
+    // пересобираются из оружия с заклинательной характеристикой вместо Силы/Ловкости.
+    if (spec.spellAbility && input.stats) {
+      const score = 10 + 2 * Math.round(input.stats.mod);
+      base = {
+        ...weaponAttackEntry(
+          weapon,
+          { ...weaponContextOf(sheet), abilities: { ...sheet.abilities, str: score, dex: score } },
+          { grip }
+        ),
+        name: held.name,
+        ...(held.id ? { id: held.id } : {}),
+      };
+    }
+  }
   // True Strike: базовый урон — излучением (вариант) или обычным типом оружия.
   const attack = spec.spellAbility && input.variant === 'radiant' ? { ...base, damageType: 'radiant' } : base;
   resolveWeaponAttackWithReactions(ctx, {

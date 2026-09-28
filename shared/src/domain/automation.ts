@@ -106,6 +106,8 @@ export interface AutomationEffect {
   markTarget?: boolean;
   /** Одноразовый эффект: сгорает после ближайшего броска атаки носителя (Zephyr Strike). */
   consumeOnAttackRoll?: boolean;
+  /** Одноразовый штраф: сгорает после ближайшего спасброска носителя (Mind Sliver). */
+  consumeOnSave?: boolean;
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
   /** Модификаторы без id — id присваивает сервер при наложении. */
@@ -263,6 +265,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     variant: def.variant,
     mark: def.mark,
     consumeOnAttackRoll: def.consumeOnAttackRoll,
+    consumeOnSave: def.consumeOnSave,
     light: def.light ? { ...def.light } : undefined,
     deathWard: def.deathWard,
     conditionImmunities: def.conditionImmunities ? [...def.conditionImmunities] : undefined,

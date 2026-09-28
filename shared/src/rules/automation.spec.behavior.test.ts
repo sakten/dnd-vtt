@@ -96,6 +96,16 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(automationForSpell(spell, { castLevel: 3 }).zone?.aura?.effects?.[0]?.variant).toBe('cold');
   });
 
+  it('Spirit Guardians: выбор урона (излучение/некротика) во всех частях', () => {
+    const spell = find('XPHB:Spirit Guardians');
+    // Без выбора — излучение (добрый/нейтральный кастер).
+    expect(automationForSpell(spell).damage?.types).toEqual(['radiant']);
+    const necrotic = automationForSpell(spell, { variant: 'necrotic' });
+    expect(necrotic.damage?.types).toEqual(['necrotic']);
+    expect(necrotic.zone?.triggers?.enter?.damage?.types).toEqual(['necrotic']);
+    expect(necrotic.zone?.triggers?.startOfTurn?.damage?.types).toEqual(['necrotic']);
+  });
+
   it('Destructive Wave: составной урон (гром + тип выбора), prone при провале', () => {
     const spell = find('XPHB:Destructive Wave');
     const radiant = automationForSpell(spell, { variant: 'radiant' });

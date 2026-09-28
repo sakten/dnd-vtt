@@ -2557,3 +2557,89 @@ describe('Irresistible Dance: успех и провал спасброска', 
     expect(f.ctx.manager.tokenSpeed(room, target)).toBe(0);
   });
 });
+
+describe('Mind Sliver', () => {
+  it('провал спасброска: 1d6 психическим и −1d4 к следующему спасброску (одноразово)', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.faction = 'enemy';
+    const def = automationForSpell(findSpell('XPHB:Mind Sliver')!, { characterLevel: 1 });
+
+    const fail = vi.spyOn(Math, 'random').mockReturnValue(0);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def, targets: [target], stats, author: 'DM' });
+    fail.mockRestore();
+
+    const sliver = target.effects.find((e) => e.sourceKey === 'XPHB:Mind Sliver');
+    expect(sliver?.consumeOnSave).toBe(true);
+    expect(sliver?.modifiers[0]).toMatchObject({ target: 'save', mode: 'add', value: '-1d4' });
+    expect(target.hpCurrent).toBe(29); // 30 − 1d6 (1)
+
+    // Следующий спасбросок: d20 20 − 1d4 4 = 16, штраф сгорает.
+    const next = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    const res = f.ctx.manager.rollSave(room, target, 'wis', 15);
+    next.mockRestore();
+    expect(res.roll.total).toBe(16);
+    expect(sliver?.consumeOnSave).toBeUndefined();
+
+    // Дальше спасбросок идёт без штрафа.
+    const after = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    const clean = f.ctx.manager.rollSave(room, target, 'wis', 15);
+    after.mockRestore();
+    expect(clean.roll.total).toBe(20);
+  });
+});
+
+describe('заклинательные атаки в упор', () => {
+  const rangedAttack: AutomationDef = {
+    key: 'test:ray',
+    name: 'Луч',
+    resolution: 'attack',
+    attack: { rangeType: 'ranged' },
+    damage: { dice: '1d10', types: ['fire'] },
+  };
+
+  it('дальнобойная атака заклинанием: враг рядом с кастером — помеха', () => {
+    const room = makeCombatRoom([
+      makeToken('t1', { x: 100, y: 100, faction: 'ally' }),
+      makeToken('t2', { x: 400, y: 100, hpMax: '30', hpCurrent: 30 }),
+      makeToken('t3', { x: 150, y: 100, faction: 'enemy' }),
+    ]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+
+    const roll = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def: rangedAttack, targets: [target], stats, author: 'DM' });
+    roll.mockRestore();
+
+    const attack = room.chat.filter(isAttackRoll).at(-1);
+    expect(attack?.labelParams?.sources).toContainEqual({
+      side: 'disadvantage',
+      kind: 'range',
+      key: 'adjacent',
+    });
+  });
+
+  it('без врага рядом помехи нет', () => {
+    const room = makeCombatRoom([
+      makeToken('t1', { x: 100, y: 100, faction: 'ally' }),
+      makeToken('t2', { x: 400, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const caster = room.scene.maps[0]!.tokens[0]!;
+    const target = room.scene.maps[0]!.tokens[1]!;
+
+    const roll = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def: rangedAttack, targets: [target], stats, author: 'DM' });
+    roll.mockRestore();
+
+    const attack = room.chat.filter(isAttackRoll).at(-1);
+    expect(attack?.labelParams?.sources ?? []).not.toContainEqual({
+      side: 'disadvantage',
+      kind: 'range',
+      key: 'adjacent',
+    });
+  });
+});

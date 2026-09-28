@@ -1613,6 +1613,25 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     ],
   },
 
+  // Штраф «−1d4 к следующему спасброску» сгорает после броска (`consumeOnSave`).
+  'XPHB:Mind Sliver': {
+    key: 'XPHB:Mind Sliver',
+    name: 'Mind Sliver',
+    primary: 'save',
+    save: { ability: 'int', half: false },
+    damage: { dice: { ref: 'cantrip', fallback: '1d6' }, types: ['psychic'] },
+    effects: [
+      {
+        id: 'sliver',
+        name: 'Mind Sliver',
+        duration: UNTIL_NEXT_TURN,
+        to: 'targets',
+        modifiers: [{ target: 'save', mode: 'add', value: '-1d4' }],
+        uses: { kind: 'consumeOnSave' },
+      },
+    ],
+  },
+
   // `side` (мгновенные цели) + `$spell`-кости через `{ ref: 'spellDamage' }`.
   'XPHB:Spirit Guardians': {
     key: 'XPHB:Spirit Guardians',
@@ -1621,7 +1640,9 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     concentration: true,
     save: { ability: 'wis', half: true },
     side: 'hostile',
-    damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: ['radiant'] },
+    // Выбор при касте: излучение (добрый/нейтральный) или некротика (злой).
+    choices: [{ id: 'damageType', param: 'damageType', options: ['radiant', 'necrotic'] }],
+    damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: [{ ref: 'choice' }] },
     // Пустой массив сохраняет байт-равенство с выводом «деривация + добавки».
     effects: [],
     zone: {
@@ -1646,11 +1667,11 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       triggers: {
         enter: {
           save: { ability: 'wis', half: true },
-          damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: ['radiant'] },
+          damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: [{ ref: 'choice' }] },
         },
         startOfTurn: {
           save: { ability: 'wis', half: true },
-          damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: ['radiant'] },
+          damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: [{ ref: 'choice' }] },
         },
       },
     },

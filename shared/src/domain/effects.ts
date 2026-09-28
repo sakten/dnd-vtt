@@ -226,6 +226,8 @@ export interface EffectInstance {
   mark?: boolean;
   /** Одноразовое мастерство (Sap/Vex): сгорает после ближайшего броска атаки носителя. */
   consumeOnAttackRoll?: boolean;
+  /** Одноразовый штраф: сгорает после ближайшего спасброска носителя (Mind Sliver). */
+  consumeOnSave?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
   light?: LightSource;
   /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */

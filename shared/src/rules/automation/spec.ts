@@ -147,6 +147,8 @@ export type UsesSpec =
   | { kind: 'charges'; count: ValueExpr; on?: 'rangedWeaponAttack' }
   /** Одноразовый эффект: сгорает после ближайшего броска атаки носителя (Zephyr Strike). */
   | { kind: 'consumeOnAttack' }
+  /** Одноразовый штраф: сгорает после ближайшего спасброска носителя (Mind Sliver). */
+  | { kind: 'consumeOnSave' }
   /** Подмена попадания образами (Mirror Image): заряды, кость, порог. */
   | { kind: 'misdirect'; charges: number; die: string; threshold: number };
 

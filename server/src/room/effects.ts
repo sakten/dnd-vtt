@@ -234,6 +234,14 @@ export function rollSave(
   const parts = savePartsForToken(room, token, ability, opts.condition, opts.magical);
   const mode = opts.advantage ? (parts.mode === 'd' ? undefined : 'a') : parts.mode;
   const roll = rollDice(withAdvantage(withRollParts('d20', parts), mode));
+  // Одноразовые штрафы к спасброску (Mind Sliver): сгорают после этого броска.
+  // Сам эффект не удаляем: спасброски бросаются и в цикле `tickEffects` по effects;
+  // снимаем флаг и save-модификаторы — чип доживает до конца длительности без механики.
+  for (const effect of token.effects) {
+    if (!effect.consumeOnSave) continue;
+    delete effect.consumeOnSave;
+    effect.modifiers = effect.modifiers.filter((m) => m.target !== 'save');
+  }
   const autoFail = opts.conditionsAutoFail === true && autoFailSave(token.conditions, ability);
   return { roll, success: !autoFail && roll.total >= dc };
 }

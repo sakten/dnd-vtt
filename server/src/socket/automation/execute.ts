@@ -170,6 +170,12 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
     const unseen = castMap ? attackUnseen(room, caster, target, castMap) : undefined;
     const distance = castMap ? gridDistanceFeet(caster, target, gridSize) : 0;
+    // Дальнобойная атака заклинанием в упор: враг в соседней клетке — помеха (как у оружия).
+    const adjacentEnemy =
+      !!castMap &&
+      castMap.tokens.some(
+        (t) => t.id !== caster.id && hostileTokens(caster, t) && gridDistanceFeet(caster, t, gridSize) <= 5
+      );
     // Опциональное правило «Окружение»: преимущество смежным врагам окружённой цели.
     const surrounded =
       !!castMap &&
@@ -188,6 +194,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       attackerConditions: caster.conditions,
       targetConditions: target.conditions,
       rangeType,
+      forcedDisadvantage: rangeType === 'ranged' && adjacentEnemy,
+      forcedDisadvantageCode: 'adjacent',
       effectMode: effectParts.mode,
       attackerEffects: caster.effects,
       targetEffects: target.effects,

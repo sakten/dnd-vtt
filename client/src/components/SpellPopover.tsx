@@ -233,6 +233,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
           spellKey: spell.key,
           slotLevel: info.slotLevel,
           advantage: mode,
+          ...(variant ? { variant } : {}),
           ...(selfOnlyAtWill && !info.self ? { targetIds: [tokenId] } : {}),
         });
     } else if (summonDef) {
@@ -265,6 +266,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         spec: zoneDef.area,
         originKind: 'point',
         rangeFeet: spellRangeFeet(spell),
+        ...(variant ? { variant } : {}),
       });
     } else if (shapeDef) {
       if (needBeast && !form) return;

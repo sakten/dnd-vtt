@@ -289,6 +289,7 @@ function compileUses(ctx: CompileCtx, uses: UsesSpec): Partial<AutomationEffect>
     };
   }
   if (uses.kind === 'consumeOnAttack') return { consumeOnAttackRoll: true };
+  if (uses.kind === 'consumeOnSave') return { consumeOnSave: true };
   return { misdirect: { charges: uses.charges, die: uses.die, threshold: uses.threshold } };
 }
 

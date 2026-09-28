@@ -104,7 +104,12 @@ p5.emit('action:use', {
   targetIds: [dummy.id],
 });
 const hitMsg = await hitP;
-check(hitMsg.roll.expression === 'd20+8', `луч — заклинательная атака (${hitMsg.roll.expression})`);
+// Кастер стоит в упор к манекену — заклинательная атака дальней дистанции с помехой.
+check(
+  hitMsg.roll.expression === 'd20d+8' &&
+    hitMsg.labelParams?.sources?.some((s) => s.kind === 'range' && s.key === 'adjacent'),
+  `луч — заклинательная атака в упор с помехой (${hitMsg.roll.expression})`
+);
 await waitFor(() => lightZone()?.area?.size === 50);
 check(lightZone()?.area?.size === 50, 'после луча стена 50 фт');
 
