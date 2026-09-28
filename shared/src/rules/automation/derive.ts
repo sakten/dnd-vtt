@@ -1,5 +1,5 @@
 import type { ActionDef } from '../../domain/actions';
-import type { AutomationDef, AutomationDice, AutomationEffect } from '../../domain/automation';
+import type { AutomationDef, AutomationDice } from '../../domain/automation';
 import type { ClassLevel } from '../../domain/sheet';
 import { AUTOMATION_ACTIONS } from '../automationActions';
 import { eldritchBlastMods } from '../invocations';
@@ -235,11 +235,6 @@ export function automationForAction(action: ActionDef, opts: ActionAutomationOpt
     return { ...rest, dice: `${dice.dice}+${Math.max(1, Math.round(level)) * (bonus.per ?? 1)}` };
   };
   return { ...base, damage: scale(base.damage), heal: scale(base.heal) };
-}
-
-/** Определения эффектов заклинания из каталога (undefined — эффектов нет). */
-export function spellEffectDefs(spellKey: string): AutomationEffect[] | undefined {
-  return AUTOMATION_SPELLS[spellKey]?.effects;
 }
 
 /**

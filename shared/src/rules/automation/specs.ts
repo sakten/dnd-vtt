@@ -67,6 +67,101 @@ const BESTOW_CURSE_OPTIONS = [...CHECK_ABILITY_KEYS, 'attacks', 'dodge', 'necrot
  * в `derive.ts`; равенство вывода замком `automation.spec.test.ts`.
  */
 export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
+  // Батч A (R16): базовые effect-записи каталога — только модификаторы и длительность.
+  'XPHB:Shield': {
+    key: 'XPHB:Shield',
+    name: 'Shield',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'shield',
+        name: 'Shield',
+        duration: UNTIL_NEXT_TURN,
+        to: 'self',
+        modifiers: [{ target: 'ac', mode: 'add', value: 5 }],
+      },
+    ],
+  },
+
+  'XPHB:Shield of Faith': {
+    key: 'XPHB:Shield of Faith',
+    name: 'Shield of Faith',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'shieldOfFaith',
+        name: 'Shield of Faith',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'ac', mode: 'add', value: 2 }],
+      },
+    ],
+  },
+
+  'XPHB:Mage Armor': {
+    key: 'XPHB:Mage Armor',
+    name: 'Mage Armor',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'mageArmor',
+        name: 'Mage Armor',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [{ target: 'ac', mode: 'set', value: '13+dex' }],
+      },
+    ],
+  },
+
+  'XPHB:Barkskin': {
+    key: 'XPHB:Barkskin',
+    name: 'Barkskin',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'barkskin',
+        name: 'Barkskin',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [{ target: 'ac', mode: 'set', value: 17 }],
+      },
+    ],
+  },
+
+  'XPHB:Longstrider': {
+    key: 'XPHB:Longstrider',
+    name: 'Longstrider',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'longstrider',
+        name: 'Longstrider',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [{ target: 'speed', mode: 'add', value: 10 }],
+      },
+    ],
+  },
+
+  'XPHB:Blur': {
+    key: 'XPHB:Blur',
+    name: 'Blur',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'blur',
+        name: 'Blur',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [{ target: 'attack', mode: 'disadvantage' }],
+      },
+    ],
+  },
+
   'TCE:Green-Flame Blade': {
     key: 'TCE:Green-Flame Blade',
     name: 'Green-Flame Blade',

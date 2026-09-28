@@ -13,47 +13,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     save: { ability: 'wis' },
     shape: { kind: 'polymorph', crByTarget: true },
   },
-  'XPHB:Shield': spellEffect('XPHB:Shield', 'Shield', [
-    {
-      name: 'Shield',
-      duration: UNTIL_NEXT_TURN,
-      to: 'self',
-      modifiers: [{ target: 'ac', mode: 'add', value: 5 }],
-    },
-  ]),
-  'XPHB:Shield of Faith': spellEffect('XPHB:Shield of Faith', 'Shield of Faith', [
-    {
-      name: 'Shield of Faith',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [{ target: 'ac', mode: 'add', value: 2 }],
-    },
-  ]),
-  'XPHB:Mage Armor': spellEffect('XPHB:Mage Armor', 'Mage Armor', [
-    {
-      name: 'Mage Armor',
-      duration: PERMANENT,
-      to: 'targets',
-      modifiers: [{ target: 'ac', mode: 'set', value: '13+dex' }],
-    },
-  ]),
-  'XPHB:Barkskin': spellEffect('XPHB:Barkskin', 'Barkskin', [
-    {
-      name: 'Barkskin',
-      duration: PERMANENT,
-      to: 'targets',
-      modifiers: [{ target: 'ac', mode: 'set', value: 17 }],
-    },
-  ]),
-  'XPHB:Longstrider': spellEffect('XPHB:Longstrider', 'Longstrider', [
-    {
-      name: 'Longstrider',
-      duration: PERMANENT,
-      to: 'targets',
-      modifiers: [{ target: 'speed', mode: 'add', value: 10 }],
-    },
-  ]),
   /** Expeditious Retreat (XPHB 2024): Рывок бонусным действием, пока держится концентрация. */
   'XPHB:Expeditious Retreat': spellEffect('XPHB:Expeditious Retreat', 'Expeditious Retreat', [
     {
@@ -63,15 +22,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       to: 'self',
       modifiers: [],
       actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
-    },
-  ]),
-  'XPHB:Blur': spellEffect('XPHB:Blur', 'Blur', [
-    {
-      name: 'Blur',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'self',
-      modifiers: [{ target: 'attack', mode: 'disadvantage' }],
     },
   ]),
   'XPHB:Haste': spellEffect('XPHB:Haste', 'Haste', [

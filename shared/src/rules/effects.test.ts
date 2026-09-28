@@ -30,7 +30,7 @@ import {
   saveRollParts,
   withRollParts,
 } from './effects';
-import { automationForSpell, spellAutomated, spellEffectDefs } from './automation';
+import { automationForSpell, spellAutomated } from './automation';
 import spellsRaw from '../data/spells.json';
 import { normalizeEffects } from '../normalize/effects';
 import type { Spell } from './spells';
@@ -436,27 +436,30 @@ describe('normalizeEffects: Immolation', () => {
 });
 
 describe('каталог эффектов заклинаний', () => {
+  const spellByKey = (key: string): Spell =>
+    (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === key)!;
+
   it('Shield даёт +5 AC до конца хода', () => {
-    const defs = spellEffectDefs('XPHB:Shield');
+    const defs = automationForSpell(spellByKey('XPHB:Shield')).effects;
     expect(defs).toHaveLength(1);
     expect(defs?.[0]!.to).toBe('self');
     expect(defs![0]!.modifiers[0]!).toMatchObject({ target: 'ac', mode: 'add', value: 5 });
   });
 
   it('Bless — концентрация, +1d4 к атакам и спасброскам', () => {
-    const spell = (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === 'XPHB:Bless')!;
+    const spell = spellByKey('XPHB:Bless');
     const defs = automationForSpell(spell).effects;
     expect(defs?.[0]!.concentration).toBe(true);
     expect(defs?.[0]!.modifiers.map((m) => m.target)).toEqual(['attack', 'save']);
   });
 
   it('Haste ускоряет и даёт доп. действие', () => {
-    const targets = spellEffectDefs('XPHB:Haste')?.[0]!.modifiers.map((m) => m.target);
+    const targets = automationForSpell(spellByKey('XPHB:Haste')).effects?.[0]!.modifiers.map((m) => m.target);
     expect(targets).toEqual(['ac', 'speed', 'extraActions']);
   });
 
-  it('неизвестное заклинание — без эффектов', () => {
-    expect(spellEffectDefs('XPHB:Fireball')).toBeUndefined();
+  it('без эффектов — undefined', () => {
+    expect(automationForSpell(spellByKey('XPHB:Fireball')).effects).toBeUndefined();
   });
 
   it('Hex привязывает бонус урона к метке', () => {
@@ -469,7 +472,7 @@ describe('каталог эффектов заклинаний', () => {
   });
 
   it('Hold Person — паралич до успешного спасброска', () => {
-    const def = spellEffectDefs('XPHB:Hold Person')?.[0];
+    const def = automationForSpell(spellByKey('XPHB:Hold Person')).effects?.[0];
     expect(def?.conditions).toEqual(['paralyzed']);
     expect(def?.duration.type).toBe('untilSave');
   });
@@ -546,6 +549,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       variant: 'fire',
       mark: true,
       consumeOnAttackRoll: true,
+      consumeOnSave: true,
       light: { bright: 30, dim: 30 },
       deathWard: true,
       conditionImmunities: ['charmed'],

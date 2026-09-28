@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   absorbTypesOf,
+  automationForSpell,
   characterLevel,
   COUNTERSPELL,
   d20Expr,
@@ -9,7 +10,6 @@ import {
   reactionSpellTrigger,
   rollDice,
   shapeAllowsSpellcast,
-  spellEffectDefs,
   type ErrorPayload,
   type ReactionOption,
   type ReactionTriggerKind,
@@ -52,9 +52,10 @@ export function reactionSpellOptions(room: Room, token: Token, trigger: Reaction
 
 /** Бонус к AC от эффектов варианта (Shield +5); 0 — если неизвестно. */
 export function acBonusOf(option: ReactionOption): number {
-  if (!option.spellKey) return 0;
+  const spell = option.spellKey ? findSpell(option.spellKey) : undefined;
+  if (!spell) return 0;
   let bonus = 0;
-  for (const def of spellEffectDefs(option.spellKey) ?? []) {
+  for (const def of automationForSpell(spell).effects ?? []) {
     for (const mod of def.modifiers) {
       if (mod.target === 'ac' && mod.mode === 'add' && typeof mod.value === 'number') bonus += mod.value;
     }

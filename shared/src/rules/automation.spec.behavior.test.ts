@@ -409,4 +409,26 @@ describe('поведение спеков (RAW, реальные данные)',
       flags: { obscured: 'heavy' },
     });
   });
+
+  it('Батч A каталога: Shield, Mage Armor, Barkskin, Longstrider, Blur', () => {
+    const shield = automationForSpell(find('XPHB:Shield')).effects?.[0];
+    expect(shield?.to).toBe('self');
+    expect(shield?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    expect(shield?.modifiers).toEqual([{ target: 'ac', mode: 'add', value: 5 }]);
+
+    const mageArmor = automationForSpell(find('XPHB:Mage Armor')).effects?.[0];
+    expect(mageArmor?.duration).toEqual({ type: 'permanent' });
+    expect(mageArmor?.modifiers).toEqual([{ target: 'ac', mode: 'set', value: '13+dex' }]);
+
+    const barkskin = automationForSpell(find('XPHB:Barkskin')).effects?.[0];
+    expect(barkskin?.modifiers).toEqual([{ target: 'ac', mode: 'set', value: 17 }]);
+
+    const longstrider = automationForSpell(find('XPHB:Longstrider')).effects?.[0];
+    expect(longstrider?.modifiers).toEqual([{ target: 'speed', mode: 'add', value: 10 }]);
+
+    const blur = automationForSpell(find('XPHB:Blur'));
+    expect(blur.concentration).toBe(true);
+    expect(blur.maxRounds).toBe(10);
+    expect(blur.effects?.[0]?.modifiers).toEqual([{ target: 'attack', mode: 'disadvantage' }]);
+  });
 });
