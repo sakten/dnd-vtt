@@ -23,7 +23,6 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Guardian of Faith',
   'XPHB:Conjure Fey',
   'XPHB:Dispel Evil and Good',
-  'XPHB:Dispel Magic',
   'TCE:Green-Flame Blade',
   'TCE:Booming Blade',
   'XPHB:True Strike',
@@ -602,22 +601,6 @@ export function dispelEvilGoodDef(spell: Spell): AutomationDef | undefined {
     resolution: 'effect',
     concentration: true,
     effects: [actionCarrier(spell, { id: 'banish', name: 'Изгнание', cost: 'action', def: banish })],
-  };
-}
-
-/**
- * Dispel Magic (XPHB 2024): существо в 120 фт; заклинания уровня ≤ круга ячейки
- * (минимум 3) гаснут автоматически, для 4+ — проверка характеристики кастера
- * (СЛ 10 + уровень). Цели-предметы и «магические эффекты» (зоны без носителя) — TODO.
- */
-export function dispelMagicDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Dispel Magic') return undefined;
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'utility',
-    utility: { kind: 'dispel' },
-    targeting: { kind: 'creature', range: 120 },
   };
 }
 

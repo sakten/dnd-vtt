@@ -410,6 +410,21 @@ describe('поведение спеков (RAW, реальные данные)',
     });
   });
 
+  it('Батч Б2: Revivify/Spare the Dying/Dispel Magic — утилиты с таргетингом', () => {
+    const revive = automationForSpell(find('XPHB:Revivify'));
+    expect(revive.resolution).toBe('utility');
+    expect(revive.utility).toEqual({ kind: 'revive' });
+    expect(revive.targeting).toEqual({ kind: 'creature', range: 5 });
+
+    const spare = automationForSpell(find('XPHB:Spare the Dying'));
+    expect(spare.utility).toEqual({ kind: 'stabilize' });
+    expect(spare.targeting).toEqual({ kind: 'creature', range: 15 });
+
+    const dispel = automationForSpell(find('XPHB:Dispel Magic'));
+    expect(dispel.utility).toEqual({ kind: 'dispel' });
+    expect(dispel.targeting).toEqual({ kind: 'creature', range: 120 });
+  });
+
   it('Батч Б1 каталога: Banishment, Hypnotic Pattern, Sanctuary, Warding Bond', () => {
     const banish = automationForSpell(find('XPHB:Banishment')).effects?.[0];
     expect(banish?.banish).toBe(true);

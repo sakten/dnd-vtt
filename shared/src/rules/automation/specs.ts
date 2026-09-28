@@ -496,6 +496,31 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     ],
   },
 
+  // Батч Б2 (R16): утилиты каталога; билдер Dispel Magic удалён.
+  'XPHB:Revivify': {
+    key: 'XPHB:Revivify',
+    name: 'Revivify',
+    primary: 'utility',
+    utility: { kind: 'revive' },
+    targeting: { kind: 'creature', range: 5 },
+  },
+
+  'XPHB:Spare the Dying': {
+    key: 'XPHB:Spare the Dying',
+    name: 'Spare the Dying',
+    primary: 'utility',
+    utility: { kind: 'stabilize' },
+    targeting: { kind: 'creature', range: 15 },
+  },
+
+  'XPHB:Dispel Magic': {
+    key: 'XPHB:Dispel Magic',
+    name: 'Dispel Magic',
+    primary: 'utility',
+    utility: { kind: 'dispel' },
+    targeting: { kind: 'creature', range: 120 },
+  },
+
   'TCE:Green-Flame Blade': {
     key: 'TCE:Green-Flame Blade',
     name: 'Green-Flame Blade',

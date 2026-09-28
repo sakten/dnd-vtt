@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, dispelMagicDef, enervationDef, ensnaringStrikeDef, falseLifeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, enervationDef, ensnaringStrikeDef, falseLifeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, immolationDef, jallarziDef, lifeTransferenceDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, vampiricTouchDef, vitriolicSphereDef, witchBoltDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -82,9 +82,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const dispelEvilGood = dispelEvilGoodDef(spell);
   if (dispelEvilGood) return dispelEvilGood;
-
-  const dispelMagic = dispelMagicDef(spell);
-  if (dispelMagic) return dispelMagic;
 
   const composite = compositeDamageDef(spell, opts);
   if (composite) return composite;

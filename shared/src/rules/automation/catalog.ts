@@ -11,22 +11,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     save: { ability: 'wis' },
     shape: { kind: 'polymorph', crByTarget: true },
   },
-  /** Revivify: возвращает мёртвую цель к жизни с 1 HP (касание, без проверки «≤1 мин» — DM). */
-  'XPHB:Revivify': {
-    key: 'XPHB:Revivify',
-    name: 'Revivify',
-    resolution: 'utility',
-    utility: { kind: 'revive' },
-    targeting: { kind: 'creature', range: 5 },
-  },
-  /** Spare the Dying: цель на 0 HP (не мёртвая) становится стабильной. */
-  'XPHB:Spare the Dying': {
-    key: 'XPHB:Spare the Dying',
-    name: 'Spare the Dying',
-    resolution: 'utility',
-    utility: { kind: 'stabilize' },
-    targeting: { kind: 'creature', range: 15 },
-  },
   /** Lesser Restoration: снять одно состояние (Blinded/Deafened/Paralyzed/Poisoned), касание. */
   'XPHB:Lesser Restoration': {
     key: 'XPHB:Lesser Restoration',
