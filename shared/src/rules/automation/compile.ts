@@ -1,6 +1,8 @@
 import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, EffectTurnPayload, Modifier } from '../../domain/effects';
+import { ABILITIES, DAMAGE_TYPES, SKILLS } from '../../labels';
+import { CONDITION_KEYS } from '../conditions';
 import type { Spell } from '../spells';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
 import { addDiceExpression, scaledDice, upcastSteps } from './helpers';
@@ -8,6 +10,7 @@ import type {
   ActionSpec,
   AutomationSpec,
   AutomationSpecCopy,
+  ChoiceSpec,
   DamageSpec,
   EffectSpec,
   EffectTriggerSpec,
@@ -147,10 +150,15 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
     case 'characterLevel':
       value = ctx.characterLevel;
       break;
-    case 'choice':
+    case 'choice': {
+      const choice = expr.choice ? ctx.spec.choices?.find((c) => c.id === expr.choice) : ctx.spec.choices?.[0];
       value = choiceValue(ctx.spec, ctx.opts, expr.choice);
-      if (value !== undefined && expr.optional && ctx.opts.variant === undefined) value = undefined;
+      // `optional` — поле только при явно выбранном варианте этого выбора
+      // (вариант другого выбора его не включает).
+      const explicit = ctx.opts.variant !== undefined && choice?.options.includes(ctx.opts.variant) === true;
+      if (value !== undefined && expr.optional && !explicit) value = undefined;
       break;
+    }
   }
   if (value === undefined && expr.fallback !== undefined) return resolveValue(ctx, expr.fallback);
   return value;
@@ -780,6 +788,18 @@ export function resolveSpec(
 }
 
 /**
+ * Словари значений выборов: опция вне словаря — ошибка компиляции (кастомные
+ * значения опций не вводятся, копии только сужают/переставляют набор).
+ * `mode`/`effect`/`command` словаря не имеют — допустимые значения задаёт базовый спек.
+ */
+const CHOICE_OPTION_VOCABULARY: Partial<Record<ChoiceSpec['param'], ReadonlySet<string>>> = {
+  damageType: new Set([...DAMAGE_TYPES.map((d) => d.key), 'weapon']),
+  condition: new Set<string>(CONDITION_KEYS),
+  ability: new Set(ABILITIES.map((a) => a.key)),
+  skill: new Set(SKILLS.map((s) => s.key)),
+};
+
+/**
  * Скелет валидатора (R16, `AUTOMATION.md` §6): недопустимые комбинации `primary` ×
  * блоки — ошибка компиляции, а не молчаливо игнорируемое поле. Матрица расширяется
  * по мере миграции батчей.
@@ -807,6 +827,13 @@ export function validateSpec(spec: AutomationSpec): string[] {
   }
   if (spec.zone && (!spec.zone.area || !spec.zone.duration)) errors.push('zone без area/duration');
   const choiceIds = new Set((spec.choices ?? []).map((c) => c.id));
+  for (const choice of spec.choices ?? []) {
+    const vocabulary = CHOICE_OPTION_VOCABULARY[choice.param];
+    if (!vocabulary) continue;
+    for (const option of choice.options) {
+      if (!vocabulary.has(option)) errors.push(`выбор ${choice.id}: недопустимое значение ${option}`);
+    }
+  }
   const refs: ValueExpr[] = [];
   const pushGated = <T>(entry: T | { if: ValueExpr; then: T }, push: (value: T) => void) => {
     if (entry && typeof entry === 'object' && 'if' in entry && 'then' in entry) {

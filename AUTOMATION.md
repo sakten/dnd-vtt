@@ -71,6 +71,8 @@
 
 Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType|ability|skill` — ссылки), условия/`retaliate`/`takesExtraDamage`/`turnDodge`/`wakeOnDamage` и действия (`save`/`area`/`damage.types`/`effects`) принимают ссылки и гейты `{ if, then }`, `Leveled` для круга каста. Мигрированы все носители `SPELL_VARIANTS`: Elemental Weapon, Resistance, Elemental Bane, Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME, Eyebite (carrier с 3 действиями, `markSaved`), Bestow Curse (режимы, `turnDodge`, `Leveled`-длительность). Реестр `SPELL_VARIANTS` удалён: `spellVariantDef` читает `choices` спеков (единый источник для UI и валидации).
 
+Опции выборов — из фиксированных словарей: `damageType` (`DAMAGE_TYPES` + сентинел `weapon` — True Strike), `condition`, `ability`, `skill` проверяет `validateSpec` (кастомные значения не вводятся); `mode`/`effect`/`command` задаёт базовый спек. Копии (`extends`) сужают/переставляют опции (`patch: {'choices.<id>.options': [...]}`), `spellVariantDef` резолвит копии — селект кастомного спелла виден в UI. Адресация значения — `{ref:'choice', choice:'<id>'}` (без `id` — первый выбор); `optional` включается только явным вариантом этого выбора. UI показывает первый выбор; мультивыбор — задел конструктора (`spellVariantDef` + контракт `variants: Record<id,string>` в будущем), сегодня все спеки одно-выборочные.
+
 ### 3.6. `selection` — как выбираются цели (выделяется)
 - `mode`: `single` / `multi` (`targets`, `targetsAbility`) / `area` (`areaSpec`, `origin`) / `chain` (`jumps`, `feet`) / `scatter` / `radius` (`radiusFeet`, `autoTargets`);
 - `filters`: `side`, `excludeCreatureTypes`, `requiresCreatureTypes`, `containment`;
@@ -123,7 +125,7 @@
 ## 5. Стабильные имена и патч-пути
 
 - Блоки — объектные ключи (`zone`, `loadout`, `selection`, …).
-- Массивы — коллекции с `id`: `effects.<id>`, `zone.actions.<id>`, `grantedActions.<id>`, `choices.<id>`, `triggers.<slot>`. Патч адресует узел по имени, а не по индексу.
+- Массивы — коллекции с `id`: `effects.<id>`, `zone.actions.<id>`, `grantedActions.<id>`, `choices.<id>`, `triggers.<slot>`. Патч адресует узел по имени, а не по индексу (копия может менять и `choices.<id>.options` — в пределах словаря параметра, см. §3.5).
 - `extends` + `patch`: операции `set` / `append` / `remove` по путям; присваивание массива заменяет его целиком; неизвестный путь — **ошибка компиляции** (deploy-инвариант), а не молчаливый no-op.
 
 Пример копии (из карточки R16):
@@ -193,6 +195,7 @@ CUSTOM:Jallarzi-Fire {
 - `selection` добор: `mark`/`markTarget`/`retarget` (Hex/Hunter's Mark), `targets` (Bless/Bane), `autoTargets` (Beacon of Hope), `side`+`$spell` (Spirit Guardians, Conjure Woodland Beings, `baseActionId`), `requiresCreatureTypes`/`saveAdvantageInCombat`+`Leveled<null>` (Dominate Beast/Person), Telekinesis (utility + носитель-действие) — 77 спеков, `derived` не менялся, билдеры удалены. Батч `selection` закрыт.
 - каталог закрыт на спеках: `zone`-локации (Daylight/Moonbeam/Flaming Sphere/Faithful Hound/Crusader's Mantle/Holy Weapon), `escape`/`escalate` (Web/Sleep), `endConditions` (Protection from Poison/Lesser Restoration), `shape`/`saveSuccess`/`conditionImmunitiesFrom`/флаги движения (Polymorph/Freedom of Movement/Protection from Evil and Good/Otto/Primordial Ward/Fount of Moonlight); в `AUTOMATION_SPELLS` — только manual/chip.
 - слой добавок снесён: Shocking Grasp/Chill Touch — attack-спеки с райдером (`restrictions.noOpportunityAttacks`/`hooks.noHeal`), Cure Wounds/Healing Word/Mass Healing Word/Mass Cure Wounds (heal `abilityMod` + `types`, `targets: 6`), Prayer of Healing (`targets: 5`), Harm (`AutomationSpec.maxHpFromDamage`); `AUTOMATION_ADDITIONS`/`AutomationAddition`/`withAdditions`/`healAbilityMod`-мутация и `withSpellDice`/`resolveZoneDice` удалены, `derived` не менялся (`21dcc4e4cec47878`).
+- класс 2 аудита (точки расширения): выборы — адресация по id (`{ref:'choice', choice}`, `optional` включается только явным вариантом этого выбора), словари опций (`damageType`/`condition`/`ability`/`skill`) проверяет `validateSpec`, `spellVariantDef` резолвит `extends`-копии (селект кастомного спелла); замок зеркала `UtilitySpec.multiplier/thenMove` (Мантия вдохновения) — тесты `automation.spec.test.ts`, `derived` не менялся. `ref:'characterLevel'` и `ZoneWallDef.resistances` по решению владельца не покрывались.
 - билдеры закрыты: `lifesteal`/`lifeTransfer`, `UtilitySpec.dice`, `area`, `halfOnMiss`/`successDamage`/`undeadTempHp`/`heal`, effect `triggers`/`selfOnFail`/`maxHpBonus`, `ActionSpec.banishOnFail`/`requiresCreatureTypes`; мигрированы все билдеры, `derived` не менялся, `BUILTIN_AUTOMATION`/`spellBuiltinAutomated` удалены, `builders.ts` → `helpers.ts` (COMPOSITE_CONFIGS + хелперы костей).
 
 Открыто (решить при реализации шага 2–3):

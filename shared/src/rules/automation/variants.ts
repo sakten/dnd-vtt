@@ -1,4 +1,5 @@
-import type { ChoiceSpec } from './spec';
+import { resolveSpec } from './compile';
+import type { AutomationSpec, AutomationSpecCopy, ChoiceSpec } from './spec';
 import { AUTOMATION_SPECS } from './specs';
 
 export interface AutomationOptions {
@@ -31,8 +32,17 @@ const VARIANT_PARAM: Record<ChoiceSpec['param'], SpellVariantDef['param']> = {
   effect: 'effect',
 };
 
-/** Варианты каста заклинания (undefined — выбора нет): источник — `AutomationSpec.choices`. */
-export function spellVariantDef(spellKey: string): SpellVariantDef | undefined {
-  const choice = AUTOMATION_SPECS[spellKey]?.choices?.[0];
+/**
+ * Варианты каста заклинания (undefined — выбора нет): источник — `AutomationSpec.choices`.
+ * Копии (`extends`) резолвятся: UI видит выбор кастомного спелла после патча `choices.<id>`.
+ * Показывается первый выбор спека; мультивыбор — задел конструктора (см. `AUTOMATION.md` §3.5).
+ */
+export function spellVariantDef(
+  spellKey: string,
+  registry: Record<string, AutomationSpec | AutomationSpecCopy> = AUTOMATION_SPECS
+): SpellVariantDef | undefined {
+  const spec = registry[spellKey];
+  if (!spec) return undefined;
+  const choice = resolveSpec(spec, registry).choices?.[0];
   return choice ? { param: VARIANT_PARAM[choice.param], options: [...choice.options] } : undefined;
 }
