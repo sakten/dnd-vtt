@@ -2,7 +2,7 @@ import { DAMAGE_TYPES, SKILLS } from '../../labels';
 import type { EffectDuration } from '../../domain/effects';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
-import type { AutomationSpec, ActionSpec, EffectSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
+import type { AutomationSpec, ActionSpec, DamageSpec, EffectSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
 const MAGIC_WEAPON_BONUS: ValueExpr = {
@@ -62,9 +62,9 @@ const CHECK_ABILITY_KEYS = Object.keys(CHECK_ABILITIES);
 const BESTOW_CURSE_OPTIONS = [...CHECK_ABILITY_KEYS, 'attacks', 'dodge', 'necrotic'];
 
 /** Перемещение зоны действием владельца (Moonbeam 60, Flaming Sphere 30, Faithful Hound 30). */
-const moveZoneAction = (cost: 'action' | 'bonus', feet: number): ActionSpec => ({
+const moveZoneAction = (cost: 'action' | 'bonus', feet: number, name = 'Переместить'): ActionSpec => ({
   id: 'move',
-  name: 'Переместить',
+  name,
   cost,
   defKey: 'zone:move',
   primary: 'utility',
@@ -81,6 +81,45 @@ const webRestrained = (): EffectSpec => ({
   modifiers: [],
   conditions: ['restrained'],
   escape: { ability: 'str', skill: 'athletics' },
+});
+
+/** Sunbeam: слепота до начала следующего хода источника (каст и каждый луч). */
+const sunbeamBlind = (): EffectSpec => ({
+  id: 'blind',
+  name: 'Sunbeam',
+  duration: { type: 'endOfTurn', of: 'source' },
+  to: 'targets',
+  modifiers: [],
+  conditions: ['blinded'],
+});
+
+/** Heat Metal: помеха атакам и проверкам, пока металл раскалён. */
+const heatHolding = (): EffectSpec => ({
+  id: 'holding',
+  name: 'Heat Metal',
+  duration: { type: 'endOfTurn', of: 'source' },
+  to: 'targets',
+  modifiers: [
+    { target: 'attack', mode: 'disadvantage' },
+    { target: 'check', mode: 'disadvantage' },
+  ],
+});
+
+/** Storm Sphere: спас STR и дробящий урон (появление и конец хода), +1к6/круг. */
+const stormTrigger = (): PayloadSpec => ({
+  save: { ability: 'str' },
+  damage: {
+    dice: { scale: { dice: { ref: 'part', part: 'trigger', fallback: '2d6' }, by: 'upcast' } },
+    types: ['bludgeoning'],
+  },
+});
+
+/** Jallarzi: спас CON, излучение + звук, обе части +1к10/круг. */
+const jallarziDamage = (): DamageSpec => ({
+  parts: [
+    { dice: { scale: { dice: { ref: 'part', part: 'main', index: 0, fallback: '2d10' }, by: 'upcast' } }, type: 'radiant' },
+    { dice: { scale: { dice: { ref: 'part', part: 'main', index: 1, fallback: '2d10' }, by: 'upcast' } }, type: 'thunder' },
+  ],
 });
 
 /**
@@ -2927,6 +2966,380 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
           sep: ' + ',
         },
       },
+    },
+  },
+
+  // Батч З (R16): билдеры на существующих блоках — лучи/повторы (Sunbeam, Heat Metal,
+  // Witch Bolt, Call Lightning, Minute Meteors), духи-зоны (Spiritual Weapon,
+  // Conjure Fey, Storm Sphere), составной урон (Flame Strike, Ice Storm, Jallarzi)
+  // и Aid.
+  'XPHB:Sunbeam': {
+    key: 'XPHB:Sunbeam',
+    name: 'Sunbeam',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'con', half: true },
+    damage: { dice: { ref: 'spellDamage', fallback: '6d8' }, types: ['radiant'] },
+    area: { from: 'spell', fallback: { shape: 'line', size: 60, width: 5 } },
+    effects: [
+      sunbeamBlind(),
+      {
+        id: 'beamCarrier',
+        name: 'Sunbeam',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        light: { bright: 30, dim: 30, sunlight: true },
+        actions: [
+          {
+            id: 'beam',
+            name: 'Луч',
+            cost: 'action',
+            primary: 'save',
+            save: { ability: 'con', half: true },
+            damage: { dice: { ref: 'spellDamage', fallback: '6d8' }, types: ['radiant'] },
+            area: { from: 'spell', fallback: { shape: 'line', size: 60, width: 5 } },
+            targeting: { kind: 'area', fromArea: true },
+            effects: [sunbeamBlind()],
+          },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Heat Metal': {
+    key: 'XPHB:Heat Metal',
+    name: 'Heat Metal',
+    primary: 'auto',
+    concentration: true,
+    damage: { dice: { ref: 'spellDamage', fallback: '2d8' }, types: ['fire'] },
+    effects: [
+      heatHolding(),
+      {
+        id: 'burnCarrier',
+        name: 'Heat Metal',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [
+          {
+            id: 'burn',
+            name: 'Раскалённый металл',
+            cost: 'bonus',
+            primary: 'auto',
+            damage: { dice: { ref: 'spellDamage', fallback: '2d8' }, types: ['fire'] },
+            targeting: { kind: 'creature', range: 60 },
+            effects: [heatHolding()],
+          },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Witch Bolt': {
+    key: 'XPHB:Witch Bolt',
+    name: 'Witch Bolt',
+    primary: 'attack',
+    concentration: true,
+    attack: { rangeType: 'ranged' },
+    count: 1,
+    damage: {
+      dice: {
+        concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '2d12' }, by: 'upcast' } }, 'lightning'],
+      },
+      types: ['lightning'],
+    },
+    effects: [
+      {
+        id: 'boltCarrier',
+        name: 'Witch Bolt',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [
+          {
+            id: 'bolt',
+            name: 'Разряд',
+            cost: 'bonus',
+            primary: 'auto',
+            damage: { dice: { ref: 'part', part: 'repeat', fallback: '1d12' }, types: ['lightning'] },
+            targeting: { kind: 'creature', range: 60 },
+          },
+        ],
+      },
+    ],
+  },
+
+  'XPHB:Call Lightning': {
+    key: 'XPHB:Call Lightning',
+    name: 'Call Lightning',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { dice: { ref: 'spellDamage', fallback: '3d10' }, types: ['lightning'] },
+    area: { shape: 'sphere', size: 5 },
+    zone: {
+      area: { shape: 'cylinder', size: 60 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { subtle: true },
+      actions: [
+        {
+          id: 'strike',
+          name: 'Удар молнии',
+          cost: 'action',
+          primary: 'save',
+          save: { ability: 'dex', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '3d10' }, types: ['lightning'] },
+          area: { shape: 'sphere', size: 5 },
+          targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 60 },
+        },
+      ],
+    },
+  },
+
+  "XGE:Melf's Minute Meteors": {
+    key: "XGE:Melf's Minute Meteors",
+    name: 'Minute Meteors',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'meteors',
+        name: 'Minute Meteors',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        uses: { kind: 'charges', count: { perLevel: { base: 6, per: 2, above: 'spell' } } },
+        actions: [
+          {
+            id: 'meteor',
+            name: 'Метеор',
+            cost: 'bonus',
+            primary: 'save',
+            save: { ability: 'dex', half: true },
+            damage: { dice: { ref: 'damage', fallback: '2d6' }, types: ['fire'] },
+            area: { shape: 'sphere', size: 5 },
+            targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 120 },
+          },
+        ],
+      },
+    ],
+  },
+
+  'XGE:Immolation': {
+    key: 'XGE:Immolation',
+    name: 'Immolation',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex', half: true },
+    damage: { parts: [{ dice: { ref: 'part', part: 'main', fallback: '8d6' }, type: 'fire' }] },
+    effects: [
+      {
+        id: 'burn',
+        name: 'Immolation',
+        duration: {
+          type: 'untilSave',
+          ability: 'dex',
+          dc: 0,
+          timing: 'end',
+          damage: { dice: '4d6fire', types: ['fire'] },
+        },
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        light: { bright: 30, dim: 30 },
+      },
+    ],
+  },
+
+  'XPHB:Aid': {
+    key: 'XPHB:Aid',
+    name: 'Aid',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'aid',
+        name: 'Aid',
+        duration: PERMANENT,
+        to: 'targets',
+        targets: 3,
+        modifiers: [{ target: 'maxHp', mode: 'add', value: { sum: [5, { ref: 'upcastFlat' }] } }],
+      },
+    ],
+  },
+
+  'XPHB:Spiritual Weapon': {
+    key: 'XPHB:Spiritual Weapon',
+    name: 'Spiritual Weapon',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 0 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      movable: true,
+      flags: { subtle: true, sprite: 'hammer' },
+      actions: [
+        moveZoneAction('bonus', 20, 'Перенос силы'),
+        {
+          id: 'strike',
+          name: 'Удар силы',
+          defName: 'Spiritual Weapon',
+          cost: 'free',
+          primary: 'attack',
+          attack: { rangeType: 'melee' },
+          count: 1,
+          damage: {
+            dice: { scale: { dice: { ref: 'part', part: 'main', fallback: '1d8' }, by: 'upcast' } },
+            types: ['force'],
+            abilityMod: true,
+          },
+          targeting: { kind: 'creature', range: 5, from: 'origin' },
+        },
+      ],
+    },
+  },
+
+  'XPHB:Conjure Fey': {
+    key: 'XPHB:Conjure Fey',
+    name: 'Conjure Fey',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 0 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      movable: true,
+      flags: { subtle: true, sprite: 'fey' },
+      actions: [
+        moveZoneAction('bonus', 30, 'Шаг духа'),
+        {
+          id: 'strike',
+          name: 'Удар духа',
+          defName: 'Conjure Fey',
+          cost: 'free',
+          primary: 'attack',
+          attack: { rangeType: 'melee' },
+          count: 1,
+          damage: { dice: { ref: 'spellDamage', fallback: '3d12' }, types: ['psychic'], abilityMod: true },
+          effects: [
+            {
+              id: 'fear',
+              name: 'Conjure Fey',
+              duration: { type: 'endOfTurn', of: 'source' },
+              to: 'targets',
+              modifiers: [],
+              conditions: ['frightened'],
+            },
+          ],
+          targeting: { kind: 'creature', range: 5, from: 'origin' },
+        },
+      ],
+    },
+  },
+
+  'XGE:Storm Sphere': {
+    key: 'XGE:Storm Sphere',
+    name: 'Storm Sphere',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { difficultTerrain: true },
+      onCreate: stormTrigger(),
+      triggers: { endOfTurn: stormTrigger() },
+      actions: [
+        {
+          id: 'bolt',
+          name: 'Молния',
+          cost: 'bonus',
+          primary: 'attack',
+          attack: { rangeType: 'ranged', advantageInZone: true },
+          count: 1,
+          damage: {
+            dice: { scale: { dice: { ref: 'part', part: 'repeat', fallback: '4d6' }, by: 'upcast' } },
+            types: ['lightning'],
+          },
+          targeting: { kind: 'creature', range: 60, from: 'origin' },
+        },
+      ],
+    },
+  },
+
+  'XPHB:Flame Strike': {
+    key: 'XPHB:Flame Strike',
+    name: 'Flame Strike',
+    primary: 'save',
+    save: { ability: 'dex', half: true },
+    damage: {
+      parts: [
+        {
+          dice: { scale: { dice: { ref: 'part', part: 'main', index: 0, fallback: '5d6' }, by: 'upcast' } },
+          type: 'fire',
+        },
+        {
+          dice: { scale: { dice: { ref: 'part', part: 'main', index: 1, fallback: '5d6' }, by: 'upcast' } },
+          type: 'radiant',
+        },
+      ],
+    },
+  },
+
+  'XPHB:Ice Storm': {
+    key: 'XPHB:Ice Storm',
+    name: 'Ice Storm',
+    primary: 'save',
+    save: { ability: 'dex', half: true },
+    damage: {
+      parts: [
+        {
+          dice: { scale: { dice: { ref: 'part', part: 'main', index: 0, fallback: '2d10' }, by: 'upcast' } },
+          type: 'bludgeoning',
+        },
+        { dice: { ref: 'part', part: 'main', index: 1, fallback: '4d6' }, type: 'cold' },
+      ],
+    },
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: { type: 'rounds', rounds: 2 },
+      flags: { difficultTerrain: true },
+    },
+  },
+
+  "XPHB:Jallarzi's Storm of Radiance": {
+    key: "XPHB:Jallarzi's Storm of Radiance",
+    name: 'Storm of Radiance',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'con', half: true },
+    damage: jallarziDamage(),
+    zone: {
+      area: { shape: 'cylinder', size: 10 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      flags: { silence: true },
+      aura: {
+        effects: [
+          {
+            id: 'storm',
+            name: 'Storm of Radiance',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [],
+            conditions: ['blinded', 'deafened'],
+          },
+        ],
+      },
+      triggers: { enter: { save: { ability: 'con', half: true }, damage: jallarziDamage() }, endOfTurn: { save: { ability: 'con', half: true }, damage: jallarziDamage() } },
     },
   },
 };

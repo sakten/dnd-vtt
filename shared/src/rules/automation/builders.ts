@@ -1,8 +1,8 @@
-import type { AutomationDef, AutomationEffect, AutomationPayload, AutomationSave, GrantedAction, LightSource, ZoneDef } from '../../domain/automation';
-import { spellDamageExpression, spellUpcastAt } from '../spellCast';
+import type { AutomationDef, AutomationEffect, AutomationSave, GrantedAction, LightSource, ZoneDef } from '../../domain/automation';
+import { spellDamageExpression } from '../spellCast';
 import type { DamagePartRole, Spell } from '../spells';
 import { SPELL_BASES } from './bases';
-import { CONCENTRATION, PERMANENT, UNTIL_NEXT_TURN, zoneMoveAction } from './header';
+import { CONCENTRATION, PERMANENT } from './header';
 import type { AutomationOptions } from './variants';
 
 /** Кость части данных по роли (нет роли — запасное литеральное значение). */
@@ -10,89 +10,23 @@ function partDice(spell: Spell, role: DamagePartRole, fallback: string): string 
   return spell.damage?.parts?.find((part) => part.role === role)?.dice ?? fallback;
 }
 
-/** Все части данных с ролью (составной урон — несколько `main` в порядке текста). */
-function partsOfRole(spell: Spell, role: DamagePartRole): { dice: string; types: string[] }[] {
-  return (spell.damage?.parts ?? []).filter((part) => part.role === role);
-}
-
 /** Заклинания с собранной в коде автоматизацией (билдеры, не строки каталога). */
 export const BUILTIN_AUTOMATION = new Set([
-  "XPHB:Dragon's Breath",
-  'XPHB:Flame Blade',
-  'XPHB:Guardian of Faith',
-  'XPHB:Conjure Fey',
   'XPHB:Dispel Evil and Good',
-  'TCE:Green-Flame Blade',
-  'TCE:Booming Blade',
-  'XPHB:True Strike',
-  'XGE:Zephyr Strike',
-  'XPHB:Sunbeam',
-  'XPHB:Heat Metal',
-  'XPHB:Call Lightning',
   'XPHB:Heal',
   'XPHB:Heroism',
-  'XPHB:Enhance Ability',
-  'XGE:Skill Empowerment',
-  'XPHB:Command',
-  'XGE:Far Step',
-  'XPHB:Dimension Door',
-  'XGE:Thunder Step',
-  'XGE:Healing Spirit',
-  'XPHB:Cordon of Arrows',
-  'XGE:Storm Sphere',
-  'XPHB:Armor of Agathys',
-  'XPHB:Magic Weapon',
-  'XPHB:Shillelagh',
-  'XGE:Shadow Blade',
-  'XGE:Magic Stone',
-  'XPHB:Conjure Minor Elementals',
-  'XPHB:Elemental Weapon',
-  'TCE:Spirit Shroud',
-  'XGE:Flame Arrows',
-  'XPHB:Fire Shield',
-  'XGE:Shadow of Moil',
-  'XPHB:Eyebite',
-  'XPHB:Invisibility',
-  'XPHB:Greater Invisibility',
   'XPHB:Searing Smite',
   'XPHB:Ensnaring Strike',
-  'XPHB:Protection from Energy',
-  'XPHB:Aid',
   "XPHB:Heroes' Feast",
-  'XPHB:Resistance',
-  'XGE:Elemental Bane',
-  'XPHB:Flame Strike',
-  'XPHB:Ice Storm',
-  'XPHB:Destructive Wave',
-  'XPHB:Wall of Thorns',
-  'XPHB:Wall of Fire',
-  'XPHB:Blade Barrier',
-  'XGE:Wall of Sand',
-  'XPHB:Wall of Ice',
-  'XPHB:Wall of Force',
-  'XPHB:Wall of Stone',
-  'XGE:Wall of Light',
-  'XPHB:Ice Knife',
   'XPHB:Vitriolic Sphere',
   'XGE:Negative Energy Flood',
-  "XPHB:Jallarzi's Storm of Radiance",
-  'XPHB:Blindness/Deafness',
-  'XPHB:Bestow Curse',
-  'XPHB:Witch Bolt',
   "XPHB:Melf's Acid Arrow",
   'XGE:Enervation',
-  "XGE:Melf's Minute Meteors",
-  'XGE:Immolation',
 ]);
 
 /** Реализована ли механика заклинания билдером кода (для маркера «не автоматизировано»). */
 export function spellBuiltinAutomated(spellKey: string): boolean {
   return BUILTIN_AUTOMATION.has(spellKey);
-}
-
-/** Кость заклинания с учётом круга/уровня; `fallback` — если данных нет. */
-export function spellDice(spell: Spell, opts: AutomationOptions, fallback = ''): string {
-  return spellDamageExpression(spell, opts.castLevel ?? Math.max(1, spell.level), opts.characterLevel ?? 1) ?? fallback;
 }
 
 /** Эффект-носитель выданного действия: бафф на себя (или цель у DB) с `actions`. */
@@ -113,99 +47,8 @@ export function actionCarrier(
   };
 }
 
-/** Sunbeam (XPHB 2024): луч 60×5 от себя; повтор магическим действием, слепота до начала вашего след. хода. */
-export function sunbeamDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Sunbeam') return undefined;
-  const dice = spellDice(spell, opts, '6d8');
-  const area = spell.areaSpec ?? { shape: 'line' as const, size: 60, width: 5 };
-  const payload = {
-    save: { ability: 'con' as const, half: true },
-    damage: { dice, types: ['radiant'] },
-    area,
-  };
-  const blind: AutomationEffect = {
-    name: 'Sunbeam',
-    duration: { type: 'endOfTurn', of: 'source' },
-    to: 'targets',
-    conditions: ['blinded'],
-    modifiers: [],
-  };
-  const beam: AutomationDef = {
-    key: spell.key,
-    name: 'Луч',
-    resolution: 'save',
-    ...payload,
-    targeting: { kind: 'area', area, range: Math.max(5, area.size) },
-    effects: [blind],
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    concentration: true,
-    ...payload,
-    effects: [blind, actionCarrier(spell, { id: 'beam', name: 'Луч', cost: 'action', def: beam }, { light: { bright: 30, dim: 30, sunlight: true } })],
-  };
-}
 
-/** Heat Metal (XPHB 2024): авто-урон 2d8 огня + помеха на атаки/проверки; повтор бонусным действием. */
-export function heatMetalDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Heat Metal') return undefined;
-  const damage = { dice: spellDice(spell, opts, '2d8'), types: ['fire'] };
-  const holding: AutomationEffect = {
-    name: 'Heat Metal',
-    duration: { type: 'endOfTurn', of: 'source' },
-    to: 'targets',
-    modifiers: [
-      { target: 'attack', mode: 'disadvantage' },
-      { target: 'check', mode: 'disadvantage' },
-    ],
-  };
-  const burn: AutomationDef = {
-    key: spell.key,
-    name: 'Раскалённый металл',
-    resolution: 'auto',
-    damage,
-    targeting: { kind: 'creature', range: 60 },
-    effects: [holding],
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'auto',
-    concentration: true,
-    damage,
-    effects: [holding, actionCarrier(spell, { id: 'burn', name: 'Раскалённый металл', cost: 'bonus', def: burn })],
-  };
-}
 
-/**
- * Witch Bolt (XPHB 2024): дальняя атака 2к12 (+1к12/круг к первичному урону);
- * связь — на попадании и при промахе: бонусным действием 1к12 электричеством
- * без броска (каркас Heat Metal). Обрыв по дистанции/укрытию не отслеживается.
- */
-export function witchBoltDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Witch Bolt') return undefined;
-  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const initial = scaledDice(partDice(spell, 'main', '2d12'), spell.upcast?.dice, upcastSteps(spell, level));
-  const bolt: AutomationDef = {
-    key: spell.key,
-    name: 'Разряд',
-    resolution: 'auto',
-    damage: { dice: partDice(spell, 'repeat', '1d12'), types: ['lightning'] },
-    targeting: { kind: 'creature', range: 60 },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'attack',
-    attack: { rangeType: 'ranged' },
-    count: 1,
-    concentration: true,
-    damage: { dice: `${initial}lightning`, types: ['lightning'] },
-    effects: [actionCarrier(spell, { id: 'bolt', name: 'Разряд', cost: 'bonus', def: bolt })],
-  };
-}
 
 /**
  * Melf's Acid Arrow (XPHB 2024): дальняя атака 4к4 кислотой; при попадании — ещё
@@ -273,100 +116,8 @@ export function enervationDef(spell: Spell, opts: AutomationOptions): Automation
   };
 }
 
-/**
- * Melf's Minute Meteors (XGE): 6 метеоров (+2 за круг выше 3); бонусным действием
- * метеор в точку ≤120 фт — бурст 5 фт, спас DEX, 2к6 огнём (половина при успехе).
- */
-export function minuteMeteorsDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== "XGE:Melf's Minute Meteors") return undefined;
-  const level = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const charges = 6 + 2 * Math.max(0, level - 3);
-  const meteorDice = spell.damage?.dice?.[0] ?? '2d6';
-  const burst: AutomationDef = {
-    key: spell.key,
-    name: 'Метеор',
-    resolution: 'save',
-    save: { ability: 'dex', half: true },
-    damage: { dice: meteorDice, types: ['fire'] },
-    area: { shape: 'sphere', size: 5 },
-    targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 120 },
-  };
-  const effect: AutomationEffect = {
-    name: spell.name,
-    duration: CONCENTRATION,
-    concentration: true,
-    to: 'self',
-    modifiers: [],
-    charges: { count: charges },
-    actions: [{ id: 'meteor', name: 'Метеор', cost: 'bonus', def: burst }],
-  };
-  return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
-}
 
-/**
- * Immolation (XGE): спас DEX — 8к6 огнём (половина при успехе); провал — цель
- * горит (яркий свет 30 + тусклый 30), в конце каждого её хода повтор DEX: провал —
- * ещё 4к6 огнём, успех — конец заклинания. Апкаста нет.
- */
-export function immolationDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XGE:Immolation') return undefined;
-  const initial = partDice(spell, 'main', spell.damage?.dice?.[0] ?? '8d6');
-  const burnDice = partDice(spell, 'repeat', spell.damage?.dice?.[1] ?? '4d6');
-  const burn: AutomationEffect = {
-    name: spell.name,
-    duration: {
-      type: 'untilSave',
-      ability: 'dex',
-      dc: 0,
-      timing: 'end',
-      damage: { dice: `${burnDice}fire`, types: ['fire'] },
-    },
-    concentration: true,
-    to: 'targets',
-    modifiers: [],
-    light: { bright: 30, dim: 30 },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    concentration: true,
-    save: { ability: 'dex', half: true },
-    damage: { dice: `${initial}fire`, types: ['fire'] },
-    effects: [burn],
-  };
-}
 
-/** Call Lightning (XPHB 2024): туча-цилиндр 60 фт, удар 5 фт при касте (в центр) и повтор действием. */
-export function callLightningDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Call Lightning') return undefined;
-  const dice = spellDice(spell, opts, '3d10');
-  const impact: AutomationDef = {
-    key: spell.key,
-    name: 'Удар молнии',
-    resolution: 'save',
-    save: { ability: 'dex', half: true },
-    damage: { dice, types: ['lightning'] },
-    area: { shape: 'sphere', size: 5 },
-    targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 60 },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    concentration: true,
-    save: { ability: 'dex', half: true },
-    damage: { dice, types: ['lightning'] },
-    area: { shape: 'sphere', size: 5 },
-    zone: {
-      area: { shape: 'cylinder', size: 60 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      flags: { subtle: true },
-      actions: [{ id: 'strike', name: 'Удар молнии', cost: 'action', def: impact }],
-    },
-  };
-}
 
 /** Heroism: иммунитет к испугу + временные HP (мод заклинательной характеристики) в начале хода цели. */
 export function heroismDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
@@ -384,20 +135,6 @@ export function heroismDef(spell: Spell, opts: AutomationOptions): AutomationDef
   return { key: spell.key, name: spell.name, resolution: 'effect', concentration: true, effects: [effect] };
 }
 
-/** Aid (XPHB): +5 к максимуму HP, ещё +5 за каждый круг выше 2 (до 3 целей). */
-export function aidDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Aid') return undefined;
-  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const amount = 5 + (spellUpcastAt(spell, castLevel).flat ?? 0);
-  const effect: AutomationEffect = {
-    name: spell.name,
-    duration: PERMANENT,
-    to: 'targets',
-    targets: 3,
-    modifiers: [{ target: 'maxHp', mode: 'add', value: amount }],
-  };
-  return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
-}
 
 /**
  * Heroes' Feast (XPHB 2024): до 12 существ — сопротивление яду, иммунитет к испугу
@@ -512,48 +249,6 @@ export function healSpellDef(spell: Spell, opts: AutomationOptions): AutomationD
   };
 }
 
-/**
- * Spiritual Weapon (XPHB 2024): бонусным действием — сила в точке ≤60 фт.
- * Каст заряжает бесплатный «Удар силы» (цель в 5 фт от неё, 1к8 + мод, +1к8/круг).
- * Позже бонусным действием «Перенос силы» двигает её ≤20 фт и снова заряжает удар.
- */
-export function spiritualWeaponDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Spiritual Weapon') return undefined;
-  const castLevel = Math.max(2, opts.castLevel ?? spell.level);
-  const damage = {
-    dice: scaledDice(spell.damage?.dice?.[0] ?? '1d8', '1d8', castLevel - 2),
-    types: ['force'],
-    abilityMod: true,
-  };
-  const strike: GrantedAction = {
-    id: 'strike',
-    name: 'Удар силы',
-    cost: 'free',
-    def: {
-      key: spell.key,
-      name: spell.name,
-      resolution: 'attack',
-      attack: { rangeType: 'melee' },
-      count: 1,
-      damage,
-      targeting: { kind: 'creature', range: 5, from: 'origin' },
-    },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 0 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      movable: true,
-      actions: [zoneMoveAction('Перенос силы', 'bonus', 20), strike],
-      flags: { subtle: true, sprite: 'hammer' },
-    },
-  };
-}
 
 /**
  * Dispel Evil and Good (XPHB 2024): каст (концентрация) выдаёт действие «Изгнание» —
@@ -581,103 +276,7 @@ export function dispelEvilGoodDef(spell: Spell): AutomationDef | undefined {
   };
 }
 
-/**
- * Conjure Fey (XPHB 2024): дух-зона как у Spiritual Weapon: при касте — удар
- * (3к12 + мод. характеристики психическим, испуг до начала вашего след. хода),
- * далее бонусным действием телепорт духа на 30 фт и повторный удар.
- */
-export function conjureFeyDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Conjure Fey') return undefined;
-  const dice = spellDice(spell, opts, '3d12');
-  const frightened: AutomationEffect = {
-    name: spell.name,
-    duration: UNTIL_NEXT_TURN,
-    to: 'targets',
-    modifiers: [],
-    conditions: ['frightened'],
-  };
-  const strike: GrantedAction = {
-    id: 'strike',
-    name: 'Удар духа',
-    cost: 'free',
-    def: {
-      key: spell.key,
-      name: spell.name,
-      resolution: 'attack',
-      attack: { rangeType: 'melee' },
-      count: 1,
-      damage: { dice, types: ['psychic'], abilityMod: true },
-      effects: [frightened],
-      targeting: { kind: 'creature', range: 5, from: 'origin' },
-    },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 0 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      movable: true,
-      actions: [zoneMoveAction('Шаг духа', 'bonus', 30), strike],
-      flags: { subtle: true, sprite: 'fey' },
-    },
-  };
-}
 
-/**
- * Storm Sphere (XGE): сфера r20 (150 фт, концентрация, труднопроходима). Существа
- * в сфере при появлении и в конце своего хода — спас STR, иначе 2к6 дробящего.
- * Бонусным действием — молния по существу в 60 фт от центра: атака заклинанием,
- * 4к6 электричеством, преимущество, если цель внутри сферы. Оба урона +1к6/круг
- * выше 4. Помеха слуховому Восприятию в 30 фт — нарратив (механики проверки нет).
- */
-export function stormSphereDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== 'XGE:Storm Sphere') return undefined;
-  const steps = upcastSteps(spell, Math.max(spell.level, opts.castLevel ?? spell.level));
-  const trigger: AutomationPayload = {
-    save: { ability: 'str' },
-    damage: {
-      dice: scaledDice(partDice(spell, 'trigger', '2d6'), spell.upcast?.dice, steps),
-      types: ['bludgeoning'],
-    },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      flags: { difficultTerrain: true },
-      onCreate: trigger,
-      triggers: { endOfTurn: trigger },
-      actions: [
-        {
-          id: 'bolt',
-          name: 'Молния',
-          cost: 'bonus',
-          def: {
-            key: spell.key,
-            name: 'Молния',
-            resolution: 'attack',
-            attack: { rangeType: 'ranged', advantageInZone: true },
-            count: 1,
-            damage: {
-              dice: scaledDice(partDice(spell, 'repeat', '4d6'), spell.upcast?.dice, steps),
-              types: ['lightning'],
-            },
-            targeting: { kind: 'creature', range: 60, from: 'origin' },
-          },
-        },
-      ],
-    },
-  };
-}
 
 /**
  * Vitriolic Sphere (XPHB 2024): спас DEX (успех — половина первичного урона),
@@ -794,92 +393,7 @@ export function scaledDice(base: string, extra: string | undefined, steps: numbe
   return out;
 }
 
-/**
- * Составной урон (Flame Strike, Ice Storm, Destructive Wave): части одним броском
- * с типизированными костями (`5d6fire + 5d6radiant`) — защиты цели считаются
- * по каждой части отдельно (`applyDamageToParts`).
- */
-export function compositeDamageDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  const cfg = COMPOSITE_CONFIGS[spell.key];
-  if (!cfg) return undefined;
-  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const steps = upcastSteps(spell, castLevel);
-  const componentMains = partsOfRole(spell, 'main');
-  const source =
-    componentMains.length === cfg.parts.length && !componentMains.some((part) => !part.types.length)
-      ? componentMains.map((part) => ({ dice: part.dice, type: part.types[0] ?? '' }))
-      : cfg.parts;
-  const parts = source.map((part, i) => {
-    const scaled =
-      cfg.upcast === 'all' || (cfg.upcast === 'first' && i === 0)
-        ? scaledDice(part.dice, spell.upcast?.dice, steps)
-        : part.dice;
-    return {
-      dice: scaled,
-      // Вариантный тип: выбранный при касте, иначе — дефолт конфига (не порядок типов в данных).
-      type: cfg.variantPart === i ? (opts.variant ?? cfg.parts[i]?.type ?? part.type) : part.type,
-    };
-  });
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    concentration: spell.concentration === true || undefined,
-    save: cfg.save,
-    damage: {
-      dice: parts.map((p) => `${p.dice}${p.type}`).join(' + '),
-      types: [...new Set(parts.map((p) => p.type))],
-    },
-    ...(cfg.onFail ? { effects: cfg.onFail.map((e) => ({ ...e, name: spell.name })) } : {}),
-    ...(cfg.zone ? { zone: cfg.zone } : {}),
-  };
-}
 
-/**
- * Jallarzi's Storm of Radiance (XPHB 2024): цилиндр r10 — внутри ослеплённый,
- * оглохший и запрет вербальных; появление/вход/конец хода — спас CON,
- * 2d10 излучением + 2d10 звуком (+1d10 обеим частям за круг выше 5).
- */
-export function jallarziDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  if (spell.key !== "XPHB:Jallarzi's Storm of Radiance") return undefined;
-  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const steps = upcastSteps(spell, castLevel);
-  const mains = partsOfRole(spell, 'main');
-  const radiant = scaledDice(mains[0]?.dice ?? '2d10', spell.upcast?.dice, steps);
-  const thunder = scaledDice(mains[1]?.dice ?? '2d10', spell.upcast?.dice, steps);
-  const save: AutomationSave = { ability: 'con', half: true };
-  const storm: AutomationPayload = {
-    save,
-    damage: { dice: `${radiant}radiant + ${thunder}thunder`, types: ['radiant', 'thunder'] },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'save',
-    concentration: true,
-    save,
-    damage: storm.damage,
-    zone: {
-      area: { shape: 'cylinder', size: 10 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      enterOncePerTurn: true,
-      flags: { silence: true },
-      aura: {
-        effects: [
-          {
-            name: spell.name,
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [],
-            conditions: ['blinded', 'deafened'],
-          },
-        ],
-      },
-      triggers: { enter: storm, endOfTurn: storm },
-    },
-  };
-}
 
 /** Сумма костей одного вида: `1d8` + `1d8` → `2d8` (иначе обычное сложение). */
 export function addDice(expr: string | undefined, extra: string): string {

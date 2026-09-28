@@ -208,6 +208,7 @@ describe('automationForSpell', () => {
       time: [{ number: 1, unit: 'bonus' }],
       spellAttack: 'melee',
       damage: { dice: ['1d8'], types: ['force'] },
+      upcast: { above: 2, dice: '1d8' },
     });
     const def = automationForSpell(spell);
     expect(def.resolution).toBe('effect');

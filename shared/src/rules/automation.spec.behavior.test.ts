@@ -737,4 +737,64 @@ describe('поведение спеков (RAW, реальные данные)',
     const falseLifeUp = automationForSpell(find('XPHB:False Life'), { castLevel: 3 });
     expect(falseLifeUp.utility?.dice).toBe('2d4 + 4 + 10');
   });
+
+  it('Батч З: лучи/повторы, духи-зоны, составной урон и Aid', () => {
+    const sun = automationForSpell(find('XPHB:Sunbeam'));
+    expect(sun.area).toEqual({ shape: 'line', size: 60, width: 5 });
+    expect(sun.effects?.[1]?.actions?.[0]?.def).toMatchObject({
+      resolution: 'save',
+      area: { shape: 'line', size: 60, width: 5 },
+      targeting: { kind: 'area', range: 60 },
+    });
+
+    const heat = automationForSpell(find('XPHB:Heat Metal'), { castLevel: 3 });
+    expect(heat.resolution).toBe('auto');
+    expect(heat.damage?.dice).toBe('2d8 + 1d8');
+    expect(heat.effects?.[1]?.actions?.[0]?.def?.damage?.dice).toBe('2d8 + 1d8');
+
+    const witch = automationForSpell(find('XPHB:Witch Bolt'), { castLevel: 2 });
+    expect(witch.damage).toMatchObject({ dice: '3d12lightning', types: ['lightning'] });
+    expect(witch.effects?.[0]?.actions?.[0]?.def?.damage?.dice).toBe('1d12');
+
+    const call = automationForSpell(find('XPHB:Call Lightning'), { castLevel: 4 });
+    expect(call.zone?.area).toEqual({ shape: 'cylinder', size: 60 });
+    expect(call.zone?.actions?.[0]?.def?.damage?.dice).toBe('3d10 + 1d10');
+
+    const meteors = automationForSpell(find("XGE:Melf's Minute Meteors"), { castLevel: 4 });
+    expect(meteors.effects?.[0]?.charges).toEqual({ count: 8 });
+
+    const immo = automationForSpell(find('XGE:Immolation'));
+    expect(immo.effects?.[0]?.duration).toMatchObject({ type: 'untilSave', ability: 'dex', timing: 'end' });
+    expect(immo.effects?.[0]?.light).toEqual({ bright: 30, dim: 30 });
+
+    const aid = automationForSpell(find('XPHB:Aid'), { castLevel: 3 }).effects?.[0];
+    expect(aid?.targets).toBe(3);
+    expect(aid?.modifiers[0]?.value).toBe(10);
+
+    const weapon = automationForSpell(find('XPHB:Spiritual Weapon'), { castLevel: 3 });
+    const strike = weapon.zone?.actions?.find((a) => a.id === 'strike');
+    expect(strike?.def?.damage).toMatchObject({ dice: '2d8', types: ['force'], abilityMod: true });
+    expect(strike?.def?.targeting).toEqual({ kind: 'creature', range: 5, from: 'origin' });
+
+    const fey = automationForSpell(find('XPHB:Conjure Fey'), { castLevel: 7 });
+    const feyStrike = fey.zone?.actions?.find((a) => a.id === 'strike');
+    expect(feyStrike?.def?.damage?.dice).toBe('3d12 + 1d12');
+    expect(feyStrike?.def?.effects?.[0]?.conditions).toEqual(['frightened']);
+
+    const storm = automationForSpell(find('XGE:Storm Sphere'), { castLevel: 5 });
+    expect(storm.zone?.onCreate?.damage?.dice).toBe('3d6');
+    expect(storm.zone?.actions?.[0]?.def?.attack).toEqual({ rangeType: 'ranged', advantageInZone: true });
+
+    const flame = automationForSpell(find('XPHB:Flame Strike'), { castLevel: 6 });
+    expect(flame.damage).toMatchObject({ dice: '6d6fire + 6d6radiant', types: ['fire', 'radiant'] });
+
+    const ice = automationForSpell(find('XPHB:Ice Storm'), { castLevel: 5 });
+    expect(ice.damage).toMatchObject({ dice: '3d10bludgeoning + 4d6cold' });
+    expect(ice.zone?.duration).toEqual({ type: 'rounds', rounds: 2 });
+
+    const jallarzi = automationForSpell(find("XPHB:Jallarzi's Storm of Radiance"), { castLevel: 6 });
+    expect(jallarzi.damage).toMatchObject({ dice: '3d10radiant + 3d10thunder' });
+    expect(jallarzi.zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded', 'deafened']);
+    expect(jallarzi.zone?.triggers?.endOfTurn?.damage?.dice).toBe('3d10radiant + 3d10thunder');
+  });
 });

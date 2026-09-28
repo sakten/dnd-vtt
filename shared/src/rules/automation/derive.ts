@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, aidDef, callLightningDef, compositeDamageDef, conjureFeyDef, dispelEvilGoodDef, enervationDef, ensnaringStrikeDef, healSpellDef, heatMetalDef, heroesFeastDef, heroismDef, immolationDef, jallarziDef, minuteMeteorsDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, spiritualWeaponDef, stormSphereDef, sunbeamDef, vitriolicSphereDef, witchBoltDef } from './builders';
+import { COMPOSITE_CONFIGS, acidArrowDef, dispelEvilGoodDef, enervationDef, ensnaringStrikeDef, healSpellDef, heroesFeastDef, heroismDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, vitriolicSphereDef } from './builders';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -44,47 +44,17 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);
 
-  const sunbeam = sunbeamDef(spell, opts);
-  if (sunbeam) return sunbeam;
-
-  const heatMetal = heatMetalDef(spell, opts);
-  if (heatMetal) return heatMetal;
-
-  const witchBolt = witchBoltDef(spell, opts);
-  if (witchBolt) return witchBolt;
-
   const acidArrow = acidArrowDef(spell, opts);
   if (acidArrow) return acidArrow;
 
   const enervation = enervationDef(spell, opts);
   if (enervation) return enervation;
 
-  const minuteMeteors = minuteMeteorsDef(spell, opts);
-  if (minuteMeteors) return minuteMeteors;
-
-  const immolation = immolationDef(spell);
-  if (immolation) return immolation;
-
-  const callLightning = callLightningDef(spell, opts);
-  if (callLightning) return callLightning;
-
   const heal = healSpellDef(spell, opts);
   if (heal) return heal;
 
-  const spiritualWeapon = spiritualWeaponDef(spell, opts);
-  if (spiritualWeapon) return spiritualWeapon;
-
-  const conjureFey = conjureFeyDef(spell, opts);
-  if (conjureFey) return conjureFey;
-
   const dispelEvilGood = dispelEvilGoodDef(spell);
   if (dispelEvilGood) return dispelEvilGood;
-
-  const composite = compositeDamageDef(spell, opts);
-  if (composite) return composite;
-
-  const jallarzi = jallarziDef(spell, opts);
-  if (jallarzi) return jallarzi;
 
   const vitriolic = vitriolicSphereDef(spell, opts);
   if (vitriolic) return vitriolic;
@@ -94,12 +64,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const heroism = heroismDef(spell, opts);
   if (heroism) return heroism;
-
-  const stormSphere = stormSphereDef(spell, opts);
-  if (stormSphere) return stormSphere;
-
-  const aid = aidDef(spell, opts);
-  if (aid) return aid;
 
   const heroesFeast = heroesFeastDef(spell);
   if (heroesFeast) return heroesFeast;

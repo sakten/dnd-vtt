@@ -359,6 +359,8 @@ export interface AutomationSpec {
   name: string;
   /** Ведущая ветка диспетчера (см. `AUTOMATION.md` §2). */
   primary: AutomationResolution;
+  /** Область мгновенного каста (Sunbeam: линия 60×5; Call Lightning: сфера удара). */
+  area?: AreaSpec | { from: 'spell'; fallback: AreaSpec };
   concentration?: Leveled<boolean>;
   maxRounds?: Leveled<number | null>;
   save?: AutomationSave;

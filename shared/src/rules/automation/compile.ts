@@ -618,12 +618,15 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
   };
   const concentration = spec.concentration !== undefined ? resolveLeveled(ctx, spec.concentration) : undefined;
   const maxRounds = spec.maxRounds !== undefined ? resolveLeveled(ctx, spec.maxRounds) : undefined;
+  const area =
+    spec.area === undefined ? undefined : 'from' in spec.area ? (input.spell.areaSpec ?? spec.area.fallback) : spec.area;
   return {
     key: spec.key,
     name: spec.name,
     resolution: spec.primary,
     ...(concentration ? { concentration: true } : {}),
     ...(maxRounds !== undefined ? { maxRounds } : {}),
+    ...(area ? { area } : {}),
     ...(spec.save ? { save: { ...spec.save } } : {}),
     ...(spec.shape ? { shape: { ...spec.shape } } : {}),
     ...(spec.force ? { force: { ...spec.force } } : {}),
