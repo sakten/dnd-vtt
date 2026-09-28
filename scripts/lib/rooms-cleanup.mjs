@@ -21,35 +21,19 @@ function withSocket(url, fn, timeoutMs = 8000) {
 }
 
 /**
- * Коды всех комнат на сервере (для снимка «до» теста).
- * `undefined` — сервер не ответил: снимок недостоверен, очистка запрещена.
+ * Удалить только тестовые комнаты — созданные автотестами с маркером `test`
+ * (`room:create`/`admin:create` с `test: true`). Обычные комнаты не трогаются
+ * никогда: снимок «до» не нужен, поэтому холодный старт сервера безопасен
+ * (инцидент 28.09 — очистка по пустому снимку снесла все комнаты).
  */
-export async function snapshotRoomCodes(url, attempts = 4) {
-  for (let i = 0; i < attempts; i += 1) {
-    const codes = await withSocket(url, (socket, finish) => {
-      socket.emit('admin:list', { adminToken: ADMIN_TOKEN }, (res) => {
-        finish(res && Array.isArray(res.rooms) ? res.rooms.map((r) => r.code) : undefined);
-      });
-    });
-    if (codes) return codes;
-    await new Promise((resolve) => setTimeout(resolve, 700));
-  }
-  return undefined;
-}
-
-/** Удалить все комнаты, которых не было в снимке `baselineCodes`. */
-export function deleteNewRooms(url, baselineCodes) {
-  // Пустой baseline неотличим от «сервер был не готов»: без достоверного снимка
-  // не удаляем ничего, иначе холодный старт сносит все комнаты (инцидент 28.09).
-  if (!Array.isArray(baselineCodes)) return Promise.resolve();
-  const baseline = new Set(baselineCodes);
+export function deleteTestRooms(url) {
   return withSocket(url, (socket, finish) => {
     socket.emit('admin:list', { adminToken: ADMIN_TOKEN }, (res) => {
       if (!res || !Array.isArray(res.rooms)) {
         finish();
         return;
       }
-      const codes = res.rooms.map((r) => r.code).filter((code) => !baseline.has(code));
+      const codes = res.rooms.filter((r) => r.test === true).map((r) => r.code);
       if (codes.length === 0) {
         finish();
         return;

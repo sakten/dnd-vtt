@@ -54,7 +54,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'room:create': (
-    payload: { name: string; clientId: string; adminToken?: string; roomName?: string },
+    payload: { name: string; clientId: string; adminToken?: string; roomName?: string; test?: boolean },
     cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   'room:join': (
@@ -197,10 +197,12 @@ export interface ClientToServerEvents {
   'resources:rest': (payload: { type: 'short' | 'long' }) => void;
   'admin:list': (
     payload: { adminToken: string },
-    cb: (res: { rooms: { code: string; name: string; players: number; maps: number }[] } | { error: ErrorPayload }) => void
+    cb: (
+      res: { rooms: { code: string; name: string; players: number; maps: number; test?: boolean }[] } | { error: ErrorPayload }
+    ) => void
   ) => void;
   'admin:create': (
-    payload: { adminToken: string; name: string; clientId: string; roomName?: string },
+    payload: { adminToken: string; name: string; clientId: string; roomName?: string; test?: boolean },
     cb: (res: { code: string } | { error: ErrorPayload }) => void
   ) => void;
   'admin:join': (

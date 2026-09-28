@@ -67,6 +67,7 @@ export class RoomManager {
       name: r.name,
       players: r.players.length,
       maps: r.scene.maps.length,
+      ...(r.test ? { test: true } : {}),
     }));
   }
 
@@ -91,7 +92,7 @@ export class RoomManager {
     return this.rooms.get(code);
   }
 
-  create(name?: string): Room {
+  create(name?: string, opts: { test?: boolean } = {}): Room {
     const code = this.generateCode();
     const roomName = (name ?? '').trim().slice(0, 60) || `Игра ${code.slice(0, 6)}`;
     const room: Room = {
@@ -110,6 +111,7 @@ export class RoomManager {
       resources: {},
       controllers: {},
       testMode: false,
+      ...(opts.test ? { test: true } : {}),
       optionalRules: { surrounded: false },
     };
     this.rooms.set(code, room);

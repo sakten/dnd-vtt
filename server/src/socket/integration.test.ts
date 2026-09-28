@@ -25,6 +25,19 @@ describe('интеграция: полное соединение', () => {
     f.invoke('token:add', { mapId, libraryItemId: item.id, x: 50, y: 50 });
     expect(room.scene.maps[0]!.tokens).toHaveLength(1);
   });
+
+  it('room:create с test помечает комнату; без маркера — нет', () => {
+    const marked = makeConnCtx(makeRoom([], {}), { dm: true, all: true });
+    marked.invoke('room:create', { name: 'Мастер', clientId: 'dm', test: true }, () => void 0);
+    const listed = marked.manager.listRooms().find((r) => r.code === marked.ctx.roomCode);
+    expect(listed?.test).toBe(true);
+    expect(marked.manager.get(marked.ctx.roomCode!)?.test).toBe(true);
+
+    const plain = makeConnCtx(makeRoom([], {}), { dm: true, all: true });
+    plain.invoke('room:create', { name: 'Мастер', clientId: 'dm' }, () => void 0);
+    const listedPlain = plain.manager.listRooms().find((r) => r.code === plain.ctx.roomCode);
+    expect(listedPlain?.test).toBeUndefined();
+  });
 });
 
 describe('интеграция: отключение', () => {

@@ -27,7 +27,7 @@ check(
 );
 
 const adminCreated = await joinAndAck(S.dm, (cb) =>
-  S.dm.emit('admin:create', { adminToken: '', name: 'Ведущий-2', clientId: 'smoke-dm' }, cb)
+  S.dm.emit('admin:create', { adminToken: '', name: 'Ведущий-2', clientId: 'smoke-dm', test: true }, cb)
 );
 check(adminCreated.room.code !== S.created.room.code, 'admin:create создаёт новую игру');
 check(

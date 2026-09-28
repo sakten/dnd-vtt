@@ -52,7 +52,14 @@ export default function AdminScreen() {
     localStorage.setItem('vtt-name', name.trim());
     socket.emit(
       'admin:create',
-      { adminToken: adminToken.trim(), name: name.trim(), clientId: getPlayerId(), roomName: newRoomName.trim() || undefined },
+      {
+        adminToken: adminToken.trim(),
+        name: name.trim(),
+        clientId: getPlayerId(),
+        roomName: newRoomName.trim() || undefined,
+        // ?test — автотесты (e2e): помечает комнату для автоочистки.
+        ...(new URLSearchParams(window.location.search).has('test') ? { test: true } : {}),
+      },
       (res) => {
         if ('error' in res) setError(errorText(res.error));
       }

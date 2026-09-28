@@ -1,6 +1,6 @@
 import { summarize } from './lib/check.mjs';
 import { S } from './e2e/state.mjs';
-import { deleteNewRooms, snapshotRoomCodes } from './lib/rooms-cleanup.mjs';
+import { deleteTestRooms } from './lib/rooms-cleanup.mjs';
 
 // Реестр сценариев: код (для E2E_ONLY) и файл. Порядок = порядок прогона.
 // 08 (админка) удаляет основную комнату — он всегда последний.
@@ -37,9 +37,8 @@ if (only.length) console.log(`E2E_ONLY: 00, ${selected.map(([code]) => code).joi
 
 try {
   await import('./e2e/00-setup.mjs');
-  const baseline = await snapshotRoomCodes(S.BASE);
-  if (!baseline) console.warn('E2E: снимок комнат не получен — очистка отключена');
-  S.cleanup = () => (baseline ? deleteNewRooms(S.BASE, baseline) : Promise.resolve());
+  // Чистка удаляет только комнаты с маркером `test` (их создают сценарии) — пользовательские не трогает.
+  S.cleanup = () => deleteTestRooms(S.BASE);
   for (const [, file] of selected) {
     await import(file);
   }

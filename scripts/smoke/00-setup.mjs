@@ -22,7 +22,7 @@ S.player = io(S.URL);
 await Promise.all([eventOnce(S.dm, 'connect'), eventOnce(S.player, 'connect')]);
 
 S.created = await joinAndAck(S.dm, (cb) =>
-  S.dm.emit('room:create', { name: 'Мастер', clientId: 'smoke-dm' }, cb)
+  S.dm.emit('room:create', { name: 'Мастер', clientId: 'smoke-dm', test: true }, cb)
 );
 if (VERBOSE) console.log('room created:', S.created.room.code);
 

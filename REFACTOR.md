@@ -24,7 +24,7 @@
 ## R9.2. Smoke: сценарии не самодостаточны, покрытие реакций дырявое. P2, M (частично закрыто).
 `scripts/smoke.mjs:10-24`: все сценарии в одной общей комнате, `SMOKE_ONLY` не подтягивает зависимости (`:26-39`) — изолированный дебаг ограничен; `scripts/lib/rooms-cleanup.mjs:3` хардкодит `ADMIN_TOKEN=''` — ломается при `VTT_ADMIN_TOKEN`; в скриптах нет `reaction:respond`/`combat:setMovement`; `absorbTypesOf`/`superiorityDie` без юнит-тестов.
 Сделано (сверка 19.09): `reactionFeatures` покрыт — `shared/src/rules/features.test.ts:250-273`.
-Сделано (28.09): `rooms-cleanup.mjs` — admin-токен из `VTT_ADMIN_TOKEN`, снимок комнат с ретраями, при недостоверном снимке (`undefined`) очистка отключается; инцидент 28.09 (холодный старт → пустой baseline → `deleteNewRooms` снёс все комнаты) закрыт.
+Сделано (28.09): очистка переведена на маркер `test` — smoke/e2e создают комнаты с `test: true` (`room:create`/`admin:create`, UI `?test=1`), `deleteTestRooms` сносит только помеченные, baseline-снимок убран (админ-токен из `VTT_ADMIN_TOKEN`). Инцидент 28.09 (холодный старт → пустой снимок → очистка снесла все комнаты, включая пользовательскую) закрыт; проверено discriminating-прогоном: обычная комната переживает `npm run smoke`, тестовая удаляется.
 **Что сделать:** `makeRoom` для самодостаточных сценариев или явные зависимости; smoke на реакционные окна и OA; `shared/src/rules/reactions.test.ts`.
 
 ## R9.3. E2E/скриншоты привязаны к окружению и пикселям. P3, S/M.

@@ -168,6 +168,13 @@ describe('hydrateRoom', () => {
     expect(hydrateRoom(toPersistedRoom(room)).testMode).toBe(true);
   });
 
+  it('маркер тестовой комнаты сохраняется при round-trip', () => {
+    expect(hydrateRoom(base()).test).toBeUndefined();
+    const room = hydrateRoom(base({ test: true }));
+    expect(room.test).toBe(true);
+    expect(hydrateRoom(toPersistedRoom(room)).test).toBe(true);
+  });
+
   it('нормализует листы персонажей', () => {
     const room = hydrateRoom(
       base({ sheets: { p1: { name: 'Герой' } as unknown as PersistedRoom['sheets'][string] } })

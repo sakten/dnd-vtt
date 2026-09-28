@@ -18,7 +18,7 @@ check(iconHref.includes('ffb454'), 'локальная версия исполь
 const nameInputs = await S.page.$$('[data-testid="join-card"] input');
 await nameInputs[0].type('Мастер');
 
-await S.page.goto(`${S.BASE}?admin=1`, { waitUntil: 'networkidle0' });
+await S.page.goto(`${S.BASE}?admin=1&test=1`, { waitUntil: 'networkidle0' });
 await S.page.waitForSelector('[data-testid="admin-card"]');
 const createBtn = await findButton(S.page, '[data-testid="join-actions"] button', 'Создать новую игру');
 await createBtn.click();

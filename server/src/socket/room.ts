@@ -7,7 +7,7 @@ import { clearSurrounded, syncSurrounded } from './surrounded';
 export function registerRoomHandlers(ctx: ConnCtx) {
   const { socket, io, manager, getRoom, dmRoom, broadcast, broadcastAll, emitToken, broadcastLibrary, systemMessage, emitJoined, cancelPendingLeave, pendingLeaves } = ctx;
 
-    ctx.on('room:create', ({ name, clientId, adminToken, roomName }, cb) => {
+    ctx.on('room:create', ({ name, clientId, adminToken, roomName, test }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: { code: 'passwordRequired' } });
         return;
@@ -18,7 +18,7 @@ export function registerRoomHandlers(ctx: ConnCtx) {
         return;
       }
       const playerName = asString(name, 30) ?? '';
-      const room = manager.create(asString(roomName));
+      const room = manager.create(asString(roomName), { test: asBool(test) === true });
       room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id, clientId: ownerId });
       ctx.roomCode = room.code;
       ctx.playerId = ownerId;

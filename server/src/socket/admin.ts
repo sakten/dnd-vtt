@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConnCtx } from './context';
-import { asString, asTrimmedString } from './decode';
+import { asBool, asString, asTrimmedString } from './decode';
 
 export function adminTokenOk(token?: string): boolean {
   const expected = process.env.VTT_ADMIN_TOKEN;
@@ -22,7 +22,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
       cb({ rooms: manager.listRooms() });
     });
 
-    ctx.on('admin:create', ({ adminToken, name, clientId, roomName }, cb) => {
+    ctx.on('admin:create', ({ adminToken, name, clientId, roomName, test }, cb) => {
       if (!adminTokenOk(adminToken)) {
         cb({ error: { code: 'wrongAdminToken' } });
         return;
@@ -33,7 +33,7 @@ export function registerAdminHandlers(ctx: ConnCtx) {
         return;
       }
       const playerName = asTrimmedString(name, 30) || 'Ведущий';
-      const room = manager.create(asString(roomName));
+      const room = manager.create(asString(roomName), { test: asBool(test) === true });
       room.players.push({ id: ownerId, name: playerName, role: 'dm', isConnected: true, socketId: socket.id });
       ctx.roomCode = room.code;
       ctx.playerId = ownerId;

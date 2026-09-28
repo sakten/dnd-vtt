@@ -38,5 +38,7 @@ export interface RoomState {
   controllers: Record<string, string>;
   /** Режим тестов: все игроки получают права ведущего внутри комнаты. */
   testMode: boolean;
+  /** Комната создана автотестами (smoke/e2e): чистка удаляет только помеченные. */
+  test?: boolean;
   optionalRules: OptionalRules;
 }
