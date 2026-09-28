@@ -234,6 +234,84 @@ describe('hydrateRoom', () => {
     expect(room.scene.maps[1]!.zones).toHaveLength(1);
   });
 
+  it('сносит аура-эффекты без живой зоны, легаси-ауру привязывает к живой зоне', () => {
+    const aura = (id: string, name: string, sourceKey: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      name,
+      sourceKey,
+      sourceId: 't1',
+      duration: { type: 'permanent' },
+      modifiers: [],
+      ...extra,
+    });
+    const scene = {
+      maps: [
+        {
+          id: 'm1',
+          name: 'A',
+          url: '',
+          width: 0,
+          height: 0,
+          zones: [
+            {
+              id: 'z1',
+              name: 'Hunger of Hadar',
+              sourceKey: 'XPHB:Hunger of Hadar',
+              sourceId: 't1',
+              origin: { x: 0, y: 0 },
+              area: { shape: 'sphere', size: 20 },
+              duration: { type: 'concentration' },
+              concentration: true,
+            },
+          ],
+          tokens: [
+            {
+              id: 't1',
+              effects: [
+                {
+                  id: 'anchor',
+                  name: 'Hunger of Hadar',
+                  sourceKey: 'XPHB:Hunger of Hadar',
+                  sourceId: 't1',
+                  concentration: true,
+                  anchor: true,
+                  duration: { type: 'concentration' },
+                  modifiers: [],
+                },
+              ],
+            },
+            {
+              id: 'bat',
+              conditions: [{ key: 'blinded', name: 'Ослеплён', rounds: null, effectId: 'orphan' }],
+              effects: [
+                // Живой аура-эффект с zoneId — остаётся.
+                aura('live', 'Hunger of Hadar', 'XPHB:Hunger of Hadar', { zoneId: 'z1' }),
+                // zoneId на исчезнувшую зону — сносится вместе с состоянием.
+                aura('orphan', 'Spirit Shroud', 'TCE:Spirit Shroud', { zoneId: 'zz' }),
+                // Легаси без zoneId, зоны того же источника нет — сносится.
+                aura('legacyGone', 'Spirit Shroud', 'TCE:Spirit Shroud'),
+                // Легаси без zoneId, зона жива — остаётся и привязывается.
+                aura('legacyLive', 'Hunger of Hadar', 'XPHB:Hunger of Hadar'),
+                // Обычный эффект без зоны — не трогаем.
+                aura('bless', 'Bless', 'XPHB:Bless'),
+              ],
+            },
+          ],
+        },
+      ],
+      activeMapId: 'm1',
+      grid: { ...DEFAULT_GRID },
+    } as unknown as Scene;
+
+    const room = hydrateRoom(base({ scene }));
+    const bat = room.scene.maps[0]!.tokens.find((t) => t.id === 'bat')!;
+
+    expect(bat.effects.map((e) => e.id)).toEqual(['live', 'legacyLive', 'bless']);
+    expect(bat.effects.find((e) => e.id === 'live')!.zoneId).toBe('z1');
+    expect(bat.effects.find((e) => e.id === 'legacyLive')!.zoneId).toBe('z1');
+    expect(bat.conditions).toEqual([]);
+  });
+
   it('не мутирует вход (гидратация собирает новые объекты)', () => {
     const fixture = base({
       scene: sceneWithMap({ tokens: [{ id: 't1', name: '  A  ' }] }),

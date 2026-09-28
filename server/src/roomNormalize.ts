@@ -1,7 +1,8 @@
-import type { CharacterSheet, Scene } from 'shared';
+import type { CharacterSheet, EffectInstance, Scene } from 'shared';
 import { isRecord, normalizeLibraryItem, normalizeScene, normalizeSheet } from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
 import { clearCharacterStats } from './room/tokens';
+import { zoneAuraSpellKeys } from './spells';
 
 /** Сносит зоны концентрации без живого эффекта-источника (legacy-снимки, сбои). */
 function dropOrphanZones(scene: Scene): void {
@@ -19,6 +20,47 @@ function dropOrphanZones(scene: Scene): void {
 }
 
 /**
+ * Сносит аура-эффекты зон, оставшиеся без живой зоны: `zoneId` указывает на
+ * исчезнувшую зону или потерян в старых снимках (нормализация не сохраняла
+ * поле) — тогда эффект привязывается к живой зоне того же источника, иначе
+ * удаляется вместе с состояниями. Без этого Spirit Shroud и подобные ауры
+ * навсегда зависают на целях после перезагрузки комнаты.
+ */
+function dropOrphanZoneEffects(scene: Scene): void {
+  const zoneIds = new Set<string>();
+  const zoneBySource = new Map<string, string>();
+  for (const map of scene.maps) {
+    for (const zone of map.zones ?? []) {
+      zoneIds.add(zone.id);
+      zoneBySource.set(`${zone.sourceId}\u0000${zone.sourceKey}`, zone.id);
+    }
+  }
+  const auraSpells = zoneAuraSpellKeys();
+  for (const map of scene.maps) {
+    for (const token of map.tokens) {
+      const kept: EffectInstance[] = [];
+      for (const effect of token.effects) {
+        if (effect.zoneId) {
+          if (zoneIds.has(effect.zoneId)) kept.push(effect);
+          continue;
+        }
+        // Легаси-снимок: аура-эффект без zoneId.
+        if (!effect.concentration && effect.sourceKey && effect.sourceId && auraSpells.has(effect.sourceKey)) {
+          const zoneId = zoneBySource.get(`${effect.sourceId}\u0000${effect.sourceKey}`);
+          if (!zoneId) continue;
+          effect.zoneId = zoneId;
+        }
+        kept.push(effect);
+      }
+      if (kept.length === token.effects.length) continue;
+      token.effects = kept;
+      const alive = new Set(kept.map((e) => e.id));
+      token.conditions = token.conditions.filter((c) => !c.effectId || alive.has(c.effectId));
+    }
+  }
+}
+
+/**
  * Приводит прочитанный с диска PersistedRoom к валидному Room: добирает
  * отсутствующие поля дефолтами, нормализует листы и контроллеров.
  * Вход не мутирует — собирает новую комнату (в т.ч. карты и токены).
@@ -26,6 +68,7 @@ function dropOrphanZones(scene: Scene): void {
 export function hydrateRoom(p: PersistedRoom): Room {
   const scene = normalizeScene(p.scene as Scene);
   dropOrphanZones(scene);
+  dropOrphanZoneEffects(scene);
   const controllers: Record<string, string> = {};
   if (isRecord(p.controllers)) {
     for (const [pid, lid] of Object.entries(p.controllers)) {

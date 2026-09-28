@@ -609,4 +609,18 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
     expect(anchor!.anchor).toBe(true);
     expect(target!.anchor).toBeUndefined();
   });
+
+  it('zoneId зоны-ауры переживает нормализацию (Spirit Shroud и подобные)', () => {
+    const aura: EffectInstance = {
+      id: 'e1',
+      name: 'Spirit Shroud',
+      sourceKey: 'TCE:Spirit Shroud',
+      sourceId: 't1',
+      zoneId: 'z1',
+      duration: { type: 'permanent' },
+      modifiers: [],
+    };
+    const [out] = normalizeEffects(JSON.parse(JSON.stringify([aura])));
+    expect(out!.zoneId).toBe('z1');
+  });
 });

@@ -183,6 +183,9 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     };
     if (typeof e.sourceKey === 'string' && e.sourceKey) effect.sourceKey = e.sourceKey;
     if (typeof e.sourceId === 'string' && e.sourceId) effect.sourceId = e.sourceId;
+    // Ссылка на зону-ауру: без неё эффект не снимается при выходе из зоны
+    // и при её окончании (Spirit Shroud/Spirit Guardians/HoH и подобные).
+    if (typeof e.zoneId === 'string' && e.zoneId) effect.zoneId = e.zoneId.slice(0, 80);
     if (e.concentration === true) effect.concentration = true;
     if (e.anchor === true) effect.anchor = true;
     if (typeof e.maxRounds === 'number' && Number.isFinite(e.maxRounds)) {
