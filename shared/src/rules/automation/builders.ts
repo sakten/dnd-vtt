@@ -24,7 +24,6 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:Conjure Fey',
   'XPHB:Dispel Evil and Good',
   'XPHB:Dispel Magic',
-  'XPHB:Telekinesis',
   'TCE:Green-Flame Blade',
   'TCE:Booming Blade',
   'XPHB:True Strike',
@@ -80,8 +79,6 @@ export const BUILTIN_AUTOMATION = new Set([
   'XPHB:False Life',
   'XGE:Negative Energy Flood',
   "XPHB:Jallarzi's Storm of Radiance",
-  'XPHB:Dominate Beast',
-  'XPHB:Dominate Person',
   'XPHB:Blindness/Deafness',
   'XGE:Life Transference',
   'XPHB:Bestow Curse',
@@ -445,44 +442,6 @@ export function heroesFeastDef(spell: Spell): AutomationDef | undefined {
   return { key: spell.key, name: spell.name, resolution: 'effect', effects: [effect] };
 }
 
-/** Типы существ для Dominate Beast/Person (XPHB 2024). */
-export const DOMINATE_TYPES: Record<string, string> = {
-  'XPHB:Dominate Beast': 'beast',
-  'XPHB:Dominate Person': 'humanoid',
-};
-
-/**
- * Dominate Beast/Person (XPHB 2024): спас WIS (в бою — с преимуществом), очарование
- * и контроль цели, пока держится концентрация; урон даёт повторный спас. Апкаст —
- * длительность: выше базового круга лимит «1 минута» (10 раундов) снимается.
- */
-export function dominateDef(spell: Spell, opts: AutomationOptions): AutomationDef | undefined {
-  const creatureType = DOMINATE_TYPES[spell.key];
-  if (!creatureType) return undefined;
-  const castLevel = Math.max(spell.level, opts.castLevel ?? spell.level);
-  const effect: AutomationEffect = {
-    name: spell.name,
-    duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'damage' },
-    concentration: true,
-    to: 'targets',
-    modifiers: [],
-    conditions: ['charmed'],
-    saveOnDamage: {},
-    dominates: true,
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'effect',
-    concentration: true,
-    save: { ability: 'wis' },
-    saveAdvantageInCombat: true,
-    requiresCreatureTypes: [creatureType],
-    ...(castLevel > spell.level ? { maxRounds: null } : {}),
-    effects: [effect],
-  };
-}
-
 /**
  * Shadow Blade: выданное действие «Вернуть клинок» (живёт в эффекте всегда;
  * клиент показывает его, только пока клинок брошен — `shadowBlade.inHand`).
@@ -659,36 +618,6 @@ export function dispelMagicDef(spell: Spell): AutomationDef | undefined {
     resolution: 'utility',
     utility: { kind: 'dispel' },
     targeting: { kind: 'creature', range: 120 },
-  };
-}
-
-/**
- * Telekinesis (XPHB 2024): каст сразу применяется — существо до Huge в 60 фт,
- * спас STR; на провале его двигают кликом до 30 фт (по клеткам, вынужденно) и он
- * restrained до начала вашего след. хода. Каст вешает носитель концентрации с
- * действием «Телекинез» (Magic action) для повторения на следующих ходах.
- * Предметы/носимые вещи и высота — вне скоупа (решение владельца, сессия 18).
- */
-export function telekinesisDef(spell: Spell): AutomationDef | undefined {
-  if (spell.key !== 'XPHB:Telekinesis') return undefined;
-  const grip: AutomationDef = {
-    key: spell.key,
-    name: 'Телекинез',
-    resolution: 'utility',
-    save: { ability: 'str' },
-    utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
-    targeting: { kind: 'creature', range: 60 },
-  };
-  return {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'utility',
-    save: { ability: 'str' },
-    utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
-    targeting: { kind: 'creature', range: 60 },
-    concentration: true,
-    // Носитель концентрации: выдаёт «Телекинез» бонусом к касту (сам каст уже применил эффект).
-    effects: [actionCarrier(spell, { id: 'grip', name: 'Телекинез', cost: 'action', def: grip })],
   };
 }
 

@@ -603,6 +603,8 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.utility ? { utility: compileUtility(ctx, spec.utility) } : {}),
     ...(spec.movement?.teleportAfter ? { teleportAfter: { ...spec.movement.teleportAfter } } : {}),
     ...(spec.excludeCreatureTypes?.length ? { excludeCreatureTypes: [...spec.excludeCreatureTypes] } : {}),
+    ...(spec.requiresCreatureTypes?.length ? { requiresCreatureTypes: [...spec.requiresCreatureTypes] } : {}),
+    ...(spec.saveAdvantageInCombat ? { saveAdvantageInCombat: true } : {}),
     ...(spec.side ? { side: spec.side } : {}),
     // `effects: []` тоже валиден (SG: пустой массив после мержа добавок) — отличие от `undefined`.
     ...(spec.effects !== undefined ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),

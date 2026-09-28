@@ -1655,6 +1655,83 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     },
   },
+  // Dominate: спас WIS (в бою преимущество), очарование и контроль; апкаст снимает лимит «1 мин».
+  'XPHB:Dominate Beast': {
+    key: 'XPHB:Dominate Beast',
+    name: 'Dominate Beast',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    requiresCreatureTypes: ['beast'],
+    saveAdvantageInCombat: true,
+    // Базовый круг 4: обёртка ставит 10 раундов для «1 минуты», с 5-го круга — без лимита.
+    maxRounds: { levels: [{ above: 5, value: null }] },
+    effects: [
+      {
+        id: 'dominate',
+        name: 'Dominate Beast',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'damage' },
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditions: ['charmed'],
+        hooks: { saveOnDamage: {}, dominates: true },
+      },
+    ],
+  },
+  'XPHB:Dominate Person': {
+    key: 'XPHB:Dominate Person',
+    name: 'Dominate Person',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    requiresCreatureTypes: ['humanoid'],
+    saveAdvantageInCombat: true,
+    // Базовый круг 5: с 6-го круга лимит «1 минута» снимается.
+    maxRounds: { levels: [{ above: 6, value: null }] },
+    effects: [
+      {
+        id: 'dominate',
+        name: 'Dominate Person',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'damage' },
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditions: ['charmed'],
+        hooks: { saveOnDamage: {}, dominates: true },
+      },
+    ],
+  },
+  'XPHB:Telekinesis': {
+    key: 'XPHB:Telekinesis',
+    name: 'Telekinesis',
+    primary: 'utility',
+    concentration: true,
+    save: { ability: 'str' },
+    utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
+    targeting: { kind: 'creature', range: 60 },
+    effects: [
+      {
+        id: 'carrier',
+        name: 'Telekinesis',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [
+          {
+            id: 'grip',
+            name: 'Телекинез',
+            cost: 'action',
+            primary: 'utility',
+            save: { ability: 'str' },
+            utility: { kind: 'telekinesis', amount: 30, maxSize: 'huge' },
+            targeting: { kind: 'creature', range: 60 },
+          },
+        ],
+      },
+    ],
+  },
   'XPHB:Conjure Woodland Beings': {
     key: 'XPHB:Conjure Woodland Beings',
     name: 'Conjure Woodland Beings',

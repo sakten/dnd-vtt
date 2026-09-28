@@ -373,6 +373,10 @@ export interface AutomationSpec {
   movement?: MovementSpec;
   /** Типы существ, на которых не действует (Command: нежить). */
   excludeCreatureTypes?: string[];
+  /** Типы существ, на которых только действует (Dominate Beast/Person). */
+  requiresCreatureTypes?: string[];
+  /** Спасбросок в бою с преимуществом (Dominate). */
+  saveAdvantageInCombat?: boolean;
   effects?: EffectSpec[];
   zone?: ZoneSpec;
   weaponAttack?: WeaponAttackSpec;
