@@ -86,7 +86,10 @@ export interface ActionSpec {
   subKey?: string;
   /** Перенос метки (Hex/Hunter's Mark): доступен только после смерти текущей цели. */
   retarget?: boolean;
-  primary: AutomationResolution;
+  /** Ссылка на базовое действие каталога вместо своей механики (`dash`/`disengage`). */
+  baseActionId?: string;
+  /** Ветка механики действия; не нужна при `baseActionId` (payload берётся из каталога). */
+  primary?: AutomationResolution;
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
   count?: number;
   /** Сокращение зоны после использования действия (Wall of Light: луч −10 фт). */
@@ -351,6 +354,8 @@ export interface AutomationSpec {
   targets?: number;
   /** Авто-цели по радиусу от кастера без выбора (Beacon of Hope: союзники в 30 фт). */
   autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any'; includeSelf?: boolean };
+  /** Фильтр мгновенных целей по стороне (Spirit Guardians: только враги). */
+  side?: 'hostile' | 'ally';
   /** Chain Lightning: первая цель выбирается, `jumps` существ в `feet` — авто. */
   chain?: { jumps: ValueExpr; feet: number };
   /** Всплеск вокруг цели (Ice Knife — независимо от попадания). */

@@ -272,42 +272,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       actions: [zoneMoveAction('Переместить', 'action', 30)],
     },
   },
-  /**
-   * Conjure Woodland Beings (XPHB 2024): аура духов вокруг вас бьёт только врагов
-   * (спас WIS, урон от круга) + Отход бонусным действием, пока держится концентрация.
-   */
-  'XPHB:Conjure Woodland Beings': {
-    key: 'XPHB:Conjure Woodland Beings',
-    name: 'Conjure Woodland Beings',
-    resolution: 'save',
-    concentration: true,
-    save: { ability: 'wis', half: true },
-    side: 'hostile',
-    damage: { dice: '$spell', types: ['force'] },
-    effects: [
-      {
-        name: 'Conjure Woodland Beings',
-        duration: CONCENTRATION,
-        concentration: true,
-        to: 'self',
-        modifiers: [],
-        actions: [{ id: 'disengage', name: 'Отход', cost: 'bonus', baseActionId: 'disengage' }],
-      },
-    ],
-    zone: {
-      area: { shape: 'sphere', size: 10 },
-      origin: 'point',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      enterOncePerTurn: true,
-      excludeSource: true,
-      side: 'hostile',
-      triggers: {
-        enter: { save: { ability: 'wis', half: true }, damage: { dice: '$spell', types: ['force'] } },
-        endOfTurn: { save: { ability: 'wis', half: true }, damage: { dice: '$spell', types: ['force'] } },
-      },
-    },
-  },
   // Контроль (спас → состояние); «до конца следующего хода» трактуется движком
   // как до начала следующего хода источника.
   'XPHB:Color Spray': spellEffect('XPHB:Color Spray', 'Color Spray', [
@@ -914,21 +878,17 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
 };
 
 /**
- * Дополнения к деривации данных: эффекты/зона/тип урона поверх «атака/спасбросок/
- * автоурон» (Shocking Grasp, Spirit Guardians). Для manual-спеллов не применяются.
- * В зоне кости `'$spell'` подставляются выражением урона заклинания (апкаст/кантрип).
+ * Дополнения к деривации данных: эффекты/зона поверх «атака/спасбросок/автоурон»
+ * (Shocking Grasp). Для manual-спеллов не применяются. В зоне кости `'$spell'`
+ * подставляются выражением урона заклинания (апкаст/кантрип).
  */
 export interface AutomationAddition {
   effects?: AutomationEffect[];
   zone?: ZoneDef;
-  /** Уточнить типы урона у деривации (у SG в данных acid/necrotic+radiant и т.п.). */
-  damageTypes?: string[];
   /** Массовая цель без области (Mass Healing Word/Prayer of Healing/Mass Cure Wounds). */
   targets?: number;
   /** Прибавить модификатор заклинательной характеристики к лечению (Cure Wounds и др.). */
   healAbilityMod?: boolean;
-  /** Фильтр целей мгновенной части по стороне (Spirit Guardians: только враги). */
-  side?: 'hostile' | 'ally';
   /** Harm: снижение максимума HP цели на фактически полученный ею урон. */
   maxHpFromDamage?: boolean;
 }
@@ -944,33 +904,6 @@ export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
         restrictions: { noOpportunityAttacks: true },
       },
     ],
-  },
-  'XPHB:Spirit Guardians': {
-    damageTypes: ['radiant'],
-    side: 'hostile',
-    zone: {
-      area: { shape: 'sphere', size: 15 },
-      origin: 'point',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      enterOncePerTurn: true,
-      excludeSource: true,
-      side: 'hostile',
-      aura: {
-        effects: [
-          {
-            name: 'Spirit Guardians',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [{ target: 'speed', mode: 'multiply', value: 0.5 }],
-          },
-        ],
-      },
-      triggers: {
-        enter: { save: { ability: 'wis', half: true }, damage: { dice: '$spell', types: ['radiant'] } },
-        startOfTurn: { save: { ability: 'wis', half: true }, damage: { dice: '$spell', types: ['radiant'] } },
-      },
-    },
   },
   'XPHB:Cure Wounds': { healAbilityMod: true },
   'XPHB:Healing Word': { healAbilityMod: true },

@@ -157,10 +157,8 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
       effects: [...(def.effects ?? []), ...(addition.effects ?? [])],
     };
     if (addition.zone) merged.zone = resolveZoneDice(addition.zone, spellDamage);
-    if (addition.damageTypes && merged.damage) merged.damage = { ...merged.damage, types: addition.damageTypes };
     if (addition.healAbilityMod && merged.heal) merged.heal = { ...merged.heal, abilityMod: true };
     if (addition.targets) merged.targets = addition.targets;
-    if (addition.side) merged.side = addition.side;
     if (addition.maxHpFromDamage) merged.maxHpFromDamage = true;
     return merged;
   };

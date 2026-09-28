@@ -1612,4 +1612,86 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       },
     ],
   },
+
+  // `side` (мгновенные цели) + `$spell`-кости через `{ ref: 'spellDamage' }`.
+  'XPHB:Spirit Guardians': {
+    key: 'XPHB:Spirit Guardians',
+    name: 'Spirit Guardians',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'wis', half: true },
+    side: 'hostile',
+    damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: ['radiant'] },
+    // Пустой массив сохраняет байт-равенство с выводом «деривация + добавки».
+    effects: [],
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      excludeSource: true,
+      side: 'hostile',
+      aura: {
+        effects: [
+          {
+            id: 'aura',
+            name: 'Spirit Guardians',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'speed', mode: 'multiply', value: 0.5 }],
+          },
+        ],
+      },
+      triggers: {
+        enter: {
+          save: { ability: 'wis', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: ['radiant'] },
+        },
+        startOfTurn: {
+          save: { ability: 'wis', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '3d8' }, types: ['radiant'] },
+        },
+      },
+    },
+  },
+  'XPHB:Conjure Woodland Beings': {
+    key: 'XPHB:Conjure Woodland Beings',
+    name: 'Conjure Woodland Beings',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'wis', half: true },
+    side: 'hostile',
+    damage: { dice: { ref: 'spellDamage', fallback: '5d8' }, types: ['force'] },
+    effects: [
+      {
+        id: 'carrier',
+        name: 'Conjure Woodland Beings',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [{ id: 'disengage', name: 'Отход', cost: 'bonus', baseActionId: 'disengage' }],
+      },
+    ],
+    zone: {
+      area: { shape: 'sphere', size: 10 },
+      origin: 'point',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      enterOncePerTurn: true,
+      excludeSource: true,
+      side: 'hostile',
+      triggers: {
+        enter: {
+          save: { ability: 'wis', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '5d8' }, types: ['force'] },
+        },
+        endOfTurn: {
+          save: { ability: 'wis', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '5d8' }, types: ['force'] },
+        },
+      },
+    },
+  },
 };

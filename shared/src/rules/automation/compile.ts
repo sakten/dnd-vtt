@@ -221,6 +221,18 @@ function compileUtility(ctx: CompileCtx, utility: UtilitySpec): AutomationUtilit
 }
 
 function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
+  // Ссылка на базовое действие каталога (Рывок/Отход): своя механика не нужна.
+  if (action.baseActionId) {
+    return {
+      id: action.id,
+      name: action.name,
+      cost: action.cost,
+      baseActionId: action.baseActionId,
+      ...(action.shrinkFeet !== undefined ? { shrinkFeet: action.shrinkFeet } : {}),
+      ...(action.endsEffect ? { endsEffect: true } : {}),
+    };
+  }
+  if (!action.primary) throw new Error(`AutomationSpec ${ctx.spec.key}: action.${action.id} без primary/baseActionId`);
   const dice = action.damage ? resolveValue(ctx, action.damage.dice) : undefined;
   const area =
     action.area === undefined
@@ -591,7 +603,9 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.utility ? { utility: compileUtility(ctx, spec.utility) } : {}),
     ...(spec.movement?.teleportAfter ? { teleportAfter: { ...spec.movement.teleportAfter } } : {}),
     ...(spec.excludeCreatureTypes?.length ? { excludeCreatureTypes: [...spec.excludeCreatureTypes] } : {}),
-    ...(spec.effects?.length ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
+    ...(spec.side ? { side: spec.side } : {}),
+    // `effects: []` тоже валиден (SG: пустой массив после мержа добавок) — отличие от `undefined`.
+    ...(spec.effects !== undefined ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
     ...(spec.weaponAttack ? { weaponAttack: compileWeaponAttack(ctx, spec.weaponAttack) } : {}),
   };

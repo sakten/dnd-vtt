@@ -76,7 +76,7 @@
 - `filters`: `side`, `excludeCreatureTypes`, `requiresCreatureTypes`, `containment`;
 - метки: поля `mark`/`markTarget`/`markSaved` остаются в `effects` (компилируются в `EffectInstance` с `filter.targetId`); `retarget` (Hex/Hunter's Mark) — операция `selection` над меткой.
 
-Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); `burst` читается и веткой атаки (луч/райдер), и веткой сейва (вспышка вокруг каждой цели, независимо от исхода её сейва); метки — `EffectSpec.mark`/`markTarget` + `ActionSpec.retarget` (Hex/Hunter's Mark), мультивыбор — `effect.targets` (Bless/Bane), авто-цели — `AutomationSpec.autoTargets` (Beacon of Hope); остальные фильтры — по мере миграции (`side`/`$spell` — Spirit Guardians/Conjure Woodland Beings, Dominate-поля, `placements` Телекинеза; Hail of Thorns/Lightning Arrow — спеки смайтов, к `selection` не относятся).
+Реализовано: `chain` (`jumps: ValueExpr` — Chain Lightning: 3 + круг − 6) и `burst` (Ice Knife: `2d6cold`, спас DEX, `includePrimary`); `burst` читается и веткой атаки (луч/райдер), и веткой сейва (вспышка вокруг каждой цели, независимо от исхода её сейва); метки — `EffectSpec.mark`/`markTarget` + `ActionSpec.retarget` (Hex/Hunter's Mark), мультивыбор — `effect.targets` (Bless/Bane), авто-цели — `AutomationSpec.autoTargets` (Beacon of Hope), сторона — `AutomationSpec.side` + `$spell` через `{ref:'spellDamage'}` (Spirit Guardians, Conjure Woodland Beings, `ActionSpec.baseActionId`); остальные фильтры — по мере миграции (Dominate-поля, `placements` Телекинеза; Hail of Thorns/Lightning Arrow — спеки смайтов, к `selection` не относятся).
 
 Часть правил уже в `shared/src/rules/targeting.ts`; блок описывает только декларацию, выбор остаётся за `interaction.ts`/клиентом.
 
@@ -189,7 +189,8 @@ CUSTOM:Jallarzi-Fire {
 - батч `movement`: `UtilitySpec` (ссылки в blockedDamage/fromBurst), `MovementSpec`/`EffectMovementSpec`, `AutomationSpec.utility`/`targets`; мигрированы Misty Step, Scatter, Far Step, Dimension Door, Thunder Step, Steel Wind Strike (48 спеков), билдеры/каталог удалены;
 - батч `selection` (начало): `chain` (`jumps` — ссылка) и `burst` (Ice Knife); мигрированы Chain Lightning и Ice Knife (50 спеков), билдеры удалены; `burst` читается и веткой сейва (вспышка вокруг каждой цели);
 - батч `vision` (начало): `EffectSpec.senses`/`seesInvisible` (+ гейты `{ if, then }`); мигрированы Light, Continual Flame, Darkvision, See Invisibility, Pass without Trace, Silence, Darkness, Fog Cloud (58 спеков), каталожные записи удалены;
-- батч смайтов: `AutomationSpec.force`, `EffectSpec.conditionImmunities`/`banish`, `ValueExpr.join`; мигрированы 9 XPHB-смайтов (67 спеков), билдер удалён. Дальше: `selection` добор (`mark`/`retarget` — Hex/Hunter's Mark, `autoTargets`, мультивыбор Bless/Bane).
+- батч смайтов: `AutomationSpec.force`, `EffectSpec.conditionImmunities`/`banish`, `ValueExpr.join`; мигрированы 9 XPHB-смайтов (67 спеков), билдер удалён;
+- `selection` добор: `mark`/`markTarget`/`retarget` (Hex/Hunter's Mark), `targets` (Bless/Bane), `autoTargets` (Beacon of Hope), `side`+`$spell` (Spirit Guardians, Conjure Woodland Beings, `baseActionId`) — 74 спека, `derived` не менялся. Осталось: Dominate-поля, `placements`.
 
 Открыто (решить при реализации шага 2–3):
 - формат `CUSTOM:`-снимка (отдельный JSON рядом с `spells.json` или data-модуль) — шаг 4;
