@@ -665,4 +665,14 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(lesser.endConditions).toEqual(['blinded', 'deafened', 'paralyzed', 'poisoned']);
     expect(lesser.targeting).toEqual({ kind: 'creature', range: 5 });
   });
+
+  it('Невидимость гасится: Shining Smite и Faerie Fire дают conditionImmunities', () => {
+    const shine = automationForSpell(find('XPHB:Shining Smite')).effects?.[0];
+    expect(shine?.conditionImmunities).toEqual(['invisible']);
+
+    const faerie = automationForSpell(find('XPHB:Faerie Fire')).effects?.[0];
+    expect(faerie?.conditionImmunities).toEqual(['invisible']);
+    expect(faerie?.modifiers).toEqual([{ target: 'attack', mode: 'advantage' }]);
+    expect(faerie?.light).toEqual({ bright: 0, dim: 10 });
+  });
 });

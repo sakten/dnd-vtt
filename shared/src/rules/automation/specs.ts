@@ -431,6 +431,7 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         concentration: true,
         to: 'targets',
         modifiers: [{ target: 'attack', mode: 'advantage' }],
+        conditionImmunities: ['invisible'],
         light: { bright: 0, dim: 10 },
       },
     ],

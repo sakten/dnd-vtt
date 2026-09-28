@@ -34,6 +34,11 @@ export interface ApplyEffectArgs {
 /** Накладывает один эффект на токен (заменяя прошлый каст того же источника). */
 export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): string {
   const { sourceKey, sourceId, mapId, effectDef, target, markedId, untilSaveDc, escapeDc, zoneId } = args;
+  // «Не может получать выгоду» (Shining Smite, Faerie Fire, Aura of Purity):
+  // уже активные состояния из списка гаснут вместе с эффектами-источниками (R18).
+  if (effectDef.conditionImmunities?.length) {
+    removeConditionInstances(ctx, room, mapId, target, effectDef.conditionImmunities);
+  }
   // Концентрацию не заменяем: её жизненным циклом управляет clearConcentration
   // (иначе аура зоны, попавшая на своего кастера, снимает якорь концентрации).
   for (const stale of target.effects.filter(

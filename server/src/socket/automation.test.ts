@@ -2643,3 +2643,43 @@ describe('заклинательные атаки в упор', () => {
     });
   });
 });
+
+describe('conditionImmunities гасит активную невидимость (R18)', () => {
+  it('Shining Smite: уже невидимая цель становится видимой', () => {
+    const room = makeCombatRoom([
+      makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+      makeToken('t2', { x: 150, y: 100, hpMax: '30', hpCurrent: 30 }),
+    ], { p1: 'lib1' });
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const [caster, target] = room.scene.maps[0]!.tokens;
+    // Цель уже невидима (эффект Invisibility на неё).
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'XPHB:Invisibility',
+      sourceId: caster!.id,
+      mapId: 'm1',
+      effectDef: {
+        name: 'Invisibility',
+        duration: { type: 'concentration' },
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditions: ['invisible'],
+      },
+      target: target!,
+    });
+    expect(target!.conditions.some((c) => c.key === 'invisible')).toBe(true);
+
+    const shine = automationForSpell(findSpell('XPHB:Shining Smite')!).effects![0]!;
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'XPHB:Shining Smite',
+      sourceId: caster!.id,
+      mapId: 'm1',
+      effectDef: shine,
+      target: target!,
+    });
+
+    expect(target!.conditions.some((c) => c.key === 'invisible')).toBe(false);
+    expect(target!.effects.some((e) => e.sourceKey === 'XPHB:Invisibility')).toBe(false);
+    expect(target!.effects.some((e) => e.sourceKey === 'XPHB:Shining Smite')).toBe(true);
+  });
+});
