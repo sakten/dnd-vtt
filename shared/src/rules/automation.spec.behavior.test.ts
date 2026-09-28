@@ -797,4 +797,55 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(jallarzi.zone?.aura?.effects?.[0]?.conditions).toEqual(['blinded', 'deafened']);
     expect(jallarzi.zone?.triggers?.endOfTurn?.damage?.dice).toBe('3d10radiant + 3d10thunder');
   });
+
+  it('Батч И: триггеры эффектов, успех/нежить, лечение и «Изгнание»', () => {
+    const melf = automationForSpell(find("XPHB:Melf's Acid Arrow"), { castLevel: 3 });
+    expect(melf.halfOnMiss).toBe(true);
+    expect(melf.damage?.dice).toBe('5d4acid');
+    expect(melf.effects?.[0]?.triggers?.endOfTurn?.damage?.dice).toBe('3d4acid');
+
+    const searing = automationForSpell(find('XPHB:Searing Smite'));
+    expect(searing.effects?.[0]?.duration).toMatchObject({ type: 'untilSave', ability: 'con', timing: 'start' });
+    expect(searing.effects?.[0]?.triggers?.startOfTurn?.damage?.dice).toBe('1d6');
+
+    const snare = automationForSpell(find('XPHB:Ensnaring Strike')).effects?.[0];
+    expect(snare?.conditions).toEqual(['restrained']);
+    expect(snare?.escape).toEqual({ ability: 'str', skill: 'athletics' });
+    expect(snare?.triggers?.startOfTurn?.damage?.types).toEqual(['piercing']);
+
+    const vitriolic = automationForSpell(find('XPHB:Vitriolic Sphere'), { castLevel: 5 });
+    expect(vitriolic.damage?.dice).toBe('12d4acid');
+    expect(vitriolic.effects?.[0]?.triggers?.endOfTurn?.damage?.dice).toBe('5d4acid');
+
+    const heroism = automationForSpell(find('XPHB:Heroism'), { spellMod: 3 }).effects?.[0];
+    expect(heroism?.conditionImmunities).toEqual(['frightened']);
+    expect(heroism?.triggers?.startOfTurn?.tempHp).toBe(3);
+    // Без модификатора триггер временных HP не создаётся.
+    expect(automationForSpell(find('XPHB:Heroism')).effects?.[0]?.triggers).toBeUndefined();
+
+    const enervation = automationForSpell(find('XGE:Enervation'));
+    expect(enervation.save).toEqual({ ability: 'dex' });
+    expect(enervation.damage?.dice).toBe('4d8necrotic');
+    expect(enervation.successDamage?.dice).toBe('2d8necrotic');
+    const drain = enervation.effects?.[0];
+    expect(drain?.selfOnFail).toBe(true);
+    expect(drain?.actions?.[0]?.def).toMatchObject({ lifesteal: true, targeting: { kind: 'creature', range: 60 } });
+
+    const flood = automationForSpell(find('XGE:Negative Energy Flood'));
+    expect(flood.undeadTempHp).toBe(true);
+    expect(flood.damage?.dice).toBe('5d12necrotic');
+
+    const heal = automationForSpell(find('XPHB:Heal'), { castLevel: 7 });
+    expect(heal.heal).toEqual({ dice: '80' });
+    expect(heal.endConditions).toEqual(['blinded', 'deafened', 'poisoned']);
+
+    const feast = automationForSpell(find("XPHB:Heroes' Feast")).effects?.[0];
+    expect(feast?.targets).toBe(12);
+    expect(feast?.conditionImmunities).toEqual(['frightened', 'poisoned']);
+    expect(feast?.maxHpBonus).toEqual({ dice: '2d10' });
+
+    const banish = automationForSpell(find('XPHB:Dispel Evil and Good')).effects?.[0]?.actions?.[0]?.def;
+    expect(banish).toMatchObject({ banishOnFail: true, save: { ability: 'cha' } });
+    expect(banish?.requiresCreatureTypes).toEqual(['celestial', 'elemental', 'fey', 'fiend', 'undead']);
+  });
 });

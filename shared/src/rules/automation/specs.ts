@@ -3342,4 +3342,230 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
       triggers: { enter: { save: { ability: 'con', half: true }, damage: jallarziDamage() }, endOfTurn: { save: { ability: 'con', half: true }, damage: jallarziDamage() } },
     },
   },
+
+  // Батч И (R16): последние билдеры — триггеры эффектов (смайты, кислота, Heroism),
+  // успех/нежить (Enervation, Negative Energy Flood), лечение (Heal), Heroes' Feast
+  // и действие «Изгнание» Dispel Evil and Good.
+  "XPHB:Melf's Acid Arrow": {
+    key: "XPHB:Melf's Acid Arrow",
+    name: 'Acid Arrow',
+    primary: 'attack',
+    attack: { rangeType: 'ranged' },
+    count: 1,
+    halfOnMiss: true,
+    damage: {
+      dice: { concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '4d4' }, by: 'upcast' } }, 'acid'] },
+      types: ['acid'],
+    },
+    effects: [
+      {
+        id: 'acid',
+        name: 'Acid Arrow',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [],
+        triggers: {
+          endOfTurn: {
+            damage: {
+              dice: { concat: [{ scale: { dice: { ref: 'part', part: 'repeat', fallback: '2d4' }, by: 'upcast' } }, 'acid'] },
+              types: ['acid'],
+            },
+          },
+        },
+      },
+    ],
+  },
+
+  'XPHB:Searing Smite': {
+    key: 'XPHB:Searing Smite',
+    name: 'Searing Smite',
+    primary: 'auto',
+    damage: { dice: { ref: 'spellDamage', fallback: '1d6' }, types: ['fire'] },
+    effects: [
+      {
+        id: 'burn',
+        name: 'Searing Smite',
+        duration: { type: 'untilSave', ability: 'con', dc: 0, timing: 'start' },
+        to: 'targets',
+        modifiers: [],
+        triggers: { startOfTurn: { damage: { dice: { ref: 'spellDamage', fallback: '1d6' }, types: ['fire'] } } },
+      },
+    ],
+  },
+
+  'XPHB:Ensnaring Strike': {
+    key: 'XPHB:Ensnaring Strike',
+    name: 'Ensnaring Strike',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'str' },
+    effects: [
+      {
+        id: 'ensnare',
+        name: 'Ensnaring Strike',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditions: ['restrained'],
+        escape: { ability: 'str', skill: 'athletics' },
+        triggers: { startOfTurn: { damage: { dice: { ref: 'spellDamage', fallback: '1d6' }, types: ['piercing'] } } },
+      },
+    ],
+  },
+
+  'XPHB:Vitriolic Sphere': {
+    key: 'XPHB:Vitriolic Sphere',
+    name: 'Vitriolic Sphere',
+    primary: 'save',
+    save: { ability: 'dex', half: true },
+    damage: {
+      dice: { concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '10d4' }, by: 'upcast' } }, 'acid'] },
+      types: ['acid'],
+    },
+    effects: [
+      {
+        id: 'acid',
+        name: 'Vitriolic Sphere',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [],
+        triggers: {
+          endOfTurn: { damage: { dice: { concat: [{ ref: 'part', part: 'repeat', fallback: '5d4' }, 'acid'] }, types: ['acid'] } },
+        },
+      },
+    ],
+  },
+
+  'XPHB:Heroism': {
+    key: 'XPHB:Heroism',
+    name: 'Heroism',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'heroism',
+        name: 'Heroism',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditionImmunities: ['frightened'],
+        triggers: {
+          startOfTurn: {
+            if: { spellMod: { base: 0, min: 0 } },
+            then: { tempHp: { spellMod: { base: 0, min: 0 } } },
+          },
+        },
+      },
+    ],
+  },
+
+  'XGE:Enervation': {
+    key: 'XGE:Enervation',
+    name: 'Enervation',
+    primary: 'save',
+    concentration: true,
+    save: { ability: 'dex' },
+    damage: {
+      dice: { concat: [{ scale: { dice: { ref: 'part', part: 'main', fallback: '4d8' }, by: 'upcast' } }, 'necrotic'] },
+      types: ['necrotic'],
+    },
+    successDamage: {
+      dice: { concat: [{ scale: { dice: { ref: 'part', part: 'success', fallback: '2d8' }, by: 'upcast' } }, 'necrotic'] },
+      types: ['necrotic'],
+    },
+    effects: [
+      {
+        id: 'drain',
+        name: 'Enervation',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        selfOnFail: true,
+        actions: [
+          {
+            id: 'drain',
+            name: 'Вытягивание жизни',
+            cost: 'action',
+            primary: 'auto',
+            damage: {
+              dice: { concat: [{ scale: { dice: { ref: 'part', part: 'repeat', fallback: '4d8' }, by: 'upcast' } }, 'necrotic'] },
+              types: ['necrotic'],
+            },
+            lifesteal: true,
+            targeting: { kind: 'creature', range: 60 },
+          },
+        ],
+      },
+    ],
+  },
+
+  'XGE:Negative Energy Flood': {
+    key: 'XGE:Negative Energy Flood',
+    name: 'Negative Energy Flood',
+    primary: 'save',
+    save: { ability: 'con', half: true },
+    damage: { dice: { concat: [{ ref: 'damage', fallback: '5d12' }, 'necrotic'] }, types: ['necrotic'] },
+    undeadTempHp: true,
+  },
+
+  // Heal: плоское лечение 70 (+10 за круг выше 6); снимает Blinded/Deafened/Poisoned.
+  'XPHB:Heal': {
+    key: 'XPHB:Heal',
+    name: 'Heal',
+    primary: 'auto',
+    heal: {
+      dice: { perLevel: { base: SPELL_BASES.heal.flat, per: SPELL_BASES.heal.perLevel, above: SPELL_BASES.heal.above } },
+    },
+    endConditions: ['blinded', 'deafened', 'poisoned'],
+  },
+
+  "XPHB:Heroes' Feast": {
+    key: "XPHB:Heroes' Feast",
+    name: "Heroes' Feast",
+    primary: 'effect',
+    effects: [
+      {
+        id: 'feast',
+        name: "Heroes' Feast",
+        duration: PERMANENT,
+        to: 'targets',
+        targets: 12,
+        modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } }],
+        conditionImmunities: ['frightened', 'poisoned'],
+        maxHpBonus: { dice: SPELL_BASES.heroesFeast.maxHpDice },
+      },
+    ],
+  },
+
+  'XPHB:Dispel Evil and Good': {
+    key: 'XPHB:Dispel Evil and Good',
+    name: 'Dispel Evil and Good',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'carrier',
+        name: 'Dispel Evil and Good',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [
+          {
+            id: 'banish',
+            name: 'Изгнание',
+            cost: 'action',
+            primary: 'save',
+            save: { ability: 'cha' },
+            banishOnFail: true,
+            requiresCreatureTypes: ['celestial', 'elemental', 'fey', 'fiend', 'undead'],
+            targeting: { kind: 'creature', range: 5 },
+          },
+        ],
+      },
+    ],
+  },
 };

@@ -7,7 +7,7 @@ import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
-import { COMPOSITE_CONFIGS, acidArrowDef, dispelEvilGoodDef, enervationDef, ensnaringStrikeDef, healSpellDef, heroesFeastDef, heroismDef, negativeEnergyFloodDef, searingSmiteDef, spellBuiltinAutomated, vitriolicSphereDef } from './builders';
+import { COMPOSITE_CONFIGS } from './helpers';
 import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
@@ -43,36 +43,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
 
   const catalog = AUTOMATION_SPELLS[spell.key];
   if (catalog) return withSpellDice(catalog, spell, opts);
-
-  const acidArrow = acidArrowDef(spell, opts);
-  if (acidArrow) return acidArrow;
-
-  const enervation = enervationDef(spell, opts);
-  if (enervation) return enervation;
-
-  const heal = healSpellDef(spell, opts);
-  if (heal) return heal;
-
-  const dispelEvilGood = dispelEvilGoodDef(spell);
-  if (dispelEvilGood) return dispelEvilGood;
-
-  const vitriolic = vitriolicSphereDef(spell, opts);
-  if (vitriolic) return vitriolic;
-
-  const negativeEnergyFlood = negativeEnergyFloodDef(spell);
-  if (negativeEnergyFlood) return negativeEnergyFlood;
-
-  const heroism = heroismDef(spell, opts);
-  if (heroism) return heroism;
-
-  const heroesFeast = heroesFeastDef(spell);
-  if (heroesFeast) return heroesFeast;
-
-  const searing = searingSmiteDef(spell, opts);
-  if (searing) return searing;
-
-  const ensnaring = ensnaringStrikeDef(spell, opts);
-  if (ensnaring) return ensnaring;
 
   const summon = summonSpellDef(spell.key);
   if (summon) {
@@ -243,7 +213,6 @@ export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolea
   if (spec) return spec.primary !== 'manual';
   const def = AUTOMATION_SPELLS[spell.key];
   if (def) return def.resolution !== 'manual';
-  if (spellBuiltinAutomated(spell.key)) return true;
   if (summonSpellDef(spell.key)) return true;
   return spell.automation === 'full';
 }

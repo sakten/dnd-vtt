@@ -85,6 +85,10 @@ export interface ActionSpec {
   defKey?: string;
   /** Суффикс ключа `def`: `${spec.key}:${subKey}` (Shadow Blade: return). */
   subKey?: string;
+  /** Dispel Evil and Good: провал спасброска изгоняет существо (без возврата). */
+  banishOnFail?: boolean;
+  /** Только эти типы существ (действие «Изгнание» Dispel Evil and Good). */
+  requiresCreatureTypes?: string[];
   /** Перенос метки (Hex/Hunter's Mark): доступен только после смерти текущей цели. */
   retarget?: boolean;
   /** Ссылка на базовое действие каталога вместо своей механики (`dash`/`disengage`). */
@@ -197,6 +201,12 @@ export interface ZoneSpec
 
 /** Элемент списка под условием: `if` непусто/истинно — `then` попадает в результат. */
 export type Gated<T> = T | { if: ValueExpr; then: T };
+
+/** Триггер эффекта в начале/конце хода носителя: кости/HP — ссылки. */
+export interface EffectTriggerSpec {
+  tempHp?: ValueExpr;
+  damage?: DamageSpec;
+}
 
 /** Значение, зависящее от круга каста: ближайшая ступень `above` (включительно) или `fallback`. */
 export type Leveled<T> = T | { levels: { above: number; value: T }[]; fallback?: T };
@@ -318,6 +328,12 @@ export interface EffectSpec {
   uses?: UsesSpec;
   /** Блок `hooks`: реактивные перехваты урона/HP (`HookSpec`). */
   hooks?: HookSpec;
+  /** Срабатывания в начале/конце хода носителя (Heroism: врем. HP; смайты/кислота: урон). */
+  triggers?: { startOfTurn?: Gated<EffectTriggerSpec>; endOfTurn?: Gated<EffectTriggerSpec> };
+  /** Enervation: эффект-носитель действия накладывается только при провале спасброска цели. */
+  selfOnFail?: boolean;
+  /** Heroes' Feast: +2к10 к максимуму HP (бросок при наложении). */
+  maxHpBonus?: { dice: string };
   /** Bestow Curse («Уклонение»): спас в начале хода, при провале — принудительное Уклонение. */
   turnDodge?: Gated<{ ability: ValueExpr }>;
   /** Eyebite: метка спасшейся цели — повторно не выбрать до конца каста. */
@@ -368,7 +384,15 @@ export interface AutomationSpec {
   shape?: ShapeDef;
   /** Вынужденное перемещение проваливших спас (Thunderous Smite: толчок 10 фт). */
   force?: { kind: 'push' | 'pull'; feet: number; maxSize?: 'normal' | 'large' | 'huge' };
+  /** Melf's Acid Arrow: промах — половина первичного урона. */
+  halfOnMiss?: boolean;
   damage?: DamageSpec;
+  /** Enervation: урон при успешном спасброске — отдельный бросок вместо половины. */
+  successDamage?: DamageSpec;
+  /** Negative Energy Flood: нежить без спасброска получает врем. HP вместо урона. */
+  undeadTempHp?: boolean;
+  /** Лечение (Heal): кость/число — ссылка (плоские 70 + 10/круг). */
+  heal?: { dice: ValueExpr; abilityMod?: boolean };
   /** Неубиваемое лечение кастера на половину нанесённого урона (Vampiric Touch). */
   lifesteal?: boolean;
   /**

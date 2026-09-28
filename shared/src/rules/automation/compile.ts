@@ -1,15 +1,17 @@
 import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
-import type { ConditionKey, Modifier } from '../../domain/effects';
+import type { ConditionKey, EffectTurnPayload, Modifier } from '../../domain/effects';
 import type { Spell } from '../spells';
 import { spellCantripDice, spellDamageExpression, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
-import { addDiceExpression, scaledDice, upcastSteps } from './builders';
+import { addDiceExpression, scaledDice, upcastSteps } from './helpers';
 import type {
   ActionSpec,
   AutomationSpec,
   AutomationSpecCopy,
   DamageSpec,
   EffectSpec,
+  EffectTriggerSpec,
+  Gated,
   HookSpec,
   LoadoutSpec,
   ModifierSpec,
@@ -270,6 +272,8 @@ function compileAction(ctx: CompileCtx, action: ActionSpec): GrantedAction {
     ...damage,
     ...(action.count !== undefined ? { count: action.count } : {}),
     ...(action.lifesteal ? { lifesteal: true } : {}),
+    ...(action.banishOnFail ? { banishOnFail: true } : {}),
+    ...(action.requiresCreatureTypes?.length ? { requiresCreatureTypes: [...action.requiresCreatureTypes] } : {}),
     ...(action.effects?.length ? { effects: action.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(action.retarget ? { retarget: true } : {}),
     ...(targeting ? { targeting: { ...targeting } } : {}),
@@ -437,6 +441,18 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
         }))
       : undefined;
   const hooks = effect.hooks ? compileHooks(ctx, effect.hooks) : {};
+  const triggerSlot = (entry: Gated<EffectTriggerSpec> | undefined): EffectTurnPayload | undefined => {
+    if (entry === undefined) return undefined;
+    const payload = compileGated(ctx, entry, (t) => {
+      const tempHp =
+        t.tempHp !== undefined ? Number(mustValue(ctx, t.tempHp, `effect.${effect.id}.triggers`)) : undefined;
+      const damage = t.damage ? compileDamage(ctx, t.damage) : undefined;
+      return { ...(tempHp ? { tempHp } : {}), ...(damage ? { damage } : {}) };
+    });
+    return payload && Object.keys(payload).length ? payload : undefined;
+  };
+  const startTrigger = triggerSlot(effect.triggers?.startOfTurn);
+  const endTrigger = triggerSlot(effect.triggers?.endOfTurn);
   const senses =
     effect.senses !== undefined ? compileGated(ctx, effect.senses, (list) => list.map((s) => ({ ...s }))) : undefined;
   const seesInvisible =
@@ -472,6 +488,11 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(variant !== undefined ? { variant: String(variant) } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
     ...hooks,
+    ...(startTrigger || endTrigger
+      ? { triggers: { ...(startTrigger ? { startOfTurn: startTrigger } : {}), ...(endTrigger ? { endOfTurn: endTrigger } : {}) } }
+      : {}),
+    ...(effect.selfOnFail ? { selfOnFail: true } : {}),
+    ...(effect.maxHpBonus ? { maxHpBonus: { ...effect.maxHpBonus } } : {}),
     ...(effect.turnDodge ? (turnDodge ? { turnDodge } : {}) : {}),
     ...(effect.markSaved ? { markSaved: true } : {}),
     ...(effect.restrictions ? { restrictions: { ...effect.restrictions } } : {}),
@@ -630,7 +651,18 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.save ? { save: { ...spec.save } } : {}),
     ...(spec.shape ? { shape: { ...spec.shape } } : {}),
     ...(spec.force ? { force: { ...spec.force } } : {}),
+    ...(spec.halfOnMiss ? { halfOnMiss: true } : {}),
     ...(spec.damage ? { damage: compileDamage(ctx, spec.damage) } : {}),
+    ...(spec.successDamage ? { successDamage: compileDamage(ctx, spec.successDamage) } : {}),
+    ...(spec.undeadTempHp ? { undeadTempHp: true } : {}),
+    ...(spec.heal
+      ? {
+          heal: {
+            dice: String(mustValue(ctx, spec.heal.dice, 'heal.dice')),
+            ...(spec.heal.abilityMod ? { abilityMod: true } : {}),
+          },
+        }
+      : {}),
     ...(spec.lifesteal ? { lifesteal: true } : {}),
     ...(spec.lifeTransfer ? { lifeTransfer: { ...spec.lifeTransfer } } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
@@ -816,6 +848,22 @@ export function validateSpec(spec: AutomationSpec): string[] {
       });
     }
     collectHooks(effect.hooks);
+    const collectTrigger = (entry?: Gated<EffectTriggerSpec>) => {
+      if (!entry) return;
+      pushGated(entry, (t) => {
+        if (t.tempHp !== undefined) refs.push(t.tempHp);
+        if (t.damage) {
+          if ('parts' in t.damage) {
+            for (const part of t.damage.parts) refs.push(part.dice, part.type);
+          } else {
+            refs.push(t.damage.dice);
+            for (const type of t.damage.types ?? []) refs.push(type);
+          }
+        }
+      });
+    };
+    collectTrigger(effect.triggers?.startOfTurn);
+    collectTrigger(effect.triggers?.endOfTurn);
     if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
     if (effect.turnDodge) pushGated(effect.turnDodge, (v) => refs.push(v.ability));
     if (effect.targets !== undefined) refs.push(effect.targets);
@@ -860,6 +908,8 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (utility.fromBurst?.damage) pushDamageRefs(utility.fromBurst.damage);
   }
   if (spec.damage) pushDamageRefs(spec.damage);
+  if (spec.successDamage) pushDamageRefs(spec.successDamage);
+  if (spec.heal) refs.push(spec.heal.dice);
   collectUtility(spec.utility);
   if (spec.chain) refs.push(spec.chain.jumps);
   if (spec.burst) {
