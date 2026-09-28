@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import {
-  AUTOMATION_ADDITIONS,
   AUTOMATION_SPECS,
   AUTOMATION_SPELLS,
   automationForSpell,
@@ -65,7 +64,6 @@ for (const [key, spec] of Object.entries(AUTOMATION_SPECS)) {
 
 const actual = {
   catalog: hash(AUTOMATION_SPELLS),
-  additions: hash(AUTOMATION_ADDITIONS),
   // Кейсы сортируются по имени: порядок обхода спеков не должен влиять на замок
   // (разбиение specs на модули/перестановка записей — не смена механики).
   derived: hash(
@@ -80,7 +78,6 @@ const actual = {
 
 const EXPECTED = {
   catalog: '4cfa839af64cba8c',
-  additions: '50790d561072456f',
   // derived изменён осознанно: оси стены (blocksMovement/blocksLineOfSight/blocksActions)
   // объявляются в `zone.wall`, мёртвый `flags.blocksMovement` убран (Wall of Ice/Force/Stone).
   derived: '21dcc4e4cec47878',

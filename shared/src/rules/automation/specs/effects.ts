@@ -535,4 +535,43 @@ export const EFFECTS_SPECS: Record<string, AutomationSpec> = {
     endConditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'],
     targeting: { kind: 'creature', range: 5 },
   },
+
+  // Батч `additions` (R16): кантрипы-атаки с райдером на цель.
+  'XPHB:Shocking Grasp': {
+    key: 'XPHB:Shocking Grasp',
+    name: 'Shocking Grasp',
+    primary: 'attack',
+    attack: { rangeType: 'melee' },
+    count: 1,
+    damage: { dice: { ref: 'spellDamage', fallback: '1d8' }, types: ['lightning'] },
+    effects: [
+      {
+        id: 'grasp',
+        name: 'Shocking Grasp',
+        duration: { type: 'endOfTurn', of: 'target' },
+        to: 'targets',
+        modifiers: [],
+        restrictions: { noOpportunityAttacks: true },
+      },
+    ],
+  },
+
+  'XPHB:Chill Touch': {
+    key: 'XPHB:Chill Touch',
+    name: 'Chill Touch',
+    primary: 'attack',
+    attack: { rangeType: 'melee' },
+    count: 1,
+    damage: { dice: { ref: 'spellDamage', fallback: '1d10' }, types: ['necrotic'] },
+    effects: [
+      {
+        id: 'chill',
+        name: 'Chill Touch',
+        duration: UNTIL_NEXT_TURN,
+        to: 'targets',
+        modifiers: [],
+        hooks: { noHeal: true },
+      },
+    ],
+  },
 };

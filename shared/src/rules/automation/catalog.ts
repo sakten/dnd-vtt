@@ -1,5 +1,5 @@
-import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { CHILL_TOUCH, chipSpell, directionAction, manualSpell } from './header';
+import type { AutomationDef } from '../../domain/automation';
+import { chipSpell, directionAction, manualSpell } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // Polymorph, Freedom of Movement, Protection from Evil and Good и Otto's Irresistible
@@ -16,7 +16,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   // charmed/отношений.
   // Protection from Poison — спек (батч `endConditions`); Otto's и Protection from
   // Evil and Good — спеки (батч Е). Primordial Ward и Fount of Moonlight — тоже спеки:
-  // боевых записей в каталоге не осталось, только manual/chip-замки и добавки.
+  // боевых записей в каталоге не осталось, только manual/chip-замки.
   // Darkness/Fog Cloud/Darkvision — спеки (батч `vision`): флаги зон и сенсы эффекта.
   // Crusader's Mantle и Holy Weapon — спеки (батч `zone`-локаций): аура союзникам и
   // носитель с выданным бонусным действием «Разряд».
@@ -85,58 +85,3 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     ],
   }),
 };
-
-/**
- * Дополнения к деривации данных: эффекты/зона поверх «атака/спасбросок/автоурон»
- * (Shocking Grasp). Для manual-спеллов не применяются. В зоне кости `'$spell'`
- * подставляются выражением урона заклинания (апкаст/кантрип).
- */
-export interface AutomationAddition {
-  effects?: AutomationEffect[];
-  zone?: ZoneDef;
-  /** Массовая цель без области (Mass Healing Word/Prayer of Healing/Mass Cure Wounds). */
-  targets?: number;
-  /** Прибавить модификатор заклинательной характеристики к лечению (Cure Wounds и др.). */
-  healAbilityMod?: boolean;
-  /** Harm: снижение максимума HP цели на фактически полученный ею урон. */
-  maxHpFromDamage?: boolean;
-}
-
-export const AUTOMATION_ADDITIONS: Record<string, AutomationAddition> = {
-  'XPHB:Shocking Grasp': {
-    effects: [
-      {
-        name: 'Shocking Grasp',
-        duration: { type: 'endOfTurn', of: 'target' },
-        to: 'targets',
-        modifiers: [],
-        restrictions: { noOpportunityAttacks: true },
-      },
-    ],
-  },
-  'XPHB:Cure Wounds': { healAbilityMod: true },
-  'XPHB:Healing Word': { healAbilityMod: true },
-  'XPHB:Mass Healing Word': { targets: 6, healAbilityMod: true },
-  'XPHB:Prayer of Healing': { targets: 5 },
-  'XPHB:Mass Cure Wounds': { targets: 6, healAbilityMod: true },
-  'XPHB:Chill Touch': { effects: [CHILL_TOUCH] },
-  'XPHB:Harm': { maxHpFromDamage: true },
-};
-
-/** Подстановка выражения урона заклинания в кости триггеров зоны (`'$spell'`). */
-export function resolveZoneDice(zone: ZoneDef, expression: string): ZoneDef {
-  const triggers = zone.triggers;
-  if (!triggers) return zone;
-  const sub = (payload: AutomationPayload | undefined): AutomationPayload | undefined =>
-    payload?.damage?.dice === '$spell' ? { ...payload, damage: { ...payload.damage, dice: expression } } : payload;
-  return {
-    ...zone,
-    triggers: {
-      ...triggers,
-      enter: sub(triggers.enter),
-      exit: sub(triggers.exit),
-      startOfTurn: sub(triggers.startOfTurn),
-      endOfTurn: sub(triggers.endOfTurn),
-    },
-  };
-}

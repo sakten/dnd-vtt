@@ -141,4 +141,66 @@ export const HP_SPECS: Record<string, AutomationSpec> = {
       },
     ],
   },
+
+  // Батч `additions` (R16): лечение — Cure Wounds/Healing Word (+мод характеристики),
+  // массовые (targets) и Harm (снижение максимума HP). `count: 1`, пустые `effects: []`
+  // и `heal.types: []` сохраняют байт-равенство с прежним выводом «деривация + добавки».
+  'XPHB:Cure Wounds': {
+    key: 'XPHB:Cure Wounds',
+    name: 'Cure Wounds',
+    primary: 'auto',
+    count: 1,
+    heal: { dice: { ref: 'spellDamage', fallback: '2d8' }, types: [], abilityMod: true },
+    effects: [],
+  },
+
+  'XPHB:Healing Word': {
+    key: 'XPHB:Healing Word',
+    name: 'Healing Word',
+    primary: 'auto',
+    count: 1,
+    heal: { dice: { ref: 'spellDamage', fallback: '2d4' }, types: [], abilityMod: true },
+    effects: [],
+  },
+
+  'XPHB:Prayer of Healing': {
+    key: 'XPHB:Prayer of Healing',
+    name: 'Prayer of Healing',
+    primary: 'auto',
+    count: 1,
+    targets: 5,
+    // Без мода характеристики (SRD 2024: «also regain 2d8»).
+    heal: { dice: { ref: 'spellDamage', fallback: '2d8' }, types: [] },
+    effects: [],
+  },
+
+  'XPHB:Mass Healing Word': {
+    key: 'XPHB:Mass Healing Word',
+    name: 'Mass Healing Word',
+    primary: 'auto',
+    count: 1,
+    targets: 6,
+    heal: { dice: { ref: 'spellDamage', fallback: '2d4' }, types: [], abilityMod: true },
+    effects: [],
+  },
+
+  'XPHB:Mass Cure Wounds': {
+    key: 'XPHB:Mass Cure Wounds',
+    name: 'Mass Cure Wounds',
+    primary: 'auto',
+    count: 1,
+    targets: 6,
+    heal: { dice: { ref: 'spellDamage', fallback: '5d8' }, types: [], abilityMod: true },
+    effects: [],
+  },
+
+  'XPHB:Harm': {
+    key: 'XPHB:Harm',
+    name: 'Harm',
+    primary: 'save',
+    save: { ability: 'con', half: true },
+    damage: { dice: { ref: 'spellDamage', fallback: '14d6' }, types: ['necrotic'] },
+    maxHpFromDamage: true,
+    effects: [],
+  },
 };

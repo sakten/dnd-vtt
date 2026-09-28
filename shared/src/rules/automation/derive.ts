@@ -8,24 +8,14 @@ import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds
 import type { Spell } from '../spells';
 import { summonSpellDef } from '../summons';
 import { COMPOSITE_CONFIGS } from './helpers';
-import { AUTOMATION_ADDITIONS, AUTOMATION_SPELLS, resolveZoneDice } from './catalog';
+import { AUTOMATION_SPELLS } from './catalog';
 import { compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
 import { spellVariantDef } from './variants';
 import type { AutomationOptions } from './variants';
 
-/** Подстановка выражения урона в `$spell`-поля статичной строки каталога (Conjure Woodland Beings). */
-function withSpellDice(def: AutomationDef, spell: Spell, opts: AutomationOptions): AutomationDef {
-  if (!def.zone) return def;
-  const castLevel = opts.castLevel ?? Math.max(1, spell.level);
-  const expression = spellDamageExpression(spell, castLevel, opts.characterLevel ?? 1);
-  if (!expression) return def;
-  const damage = def.damage?.dice === '$spell' ? { ...def.damage, dice: expression } : def.damage;
-  return { ...def, ...(damage ? { damage } : {}), zone: resolveZoneDice(def.zone, expression) };
-}
-
 /**
- * Определение автоматизации заклинания: строка каталога → деривация из данных
+ * Определение автоматизации заклинания: спек → строка каталога → деривация из данных
  * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
  * Заклинаниям длительностью ровно 1 минута проставляется лимит 10 раундов.
  */
@@ -42,7 +32,7 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   if (spec) return compileSpec(resolveSpec(spec), { spell, opts });
 
   const catalog = AUTOMATION_SPELLS[spell.key];
-  if (catalog) return withSpellDice(catalog, spell, opts);
+  if (catalog) return catalog;
 
   const summon = summonSpellDef(spell.key);
   if (summon) {
@@ -65,20 +55,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
     };
   }
 
-  const withAdditions = (def: AutomationDef, spellDamage: string): AutomationDef => {
-    const addition = AUTOMATION_ADDITIONS[def.key];
-    if (!addition) return def;
-    const merged: AutomationDef = {
-      ...def,
-      effects: [...(def.effects ?? []), ...(addition.effects ?? [])],
-    };
-    if (addition.zone) merged.zone = resolveZoneDice(addition.zone, spellDamage);
-    if (addition.healAbilityMod && merged.heal) merged.heal = { ...merged.heal, abilityMod: true };
-    if (addition.targets) merged.targets = addition.targets;
-    if (addition.maxHpFromDamage) merged.maxHpFromDamage = true;
-    return merged;
-  };
-
   const castLevel = opts.castLevel ?? Math.max(1, spell.level);
   const characterLevel = opts.characterLevel ?? 1;
   const expression = spellDamageExpression(spell, castLevel, characterLevel);
@@ -97,31 +73,25 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   if (spell.spellAttack) {
     return withBlastMods(
       spell,
-      withAdditions(
-        {
-          ...base,
-          resolution: 'attack',
-          attack: { rangeType: spell.spellAttack },
-          count,
-          ...rolled,
-        },
-        expression
-      ),
+      {
+        ...base,
+        resolution: 'attack',
+        attack: { rangeType: spell.spellAttack },
+        count,
+        ...rolled,
+      },
       opts.invocations
     );
   }
   if (spell.save?.length && spell.save[0]) {
-    return withAdditions(
-      {
-        ...base,
-        resolution: 'save',
-        save: { ability: spell.save[0], half: spell.saveHalf === true },
-        ...rolled,
-      },
-      expression
-    );
+    return {
+      ...base,
+      resolution: 'save',
+      save: { ability: spell.save[0], half: spell.saveHalf === true },
+      ...rolled,
+    };
   }
-  return withAdditions({ ...base, resolution: 'auto', count, ...rolled }, expression);
+  return { ...base, resolution: 'auto', count, ...rolled };
 }
 
   /** Модификаторы Eldritch Blast от инвокаций: Agonizing (+мод. характеристики) и Repelling (толчок). */

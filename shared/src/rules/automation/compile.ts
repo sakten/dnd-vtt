@@ -659,10 +659,14 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
       ? {
           heal: {
             dice: String(mustValue(ctx, spec.heal.dice, 'heal.dice')),
+            ...(spec.heal.types !== undefined
+              ? { types: spec.heal.types.map((t) => String(mustValue(ctx, t, 'heal.types'))) }
+              : {}),
             ...(spec.heal.abilityMod ? { abilityMod: true } : {}),
           },
         }
       : {}),
+    ...(spec.maxHpFromDamage ? { maxHpFromDamage: true } : {}),
     ...(spec.lifesteal ? { lifesteal: true } : {}),
     ...(spec.lifeTransfer ? { lifeTransfer: { ...spec.lifeTransfer } } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
@@ -909,7 +913,10 @@ export function validateSpec(spec: AutomationSpec): string[] {
   }
   if (spec.damage) pushDamageRefs(spec.damage);
   if (spec.successDamage) pushDamageRefs(spec.successDamage);
-  if (spec.heal) refs.push(spec.heal.dice);
+  if (spec.heal) {
+    refs.push(spec.heal.dice);
+    for (const type of spec.heal.types ?? []) refs.push(type);
+  }
   collectUtility(spec.utility);
   if (spec.chain) refs.push(spec.chain.jumps);
   if (spec.burst) {

@@ -1,4 +1,4 @@
-import type { AutomationDef, AutomationEffect, GrantedAction } from '../../domain/automation';
+import type { AutomationDef, GrantedAction } from '../../domain/automation';
 import type { ConditionKey, DirectionKey, EffectDuration } from '../../domain/effects';
 import { AUTOMATION_ACTIONS } from '../automationActions';
 
@@ -87,15 +87,6 @@ export function zoneMoveAction(name: string, cost: 'action' | 'bonus', feet: num
 export const PERMANENT: EffectDuration = { type: 'permanent' };
 export const CONCENTRATION: EffectDuration = { type: 'concentration' };
 export const UNTIL_NEXT_TURN: EffectDuration = { type: 'endOfTurn', of: 'source' };
-
-/** Chill Touch: цель не восстанавливает HP до конца следующего хода кастера. */
-export const CHILL_TOUCH: AutomationEffect = {
-  name: 'Chill Touch',
-  duration: UNTIL_NEXT_TURN,
-  to: 'targets',
-  modifiers: [],
-  noHeal: true,
-};
 
 /** Явный manual-замок: отключает ложную деривацию из данных (решение владельца, класс H). */
 export function manualSpell(key: string, name: string, concentration = false): AutomationDef {

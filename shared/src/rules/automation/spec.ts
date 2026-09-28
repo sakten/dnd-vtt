@@ -391,8 +391,10 @@ export interface AutomationSpec {
   successDamage?: DamageSpec;
   /** Negative Energy Flood: нежить без спасброска получает врем. HP вместо урона. */
   undeadTempHp?: boolean;
-  /** Лечение (Heal): кость/число — ссылка (плоские 70 + 10/круг). */
-  heal?: { dice: ValueExpr; abilityMod?: boolean };
+  /** Лечение (Heal): кость/число — ссылка (плоские 70 + 10/круг). `types` — типы данных хила. */
+  heal?: { dice: ValueExpr; types?: ValueExpr[]; abilityMod?: boolean };
+  /** Harm: снижение максимума HP цели на фактически полученный ею урон. */
+  maxHpFromDamage?: boolean;
   /** Неубиваемое лечение кастера на половину нанесённого урона (Vampiric Touch). */
   lifesteal?: boolean;
   /**
