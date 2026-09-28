@@ -1,5 +1,4 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { DAMAGE_TYPES } from '../../labels';
 import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
@@ -12,17 +11,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
     save: { ability: 'wis' },
     shape: { kind: 'polymorph', crByTarget: true },
   },
-  /** Expeditious Retreat (XPHB 2024): Рывок бонусным действием, пока держится концентрация. */
-  'XPHB:Expeditious Retreat': spellEffect('XPHB:Expeditious Retreat', 'Expeditious Retreat', [
-    {
-      name: 'Expeditious Retreat',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'self',
-      modifiers: [],
-      actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
-    },
-  ]),
   /** Revivify: возвращает мёртвую цель к жизни с 1 HP (касание, без проверки «≤1 мин» — DM). */
   'XPHB:Revivify': {
     key: 'XPHB:Revivify',
@@ -58,28 +46,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       conditionImmunities: ['paralyzed', 'restrained'],
       immuneToSpeedReduction: true,
       ignoresDifficultTerrain: true,
-    },
-  ]),
-  /** Hideous Laughter (XPHB 2024): спас WIS в конце хода и от урона (с преимуществом). */
-  "XPHB:Tasha's Hideous Laughter": spellEffect("XPHB:Tasha's Hideous Laughter", 'Hideous Laughter', [
-    {
-      name: 'Hideous Laughter',
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      conditions: ['incapacitated', 'prone'],
-      modifiers: [],
-      saveOnDamage: { advantage: true },
-    },
-  ], { ability: 'wis' }),
-  'XPHB:Faerie Fire': spellEffect('XPHB:Faerie Fire', 'Faerie Fire', [
-    {
-      name: 'Faerie Fire',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      modifiers: [{ target: 'attack', mode: 'advantage' }],
-      light: { bright: 0, dim: 10 },
     },
   ]),
   /** Светящиеся заклинания без боевой механики: источник света для обзора и вида. */
@@ -164,28 +130,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
    * концентрация). Возврат при снятии эффекта; экстрапланетные по истечении
    * полного срока не возвращаются (удаляются) — решает исполнение тика.
    */
-  'XPHB:Banishment': spellEffect('XPHB:Banishment', 'Banishment', [
-    {
-      name: 'Banishment',
-      duration: { type: 'rounds', rounds: 10 },
-      concentration: true,
-      to: 'targets',
-      conditions: ['incapacitated'],
-      modifiers: [],
-      banish: true,
-    },
-  ], { ability: 'cha' }),
-  'XPHB:Hypnotic Pattern': spellEffect('XPHB:Hypnotic Pattern', 'Hypnotic Pattern', [
-    {
-      name: 'Hypnotic Pattern',
-      duration: CONCENTRATION,
-      concentration: true,
-      to: 'targets',
-      conditions: ['charmed', 'incapacitated'],
-      modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
-      wakeOnDamage: true,
-    },
-  ], { ability: 'wis' }),
   'XPHB:Sleep': spellEffect('XPHB:Sleep', 'Sleep', [
     {
       name: 'Sleep',
@@ -383,23 +327,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     },
   },
-  /** Sanctuary (XPHB): атакующие цель обязаны пройти спас WIS или потерять атаку/заклинание. */
-  'XPHB:Sanctuary': {
-    key: 'XPHB:Sanctuary',
-    name: 'Sanctuary',
-    resolution: 'effect',
-    targeting: { kind: 'creature', range: 30 },
-    effects: [
-      {
-        name: 'Sanctuary',
-        duration: PERMANENT,
-        to: 'targets',
-        modifiers: [],
-        sanctuary: true,
-        breakOn: ['attack', 'spell', 'damage'],
-      },
-    ],
-  },
   /** Protection from Evil and Good (XPHB): помеха атакам шести типов, иммунитет к charmed/frightened от них. */
   'XPHB:Protection from Evil and Good': {
     key: 'XPHB:Protection from Evil and Good',
@@ -449,29 +376,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         ],
       },
     },
-  },
-  'XPHB:Warding Bond': {
-    key: 'XPHB:Warding Bond',
-    name: 'Warding Bond',
-    resolution: 'effect',
-    effects: [
-      {
-        name: 'Warding Bond',
-        duration: PERMANENT,
-        to: 'targets',
-        modifiers: [
-          { target: 'ac', mode: 'add', value: 1 },
-          { target: 'save', mode: 'add', value: 1 },
-          ...DAMAGE_TYPES.map((type) => ({
-            target: 'damage' as const,
-            mode: 'resistance' as const,
-            value: 0,
-            filter: { damageType: type.key },
-          })),
-        ],
-        damageLink: true,
-      },
-    ],
   },
   // Primordial Ward (XGE): сопротивления 5 типам; реакцией на урон типа — иммунитет к нему
   // (движок `ward` + `offerDamageReactions`, включая спровоцировавший урон).

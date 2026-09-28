@@ -410,6 +410,31 @@ describe('поведение спеков (RAW, реальные данные)',
     });
   });
 
+  it('Батч Б1 каталога: Banishment, Hypnotic Pattern, Sanctuary, Warding Bond', () => {
+    const banish = automationForSpell(find('XPHB:Banishment')).effects?.[0];
+    expect(banish?.banish).toBe(true);
+    expect(banish?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(banish?.conditions).toEqual(['incapacitated']);
+
+    const hypnotic = automationForSpell(find('XPHB:Hypnotic Pattern')).effects?.[0];
+    expect(hypnotic?.conditions).toEqual(['charmed', 'incapacitated']);
+    expect(hypnotic?.modifiers).toEqual([{ target: 'speed', mode: 'multiply', value: 0 }]);
+    expect(hypnotic?.wakeOnDamage).toBe(true);
+
+    const sanctuary = automationForSpell(find('XPHB:Sanctuary'));
+    expect(sanctuary.targeting).toEqual({ kind: 'creature', range: 30 });
+    expect(sanctuary.effects?.[0]?.sanctuary).toBe(true);
+    expect(sanctuary.effects?.[0]?.breakOn).toEqual(['attack', 'spell', 'damage']);
+
+    const bond = automationForSpell(find('XPHB:Warding Bond')).effects?.[0];
+    expect(bond?.damageLink).toBe(true);
+    expect(bond?.modifiers.slice(0, 2)).toEqual([
+      { target: 'ac', mode: 'add', value: 1 },
+      { target: 'save', mode: 'add', value: 1 },
+    ]);
+    expect(bond?.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(16);
+  });
+
   it('Батч A2 каталога: Haste, Hold Person, Slow, Divine Favor', () => {
     const haste = automationForSpell(find('XPHB:Haste'));
     expect(haste.concentration).toBe(true);

@@ -1,4 +1,4 @@
-import { SKILLS } from '../../labels';
+import { DAMAGE_TYPES, SKILLS } from '../../labels';
 import type { EffectDuration } from '../../domain/effects';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
@@ -353,6 +353,145 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         duration: PERMANENT,
         to: 'self',
         modifiers: [{ target: 'damage', mode: 'add', value: '1d4radiant', filter: { weapon: true, unarmed: false } }],
+      },
+    ],
+  },
+
+  // Батч Б1 (R16): записи каталога на существующих спец-блоках.
+  'XPHB:Expeditious Retreat': {
+    key: 'XPHB:Expeditious Retreat',
+    name: 'Expeditious Retreat',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'expeditiousRetreat',
+        name: 'Expeditious Retreat',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'self',
+        modifiers: [],
+        actions: [{ id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' }],
+      },
+    ],
+  },
+
+  "XPHB:Tasha's Hideous Laughter": {
+    key: "XPHB:Tasha's Hideous Laughter",
+    name: 'Hideous Laughter',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'hideousLaughter',
+        name: 'Hideous Laughter',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        conditions: ['incapacitated', 'prone'],
+        modifiers: [],
+        hooks: { saveOnDamage: { advantage: true } },
+      },
+    ],
+  },
+
+  'XPHB:Faerie Fire': {
+    key: 'XPHB:Faerie Fire',
+    name: 'Faerie Fire',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'faerieFire',
+        name: 'Faerie Fire',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        modifiers: [{ target: 'attack', mode: 'advantage' }],
+        light: { bright: 0, dim: 10 },
+      },
+    ],
+  },
+
+  'XPHB:Banishment': {
+    key: 'XPHB:Banishment',
+    name: 'Banishment',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'cha' },
+    effects: [
+      {
+        id: 'banishment',
+        name: 'Banishment',
+        duration: { type: 'rounds', rounds: 10 },
+        concentration: true,
+        to: 'targets',
+        conditions: ['incapacitated'],
+        modifiers: [],
+        banish: true,
+      },
+    ],
+  },
+
+  'XPHB:Hypnotic Pattern': {
+    key: 'XPHB:Hypnotic Pattern',
+    name: 'Hypnotic Pattern',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'hypnoticPattern',
+        name: 'Hypnotic Pattern',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        conditions: ['charmed', 'incapacitated'],
+        modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
+        hooks: { wakeOnDamage: true },
+      },
+    ],
+  },
+
+  'XPHB:Sanctuary': {
+    key: 'XPHB:Sanctuary',
+    name: 'Sanctuary',
+    primary: 'effect',
+    targeting: { kind: 'creature', range: 30 },
+    effects: [
+      {
+        id: 'sanctuary',
+        name: 'Sanctuary',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [],
+        hooks: { sanctuary: true, breakOn: ['attack', 'spell', 'damage'] },
+      },
+    ],
+  },
+
+  'XPHB:Warding Bond': {
+    key: 'XPHB:Warding Bond',
+    name: 'Warding Bond',
+    primary: 'effect',
+    effects: [
+      {
+        id: 'wardingBond',
+        name: 'Warding Bond',
+        duration: PERMANENT,
+        to: 'targets',
+        modifiers: [
+          { target: 'ac', mode: 'add', value: 1 },
+          { target: 'save', mode: 'add', value: 1 },
+          ...DAMAGE_TYPES.map((type) => ({
+            target: 'damage' as const,
+            mode: 'resistance' as const,
+            value: 0,
+            filter: { damageType: type.key },
+          })),
+        ],
+        hooks: { damageLink: true },
       },
     ],
   },
