@@ -1,5 +1,5 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, SLEET_PRONE, STINKING_POISONED, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -126,40 +126,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       wakeOnDamage: true,
     },
   ], { ability: 'wis' }),
-  // Hunger of Hadar: сфера 20; слепота и урон — при любом пересечении клеток
-  // (любая занятая клетка в зоне). Магическая тьма — `flags.blocksLight`.
-  'XPHB:Hunger of Hadar': {
-    key: 'XPHB:Hunger of Hadar',
-    name: 'Hunger of Hadar',
-    resolution: 'auto',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      aura: {
-        effects: [
-          {
-            name: 'Hunger of Hadar',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [],
-            conditions: ['blinded'],
-          },
-        ],
-      },
-      triggers: {
-        // «В области» — любое пересечение клеток (краевые большие токены тоже бьются).
-        startOfTurn: { containment: 'anyCell', damage: { dice: '2d6', types: ['cold'] } },
-        endOfTurn: {
-          containment: 'anyCell',
-          save: { ability: 'dex' },
-          damage: { dice: '2d6', types: ['acid'] },
-        },
-      },
-      flags: { difficultTerrain: true, blocksLight: true },
-    },
-  },
   // Зоны (R8.1): Web, Grease, Stinking Cloud. Мгновенный payload — при касте,
   // дальше — триггеры зоны (вход, начало/конец хода).
   'XPHB:Web': {
@@ -285,57 +251,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
-  'XPHB:Stinking Cloud': {
-    key: 'XPHB:Stinking Cloud',
-    name: 'Stinking Cloud',
-    resolution: 'auto',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      triggers: {
-        startOfTurn: { save: { ability: 'con' }, effects: [STINKING_POISONED] },
-      },
-      flags: { obscured: 'heavy' },
-    },
-  },
   // Darkness/Fog Cloud/Darkvision — спеки (батч `vision`): флаги зон и сенсы эффекта.
-  // Cloudkill: сфера 20, сильное заслонение; спас CON и 5d8 яда на входе/в начале хода.
-  'XPHB:Cloudkill': {
-    key: 'XPHB:Cloudkill',
-    name: 'Cloudkill',
-    resolution: 'auto',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      movable: true,
-      flags: { obscured: 'heavy' },
-      triggers: {
-        enter: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['poison'] } },
-        startOfTurn: { save: { ability: 'con', half: true }, damage: { dice: '$spell', types: ['poison'] } },
-      },
-    },
-  },
-  // Sleet Storm: цилиндр 20, сложная местность и сильное заслонение; спас DEX — ничком.
-  'XPHB:Sleet Storm': {
-    key: 'XPHB:Sleet Storm',
-    name: 'Sleet Storm',
-    resolution: 'auto',
-    concentration: true,
-    zone: {
-      area: { shape: 'cylinder', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      flags: { difficultTerrain: true, obscured: 'heavy' },
-      triggers: {
-        enter: { save: { ability: 'dex' }, effects: [SLEET_PRONE] },
-        startOfTurn: { save: { ability: 'dex' }, effects: [SLEET_PRONE] },
-      },
-    },
-  },
   // B1: баффы оружия. Divine Favor — свои атаки, Crusader's Mantle — аура союзникам,
   // Holy Weapon — цель-носитель + выданный бонусным действием «Разряд».
   /** Crusader's Mantle (XPHB 2024): эманация 30 фт — вы и союзники +1d4 излучением оружием и безоружным ударом. */

@@ -410,6 +410,31 @@ describe('поведение спеков (RAW, реальные данные)',
     });
   });
 
+  it('Батч Б4: auto-зоны (Stinking Cloud, Sleet Storm, Hunger of Hadar, Cloudkill)', () => {
+    const stinking = automationForSpell(find('XPHB:Stinking Cloud')).zone;
+    expect(stinking?.flags).toEqual({ obscured: 'heavy' });
+    const poisoned = stinking?.triggers?.startOfTurn?.effects?.[0];
+    expect(poisoned?.conditions).toEqual(['poisoned']);
+    expect(poisoned?.restrictions).toEqual({ noActions: true, noBonus: true });
+
+    const sleet = automationForSpell(find('XPHB:Sleet Storm')).zone;
+    expect(sleet?.area).toEqual({ shape: 'cylinder', size: 20 });
+    expect(sleet?.flags).toEqual({ difficultTerrain: true, obscured: 'heavy' });
+    expect(sleet?.triggers?.enter?.effects?.[0]?.conditions).toEqual(['prone']);
+
+    const hunger = automationForSpell(find('XPHB:Hunger of Hadar')).zone;
+    expect(hunger?.aura?.effects?.[0]?.conditions).toEqual(['blinded']);
+    expect(hunger?.triggers?.startOfTurn?.containment).toBe('anyCell');
+    expect(hunger?.triggers?.endOfTurn?.damage?.types).toEqual(['acid']);
+    expect(hunger?.flags).toEqual({ difficultTerrain: true, blocksLight: true });
+
+    const cloudkill = automationForSpell(find('XPHB:Cloudkill'));
+    expect(cloudkill.zone?.movable).toBe(true);
+    expect(cloudkill.zone?.triggers?.enter?.damage?.dice).toBe('5d8');
+    const upcast = automationForSpell(find('XPHB:Cloudkill'), { castLevel: 6 });
+    expect(upcast.zone?.triggers?.startOfTurn?.damage?.dice).toBe('5d8 + 1d8');
+  });
+
   it('Батч Б3: Grease и аурные зоны (Circle of Power, Aura of Life/Purity)', () => {
     const grease = automationForSpell(find('XPHB:Grease'));
     expect(grease.zone?.area).toEqual({ shape: 'cube', size: 10 });

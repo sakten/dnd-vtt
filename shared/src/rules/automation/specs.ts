@@ -637,6 +637,121 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     },
   },
 
+  // Батч Б4 (R16): auto-зоны каталога.
+  'XPHB:Hunger of Hadar': {
+    key: 'XPHB:Hunger of Hadar',
+    name: 'Hunger of Hadar',
+    primary: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      aura: {
+        effects: [
+          {
+            id: 'hungerOfHadar',
+            name: 'Hunger of Hadar',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [],
+            conditions: ['blinded'],
+          },
+        ],
+      },
+      triggers: {
+        // «В области» — любое пересечение клеток (краевые большие токены тоже бьются).
+        startOfTurn: { containment: 'anyCell', damage: { dice: '2d6', types: ['cold'] } },
+        endOfTurn: {
+          containment: 'anyCell',
+          save: { ability: 'dex' },
+          damage: { dice: '2d6', types: ['acid'] },
+        },
+      },
+      flags: { difficultTerrain: true, blocksLight: true },
+    },
+  },
+
+  'XPHB:Stinking Cloud': {
+    key: 'XPHB:Stinking Cloud',
+    name: 'Stinking Cloud',
+    primary: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      triggers: {
+        startOfTurn: {
+          save: { ability: 'con' },
+          effects: [
+            {
+              id: 'stinkingPoisoned',
+              name: 'Stinking Cloud',
+              duration: { type: 'endOfTurn', of: 'target' },
+              to: 'targets',
+              modifiers: [],
+              conditions: ['poisoned'],
+              restrictions: { noActions: true, noBonus: true },
+            },
+          ],
+        },
+      },
+      flags: { obscured: 'heavy' },
+    },
+  },
+
+  'XPHB:Cloudkill': {
+    key: 'XPHB:Cloudkill',
+    name: 'Cloudkill',
+    primary: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      movable: true,
+      flags: { obscured: 'heavy' },
+      triggers: {
+        enter: {
+          save: { ability: 'con', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '5d8' }, types: ['poison'] },
+        },
+        startOfTurn: {
+          save: { ability: 'con', half: true },
+          damage: { dice: { ref: 'spellDamage', fallback: '5d8' }, types: ['poison'] },
+        },
+      },
+    },
+  },
+
+  'XPHB:Sleet Storm': {
+    key: 'XPHB:Sleet Storm',
+    name: 'Sleet Storm',
+    primary: 'auto',
+    concentration: true,
+    zone: {
+      area: { shape: 'cylinder', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      flags: { difficultTerrain: true, obscured: 'heavy' },
+      triggers: {
+        enter: {
+          save: { ability: 'dex' },
+          effects: [
+            { id: 'sleetEnter', name: 'Sleet Storm', duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
+          ],
+        },
+        startOfTurn: {
+          save: { ability: 'dex' },
+          effects: [
+            { id: 'sleetStart', name: 'Sleet Storm', duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
+          ],
+        },
+      },
+    },
+  },
+
   'TCE:Green-Flame Blade': {
     key: 'TCE:Green-Flame Blade',
     name: 'Green-Flame Blade',

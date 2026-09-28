@@ -98,25 +98,6 @@ export const WEB_RESTRAINED: AutomationEffect = {
   escape: { ability: 'str', skill: 'athletics' },
 };
 
-/** Sleet Storm: сбит с ног (встаёт, тратя половину движения — вручную). */
-export const SLEET_PRONE: AutomationEffect = {
-  name: 'Sleet Storm',
-  duration: PERMANENT,
-  to: 'targets',
-  modifiers: [],
-  conditions: ['prone'],
-};
-
-/** Stinking Cloud: отравлен до конца текущего хода; нельзя действие/бонус. */
-export const STINKING_POISONED: AutomationEffect = {
-  name: 'Stinking Cloud',
-  duration: { type: 'endOfTurn', of: 'target' },
-  to: 'targets',
-  modifiers: [],
-  conditions: ['poisoned'],
-  restrictions: { noActions: true, noBonus: true },
-};
-
 /** Chill Touch: цель не восстанавливает HP до конца следующего хода кастера. */
 export const CHILL_TOUCH: AutomationEffect = {
   name: 'Chill Touch',
