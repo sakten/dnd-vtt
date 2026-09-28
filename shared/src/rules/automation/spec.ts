@@ -284,6 +284,10 @@ export interface EffectSpec {
   conditions?: Gated<ValueExpr>[];
   /** Иммунитеты к состояниям (Shining Smite: невидимость); значения — ссылки/гейты. */
   conditionImmunities?: Gated<ValueExpr>[];
+  /** Выпутывание действием (Web): проверка/спас против СЛ каста; СЛ подставляет сервер. */
+  escape?: { kind?: 'check' | 'save'; ability: ValueExpr; skill?: ValueExpr; dc?: number; label?: string; iconKey?: string };
+  /** Эскалация состояния при провале повторного спасброска (Sleep: incapacitated → unconscious). */
+  escalate?: { condition: ValueExpr; duration?: EffectDuration };
   /** Banishing Smite: провал спасброска изгоняет существо (конец каста — возврат). */
   banish?: boolean;
   light?: LightSource;

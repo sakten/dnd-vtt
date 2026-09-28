@@ -405,6 +405,24 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
       compileGated(ctx, entry, (c) => String(mustValue(ctx, c, `effect.${effect.id}.conditionImmunities`)) as ConditionKey)
     )
     .filter((c): c is ConditionKey => c !== undefined);
+  const escape = effect.escape
+    ? {
+        ...(effect.escape.kind ? { kind: effect.escape.kind } : {}),
+        ability: String(mustValue(ctx, effect.escape.ability, `effect.${effect.id}.escape`)) as AbilityKey,
+        ...(effect.escape.skill !== undefined
+          ? { skill: String(mustValue(ctx, effect.escape.skill, `effect.${effect.id}.escape.skill`)) }
+          : {}),
+        ...(effect.escape.dc !== undefined ? { dc: effect.escape.dc } : {}),
+        ...(effect.escape.label ? { label: effect.escape.label } : {}),
+        ...(effect.escape.iconKey ? { iconKey: effect.escape.iconKey } : {}),
+      }
+    : undefined;
+  const escalate = effect.escalate
+    ? {
+        condition: String(mustValue(ctx, effect.escalate.condition, `effect.${effect.id}.escalate`)) as ConditionKey,
+        ...(effect.escalate.duration !== undefined ? { duration: effect.escalate.duration } : {}),
+      }
+    : undefined;
   const targets = effect.targets !== undefined ? Number(mustValue(ctx, effect.targets, `effect.${effect.id}.targets`)) : undefined;
   const duration = resolveLeveled(ctx, effect.duration);
   if (!duration) throw new Error(`AutomationSpec ${ctx.spec.key}: effect.${effect.id} без duration`);
@@ -429,6 +447,8 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     modifiers,
     ...(conditions.length ? { conditions } : {}),
     ...(conditionImmunities.length ? { conditionImmunities } : {}),
+    ...(escape ? { escape } : {}),
+    ...(escalate ? { escalate } : {}),
     ...(effect.banish ? { banish: true } : {}),
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(effect.markTarget ? { markTarget: true } : {}),
@@ -760,6 +780,11 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (effect.senses !== undefined) pushGated(effect.senses, () => undefined);
     if (effect.seesInvisible !== undefined) pushGated(effect.seesInvisible, () => undefined);
     for (const entry of effect.conditionImmunities ?? []) pushGated(entry, (c) => refs.push(c));
+    if (effect.escape) {
+      refs.push(effect.escape.ability);
+      if (effect.escape.skill !== undefined) refs.push(effect.escape.skill);
+    }
+    if (effect.escalate) refs.push(effect.escalate.condition);
     for (const entry of effect.modifiers ?? []) {
       pushGated(entry, (m) => {
         if (m.value !== undefined) refs.push(m.value);

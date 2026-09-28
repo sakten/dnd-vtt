@@ -2,7 +2,7 @@ import { DAMAGE_TYPES, SKILLS } from '../../labels';
 import type { EffectDuration } from '../../domain/effects';
 import { SPELL_BASES } from './bases';
 import { CONCENTRATION, PERMANENT, RESISTANCE_TYPES, UNTIL_NEXT_TURN } from './header';
-import type { AutomationSpec, ActionSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
+import type { AutomationSpec, ActionSpec, EffectSpec, PayloadSpec, ValueExpr, WallDimsSpec, ZoneSpec } from './spec';
 
 /** Magic Weapon: +1/+2/+3 к попаданию и урону с 1/3/6 круга (литеральные ступени). */
 const MAGIC_WEAPON_BONUS: ValueExpr = {
@@ -70,6 +70,17 @@ const moveZoneAction = (cost: 'action' | 'bonus', feet: number): ActionSpec => (
   primary: 'utility',
   utility: { kind: 'moveZone', amount: feet },
   targeting: { kind: 'point', range: feet },
+});
+
+/** Web: опутан, пока в паутине; выпутывание — STR (Athletics) против СЛ каста. */
+const webRestrained = (): EffectSpec => ({
+  id: 'web',
+  name: 'Web',
+  duration: PERMANENT,
+  to: 'targets',
+  modifiers: [],
+  conditions: ['restrained'],
+  escape: { ability: 'str', skill: 'athletics' },
 });
 
 /**
@@ -2639,5 +2650,47 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
         ],
       },
     ],
+  },
+
+  // Батч Г (R16): escape/escalate — Sleep (эскалация в без сознания при провале
+  // повторного спасброска) и Web (выпутывание STR/Athletics действием).
+  'XPHB:Sleep': {
+    key: 'XPHB:Sleep',
+    name: 'Sleep',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'wis' },
+    effects: [
+      {
+        id: 'sleep',
+        name: 'Sleep',
+        duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+        concentration: true,
+        to: 'targets',
+        modifiers: [],
+        conditions: ['incapacitated'],
+        hooks: { wakeOnDamage: true },
+        escalate: { condition: 'unconscious', duration: CONCENTRATION },
+      },
+    ],
+  },
+
+  'XPHB:Web': {
+    key: 'XPHB:Web',
+    name: 'Web',
+    primary: 'effect',
+    concentration: true,
+    save: { ability: 'dex' },
+    effects: [webRestrained()],
+    zone: {
+      area: { shape: 'cube', size: 20 },
+      origin: 'point',
+      duration: CONCENTRATION,
+      triggers: {
+        enter: { save: { ability: 'dex' }, effects: [webRestrained()] },
+        startOfTurn: { save: { ability: 'dex' }, effects: [webRestrained()] },
+      },
+      flags: { difficultTerrain: true },
+    },
   },
 };

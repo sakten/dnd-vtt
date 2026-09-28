@@ -88,16 +88,6 @@ export const PERMANENT: EffectDuration = { type: 'permanent' };
 export const CONCENTRATION: EffectDuration = { type: 'concentration' };
 export const UNTIL_NEXT_TURN: EffectDuration = { type: 'endOfTurn', of: 'source' };
 
-/** Web: опутан, пока в паутине; выпутывание — STR (Athletics) против СЛ каста. */
-export const WEB_RESTRAINED: AutomationEffect = {
-  name: 'Web',
-  duration: PERMANENT,
-  to: 'targets',
-  modifiers: [],
-  conditions: ['restrained'],
-  escape: { ability: 'str', skill: 'athletics' },
-};
-
 /** Chill Touch: цель не восстанавливает HP до конца следующего хода кастера. */
 export const CHILL_TOUCH: AutomationEffect = {
   name: 'Chill Touch',

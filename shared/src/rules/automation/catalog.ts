@@ -1,5 +1,5 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect } from './header';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, chipSpell, directionAction, manualSpell, spellEffect } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -34,6 +34,7 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   ]),
   // Daylight/Moonbeam/Flaming Sphere/Faithful Hound — спеки (батч `zone`-локаций):
   // свет, перемещаемые сферы и пёс-страж с действием «Переместить».
+  // Sleep и Web — спеки (батч `escape`/`escalate`): эскалация сна и выпутывание.
   // Контроль (спас → состояние); «до конца следующего хода» трактуется движком
   // как до начала следующего хода источника.
   // Charm Person/Charm Monster/Animal Friendship/Suggestion — manual: «очарован»
@@ -45,38 +46,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
    * концентрация). Возврат при снятии эффекта; экстрапланетные по истечении
    * полного срока не возвращаются (удаляются) — решает исполнение тика.
    */
-  'XPHB:Sleep': spellEffect('XPHB:Sleep', 'Sleep', [
-    {
-      name: 'Sleep',
-      duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
-      concentration: true,
-      to: 'targets',
-      conditions: ['incapacitated'],
-      modifiers: [],
-      escalate: { condition: 'unconscious', duration: CONCENTRATION },
-      wakeOnDamage: true,
-    },
-  ], { ability: 'wis' }),
-  // Зоны (R8.1): Web, Grease, Stinking Cloud. Мгновенный payload — при касте,
-  // дальше — триггеры зоны (вход, начало/конец хода).
-  'XPHB:Web': {
-    key: 'XPHB:Web',
-    name: 'Web',
-    resolution: 'effect',
-    concentration: true,
-    save: { ability: 'dex' },
-    effects: [WEB_RESTRAINED],
-    zone: {
-      area: { shape: 'cube', size: 20 },
-      origin: 'point',
-      duration: CONCENTRATION,
-      triggers: {
-        enter: { save: { ability: 'dex' }, effects: [WEB_RESTRAINED] },
-        startOfTurn: { save: { ability: 'dex' }, effects: [WEB_RESTRAINED] },
-      },
-      flags: { difficultTerrain: true },
-    },
-  },
   /** Irresistible Dance (XPHB): танец на месте; провал — Charmed и повторный спас действием «Собраться». */
   "XPHB:Otto's Irresistible Dance": {
     key: "XPHB:Otto's Irresistible Dance",

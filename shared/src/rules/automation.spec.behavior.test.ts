@@ -625,4 +625,27 @@ describe('поведение спеков (RAW, реальные данные)',
       conditions: ['blinded'],
     });
   });
+
+  it('Батч Г: Web — выпутывание STR/Athletics; Sleep — эскалация в без сознания', () => {
+    const web = automationForSpell(find('XPHB:Web'));
+    expect(web.concentration).toBe(true);
+    expect(web.save).toEqual({ ability: 'dex' });
+    const restrained = web.effects?.[0];
+    expect(restrained?.conditions).toEqual(['restrained']);
+    expect(restrained?.escape).toEqual({ ability: 'str', skill: 'athletics' });
+    expect(restrained?.duration).toEqual({ type: 'permanent' });
+    // Выпутывание доступно и в триггерах зоны (вход и начало хода).
+    expect(web.zone?.triggers?.enter?.effects?.[0]?.escape).toEqual({ ability: 'str', skill: 'athletics' });
+    expect(web.zone?.triggers?.startOfTurn?.effects?.[0]?.escape).toEqual({ ability: 'str', skill: 'athletics' });
+    expect(web.zone?.flags).toEqual({ difficultTerrain: true });
+
+    const sleep = automationForSpell(find('XPHB:Sleep'));
+    expect(sleep.save).toEqual({ ability: 'wis' });
+    const nap = sleep.effects?.[0];
+    expect(nap?.concentration).toBe(true);
+    expect(nap?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' });
+    expect(nap?.conditions).toEqual(['incapacitated']);
+    expect(nap?.escalate).toEqual({ condition: 'unconscious', duration: { type: 'concentration' } });
+    expect(nap?.wakeOnDamage).toBe(true);
+  });
 });
