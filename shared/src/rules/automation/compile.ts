@@ -187,7 +187,7 @@ function compileLoadout(ctx: CompileCtx, loadout: LoadoutSpec): Partial<Automati
       shadowBlade: { dice: String(mustValue(ctx, loadout.dice, 'loadout.dice')), inHand: loadout.inHand },
     };
   }
-  const filter = { weapon: true, unarmed: false, ...(loadout.ranged ? { attackType: 'ranged' as const } : {}) };
+  const filter = { weapon: true, unarmed: false };
   const modifiers: AutomationEffect['modifiers'] = [];
   if (loadout.attack !== undefined) {
     modifiers.push({ target: 'attack', mode: 'add', value: mustValue(ctx, loadout.attack, 'loadout.attack'), filter });
@@ -907,16 +907,10 @@ export function validateSpec(spec: AutomationSpec): string[] {
         if (l.damage !== undefined) refs.push(l.damage);
       }
     }
-    for (const action of effect.actions ?? []) {
-      if (action.damage) {
-        refs.push(action.damage.dice);
-        for (const t of action.damage.types ?? []) refs.push(t);
-      }
-      collectUtility(action.utility as UtilitySpec | undefined);
-      for (const nested of action.effects ?? []) collectEffect(nested);
-    }
+    for (const action of effect.actions ?? []) collectAction(action);
   };
   for (const effect of spec.effects ?? []) collectEffect(effect);
+  for (const effect of spec.saveSuccess ?? []) collectEffect(effect);
   const pushDamageRefs = (damage: DamageSpec) => {
     if ('parts' in damage) {
       for (const part of damage.parts) refs.push(part.dice, part.type);
@@ -938,6 +932,33 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (utility.blockedDamage) pushDamageRefs(utility.blockedDamage);
     if (utility.fromBurst?.damage) pushDamageRefs(utility.fromBurst.damage);
   }
+  /** Действие и его вложенные эффекты; `baseActionId` несовместим с payload (compileAction его не читает). */
+  function collectAction(action: ActionSpec) {
+    if (
+      action.baseActionId &&
+      (action.primary !== undefined ||
+        action.attack ||
+        action.count !== undefined ||
+        action.save ||
+        action.damage ||
+        action.effects?.length ||
+        action.utility ||
+        action.area ||
+        action.targeting ||
+        action.lifesteal ||
+        action.banishOnFail ||
+        action.requiresCreatureTypes?.length ||
+        action.retarget)
+    ) {
+      errors.push(`action.${action.id}: baseActionId несовместим с payload (payload молча теряется)`);
+    }
+    if (action.damage) {
+      refs.push(action.damage.dice);
+      for (const t of action.damage.types ?? []) refs.push(t);
+    }
+    collectUtility(action.utility as UtilitySpec | undefined);
+    for (const nested of action.effects ?? []) collectEffect(nested);
+  }
   if (spec.damage) pushDamageRefs(spec.damage);
   if (spec.successDamage) pushDamageRefs(spec.successDamage);
   if (spec.heal) {
@@ -952,6 +973,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
   }
   if (spec.zone) {
     if (spec.zone.charges !== undefined) refs.push(spec.zone.charges);
+    for (const action of spec.zone.actions ?? []) collectAction(action);
     collectPayload(spec.zone.onCreate);
     collectPayload(spec.zone.aura);
     collectPayload(spec.zone.wall?.breach);

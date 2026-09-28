@@ -148,6 +148,36 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
     expect(validateSpec(weapon)).toEqual([]);
   });
 
+  it('валидатор: baseActionId вместе с payload — ошибка, а не молчаливая потеря', () => {
+    const action = { id: 'dash', name: 'Рывок', cost: 'bonus', baseActionId: 'dash' };
+    const bad = {
+      key: 'TEST:BadBaseAction',
+      name: 'BadBaseAction',
+      primary: 'effect',
+      effects: [
+        {
+          id: 'e',
+          name: 'E',
+          duration: { type: 'permanent' },
+          modifiers: [],
+          actions: [{ ...action, damage: { dice: '1d6' } }],
+        },
+      ],
+    } as unknown as AutomationSpec;
+    expect(validateSpec(bad).some((e) => e.includes('baseActionId'))).toBe(true);
+    expect(() => compileSpec(bad, { spell: SPELLS[0]!, opts: {} })).toThrow();
+
+    const ok = {
+      key: 'TEST:BaseAction',
+      name: 'BaseAction',
+      primary: 'effect',
+      effects: [
+        { id: 'e', name: 'E', duration: { type: 'permanent' }, modifiers: [], actions: [action] },
+      ],
+    } as unknown as AutomationSpec;
+    expect(validateSpec(ok)).toEqual([]);
+  });
+
   it('utility: multiplier/thenMove — зеркало AutomationUtility (Мантия вдохновения)', () => {
     const spec: AutomationSpec = {
       key: 'TEST:Mantle',

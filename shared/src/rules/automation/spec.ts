@@ -120,8 +120,6 @@ export interface LoadoutAugment {
   kind: 'augment';
   attack?: ValueExpr;
   damage?: ValueExpr;
-  /** Фильтр только по дальнобойным атакам (Flame Arrows). */
-  ranged?: boolean;
   /** Атаки считаются магическими (`magicWeapon`). */
   magic?: boolean;
 }

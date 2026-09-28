@@ -161,7 +161,7 @@ CUSTOM:Jallarzi-Fire {
 | payload `save` | — | ✓ | — | — | — | — | — |
 | `banishOnFail` | — | ✓ | — | — | — | — | — |
 
-Обязательные условия: `attack` требует `attack` (или `weaponAttack`); `effect` — непустой `effects`; `utility` — `utility.kind`; `summon` — `summon`; `manual` — только `byDesign`-замки и отложенный контент.
+Обязательные условия: `attack` требует `attack` (или `weaponAttack`); `effect` — непустой `effects`; `utility` — `utility.kind`; `summon` — `summon`; `manual` — только `byDesign`-замки и отложенный контент; `ActionSpec` с `baseActionId` несовместим с payload-полями (`primary`/`save`/`damage`/`effects`/`utility`/`count`/…) — ошибка валидатора, а не молчаливая потеря.
 
 ## 7. Компиляция и миграция
 
@@ -196,6 +196,7 @@ CUSTOM:Jallarzi-Fire {
 - каталог закрыт на спеках: `zone`-локации (Daylight/Moonbeam/Flaming Sphere/Faithful Hound/Crusader's Mantle/Holy Weapon), `escape`/`escalate` (Web/Sleep), `endConditions` (Protection from Poison/Lesser Restoration), `shape`/`saveSuccess`/`conditionImmunitiesFrom`/флаги движения (Polymorph/Freedom of Movement/Protection from Evil and Good/Otto/Primordial Ward/Fount of Moonlight); в `AUTOMATION_SPELLS` — только manual/chip.
 - слой добавок снесён: Shocking Grasp/Chill Touch — attack-спеки с райдером (`restrictions.noOpportunityAttacks`/`hooks.noHeal`), Cure Wounds/Healing Word/Mass Healing Word/Mass Cure Wounds (heal `abilityMod` + `types`, `targets: 6`), Prayer of Healing (`targets: 5`), Harm (`AutomationSpec.maxHpFromDamage`); `AUTOMATION_ADDITIONS`/`AutomationAddition`/`withAdditions`/`healAbilityMod`-мутация и `withSpellDice`/`resolveZoneDice` удалены, `derived` не менялся (`21dcc4e4cec47878`).
 - класс 2 аудита (точки расширения): выборы — адресация по id (`{ref:'choice', choice}`, `optional` включается только явным вариантом этого выбора), словари опций (`damageType`/`condition`/`ability`/`skill`) проверяет `validateSpec`, `spellVariantDef` резолвит `extends`-копии (селект кастомного спелла); замок зеркала `UtilitySpec.multiplier/thenMove` (Мантия вдохновения) — тесты `automation.spec.test.ts`, `derived` не менялся. `ref:'characterLevel'` и `ZoneWallDef.resistances` по решению владельца не покрывались.
+- класс 3 аудита (дубли): удалены `header.remarkAction`/`header.zoneMoveAction` (мёртвый runtime-слой, универсальный путь — `ActionSpec`) и `LoadoutAugment.ranged` (дубль `ModifierFilter.attackType`, Flame Arrows объявляет его напрямую); `validateSpec` даёт ошибку на `baseActionId`+payload и дособирает refs `saveSuccess`/`zone.actions`. Отложено: `CompositeConfig.upcast/onFail/zone` — срез B (тултипы из спеков); роль `'choice'` в данных `damage.parts` — снять при следующей регенерации `npm run spells`.
 - билдеры закрыты: `lifesteal`/`lifeTransfer`, `UtilitySpec.dice`, `area`, `halfOnMiss`/`successDamage`/`undeadTempHp`/`heal`, effect `triggers`/`selfOnFail`/`maxHpBonus`, `ActionSpec.banishOnFail`/`requiresCreatureTypes`; мигрированы все билдеры, `derived` не менялся, `BUILTIN_AUTOMATION`/`spellBuiltinAutomated` удалены, `builders.ts` → `helpers.ts` (COMPOSITE_CONFIGS + хелперы костей).
 
 Открыто (решить при реализации шага 2–3):

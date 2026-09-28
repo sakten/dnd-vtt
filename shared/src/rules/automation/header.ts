@@ -43,38 +43,6 @@ export function directionAction(name: string, direction: DirectionKey): GrantedA
   };
 }
 
-/** Выданное действие «Перенести метку» (Hex/Hunter's Mark): только после смерти текущей цели. */
-export function remarkAction(spellKey: string, name: string): GrantedAction {
-  return {
-    id: 'remark',
-    name: 'Перенести метку',
-    cost: 'bonus',
-    def: {
-      key: spellKey,
-      name,
-      resolution: 'manual',
-      retarget: true,
-      targeting: { kind: 'creature', range: 90 },
-    },
-  };
-}
-
-/** Выданное зоной действие перемещения (Moonbeam 60, Flaming Sphere 30, Faithful Hound 30). */
-export function zoneMoveAction(name: string, cost: 'action' | 'bonus', feet: number): GrantedAction {
-  return {
-    id: 'move',
-    name,
-    cost,
-    def: {
-      key: 'zone:move',
-      name,
-      resolution: 'utility',
-      utility: { kind: 'moveZone', amount: feet },
-      targeting: { kind: 'point', range: feet },
-    },
-  };
-}
-
 /**
  * Каталог автоматизации (R8.1). Ключ — `Spell.key` (или id действия для черт).
  * Строка каталога полностью описывает механику; заклинания без строки получают
