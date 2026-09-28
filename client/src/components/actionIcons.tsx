@@ -431,6 +431,32 @@ export const ACTION_ICON_FALLBACKS: Record<string, ReactNode> = {
       <path d="M12 5.6a6.4 6.4 0 0 1 0 12.8 4.6 4.6 0 0 0 0-9.2 3 3 0 0 0 0 6" fill="none" stroke="#d0bfff" strokeWidth="1.4" strokeLinecap="round" />
     </>
   ),
+  grip: (
+    <>
+      <path
+        d="M8.2 14.8V9.4a1.15 1.15 0 0 1 2.3 0v3.2M10.5 12.6V7.8a1.15 1.15 0 0 1 2.3 0v4.8M12.8 12.6V9.6a1.15 1.15 0 0 1 2.3 0v3M15.1 12.8v-2a1.05 1.05 0 0 1 2.1 0v4.6a5.6 5.6 0 0 1-5.6 5.6h-1.4a4.6 4.6 0 0 1-4.6-4.6V13"
+        fill="#b197fc"
+        stroke="#3b1d78"
+        strokeWidth="0.6"
+        strokeLinejoin="round"
+      />
+      <path d="M3.4 7.2 5 8.8M17.4 4.4 16.4 6.6M20.6 9.8l-2.2.6" stroke="#d0bfff" strokeWidth="1.3" strokeLinecap="round" />
+    </>
+  ),
+  banish: (
+    <>
+      <circle cx="12" cy="12" r="8.2" fill="none" stroke="#74c0fc" strokeWidth="1.6" strokeDasharray="4 3" />
+      <path
+        d="M12 4.4v9.2M8.4 10.2 12 13.8l3.6-3.6"
+        fill="none"
+        stroke="#e9ecef"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M5.6 17.4h12.8" stroke="#ced4da" strokeWidth="1.6" strokeLinecap="round" />
+    </>
+  ),
   'direction-up': (
     <>
       <path d="M12 3.6 5.4 10.4h3.4v9.2h6.4v-9.2h3.4z" fill="#74c0fc" stroke="#1c5f9e" strokeWidth="0.7" strokeLinejoin="round" />
