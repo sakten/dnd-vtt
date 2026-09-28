@@ -410,6 +410,31 @@ describe('поведение спеков (RAW, реальные данные)',
     });
   });
 
+  it('Батч Б3: Grease и аурные зоны (Circle of Power, Aura of Life/Purity)', () => {
+    const grease = automationForSpell(find('XPHB:Grease'));
+    expect(grease.zone?.area).toEqual({ shape: 'cube', size: 10 });
+    expect(grease.zone?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(grease.zone?.flags).toEqual({ difficultTerrain: true });
+    expect(grease.zone?.triggers?.enter?.effects?.[0]?.conditions).toEqual(['prone']);
+    expect(grease.zone?.triggers?.endOfTurn?.save).toEqual({ ability: 'dex' });
+
+    const power = automationForSpell(find('XPHB:Circle of Power')).zone;
+    expect(power?.side).toBe('ally');
+    expect(power?.aura?.effects?.[0]?.modifiers).toEqual([
+      { target: 'save', mode: 'advantage', filter: { magical: true } },
+    ]);
+    expect(power?.aura?.effects?.[0]?.saveNoDamage).toBe(true);
+
+    const life = automationForSpell(find('XPHB:Aura of Life')).zone;
+    expect(life?.triggers?.startOfTurn).toEqual({ healTo: 1 });
+    expect(life?.aura?.effects?.[0]?.modifiers).toEqual([
+      { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'necrotic' } },
+    ]);
+
+    const purity = automationForSpell(find('XPHB:Aura of Purity')).zone;
+    expect(purity?.aura?.effects?.[0]?.conditionImmunities).toEqual(['poisoned']);
+  });
+
   it('Батч Б2: Revivify/Spare the Dying/Dispel Magic — утилиты с таргетингом', () => {
     const revive = automationForSpell(find('XPHB:Revivify'));
     expect(revive.resolution).toBe('utility');

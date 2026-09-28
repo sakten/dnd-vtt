@@ -98,15 +98,6 @@ export const WEB_RESTRAINED: AutomationEffect = {
   escape: { ability: 'str', skill: 'athletics' },
 };
 
-/** Grease: сбит с ног (встаёт, тратя половину движения — вручную). */
-export const GREASE_PRONE: AutomationEffect = {
-  name: 'Grease',
-  duration: PERMANENT,
-  to: 'targets',
-  modifiers: [],
-  conditions: ['prone'],
-};
-
 /** Sleet Storm: сбит с ног (встаёт, тратя половину движения — вручную). */
 export const SLEET_PRONE: AutomationEffect = {
   name: 'Sleet Storm',

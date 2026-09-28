@@ -521,6 +521,122 @@ export const AUTOMATION_SPECS: Record<string, AutomationSpec> = {
     targeting: { kind: 'creature', range: 120 },
   },
 
+  // Батч Б3 (R16): зоны и ауры каталога.
+  'XPHB:Grease': {
+    key: 'XPHB:Grease',
+    name: 'Grease',
+    primary: 'effect',
+    save: { ability: 'dex' },
+    effects: [
+      { id: 'grease', name: 'Grease', duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
+    ],
+    zone: {
+      area: { shape: 'cube', size: 10 },
+      origin: 'point',
+      duration: { type: 'rounds', rounds: 10 },
+      triggers: {
+        enter: {
+          save: { ability: 'dex' },
+          effects: [
+            { id: 'greaseEnter', name: 'Grease', duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
+          ],
+        },
+        endOfTurn: {
+          save: { ability: 'dex' },
+          effects: [
+            { id: 'greaseEnd', name: 'Grease', duration: PERMANENT, to: 'targets', modifiers: [], conditions: ['prone'] },
+          ],
+        },
+      },
+      flags: { difficultTerrain: true },
+    },
+  },
+
+  'XPHB:Circle of Power': {
+    key: 'XPHB:Circle of Power',
+    name: 'Circle of Power',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            id: 'circleOfPower',
+            name: 'Circle of Power',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'save', mode: 'advantage', filter: { magical: true } }],
+            hooks: { saveNoDamage: true },
+          },
+        ],
+      },
+    },
+  },
+
+  'XPHB:Aura of Life': {
+    key: 'XPHB:Aura of Life',
+    name: 'Aura of Life',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            id: 'auraOfLife',
+            name: 'Aura of Life',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'necrotic' } }],
+          },
+        ],
+      },
+      triggers: { startOfTurn: { healTo: 1 } },
+    },
+  },
+
+  'XPHB:Aura of Purity': {
+    key: 'XPHB:Aura of Purity',
+    name: 'Aura of Purity',
+    primary: 'effect',
+    concentration: true,
+    zone: {
+      area: { shape: 'sphere', size: 30 },
+      origin: 'self',
+      anchor: 'source',
+      duration: CONCENTRATION,
+      side: 'ally',
+      aura: {
+        effects: [
+          {
+            id: 'auraOfPurity',
+            name: 'Aura of Purity',
+            duration: PERMANENT,
+            to: 'targets',
+            modifiers: [
+              { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
+              {
+                target: 'save',
+                mode: 'advantage',
+                filter: { conditions: ['blinded', 'charmed', 'deafened', 'frightened', 'poisoned', 'stunned'] },
+              },
+            ],
+            conditionImmunities: ['poisoned'],
+          },
+        ],
+      },
+    },
+  },
+
   'TCE:Green-Flame Blade': {
     key: 'TCE:Green-Flame Blade',
     name: 'Green-Flame Blade',

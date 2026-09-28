@@ -1,5 +1,5 @@
 import type { AutomationDef, AutomationEffect, AutomationPayload, ZoneDef } from '../../domain/automation';
-import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, GREASE_PRONE, PERMANENT, SLEET_PRONE, STINKING_POISONED, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
+import { CHILL_TOUCH, CONCENTRATION, EVIL_GOOD_TYPES, PERMANENT, SLEET_PRONE, STINKING_POISONED, WEB_RESTRAINED, chipSpell, directionAction, manualSpell, spellEffect, zoneMoveAction } from './header';
 
 export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
   /** Polymorph (XPHB 2024): спас WIS, форма-зверь с CR ≤ CR/уровня цели, концентрация. */
@@ -180,23 +180,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       flags: { difficultTerrain: true },
     },
   },
-  'XPHB:Grease': {
-    key: 'XPHB:Grease',
-    name: 'Grease',
-    resolution: 'effect',
-    save: { ability: 'dex' },
-    effects: [GREASE_PRONE],
-    zone: {
-      area: { shape: 'cube', size: 10 },
-      origin: 'point',
-      duration: { type: 'rounds', rounds: 10 },
-      triggers: {
-        enter: { save: { ability: 'dex' }, effects: [GREASE_PRONE] },
-        endOfTurn: { save: { ability: 'dex' }, effects: [GREASE_PRONE] },
-      },
-      flags: { difficultTerrain: true },
-    },
-  },
   /** Irresistible Dance (XPHB): танец на месте; провал — Charmed и повторный спас действием «Собраться». */
   "XPHB:Otto's Irresistible Dance": {
     key: "XPHB:Otto's Irresistible Dance",
@@ -254,63 +237,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
       },
     ],
   },
-  /** Aura of Life (XPHB): эманация 30 фт — сопротивление некротике; союзник на 0 HP в начале хода — 1 HP. */
-  'XPHB:Aura of Life': {
-    key: 'XPHB:Aura of Life',
-    name: 'Aura of Life',
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 30 },
-      origin: 'self',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      side: 'ally',
-      aura: {
-        effects: [
-          {
-            name: 'Aura of Life',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [{ target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'necrotic' } }],
-          },
-        ],
-      },
-      triggers: { startOfTurn: { healTo: 1 } },
-    },
-  },
-  /** Aura of Purity (XPHB): эманация 30 фт — сопротивление/иммунитет к яду, преимущество сейвов против состояний. */
-  'XPHB:Aura of Purity': {
-    key: 'XPHB:Aura of Purity',
-    name: 'Aura of Purity',
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 30 },
-      origin: 'self',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      side: 'ally',
-      aura: {
-        effects: [
-          {
-            name: 'Aura of Purity',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [
-              { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'poison' } },
-              {
-                target: 'save',
-                mode: 'advantage',
-                filter: { conditions: ['blinded', 'charmed', 'deafened', 'frightened', 'poisoned', 'stunned'] },
-              },
-            ],
-            conditionImmunities: ['poisoned'],
-          },
-        ],
-      },
-    },
-  },
   /** Protection from Evil and Good (XPHB): помеха атакам шести типов, иммунитет к charmed/frightened от них. */
   'XPHB:Protection from Evil and Good': {
     key: 'XPHB:Protection from Evil and Good',
@@ -335,31 +261,6 @@ export const AUTOMATION_SPELLS: Record<string, AutomationDef> = {
         conditionImmunitiesFrom: { conditions: ['charmed', 'frightened'], types: EVIL_GOOD_TYPES },
       },
     ],
-  },
-  /** Circle of Power (XPHB): аура 30 фт — преимущество сейвов против магии, успех = без урона. */
-  'XPHB:Circle of Power': {
-    key: 'XPHB:Circle of Power',
-    name: 'Circle of Power',
-    resolution: 'effect',
-    concentration: true,
-    zone: {
-      area: { shape: 'sphere', size: 30 },
-      origin: 'self',
-      anchor: 'source',
-      duration: CONCENTRATION,
-      side: 'ally',
-      aura: {
-        effects: [
-          {
-            name: 'Circle of Power',
-            duration: PERMANENT,
-            to: 'targets',
-            modifiers: [{ target: 'save', mode: 'advantage', filter: { magical: true } }],
-            saveNoDamage: true,
-          },
-        ],
-      },
-    },
   },
   // Primordial Ward (XGE): сопротивления 5 типам; реакцией на урон типа — иммунитет к нему
   // (движок `ward` + `offerDamageReactions`, включая спровоцировавший урон).
