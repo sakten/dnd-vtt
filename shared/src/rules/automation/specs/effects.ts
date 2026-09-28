@@ -116,7 +116,18 @@ export const EFFECTS_SPECS: Record<string, AutomationSpec> = {
           { target: 'ac', mode: 'add', value: 2 },
           { target: 'speed', mode: 'multiply', value: 2 },
           { target: 'extraActions', mode: 'add', value: 1 },
+          { target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
         ],
+        // Вялость при спаде (RAW): не двигается и не действует до конца своего
+        // следующего хода. `rounds: 2` тикает на старте ходов носителя, поэтому
+        // эффект снимается после его ближайшего хода (остаток текущего — тоже).
+        onEnd: {
+          id: 'lethargy',
+          name: 'Вялость',
+          duration: { type: 'rounds', rounds: 2 },
+          modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
+          restrictions: { noActions: true, noBonus: true, noReactions: true },
+        },
       },
     ],
   },

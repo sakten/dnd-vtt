@@ -1569,6 +1569,48 @@ describe('RoomManager эффекты', () => {
     expect(combat.turns.e1!.concentrationId).toBeNull();
   });
 
+  it('onEnd: снятие концентрации накладывает «Вялость» (Haste), перекаст — нет', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const caster = token('t1');
+    const target = token('t2');
+    room.scene.maps[0]!.tokens = [caster, target];
+    const haste = (id: string): EffectInstance => ({
+      id,
+      name: 'Haste',
+      concentration: true,
+      sourceId: 't1',
+      sourceKey: 'XPHB:Haste',
+      duration: { type: 'concentration' },
+      modifiers: [{ id: `${id}:m`, target: 'speed', mode: 'multiply', value: 2 }],
+      onEnd: {
+        name: 'Вялость',
+        duration: { type: 'rounds', rounds: 2 },
+        modifiers: [{ id: `${id}:end:m0`, target: 'speed', mode: 'multiply', value: 0 }],
+        restrictions: { noActions: true, noBonus: true, noReactions: true },
+      },
+    });
+
+    manager.applyEffect(room, target, haste('h1'));
+    manager.clearConcentration(room, 't1');
+    expect(target.effects.some((e) => e.name === 'Haste')).toBe(false);
+    const lethargy = target.effects.find((e) => e.name === 'Вялость');
+    expect(lethargy?.modifiers[0]).toMatchObject({ target: 'speed', mode: 'multiply', value: 0 });
+    expect(lethargy?.restrictions).toEqual({ noActions: true, noBonus: true, noReactions: true });
+    expect(manager.tokenSpeed(room, target)).toBe(0);
+
+    // `rounds: 2` тикает на старте ходов носителя: живёт его ближайший ход, не рекурсирует.
+    manager.tickEffects(room, target, 'start');
+    expect(target.effects.some((e) => e.name === 'Вялость')).toBe(true);
+    manager.tickEffects(room, target, 'start');
+    expect(target.effects).toHaveLength(0);
+
+    // Замена при перекасте (`triggerEnd: false`) вялость не накладывает.
+    manager.applyEffect(room, target, haste('h2'));
+    manager.removeEffect(room, target, 'h2', { triggerEnd: false });
+    expect(target.effects).toHaveLength(0);
+  });
+
   it('concentrationCheck: успех сохраняет, провал снимает эффекты', () => {
     const manager = setup();
     const room = makeRoom();

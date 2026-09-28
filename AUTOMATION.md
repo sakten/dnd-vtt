@@ -89,7 +89,7 @@
 
 ### 3.8. Существующие блоки (не меняются)
 - `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами; в спеке — `ZoneSpec` (pass-through + `ValueExpr` в charges/триггерах через `PayloadSpec`); стены — параметрически: `zone.area: { wall: WallDims | { from: 'spell' } }` (`wallAreaOf(dims, variant)`, габариты — `WALL_DIMS`), секции — `zone.wall` (+`breach: PayloadSpec`), общий шаблон `wallZone(...)` в `specs/factories.ts` (шапка + параметры: триггеры/секции/флаги/свет/действия);
-- `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (мигрируют в `damageHooks`), выданные действия;
+- `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (мигрируют в `damageHooks`), выданные действия; `onEnd` — эффект при снятии носителя (Haste: «вялость») — применяется во всех путях снятия, кроме замены одноимённого эффекта при перекасте;
 - `utility` (`kind` — готовый образец «блока со стратегиями», 21 значение);
 - `summon`, `shape`, payload (`save`/`damage`/`heal`/…).
 
@@ -198,6 +198,7 @@ CUSTOM:Jallarzi-Fire {
 - класс 2 аудита (точки расширения): выборы — адресация по id (`{ref:'choice', choice}`, `optional` включается только явным вариантом этого выбора), словари опций (`damageType`/`condition`/`ability`/`skill`) проверяет `validateSpec`, `spellVariantDef` резолвит `extends`-копии (селект кастомного спелла); замок зеркала `UtilitySpec.multiplier/thenMove` (Мантия вдохновения) — тесты `automation.spec.test.ts`, `derived` не менялся. `ref:'characterLevel'` и `ZoneWallDef.resistances` по решению владельца не покрывались.
 - класс 3 аудита (дубли): удалены `header.remarkAction`/`header.zoneMoveAction` (мёртвый runtime-слой, универсальный путь — `ActionSpec`) и `LoadoutAugment.ranged` (дубль `ModifierFilter.attackType`, Flame Arrows объявляет его напрямую); `validateSpec` даёт ошибку на `baseActionId`+payload и дособирает refs `saveSuccess`/`zone.actions`. Отложено: `CompositeConfig.upcast/onFail/zone` — срез B (тултипы из спеков); роль `'choice'` в данных `damage.parts` — снять при следующей регенерации `npm run spells`.
 - срез B: `spellDamageParts` выводится из ролей частей данных (`main` — составной; одна `main` + `trigger` другого типа — Ice Knife/Wall of Thorns; меньше двух строк — данные карточки), типы-выборы — в порядке спековых `choices`; `COMPOSITE_CONFIGS`/`CompositeConfig`/`CompositePart` и ключевые хардкоды (Ice Knife/Wall of Thorns/Jallarzi) удалены, свип всех 420 ключей — нулевой diff, `derived` не менялся.
+- Haste RAW (сессия 23): `EffectSpec.onEnd` (вялость при снятии: `rounds: 2`, скорость ×0, запрет действий/бонусных/реакций; во всех путях снятия, кроме замены при перекасте) + преимущество на спас DEX; `derived` изменён осознанно (`70802ac175f12af1`).
 - билдеры закрыты: `lifesteal`/`lifeTransfer`, `UtilitySpec.dice`, `area`, `halfOnMiss`/`successDamage`/`undeadTempHp`/`heal`, effect `triggers`/`selfOnFail`/`maxHpBonus`, `ActionSpec.banishOnFail`/`requiresCreatureTypes`; мигрированы все билдеры, `derived` не менялся, `BUILTIN_AUTOMATION`/`spellBuiltinAutomated` удалены, `builders.ts` → `helpers.ts` (хелперы костей).
 
 Открыто (решить при реализации шага 2–3):

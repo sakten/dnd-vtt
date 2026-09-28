@@ -361,8 +361,8 @@ export class RoomManager {
     Effects.applyEffect(this, room, token, effect);
   }
 
-  removeEffect(room: Room, token: Token, effectId: string): boolean {
-    return Effects.removeEffect(this, room, token, effectId);
+  removeEffect(room: Room, token: Token, effectId: string, opts: { triggerEnd?: boolean } = {}): boolean {
+    return Effects.removeEffect(this, room, token, effectId, opts);
   }
 
   changeMaxHp(room: Room, token: Token, effect: EffectInstance, sign: 1 | -1) {

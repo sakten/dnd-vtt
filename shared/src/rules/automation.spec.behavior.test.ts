@@ -507,7 +507,14 @@ describe('поведение спеков (RAW, реальные данные)',
       { target: 'ac', mode: 'add', value: 2 },
       { target: 'speed', mode: 'multiply', value: 2 },
       { target: 'extraActions', mode: 'add', value: 1 },
+      { target: 'save', mode: 'advantage', filter: { ability: 'dex' } },
     ]);
+    // Вялость при спаде: rounds: 2, скорость 0, запрет действий/бонусных/реакций.
+    const lethargy = haste.effects?.[0]?.onEnd;
+    expect(lethargy?.name).toBe('Вялость');
+    expect(lethargy?.duration).toEqual({ type: 'rounds', rounds: 2 });
+    expect(lethargy?.modifiers).toEqual([{ target: 'speed', mode: 'multiply', value: 0 }]);
+    expect(lethargy?.restrictions).toEqual({ noActions: true, noBonus: true, noReactions: true });
 
     const hold = automationForSpell(find('XPHB:Hold Person'));
     expect(hold.save).toEqual({ ability: 'wis' });

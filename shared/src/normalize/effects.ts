@@ -135,6 +135,46 @@ export function normalizeEffectDuration(raw: unknown): EffectDuration | null {
   return null;
 }
 
+/** Ограничения экономики: булевы ключи + шанс провала соматики. */
+function normalizeRestrictions(raw: unknown): Restrictions | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const value = raw as Record<string, unknown>;
+  const restrictions: Restrictions = {};
+  for (const key of RESTRICTION_KEYS) {
+    if (value[key] === true) restrictions[key] = true;
+  }
+  if (typeof value.spellFailureChance === 'number' && Number.isFinite(value.spellFailureChance)) {
+    restrictions.spellFailureChance = clampInt(value.spellFailureChance, 0, 100, 0);
+  }
+  return Object.keys(restrictions).length ? restrictions : undefined;
+}
+
+/** `EffectInstance.onEnd` (Haste): минимальный набор полей для наложения при снятии. */
+function normalizeEndEffect(raw: unknown): NonNullable<EffectInstance['onEnd']> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const e = raw as Record<string, unknown>;
+  const duration = normalizeEffectDuration(e.duration);
+  const name = typeof e.name === 'string' && e.name.trim() ? e.name.trim().slice(0, 60) : undefined;
+  if (!duration || !name) return undefined;
+  const modifiers = (Array.isArray(e.modifiers) ? e.modifiers : [])
+    .map(normalizeModifier)
+    .filter((m): m is Modifier => m !== null)
+    .slice(0, MAX_MODIFIERS);
+  const conditions = Array.isArray(e.conditions)
+    ? e.conditions
+        .filter((c): c is ConditionKey => typeof c === 'string' && (CONDITION_KEYS as string[]).includes(c))
+        .slice(0, MAX_CONDITIONS)
+    : [];
+  const restrictions = normalizeRestrictions(e.restrictions);
+  return {
+    name,
+    duration,
+    modifiers,
+    ...(restrictions ? { restrictions } : {}),
+    ...(conditions.length ? { conditions } : {}),
+  };
+}
+
 export function normalizeConditions(raw: unknown): ConditionInstance[] {
   if (!Array.isArray(raw)) return [];
   const out: ConditionInstance[] = [];
@@ -444,15 +484,12 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       effect.saveOnDamage = sod.advantage === true ? { advantage: true } : {};
     }
     if (e.restrictions && typeof e.restrictions === 'object') {
-      const raw = e.restrictions as Record<string, unknown>;
-      const restrictions: Restrictions = {};
-      for (const key of RESTRICTION_KEYS) {
-        if (raw[key] === true) restrictions[key] = true;
-      }
-      if (typeof raw.spellFailureChance === 'number' && Number.isFinite(raw.spellFailureChance)) {
-        restrictions.spellFailureChance = clampInt(raw.spellFailureChance, 0, 100, 0);
-      }
-      if (Object.keys(restrictions).length) effect.restrictions = restrictions;
+      const restrictions = normalizeRestrictions(e.restrictions);
+      if (restrictions) effect.restrictions = restrictions;
+    }
+    if (e.onEnd && typeof e.onEnd === 'object') {
+      const onEnd = normalizeEndEffect(e.onEnd);
+      if (onEnd) effect.onEnd = onEnd;
     }
     if (typeof e.bonusDie === 'string' && e.bonusDie.trim()) effect.bonusDie = e.bonusDie.trim().slice(0, 40);
     if (Array.isArray(e.bonusDieUses)) {

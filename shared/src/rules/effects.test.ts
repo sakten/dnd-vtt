@@ -453,9 +453,11 @@ describe('каталог эффектов заклинаний', () => {
     expect(defs?.[0]!.modifiers.map((m) => m.target)).toEqual(['attack', 'save']);
   });
 
-  it('Haste ускоряет и даёт доп. действие', () => {
-    const targets = automationForSpell(spellByKey('XPHB:Haste')).effects?.[0]!.modifiers.map((m) => m.target);
-    expect(targets).toEqual(['ac', 'speed', 'extraActions']);
+  it('Haste ускоряет, даёт доп. действие и преимущество на спас Ловкости', () => {
+    const haste = automationForSpell(spellByKey('XPHB:Haste')).effects?.[0];
+    expect(haste?.modifiers.map((m) => m.target)).toEqual(['ac', 'speed', 'extraActions', 'save']);
+    expect(haste?.modifiers[3]).toMatchObject({ mode: 'advantage', filter: { ability: 'dex' } });
+    expect(haste?.onEnd?.name).toBe('Вялость');
   });
 
   it('без эффектов — undefined', () => {
@@ -579,6 +581,12 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       takesExtraDamage: { dice: '1d8', damageType: 'radiant' },
       onWillingMove: { dice: '1d8', damageType: 'thunder', feet: 5 },
       zephyrStrike: { dice: '1d8', damageType: 'force', speedFeet: 30 },
+      onEnd: {
+        name: 'Вялость',
+        duration: { type: 'rounds', rounds: 2 },
+        modifiers: [{ target: 'speed', mode: 'multiply', value: 0 }],
+        restrictions: { noActions: true },
+      },
     };
     const fields = effectFieldsFromDef(def) as Record<string, unknown>;
     const instance: EffectInstance = {

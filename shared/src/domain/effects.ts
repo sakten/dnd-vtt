@@ -202,6 +202,17 @@ export interface EffectInstance {
   saveOnDamage?: { advantage?: boolean };
   /** Ограничения экономики/действий, пока эффект активен. */
   restrictions?: Restrictions;
+  /**
+   * Эффект при снятии носителя (Haste: «вялость до конца следующего хода»):
+   * подмножество `AutomationEffect`, накладывается на того же носителя.
+   */
+  onEnd?: {
+    name: string;
+    duration: EffectDuration;
+    modifiers: Modifier[];
+    restrictions?: Restrictions;
+    conditions?: ConditionKey[];
+  };
   /** Bestow Curse (режим «Уклонение»): спас в начале хода, при провале — Уклонение на ход. */
   turnDodge?: { ability: AbilityKey; dc: number };
   /** id зоны-источника (аура): снимается при выходе из зоны и её окончании. */

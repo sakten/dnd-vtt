@@ -307,6 +307,8 @@ export interface EffectSpec {
   escape?: { kind?: 'check' | 'save'; ability: ValueExpr; skill?: ValueExpr; dc?: number; label?: string; iconKey?: string };
   /** Эскалация состояния при провале повторного спасброска (Sleep: incapacitated → unconscious). */
   escalate?: { condition: ValueExpr; duration?: EffectDuration };
+  /** Эффект при снятии носителя (Haste: «вялость»); накладывается на него же. */
+  onEnd?: EffectSpec;
   /** Banishing Smite: провал спасброска изгоняет существо (конец каста — возврат). */
   banish?: boolean;
   light?: LightSource;

@@ -14,6 +14,7 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
+import { applyEndEffects } from '../room/effects';
 import { endShapeToken } from './forms';
 import { endConcentrationOf } from './effects';
 import { handleMovementZones } from './zones';
@@ -218,6 +219,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
           if (!oldIds.has(effect.id)) manager.changeMaxHp(room, token, effect, 1);
         }
         token.effects = next;
+        applyEndEffects(manager, room, token, removed);
         // Ручное снятие якоря концентрации (меню токена): гасим связанные эффекты и зоны.
         if (removed.some((e) => e.concentration && e.sourceId === token.id)) {
           endConcentrationOf(ctx, room, token, { zones: 'all' });

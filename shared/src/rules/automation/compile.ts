@@ -504,6 +504,7 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(effect.turnDodge ? (turnDodge ? { turnDodge } : {}) : {}),
     ...(effect.markSaved ? { markSaved: true } : {}),
     ...(effect.restrictions ? { restrictions: { ...effect.restrictions } } : {}),
+    ...(effect.onEnd ? { onEnd: compileEffect(ctx, effect.onEnd) } : {}),
     ...(effect.movement?.zephyrStrike ? { zephyrStrike: { ...effect.movement.zephyrStrike } } : {}),
     ...(effect.actions?.length ? { actions: effect.actions.map((a) => compileAction(ctx, a)) } : {}),
     ...loadout,
@@ -898,6 +899,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
     if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
     if (effect.turnDodge) pushGated(effect.turnDodge, (v) => refs.push(v.ability));
     if (effect.targets !== undefined) refs.push(effect.targets);
+    if (effect.onEnd) collectEffect(effect.onEnd);
     if (effect.loadout) {
       const l = effect.loadout;
       if (l.kind === 'weaponOverride') refs.push(l.dice, l.damageType, l.abilityMod);

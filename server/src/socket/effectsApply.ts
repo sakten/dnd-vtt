@@ -41,10 +41,11 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
   }
   // Концентрацию не заменяем: её жизненным циклом управляет clearConcentration
   // (иначе аура зоны, попавшая на своего кастера, снимает якорь концентрации).
+  // Перекаст на ту же цель не считаем «спадом» для onEnd (Haste: вялость).
   for (const stale of target.effects.filter(
     (e) => e.sourceKey === sourceKey && e.sourceId === sourceId && !e.concentration
   )) {
-    ctx.manager.removeEffect(room, target, stale.id);
+    ctx.manager.removeEffect(room, target, stale.id, { triggerEnd: false });
   }
   const effectId = randomUUID();
   let duration = effectDef.duration;

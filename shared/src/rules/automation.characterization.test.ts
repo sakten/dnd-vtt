@@ -78,9 +78,9 @@ const actual = {
 
 const EXPECTED = {
   catalog: '4cfa839af64cba8c',
-  // derived изменён осознанно: оси стены (blocksMovement/blocksLineOfSight/blocksActions)
-  // объявляются в `zone.wall`, мёртвый `flags.blocksMovement` убран (Wall of Ice/Force/Stone).
-  derived: '21dcc4e4cec47878',
+  // derived изменён осознанно (сессия 23): Haste — преимущество на спас DEX
+  // и `onEnd`-«вялость» при спаде. Прежние правки — в истории git.
+  derived: '70802ac175f12af1',
   green: 245,
   red: 175,
 };

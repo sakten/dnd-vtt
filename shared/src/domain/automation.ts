@@ -234,6 +234,8 @@ export interface AutomationEffect {
   onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
+  /** Эффект при снятии носителя (Haste: «вялость»); заменой при перекасте не срабатывает. */
+  onEnd?: AutomationEffect;
 }
 
 /**
@@ -301,6 +303,15 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     takesExtraDamage: def.takesExtraDamage ? { ...def.takesExtraDamage } : undefined,
     onWillingMove: def.onWillingMove ? { ...def.onWillingMove } : undefined,
     zephyrStrike: def.zephyrStrike ? { ...def.zephyrStrike } : undefined,
+    onEnd: def.onEnd
+      ? {
+          ...def.onEnd,
+          duration: { ...def.onEnd.duration },
+          modifiers: def.onEnd.modifiers.map((m, i) => ({ ...m, id: `onEnd:m${i}` })),
+          restrictions: def.onEnd.restrictions ? { ...def.onEnd.restrictions } : undefined,
+          conditions: def.onEnd.conditions ? [...def.onEnd.conditions] : undefined,
+        }
+      : undefined,
   };
 }
 
