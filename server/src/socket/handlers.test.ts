@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_ABILITIES,
   DEFAULT_SPEED,
+  triggerOn,
   type AutomationDef,
   type CharacterSheet,
   type PlayerResources,
@@ -2579,7 +2580,7 @@ describe('action:use', () => {
     const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Searing Smite');
     expect(effect?.duration).toMatchObject({ type: 'untilSave', ability: 'con' });
     expect(effect?.maxRounds).toBe(10); // спелл на 1 минуту
-    expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6 + 1d6');
+    expect(effect ? triggerOn(effect, 'startOfTurn')?.turn?.damage?.dice : undefined).toBe('1d6 + 1d6');
   });
 
   it('Ensnaring Strike: спас STR при попадании, провал — опутан', () => {
@@ -7096,7 +7097,7 @@ describe('отдых и удаление токена', () => {
         sourceId: 't1',
         sourceKey: 'XPHB:Sleep',
         duration: { type: 'concentration' },
-        wakeOnDamage: true,
+        triggers: [{ on: 'damaged', endEffect: true }],
         modifiers: [],
       },
     ];
@@ -7643,7 +7644,7 @@ describe('resources:deathSave и стабильность', () => {
       concentration: true,
       duration: { type: 'concentration' },
       modifiers: [],
-      deathSaveAdvantage: true,
+      triggers: [{ on: 'deathSave', rollMode: 'advantage' }],
     });
     const rand = vi.spyOn(Math, 'random').mockReturnValue(0.5); // d20 = 11
     const f = makeCtx(room, { playerId: 'p1' });

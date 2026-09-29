@@ -1,4 +1,4 @@
-import { gridOfMap, rollDice, type Token } from 'shared';
+import { gridOfMap, rollDice, triggerOn, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { applyDamage } from './damage';
@@ -22,14 +22,19 @@ export function handleWillingMoveEffects(
   if (!map) return;
   const size = gridOfMap(map, room.scene.grid).size;
   const movedCells = Math.round(moved / size);
-  const triggered = token.effects.filter(
-    (e) => e.onWillingMove && movedCells >= Math.max(1, Math.round(e.onWillingMove.feet / 5))
-  );
+  const triggered = token.effects.filter((e) => {
+    const damage = triggerOn(e, 'willingMove')?.damage;
+    return (
+      damage?.to === 'self' &&
+      damage.feet !== undefined &&
+      movedCells >= Math.max(1, Math.round(damage.feet / 5))
+    );
+  });
   if (!triggered.length) return;
   for (const effect of triggered) {
-    const spec = effect.onWillingMove;
-    if (!spec) continue;
-    const roll = rollDice(`${spec.dice}${spec.damageType}`);
+    const spec = triggerOn(effect, 'willingMove')?.damage;
+    if (!spec?.dice) continue;
+    const roll = rollDice(`${spec.dice}${spec.damageType ?? ''}`);
     const source = effect.sourceId ? map.tokens.find((t) => t.id === effect.sourceId) : undefined;
     applyDamage(ctx, {
       target: token,

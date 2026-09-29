@@ -10,6 +10,8 @@ import type {
   ModifierMode,
   ModifierTarget,
   Restrictions,
+  TriggerEvent,
+  TriggerInstance,
 } from '../domain/effects';
 import { clampInt, isAbilityKey, newId } from './internal';
 import { normalizeSenses } from './sense';
@@ -18,6 +20,139 @@ import { CONDITION_KEYS } from '../rules/conditions';
 import { CREATURE_TYPES, DAMAGE_TYPES } from '../labels';
 
 const DAMAGE_KEYS = new Set(DAMAGE_TYPES.map((d) => d.key));
+
+/** Потолки persisted-триггеров: число на эффект и длина текстовых полей. */
+const MAX_TRIGGERS = 24;
+const MAX_TRIGGER_TEXT = 40;
+
+const TRIGGER_EVENTS: TriggerEvent[] = [
+  'startOfTurn',
+  'endOfTurn',
+  'targetedByAttack',
+  'damaged',
+  'hpReachedZero',
+  'healReceived',
+  'deathSave',
+  'ownAttackRoll',
+  'ownSpellCast',
+  'ownDamageDealt',
+  'willingMove',
+  'saveSucceeded',
+];
+
+/** Payload начала/конца хода: временные HP и/или повторный урон. */
+function parseTurnTrigger(value: unknown): EffectTurnPayload | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as { tempHp?: unknown; damage?: { dice?: unknown; types?: unknown } };
+  const payload: EffectTurnPayload = {};
+  const tempHp = clampInt(raw.tempHp, 0, 999, 0);
+  if (tempHp > 0) payload.tempHp = tempHp;
+  if (raw.damage && typeof raw.damage === 'object' && typeof raw.damage.dice === 'string' && raw.damage.dice.trim()) {
+    payload.damage = {
+      dice: raw.damage.dice.trim().slice(0, 40),
+      ...(Array.isArray(raw.damage.types)
+        ? { types: raw.damage.types.filter((t): t is string => typeof t === 'string').slice(0, 4) }
+        : {}),
+    };
+  }
+  return payload.tempHp || payload.damage ? payload : undefined;
+}
+
+/** Триггеры эффекта (R16): события × операции; неизвестное отбрасывается. */
+function normalizeTriggers(raw: unknown): TriggerInstance[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: TriggerInstance[] = [];
+  for (const item of raw.slice(0, MAX_TRIGGERS)) {
+    if (!item || typeof item !== 'object') continue;
+    const t = item as Record<string, unknown>;
+    if (!TRIGGER_EVENTS.includes(t.on as TriggerEvent)) continue;
+    const trigger: TriggerInstance = { on: t.on as TriggerEvent };
+    if (t.save && typeof t.save === 'object') {
+      const s = t.save as Record<string, unknown>;
+      if (isAbilityKey(s.ability)) {
+        trigger.save = {
+          ability: s.ability,
+          ...(typeof s.dc === 'number' ? { dc: clampInt(s.dc, 0, 40, 10) } : {}),
+          ...(s.advantage === true ? { advantage: true } : {}),
+        };
+      }
+    }
+    if (t.damage && typeof t.damage === 'object') {
+      const d = t.damage as Record<string, unknown>;
+      if (d.to === 'source' || d.to === 'self') {
+        const payload: NonNullable<TriggerInstance['damage']> = { to: d.to };
+        if (typeof d.dice === 'string' && d.dice.trim()) payload.dice = d.dice.trim().slice(0, 40);
+        if (typeof d.amount === 'number') payload.amount = clampInt(d.amount, 0, 999, 0);
+        if (typeof d.damageType === 'string' && d.damageType) payload.damageType = d.damageType.slice(0, 40);
+        if (typeof d.feet === 'number') payload.feet = clampInt(d.feet, 5, 120, 5);
+        if (payload.dice !== undefined || payload.amount !== undefined) trigger.damage = payload;
+      }
+    }
+    if (t.reduce && typeof t.reduce === 'object') {
+      const r = t.reduce as Record<string, unknown>;
+      const types = Array.isArray(r.types)
+        ? r.types.filter((x): x is string => typeof x === 'string' && DAMAGE_KEYS.has(x)).slice(0, 12)
+        : [];
+      if (typeof r.dice === 'string' && r.dice.trim() && types.length) {
+        trigger.reduce = { dice: r.dice.trim().slice(0, 40), types: [...new Set(types)] };
+      }
+    }
+    if (t.extraDamage && typeof t.extraDamage === 'object') {
+      const x = t.extraDamage as Record<string, unknown>;
+      if (typeof x.dice === 'string' && x.dice.trim() && typeof x.damageType === 'string' && DAMAGE_KEYS.has(x.damageType)) {
+        // Ровно один режим: раз за ход (Elemental Bane) или от атак источника (Spirit Shroud).
+        const oncePerTurn = x.oncePerTurn === true;
+        const fromSource = x.from === 'source';
+        if (oncePerTurn !== fromSource) {
+          trigger.extraDamage = {
+            dice: x.dice.trim().slice(0, 40),
+            damageType: x.damageType,
+            ...(oncePerTurn ? { oncePerTurn: true } : { from: 'source' as const }),
+          };
+          // Метка «раз за ход» осмысленна только у Elemental Bane.
+          if (oncePerTurn && (typeof t.usedTurn === 'string' || t.usedTurn === null)) {
+            trigger.usedTurn = typeof t.usedTurn === 'string' ? t.usedTurn.slice(0, MAX_TRIGGER_TEXT) : null;
+          }
+        }
+      }
+    }
+    if (t.redirect === 'linked') trigger.redirect = 'linked';
+    if (t.endEffect === true) trigger.endEffect = true;
+    if (t.repeatSave && typeof t.repeatSave === 'object') {
+      trigger.repeatSave = (t.repeatSave as Record<string, unknown>).advantage === true ? { advantage: true } : {};
+    }
+    if (t.preventHeal === true) trigger.preventHeal = true;
+    if (t.maximizeHeal === true) trigger.maximizeHeal = true;
+    if (t.survive && typeof t.survive === 'object' && (t.survive as Record<string, unknown>).hp === 1) {
+      trigger.survive = { hp: 1 };
+    }
+    if (t.rollMode === 'advantage') trigger.rollMode = 'advantage';
+    if (t.noDamageOnSuccess === true) trigger.noDamageOnSuccess = true;
+    if (t.reaction && typeof t.reaction === 'object') {
+      const r = t.reaction as Record<string, unknown>;
+      if (r.kind === 'ward' && Array.isArray(r.types)) {
+        const types = r.types.filter((x): x is string => typeof x === 'string' && !!x).slice(0, 12);
+        if (types.length) trigger.reaction = { kind: 'ward', types: [...new Set(types)] };
+      } else if (
+        r.kind === 'saveCondition' &&
+        isAbilityKey(r.ability) &&
+        typeof r.condition === 'string' &&
+        (CONDITION_KEYS as string[]).includes(r.condition)
+      ) {
+        trigger.reaction = {
+          kind: 'saveCondition',
+          ability: r.ability,
+          feet: clampInt(r.feet, 5, 600, 60),
+          condition: r.condition as ConditionKey,
+        };
+      }
+    }
+    const turn = parseTurnTrigger(t.turn);
+    if (turn) trigger.turn = turn;
+    if (Object.keys(trigger).length > 1) out.push(trigger);
+  }
+  return out.length ? out : undefined;
+}
 
 const MODIFIER_TARGETS: ModifierTarget[] = [
   'attack',
@@ -235,7 +370,6 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.consumeOnSave === true) effect.consumeOnSave = true;
-    if (e.deathWard === true) effect.deathWard = true;
     if (e.magicWeapon === true) effect.magicWeapon = true;
     if (e.weaponOverride && typeof e.weaponOverride === 'object') {
       const o = e.weaponOverride as { weapons?: unknown; dice?: unknown; damageType?: unknown; abilityMod?: unknown };
@@ -258,17 +392,11 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       }
     }
     if (e.saveMarker === true) effect.saveMarker = true;
-    if (e.damageLink && typeof e.damageLink === 'object') {
-      const link = e.damageLink as { tokenId?: unknown };
-      if (typeof link.tokenId === 'string' && link.tokenId) effect.damageLink = { tokenId: link.tokenId.slice(0, 64) };
-    }
+    const triggers = normalizeTriggers(e.triggers);
+    if (triggers) effect.triggers = triggers;
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
     if (e.seesInvisible === true) effect.seesInvisible = true;
-    if (e.maximizeHealing === true) effect.maximizeHealing = true;
-    if (e.noHeal === true) effect.noHeal = true;
-    if (e.deathSaveAdvantage === true) effect.deathSaveAdvantage = true;
-    if (e.saveNoDamage === true) effect.saveNoDamage = true;
     if (e.banish && typeof e.banish === 'object') {
       const b = e.banish as { x?: unknown; y?: unknown };
       if (typeof b.x === 'number' && typeof b.y === 'number' && Number.isFinite(b.x) && Number.isFinite(b.y)) {
@@ -279,56 +407,10 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.prevFaction === 'ally' || e.prevFaction === 'enemy' || e.prevFaction === 'neutral') {
       effect.prevFaction = e.prevFaction;
     }
-    if (e.retaliate && typeof e.retaliate === 'object') {
-      const r = e.retaliate as { damageType?: unknown; amount?: unknown; dice?: unknown };
-      if (typeof r.damageType === 'string' && r.damageType) {
-        const retaliate: NonNullable<EffectInstance['retaliate']> = { damageType: r.damageType.slice(0, 40) };
-        if (typeof r.dice === 'string' && r.dice.trim()) retaliate.dice = r.dice.trim().slice(0, 40);
-        else retaliate.amount = clampInt(r.amount, 0, 999, 0);
-        effect.retaliate = retaliate;
-      }
-    }
-    if (e.damageReduce && typeof e.damageReduce === 'object') {
-      const r = e.damageReduce as { dice?: unknown; types?: unknown };
-      const types = Array.isArray(r.types)
-        ? r.types.filter((t): t is string => typeof t === 'string' && DAMAGE_KEYS.has(t)).slice(0, 12)
-        : [];
-      if (typeof r.dice === 'string' && r.dice.trim() && types.length) {
-        effect.damageReduce = { dice: r.dice.trim().slice(0, 40), types };
-      }
-    }
     if (e.turnDodge && typeof e.turnDodge === 'object') {
       const d = e.turnDodge as { ability?: unknown; dc?: unknown };
       if (isAbilityKey(d.ability)) {
         effect.turnDodge = { ability: d.ability, dc: clampInt(d.dc, 0, 40, 10) };
-      }
-    }
-    if (e.elementalBane && typeof e.elementalBane === 'object') {
-      const b = e.elementalBane as { damageType?: unknown; dice?: unknown; usedTurn?: unknown };
-      if (typeof b.damageType === 'string' && DAMAGE_KEYS.has(b.damageType) && typeof b.dice === 'string' && b.dice.trim()) {
-        effect.elementalBane = {
-          damageType: b.damageType,
-          dice: b.dice.trim().slice(0, 40),
-          ...(typeof b.usedTurn === 'string'
-            ? { usedTurn: b.usedTurn.slice(0, 40) }
-            : b.usedTurn === null
-              ? { usedTurn: null }
-              : {}),
-        };
-      }
-    }
-    if (e.takesExtraDamage && typeof e.takesExtraDamage === 'object') {
-      const extra = e.takesExtraDamage as { dice?: unknown; damageType?: unknown };
-      if (
-        typeof extra.dice === 'string' &&
-        extra.dice.trim() &&
-        typeof extra.damageType === 'string' &&
-        extra.damageType
-      ) {
-        effect.takesExtraDamage = {
-          dice: extra.dice.trim().slice(0, 40),
-          damageType: extra.damageType.slice(0, 40),
-        };
       }
     }
     if (e.charges && typeof e.charges === 'object') {
@@ -337,16 +419,6 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         effect.charges = {
           remaining: clampInt(charges.remaining, 0, 99, 0),
           ...(charges.on === 'rangedWeaponAttack' ? { on: 'rangedWeaponAttack' as const } : {}),
-        };
-      }
-    }
-    if (e.onWillingMove && typeof e.onWillingMove === 'object') {
-      const m = e.onWillingMove as { dice?: unknown; damageType?: unknown; feet?: unknown };
-      if (typeof m.dice === 'string' && m.dice.trim() && typeof m.damageType === 'string' && m.damageType) {
-        effect.onWillingMove = {
-          dice: m.dice.trim().slice(0, 40),
-          damageType: m.damageType.slice(0, 40),
-          feet: clampInt(m.feet, 5, 120, 5),
         };
       }
     }
@@ -363,35 +435,11 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.commandDirection === 'up' || e.commandDirection === 'down' || e.commandDirection === 'left' || e.commandDirection === 'right') {
       effect.commandDirection = e.commandDirection;
     }
-    if (Array.isArray(e.ward)) {
-      const types = e.ward.filter((t): t is string => typeof t === 'string' && !!t).slice(0, 12);
-      if (types.length) effect.ward = [...new Set(types)];
-    }
-    if (e.damageReaction && typeof e.damageReaction === 'object') {
-      const r = e.damageReaction as { ability?: unknown; feet?: unknown; condition?: unknown };
-      if (isAbilityKey(r.ability) && typeof r.condition === 'string' && (CONDITION_KEYS as string[]).includes(r.condition)) {
-        effect.damageReaction = {
-          ability: r.ability,
-          feet: clampInt(r.feet, 5, 600, 60),
-          condition: r.condition as ConditionKey,
-        };
-      }
-    }
     if (e.shadowBlade && typeof e.shadowBlade === 'object') {
       const b = e.shadowBlade as { dice?: unknown; inHand?: unknown };
       if (typeof b.dice === 'string' && b.dice.trim()) {
         effect.shadowBlade = { dice: b.dice.trim().slice(0, 40), inHand: b.inHand !== false };
       }
-    }
-    if (Array.isArray(e.breakOn)) {
-      const events = e.breakOn.filter(
-        (k): k is 'attack' | 'spell' | 'damage' => k === 'attack' || k === 'spell' || k === 'damage'
-      );
-      if (events.length) effect.breakOn = [...new Set(events)];
-    }
-    if (e.sanctuary && typeof e.sanctuary === 'object') {
-      const ward = e.sanctuary as { dc?: unknown };
-      effect.sanctuary = { dc: clampInt(ward.dc, 0, 40, 10) };
     }
     if (Array.isArray(e.conditionImmunities)) {
       const immune = e.conditionImmunities
@@ -413,31 +461,6 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
           types: [...new Set(types)].slice(0, 14),
         };
       }
-    }
-    const parseTurnTrigger = (value: unknown): EffectTurnPayload | undefined => {
-      if (!value || typeof value !== 'object') return undefined;
-      const raw = value as { tempHp?: unknown; damage?: { dice?: unknown; types?: unknown } };
-      const payload: EffectTurnPayload = {};
-      const tempHp = clampInt(raw.tempHp, 0, 999, 0);
-      if (tempHp > 0) payload.tempHp = tempHp;
-      if (raw.damage && typeof raw.damage === 'object' && typeof raw.damage.dice === 'string' && raw.damage.dice.trim()) {
-        payload.damage = {
-          dice: raw.damage.dice.trim().slice(0, 40),
-          ...(Array.isArray(raw.damage.types)
-            ? { types: raw.damage.types.filter((t): t is string => typeof t === 'string').slice(0, 4) }
-            : {}),
-        };
-      }
-      return payload.tempHp || payload.damage ? payload : undefined;
-    };
-    const rawTriggers = (e.triggers ?? {}) as { startOfTurn?: unknown; endOfTurn?: unknown };
-    const startTrigger = parseTurnTrigger(rawTriggers.startOfTurn);
-    const endTrigger = parseTurnTrigger(rawTriggers.endOfTurn);
-    if (startTrigger || endTrigger) {
-      effect.triggers = {
-        ...(startTrigger ? { startOfTurn: startTrigger } : {}),
-        ...(endTrigger ? { endOfTurn: endTrigger } : {}),
-      };
     }
     if (typeof e.variant === 'string' && e.variant) effect.variant = e.variant.slice(0, 40);
     if (e.escape && typeof e.escape === 'object') {
@@ -478,11 +501,6 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
         const duration = normalizeEffectDuration(esc.duration);
         effect.escalate = { condition: esc.condition as ConditionKey, ...(duration ? { duration } : {}) };
       }
-    }
-    if (e.wakeOnDamage === true) effect.wakeOnDamage = true;
-    if (e.saveOnDamage && typeof e.saveOnDamage === 'object') {
-      const sod = e.saveOnDamage as { advantage?: unknown };
-      effect.saveOnDamage = sod.advantage === true ? { advantage: true } : {};
     }
     if (e.restrictions && typeof e.restrictions === 'object') {
       const restrictions = normalizeRestrictions(e.restrictions);

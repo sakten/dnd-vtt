@@ -7,11 +7,13 @@ import {
   retaliationOf,
   rollDice,
   statNumber,
+  triggersOn,
   type DamagePartAmount,
   type DiceRollResult,
   type EffectInstance,
   type RollLabelParams,
   type Token,
+  type TriggerInstance,
 } from 'shared';
 import { controllerIdOfToken, gridSizeOfMap } from '../rooms';
 import type { Room } from '../roomTypes';
@@ -68,7 +70,8 @@ function dropDamageLinks(ctx: ConnCtx, room: Room, sourceId: string): void {
   for (const map of room.scene.maps) {
     for (const token of map.tokens) {
       for (const effect of [...token.effects]) {
-        if (effect.damageLink?.tokenId !== sourceId) continue;
+        if (!triggersOn([effect], 'damaged').some((t) => t.redirect)) continue;
+        if (effect.sourceId !== sourceId) continue;
         if (ctx.manager.removeEffect(room, token, effect.id)) ctx.emitToken(room, 'token:update', map.id, token);
       }
     }
@@ -83,7 +86,9 @@ function transferLinkedDamage(ctx: ConnCtx, room: Room, mapId: string, target: T
   if (!mapInfo) return;
   const grid = gridSizeOfMap(mapInfo);
   for (const sourceId of sourceIds) {
-    const effect = target.effects.find((e) => e.damageLink?.tokenId === sourceId);
+    const effect = target.effects.find(
+      (e) => e.sourceId === sourceId && triggersOn([e], 'damaged').some((t) => t.redirect)
+    );
     if (!effect) continue;
     const drop = (): void => {
       if (ctx.manager.removeEffect(room, target, effect.id)) ctx.emitToken(room, 'token:update', mapId, target);
@@ -102,12 +107,12 @@ function transferLinkedDamage(ctx: ConnCtx, room: Room, mapId: string, target: T
 function damageReductionFor(
   target: Token,
   damageTypes: string[]
-): { effect: EffectInstance; type: string } | undefined {
+): { effect: EffectInstance; type: string; dice: string } | undefined {
   for (const effect of target.effects) {
-    const reduce = effect.damageReduce;
+    const reduce = (effect.triggers ?? []).find((t) => t.on === 'damaged' && t.reduce)?.reduce;
     if (!reduce || (effect.charges?.remaining ?? 0) <= 0) continue;
     const type = damageTypes.find((t) => reduce.types.includes(t));
-    if (type) return { effect, type };
+    if (type) return { effect, type, dice: reduce.dice };
   }
   return undefined;
 }
@@ -121,15 +126,18 @@ function currentTurnKey(ctx: ConnCtx, room: Room, mapId: string | null): string 
   return entry ? `${combat.round}:${entry.id}` : null;
 }
 
-/** Elemental Bane: эффект носителя, чей тип есть в уроне и не срабатывал в текущем ходу. */
+/** Elemental Bane: эффект с триггером «раз в ход», чей тип есть в уроне и не срабатывал в текущем ходу. */
 function elementalBaneFor(
   target: Token,
   damageTypes: string[],
   turn: string | null
-): EffectInstance | undefined {
+): { effect: EffectInstance; trigger: TriggerInstance } | undefined {
   for (const effect of target.effects) {
-    const bane = effect.elementalBane;
-    if (bane && bane.usedTurn !== turn && damageTypes.includes(bane.damageType)) return effect;
+    for (const trigger of effect.triggers ?? []) {
+      const extra = trigger.extraDamage;
+      if (trigger.on !== 'damaged' || !extra?.oncePerTurn) continue;
+      if (trigger.usedTurn !== turn && damageTypes.includes(extra.damageType)) return { effect, trigger };
+    }
   }
   return undefined;
 }
@@ -155,7 +163,7 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   const reduction = !input.unreducible && input.kind !== 'heal' && target ? damageReductionFor(target, groupTypes) : undefined;
   let reducedBy = 0;
   if (reduction) {
-    reducedBy = rollDice(reduction.effect.damageReduce!.dice).total;
+    reducedBy = rollDice(reduction.dice).total;
     const charges = reduction.effect.charges;
     if (charges) charges.remaining = Math.max(0, charges.remaining - 1);
   }
@@ -183,20 +191,21 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   const turn = currentTurnKey(ctx, room, mapId);
   const bane = target && input.kind !== 'heal' && amount > 0 ? elementalBaneFor(target, groupTypes, turn) : undefined;
   if (bane && target) {
-    const baneRoll = rollDice(bane.elementalBane!.dice);
+    const extra = bane.trigger.extraDamage!;
+    const baneRoll = rollDice(extra.dice);
     const defense = input.unreducible
       ? { amount: baneRoll.total }
-      : applyDamageDefenses(baneRoll.total, bane.elementalBane!.damageType, defenses);
+      : applyDamageDefenses(baneRoll.total, extra.damageType, defenses);
     amount += defense.amount;
-    bane.elementalBane!.usedTurn = turn;
-    const source = bane.sourceId ? ctx.manager.locateToken(room, bane.sourceId)?.token : undefined;
+    bane.trigger.usedTurn = turn;
+    const source = bane.effect.sourceId ? ctx.manager.locateToken(room, bane.effect.sourceId)?.token : undefined;
     pushRollMessage(ctx, room, {
-      author: source?.name ?? bane.name,
+      author: source?.name ?? bane.effect.name,
       roll: baneRoll,
       kind: 'damage',
       params: {
-        subject: `${bane.name} · ${target.name}`,
-        damageType: bane.elementalBane!.damageType,
+        subject: `${bane.effect.name} · ${target.name}`,
+        damageType: extra.damageType,
         damageNote: defense.note,
       },
     });
@@ -222,9 +231,9 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
     // Триггеры монстра: «при получении урона» — на каждый урон, «при смерти» — переход HP к 0.
     runAbilityTriggers(ctx, room, mapId, target, 'takeDamage');
     if (hpBefore > 0 && (target.hpCurrent ?? 0) <= 0) runAbilityTriggers(ctx, room, mapId, target, 'death');
-    // Носитель эффекта с `breakOn:'damage'` нанёс урон — эффект обрывается (Sanctuary).
+    // Носитель с триггером `ownDamageDealt`/`endEffect` нанёс урон — эффект обрывается (Sanctuary).
     if (input.attacker && input.attacker.id !== target.id) {
-      removeBrokenEffects(ctx, room, mapId, input.attacker, 'damage');
+      removeBrokenEffects(ctx, room, mapId, input.attacker, 'ownDamageDealt');
     }
     // Ответный урон атакующему в ближнем бою (Armor of Agathys и подобные).
     const attacker = input.attacker;
@@ -239,7 +248,7 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
           mapId,
           amount: retaliationAmount,
           damageType: retaliation.damageType,
-          // Ответку наносит носитель — его `breakOn:'damage'` (Sanctuary) срабатывает.
+          // Ответку наносит носитель — его триггер `ownDamageDealt` (Sanctuary) срабатывает.
           attacker: target,
         });
         ctx.systemMessage(room, {
@@ -248,7 +257,7 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
             name: target.name,
             target: attacker.name,
             amount: retaliationAmount,
-            type: retaliation.damageType,
+            type: retaliation.damageType ?? '',
           },
         });
       }

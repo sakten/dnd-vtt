@@ -5,11 +5,13 @@ import {
   effectDefenses,
   findBaseAction,
   gridDistanceFeet,
+  hasTrigger,
   monsterAbilityAutomation,
   monsterStats,
   normalizeSheet,
   savedAgainst,
   saveRollParts,
+  triggerOn,
   type ActionDef,
   type AutomationDef,
   type ChatMessage,
@@ -128,7 +130,7 @@ describe('Chill Touch', () => {
       Math.random = original;
     }
     expect(target.hpCurrent).toBe(24);
-    const effect = target.effects.find((e) => e.noHeal);
+    const effect = target.effects.find((e) => triggerOn(e, 'healReceived')?.preventHeal);
     expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
 
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 15, kind: 'heal' });
@@ -829,8 +831,12 @@ describe('концентрация заклинаний с зонами', () => 
       author: 'DM',
     });
 
-    expect(caster!.effects.some((e) => e.maximizeHealing && e.deathSaveAdvantage)).toBe(true);
-    expect(ally!.effects.some((e) => e.maximizeHealing)).toBe(true);
+    expect(
+      caster!.effects.some(
+        (e) => triggerOn(e, 'healReceived')?.maximizeHeal && triggerOn(e, 'deathSave')?.rollMode === 'advantage'
+      )
+    ).toBe(true);
+    expect(ally!.effects.some((e) => triggerOn(e, 'healReceived')?.maximizeHeal)).toBe(true);
     expect(enemy!.effects.some((e) => e.sourceKey === 'XPHB:Beacon of Hope')).toBe(false);
 
     // Максимум лечения: 2d8 при выпавших единицах — 16, а не 2.
@@ -1146,7 +1152,7 @@ describe('концентрация заклинаний с зонами', () => 
       sourceId: 't3',
       duration: { type: 'permanent' },
       modifiers: [],
-      sanctuary: { dc: 14 },
+      triggers: [{ on: 'targetedByAttack', save: { ability: 'wis', dc: 14 } }],
     });
 
     const fail = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → провал
@@ -1248,7 +1254,10 @@ describe('концентрация заклинаний с зонами', () => 
 
     expect(target.conditions.some((c) => c.key === 'invisible')).toBe(true);
     const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Invisibility');
-    expect(effect?.breakOn).toEqual(['attack', 'spell']);
+    expect(effect ? (effect.triggers ?? []).filter((t) => t.endEffect).map((t) => t.on) : undefined).toEqual([
+      'ownAttackRoll',
+      'ownSpellCast',
+    ]);
     expect(effect?.concentration).toBe(true);
   });
 
@@ -1273,7 +1282,10 @@ describe('концентрация заклинаний с зонами', () => 
       effectDef: automationForSpell(ward, { castLevel: 6 }).effects![0]!,
       target,
     });
-    expect(target.effects[0]?.ward).toEqual(['acid', 'cold', 'fire', 'lightning', 'thunder']);
+    expect(triggerOn(target.effects[0]!, 'damaged')?.reaction).toEqual({
+      kind: 'ward',
+      types: ['acid', 'cold', 'fire', 'lightning', 'thunder'],
+    });
 
     // Уже получил 5 урона огнём (сопротивление = половина от 10) — реакция догоняет.
     offerDamageReactions(f.ctx, room, 'm1', target, source, { amount: 5, damageType: 'fire' });
@@ -1311,7 +1323,12 @@ describe('концентрация заклинаний с зонами', () => 
       effectDef: automationForSpell(fount).effects![0]!,
       target: caster,
     });
-    expect(caster.effects[0]?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
+    expect(triggerOn(caster.effects[0]!, 'damaged')?.reaction).toEqual({
+      kind: 'saveCondition',
+      ability: 'con',
+      feet: 60,
+      condition: 'blinded',
+    });
     expect(caster.effects[0]?.light).toEqual({ bright: 20, dim: 20 });
     expect(effectDefenses(caster.effects).some((d) => d.type === 'resistance' && d.damageType === 'radiant')).toBe(true);
 
@@ -1415,12 +1432,12 @@ describe('концентрация заклинаний с зонами', () => 
     });
     expect(token.conditions.some((c) => c.key === 'invisible')).toBe(true);
 
-    const removed = removeBrokenEffects(f.ctx, room, 'm1', token, 'attack');
+    const removed = removeBrokenEffects(f.ctx, room, 'm1', token, 'ownAttackRoll');
     expect(removed).toHaveLength(1);
     expect(token.conditions.some((c) => c.key === 'invisible')).toBe(false);
     expect(token.effects.map((e) => e.id)).toContain('keep');
     // Повторное событие — снимать больше нечего.
-    expect(removeBrokenEffects(f.ctx, room, 'm1', token, 'attack')).toEqual([]);
+    expect(removeBrokenEffects(f.ctx, room, 'm1', token, 'ownAttackRoll')).toEqual([]);
   });
 
   it('removeBrokenEffects: последняя цель гасит концентрацию кастера и рассылает его токен', () => {
@@ -1450,7 +1467,7 @@ describe('концентрация заклинаний с зонами', () => 
     });
     f.emitted.length = 0;
 
-    const removed = removeBrokenEffects(f.ctx, room, 'm1', target, 'attack');
+    const removed = removeBrokenEffects(f.ctx, room, 'm1', target, 'ownAttackRoll');
     expect(removed).toHaveLength(1);
     // Целей у каста не осталось — якорь снят, в рассылке оба токена (кастер и цель).
     expect(caster.effects.some((e) => e.concentration)).toBe(false);
@@ -1751,18 +1768,18 @@ describe('Vitriolic Sphere (D)', () => {
     const { room, f } = setup();
     const target = cast(f, room, 0); // спас провален, все кости — 1
     expect(target.hpCurrent).toBe(20); // 10к4 = 10
-    expect(target.effects.some((e) => e.triggers?.endOfTurn)).toBe(true);
+    expect(target.effects.some((e) => hasTrigger(e, 'endOfTurn'))).toBe(true);
 
     tickEndTurnEffectTriggers(f.ctx, room, 'm1', target); // 5к4 = 5
     expect(target.hpCurrent).toBe(15);
-    expect(target.effects.some((e) => e.triggers?.endOfTurn)).toBe(false);
+    expect(target.effects.some((e) => hasTrigger(e, 'endOfTurn'))).toBe(false);
   });
 
   it('успех: половина первичного урона, отложенного эффекта нет', () => {
     const { room, f } = setup();
     const target = cast(f, room, 0.99); // спас успешен, кости — максимум
     expect(target.hpCurrent).toBe(10); // 10к4 = 40, половина 20
-    expect(target.effects.some((e) => e.triggers?.endOfTurn)).toBe(false);
+    expect(target.effects.some((e) => hasTrigger(e, 'endOfTurn'))).toBe(false);
   });
 });
 
@@ -2138,7 +2155,7 @@ describe('иммунитеты к состояниям и триггеры эф�
     });
 
     const effect = target.effects.find((e) => e.sourceKey === 'XPHB:Heroism');
-    expect(effect?.triggers?.startOfTurn?.tempHp).toBe(3);
+    expect(effect && triggerOn(effect, 'startOfTurn')?.turn?.tempHp).toBe(3);
 
     applyEffectTo(f.ctx, room, {
       sourceKey: 'test:fear',
@@ -2336,12 +2353,12 @@ describe('лечение, стабильность и оживление', () =>
       stats,
       author: 'A',
     });
-    expect(target.effects.some((e) => e.deathWard)).toBe(true);
+    expect(target.effects.some((e) => hasTrigger(e, 'hpReachedZero'))).toBe(true);
 
     f.ctx.applyHp(room, 'm1', target, -99);
 
     expect(room.resources.p1!.hp.current).toBe(1);
-    expect(target.effects.some((e) => e.deathWard)).toBe(false);
+    expect(target.effects.some((e) => hasTrigger(e, 'hpReachedZero'))).toBe(false);
     expect(
       f.emitted.some((e) => e.event === 'chat:message' && JSON.stringify(e.payload).includes('automation.deathWard'))
     ).toBe(true);
@@ -2509,7 +2526,7 @@ describe('Помощь: разбудить союзника', () => {
         duration: { type: 'rounds', rounds: 10 },
         modifiers: [],
         conditions: ['unconscious'],
-        wakeOnDamage: true,
+        triggers: [{ on: 'damaged', endEffect: true }],
       },
     ];
     token.conditions = [{ key: 'unconscious', name: 'Без сознания', rounds: null, effectId: 'sleep1' }];
@@ -2541,7 +2558,7 @@ describe('Помощь: разбудить союзника', () => {
     caster.faction = 'ally';
     target.faction = 'enemy';
     target.effects = [
-      { id: 'sleep2', name: 'Sleep', duration: { type: 'rounds', rounds: 10 }, modifiers: [], wakeOnDamage: true },
+      { id: 'sleep2', name: 'Sleep', duration: { type: 'rounds', rounds: 10 }, modifiers: [], triggers: [{ on: 'damaged', endEffect: true }] },
     ];
     executeAutomation(f.ctx, { caster, mapId: 'm1', def: helpDef(), targets: [target], stats: null, author: 'A' });
     expect(f.selfEvents('chat:error').at(-1)?.payload).toMatchObject({ code: 'helpHostile' });

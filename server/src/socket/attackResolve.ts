@@ -472,7 +472,7 @@ export function rollPreparedAttack(
         spendAttackCharges(ctx, room, attackerMapId, attacker, attack);
       }
       // Invisibility: бросок атаки досрочно обрывает эффект (даже промах).
-      if (attacker && attackerMapId) removeBrokenEffects(ctx, room, attackerMapId, attacker, 'attack');
+      if (attacker && attackerMapId) removeBrokenEffects(ctx, room, attackerMapId, attacker, 'ownAttackRoll');
       result.hitRoll = hit.hitRoll;
       result.hitSuccess = hitSuccess;
       result.crit = crit;

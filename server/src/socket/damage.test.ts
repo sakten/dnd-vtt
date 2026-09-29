@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_ABILITIES, type EffectInstance } from 'shared';
+import { DEFAULT_ABILITIES, triggersOn, type EffectInstance } from 'shared';
 import { makeConnCtx } from '../test/ctx';
 import { makeCombatRoom, makeRoom, makeToken } from '../test/fixtures';
 import { applyDamage } from './damage';
@@ -12,13 +12,13 @@ function setup(defenses: { id: string; type: 'resistance' | 'immunity' | 'vulner
   return { target, f, ctx: f.ctx };
 }
 
-const laughter = (dc: number) =>
+const laughter = (dc: number): EffectInstance =>
   ({
     id: 'ef1',
     name: 'Hideous Laughter',
     duration: { type: 'untilSave', ability: 'wis', dc, timing: 'end' } as const,
     modifiers: [],
-    saveOnDamage: { advantage: true },
+    triggers: [{ on: 'damaged', repeatSave: { advantage: true } }],
   });
 
 describe('applyDamage: составной урон', () => {
@@ -82,7 +82,14 @@ describe('Warding Bond: перенос урона', () => {
     room.scene.maps[0]!.tokens.push(target, caster);
     const f = makeConnCtx(room, { dm: true });
     target.effects = [
-      { id: 'wb', name: 'Warding Bond', duration: { type: 'permanent' }, modifiers: [], damageLink: { tokenId: 't2' } },
+      {
+        id: 'wb',
+        name: 'Warding Bond',
+        sourceId: 't2',
+        duration: { type: 'permanent' },
+        modifiers: [],
+        triggers: [{ on: 'damaged', redirect: 'linked' }],
+      },
     ];
     return { target, caster, f };
   }
@@ -100,7 +107,7 @@ describe('Warding Bond: перенос урона', () => {
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'slashing' });
     expect(target.hpCurrent).toBe(40);
     expect(caster.hpCurrent).toBe(30);
-    expect(target.effects.some((e) => e.damageLink)).toBe(false);
+    expect(triggersOn(target.effects, 'damaged').some((t) => t.redirect === 'linked')).toBe(false);
   });
 
   it('падение источника до 0 снимает связь', () => {
@@ -108,7 +115,7 @@ describe('Warding Bond: перенос урона', () => {
     caster.hpCurrent = 5;
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'slashing' });
     expect(caster.hpCurrent).toBeLessThanOrEqual(0);
-    expect(target.effects.some((e) => e.damageLink)).toBe(false);
+    expect(triggersOn(target.effects, 'damaged').some((t) => t.redirect === 'linked')).toBe(false);
   });
 });
 
@@ -150,7 +157,7 @@ describe('Armor of Agathys: ответный урон', () => {
       sourceId: target.id,
       duration: { type: 'permanent' },
       modifiers: [],
-      retaliate: { damageType: 'cold', amount: 5 },
+      triggers: [{ on: 'damaged', damage: { to: 'source', damageType: 'cold', amount: 5 } }],
     });
     return { target, attacker, f };
   }
@@ -180,7 +187,7 @@ describe('Armor of Agathys: ответный урон', () => {
 
   it('ответный урон костями (Fire Shield/Shadow of Moil): бросается 2d8', () => {
     const { target, attacker, f } = aoa();
-    target.effects[0]!.retaliate = { damageType: 'fire', dice: '2d8' };
+    target.effects[0]!.triggers = [{ on: 'damaged', damage: { to: 'source', damageType: 'fire', dice: '2d8' } }];
     const original = Math.random;
     Math.random = () => 0.5; // каждая d8 = 5
     try {
@@ -201,8 +208,12 @@ describe('Armor of Agathys: ответный урон', () => {
         sourceKey: 'XPHB:Sanctuary',
         duration: { type: 'permanent' },
         modifiers: [],
-        sanctuary: { dc: 14 },
-        breakOn: ['attack', 'spell', 'damage'],
+        triggers: [
+          { on: 'targetedByAttack', save: { ability: 'wis', dc: 14 } },
+          { on: 'ownAttackRoll', endEffect: true },
+          { on: 'ownSpellCast', endEffect: true },
+          { on: 'ownDamageDealt', endEffect: true },
+        ],
       },
     ];
     applyDamage(f.ctx, { target, mapId: 'm1', amount: 3, damageType: 'piercing', attacker, melee: true });
@@ -226,7 +237,7 @@ describe('Resistance: снижение урона зарядом', () => {
       concentration: true,
       duration: { type: 'concentration' },
       modifiers: [],
-      damageReduce: { dice: '1d4', types: ['fire'] },
+      triggers: [{ on: 'damaged', reduce: { dice: '1d4', types: ['fire'] } }],
       charges: { remaining: 1 },
     });
     return { target, f };
@@ -283,7 +294,7 @@ describe('неуменьшаемый урон (Life Transference)', () => {
       concentration: true,
       duration: { type: 'concentration' },
       modifiers: [],
-      damageReduce: { dice: '1d4', types: ['necrotic'] },
+      triggers: [{ on: 'damaged', reduce: { dice: '1d4', types: ['necrotic'] } }],
       charges: { remaining: 1 },
     });
     const result = applyDamage(f.ctx, {
@@ -367,7 +378,7 @@ describe('Elemental Bane: снятие сопротивления и доп. у�
     concentration: true,
     duration: { type: 'concentration' },
     modifiers: [],
-    elementalBane: { damageType, dice: '2d6' },
+    triggers: [{ on: 'damaged', extraDamage: { dice: '2d6', damageType, oncePerTurn: true } }],
   });
 
   it('сопротивление выбранному типу не действует', () => {
@@ -390,7 +401,7 @@ describe('Elemental Bane: снятие сопротивления и доп. у�
     const second = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
     expect(first.amount).toBe(18);
     expect(second.amount).toBe(10);
-    expect(target.effects[0]?.elementalBane?.usedTurn).toBe('1:e1');
+    expect(triggersOn(target.effects, 'damaged').find((t) => t.extraDamage?.oncePerTurn)?.usedTurn).toBe('1:e1');
     expect(f.room.chat.some((m) => m.kind === 'roll' && m.labelParams?.damageType === 'fire')).toBe(true);
     room.scene.maps[0]!.combat!.round = 2;
     const third = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
@@ -404,7 +415,7 @@ describe('Elemental Bane: снятие сопротивления и доп. у�
     target.effects.push(bane('fire'));
     const result = applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'cold' });
     expect(result.amount).toBe(10);
-    expect(target.effects[0]?.elementalBane?.usedTurn).toBeUndefined();
+    expect(triggersOn(target.effects, 'damaged').find((t) => t.extraDamage?.oncePerTurn)?.usedTurn).toBeUndefined();
   });
 
   it('вне боя срабатывает один раз — до начала боя', () => {
@@ -414,7 +425,7 @@ describe('Elemental Bane: снятие сопротивления и доп. у�
     const second = applyDamage(ctx, { target, mapId: 'm1', amount: 10, damageType: 'fire' });
     expect(first.amount).toBeGreaterThan(10);
     expect(second.amount).toBe(10);
-    expect(target.effects[0]?.elementalBane?.usedTurn).toBeNull();
+    expect(triggersOn(target.effects, 'damaged').find((t) => t.extraDamage?.oncePerTurn)?.usedTurn).toBeNull();
   });
 });
 

@@ -26,7 +26,16 @@ export const WEAPONS_SPECS: Record<string, AutomationSpec> = {
         duration: UNTIL_NEXT_TURN,
         to: 'targets',
         modifiers: [],
-        onWillingMove: { dice: { add: [{ ref: 'cantrip' }, '1d8'] }, damageType: 'thunder', feet: 5 },
+        triggers: {
+          willingMove: {
+            damage: {
+              to: 'self',
+              dice: { add: [{ ref: 'cantrip' }, '1d8'] },
+              damageType: 'thunder',
+              feet: 5,
+            },
+          },
+        },
       },
     },
   },

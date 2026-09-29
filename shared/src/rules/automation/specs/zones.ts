@@ -209,10 +209,13 @@ export const ZONES_SPECS: Record<string, AutomationSpec> = {
             duration: PERMANENT,
             to: 'targets',
             modifiers: [{ target: 'speed', mode: 'add', value: -10 }],
-            hooks: {
-              takesExtraDamage: {
-                dice: { add: [{ ref: 'damage', fallback: '1d8' }, { ref: 'upcastDice' }] },
-                damageType: { ref: 'choice' },
+            triggers: {
+              damaged: {
+                extraDamage: {
+                  dice: { add: [{ ref: 'damage', fallback: '1d8' }, { ref: 'upcastDice' }] },
+                  damageType: { ref: 'choice' },
+                  from: 'source',
+                },
               },
             },
             variant: { ref: 'choice' },
@@ -242,10 +245,13 @@ export const ZONES_SPECS: Record<string, AutomationSpec> = {
             name: 'Conjure Minor Elementals',
             duration: PERMANENT,
             to: 'targets',
-            hooks: {
-              takesExtraDamage: {
-                dice: { add: [{ ref: 'damage', fallback: '2d8' }, { ref: 'upcastDice' }] },
-                damageType: { ref: 'choice' },
+            triggers: {
+              damaged: {
+                extraDamage: {
+                  dice: { add: [{ ref: 'damage', fallback: '2d8' }, { ref: 'upcastDice' }] },
+                  damageType: { ref: 'choice' },
+                  from: 'source',
+                },
               },
             },
             variant: { ref: 'choice' },

@@ -28,6 +28,7 @@ import {
   rollParts,
   savedAgainst,
   saveRollParts,
+  triggerOn,
   withRollParts,
 } from './effects';
 import { automationForSpell, spellAutomated } from './automation';
@@ -171,7 +172,13 @@ describe('спасброски', () => {
     expect(saveRollParts([aura], 'wis').mode).toBeUndefined();
   });
 
-  it('флаги Beacon of Hope: максимум лечения и death-сейвы', () => {    const beacon = effect({ maximizeHealing: true, deathSaveAdvantage: true });
+  it('флаги Beacon of Hope: максимум лечения и death-сейвы', () => {
+    const beacon = effect({
+      triggers: [
+        { on: 'healReceived', maximizeHeal: true },
+        { on: 'deathSave', rollMode: 'advantage' },
+      ],
+    });
     expect(maximizeHealing([beacon])).toBe(true);
     expect(deathSaveAdvantage([beacon])).toBe(true);
     expect(maximizeHealing([])).toBe(false);
@@ -179,7 +186,7 @@ describe('спасброски', () => {
   });
 
   it('Chill Touch: запрет восстановления HP и его сводка', () => {
-    const chill = effect({ noHeal: true });
+    const chill = effect({ triggers: [{ on: 'healReceived', preventHeal: true }] });
     expect(healBlocked([chill])).toBe(true);
     expect(healBlocked([])).toBe(false);
     expect(healBlocked(undefined)).toBe(false);
@@ -273,7 +280,7 @@ describe('проверки с эффектами (checkRollParts)', () => {
     const pp = effect({ modifiers: [mod({ target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } })] });
     expect(saveRollParts([pp], 'con', undefined, 'poisoned').mode).toBe('a');
     expect(saveRollParts([pp], 'con', undefined, 'frightened').mode).toBeUndefined();
-    const wb = effect({ damageLink: { tokenId: 't2' } });
+    const wb = effect({ sourceId: 't2', triggers: [{ on: 'damaged', redirect: 'linked' }] });
     expect(damageLinks([wb])).toEqual(['t2']);
     expect(effectSummaryParts(wb)).toEqual([{ key: 'domain.effect.damageLink' }]);
 
@@ -331,7 +338,7 @@ describe('effectSummaryParts (тултипы)', () => {
     expect(ignoresDifficultTerrain([fom])).toBe(true);
     expect(immuneToSpeedReduction([])).toBe(false);
 
-    const heroism = effect({ triggers: { startOfTurn: { tempHp: 3 } } });
+    const heroism = effect({ triggers: [{ on: 'startOfTurn', turn: { tempHp: 3 } }] });
     expect(effectSummaryParts(heroism)).toEqual([{ key: 'domain.effect.startOfTurnTempHp', params: { amount: 3 } }]);
   });
 
@@ -360,7 +367,10 @@ describe('effectSummaryParts (тултипы)', () => {
     const images = effect({ modifiers: [], misdirect: { charges: 3, die: 'd6', threshold: 3 } });
     expect(effectSummaryParts(images)).toEqual([{ key: 'domain.effect.mirrorImages', params: { charges: 3 } }]);
 
-    const bane = effect({ modifiers: [], elementalBane: { damageType: 'fire', dice: '2d6' } });
+    const bane = effect({
+      modifiers: [],
+      triggers: [{ on: 'damaged', extraDamage: { dice: '2d6', damageType: 'fire', oncePerTurn: true } }],
+    });
     expect(effectSummaryParts(bane)).toEqual([
       { key: 'domain.effect.elementalBane', params: { damage: '2d6', type: 'fire' } },
     ]);
@@ -373,22 +383,25 @@ describe('effectSummaryParts (тултипы)', () => {
 });
 
 describe('normalizeEffects: Elemental Bane', () => {
-  const raw = (extra: Record<string, unknown>): unknown => ({
+  const raw = (extraDamage: Record<string, unknown> = {}, trigger: Record<string, unknown> = {}): unknown => ({
     id: 'eb',
     name: 'Elemental Bane',
     duration: { type: 'concentration' },
     modifiers: [],
-    elementalBane: { damageType: 'fire', dice: '2d6', ...extra },
+    triggers: [
+      { on: 'damaged', extraDamage: { dice: '2d6', damageType: 'fire', oncePerTurn: true, ...extraDamage }, ...trigger },
+    ],
   });
+  const damaged = (input: unknown) => triggerOn(normalizeEffects([input])[0]!, 'damaged');
 
   it('сохраняет тип, кости и метку хода (включая null)', () => {
-    expect(normalizeEffects([raw({})])[0]?.elementalBane).toEqual({ damageType: 'fire', dice: '2d6' });
-    expect(normalizeEffects([raw({ usedTurn: '2:e1' })])[0]?.elementalBane?.usedTurn).toBe('2:e1');
-    expect(normalizeEffects([raw({ usedTurn: null })])[0]?.elementalBane?.usedTurn).toBeNull();
+    expect(damaged(raw())?.extraDamage).toEqual({ dice: '2d6', damageType: 'fire', oncePerTurn: true });
+    expect(damaged(raw({}, { usedTurn: '2:e1' }))?.usedTurn).toBe('2:e1');
+    expect(damaged(raw({}, { usedTurn: null }))?.usedTurn).toBeNull();
   });
 
   it('отбрасывает неизвестный тип урона', () => {
-    expect(normalizeEffects([raw({ damageType: 'nope' })])[0]?.elementalBane).toBeUndefined();
+    expect(normalizeEffects([raw({ damageType: 'nope' })])[0]?.triggers).toBeUndefined();
   });
 });
 
@@ -539,8 +552,6 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       modifiers: [],
       conditions: ['blinded'],
       escalate: { condition: 'unconscious' },
-      wakeOnDamage: true,
-      saveOnDamage: { advantage: true },
       restrictions: { noActions: true, spellFailureChance: 25 },
       misdirect: { charges: 3, die: 'd6', threshold: 3 },
       bonusDie: '1d6',
@@ -553,33 +564,36 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       consumeOnAttackRoll: true,
       consumeOnSave: true,
       light: { bright: 30, dim: 30 },
-      deathWard: true,
       conditionImmunities: ['charmed'],
       conditionImmunitiesFrom: { conditions: ['charmed'], types: ['fiend'] },
-      triggers: {
-        startOfTurn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } },
-        endOfTurn: { damage: { dice: '5d4', types: ['acid'] } },
-      },
+      triggers: [
+        { on: 'damaged', endEffect: true },
+        { on: 'damaged', repeatSave: { advantage: true } },
+        { on: 'damaged', redirect: 'linked' },
+        { on: 'damaged', reduce: { dice: '1d4', types: ['fire'] } },
+        { on: 'damaged', extraDamage: { dice: '2d6', damageType: 'fire', oncePerTurn: true } },
+        { on: 'damaged', extraDamage: { dice: '1d8', damageType: 'radiant', from: 'source' } },
+        { on: 'damaged', reaction: { kind: 'ward', types: ['fire', 'cold'] } },
+        { on: 'damaged', reaction: { kind: 'saveCondition', ability: 'con', feet: 60, condition: 'blinded' } },
+        { on: 'damaged', damage: { to: 'source', damageType: 'cold', dice: '2d8' } },
+        { on: 'hpReachedZero', survive: { hp: 1 } },
+        { on: 'healReceived', preventHeal: true },
+        { on: 'healReceived', maximizeHeal: true },
+        { on: 'deathSave', rollMode: 'advantage' },
+        { on: 'saveSucceeded', noDamageOnSuccess: true },
+        { on: 'ownAttackRoll', endEffect: true },
+        { on: 'willingMove', damage: { to: 'self', dice: '1d8', damageType: 'thunder', feet: 5 } },
+        { on: 'startOfTurn', turn: { tempHp: 5, damage: { dice: '1d4', types: ['fire'] } } },
+        { on: 'endOfTurn', turn: { damage: { dice: '5d4', types: ['acid'] } } },
+      ],
       magicWeapon: true,
       weaponOverride: { weapons: ['XPHB:Club'], dice: '1d10', damageType: 'force', abilityMod: 4 },
       shadowBlade: { dice: '3d8', inHand: false },
       immuneToSpeedReduction: true,
       ignoresDifficultTerrain: true,
       seesInvisible: true,
-      ward: ['fire', 'cold'],
-      damageReaction: { ability: 'con', feet: 60, condition: 'blinded' },
-      breakOn: ['attack'],
-      maximizeHealing: true,
-      noHeal: true,
-      deathSaveAdvantage: true,
-      saveNoDamage: true,
-      retaliate: { damageType: 'cold', dice: '2d8' },
-      damageReduce: { dice: '1d4', types: ['fire'] },
-      elementalBane: { damageType: 'fire', dice: '2d6' },
       dominates: true,
       charges: { count: 12, on: 'rangedWeaponAttack' },
-      takesExtraDamage: { dice: '1d8', damageType: 'radiant' },
-      onWillingMove: { dice: '1d8', damageType: 'thunder', feet: 5 },
       zephyrStrike: { dice: '1d8', damageType: 'force', speedFeet: 30 },
       onEnd: {
         name: 'Вялость',

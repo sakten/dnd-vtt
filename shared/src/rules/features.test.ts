@@ -202,7 +202,7 @@ describe('каталог черт (features.json)', () => {
     expect(def?.autoTargets).toEqual({ feet: 30, side: 'hostile' });
     expect(def?.damage).toEqual({ dice: '1d8', types: ['radiant'], abilityDice: { ability: 'wis', min: 1 } });
     expect(def?.effects?.[0]?.conditions).toEqual(['frightened', 'incapacitated']);
-    expect(def?.effects?.[0]?.wakeOnDamage).toBe(true);
+    expect(def?.effects?.[0]?.triggers?.find((t) => t.on === 'damaged')?.endEffect).toBe(true);
     const ids = classFeatures([{ className: 'cleric', level: 5 }]).map((a) => a.id);
     expect(ids).toContain('class:cleric:turnUndead');
     expect(ids).not.toContain('class:cleric:channelDivinity');

@@ -1,4 +1,4 @@
-import { rollDice, type Token } from 'shared';
+import { rollDice, triggerOn, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { applyDamage, singleDamageType } from './damage';
@@ -13,7 +13,7 @@ import { removeZonesOfSource } from './zones';
  */
 export function tickEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, token: Token) {
   for (const effect of [...token.effects]) {
-    const trigger = effect.triggers?.startOfTurn;
+    const trigger = triggerOn(effect, 'startOfTurn')?.turn;
     if (!trigger) continue;
     if (trigger.tempHp && trigger.tempHp > 0) {
       ctx.manager.grantTempHp(room, token, trigger.tempHp);
@@ -45,7 +45,7 @@ export function tickEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, toke
  */
 export function tickEndTurnEffectTriggers(ctx: ConnCtx, room: Room, mapId: string, token: Token) {
   for (const effect of [...token.effects]) {
-    const trigger = effect.triggers?.endOfTurn;
+    const trigger = triggerOn(effect, 'endOfTurn')?.turn;
     if (!trigger) continue;
     const damage = trigger.damage;
     if (damage?.dice) {
@@ -70,15 +70,18 @@ export function tickEndTurnEffectTriggers(ctx: ConnCtx, room: Room, mapId: strin
 
 /**
  * Повторные спасброски эффектов «от урона» (Hideous Laughter): успех снимает
- * эффект вместе с состояниями; преимущество — флаг эффекта (XPHB).
+ * эффект вместе с состояниями; преимущество — в триггере (XPHB).
  */
 export function rollDamageSavesOnDamage(ctx: ConnCtx, room: Room, mapId: string, token: Token) {
-  const pending = token.effects.filter((e) => e.saveOnDamage && e.duration.type === 'untilSave');
+  const pending = token.effects.filter(
+    (e) => triggerOn(e, 'damaged')?.repeatSave && e.duration.type === 'untilSave'
+  );
   for (const effect of pending) {
     const duration = effect.duration;
     if (duration.type !== 'untilSave') continue;
+    const repeat = triggerOn(effect, 'damaged')?.repeatSave;
     const { roll, success } = ctx.manager.rollSave(room, token, duration.ability, duration.dc, {
-      advantage: effect.saveOnDamage?.advantage,
+      advantage: repeat?.advantage,
     });
     pushSaveMessage(ctx, room, { subject: `${effect.name} · ${token.name}`, roll, success });
     if (success) {

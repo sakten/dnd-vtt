@@ -7,7 +7,7 @@
 ## 1. Модель
 
 - **Ветка (`primary`)** — как спек разрешается рантаймом; ровно одна. Объявленный `AutomationResolution`: `attack | save | auto | effect | utility | summon | shape | manual`. `shape` допустим только вместе с `save` (Polymorph); Wild Shape — отдельный socket-flow (`server/src/socket/forms.ts`).
-- **Блоки** — механизмы, ортогональные ветке. Существующие: `zone`, `effects`, `summon`, `utility`, payload (`save`/`damage`/`heal`/`successDamage`/`endConditions`/`healTo`/`containment`). Выделяются явно: `loadout`, `damageHooks`, `uses`, `movement`, `choices`, `selection`, `vision`.
+- **Блоки** — механизмы, ортогональные ветке. Существующие: `zone`, `effects`, `summon`, `utility`, payload (`save`/`damage`/`heal`/`successDamage`/`endConditions`/`healTo`/`containment`). Выделяются явно: `loadout`, `triggers`, `uses`, `movement`, `choices`, `selection`, `vision`.
 - **Вложенность**: `GrantedAction.def` — полноценный спек (своя ветка); `zone.triggers.*`, `effect.triggers.*`, `burst`, `zone.onCreate` — общий payload; блок `uses` расходуется событиями.
 
 Обоснование (аудит 420 заклинаний): 66 из 245 зелёных многосоставные — Ice Knife (attack + burst), Jallarzi (save + zone:aura + triggers), Wall of Light (save + zone + granted action), Eyebite (carrier + 3 действия со своими save), Polymorph (save + shape); механика копий (`extends` + `patch`) требует дерева именованных узлов.
@@ -46,13 +46,19 @@
 
 Стратегии блока: `augment` (подмена/бонус существующего оружия), `inject` (синтетическое оружие в лоадаут), `rider` (добавка к атаке при касте), `grant` (выданное attack-действие).
 
-### 3.2. `damageHooks` — перехват урона и HP (выделяется; это и есть R14)
-- Входящий урон: `retaliate` (Armor of Agathys, Fire Shield, Shadow of Moil), `damageReduce` (Resistance), `elementalBane`, `ward` (Primordial Ward), `damageReaction` (Fount of Moonlight), `damageLink` (Warding Bond), `deathWard`, `saveOnDamage` (Hideous Laughter), `wakeOnDamage` (Sleep, Eyebite), `breakOn` (Invisibility);
-- гейты: `sanctuary` (нельзя выбрать целью);
-- поток HP: `lifesteal` (Vampiric Touch), `lifeTransfer`, `maxHpFromDamage` (Harm), `undeadTempHp` (Negative Energy Flood), `healTo` (Aura of Life), `tempHp`, `maxHpBonus`, `noHeal`, `maximizeHealing`.
+### 3.2. `triggers` — перехват урона и HP (единый словарь событий × операции; рантайм R14 — отдельно)
+
+`EffectSpec.triggers: EffectTriggers` — одно поле на эффект: ключ — событие рантайма, значение — операция или список операций (элемент может быть под гейтом `{ if, then }`). Спелл ссылается на событие, а не заводит именованное поле под механику.
+
+- `damaged` (входящий урон): `damage` (ответ атакующему, `to:'source'` — Armor of Agathys, Fire Shield, Shadow of Moil), `reduce` (Resistance), `extraDamage` (`oncePerTurn` — Elemental Bane; `from:'source'` — Spirit Shroud, CME), `redirect:'linked'` (Warding Bond), `endEffect` (пробуждение Sleep/Eyebite/Hypnotic Pattern), `repeatSave` (Hideous Laughter, Dominate), `reaction` (`kind:'ward'` — Primordial Ward; `kind:'saveCondition'` — Fount of Moonlight);
+- `healReceived` (`preventHeal` — Chill Touch; `maximizeHeal` — Beacon of Hope), `hpReachedZero` (`survive {hp:1}` — Death Ward), `deathSave` (Beacon of Hope), `saveSucceeded` (`noDamageOnSuccess` — Circle of Power), `targetedByAttack` (спас + `cancel` — Sanctuary);
+- `ownAttackRoll`/`ownSpellCast`/`ownDamageDealt` (`endEffect` — обрыв Invisibility/Sanctuary), `willingMove` — зарезервирован под B-срез (Booming Blade пока в `weaponAttack.hitEffect.onWillingMove`);
+- `startOfTurn`/`endOfTurn` — тёрн-слоты (`EffectTriggerSpec`: `tempHp`/`damage`), живут в том же объекте.
+
+`tempHp` (Armor of Agathys) и `dominates` (Dominate Beast/Person) — поля самого эффекта: это состояние при наложении, а не реакция на событие. Поток HP вне триггеров: `lifesteal` (Vampiric Touch), `lifeTransfer`, `maxHpFromDamage` (Harm), `undeadTempHp` (Negative Energy Flood), `healTo` (Aura of Life), `maxHpBonus`.
 
 Порядок критичен — фиксируется тестами; целевой диспетчер — `gateAttackOnTarget` (до окна реакций) и `afterDamage` (после урона), окна реакций (`ward`/Absorb Elements) остаются в `reactions/*`.
-Реализовано (`HookSpec`, компилируется в поля эффекта): группа перехватчиков переведена под `hooks` (retaliate/damageReduce/elementalBane/takesExtraDamage/wakeOnDamage), добавлены saveOnDamage/breakOn/sanctuary/deathWard/damageLink/tempHp/noHeal/maximizeHealing/deathSaveAdvantage/saveNoDamage/dominates/ward/damageReaction. Мигрированы: Fire Shield, Resistance, Elemental Bane, Spirit Shroud, CME, Eyebite, Bestow Curse (регрупп) + Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward. Серверный диспетчер (`afterDamage`/`gateAttackOnTarget`, R14) — отдельным срезом.
+Реализовано (`EffectTriggers`, компилируется в существующие поля эффекта): реактивные перехваты сведены в единый словарь (A-срез, рантайм не менялся). Мигрированы: Fire Shield, Resistance, Elemental Bane, Spirit Shroud, CME, Eyebite, Bestow Curse, Armor of Agathys, Shadow of Moil, Invisibility, Greater Invisibility, Death Ward, Hideous Laughter, Hypnotic Pattern, Sleep, Chill Touch, Sanctuary, Warding Bond, Beacon of Hope, Dominate Beast/Person, Circle of Power, Primordial Ward, Fount of Moonlight. Серверный диспетчер (`afterDamage`/`gateAttackOnTarget`, R14) — отдельным срезом.
 
 ### 3.3. `uses` — заряды и счётчики (выделяется)
 `effect.charges {count, on}` (Flame Arrows — 12 боеприпасов, Magic Stone — 3 камня, Resistance), `charges.on: 'rangedWeaponAttack'`, `zone.charges` (Cordon of Arrows, Healing Spirit), `zone.dealtLimit` (Guardian of Faith — 60), `misdirect.charges` (Mirror Image), `bonusDieUses` (Бардовское вдохновение), `consumeOnAttackRoll` (Zephyr Strike), `elementalBane.usedTurn`. Общий вид: `uses: { count, spendOn, endsWhen, replenish }`.
@@ -69,7 +75,7 @@
 
 Блок: `choices: [{ id, param, options, default? }]`; `param` — типизированный enum, значение подставляется ссылками в `DiceRef.types`, `effect.conditions`, `ability`, `zone.area` (форма стены). Клиент выбирает вариант в `SpellPopover`, сервер валидирует (`spellResolve`).
 
-Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType|ability|skill` — ссылки), условия/`retaliate`/`takesExtraDamage`/`turnDodge`/`wakeOnDamage` и действия (`save`/`area`/`damage.types`/`effects`) принимают ссылки и гейты `{ if, then }`, `Leveled` для круга каста. Мигрированы все носители `SPELL_VARIANTS`: Elemental Weapon, Resistance, Elemental Bane, Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME, Eyebite (carrier с 3 действиями, `markSaved`), Bestow Curse (режимы, `turnDodge`, `Leveled`-длительность). Реестр `SPELL_VARIANTS` удалён: `spellVariantDef` читает `choices` спеков (единый источник для UI и валидации).
+Реализовано: `ChoiceSpec` + `ModifierSpec` (`value`/`filter.damageType|ability|skill` — ссылки), условия/элементы `triggers` (`damage`/`extraDamage`/`endEffect`)/`turnDodge` и действия (`save`/`area`/`damage.types`/`effects`) принимают ссылки и гейты `{ if, then }`, `Leveled` для круга каста. Мигрированы все носители `SPELL_VARIANTS`: Elemental Weapon, Resistance, Elemental Bane, Protection from Energy, Blindness/Deafness, Fire Shield, Dragon's Breath, Command, Enhance Ability, Skill Empowerment, Spirit Shroud, CME, Eyebite (carrier с 3 действиями, `markSaved`), Bestow Curse (режимы, `turnDodge`, `Leveled`-длительность). Реестр `SPELL_VARIANTS` удалён: `spellVariantDef` читает `choices` спеков (единый источник для UI и валидации).
 
 Опции выборов — из фиксированных словарей: `damageType` (`DAMAGE_TYPES` + сентинел `weapon` — True Strike), `condition`, `ability`, `skill` проверяет `validateSpec` (кастомные значения не вводятся); `mode`/`effect`/`command` задаёт базовый спек. Копии (`extends`) сужают/переставляют опции (`patch: {'choices.<id>.options': [...]}`), `spellVariantDef` резолвит копии — селект кастомного спелла виден в UI. Адресация значения — `{ref:'choice', choice:'<id>'}` (без `id` — первый выбор); `optional` включается только явным вариантом этого выбора. UI показывает первый выбор; мультивыбор — задел конструктора (`spellVariantDef` + контракт `variants: Record<id,string>` в будущем), сегодня все спеки одно-выборочные.
 
@@ -89,13 +95,13 @@
 
 ### 3.8. Существующие блоки (не меняются)
 - `zone` (`ZoneDef`): area/origin/duration/anchor/aura/triggers/onCreate/charges/dealtLimit/actions/wall/flags — уже самостоятельный блок с под-механизмами; в спеке — `ZoneSpec` (pass-through + `ValueExpr` в charges/триггерах через `PayloadSpec`); стены — параметрически: `zone.area: { wall: WallDims | { from: 'spell' } }` (`wallAreaOf(dims, variant)`, габариты — `WALL_DIMS`), секции — `zone.wall` (+`breach: PayloadSpec`), общий шаблон `wallZone(...)` в `specs/factories.ts` (шапка + параметры: триггеры/секции/флаги/свет/действия);
-- `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (мигрируют в `damageHooks`), выданные действия; `onEnd` — эффект при снятии носителя (Haste: «вялость») — применяется во всех путях снятия, кроме замены одноимённого эффекта при перекасте;
+- `effects` (`AutomationEffect`): длительности, условия, модификаторы, ограничения, триггеры, реактивности (в `triggers`), выданные действия; `onEnd` — эффект при снятии носителя (Haste: «вялость») — применяется во всех путях снятия, кроме замены одноимённого эффекта при перекасте;
 - `utility` (`kind` — готовый образец «блока со стратегиями», 21 значение);
 - `summon`, `shape`, payload (`save`/`damage`/`heal`/…).
 
 ### 3.9. Не выделяются
 - `economy` (`restrictions`, стоимость выданных действий, `extraAction`/`extraMovement`/`extraAttacks`/`disengage`) — остаётся в `Restrictions` + `GrantedAction` + `utility`;
-- `defense` (`conditionImmunities*`, `saveNoDamage`, `deathSaveAdvantage`) — пересекается с `damageHooks`/`effects`;
+- `defense` (`conditionImmunities*`, `saveNoDamage`, `deathSaveAdvantage`) — пересекается с `triggers`/`effects`;
 - `triggers`/`timing` — приводится к одному формату payload + слот (`startOfTurn`/`endOfTurn`/`enter`/`exit`/`onCreate`), отдельным классом не является.
 
 ## 4. ValueExpr (DiceRef)
@@ -110,7 +116,7 @@
 - `{ ref: 'choice', optional? }` — выбор при касте; `optional` — без явного варианта поле опускается (Wall of Sand);
 - урон — `DamageSpec`: одиночная часть (`dice`/`types`) или `parts: [{ dice, type }]` (Destructive Wave: `5d6thunder + 5d6radiant` с уникальными типами);
 - `Leveled<T>` — значение по кругу каста: `{ levels: [{ above, value }], fallback? }` (Bestow Curse: длительность/концентрация/лимит; `null` — без лимита, `fallback: undefined` — дефолт движка);
-- `Gated<T>` — элемент под условием выбора: `{ if, then }` (условия, модификаторы, `takesExtraDamage`, `turnDodge`, `wakeOnDamage`);
+- `Gated<T>` — элемент под условием выбора: `{ if, then }` (условия, модификаторы, элементы `triggers` (`extraDamage`/`endEffect`), `turnDodge`);
 - `{ concat: [...] }` — `${кость}${тип}`: любое нерешённое слагаемое опускает всё поле (`riderDice` у GFB/True Strike);
 - `{ join: { parts, sep } }` — склейка непустых слагаемых разделителем (Hail/Lightning Arrow: `2d8 + 1d8` — база + апкаст сохраняются раздельно);
 - `{ tiers: [{ above, value }] }` — литеральные ступени (Magic Weapon: +1/+2/+3 с 1/3/6 круга);
@@ -148,7 +154,7 @@ CUSTOM:Jallarzi-Fire {
 |---|---|---|---|---|---|---|---|
 | `loadout.rider` | ✓ | — | — | — | — | — | — |
 | `loadout.augment/inject/grant` | — | — | ✓ | ✓ | — | — | — |
-| `damageHooks` | ✓ | ✓ | ✓ | ✓ | — | — | — |
+| `triggers` | ✓ | ✓ | ✓ | ✓ | — | — | — |
 | `uses` | ✓ | ✓ | ✓ | ✓ | — | — | — |
 | `movement` | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
 | `choices` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
@@ -167,7 +173,7 @@ CUSTOM:Jallarzi-Fire {
 
 1. `compileSpec(spec, opts): AutomationDef` — резолв `extends`/`patch` → подстановка `choices` → резолв `DiceRef`/скейлов → сборка `AutomationDef`. Рантайм (`dispatchKind`, `executeAutomation`) не меняется.
 2. Шаблоны (`zoneStorm`, `weaponAttack`, `chain`, `teleportAfter`, `summon`) — конструкторы спеков, не отдельная модель.
-3. Миграция — батчами по классам (сначала каталог + билдеры на `loadout`/`uses`/`choices`, затем `damageHooks`/`movement`/`selection`/`vision`), под характеризационным замком: хэши производных не меняются, кроме осознанных правок.
+3. Миграция — батчами по классам (сначала каталог + билдеры на `loadout`/`uses`/`choices`, затем `triggers`/`movement`/`selection`/`vision`), под характеризационным замком: хэши производных не меняются, кроме осознанных правок.
 4. `CUSTOM:`-каталог и UI конструктора — после стабилизации компилятора; тогда же deploy-инварианты (достижимость полей, i18n/иконки копий).
 5. Ручной слой (149 manual) не мигрируем — остаётся `manual`/`byDesign`.
 
@@ -176,7 +182,7 @@ CUSTOM:Jallarzi-Fire {
 Принято:
 - спелл — композиция блоков с одной ведущей веткой; `primary` ∈ `AutomationResolution`, `shape` только с `save`;
 - стабильные `id` у массивов; патч по именам; неизвестный путь — ошибка;
-- выделяются `loadout`, `damageHooks`, `uses`, `movement`, `choices`, `selection`, `vision`;
+- выделяются `loadout`, `triggers`, `uses`, `movement`, `choices`, `selection`, `vision`;
 - `mark`/`markTarget`/`markSaved` остаются в `effects`; `retarget` — в `selection`;
 - `economy`/`defense` не выделяются; `triggers` — единый формат payload + слот;
 - шаблоны — конструкторы над композицией;
@@ -194,11 +200,13 @@ CUSTOM:Jallarzi-Fire {
 - батч смайтов: `AutomationSpec.force`, `EffectSpec.conditionImmunities`/`banish`, `ValueExpr.join`; мигрированы 9 XPHB-смайтов (67 спеков), билдер удалён;
 - `selection` добор: `mark`/`markTarget`/`retarget` (Hex/Hunter's Mark), `targets` (Bless/Bane), `autoTargets` (Beacon of Hope), `side`+`$spell` (Spirit Guardians, Conjure Woodland Beings, `baseActionId`), `requiresCreatureTypes`/`saveAdvantageInCombat`+`Leveled<null>` (Dominate Beast/Person), Telekinesis (utility + носитель-действие) — 77 спеков, `derived` не менялся, билдеры удалены. Батч `selection` закрыт.
 - каталог закрыт на спеках: `zone`-локации (Daylight/Moonbeam/Flaming Sphere/Faithful Hound/Crusader's Mantle/Holy Weapon), `escape`/`escalate` (Web/Sleep), `endConditions` (Protection from Poison/Lesser Restoration), `shape`/`saveSuccess`/`conditionImmunitiesFrom`/флаги движения (Polymorph/Freedom of Movement/Protection from Evil and Good/Otto/Primordial Ward/Fount of Moonlight); в `AUTOMATION_SPELLS` — только manual/chip.
-- слой добавок снесён: Shocking Grasp/Chill Touch — attack-спеки с райдером (`restrictions.noOpportunityAttacks`/`hooks.noHeal`), Cure Wounds/Healing Word/Mass Healing Word/Mass Cure Wounds (heal `abilityMod` + `types`, `targets: 6`), Prayer of Healing (`targets: 5`), Harm (`AutomationSpec.maxHpFromDamage`); `AUTOMATION_ADDITIONS`/`AutomationAddition`/`withAdditions`/`healAbilityMod`-мутация и `withSpellDice`/`resolveZoneDice` удалены, `derived` не менялся (`21dcc4e4cec47878`).
+- слой добавок снесён: Shocking Grasp/Chill Touch — attack-спеки с райдером (`restrictions.noOpportunityAttacks`/`triggers.healReceived.preventHeal`), Cure Wounds/Healing Word/Mass Healing Word/Mass Cure Wounds (heal `abilityMod` + `types`, `targets: 6`), Prayer of Healing (`targets: 5`), Harm (`AutomationSpec.maxHpFromDamage`); `AUTOMATION_ADDITIONS`/`AutomationAddition`/`withAdditions`/`healAbilityMod`-мутация и `withSpellDice`/`resolveZoneDice` удалены, `derived` не менялся (`21dcc4e4cec47878`).
 - класс 2 аудита (точки расширения): выборы — адресация по id (`{ref:'choice', choice}`, `optional` включается только явным вариантом этого выбора), словари опций (`damageType`/`condition`/`ability`/`skill`) проверяет `validateSpec`, `spellVariantDef` резолвит `extends`-копии (селект кастомного спелла); замок зеркала `UtilitySpec.multiplier/thenMove` (Мантия вдохновения) — тесты `automation.spec.test.ts`, `derived` не менялся. `ref:'characterLevel'` и `ZoneWallDef.resistances` по решению владельца не покрывались.
 - класс 3 аудита (дубли): удалены `header.remarkAction`/`header.zoneMoveAction` (мёртвый runtime-слой, универсальный путь — `ActionSpec`) и `LoadoutAugment.ranged` (дубль `ModifierFilter.attackType`, Flame Arrows объявляет его напрямую); `validateSpec` даёт ошибку на `baseActionId`+payload и дособирает refs `saveSuccess`/`zone.actions`. Отложено: `CompositeConfig.upcast/onFail/zone` — срез B (тултипы из спеков); роль `'choice'` в данных `damage.parts` — снять при следующей регенерации `npm run spells`.
 - срез B: `spellDamageParts` выводится из ролей частей данных (`main` — составной; одна `main` + `trigger` другого типа — Ice Knife/Wall of Thorns; меньше двух строк — данные карточки), типы-выборы — в порядке спековых `choices`; `COMPOSITE_CONFIGS`/`CompositeConfig`/`CompositePart` и ключевые хардкоды (Ice Knife/Wall of Thorns/Jallarzi) удалены, свип всех 420 ключей — нулевой diff, `derived` не менялся.
 - Haste RAW (сессия 23): `EffectSpec.onEnd` (вялость при снятии: `rounds: 2`, скорость ×0, запрет действий/бонусных/реакций; во всех путях снятия, кроме замены при перекасте) + преимущество на спас DEX; `derived` изменён осознанно (`70802ac175f12af1`).
+- срез A `triggers`: блок эффекта `triggers` (`EffectTriggers`) — единый словарь событий × операции (`damaged`/`healReceived`/`hpReachedZero`/`deathSave`/`saveSucceeded`/`targetedByAttack`/`own*`/`willingMove` + тёрн-слоты) вместо прежних `hooks`/`triggers`; `tempHp`/`dominates` вынесены в поля эффекта, `willingMove` зарезервирован под B (Booming Blade пока в `weaponAttack.hitEffect`); компилируется в те же поля `AutomationEffect`, рантайм не менялся, `derived` не менялся.
+- срез B (рантайм триггеров): `EffectInstance.triggers: TriggerInstance[]` — 16 именованных полей хуков удалены из рантайма (`retaliate`/`damageReduce`/`elementalBane`/`takesExtraDamage`/`wakeOnDamage`/`saveOnDamage`/`breakOn`/`sanctuary`/`deathWard`/`damageLink`/`noHeal`/`maximizeHealing`/`deathSaveAdvantage`/`saveNoDamage`/`ward`/`damageReaction`/`onWillingMove`); потребители — через `triggersOn`/`triggerOn`/`hasTrigger` (`rules/effects.ts`), сводка чипов — по триггерам; сохранённые комнаты старой формы хуки не восстанавливают (решение владельца, без миграции). Срез C: те же поля удалены и из `AutomationEffect` — `compileTriggers` пишет `triggers` напрямую (включая тёрн-слоты и `weaponAttack.hitEffect.triggers`), `effectFieldsFromDef` только копирует массив; характеризация обновлена осознанно (`derived e4ae27231c5f3319`, форма IR), `catalog`/green/red не менялись; аудит показал и починил скрытый баг — `featureAutomation` (turnUndead) писал легаси `wakeOnDamage` мимо типов.
 - билдеры закрыты: `lifesteal`/`lifeTransfer`, `UtilitySpec.dice`, `area`, `halfOnMiss`/`successDamage`/`undeadTempHp`/`heal`, effect `triggers`/`selfOnFail`/`maxHpBonus`, `ActionSpec.banishOnFail`/`requiresCreatureTypes`; мигрированы все билдеры, `derived` не менялся, `BUILTIN_AUTOMATION`/`spellBuiltinAutomated` удалены, `builders.ts` → `helpers.ts` (хелперы костей).
 
 Открыто (решить при реализации шага 2–3):

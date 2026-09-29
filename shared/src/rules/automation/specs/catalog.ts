@@ -77,7 +77,7 @@ export const CATALOG_SPECS: Record<string, AutomationSpec> = {
             duration: PERMANENT,
             to: 'targets',
             modifiers: [{ target: 'save', mode: 'advantage', filter: { magical: true } }],
-            hooks: { saveNoDamage: true },
+            triggers: { saveSucceeded: { noDamageOnSuccess: true } },
           },
         ],
       },

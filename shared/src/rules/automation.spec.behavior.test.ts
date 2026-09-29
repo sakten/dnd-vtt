@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
+import type { AutomationEffect } from '../domain/automation';
+import type { TriggerEvent } from '../domain/effects';
 import { automationForSpell } from './automation';
 import type { Spell } from './spells';
 
@@ -14,6 +16,7 @@ const find = (key: string): Spell => {
   if (!spell) throw new Error(`нет заклинания ${key}`);
   return spell;
 };
+const trigger = (e: AutomationEffect | undefined, on: TriggerEvent) => (e?.triggers ?? []).find((t) => t.on === on);
 
 describe('поведение спеков (RAW, реальные данные)', () => {
   it('Command: halt — скорость 0 и запрет действий; grovel — ещё и prone; approach — без обоих', () => {
@@ -57,13 +60,13 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(warm?.modifiers).toEqual([
       { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'cold' } },
     ]);
-    expect(warm?.retaliate).toEqual({ damageType: 'fire', dice: '2d8' });
+    expect(trigger(warm, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'fire', dice: '2d8' });
 
     const chill = automationForSpell(spell, { variant: 'chill' }).effects?.[0];
     expect(chill?.modifiers).toEqual([
       { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'fire' } },
     ]);
-    expect(chill?.retaliate).toEqual({ damageType: 'cold', dice: '2d8' });
+    expect(trigger(chill, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'cold', dice: '2d8' });
   });
 
   it('Protection from Energy: сопротивление выбранному типу, концентрация', () => {
@@ -85,13 +88,15 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(base.zone?.side).toBe('hostile');
     const aura = base.zone?.aura?.effects?.[0];
     expect(aura?.modifiers).toEqual([{ target: 'speed', mode: 'add', value: -10 }]);
-    expect(aura?.takesExtraDamage).toEqual({ dice: '1d8', damageType: 'necrotic' });
+    expect(trigger(aura, 'damaged')?.extraDamage).toEqual({ dice: '1d8', damageType: 'necrotic', from: 'source' });
 
     // Апкаст: выше 3 круга каждые два уровня +1к8 (5 → 2d8, 7 → 3d8).
     expect(
-      automationForSpell(spell, { castLevel: 5, variant: 'radiant' }).zone?.aura?.effects?.[0]?.takesExtraDamage
-    ).toEqual({ dice: '2d8', damageType: 'radiant' });
-    expect(automationForSpell(spell, { castLevel: 7 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('3d8');
+      trigger(automationForSpell(spell, { castLevel: 5, variant: 'radiant' }).zone?.aura?.effects?.[0], 'damaged')?.extraDamage
+    ).toEqual({ dice: '2d8', damageType: 'radiant', from: 'source' });
+    expect(
+      trigger(automationForSpell(spell, { castLevel: 7 }).zone?.aura?.effects?.[0], 'damaged')?.extraDamage?.dice
+    ).toBe('3d8');
     // Без выбора — первый тип варианта.
     expect(automationForSpell(spell, { castLevel: 3 }).zone?.aura?.effects?.[0]?.variant).toBe('cold');
   });
@@ -196,14 +201,14 @@ describe('поведение спеков (RAW, реальные данные)',
     const asleep = carrier?.actions?.[0]?.def;
     expect(asleep?.save).toEqual({ ability: 'wis' });
     expect(asleep?.effects?.[0]?.conditions).toEqual(['unconscious']);
-    expect(asleep?.effects?.[0]?.wakeOnDamage).toBe(true);
+    expect(trigger(asleep?.effects?.[0], 'damaged')?.endEffect).toBe(true);
     const mark = def.effects?.[1];
     expect(mark?.conditions).toEqual(['poisoned']);
     expect(mark?.markSaved).toBe(true);
-    expect(mark?.wakeOnDamage).toBeUndefined();
+    expect(mark?.triggers).toBeUndefined();
     const asleepDef = automationForSpell(spell, { variant: 'asleep' });
     expect(asleepDef.effects?.[1]?.conditions).toEqual(['unconscious']);
-    expect(asleepDef.effects?.[1]?.wakeOnDamage).toBe(true);
+    expect(trigger(asleepDef.effects?.[1], 'damaged')?.endEffect).toBe(true);
   });
 
   it('Bestow Curse: режимы и длительность по кругу (10 раундов / 100 / постоянно)', () => {
@@ -226,9 +231,10 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(lvl5.maxRounds).toBeNull();
     expect(lvl5.effects?.[0]?.duration).toEqual({ type: 'permanent' });
     expect(lvl5.effects?.[0]?.turnDodge).toEqual({ ability: 'wis' });
-    expect(automationForSpell(spell, { castLevel: 3, variant: 'necrotic' }).effects?.[0]?.takesExtraDamage).toEqual({
+    expect(trigger(automationForSpell(spell, { castLevel: 3, variant: 'necrotic' }).effects?.[0], 'damaged')?.extraDamage).toEqual({
       dice: '1d8',
       damageType: 'necrotic',
+      from: 'source',
     });
     // Без выбора — проверки Силы.
     expect(automationForSpell(spell, { castLevel: 3 }).effects?.[0]?.modifiers?.[0]).toEqual({
@@ -242,10 +248,10 @@ describe('поведение спеков (RAW, реальные данные)',
     const spell = find('XPHB:Armor of Agathys');
     const base = automationForSpell(spell, { castLevel: 1 }).effects?.[0];
     expect(base?.tempHp).toBe(5);
-    expect(base?.retaliate).toEqual({ damageType: 'cold', amount: 5 });
+    expect(trigger(base, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'cold', amount: 5 });
     const up = automationForSpell(spell, { castLevel: 3 }).effects?.[0];
     expect(up?.tempHp).toBe(15);
-    expect(up?.retaliate).toEqual({ damageType: 'cold', amount: 15 });
+    expect(trigger(up, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'cold', amount: 15 });
   });
 
   it('Invisibility: цели по кругу, обрыв атакой/кастом; Greater — без обрыва', () => {
@@ -254,19 +260,20 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(base.concentration).toBe(true);
     expect(base.effects?.[0]?.targets).toBe(1);
     expect(base.effects?.[0]?.conditions).toEqual(['invisible']);
-    expect(base.effects?.[0]?.breakOn).toEqual(['attack', 'spell']);
+    expect(trigger(base.effects?.[0], 'ownAttackRoll')?.endEffect).toBe(true);
+    expect(trigger(base.effects?.[0], 'ownSpellCast')?.endEffect).toBe(true);
     expect(automationForSpell(spell, { castLevel: 4 }).effects?.[0]?.targets).toBe(3);
     const greater = automationForSpell(find('XPHB:Greater Invisibility'));
     expect(greater.effects?.[0]?.targets).toBe(1);
-    expect(greater.effects?.[0]?.breakOn).toBeUndefined();
+    expect(greater.effects?.[0]?.triggers).toBeUndefined();
   });
 
   it('Death Ward и Shadow of Moil: страховка от смерти и ответная тьма', () => {
     const ward = automationForSpell(find('XPHB:Death Ward')).effects?.[0];
-    expect(ward?.deathWard).toBe(true);
+    expect(trigger(ward, 'hpReachedZero')?.survive).toEqual({ hp: 1 });
     expect(ward?.to).toBe('targets');
     const moil = automationForSpell(find('XGE:Shadow of Moil')).effects?.[0];
-    expect(moil?.retaliate).toEqual({ damageType: 'necrotic', dice: '2d8' });
+    expect(trigger(moil, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'necrotic', dice: '2d8' });
     expect(moil?.modifiers).toEqual([
       { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
       { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
@@ -448,7 +455,7 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(power?.aura?.effects?.[0]?.modifiers).toEqual([
       { target: 'save', mode: 'advantage', filter: { magical: true } },
     ]);
-    expect(power?.aura?.effects?.[0]?.saveNoDamage).toBe(true);
+    expect(trigger(power?.aura?.effects?.[0], 'saveSucceeded')?.noDamageOnSuccess).toBe(true);
 
     const life = automationForSpell(find('XPHB:Aura of Life')).zone;
     expect(life?.triggers?.startOfTurn).toEqual({ healTo: 1 });
@@ -484,15 +491,17 @@ describe('поведение спеков (RAW, реальные данные)',
     const hypnotic = automationForSpell(find('XPHB:Hypnotic Pattern')).effects?.[0];
     expect(hypnotic?.conditions).toEqual(['charmed', 'incapacitated']);
     expect(hypnotic?.modifiers).toEqual([{ target: 'speed', mode: 'multiply', value: 0 }]);
-    expect(hypnotic?.wakeOnDamage).toBe(true);
+    expect(trigger(hypnotic, 'damaged')?.endEffect).toBe(true);
 
     const sanctuary = automationForSpell(find('XPHB:Sanctuary'));
     expect(sanctuary.targeting).toEqual({ kind: 'creature', range: 30 });
-    expect(sanctuary.effects?.[0]?.sanctuary).toBe(true);
-    expect(sanctuary.effects?.[0]?.breakOn).toEqual(['attack', 'spell', 'damage']);
+    expect(trigger(sanctuary.effects?.[0], 'targetedByAttack')?.save).toEqual({ ability: 'wis' });
+    expect(trigger(sanctuary.effects?.[0], 'ownAttackRoll')?.endEffect).toBe(true);
+    expect(trigger(sanctuary.effects?.[0], 'ownSpellCast')?.endEffect).toBe(true);
+    expect(trigger(sanctuary.effects?.[0], 'ownDamageDealt')?.endEffect).toBe(true);
 
     const bond = automationForSpell(find('XPHB:Warding Bond')).effects?.[0];
-    expect(bond?.damageLink).toBe(true);
+    expect(trigger(bond, 'damaged')?.redirect).toBe('linked');
     expect(bond?.modifiers.slice(0, 2)).toEqual([
       { target: 'ac', mode: 'add', value: 1 },
       { target: 'save', mode: 'add', value: 1 },
@@ -653,7 +662,7 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(nap?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' });
     expect(nap?.conditions).toEqual(['incapacitated']);
     expect(nap?.escalate).toEqual({ condition: 'unconscious', duration: { type: 'concentration' } });
-    expect(nap?.wakeOnDamage).toBe(true);
+    expect(trigger(nap, 'damaged')?.endEffect).toBe(true);
   });
 
   it('Батч Д: endConditions — Protection from Poison и Lesser Restoration', () => {
@@ -711,12 +720,12 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(otto.effects?.[0]?.escape).toMatchObject({ kind: 'save', ability: 'wis', dc: 10, label: 'Собраться' });
 
     const prim = automationForSpell(find('XGE:Primordial Ward')).effects?.[0];
-    expect(prim?.ward).toEqual(['acid', 'cold', 'fire', 'lightning', 'thunder']);
+    expect(trigger(prim, 'damaged')?.reaction).toEqual({ kind: 'ward', types: ['acid', 'cold', 'fire', 'lightning', 'thunder'] });
     expect(prim?.modifiers).toHaveLength(5);
 
     const fount = automationForSpell(find('XPHB:Fount of Moonlight')).effects?.[0];
     expect(fount?.light).toEqual({ bright: 20, dim: 20 });
-    expect(fount?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
+    expect(trigger(fount, 'damaged')?.reaction).toEqual({ kind: 'saveCondition', ability: 'con', feet: 60, condition: 'blinded' });
   });
 
   it('Батч Ж: поток HP — Vampiric Touch, Life Transference, False Life', () => {
@@ -809,24 +818,24 @@ describe('поведение спеков (RAW, реальные данные)',
     const melf = automationForSpell(find("XPHB:Melf's Acid Arrow"), { castLevel: 3 });
     expect(melf.halfOnMiss).toBe(true);
     expect(melf.damage?.dice).toBe('5d4acid');
-    expect(melf.effects?.[0]?.triggers?.endOfTurn?.damage?.dice).toBe('3d4acid');
+    expect(trigger(melf.effects?.[0], 'endOfTurn')?.turn?.damage?.dice).toBe('3d4acid');
 
     const searing = automationForSpell(find('XPHB:Searing Smite'));
     expect(searing.effects?.[0]?.duration).toMatchObject({ type: 'untilSave', ability: 'con', timing: 'start' });
-    expect(searing.effects?.[0]?.triggers?.startOfTurn?.damage?.dice).toBe('1d6');
+    expect(trigger(searing.effects?.[0], 'startOfTurn')?.turn?.damage?.dice).toBe('1d6');
 
     const snare = automationForSpell(find('XPHB:Ensnaring Strike')).effects?.[0];
     expect(snare?.conditions).toEqual(['restrained']);
     expect(snare?.escape).toEqual({ ability: 'str', skill: 'athletics' });
-    expect(snare?.triggers?.startOfTurn?.damage?.types).toEqual(['piercing']);
+    expect(trigger(snare, 'startOfTurn')?.turn?.damage?.types).toEqual(['piercing']);
 
     const vitriolic = automationForSpell(find('XPHB:Vitriolic Sphere'), { castLevel: 5 });
     expect(vitriolic.damage?.dice).toBe('12d4acid');
-    expect(vitriolic.effects?.[0]?.triggers?.endOfTurn?.damage?.dice).toBe('5d4acid');
+    expect(trigger(vitriolic.effects?.[0], 'endOfTurn')?.turn?.damage?.dice).toBe('5d4acid');
 
     const heroism = automationForSpell(find('XPHB:Heroism'), { spellMod: 3 }).effects?.[0];
     expect(heroism?.conditionImmunities).toEqual(['frightened']);
-    expect(heroism?.triggers?.startOfTurn?.tempHp).toBe(3);
+    expect(trigger(heroism, 'startOfTurn')?.turn?.tempHp).toBe(3);
     // Без модификатора триггер временных HP не создаётся.
     expect(automationForSpell(find('XPHB:Heroism')).effects?.[0]?.triggers).toBeUndefined();
 

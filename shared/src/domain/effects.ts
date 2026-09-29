@@ -172,6 +172,66 @@ export interface Restrictions {
   noSpells?: boolean;
 }
 
+/** Событие триггера эффекта (R16): точки рантайма, на которые ссылаются способности. */
+export type TriggerEvent =
+  | 'startOfTurn'
+  | 'endOfTurn'
+  | 'targetedByAttack'
+  | 'damaged'
+  | 'hpReachedZero'
+  | 'healReceived'
+  | 'deathSave'
+  | 'ownAttackRoll'
+  | 'ownSpellCast'
+  | 'ownDamageDealt'
+  | 'willingMove'
+  | 'saveSucceeded';
+
+/** Реакция на событие: окно с выбором (Primordial Ward, Fount of Moonlight). */
+export type TriggerReaction =
+  | { kind: 'ward'; types: string[] }
+  | { kind: 'saveCondition'; ability: AbilityKey; feet: number; condition: ConditionKey };
+
+/** Runtime-метка «раз в ход» доп. урона (Elemental Bane): ключ хода или null вне боя. */
+export type TriggerUsedMark = { usedTurn?: string | null };
+
+/**
+ * Инстанс триггера эффекта: событие + типизированный payload (R16, AUTOMATION.md §3.2).
+ * Единый формат вместо именованных полей: способности ссылаются на событие, а не
+ * заводят поле под механику.
+ */
+export interface TriggerInstance extends TriggerUsedMark {
+  on: TriggerEvent;
+  /** Спас носителя события (Sanctuary: WIS против СЛ каста; `dc` подставляет apply). */
+  save?: { ability: AbilityKey; dc?: number; advantage?: boolean };
+  /** Урон: ответный источнику (`to:'source'`) или носителю (Booming Blade, `feet`). */
+  damage?: { dice?: string; amount?: number; damageType?: string; to: 'source' | 'self'; feet?: number };
+  /** Снижение входящего урона перечисленных типов (Resistance). */
+  reduce?: { dice: string; types: string[] };
+  /** Доп. урон по носителю: `oncePerTurn` — Elemental Bane, `from:'source'` — Spirit Shroud/CME. */
+  extraDamage?: { dice: string; damageType: string; oncePerTurn?: boolean; from?: 'source' };
+  /** Перенос входящего урона на источник эффекта (Warding Bond). */
+  redirect?: 'linked';
+  /** Снятие эффекта по событию (пробуждение, обрыв невидимости, расход). */
+  endEffect?: true;
+  /** Повторный спас против длительности при уроне (Hideous Laughter). */
+  repeatSave?: { advantage?: boolean };
+  /** Носитель не восстанавливает HP (Chill Touch). */
+  preventHeal?: true;
+  /** Лечение носителя — максимум костей (Beacon of Hope). */
+  maximizeHeal?: true;
+  /** Падение до 0 HP заменяется на 1 (Death Ward). */
+  survive?: { hp: 1 };
+  /** Преимущество на спас от смерти (Beacon of Hope). */
+  rollMode?: 'advantage';
+  /** Успешный спас отменяет урон полностью (Circle of Power). */
+  noDamageOnSuccess?: true;
+  /** Реакция на событие (окно выбора). */
+  reaction?: TriggerReaction;
+  /** Payload начала/конца хода (Heroism: врем. HP; смайты: отложенный урон). */
+  turn?: EffectTurnPayload;
+}
+
 export interface EffectInstance {
   id: string;
   name: string;
@@ -243,26 +303,21 @@ export interface EffectInstance {
   consumeOnSave?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
   light?: LightSource;
-  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
-  deathWard?: boolean;
   /** Состояния, к которым носитель получает иммунитет (Freedom of Movement, Heroism). */
   conditionImmunities?: ConditionKey[];
   /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
   conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
   /**
-   * Срабатывания эффекта: `startOfTurn` — начало хода носителя (Heroism,
-   * смайты), `endOfTurn` — конец его хода, одноразово (Vitriolic Sphere):
-   * отложенный урон, после срабатывания эффект снимается.
+   * Срабатывания эффекта (R16): начало/конец хода (`turn`), перехваты урона/HP,
+   * обрывы, реакции. Единый словарь событий × операций.
    */
-  triggers?: { startOfTurn?: EffectTurnPayload; endOfTurn?: EffectTurnPayload };
+  triggers?: TriggerInstance[];
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
   /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
   weaponOverride?: WeaponOverride;
   /** Shadow Blade: синтетический клинок тени (кость, в руке/брошен). */
   shadowBlade?: { dice: string; inHand: boolean };
-  /** Warding Bond: урон носителя тем же количеством переносится на токен-источник. */
-  damageLink?: { tokenId: string };
   /** Eyebite: скрытая метка «спасся против этого каста» (повторно не цель). */
   saveMarker?: boolean;
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
@@ -271,47 +326,14 @@ export interface EffectInstance {
   ignoresDifficultTerrain?: boolean;
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
-  /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
-  ward?: string[];
-  /** Fount of Moonlight: реакция на урон — спасброск нанёсшего и состояние при провале. */
-  damageReaction?: { ability: AbilityKey; feet: number; condition: ConditionKey };
   /** Banishment: точка возврата изгнанного существа после снятия эффекта. */
   banish?: { x: number; y: number };
   /** Dominate Beast/Person: носитель под контролем источника (команды), пока эффект жив. */
   dominates?: boolean;
   /** Прежняя фракция до доминирования — для отката при снятии эффекта. */
   prevFaction?: Faction;
-  /** Досрочный обрыв эффекта: носитель совершил бросок атаки или применил заклинание (Invisibility). */
-  breakOn?: ('attack' | 'spell' | 'damage')[];
-  /** Sanctuary: атакующие носителя обязаны пройти спас WIS (СЛ каста) или потерять атаку/заклинание. */
-  sanctuary?: { dc: number };
-  /** Лечение носителя берёт максимум костей (Beacon of Hope). */
-  maximizeHealing?: boolean;
-  /** Chill Touch: носитель не может восстанавливать HP, пока эффект жив. */
-  noHeal?: boolean;
-  /** Преимущество на спасброски от смерти (Beacon of Hope). */
-  deathSaveAdvantage?: boolean;
-  /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
-  saveNoDamage?: boolean;
-  /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
-  retaliate?: { damageType: string; amount?: number; dice?: string };
-  /** Resistance: −`dice` от урона выбранных типов; заряд тратится и обновляется в начале хода. */
-  damageReduce?: { dice: string; types: string[] };
-  /**
-   * Elemental Bane: носитель теряет сопротивление типу `damageType`; первый раз за ход,
-   * получая урон этого типа, дополнительно получает `dice` того же типа.
-   * `usedTurn` — метка хода, в котором доп. урон уже сработал (null — вне боя).
-   */
-  elementalBane?: { damageType: string; dice: string; usedTurn?: string | null };
   /** Расходуемый счётчик (Flame Arrows: 12 боеприпасов; Magic Stone: 3 камня). */
   charges?: { remaining: number; on?: 'rangedWeaponAttack' };
-  /**
-   * Spirit Shroud: носитель получает доп. урон от атак источника эффекта
-   * (`sourceId`), пока эффект активен — аура-метка на цели.
-   */
-  takesExtraDamage?: { dice: string; damageType: string };
-  /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */
-  onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
   /** Compulsion: выбранное направление — плашка над целью до её хода (ведёт мастер). */

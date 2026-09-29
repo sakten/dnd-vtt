@@ -298,7 +298,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
           name: 'Изгнание нежити',
           duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
           to: 'targets',
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
           conditions: ['frightened', 'incapacitated'],
         },

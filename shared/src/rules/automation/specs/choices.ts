@@ -123,7 +123,7 @@ export const CHOICES_SPECS: Record<string, AutomationSpec> = {
                 concentration: true,
                 to: 'targets',
                 conditions: ['unconscious'],
-                hooks: { wakeOnDamage: true },
+                triggers: { damaged: { endEffect: true } },
               },
             ],
           },
@@ -181,7 +181,9 @@ export const CHOICES_SPECS: Record<string, AutomationSpec> = {
             },
           },
         ],
-        hooks: { wakeOnDamage: { if: { includes: { of: { ref: 'choice' }, values: ['asleep'] } }, then: true } },
+        triggers: {
+          damaged: { if: { includes: { of: { ref: 'choice' }, values: ['asleep'] } }, then: { endEffect: true } },
+        },
         markSaved: true,
       },
     ],
@@ -232,10 +234,10 @@ export const CHOICES_SPECS: Record<string, AutomationSpec> = {
           },
         ],
         turnDodge: { if: { includes: { of: { ref: 'choice' }, values: ['dodge'] } }, then: { ability: 'wis' } },
-        hooks: {
-          takesExtraDamage: {
+        triggers: {
+          damaged: {
             if: { includes: { of: { ref: 'choice' }, values: ['necrotic'] } },
-            then: { dice: '1d8', damageType: 'necrotic' },
+            then: { extraDamage: { dice: '1d8', damageType: 'necrotic', from: 'source' } },
           },
         },
         variant: { ref: 'choice' },

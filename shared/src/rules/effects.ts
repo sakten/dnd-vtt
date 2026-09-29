@@ -8,6 +8,8 @@ import type {
   Modifier,
   ModifierTarget,
   Restrictions,
+  TriggerEvent,
+  TriggerInstance,
 } from '../domain/effects';
 import type { AttackRangeType } from '../domain/token';
 import { DAMAGE_TYPES } from '../labels';
@@ -277,6 +279,25 @@ export function damageRollParts(
   return rollParts(collectModifiers(effects, 'damage', ctx), abilities);
 }
 
+/** Все триггеры эффектов носителя по событию (R16). */
+export function triggersOn(effects: EffectInstance[] | undefined, on: TriggerEvent): TriggerInstance[] {
+  const out: TriggerInstance[] = [];
+  for (const effect of effects ?? []) {
+    for (const trigger of effect.triggers ?? []) if (trigger.on === on) out.push(trigger);
+  }
+  return out;
+}
+
+/** Первый триггер эффекта по событию (одиночные механики: sanctuary, redirect). */
+export function triggerOn(effect: EffectInstance, on: TriggerEvent): TriggerInstance | undefined {
+  return (effect.triggers ?? []).find((trigger) => trigger.on === on);
+}
+
+/** Есть ли у эффекта триггер события (снятие по событию, гейты). */
+export function hasTrigger(effect: EffectInstance, on: TriggerEvent): boolean {
+  return (effect.triggers ?? []).some((trigger) => trigger.on === on);
+}
+
 /** Доп. урон по носителю от атак источника (Spirit Shroud: цель под аурой кастера). */
 export function takenDamageParts(
   defenderEffects: EffectInstance[] | undefined,
@@ -285,8 +306,11 @@ export function takenDamageParts(
   const dice: string[] = [];
   if (!attackerId) return { flat: 0, dice };
   for (const effect of defenderEffects ?? []) {
-    const extra = effect.takesExtraDamage;
-    if (extra && effect.sourceId === attackerId) dice.push(`${extra.dice}${extra.damageType}`);
+    if (effect.sourceId !== attackerId) continue;
+    for (const trigger of effect.triggers ?? []) {
+      const extra = trigger.extraDamage;
+      if (trigger.on === 'damaged' && extra?.from === 'source') dice.push(`${extra.dice}${extra.damageType}`);
+    }
   }
   return { flat: 0, dice };
 }
@@ -379,40 +403,37 @@ export function seesInvisible(effects: EffectInstance[] | undefined): boolean {
 
 /** Лечение носителя берёт максимум костей (Beacon of Hope). */
 export function maximizeHealing(effects: EffectInstance[] | undefined): boolean {
-  return (effects ?? []).some((e) => e.maximizeHealing === true);
+  return triggersOn(effects, 'healReceived').some((trigger) => trigger.maximizeHeal);
 }
 
 /** Носитель не может восстанавливать HP (Chill Touch). */
 export function healBlocked(effects: EffectInstance[] | undefined): boolean {
-  return (effects ?? []).some((e) => e.noHeal === true);
+  return triggersOn(effects, 'healReceived').some((trigger) => trigger.preventHeal);
 }
 
 /** Преимущество на спасброски от смерти (Beacon of Hope). */
 export function deathSaveAdvantage(effects: EffectInstance[] | undefined): boolean {
-  return (effects ?? []).some((e) => e.deathSaveAdvantage === true);
+  return triggersOn(effects, 'deathSave').some((trigger) => trigger.rollMode === 'advantage');
 }
 
 /** Успешный спасбросок отменяет урон целиком вместо половины (Circle of Power). */
 export function saveNoDamage(effects: EffectInstance[] | undefined): boolean {
-  return (effects ?? []).some((e) => e.saveNoDamage === true);
+  return triggersOn(effects, 'saveSucceeded').some((trigger) => trigger.noDamageOnSuccess);
 }
 
-/** Ответный урон атакующему (Armor of Agathys) из эффектов носителя. */
+/** Ответный урон атакующему (Armor of Agathys) из триггеров носителя. */
 export function retaliationOf(
   effects: EffectInstance[] | undefined
-): EffectInstance['retaliate'] | undefined {
-  for (const effect of effects ?? []) {
-    if (effect.retaliate) return effect.retaliate;
-  }
-  return undefined;
+): NonNullable<TriggerInstance['damage']> | undefined {
+  return triggersOn(effects, 'damaged').find((trigger) => trigger.damage?.to === 'source')?.damage;
 }
 
 /** Warding Bond: токены-источники, на которые переносится урон носителя. */
 export function damageLinks(effects: EffectInstance[] | undefined): string[] {
   const out: string[] = [];
   for (const effect of effects ?? []) {
-    const id = effect.damageLink?.tokenId;
-    if (id && !out.includes(id)) out.push(id);
+    if (!triggerOn(effect, 'damaged')?.redirect) continue;
+    if (effect.sourceId && !out.includes(effect.sourceId)) out.push(effect.sourceId);
   }
   return out;
 }
@@ -507,47 +528,58 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
   }
   if (effect.immuneToSpeedReduction) parts.push({ key: 'domain.effect.noSpeedReduction' });
   if (effect.ignoresDifficultTerrain) parts.push({ key: 'domain.effect.ignoreDifficult' });
-  if (effect.triggers?.startOfTurn?.damage) {
+  const startTurn = triggerOn(effect, 'startOfTurn')?.turn;
+  if (startTurn?.damage) {
     parts.push({
       key: 'domain.effect.startOfTurnDamage',
-      params: { dice: effect.triggers.startOfTurn.damage.dice },
+      params: { dice: startTurn.damage.dice },
     });
   }
-  if (effect.triggers?.startOfTurn?.tempHp) {
-    parts.push({ key: 'domain.effect.startOfTurnTempHp', params: { amount: effect.triggers.startOfTurn.tempHp } });
+  if (startTurn?.tempHp) {
+    parts.push({ key: 'domain.effect.startOfTurnTempHp', params: { amount: startTurn.tempHp } });
   }
   if (effect.misdirect) {
     parts.push({ key: 'domain.effect.mirrorImages', params: { charges: effect.misdirect.charges } });
   }
   if (effect.magicWeapon) parts.push({ key: 'domain.effect.magicWeapon' });
-  if (effect.damageLink) parts.push({ key: 'domain.effect.damageLink' });
-  if (effect.maximizeHealing) parts.push({ key: 'domain.effect.maxHeal' });
-  if (effect.noHeal) parts.push({ key: 'domain.effect.noHeal' });
-  if (effect.deathSaveAdvantage) parts.push({ key: 'domain.effect.deathSaveAdv' });
-  if (effect.saveNoDamage) parts.push({ key: 'domain.effect.saveNoDamage' });
+  const damaged = triggersOn([effect], 'damaged');
+  if (damaged.some((t) => t.redirect)) parts.push({ key: 'domain.effect.damageLink' });
+  if (triggersOn([effect], 'healReceived').some((t) => t.maximizeHeal)) parts.push({ key: 'domain.effect.maxHeal' });
+  if (triggersOn([effect], 'healReceived').some((t) => t.preventHeal)) parts.push({ key: 'domain.effect.noHeal' });
+  if (triggersOn([effect], 'deathSave').some((t) => t.rollMode === 'advantage')) {
+    parts.push({ key: 'domain.effect.deathSaveAdv' });
+  }
+  if (triggersOn([effect], 'saveSucceeded').some((t) => t.noDamageOnSuccess)) {
+    parts.push({ key: 'domain.effect.saveNoDamage' });
+  }
   if (effect.duration.type === 'untilSave' && effect.duration.damage) {
     parts.push({ key: 'domain.effect.untilSaveDamage', params: { damage: effect.duration.damage.dice } });
   }
   if (effect.turnDodge) {
     parts.push({ key: 'domain.effect.turnDodge', params: { ability: effect.turnDodge.ability } });
   }
-  if (effect.sanctuary) parts.push({ key: 'domain.effect.sanctuary' });
-  if (effect.retaliate) {
+  if ((effect.triggers ?? []).some((t) => t.on === 'targetedByAttack' && t.save)) {
+    parts.push({ key: 'domain.effect.sanctuary' });
+  }
+  const retaliate = damaged.find((t) => t.damage?.to === 'source')?.damage;
+  if (retaliate) {
     parts.push({
       key: 'domain.effect.retaliate',
-      params: { damage: effect.retaliate.dice ?? effect.retaliate.amount ?? 0, type: effect.retaliate.damageType },
+      params: { damage: retaliate.dice ?? retaliate.amount ?? 0, type: retaliate.damageType ?? '' },
     });
   }
-  if (effect.takesExtraDamage) {
+  const takesExtra = damaged.find((t) => t.extraDamage?.from === 'source')?.extraDamage;
+  if (takesExtra) {
     parts.push({
       key: 'domain.effect.takesExtraDamage',
-      params: { damage: effect.takesExtraDamage.dice, type: effect.takesExtraDamage.damageType },
+      params: { damage: takesExtra.dice, type: takesExtra.damageType },
     });
   }
-  if (effect.elementalBane) {
+  const bane = damaged.find((t) => t.extraDamage?.oncePerTurn)?.extraDamage;
+  if (bane) {
     parts.push({
       key: 'domain.effect.elementalBane',
-      params: { damage: effect.elementalBane.dice, type: effect.elementalBane.damageType },
+      params: { damage: bane.dice, type: bane.damageType },
     });
   }
   if (effect.charges) {

@@ -8,6 +8,7 @@ import type {
   ZoneDef,
   ZoneWallDef,
 } from '../../domain/automation';
+import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, EffectDuration, Modifier, ModifierFilter, Restrictions } from '../../domain/effects';
 import type { Sense } from '../../domain/sense';
 import type { WallDims } from '../spellCast';
@@ -220,46 +221,70 @@ export interface ModifierSpec extends Omit<Modifier, 'id' | 'value' | 'filter'> 
 }
 
 /**
- * Блок `hooks` (AUTOMATION.md §3.2): реактивные перехваты урона/падения и поток HP.
- * Компилируется в существующие поля эффекта, пока серверный диспетчер (R14) не выделен.
+ * Блок `triggers` (AUTOMATION.md §3.2): единый словарь событий × общие операции.
+ * Событие — точка рантайма, операция — общий payload; спелл ссылается на событие,
+ * а не заводит именованное поле под механику. Компилируется в существующие поля
+ * эффекта, пока серверный диспетчер (R14) не выделен.
  */
-export interface HookSpec {
-  /** Ответный урон атакующему в ближнем бою (Armor of Agathys, Fire Shield, Shadow of Moil). */
-  retaliate?: Gated<{ damageType: ValueExpr; dice?: string; amount?: ValueExpr }>;
-  /** Уменьшение получаемого урона типов на кость, заряд раз в ход (Resistance). */
-  damageReduce?: { dice: ValueExpr; types: ValueExpr[] };
-  /** Elemental Bane: потеря сопротивления и доп. урон первого попадания за ход. */
-  elementalBane?: { damageType: ValueExpr; dice: ValueExpr };
-  /** Spirit Shroud/CME: доп. урон атак источника по носителю (аура-метка). */
-  takesExtraDamage?: Gated<{ dice: ValueExpr; damageType: ValueExpr }>;
-  /** Урон/встряска снимает эффект (Sleep, Eyebite: сон). */
-  wakeOnDamage?: Gated<boolean>;
-  /** Повторный спасбросок при получении урона; успех снимает эффект (Hideous Laughter). */
-  saveOnDamage?: Gated<{ advantage?: boolean }>;
-  /** Досрочный обрыв: носитель атаковал, применил заклинание или нанёс урон (Invisibility). */
-  breakOn?: ('attack' | 'spell' | 'damage')[];
-  /** Sanctuary: атакующие носителя обязаны пройти спас WIS или потерять атаку/заклинание. */
-  sanctuary?: boolean;
-  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
-  deathWard?: boolean;
-  /** Warding Bond: переносить получаемый урон на источник эффекта. */
-  damageLink?: boolean;
-  /** Временные HP при наложении (Armor of Agathys, Heroism-подобные). */
-  tempHp?: ValueExpr;
-  /** Chill Touch: носитель не может восстанавливать HP, пока эффект жив. */
-  noHeal?: boolean;
-  /** Лечение носителя берёт максимум костей (Beacon of Hope). */
-  maximizeHealing?: boolean;
+export type TriggerAction =
+  /** Спасбросок носителя события; при провале/успехе — вложенные операции. */
+  | { save: { ability: AbilityKey; dc?: ValueExpr; onFail?: TriggerAction[]; onSuccess?: TriggerAction[] } }
+  /** Урон: ответный атакующему (`to:'source'`) или самому носителю (Booming Blade, `feet`). */
+  | { damage: { damageType: ValueExpr; dice?: ValueExpr; amount?: ValueExpr; to: 'source' | 'self'; feet?: number } }
+  /** Уменьшение получаемого урона перечисленных типов (Resistance). */
+  | { reduce: { dice: ValueExpr; types: ValueExpr[] } }
+  /** Доп. урон по носителю: `oncePerTurn` — Elemental Bane, `from:'source'` — Spirit Shroud/CME. */
+  | { extraDamage: { dice: ValueExpr; damageType: ValueExpr; from?: 'source'; oncePerTurn?: boolean } }
+  /** Перенос получаемого урона на связанное существо (Warding Bond). */
+  | { redirect: 'linked' }
+  /** Снять эффект (пробуждение, обрыв невидимости, расход Zephyr Strike). */
+  | { endEffect: true }
+  /** Повторный спасбросок от длительности при уроне (Hideous Laughter). */
+  | { repeatSave: { advantage?: boolean } }
+  /** Носитель не восстанавливает HP (Chill Touch). */
+  | { preventHeal: true }
+  /** Лечение носителя — максимум костей (Beacon of Hope). */
+  | { maximizeHeal: true }
+  /** Падение до 0 HP заменяется на указанное (Death Ward). */
+  | { survive: { hp: 1 } }
   /** Преимущество на спасброски от смерти (Beacon of Hope). */
-  deathSaveAdvantage?: boolean;
-  /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
-  saveNoDamage?: boolean;
-  /** Dominate: носитель под контролем источника, пока эффект жив. */
-  dominates?: boolean;
-  /** Primordial Ward: типы, по которым реакцией можно получить иммунитет. */
-  ward?: string[];
-  /** Fount of Moonlight: реакция носителя на урон от видимого существа. */
-  damageReaction?: { ability: ValueExpr; feet: number; condition: ConditionKey };
+  | { rollMode: 'advantage' }
+  /** Успешный спасбросок полностью отменяет урон (Circle of Power). */
+  | { noDamageOnSuccess: true }
+  /** Атака отменяется (внутри `save.onFail`: Sanctuary). */
+  | { cancel: true }
+  /** Реакция на урон: Primordial Ward (иммунитет по типам) / Fount of Moonlight (спас + состояние). */
+  | { reaction: { kind: 'ward'; types: ValueExpr[] } }
+  | { reaction: { kind: 'saveCondition'; ability: ValueExpr; feet: number; condition: ConditionKey } };
+
+/** Одна или несколько операций события, каждая может быть под гейтом `{ if, then }`. */
+export type TriggerList = Gated<TriggerAction> | Gated<TriggerAction>[];
+
+/** Триггеры эффекта: тёрн-слоты (payload) + реактивные точки рантайма (операции). */
+export interface EffectTriggers {
+  /** Начало/конец хода носителя: временные HP/повторный урон (Heroism, Searing Smite). */
+  startOfTurn?: Gated<EffectTriggerSpec>;
+  endOfTurn?: Gated<EffectTriggerSpec>;
+  /** Носителя выбрали целью атаки (Sanctuary): спас/отмена — до броска. */
+  targetedByAttack?: TriggerList;
+  /** Входящий урон: reduce/retaliate/extraDamage/endEffect/repeatSave/redirect/reaction. */
+  damaged?: TriggerList;
+  /** Носитель должен упасть до 0 HP (Death Ward). */
+  hpReachedZero?: TriggerList;
+  /** Носитель восстанавливает HP (noHeal/maximizeHeal). */
+  healReceived?: TriggerList;
+  /** Бросок против смерти (Beacon of Hope). */
+  deathSave?: TriggerList;
+  /** Носитель бросает атаку (обрыв Invisibility, расход Zephyr Strike). */
+  ownAttackRoll?: TriggerList;
+  /** Носитель применяет заклинание (обрыв Invisibility). */
+  ownSpellCast?: TriggerList;
+  /** Носитель наносит урон (обрыв Invisibility). */
+  ownDamageDealt?: TriggerList;
+  /** Носитель добровольно двигается (Booming Blade). */
+  willingMove?: TriggerList;
+  /** Спасбросок от эффекта/зоны успешен (Circle of Power: без урона). */
+  saveSucceeded?: TriggerList;
 }
 
 /**
@@ -326,10 +351,12 @@ export interface EffectSpec {
   targets?: ValueExpr;
   /** Блок `uses`: заряды/счётчики эффекта. */
   uses?: UsesSpec;
-  /** Блок `hooks`: реактивные перехваты урона/HP (`HookSpec`). */
-  hooks?: HookSpec;
-  /** Срабатывания в начале/конце хода носителя (Heroism: врем. HP; смайты/кислота: урон). */
-  triggers?: { startOfTurn?: Gated<EffectTriggerSpec>; endOfTurn?: Gated<EffectTriggerSpec> };
+  /** Временные HP при наложении (Armor of Agathys): значение — ссылка. */
+  tempHp?: ValueExpr;
+  /** Dominate: носитель под контролем источника, пока эффект жив (состояние, не триггер). */
+  dominates?: boolean;
+  /** Триггеры эффекта: тёрн-слоты + реактивные события (AUTOMATION.md §3.2). */
+  triggers?: EffectTriggers;
   /** Enervation: эффект-носитель действия накладывается только при провале спасброска цели. */
   selfOnFail?: boolean;
   /** Heroes' Feast: +2к10 к максимуму HP (бросок при наложении). */
@@ -365,7 +392,8 @@ export interface WeaponAttackSpec {
     to?: 'self' | 'targets';
     modifiers?: Omit<Modifier, 'id'>[];
     conditions?: ConditionKey[];
-    onWillingMove?: { dice: ValueExpr; damageType: string; feet: number };
+    /** Реактивные события эффекта при попадании (Booming Blade: `willingMove`). */
+    triggers?: EffectTriggers;
   };
 }
 

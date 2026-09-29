@@ -5,6 +5,7 @@ import {
   DEFAULT_SPEED,
   defaultFog,
   emptyCombatState,
+  hasTrigger,
   type ActionDef,
   type CharacterSheet,
   type EffectInstance,
@@ -757,7 +758,13 @@ describe('RoomManager стабильность и оживление', () => {
     const tk = token('t1', {
       libraryItemId: 'lib1',
       effects: [
-        { id: 'wd', name: 'Death Ward', duration: { type: 'rounds', rounds: 4800 }, modifiers: [], deathWard: true },
+        {
+          id: 'wd',
+          name: 'Death Ward',
+          duration: { type: 'rounds', rounds: 4800 },
+          modifiers: [],
+          triggers: [{ on: 'hpReachedZero', survive: { hp: 1 } }],
+        },
       ],
     });
     room.scene.maps[0]!.tokens = [tk];
@@ -765,7 +772,7 @@ describe('RoomManager стабильность и оживление', () => {
     manager.adjustTokenHp(room, 'm1', tk, -30);
 
     expect(room.resources.p1!.hp.current).toBe(1);
-    expect(tk.effects.some((e) => e.deathWard)).toBe(false);
+    expect(tk.effects.some((e) => hasTrigger(e, 'hpReachedZero'))).toBe(false);
     expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(false);
   });
 });
@@ -1231,7 +1238,7 @@ describe('RoomManager эффекты', () => {
     const tk = token('t1', {
       hpCurrent: 10,
       hpMax: '10',
-      effects: [{ id: 'ef1', name: 'Sleep', duration: { type: 'concentration' }, wakeOnDamage: true, modifiers: [] }],
+      effects: [{ id: 'ef1', name: 'Sleep', duration: { type: 'concentration' }, triggers: [{ on: 'damaged', endEffect: true }], modifiers: [] }],
       conditions: [{ key: 'unconscious', name: 'Без сознания', effectId: 'ef1' }],
     });
     room.scene.maps[0]!.tokens = [tk];
@@ -1271,7 +1278,7 @@ describe('RoomManager эффекты', () => {
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
         },
       ],
@@ -1330,7 +1337,7 @@ describe('RoomManager эффекты', () => {
           sourceId: 't1',
           sourceKey: 'XGE:Enemies Abound',
           duration: { type: 'concentration' },
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
         },
       ],
@@ -1373,7 +1380,7 @@ describe('RoomManager эффекты', () => {
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
         },
       ],
@@ -1414,7 +1421,7 @@ describe('RoomManager эффекты', () => {
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
         },
       ],
@@ -1428,7 +1435,7 @@ describe('RoomManager эффекты', () => {
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
         },
       ],
@@ -1462,7 +1469,7 @@ describe('RoomManager эффекты', () => {
           sourceId: 't1',
           sourceKey: 'XPHB:Sleep',
           duration: { type: 'concentration' },
-          wakeOnDamage: true,
+          triggers: [{ on: 'damaged', endEffect: true }],
           modifiers: [],
         },
       ],

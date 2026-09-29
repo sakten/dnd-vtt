@@ -7,9 +7,9 @@ import type {
   EffectDuration,
   EffectEscalation,
   EffectInstance,
-  EffectTurnPayload,
   Modifier,
   Restrictions,
+  TriggerInstance,
 } from './effects';
 
 /**
@@ -115,10 +115,6 @@ export interface AutomationEffect {
   conditions?: ConditionKey[];
   /** При провале повторного спасброска состояние меняется (Sleep: incapacitated → unconscious). */
   escalate?: EffectEscalation;
-  /** Урон/встряска снимает эффект (Sleep, Hypnotic Pattern). */
-  wakeOnDamage?: boolean;
-  /** Повторный спасбросок при получении урона; успех снимает эффект (Hideous Laughter). */
-  saveOnDamage?: { advantage?: boolean };
   /** Временные HP, выдаваемые при наложении (Fighting Spirit и подобные). */
   tempHp?: number;
   /**
@@ -151,17 +147,15 @@ export interface AutomationEffect {
   mark?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */
   light?: LightSource;
-  /** Death Ward: первое падение до 0 HP от урона — 1 HP вместо этого, эффект гаснет. */
-  deathWard?: boolean;
   /** Состояния, к которым носитель получает иммунитет (Freedom of Movement, Heroism). */
   conditionImmunities?: ConditionKey[];
   /** Иммунитет к состояниям только от существ указанных типов (Protection from Evil and Good). */
   conditionImmunitiesFrom?: { conditions: ConditionKey[]; types: string[] };
   /**
-   * Срабатывание в начале/конце хода носителя (Heroism: temp HP; смайты:
-   * повторный урон; Vitriolic Sphere: отложенный урон в конце хода).
+   * Триггеры эффекта (R16): тёрн-слоты (`turn`) и реактивные события —
+   * единый runtime-формат, без именованных полей-механик.
    */
-  triggers?: { startOfTurn?: EffectTurnPayload; endOfTurn?: EffectTurnPayload };
+  triggers?: TriggerInstance[];
   /** Оружейные атаки носителя считаются магическими (Magic Weapon). */
   magicWeapon?: boolean;
   /** Shillelagh: дубинка/посох в руке бьёт новой костью, типом и характеристикой. */
@@ -172,8 +166,6 @@ export interface AutomationEffect {
    * бонусным действием (`inHand: false`, пока не возвращён).
    */
   shadowBlade?: { dice: string; inHand: boolean };
-  /** Warding Bond: переносить получаемый урон на источник эффекта. */
-  damageLink?: boolean;
   /** Eyebite: успешный спас цели ставит скрытую метку — повторно её не выбрать до конца каста. */
   markSaved?: boolean;
   /** Магические эффекты не снижают скорость (Freedom of Movement). */
@@ -182,14 +174,6 @@ export interface AutomationEffect {
   ignoresDifficultTerrain?: boolean;
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
-  /** Primordial Ward: типы, по которым реакцией можно получить иммунитет (включая спровоцировавший урон). */
-  ward?: string[];
-  /**
-   * Fount of Moonlight: реакция носителя на урон от видимого существа в `feet` —
-   * нанёсший урон проходит спасбросок `ability` против СЛ источника, при провале
-   * получает `condition` до начала следующего хода источника. Стоит реакцию.
-   */
-  damageReaction?: { ability: AbilityKey; feet: number; condition: ConditionKey };
   /**
    * Banishment: носитель изгнан на полуплоскость — скрыт с карты и не является
    * целью/помехой, пока эффект активен. При снятии возвращается в исходную
@@ -199,39 +183,11 @@ export interface AutomationEffect {
   banish?: boolean;
   /** Dominate Beast/Person: носитель под контролем источника (команды), пока эффект жив. */
   dominates?: boolean;
-  /** Досрочный обрыв эффекта: носитель совершил бросок атаки, применил заклинание или нанёс урон. */
-  breakOn?: ('attack' | 'spell' | 'damage')[];
-  /** Sanctuary: атакующие носителя обязаны пройти спас WIS или потерять атаку/заклинание. */
-  sanctuary?: boolean;
-  /** Лечение носителя берёт максимум костей (Beacon of Hope). */
-  maximizeHealing?: boolean;
-  /** Chill Touch: носитель не может восстанавливать HP, пока эффект жив. */
-  noHeal?: boolean;
-  /** Преимущество на спасброски от смерти (Beacon of Hope). */
-  deathSaveAdvantage?: boolean;
-  /** Успешный спасбросок полностью отменяет урон вместо половины (Circle of Power). */
-  saveNoDamage?: boolean;
-  /** Armor of Agathys: ответный урон атакующему в ближнем бою, пока есть врем. HP. */
-  retaliate?: { damageType: string; amount?: number; dice?: string };
-  /**
-   * Resistance (XPHB 2024): носитель уменьшает получаемый урон выбранного типа на
-   * `dice`; расходуется заряд (`charges`), который обновляется в начале его хода.
-   */
-  damageReduce?: { dice: string; types: string[] };
-  /**
-   * Elemental Bane (XGE): носитель теряет сопротивление выбранному типу; первый раз
-   * за ход, получая урон этого типа, дополнительно получает `dice` того же типа.
-   */
-  elementalBane?: { damageType: string; dice: string };
   /**
    * Расходуемый счётчик эффекта: Flame Arrows (12 боеприпасов, `on` — триггер
    * траты) и Magic Stone (3 камня — тратится при использовании выданного действия).
    */
   charges?: { count: number; on?: 'rangedWeaponAttack' };
-  /** Spirit Shroud: носитель получает доп. урон от атак источника эффекта (аура-метка). */
-  takesExtraDamage?: { dice: string; damageType: string };
-  /** Booming Blade: добровольное перемещение на `feet`+ — урон `dice` и эффект гаснет. */
-  onWillingMove?: { dice: string; damageType: string; feet: number };
   /** Zephyr Strike: одноразовая атака — 1d8 силовым и скорость до конца хода. */
   zephyrStrike?: { dice: string; damageType: string; speedFeet: number };
   /** Эффект при снятии носителя (Haste: «вялость»); заменой при перекасте не срабатывает. */
@@ -245,6 +201,11 @@ export function permanentEffect(name: string, modifiers: Omit<Modifier, 'id'>[])
   return { name, duration: { type: 'permanent' }, modifiers };
 }
 
+/** Глубокая копия триггеров: рантайм не должен делить ссылки со спеком. */
+function cloneTriggers(triggers: TriggerInstance[]): TriggerInstance[] {
+  return JSON.parse(JSON.stringify(triggers)) as TriggerInstance[];
+}
+
 /**
  * Поля `AutomationEffect`, переносимые в `EffectInstance` без изменений (с копированием
  * объектов/массивов). Единый список для сервера (`applyEffectTo`) и нормализатора:
@@ -255,8 +216,6 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     concentration: def.concentration,
     conditions: def.conditions ? [...def.conditions] : undefined,
     escalate: def.escalate ? { ...def.escalate } : undefined,
-    wakeOnDamage: def.wakeOnDamage,
-    saveOnDamage: def.saveOnDamage ? { ...def.saveOnDamage } : undefined,
     restrictions: def.restrictions ? { ...def.restrictions } : undefined,
     misdirect: def.misdirect ? { ...def.misdirect } : undefined,
     bonusDie: def.bonusDie,
@@ -269,17 +228,11 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     consumeOnAttackRoll: def.consumeOnAttackRoll,
     consumeOnSave: def.consumeOnSave,
     light: def.light ? { ...def.light } : undefined,
-    deathWard: def.deathWard,
     conditionImmunities: def.conditionImmunities ? [...def.conditionImmunities] : undefined,
     conditionImmunitiesFrom: def.conditionImmunitiesFrom
       ? { conditions: [...def.conditionImmunitiesFrom.conditions], types: [...def.conditionImmunitiesFrom.types] }
       : undefined,
-    triggers: def.triggers
-      ? {
-          ...(def.triggers.startOfTurn ? { startOfTurn: { ...def.triggers.startOfTurn } } : {}),
-          ...(def.triggers.endOfTurn ? { endOfTurn: { ...def.triggers.endOfTurn } } : {}),
-        }
-      : undefined,
+    triggers: def.triggers ? cloneTriggers(def.triggers) : undefined,
     magicWeapon: def.magicWeapon,
     weaponOverride: def.weaponOverride
       ? { ...def.weaponOverride, weapons: [...def.weaponOverride.weapons] }
@@ -288,20 +241,8 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     immuneToSpeedReduction: def.immuneToSpeedReduction,
     ignoresDifficultTerrain: def.ignoresDifficultTerrain,
     seesInvisible: def.seesInvisible,
-    ward: def.ward ? [...def.ward] : undefined,
-    damageReaction: def.damageReaction ? { ...def.damageReaction } : undefined,
-    breakOn: def.breakOn ? [...def.breakOn] : undefined,
-    maximizeHealing: def.maximizeHealing,
-    noHeal: def.noHeal,
-    deathSaveAdvantage: def.deathSaveAdvantage,
-    saveNoDamage: def.saveNoDamage,
     dominates: def.dominates,
-    retaliate: def.retaliate ? { ...def.retaliate } : undefined,
-    damageReduce: def.damageReduce ? { ...def.damageReduce, types: [...def.damageReduce.types] } : undefined,
-    elementalBane: def.elementalBane ? { ...def.elementalBane } : undefined,
     charges: def.charges ? { remaining: def.charges.count, on: def.charges.on } : undefined,
-    takesExtraDamage: def.takesExtraDamage ? { ...def.takesExtraDamage } : undefined,
-    onWillingMove: def.onWillingMove ? { ...def.onWillingMove } : undefined,
     zephyrStrike: def.zephyrStrike ? { ...def.zephyrStrike } : undefined,
     onEnd: def.onEnd
       ? {

@@ -78,9 +78,10 @@ const actual = {
 
 const EXPECTED = {
   catalog: '4cfa839af64cba8c',
-  // derived изменён осознанно (сессия 23): Haste — преимущество на спас DEX
-  // и `onEnd`-«вялость» при спаде. Прежние правки — в истории git.
-  derived: '70802ac175f12af1',
+  // derived изменён осознанно (срез C): IR переведён на runtime-триггеры
+  // (`AutomationEffect.triggers` вместо именованных полей хуков) — форма вывода,
+  // механика не менялась. Прежние правки — в истории git.
+  derived: 'e4ae27231c5f3319',
   green: 245,
   red: 175,
 };

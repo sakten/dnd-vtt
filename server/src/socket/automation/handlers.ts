@@ -18,6 +18,7 @@ import {
   sizeAtMost,
   statNumber,
   teleportCellsNearBoxes,
+  triggersOn,
   wallsWithZones,
   withAdvantage,
   withRollParts,
@@ -582,7 +583,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       fail(ctx, 'outOfRange', { feet: Math.round(feet) });
       return;
     }
-    const asleep = target.effects.filter((e) => e.wakeOnDamage);
+    const asleep = target.effects.filter((e) => triggersOn([e], 'damaged').some((t) => t.endEffect));
     if (!asleep.length) {
       fail(ctx, 'nothingToWake');
       return;

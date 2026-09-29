@@ -10,6 +10,7 @@ import {
   reactionSpellTrigger,
   rollDice,
   shapeAllowsSpellcast,
+  triggersOn,
   type ErrorPayload,
   type ReactionOption,
   type ReactionTriggerKind,
@@ -176,7 +177,9 @@ export function applyWardReaction(
 ): void {
   const token = choiceToken(ctx, room, choice);
   const effect = token?.effects.find((e) => e.id === choice.optionId?.slice('ward:'.length));
-  if (!token || !effect || !damage.damageType || !effect.ward?.includes(damage.damageType)) return;
+  if (!token || !effect || !damage.damageType) return;
+  const reaction = triggersOn([effect], 'damaged').find((t) => t.reaction?.kind === 'ward')?.reaction;
+  if (!reaction || reaction.kind !== 'ward' || !reaction.types.includes(damage.damageType)) return;
   if (!ctx.manager.spendSlot(room, choice.mapId, token, 'reaction')) return;
   // «Включая спровоцировавший урон»: уже ушедший в HP урон возвращаем.
   if (damage.amount > 0) ctx.applyHp(room, choice.mapId, token, damage.amount);
@@ -207,10 +210,12 @@ export function applyWardReaction(
 export function applyFountReaction(ctx: ConnCtx, room: Room, choice: ReactionChoice, source: Token): void {
   const token = choiceToken(ctx, room, choice);
   const effect = token?.effects.find((e) => e.id === choice.optionId?.slice('fount:'.length));
-  if (!token || !effect?.damageReaction) return;
+  if (!token || !effect) return;
+  const reaction = triggersOn([effect], 'damaged').find((t) => t.reaction?.kind === 'saveCondition')?.reaction;
+  if (!reaction || reaction.kind !== 'saveCondition') return;
   if (!ctx.manager.spendSlot(room, choice.mapId, token, 'reaction')) return;
   const dc = casterStatsFor(room, token, effect.sourceKey ?? 'XPHB:Fount of Moonlight')?.dc ?? 10;
-  const { roll, success } = ctx.manager.rollSave(room, source, effect.damageReaction.ability, dc, { magical: true });
+  const { roll, success } = ctx.manager.rollSave(room, source, reaction.ability, dc, { magical: true });
   pushSaveMessage(ctx, room, { author: token.name, subject: `${effect.name} · ${source.name}`, roll, success });
   if (!success) {
     const id = randomUUID();
@@ -221,7 +226,7 @@ export function applyFountReaction(ctx: ConnCtx, room: Room, choice: ReactionCho
       sourceId: token.id,
       duration: { type: 'endOfTurn', of: 'source' },
       modifiers: [],
-      conditions: [effect.damageReaction.condition],
+      conditions: [reaction.condition],
     });
     ctx.emitToken(room, 'token:update', choice.mapId, source);
   }

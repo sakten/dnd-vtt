@@ -5,6 +5,7 @@ import {
   isIncapacitated,
   rollDice,
   superiorityDie,
+  triggersOn,
   type AttackEntry,
   type DiceRollResult,
   type ReactionOption,
@@ -157,13 +158,18 @@ export function offerDamageReactions(
     return true;
   });
   // Primordial Ward: реакция на урон одного из типов эффекта — иммунитет к нему.
-  const ward = damage.damageType
-    ? target.effects.find((e) => e.ward?.includes(damage.damageType!))
+  const wardType = damage.damageType;
+  const ward = wardType
+    ? target.effects.find((e) => {
+        const reaction = triggersOn([e], 'damaged').find((t) => t.reaction?.kind === 'ward')?.reaction;
+        return reaction?.kind === 'ward' && reaction.types.includes(wardType);
+      })
     : undefined;
   // Fount of Moonlight: вспышка по видимому существу в 60 фт, нанёсшему урон.
-  const fount = target.effects.find(
-    (e) => e.damageReaction && reactionOfferAllowed(ctx, room, mapId, target, source, e.damageReaction.feet)
-  );
+  const fount = target.effects.find((e) => {
+    const reaction = triggersOn([e], 'damaged').find((t) => t.reaction?.kind === 'saveCondition')?.reaction;
+    return reaction?.kind === 'saveCondition' && reactionOfferAllowed(ctx, room, mapId, target, source, reaction.feet);
+  });
   const options: ReactionOption[] = [
     ...reactionSpellOptions(room, target, 'damage'),
     ...features.map((def) => featureOption(def, room, target)),

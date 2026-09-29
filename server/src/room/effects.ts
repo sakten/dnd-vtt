@@ -11,6 +11,7 @@
   exhaustionRollPenalty,
   gridOfMap,
   hasConcentrationAdvantage,
+  hasTrigger,
   immuneFromSource,
   isBanished,
   modifiedValue,
@@ -20,6 +21,7 @@
   sheetProficiencyBonus,
   statNumber,
   tokenCells,
+  triggersOn,
   wallsWithZones,
   withAdvantage,
   withRollParts,
@@ -160,7 +162,9 @@ export function damageDefensesForToken(room: Room, token: Token): DamageDefense[
   const all = extra.length ? [...base, ...extra] : base;
   // Elemental Bane: пока эффект жив, сопротивление выбранному типу не действует.
   const lost = new Set(
-    token.effects.flatMap((e) => (e.elementalBane ? [e.elementalBane.damageType] : []))
+    triggersOn(token.effects, 'damaged')
+      .filter((t) => t.extraDamage?.oncePerTurn)
+      .map((t) => t.extraDamage!.damageType)
   );
   return lost.size ? all.filter((d) => d.type !== 'resistance' || !lost.has(d.damageType)) : all;
 }
@@ -528,7 +532,7 @@ export function tickEffects(
       changed = true;
     }
     // Resistance: заряд снижения урона обновляется в начале хода носителя («раз в ход»).
-    if (!remove && phase === 'start' && effect.damageReduce && effect.charges && effect.charges.remaining < 1) {
+    if (!remove && phase === 'start' && triggersOn([effect], 'damaged').some((t) => t.reduce) && effect.charges && effect.charges.remaining < 1) {
       effect.charges.remaining = 1;
       changed = true;
     }
@@ -769,11 +773,11 @@ export function markControlledTokensDead(
  * Лечение сбрасывает death-сейвы; урон лежачему добавляет провал (крит — 2);
  * HP ≤ 0 → «Без сознания»/«Мёртв». Возвращает изменившиеся токены для рассылки.
  */
-/** Урон снимает эффекты с `wakeOnDamage` (Sleep, Hypnotic Pattern) вместе с их состояниями. */
+/** Урон снимает эффекты с триггером `damaged`/`endEffect` (Sleep, Hypnotic Pattern) вместе с состояниями. */
 function wakeOnDamage(m: EffectsDeps, room: Room, token: Token): { mapId: string; token: Token }[] {
   const pruned = new Map<string, { mapId: string; token: Token }>();
   for (const effect of [...token.effects]) {
-    if (!effect.wakeOnDamage) continue;
+    if (!triggersOn([effect], 'damaged').some((t) => t.endEffect)) continue;
     if (!removeEffect(m, room, token, effect.id)) continue;
     if (!effect.concentration || !effect.sourceId || !effect.sourceKey) continue;
     for (const c of pruneConcentration(m, room, effect.sourceId, effect.sourceKey)) pruned.set(c.token.id, c);
@@ -783,7 +787,7 @@ function wakeOnDamage(m: EffectsDeps, room: Room, token: Token): { mapId: string
 
 /** Снимает Death Ward при падении до 0 HP; true — защита сработала (HP вместо этого = 1). */
 function consumeDeathWard(m: EffectsDeps, room: Room, token: Token): boolean {
-  const ward = token.effects.find((e) => e.deathWard);
+  const ward = token.effects.find((e) => hasTrigger(e, 'hpReachedZero'));
   if (!ward) return false;
   removeEffect(m, room, token, ward.id);
   return true;

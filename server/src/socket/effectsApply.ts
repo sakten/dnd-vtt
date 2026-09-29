@@ -4,6 +4,8 @@ import {
   isIncapacitated,
   rollDice,
   sheetProficiencyBonus,
+  triggerOn,
+  triggersOn,
   type AutomationEffect,
   type ConditionKey,
   type EffectInstance,
@@ -106,13 +108,13 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
     escape: effectDef.escape
       ? { ...effectDef.escape, dc: escapeDc ?? effectDef.escape.dc ?? 10 }
       : undefined,
-    // Sanctuary: СЛ спасброска атакующего — СЛ каста (передаётся как untilSaveDc).
-    sanctuary: effectDef.sanctuary ? { dc: untilSaveDc ?? 10 } : undefined,
     // Bestow Curse («Уклонение»): СЛ спаса в начале хода — СЛ каста.
     turnDodge: effectDef.turnDodge ? { ability: effectDef.turnDodge.ability, dc: untilSaveDc ?? 10 } : undefined,
-    damageLink: effectDef.damageLink ? { tokenId: sourceId } : undefined,
     banish: effectDef.banish ? { x: target.x, y: target.y } : undefined,
   };
+  // Sanctuary: СЛ спасброска атакующего — СЛ каста (передаётся как untilSaveDc).
+  const sanctuary = triggerOn(effect, 'targetedByAttack');
+  if (sanctuary) sanctuary.save = { ability: 'wis', dc: untilSaveDc ?? 10 };
   ctx.manager.applyEffect(room, target, effect);
   // Бонус к максимуму HP: у персонажа он в ресурсах — обновляем панель сразу.
   if (controllerId && (effectDef.maxHpBonus || effectDef.modifiers.some((m) => m.target === 'maxHp'))) {
@@ -190,19 +192,19 @@ export function removeZoneEffects(ctx: ConnCtx, room: Room, mapId: string, token
 
 /**
  * Досрочный обрыв эффектов по событию (Invisibility: бросок атаки/применение
- * заклинания носителем). `onlyIds` — снимок до события: эффекты, наложенные
- * самим событием, не трогаем. Возвращает id снятых эффектов.
+ * заклинания/нанесение урона носителем). `onlyIds` — снимок до события: эффекты,
+ * наложенные самим событием, не трогаем. Возвращает id снятых эффектов.
  */
 export function removeBrokenEffects(
   ctx: ConnCtx,
   room: Room,
   mapId: string,
   token: Token,
-  event: 'attack' | 'spell' | 'damage',
+  event: 'ownAttackRoll' | 'ownSpellCast' | 'ownDamageDealt',
   onlyIds?: Set<string>
 ): string[] {
   const broken = token.effects.filter(
-    (e) => e.breakOn?.includes(event) && (!onlyIds || onlyIds.has(e.id))
+    (e) => triggersOn([e], event).some((t) => t.endEffect) && (!onlyIds || onlyIds.has(e.id))
   );
   if (!broken.length) return [];
   const anchors = new Set<string>();

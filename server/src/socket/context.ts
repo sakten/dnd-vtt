@@ -3,6 +3,7 @@ import {
   effectiveMaxHp,
   emptyCombatState,
   emptyResources,
+  hasTrigger,
   redactLibraryItem,
   redactToken,
   sheetMods,
@@ -258,10 +259,10 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!amount) return;
       const shapeBefore = token.shape?.key;
       const shapeSource = token.shape?.kind === 'polymorph' ? token.shape.sourceTokenId : undefined;
-      const hadWard = amount < 0 && token.effects.some((e) => e.deathWard);
+      const hadWard = amount < 0 && token.effects.some((e) => hasTrigger(e, 'hpReachedZero'));
       const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit });
       // Death Ward сработал и рассеялся — сообщаем в чат (HP уже 1).
-      if (hadWard && !token.effects.some((e) => e.deathWard)) {
+      if (hadWard && !token.effects.some((e) => hasTrigger(e, 'hpReachedZero'))) {
         ctx.systemMessage(room, { code: 'automation.deathWard', params: { name: token.name } });
       }
       ctx.emitChanged(room, changed);

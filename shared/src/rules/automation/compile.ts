@@ -1,6 +1,6 @@
 import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
-import type { ConditionKey, EffectTurnPayload, Modifier } from '../../domain/effects';
+import type { ConditionKey, Modifier, TriggerEvent, TriggerInstance } from '../../domain/effects';
 import { ABILITIES, DAMAGE_TYPES, SKILLS } from '../../labels';
 import { CONDITION_KEYS } from '../conditions';
 import type { Spell } from '../spells';
@@ -14,11 +14,13 @@ import type {
   DamageSpec,
   EffectSpec,
   EffectTriggerSpec,
+  EffectTriggers,
   Gated,
-  HookSpec,
   LoadoutSpec,
   ModifierSpec,
   PayloadSpec,
+  TriggerAction,
+  TriggerList,
   UsesSpec,
   UtilitySpec,
   ValueExpr,
@@ -346,63 +348,191 @@ function compileModifier(ctx: CompileCtx, spec: ModifierSpec): Omit<Modifier, 'i
   return out;
 }
 
-/** Блок `hooks`: реактивные перехваты урона/HP → поля эффекта (R16, `AUTOMATION.md` §3.2). */
-function compileHooks(ctx: CompileCtx, hooks: HookSpec): Partial<AutomationEffect> {
-  const out: Partial<AutomationEffect> = {};
-  if (hooks.retaliate) {
-    const retaliate = compileGated(ctx, hooks.retaliate, (v) => ({
-      damageType: String(mustValue(ctx, v.damageType, 'hooks.retaliate')),
-      ...(v.dice ? { dice: v.dice } : {}),
-      ...(v.amount !== undefined ? { amount: Number(mustValue(ctx, v.amount, 'hooks.retaliate')) } : {}),
-    }));
-    if (retaliate) out.retaliate = retaliate;
-  }
-  if (hooks.damageReduce) {
-    out.damageReduce = {
-      dice: String(mustValue(ctx, hooks.damageReduce.dice, 'hooks.damageReduce')),
-      types: hooks.damageReduce.types.map((t) => String(mustValue(ctx, t, 'hooks.damageReduce'))),
+/** Обрыв эффекта собственными действиями носителя (`triggers.own*`). */
+const BREAK_ON_EVENTS: (keyof EffectTriggers)[] = ['ownAttackRoll', 'ownSpellCast', 'ownDamageDealt'];
+
+/**
+ * Блок `triggers`: события × операции → runtime-триггеры (R16, `AUTOMATION.md` §3.2).
+ * Одна операция каждого вида на эффект: дубль — ошибка компиляции, а не тихая перезапись.
+ */
+function compileTriggers(ctx: CompileCtx, triggers: EffectTriggers, effectId: string): Partial<AutomationEffect> {
+  const out: TriggerInstance[] = [];
+  const used = new Set<string>();
+  const pushOnce = (op: string, trigger: TriggerInstance, at: string) => {
+    if (used.has(op)) throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — операция ${op} уже задана`);
+    used.add(op);
+    out.push(trigger);
+  };
+  const actionsOf = (name: keyof EffectTriggers): Gated<TriggerAction>[] => {
+    const list = triggers[name] as TriggerList | undefined;
+    if (!list) return [];
+    return Array.isArray(list) ? list : [list];
+  };
+  /** Компилирует операции события: гейты `{ if, then }` решаются здесь (как у прочих блоков). */
+  const event = (
+    name: keyof EffectTriggers,
+    build: (action: TriggerAction, at: string) => { op: string; trigger: TriggerInstance } | undefined
+  ) => {
+    actionsOf(name).forEach((entry, index) => {
+      const at = `triggers.${name}[${index}]`;
+      const result = compileGated(ctx, entry, (action) => build(action, at));
+      if (result) pushOnce(result.op, result.trigger, at);
+    });
+  };
+
+  event('targetedByAttack', (action, at) => {
+    if (!('save' in action)) throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — только save`);
+    const { ability, dc, onFail, onSuccess } = action.save;
+    const cancels = (onFail ?? []).some((op) => 'cancel' in op && op.cancel);
+    if (ability !== 'wis' || dc !== undefined || onSuccess || !cancels) {
+      throw new Error(
+        `AutomationSpec ${ctx.spec.key}: ${at} — поддержан только спас WIS с onFail cancel (Sanctuary)`
+      );
+    }
+    return { op: 'sanctuary', trigger: { on: 'targetedByAttack', save: { ability: 'wis' } } };
+  });
+
+  event('damaged', (action, at) => {
+    if ('reduce' in action) {
+      return {
+        op: 'reduce',
+        trigger: {
+          on: 'damaged',
+          reduce: {
+            dice: String(mustValue(ctx, action.reduce.dice, at)),
+            types: action.reduce.types.map((t) => String(mustValue(ctx, t, at))),
+          },
+        },
+      };
+    }
+    if ('damage' in action) {
+      if (action.damage.to !== 'source') {
+        throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — damaged принимает damage to:'source'`);
+      }
+      return {
+        op: 'retaliate',
+        trigger: {
+          on: 'damaged',
+          damage: {
+            to: 'source',
+            damageType: String(mustValue(ctx, action.damage.damageType, at)),
+            ...(action.damage.dice ? { dice: String(mustValue(ctx, action.damage.dice, at)) } : {}),
+            ...(action.damage.amount !== undefined ? { amount: Number(mustValue(ctx, action.damage.amount, at)) } : {}),
+          },
+        },
+      };
+    }
+    if ('extraDamage' in action) {
+      const { dice, damageType, from, oncePerTurn } = action.extraDamage;
+      const payload = { dice: String(mustValue(ctx, dice, at)), damageType: String(mustValue(ctx, damageType, at)) };
+      if (oncePerTurn && !from) {
+        return { op: 'elementalBane', trigger: { on: 'damaged', extraDamage: { ...payload, oncePerTurn: true } } };
+      }
+      if (from === 'source' && !oncePerTurn) {
+        return { op: 'takesExtraDamage', trigger: { on: 'damaged', extraDamage: { ...payload, from: 'source' } } };
+      }
+      throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — extraDamage: либо oncePerTurn, либо from:'source'`);
+    }
+    if ('endEffect' in action) return { op: 'wakeOnDamage', trigger: { on: 'damaged', endEffect: true } };
+    if ('repeatSave' in action) {
+      return { op: 'repeatSave', trigger: { on: 'damaged', repeatSave: { ...action.repeatSave } } };
+    }
+    if ('redirect' in action) return { op: 'damageLink', trigger: { on: 'damaged', redirect: 'linked' } };
+    if ('reaction' in action) {
+      if (action.reaction.kind === 'ward') {
+        return {
+          op: 'ward',
+          trigger: {
+            on: 'damaged',
+            reaction: { kind: 'ward', types: action.reaction.types.map((t) => String(mustValue(ctx, t, at))) },
+          },
+        };
+      }
+      return {
+        op: 'damageReaction',
+        trigger: {
+          on: 'damaged',
+          reaction: {
+            kind: 'saveCondition',
+            ability: String(mustValue(ctx, action.reaction.ability, at)) as AbilityKey,
+            feet: action.reaction.feet,
+            condition: action.reaction.condition,
+          },
+        },
+      };
+    }
+    throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — операция недопустима для damaged`);
+  });
+
+  event('hpReachedZero', (action, at) => {
+    if (!('survive' in action) || action.survive.hp !== 1) {
+      throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — поддержан только survive { hp: 1 }`);
+    }
+    return { op: 'deathWard', trigger: { on: 'hpReachedZero', survive: { hp: 1 } } };
+  });
+
+  event('healReceived', (action, at) => {
+    if ('preventHeal' in action) return { op: 'noHeal', trigger: { on: 'healReceived', preventHeal: true } };
+    if ('maximizeHeal' in action) {
+      return { op: 'maximizeHealing', trigger: { on: 'healReceived', maximizeHeal: true } };
+    }
+    throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — только preventHeal/maximizeHeal`);
+  });
+
+  event('deathSave', (action, at) => {
+    if ('rollMode' in action && action.rollMode === 'advantage') {
+      return { op: 'deathSaveAdvantage', trigger: { on: 'deathSave', rollMode: 'advantage' } };
+    }
+    throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — только rollMode 'advantage'`);
+  });
+
+  event('saveSucceeded', (action, at) => {
+    if ('noDamageOnSuccess' in action) {
+      return { op: 'saveNoDamage', trigger: { on: 'saveSucceeded', noDamageOnSuccess: true } };
+    }
+    throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — только noDamageOnSuccess`);
+  });
+
+  event('willingMove', (action, at) => {
+    if (!('damage' in action) || action.damage.to !== 'self') {
+      throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — willingMove принимает damage to:'self'`);
+    }
+    if (action.damage.dice === undefined) {
+      throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — willingMove требует dice`);
+    }
+    return {
+      op: 'willingMove',
+      trigger: {
+        on: 'willingMove',
+        damage: {
+          to: 'self',
+          dice: String(mustValue(ctx, action.damage.dice, at)),
+          damageType: String(mustValue(ctx, action.damage.damageType, at)),
+          feet: action.damage.feet ?? 5,
+        },
+      },
     };
+  });
+
+  for (const name of BREAK_ON_EVENTS) {
+    event(name, (action, at) => {
+      if (!('endEffect' in action)) throw new Error(`AutomationSpec ${ctx.spec.key}: ${at} — поддержан только endEffect`);
+      return { op: name, trigger: { on: name as TriggerEvent, endEffect: true } };
+    });
   }
-  if (hooks.elementalBane) {
-    out.elementalBane = {
-      damageType: String(mustValue(ctx, hooks.elementalBane.damageType, 'hooks.elementalBane')),
-      dice: String(mustValue(ctx, hooks.elementalBane.dice, 'hooks.elementalBane')),
-    };
-  }
-  if (hooks.takesExtraDamage) {
-    const extra = compileGated(ctx, hooks.takesExtraDamage, (v) => ({
-      dice: String(mustValue(ctx, v.dice, 'hooks.takesExtraDamage')),
-      damageType: String(mustValue(ctx, v.damageType, 'hooks.takesExtraDamage')),
-    }));
-    if (extra) out.takesExtraDamage = extra;
-  }
-  if (hooks.wakeOnDamage) {
-    const wake = compileGated(ctx, hooks.wakeOnDamage, (v) => v);
-    if (wake) out.wakeOnDamage = true;
-  }
-  if (hooks.saveOnDamage) {
-    const save = compileGated(ctx, hooks.saveOnDamage, (v) => ({ ...v }));
-    if (save) out.saveOnDamage = save;
-  }
-  if (hooks.breakOn?.length) out.breakOn = [...hooks.breakOn];
-  if (hooks.sanctuary) out.sanctuary = true;
-  if (hooks.deathWard) out.deathWard = true;
-  if (hooks.damageLink) out.damageLink = true;
-  if (hooks.tempHp !== undefined) out.tempHp = Number(mustValue(ctx, hooks.tempHp, 'hooks.tempHp'));
-  if (hooks.noHeal) out.noHeal = true;
-  if (hooks.maximizeHealing) out.maximizeHealing = true;
-  if (hooks.deathSaveAdvantage) out.deathSaveAdvantage = true;
-  if (hooks.saveNoDamage) out.saveNoDamage = true;
-  if (hooks.dominates) out.dominates = true;
-  if (hooks.ward?.length) out.ward = [...hooks.ward];
-  if (hooks.damageReaction) {
-    out.damageReaction = {
-      ability: String(mustValue(ctx, hooks.damageReaction.ability, 'hooks.damageReaction')) as AbilityKey,
-      feet: hooks.damageReaction.feet,
-      condition: hooks.damageReaction.condition,
-    };
-  }
-  return out;
+
+  const triggerSlot = (on: 'startOfTurn' | 'endOfTurn', entry: Gated<EffectTriggerSpec> | undefined) => {
+    if (entry === undefined) return;
+    const payload = compileGated(ctx, entry, (t) => {
+      const tempHp = t.tempHp !== undefined ? Number(mustValue(ctx, t.tempHp, `effect.${effectId}.triggers`)) : undefined;
+      const damage = t.damage ? compileDamage(ctx, t.damage) : undefined;
+      return { ...(tempHp ? { tempHp } : {}), ...(damage ? { damage } : {}) };
+    });
+    if (payload && Object.keys(payload).length) out.push({ on, turn: payload });
+  };
+  triggerSlot('startOfTurn', triggers.startOfTurn);
+  triggerSlot('endOfTurn', triggers.endOfTurn);
+  return out.length ? { triggers: out } : {};
 }
 
 function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
@@ -448,19 +578,7 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
           ability: String(mustValue(ctx, v.ability, `effect.${effect.id}.turnDodge`)) as AbilityKey,
         }))
       : undefined;
-  const hooks = effect.hooks ? compileHooks(ctx, effect.hooks) : {};
-  const triggerSlot = (entry: Gated<EffectTriggerSpec> | undefined): EffectTurnPayload | undefined => {
-    if (entry === undefined) return undefined;
-    const payload = compileGated(ctx, entry, (t) => {
-      const tempHp =
-        t.tempHp !== undefined ? Number(mustValue(ctx, t.tempHp, `effect.${effect.id}.triggers`)) : undefined;
-      const damage = t.damage ? compileDamage(ctx, t.damage) : undefined;
-      return { ...(tempHp ? { tempHp } : {}), ...(damage ? { damage } : {}) };
-    });
-    return payload && Object.keys(payload).length ? payload : undefined;
-  };
-  const startTrigger = triggerSlot(effect.triggers?.startOfTurn);
-  const endTrigger = triggerSlot(effect.triggers?.endOfTurn);
+  const triggerFields = effect.triggers ? compileTriggers(ctx, effect.triggers, effect.id) : {};
   const senses =
     effect.senses !== undefined ? compileGated(ctx, effect.senses, (list) => list.map((s) => ({ ...s }))) : undefined;
   const seesInvisible =
@@ -495,10 +613,9 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
 
     ...(variant !== undefined ? { variant: String(variant) } : {}),
     ...(effect.uses ? compileUses(ctx, effect.uses) : {}),
-    ...hooks,
-    ...(startTrigger || endTrigger
-      ? { triggers: { ...(startTrigger ? { startOfTurn: startTrigger } : {}), ...(endTrigger ? { endOfTurn: endTrigger } : {}) } }
-      : {}),
+    ...(effect.tempHp !== undefined ? { tempHp: Number(mustValue(ctx, effect.tempHp, `effect.${effect.id}.tempHp`)) } : {}),
+    ...(effect.dominates ? { dominates: true } : {}),
+    ...triggerFields,
     ...(effect.selfOnFail ? { selfOnFail: true } : {}),
     ...(effect.maxHpBonus ? { maxHpBonus: { ...effect.maxHpBonus } } : {}),
     ...(effect.turnDodge ? (turnDodge ? { turnDodge } : {}) : {}),
@@ -536,15 +653,7 @@ function compileWeaponAttack(ctx: CompileCtx, spec: WeaponAttackSpec): NonNullab
       ...(hit.to ? { to: hit.to } : {}),
       modifiers: (hit.modifiers ?? []).map((m) => ({ ...m })),
       ...(hit.conditions?.length ? { conditions: [...hit.conditions] } : {}),
-      ...(hit.onWillingMove
-        ? {
-            onWillingMove: {
-              dice: String(mustValue(ctx, hit.onWillingMove.dice, 'weaponAttack.hitEffect.onWillingMove')),
-              damageType: hit.onWillingMove.damageType,
-              feet: hit.onWillingMove.feet,
-            },
-          }
-        : {}),
+      ...(hit.triggers ? compileTriggers(ctx, hit.triggers, 'hitEffect') : {}),
     };
   }
   return out;
@@ -844,21 +953,67 @@ export function validateSpec(spec: AutomationSpec): string[] {
       push(entry as T);
     }
   };
-  const collectHooks = (hooks?: HookSpec) => {
-    if (!hooks) return;
-    if (hooks.retaliate) {
-      pushGated(hooks.retaliate, (v) => {
-        refs.push(v.damageType);
-        if (v.amount !== undefined) refs.push(v.amount);
-      });
+  const collectTriggerAction = (action: TriggerAction) => {
+    if ('save' in action) {
+      if (action.save.dc !== undefined) refs.push(action.save.dc);
+      for (const op of action.save.onFail ?? []) collectTriggerAction(op);
+      for (const op of action.save.onSuccess ?? []) collectTriggerAction(op);
+      return;
     }
-    if (hooks.damageReduce) refs.push(hooks.damageReduce.dice, ...hooks.damageReduce.types);
-    if (hooks.elementalBane) refs.push(hooks.elementalBane.damageType, hooks.elementalBane.dice);
-    if (hooks.takesExtraDamage) pushGated(hooks.takesExtraDamage, (v) => refs.push(v.dice, v.damageType));
-    if (hooks.saveOnDamage) pushGated(hooks.saveOnDamage, () => undefined);
-    if (hooks.wakeOnDamage) pushGated(hooks.wakeOnDamage, () => undefined);
-    if (hooks.tempHp !== undefined) refs.push(hooks.tempHp);
-    if (hooks.damageReaction) refs.push(hooks.damageReaction.ability);
+    if ('damage' in action) {
+      if (action.damage.dice !== undefined) refs.push(action.damage.dice);
+      refs.push(action.damage.damageType);
+      if (action.damage.amount !== undefined) refs.push(action.damage.amount);
+      return;
+    }
+    if ('reduce' in action) {
+      refs.push(action.reduce.dice, ...action.reduce.types);
+      return;
+    }
+    if ('extraDamage' in action) {
+      refs.push(action.extraDamage.dice, action.extraDamage.damageType);
+      return;
+    }
+    if ('reaction' in action) {
+      if (action.reaction.kind === 'ward') refs.push(...action.reaction.types);
+      else refs.push(action.reaction.ability);
+    }
+  };
+  const collectTriggerSlot = (entry?: Gated<EffectTriggerSpec>) => {
+    if (!entry) return;
+    pushGated(entry, (t) => {
+      if (t.tempHp !== undefined) refs.push(t.tempHp);
+      if (t.damage) {
+        if ('parts' in t.damage) {
+          for (const part of t.damage.parts) refs.push(part.dice, part.type);
+        } else {
+          refs.push(t.damage.dice);
+          for (const type of t.damage.types ?? []) refs.push(type);
+        }
+      }
+    });
+  };
+  const collectTriggers = (triggers?: EffectTriggers) => {
+    if (!triggers) return;
+    const events: (keyof EffectTriggers)[] = [
+      'targetedByAttack',
+      'damaged',
+      'hpReachedZero',
+      'healReceived',
+      'deathSave',
+      'ownAttackRoll',
+      'ownSpellCast',
+      'ownDamageDealt',
+      'willingMove',
+      'saveSucceeded',
+    ];
+    for (const name of events) {
+      const list = triggers[name] as TriggerList | undefined;
+      if (!list) continue;
+      for (const entry of Array.isArray(list) ? list : [list]) pushGated(entry, collectTriggerAction);
+    }
+    collectTriggerSlot(triggers.startOfTurn);
+    collectTriggerSlot(triggers.endOfTurn);
   };
   const collectEffect = (effect: EffectSpec) => {
     if (effect.variant !== undefined) refs.push(effect.variant);
@@ -879,23 +1034,8 @@ export function validateSpec(spec: AutomationSpec): string[] {
         if (m.filter?.skill !== undefined) refs.push(m.filter.skill);
       });
     }
-    collectHooks(effect.hooks);
-    const collectTrigger = (entry?: Gated<EffectTriggerSpec>) => {
-      if (!entry) return;
-      pushGated(entry, (t) => {
-        if (t.tempHp !== undefined) refs.push(t.tempHp);
-        if (t.damage) {
-          if ('parts' in t.damage) {
-            for (const part of t.damage.parts) refs.push(part.dice, part.type);
-          } else {
-            refs.push(t.damage.dice);
-            for (const type of t.damage.types ?? []) refs.push(type);
-          }
-        }
-      });
-    };
-    collectTrigger(effect.triggers?.startOfTurn);
-    collectTrigger(effect.triggers?.endOfTurn);
+    collectTriggers(effect.triggers);
+    if (effect.tempHp !== undefined) refs.push(effect.tempHp);
     if (effect.uses?.kind === 'charges') refs.push(effect.uses.count);
     if (effect.turnDodge) pushGated(effect.turnDodge, (v) => refs.push(v.ability));
     if (effect.targets !== undefined) refs.push(effect.targets);
@@ -985,7 +1125,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
   if (wa) {
     if (wa.riderDice !== undefined) refs.push(wa.riderDice);
     if (wa.secondary?.dice !== undefined) refs.push(wa.secondary.dice);
-    if (wa.hitEffect?.onWillingMove) refs.push(wa.hitEffect.onWillingMove.dice);
+    collectTriggers(wa.hitEffect?.triggers);
   }
   const checkRef = (expr: ValueExpr) => {
     if (typeof expr === 'string' || typeof expr === 'number') return;

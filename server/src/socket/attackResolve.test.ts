@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WEAPONS, type AbilityKey } from 'shared';
+import { WEAPONS, hasTrigger, type AbilityKey } from 'shared';
 import { makeCombatRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { attackDamageRoll, attackHitRoll, attackUnseen, prepareWeaponAttack, resolveWeaponAttack } from './attackResolve';
@@ -338,7 +338,10 @@ describe('Invisibility: бросок атаки обрывает эффект', 
         duration: { type: 'permanent' },
         modifiers: [],
         conditions: ['invisible'],
-        breakOn: ['attack', 'spell'],
+        triggers: [
+          { on: 'ownAttackRoll', endEffect: true },
+          { on: 'ownSpellCast', endEffect: true },
+        ],
       },
     ];
     attacker.conditions = [{ key: 'invisible', name: 'Невидим', rounds: null, effectId: 'inv' }];
@@ -356,7 +359,7 @@ describe('Invisibility: бросок атаки обрывает эффект', 
       });
     });
 
-    expect(attacker.effects.some((e) => e.breakOn?.includes('attack'))).toBe(false);
+    expect(attacker.effects.some((e) => hasTrigger(e, 'ownAttackRoll'))).toBe(false);
     expect(attacker.conditions.some((c) => c.key === 'invisible')).toBe(false);
   });
 });
@@ -384,7 +387,7 @@ describe('Spirit Shroud: доп. урон по цели под аурой кас
         sourceId,
         duration: { type: 'permanent' },
         modifiers: [],
-        takesExtraDamage: { dice: '1d8', damageType: 'cold' },
+        triggers: [{ on: 'damaged', extraDamage: { dice: '1d8', damageType: 'cold', from: 'source' } }],
       },
     ];
     const f = makeConnCtx(room, { dm: true });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
+import type { AutomationEffect } from '../domain/automation';
+import type { TriggerEvent } from '../domain/effects';
 import { automationForAction, automationForSpell, spellAutomated, spellByDesign, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
 import { SPELL_BASES } from './automation/bases';
 import { findBaseAction } from './actions';
@@ -35,6 +37,8 @@ function makeSpell(partial: Partial<Spell>): Spell {
   if (!spell.attacks) spell.attacks = deriveAttackCount(spell.description ?? []);
   return spell;
 }
+
+const trigger = (e: AutomationEffect | undefined, on: TriggerEvent) => (e?.triggers ?? []).find((t) => t.on === on);
 
 describe('automationForSpell', () => {
   it('спасбросок + урон: спас, половина и выражение', () => {
@@ -148,7 +152,7 @@ describe('automationForSpell', () => {
     const ward = makeSpell({ key: 'XPHB:Death Ward', name: 'Death Ward', level: 4, automation: 'manual' });
     const wardDef = automationForSpell(ward);
     expect(wardDef.resolution).toBe('effect');
-    expect(wardDef.effects?.[0]?.deathWard).toBe(true);
+    expect(trigger(wardDef.effects?.[0], 'hpReachedZero')?.survive).toEqual({ hp: 1 });
     expect(wardDef.effects?.[0]?.duration).toEqual({ type: 'rounds', rounds: 4800 });
     expect(spellAutomated(ward)).toBe(true);
   });
@@ -382,7 +386,7 @@ describe('automationForSpell', () => {
     const def = automationForSpell(heroism, { castLevel: 1, spellMod: 3 });
     expect(def.resolution).toBe('effect');
     expect(def.effects?.[0]?.conditionImmunities).toEqual(['frightened']);
-    expect(def.effects?.[0]?.triggers?.startOfTurn?.tempHp).toBe(3);
+    expect(trigger(def.effects?.[0], 'startOfTurn')?.turn?.tempHp).toBe(3);
     expect(spellAutomated(heroism)).toBe(true);
     expect(
       automationForSpell(heroism, { castLevel: 1, spellMod: 0 }).effects?.[0]?.triggers
@@ -413,7 +417,8 @@ describe('automationForSpell', () => {
     const def = automationForSpell(inv, { castLevel: 2 });
     expect(def.resolution).toBe('effect');
     expect(def.effects?.[0]?.conditions).toEqual(['invisible']);
-    expect(def.effects?.[0]?.breakOn).toEqual(['attack', 'spell']);
+    expect(trigger(def.effects?.[0], 'ownAttackRoll')?.endEffect).toBe(true);
+    expect(trigger(def.effects?.[0], 'ownSpellCast')?.endEffect).toBe(true);
     expect(def.effects?.[0]?.concentration).toBe(true);
     expect(def.effects?.[0]?.targets).toBe(1);
     expect(automationForSpell(inv, { castLevel: 4 }).effects?.[0]?.targets).toBe(3);
@@ -429,7 +434,7 @@ describe('automationForSpell', () => {
     });
     const effect = automationForSpell(greater, { castLevel: 4 }).effects?.[0];
     expect(effect?.conditions).toEqual(['invisible']);
-    expect(effect?.breakOn).toBeUndefined();
+    expect(effect?.triggers).toBeUndefined();
     expect(effect?.targets).toBe(1);
     expect(spellAutomated(greater)).toBe(true);
   });
@@ -455,7 +460,7 @@ describe('automationForSpell', () => {
     expect(def.concentration).toBe(true);
     const effect = def.effects?.[0];
     expect(effect?.to).toBe('self');
-    expect(effect?.ward).toEqual(['acid', 'cold', 'fire', 'lightning', 'thunder']);
+    expect(trigger(effect, 'damaged')?.reaction).toEqual({ kind: 'ward', types: ['acid', 'cold', 'fire', 'lightning', 'thunder'] });
     expect(effect?.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(5);
     expect(spellAutomated(ward)).toBe(true);
   });
@@ -482,7 +487,7 @@ describe('automationForSpell', () => {
     const def = automationForSpell(wb);
     expect(def.resolution).toBe('effect');
     const effect = def.effects?.[0];
-    expect(effect?.damageLink).toBe(true);
+    expect(trigger(effect, 'damaged')?.redirect).toBe('linked');
     expect(effect?.modifiers.filter((m) => m.mode === 'resistance')).toHaveLength(16);
     expect(effect?.modifiers.filter((m) => m.target === 'ac' || m.target === 'save')).toHaveLength(2);
     expect(effect?.modifiers.some((m) => m.filter?.damageType === 'magicalSlashing')).toBe(true);
@@ -676,7 +681,7 @@ describe('automationForSpell', () => {
       value: 0,
       filter: { damageType: 'radiant' },
     });
-    expect(effect?.damageReaction).toEqual({ ability: 'con', feet: 60, condition: 'blinded' });
+    expect(trigger(effect, 'damaged')?.reaction).toEqual({ kind: 'saveCondition', ability: 'con', feet: 60, condition: 'blinded' });
     expect(spellAutomated(spell)).toBe(true);
   });
 
@@ -753,9 +758,9 @@ describe('automationForSpell', () => {
     expect(def.zone?.side).toBe('hostile');
     expect(def.zone?.flags).toEqual({ difficultTerrain: true });
     const aura = def.zone?.aura?.effects?.[0];
-    expect(aura?.takesExtraDamage).toEqual({ dice: '2d8', damageType: 'cold' });
+    expect(trigger(aura, 'damaged')?.extraDamage).toEqual({ dice: '2d8', damageType: 'cold', from: 'source' });
     expect(aura?.variant).toBe('cold');
-    expect(automationForSpell(spell, { castLevel: 6 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('4d8');
+    expect(trigger(automationForSpell(spell, { castLevel: 6 }).zone?.aura?.effects?.[0], 'damaged')?.extraDamage?.dice).toBe('4d8');
     expect(spellAutomated(spell)).toBe(true);
   });
 
@@ -777,9 +782,9 @@ describe('automationForSpell', () => {
     expect(def.zone?.side).toBe('hostile');
     const aura = def.zone?.aura?.effects?.[0];
     expect(aura?.modifiers[0]).toMatchObject({ target: 'speed', mode: 'add', value: -10 });
-    expect(aura?.takesExtraDamage).toEqual({ dice: '1d8', damageType: 'radiant' });
-    expect(automationForSpell(spell, { castLevel: 5 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('2d8');
-    expect(automationForSpell(spell, { castLevel: 7 }).zone?.aura?.effects?.[0]?.takesExtraDamage?.dice).toBe('3d8');
+    expect(trigger(aura, 'damaged')?.extraDamage).toEqual({ dice: '1d8', damageType: 'radiant', from: 'source' });
+    expect(trigger(automationForSpell(spell, { castLevel: 5 }).zone?.aura?.effects?.[0], 'damaged')?.extraDamage?.dice).toBe('2d8');
+    expect(trigger(automationForSpell(spell, { castLevel: 7 }).zone?.aura?.effects?.[0], 'damaged')?.extraDamage?.dice).toBe('3d8');
     expect(spellAutomated(spell)).toBe(true);
   });
 
@@ -809,10 +814,10 @@ describe('automationForSpell', () => {
     const spell = makeSpell({ key: 'XPHB:Fire Shield', name: 'Fire Shield', level: 4, automation: 'manual' });
     const warm = automationForSpell(spell, { variant: 'warm' }).effects?.[0];
     expect(warm?.modifiers[0]?.filter?.damageType).toBe('cold');
-    expect(warm?.retaliate).toEqual({ damageType: 'fire', dice: '2d8' });
+    expect(trigger(warm, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'fire', dice: '2d8' });
     const chill = automationForSpell(spell, { variant: 'chill' }).effects?.[0];
     expect(chill?.modifiers[0]?.filter?.damageType).toBe('fire');
-    expect(chill?.retaliate).toEqual({ damageType: 'cold', dice: '2d8' });
+    expect(trigger(chill, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'cold', dice: '2d8' });
     expect(spellAutomated(spell)).toBe(true);
   });
 
@@ -835,7 +840,7 @@ describe('automationForSpell', () => {
       mode: 'resistance',
       filter: { damageType: 'radiant' },
     });
-    expect(effect?.retaliate).toEqual({ damageType: 'necrotic', dice: '2d8' });
+    expect(trigger(effect, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'necrotic', dice: '2d8' });
     expect(spellAutomated(spell)).toBe(true);
   });
 
@@ -867,7 +872,7 @@ describe('automationForSpell', () => {
     expect(initial?.markSaved).toBe(true);
     const defaultDef = automationForSpell(eyebite);
     expect(defaultDef.effects?.[1]?.conditions).toEqual(['unconscious']);
-    expect(defaultDef.effects?.[1]?.wakeOnDamage).toBe(true);
+    expect(trigger(defaultDef.effects?.[1], 'damaged')?.endEffect).toBe(true);
     expect(spellAutomated(eyebite)).toBe(true);
   });
 
@@ -942,7 +947,7 @@ describe('automationForSpell', () => {
     expect(def.damage?.dice).toBe('1d6 + 1d6');
     const effect = def.effects?.[0];
     expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'con', dc: 0, timing: 'start' });
-    expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6 + 1d6');
+    expect(trigger(effect, 'startOfTurn')?.turn?.damage?.dice).toBe('1d6 + 1d6');
     expect(spellAutomated(searing)).toBe(true);
   });
 
@@ -964,7 +969,7 @@ describe('automationForSpell', () => {
     const effect = def.effects?.[0];
     expect(effect?.conditions).toEqual(['restrained']);
     expect(effect?.escape).toEqual({ ability: 'str', skill: 'athletics' });
-    expect(effect?.triggers?.startOfTurn?.damage?.dice).toBe('1d6');
+    expect(trigger(effect, 'startOfTurn')?.turn?.damage?.dice).toBe('1d6');
     expect(spellAutomated(ensnaring)).toBe(true);
   });
 
@@ -1109,14 +1114,19 @@ describe('automationForSpell', () => {
     const booming = makeSpell({ key: 'TCE:Booming Blade', name: 'Booming Blade', level: 0, cantrip: bladeTiers });
     const l1 = automationForSpell(booming, { characterLevel: 1 });
     expect(l1.weaponAttack?.riderDice).toBeUndefined();
-    expect(l1.weaponAttack?.hitEffect?.onWillingMove).toEqual({ dice: '1d8', damageType: 'thunder', feet: 5 });
+    expect(trigger(l1.weaponAttack?.hitEffect, 'willingMove')?.damage).toEqual({
+      to: 'self',
+      dice: '1d8',
+      damageType: 'thunder',
+      feet: 5,
+    });
     expect(l1.weaponAttack?.hitEffect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
     const l5 = automationForSpell(booming, { characterLevel: 5 });
     expect(l5.weaponAttack?.riderDice).toBe('1d8thunder');
-    expect(l5.weaponAttack?.hitEffect?.onWillingMove?.dice).toBe('2d8');
+    expect(trigger(l5.weaponAttack?.hitEffect, 'willingMove')?.damage?.dice).toBe('2d8');
     const l17 = automationForSpell(booming, { characterLevel: 17 });
     expect(l17.weaponAttack?.riderDice).toBe('3d8thunder');
-    expect(l17.weaponAttack?.hitEffect?.onWillingMove?.dice).toBe('4d8');
+    expect(trigger(l17.weaponAttack?.hitEffect, 'willingMove')?.damage?.dice).toBe('4d8');
     expect(spellAutomated(booming)).toBe(true);
 
     const trueStrike = makeSpell({
@@ -1395,10 +1405,10 @@ describe('automationForSpell', () => {
     expect(def.resolution).toBe('attack');
     expect(def.halfOnMiss).toBe(true);
     expect(def.damage?.dice).toBe('4d4acid');
-    expect(def.effects?.[0]?.triggers?.endOfTurn?.damage).toEqual({ dice: '2d4acid', types: ['acid'] });
+    expect(trigger(def.effects?.[0], 'endOfTurn')?.turn?.damage).toEqual({ dice: '2d4acid', types: ['acid'] });
     const up = automationForSpell(spell, { castLevel: 4 });
     expect(up.damage?.dice).toBe('6d4acid');
-    expect(up.effects?.[0]?.triggers?.endOfTurn?.damage?.dice).toBe('4d4acid');
+    expect(trigger(up.effects?.[0], 'endOfTurn')?.turn?.damage?.dice).toBe('4d4acid');
     expect(spellAutomated({ key: "XPHB:Melf's Acid Arrow", automation: 'manual' })).toBe(true);
   });
 
@@ -1647,7 +1657,7 @@ describe('automationForSpell', () => {
     expect(def.save?.ability).toBe('wis');
     expect(effect?.conditions).toEqual(['incapacitated']);
     expect(effect?.escalate?.condition).toBe('unconscious');
-    expect(effect?.wakeOnDamage).toBe(true);
+    expect(trigger(effect, 'damaged')?.endEffect).toBe(true);
   });
 
   it('Hideous Laughter: спас WIS, prone+incapacitated, повтор от урона с преимуществом', () => {
@@ -1660,7 +1670,7 @@ describe('automationForSpell', () => {
     expect(def.concentration).toBe(true);
     expect(effect?.conditions).toEqual(['incapacitated', 'prone']);
     expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' });
-    expect(effect?.saveOnDamage).toEqual({ advantage: true });
+    expect(trigger(effect, 'damaged')?.repeatSave).toEqual({ advantage: true });
   });
 
   it('Shocking Grasp: деривация атаки + добавка с запретом OA', () => {
@@ -1690,7 +1700,7 @@ describe('automationForSpell', () => {
     expect(def.resolution).toBe('attack');
     expect(def.damage?.dice).toBe('1d10');
     const effect = def.effects?.[0];
-    expect(effect?.noHeal).toBe(true);
+    expect(trigger(effect, 'healReceived')?.preventHeal).toBe(true);
     expect(effect?.to).toBe('targets');
     expect(effect?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
   });
@@ -1861,7 +1871,7 @@ describe('automationForSpell', () => {
     expect(fire.resolution).toBe('effect');
     expect(fire.concentration).toBe(true);
     const effect = fire.effects?.[0];
-    expect(effect?.damageReduce).toEqual({ dice: '1d4', types: ['fire'] });
+    expect(trigger(effect, 'damaged')?.reduce).toEqual({ dice: '1d4', types: ['fire'] });
     expect(effect?.charges).toEqual({ count: 1 });
     expect(effect?.variant).toBe('fire');
     expect(automationForSpell(spell).effects?.[0]?.variant).toBe('acid');
@@ -1882,9 +1892,9 @@ describe('automationForSpell', () => {
     expect(cold.concentration).toBe(true);
     expect(cold.save).toMatchObject({ ability: 'con' });
     const effect = cold.effects?.[0];
-    expect(effect?.elementalBane).toEqual({ damageType: 'cold', dice: '2d6' });
+    expect(trigger(effect, 'damaged')?.extraDamage).toEqual({ damageType: 'cold', dice: '2d6', oncePerTurn: true });
     expect(effect?.variant).toBe('cold');
-    expect(automationForSpell(spell).effects?.[0]?.elementalBane?.damageType).toBe('acid');
+    expect(trigger(automationForSpell(spell).effects?.[0], 'damaged')?.extraDamage?.damageType).toBe('acid');
     // Апкаст: +1 цель за круг выше 4-го (кости не растут).
     expect(spellExtraTargets(spell, 6)).toBe(2);
     expect(spellAutomated({ key: 'XGE:Elemental Bane', automation: 'manual' })).toBe(true);
@@ -2088,7 +2098,7 @@ describe('automationForSpell', () => {
     const effect = base.effects?.[0];
     expect(effect?.conditions).toEqual(['charmed']);
     expect(effect?.dominates).toBe(true);
-    expect(effect?.saveOnDamage).toEqual({});
+    expect(trigger(effect, 'damaged')?.repeatSave).toEqual({});
     expect(effect?.duration).toEqual({ type: 'untilSave', ability: 'wis', dc: 0, timing: 'damage' });
     // Апкаст — длительность: лимит «1 минута» (10 раундов) снимается.
     expect(automationForSpell(beast, { castLevel: 5 }).maxRounds).toBeNull();
@@ -2158,8 +2168,8 @@ describe('automationForSpell', () => {
     expect(def.autoTargets).toEqual({ feet: 30, side: 'ally', includeSelf: true });
     const effect = def.effects?.[0];
     expect(effect?.modifiers).toEqual([{ target: 'save', mode: 'advantage', filter: { ability: 'wis' } }]);
-    expect(effect?.maximizeHealing).toBe(true);
-    expect(effect?.deathSaveAdvantage).toBe(true);
+    expect(trigger(effect, 'healReceived')?.maximizeHeal).toBe(true);
+    expect(trigger(effect, 'deathSave')?.rollMode).toBe('advantage');
     expect(spellAutomated({ key: 'XPHB:Beacon of Hope', automation: 'manual' })).toBe(true);
   });
 
@@ -2227,7 +2237,7 @@ describe('automationForSpell', () => {
     expect(def.zone?.anchor).toBe('source');
     const aura = def.zone?.aura?.effects?.[0];
     expect(aura?.modifiers).toEqual([{ target: 'save', mode: 'advantage', filter: { magical: true } }]);
-    expect(aura?.saveNoDamage).toBe(true);
+    expect(trigger(aura, 'saveSucceeded')?.noDamageOnSuccess).toBe(true);
     expect(spellAutomated({ key: 'XPHB:Circle of Power', automation: 'manual' })).toBe(true);
   });
 
@@ -2256,10 +2266,10 @@ describe('automationForSpell', () => {
     expect(base.resolution).toBe('effect');
     const effect = base.effects?.[0];
     expect(effect?.tempHp).toBe(5);
-    expect(effect?.retaliate).toEqual({ damageType: 'cold', amount: 5 });
+    expect(trigger(effect, 'damaged')?.damage).toEqual({ to: 'source', damageType: 'cold', amount: 5 });
     const upcast = automationForSpell(spell, { castLevel: 3 });
     expect(upcast.effects?.[0]?.tempHp).toBe(15);
-    expect(upcast.effects?.[0]?.retaliate).toEqual({ damageType: 'cold', amount: 15 });
+    expect(trigger(upcast.effects?.[0], 'damaged')?.damage).toEqual({ to: 'source', damageType: 'cold', amount: 15 });
     expect(spellAutomated({ key: 'XPHB:Armor of Agathys', automation: 'manual' })).toBe(true);
   });
 
@@ -2331,7 +2341,7 @@ describe('automationForSpell', () => {
     expect(dodge.effects?.[0]?.turnDodge).toEqual({ ability: 'wis' });
 
     const necrotic = automationForSpell(spell, { variant: 'necrotic' });
-    expect(necrotic.effects?.[0]?.takesExtraDamage).toEqual({ dice: '1d8', damageType: 'necrotic' });
+    expect(trigger(necrotic.effects?.[0], 'damaged')?.extraDamage).toEqual({ dice: '1d8', damageType: 'necrotic', from: 'source' });
 
     // Апкаст: 4-й круг — 10 минут концентрации, 5-й+ — без концентрации и лимита.
     expect(automationForSpell(spell, { castLevel: 4 }).maxRounds).toBe(100);
@@ -2373,8 +2383,10 @@ describe('automationForSpell', () => {
     const def = automationForSpell(spell);
     expect(def.resolution).toBe('effect');
     const effect = def.effects?.[0];
-    expect(effect?.sanctuary).toBe(true);
-    expect(effect?.breakOn).toEqual(['attack', 'spell', 'damage']);
+    expect(trigger(effect, 'targetedByAttack')?.save).toEqual({ ability: 'wis' });
+    expect(trigger(effect, 'ownAttackRoll')?.endEffect).toBe(true);
+    expect(trigger(effect, 'ownSpellCast')?.endEffect).toBe(true);
+    expect(trigger(effect, 'ownDamageDealt')?.endEffect).toBe(true);
     expect(spellAutomated({ key: 'XPHB:Sanctuary', automation: 'manual' })).toBe(true);
   });
 
@@ -2879,7 +2891,7 @@ describe('Составной урон (D)', () => {
     expect(base.resolution).toBe('save');
     expect(base.save).toEqual({ ability: 'dex', half: true });
     expect(base.damage).toEqual({ dice: '10d4acid', types: ['acid'] });
-    expect(base.effects?.[0]?.triggers?.endOfTurn?.damage).toEqual({ dice: '5d4acid', types: ['acid'] });
+    expect(trigger(base.effects?.[0], 'endOfTurn')?.turn?.damage).toEqual({ dice: '5d4acid', types: ['acid'] });
     expect(automationForSpell(sphere(), { castLevel: 6 }).damage?.dice).toBe('14d4acid');
     expect(spellAutomated(sphere())).toBe(true);
   });
@@ -2929,7 +2941,7 @@ describe('SPELL_BASES: реестр констант класса C', () => {
     expect(falseLife.utility?.dice).toBe(`${SPELL_BASES.falseLife.dice} + ${SPELL_BASES.falseLife.flat}`);
 
     const resistance = automationForSpell(makeSpell({ key: 'XPHB:Resistance', name: 'Resistance', level: 0 }));
-    expect(resistance.effects?.[0]?.damageReduce?.dice).toBe(SPELL_BASES.resistance.damageReduceDice);
+    expect(trigger(resistance.effects?.[0], 'damaged')?.reduce?.dice).toBe(SPELL_BASES.resistance.damageReduceDice);
 
     const mirror = automationForSpell(makeSpell({ key: 'XPHB:Mirror Image', name: 'Mirror Image', level: 2 }));
     expect(mirror.effects?.[0]?.misdirect).toEqual({ ...SPELL_BASES.mirrorImage.misdirect });
@@ -2937,7 +2949,7 @@ describe('SPELL_BASES: реестр констант класса C', () => {
     const bane = automationForSpell(makeSpell({ key: 'XGE:Elemental Bane', name: 'Elemental Bane', level: 4 }), {
       variant: 'fire',
     });
-    expect(bane.effects?.[0]?.elementalBane?.dice).toBe(SPELL_BASES.elementalBane.extraDice);
+    expect(trigger(bane.effects?.[0], 'damaged')?.extraDamage?.dice).toBe(SPELL_BASES.elementalBane.extraDice);
 
     const feast = automationForSpell(makeSpell({ key: "XPHB:Heroes' Feast", name: "Heroes' Feast", level: 6 }));
     expect(feast.effects?.[0]?.maxHpBonus?.dice).toBe(SPELL_BASES.heroesFeast.maxHpDice);

@@ -223,7 +223,12 @@ describe('Booming Blade, True Strike и Zephyr Strike', () => {
     withRandom(0.5, () => resolveSpellCast(f.ctx, input));
     expect(primary.hpCurrent).toBe(26); // 40 − (1d10+3 = 9) − (1d8 звуком = 5)
     const effect = primary.effects.find((e) => e.sourceKey === 'TCE:Booming Blade');
-    expect(effect?.onWillingMove).toEqual({ dice: '2d8', damageType: 'thunder', feet: 5 });
+    expect((effect?.triggers ?? []).find((t) => t.on === 'willingMove')?.damage).toEqual({
+      to: 'self',
+      dice: '2d8',
+      damageType: 'thunder',
+      feet: 5,
+    });
   });
 
   it('Booming Blade: добровольное движение 5 фт — 2d8 звуком и конец эффекта', () => {
@@ -262,7 +267,7 @@ describe('Booming Blade, True Strike и Zephyr Strike', () => {
       const riderDamage = rider ? Number(rider[0]) * 5 : 0;
       expect(primary.hpCurrent, `уровень ${level}: начальный урон`).toBe(40 - 9 - riderDamage);
       const effect = primary.effects.find((e) => e.sourceKey === 'TCE:Booming Blade');
-      expect(effect?.onWillingMove?.dice, `уровень ${level}: кость движения`).toBe(move);
+      expect((effect?.triggers ?? []).find((t) => t.on === 'willingMove')?.damage?.dice, `уровень ${level}: кость движения`).toBe(move);
 
       const fromX = primary.x;
       const fromY = primary.y;

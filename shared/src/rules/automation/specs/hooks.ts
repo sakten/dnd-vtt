@@ -16,7 +16,9 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
         duration: CONCENTRATION,
         concentration: true,
         to: 'targets',
-        hooks: { damageReduce: { dice: SPELL_BASES.resistance.damageReduceDice, types: [{ ref: 'choice' }] } },
+        triggers: {
+          damaged: { reduce: { dice: SPELL_BASES.resistance.damageReduceDice, types: [{ ref: 'choice' }] } },
+        },
         uses: { kind: 'charges', count: 1 },
         variant: { ref: 'choice' },
       },
@@ -38,7 +40,15 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
         concentration: true,
         to: 'targets',
         targets: 1,
-        hooks: { elementalBane: { damageType: { ref: 'choice' }, dice: SPELL_BASES.elementalBane.extraDice } },
+        triggers: {
+          damaged: {
+            extraDamage: {
+              damageType: { ref: 'choice' },
+              dice: SPELL_BASES.elementalBane.extraDice,
+              oncePerTurn: true,
+            },
+          },
+        },
         variant: { ref: 'choice' },
       },
     ],
@@ -117,10 +127,13 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
             filter: { damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'cold', chill: 'fire' } } } },
           },
         ],
-        hooks: {
-          retaliate: {
-            damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'fire', chill: 'cold' } } },
-            dice: '2d8',
+        triggers: {
+          damaged: {
+            damage: {
+              damageType: { mapped: { of: { ref: 'choice' }, values: { warm: 'fire', chill: 'cold' } } },
+              dice: '2d8',
+              to: 'source',
+            },
           },
         },
         variant: { ref: 'choice' },
@@ -138,9 +151,9 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
         name: 'Armor of Agathys',
         duration: PERMANENT,
         to: 'self',
-        hooks: {
-          tempHp: { sum: [5, { ref: 'upcastFlat' }] },
-          retaliate: { damageType: 'cold', amount: { sum: [5, { ref: 'upcastFlat' }] } },
+        tempHp: { sum: [5, { ref: 'upcastFlat' }] },
+        triggers: {
+          damaged: { damage: { damageType: 'cold', amount: { sum: [5, { ref: 'upcastFlat' }] }, to: 'source' } },
         },
       },
     ],
@@ -160,7 +173,10 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
         to: 'targets',
         targets: { perLevel: { base: 1, per: 1, above: 2 } },
         conditions: ['invisible'],
-        hooks: { breakOn: ['attack', 'spell'] },
+        triggers: {
+          ownAttackRoll: { endEffect: true },
+          ownSpellCast: { endEffect: true },
+        },
       },
     ],
   },
@@ -198,7 +214,7 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
           { target: 'attack', mode: 'disadvantage', filter: { direction: 'against' } },
           { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
         ],
-        hooks: { retaliate: { damageType: 'necrotic', dice: '2d8' } },
+        triggers: { damaged: { damage: { damageType: 'necrotic', dice: '2d8', to: 'source' } } },
       },
     ],
   },
@@ -213,7 +229,7 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
         name: 'Death Ward',
         duration: { type: 'rounds', rounds: 4800 },
         to: 'targets',
-        hooks: { deathWard: true },
+        triggers: { hpReachedZero: { survive: { hp: 1 } } },
       },
     ],
   },
@@ -237,7 +253,9 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
           value: 0,
           filter: { damageType: type },
         })),
-        hooks: { ward: ['acid', 'cold', 'fire', 'lightning', 'thunder'] },
+        triggers: {
+          damaged: { reaction: { kind: 'ward', types: ['acid', 'cold', 'fire', 'lightning', 'thunder'] } },
+        },
       },
     ],
   },
@@ -259,7 +277,9 @@ export const HOOKS_SPECS: Record<string, AutomationSpec> = {
           { target: 'damage', mode: 'resistance', value: 0, filter: { damageType: 'radiant' } },
         ],
         light: { bright: 20, dim: 20 },
-        hooks: { damageReaction: { ability: 'con', feet: 60, condition: 'blinded' } },
+        triggers: {
+          damaged: { reaction: { kind: 'saveCondition', ability: 'con', feet: 60, condition: 'blinded' } },
+        },
       },
     ],
   },

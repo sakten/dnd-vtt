@@ -9,6 +9,7 @@ import {
   rollDice,
   SMITE_SPELLS,
   spellActionCost,
+  triggersOn,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -194,12 +195,14 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     // Invisibility: применение заклинания досрочно обрывает эффект носителя.
     // Снимок до каста — чтобы рекаст не снял только что наложенный эффект.
-    const breakIds = new Set(token.effects.filter((e) => e.breakOn?.includes('spell')).map((e) => e.id));
+    const breakIds = new Set(
+      token.effects.filter((e) => triggersOn([e], 'ownSpellCast').some((t) => t.endEffect)).map((e) => e.id)
+    );
     const result = resolveSpellCastWithReactions(ctx, input);
     if (result.error) {
       socket.emit('chat:error', result.error);
     } else if (breakIds.size) {
-      removeBrokenEffects(ctx, room, mapId, token, 'spell', breakIds);
+      removeBrokenEffects(ctx, room, mapId, token, 'ownSpellCast', breakIds);
     }
   });
 
