@@ -40,7 +40,7 @@ export default function EffectChips({ effects, spellByKey, className, max = 3, t
     const direction = e.commandDirection;
     if (direction) parts.unshift(t(`ui.direction.${direction}` as MessageKey));
     // Выбранный вариант (Dragon's Breath: тип урона; Enhance Ability: характеристика) — в скобках к имени.
-    const variantParam = e.sourceKey ? spellVariantDef(e.sourceKey)?.param : undefined;
+    const variantParam = spell ? spellVariantDef(spell)?.param : undefined;
     const variantLabel = e.variant
       ? variantParam === 'ability'
         ? abilityName(e.variant as AbilityKey)

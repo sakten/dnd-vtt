@@ -1,6 +1,5 @@
-import { resolveSpec } from './compile';
-import type { AutomationSpec, AutomationSpecCopy, ChoiceSpec } from './spec';
-import { AUTOMATION_SPECS } from './specs';
+import type { ChoiceSpec } from './spec';
+import type { MaterializedAutomation, SpellAuto } from './materialize';
 
 export interface AutomationOptions {
   /** Модификатор заклинательной характеристики кастера (Heroism: временные HP за ход). */
@@ -32,17 +31,15 @@ const VARIANT_PARAM: Record<ChoiceSpec['param'], SpellVariantDef['param']> = {
   effect: 'effect',
 };
 
+/** Источник выбора: каноническая запись/спек-носитель или сам спек (импорт/тесты). */
+export type VariantSource = SpellAuto | { automation?: MaterializedAutomation; choices?: ChoiceSpec[] };
+
 /**
- * Варианты каста заклинания (undefined — выбора нет): источник — `AutomationSpec.choices`.
- * Копии (`extends`) резолвятся: UI видит выбор кастомного спелла после патча `choices.<id>`.
- * Показывается первый выбор спека; мультивыбор — задел конструктора (см. `AUTOMATION.md` §3.5).
+ * Варианты каста заклинания (undefined — выбора нет): источник — `choices` канонической
+ * записи (`spell.automation`); для спеков/копий (`resolveSpec` при импорте) — сам спек.
+ * Показывается первый выбор; мультивыбор — задел конструктора (см. `AUTOMATION.md` §3.5).
  */
-export function spellVariantDef(
-  spellKey: string,
-  registry: Record<string, AutomationSpec | AutomationSpecCopy> = AUTOMATION_SPECS
-): SpellVariantDef | undefined {
-  const spec = registry[spellKey];
-  if (!spec) return undefined;
-  const choice = resolveSpec(spec, registry).choices?.[0];
+export function spellVariantDef(source: VariantSource): SpellVariantDef | undefined {
+  const choice = source.automation?.choices?.[0] ?? ('choices' in source ? source.choices?.[0] : undefined);
   return choice ? { param: VARIANT_PARAM[choice.param], options: [...choice.options] } : undefined;
 }

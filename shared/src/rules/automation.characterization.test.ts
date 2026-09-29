@@ -4,11 +4,12 @@ import spellsRaw from '../data/spells.json';
 import {
   AUTOMATION_SPECS,
   automationForSpell,
+  materializeSpell,
   spellAutomated,
   spellDamageParts,
   spellTempHp,
 } from './automation';
-import type { Spell } from './spells';
+import type { SpellDef } from './automation';
 
 /**
  * Характеризационный замок автоматизации: фиксирует канонический вид каталога
@@ -17,7 +18,9 @@ import type { Spell } from './spells';
  * менять ни один байт механики. При осознанной правке механики обновить
  * константы: `VTT_UPDATE_BASELINE=1 npx vitest run src/rules/automation.characterization.test.ts`.
  */
-const SPELLS = (spellsRaw as unknown as { count: number; spells: Spell[] }).spells;
+const SPELLS: SpellDef[] = (
+  spellsRaw as unknown as { count: number; spells: Parameters<typeof materializeSpell>[0][] }
+).spells.map((spell) => materializeSpell(spell));
 
 /** Стабильная сериализация: ключи сортируются, undefined-поля опускаются. */
 function stable(value: unknown): string {

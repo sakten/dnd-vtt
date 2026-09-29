@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import type { AutomationEffect } from '../domain/automation';
 import type { TriggerEvent } from '../domain/effects';
-import { automationForSpell } from './automation';
-import type { Spell } from './spells';
+import { automationForSpell, materializeSpell } from './automation';
+import type { SpellDef } from './automation';
+import type { Spell as SpellMeta } from './spells';
 
 /**
  * Поведенческий замок спеков (R16): проверяет не равенство билдерам, а правильность
- * механики на реальных данных `spells.json` через боевой путь `automationForSpell`
- * (derive → resolveSpec → compileSpec). Ожидания — RAW, а не текущий код.
+ * механики на реальных данных через боевой путь `automationForSpell` (канонические
+ * записи: meta + automation). Ожидания — RAW, а не текущий код.
  */
-const SPELLS = (spellsRaw as unknown as { spells: Spell[] }).spells;
-const find = (key: string): Spell => {
+const SPELLS: SpellDef[] = (spellsRaw as unknown as { spells: SpellMeta[] }).spells.map((spell) =>
+  materializeSpell(spell)
+);
+const find = (key: string): SpellDef => {
   const spell = SPELLS.find((s) => s.key === key);
   if (!spell) throw new Error(`нет заклинания ${key}`);
   return spell;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import spellsData from 'shared/spellsData';
-import { emptyResources, emptyTurnState, type Spell, type Token } from 'shared';
+import { AUTOMATION_SPECS, emptyResources, emptyTurnState, materializeSpell, type Spell, type SpellDef, type Token } from 'shared';
 import {
   canSpendSlot,
   castLevelsForSpell,
@@ -14,8 +14,9 @@ import {
   type TurnContext,
 } from './actionRules';
 
-function makeSpell(over: Partial<Spell> = {}): Spell {
-  return {
+function makeSpell(over: Partial<Spell> & { automation?: string } = {}): SpellDef {
+  const { automation: legacy, ...fields } = over;
+  const meta: Spell = {
     key: 'XPHB:Fire Bolt',
     name: 'Fire Bolt',
     source: 'XPHB',
@@ -29,9 +30,13 @@ function makeSpell(over: Partial<Spell> = {}): Spell {
     description: ['Описание'],
     damage: { dice: ['1d10'], types: ['fire'] },
     spellAttack: 'ranged',
-    automation: 'full',
-    ...over,
+    ...fields,
   };
+  // Легаси-флаг `'manual'` — принудительная ручная запись без реестрового спека (красная метка).
+  const spec = AUTOMATION_SPECS[meta.key];
+  if (legacy === 'manual' && !spec) return { ...meta, automation: { primary: 'manual' as const } };
+  if (spec) meta.name = spec.name;
+  return materializeSpell(meta);
 }
 
 const outOfCombat: TurnContext = {

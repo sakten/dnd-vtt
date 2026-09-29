@@ -4,25 +4,21 @@ import type { ClassLevel } from '../../domain/sheet';
 import { AUTOMATION_ACTIONS } from '../automationActions';
 import { invocationPatches } from '../invocations';
 import { monsterAbilityAutomation } from '../monsterAbility';
-import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
-import type { Spell } from '../spells';
-import { applyPatch, compileSpec, resolveSpec } from './compile';
-import { AUTOMATION_SPECS } from './specs';
+import { applyPatch, compileSpec } from './compile';
+import type { SpellAuto } from './materialize';
 import { spellVariantDef } from './variants';
 import type { AutomationOptions } from './variants';
 
 /**
- * Определение автоматизации заклинания: спек → деривация из данных (атака/спас/автоурон)
- * → `manual`; после сборки — патчи выбранных инвокаций (Agonizing/Repelling/Spear).
- * Уровни уже применены к `dice`/`count`. Заклинаниям длительностью ровно 1 минута
- * проставляется лимит 10 раундов.
+ * Определение автоматизации заклинания (R16 шаг 4): каноническая запись несёт спек
+ * (`spell.automation`) — компилируется без реестра, поверх — патчи инвокаций
+ * (Agonizing/Repelling/Spear). Уровни/лимит раундов резолвит `compileSpec`.
  */
-export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
-  const def = withInvocationPatches(spell.key, buildSpellAutomation(spell, opts), opts.invocations);
-  // Билдер мог задать лимит сам (в т.ч. `null` — апкаст Dominate без лимита 1 мин).
-  if (def.maxRounds !== undefined) return def;
-  const maxRounds = spellMaxRounds(spell);
-  return maxRounds ? { ...def, maxRounds } : def;
+export function automationForSpell(spell: SpellAuto, opts: AutomationOptions = {}): AutomationDef {
+  const automation = spell.automation;
+  if (!automation) throw new Error(`automationForSpell: у ${spell.key} нет записи automation`);
+  const spec = { ...automation, key: spell.key, name: spell.name };
+  return withInvocationPatches(spell.key, compileSpec(spec, { spell, opts }), opts.invocations);
 }
 
 /** Патчи инвокаций поверх дефа: пути `automation.*` (`damage.abilityMod`, `force`, …). */
@@ -32,46 +28,6 @@ function withInvocationPatches(spellKey: string, def: AutomationDef, invocations
   const copy = structuredClone(def) as unknown as Record<string, unknown>;
   for (const patch of patches) applyPatch(copy, patch.automation!, { add: true });
   return copy as unknown as AutomationDef;
-}
-
-function buildSpellAutomation(spell: Spell, opts: AutomationOptions): AutomationDef {
-  const spec = AUTOMATION_SPECS[spell.key];
-  if (spec) return compileSpec(resolveSpec(spec), { spell, opts });
-
-  const castLevel = opts.castLevel ?? Math.max(1, spell.level);
-  const characterLevel = opts.characterLevel ?? 1;
-  const expression = spellDamageExpression(spell, castLevel, characterLevel);
-  const concentration = spell.concentration === true || undefined;
-  const base: AutomationDef = {
-    key: spell.key,
-    name: spell.name,
-    resolution: 'manual',
-    concentration,
-  };
-  if (!expression) return base;
-
-  const types = spell.damage?.types ?? [];
-  const dice = { dice: expression, ...(types.length ? { types } : {}) };
-  const rolled = isHealingSpell(spell) ? { heal: dice } : { damage: dice };
-  const count = spellAttackCount(spell, castLevel, characterLevel);
-  if (spell.spellAttack) {
-    return {
-      ...base,
-      resolution: 'attack',
-      attack: { rangeType: spell.spellAttack },
-      count,
-      ...rolled,
-    };
-  }
-  if (spell.save?.length && spell.save[0]) {
-    return {
-      ...base,
-      resolution: 'save',
-      save: { ability: spell.save[0], half: spell.saveHalf === true },
-      ...rolled,
-    };
-  }
-  return { ...base, resolution: 'auto', count, ...rolled };
 }
 
 export interface ActionAutomationOptions {
@@ -103,7 +59,7 @@ export function automationForAction(action: ActionDef, opts: ActionAutomationOpt
  * Временные хиты заклинания (False Life): выражение костей со скейлом
  * (2к4 + 4 + 5/круг); undefined — заклинание не даёт врем. хитов.
  */
-export function spellTempHp(spell: Spell, castLevel?: number, characterLevel?: number): string | undefined {
+export function spellTempHp(spell: SpellAuto, castLevel?: number, characterLevel?: number): string | undefined {
   const def = automationForSpell(spell, { castLevel, characterLevel });
   return def.utility?.kind === 'tempHp' ? def.utility.dice : undefined;
 }
@@ -119,7 +75,7 @@ function sameTypeSet(a: string[], b: string[]): boolean {
  * (Ice Knife — всплеск, Wall of Thorns — стена). Меньше двух строк — undefined:
  * карточка показывает данные заклинания, как и раньше.
  */
-export function spellDamageParts(spell: Spell): { dice: string; types: string[] }[] | undefined {
+export function spellDamageParts(spell: SpellAuto): { dice: string; types: string[] }[] | undefined {
   const parts = spell.damage?.parts ?? [];
   const mains = parts.filter((p) => p.role === 'main');
   let rows: { dice: string; types: string[] }[];
@@ -136,7 +92,7 @@ export function spellDamageParts(spell: Spell): { dice: string; types: string[] 
   }
   if (rows.length < 2) return undefined;
   // Типы-выборы (Destructive Wave: излучение/некротика) — в порядке спековых `choices`.
-  const options = spellVariantDef(spell.key)?.options;
+  const options = spellVariantDef(spell)?.options;
   if (options) {
     for (const row of rows) {
       if (sameTypeSet(row.types, options)) row.types = [...options];
@@ -146,24 +102,24 @@ export function spellDamageParts(spell: Spell): { dice: string; types: string[] 
 }
 
 /**
- * Реализована ли механика заклинания: каталог (не `manual`) либо деривация из
- * данных (`automation: 'full'`). Остальным рисуем красный маркер на иконке.
+ * Реализована ли механика заклинания: `primary` канонической записи (не `manual`).
+ * Остальным рисуем красный маркер на иконке.
  */
-export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolean {
-  const spec = AUTOMATION_SPECS[spell.key];
-  if (spec) return spec.primary !== 'manual';
-  return spell.automation === 'full';
+export function spellAutomated(spell: SpellAuto): boolean {
+  return spell.automation ? spell.automation.primary !== 'manual' : false;
 }
 
 /** Ручная механика «ведёт мастер» (Charm Monster/Compulsion): красный маркер не рисуем. */
-export function spellByDesign(spell: Pick<Spell, 'key'>): boolean {
-  return AUTOMATION_SPECS[spell.key]?.manual?.byDesign === true;
+export function spellByDesign(spell: SpellAuto): boolean {
+  return spell.automation?.manual?.byDesign === true;
 }
 
 /**
  * Заклинание-бафф оружия (Shillelagh): кости в данных описывают кость оружия по
  * тирам, а не урон заклинания. Карточкам/тултипам такую строку «Урон» показывать нельзя.
  */
-export function spellWeaponOverride(spell: Spell): boolean {
+export function spellWeaponOverride(spell: SpellAuto): boolean {
   return automationForSpell(spell).effects?.some((e) => e.weaponOverride) === true;
 }
+
+export type { SpellAuto };

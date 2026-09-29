@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { ActionDef } from '../domain/actions';
 import type { AutomationEffect } from '../domain/automation';
 import type { TriggerEvent } from '../domain/effects';
-import { automationForAction, automationForSpell, spellAutomated, spellByDesign, spellDamageParts, spellTempHp, spellVariantDef } from './automation';
+import {
+  AUTOMATION_SPECS,
+  automationForAction,
+  automationForSpell,
+  materializeSpell,
+  spellAutomated as spellAutomatedRecord,
+  spellByDesign as spellByDesignRecord,
+  spellDamageParts,
+  spellTempHp,
+  spellVariantDef as spellVariantRecord,
+} from './automation';
+import type { SpellDef } from './automation';
 import { SPELL_BASES } from './automation/bases';
 import { findBaseAction } from './actions';
 import { spellExtraTargets, isThinWallSpell, wallMaxPanels } from './spellCast';
@@ -12,7 +23,10 @@ function makeAction(partial: Partial<ActionDef>): ActionDef {
   return { id: 'test', name: 'Test', source: 'basic', costs: ['action'], ...partial };
 }
 
-function makeSpell(partial: Partial<Spell>): Spell {
+function makeSpell(partial: Partial<Spell> & { automation?: unknown }): SpellDef {
+  // `automation` в фикстурах — легаси data-флаг (снят): запись собирает `materializeSpell`
+  // (реестровый спек по ключу либо `generatedAutomation` из данных).
+  const { automation: _legacy, ...fields } = partial;
   const spell: Spell = {
     key: 'XPHB:Test',
     name: 'Test',
@@ -24,9 +38,8 @@ function makeSpell(partial: Partial<Spell>): Spell {
     components: {},
     duration: [{ type: 'instant' }],
     classes: ['wizard'],
-    automation: 'full',
     description: [],
-    ...partial,
+    ...fields,
   };
   // Фикстуры: числа скейла выводим так же, как сборщик данных (npm run spells).
   const hi = spell.higherLevel;
@@ -35,8 +48,37 @@ function makeSpell(partial: Partial<Spell>): Spell {
     spell.cantrip = deriveCantripTiers(hi, spell.description ?? []);
   }
   if (!spell.attacks) spell.attacks = deriveAttackCount(spell.description ?? []);
-  return spell;
+  // Реестровый спек главнее фикстуры: старое поведение `automationForSpell` (спек по ключу)
+  // использовало имя спека — сохраняем (materialize проверяет совпадение имён).
+  const spec = AUTOMATION_SPECS[spell.key];
+  if (spec) spell.name = spec.name;
+  return materializeSpell(spell);
 }
+
+/**
+ * Обёртки под легаси-форму вызовов тестов: `{ key, automation: 'full' | 'manual' }`
+ * (data-флаг снят в R16 4.4) и ключи вместо записи. Запись дособирает `materializeSpell`.
+ */
+const spellAutomated = (spell: { key: string; automation?: unknown }): boolean =>
+  spellAutomatedRecord(
+    spell.automation && typeof spell.automation === 'object' ? (spell as SpellDef) : makeSpell({ key: spell.key })
+  );
+
+const spellByDesign = (spell: { key: string; automation?: unknown }): boolean =>
+  spellByDesignRecord(
+    spell.automation && typeof spell.automation === 'object' ? (spell as SpellDef) : makeSpell({ key: spell.key })
+  );
+
+const spellVariantDef = (
+  source: string | { key: string; automation?: unknown }
+): ReturnType<typeof spellVariantRecord> =>
+  spellVariantRecord(
+    typeof source === 'string'
+      ? makeSpell({ key: source })
+      : source.automation && typeof source.automation === 'object'
+        ? (source as SpellDef)
+        : makeSpell({ key: source.key })
+  );
 
 const trigger = (e: AutomationEffect | undefined, on: TriggerEvent) => (e?.triggers ?? []).find((t) => t.on === on);
 
@@ -409,7 +451,7 @@ describe('automationForSpell', () => {
     expect(automationForSpell(enhance).effects?.[0]?.modifiers[0]?.filter?.ability).toBe('str');
     expect(automationForSpell(enhance, { variant: 'bogus' }).effects?.[0]?.modifiers[0]?.filter?.ability).toBe('str');
     expect(spellAutomated(enhance)).toBe(true);
-    expect(spellVariantDef('XPHB:Enhance Ability')).toEqual({ param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] });
+    expect(spellVariantDef(enhance)).toEqual({ param: 'ability', options: ['str', 'dex', 'int', 'wis', 'cha'] });
   });
 
   it('Invisibility — невидимость до конца концентрации, обрыв атака/каст, апкаст целей', () => {

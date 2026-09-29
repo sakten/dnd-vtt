@@ -117,7 +117,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
     return def.utility?.kind === 'dispel';
   })();
   // Вариант каста (Dragon's Breath: тип урона); значение по умолчанию — первый вариант.
-  const variantDef = spellVariantDef(spell.key);
+  const variantDef = spellVariantDef(spell);
   // At-will инвокация «на себя» (Armor of Shadows): цель не выбирается.
   const selfOnlyAtWill =
     !!sheet && sheetCaster && invocationCoversSpell(sheet, spell.key) && invocationAtWillSelfOnly(spell.key);

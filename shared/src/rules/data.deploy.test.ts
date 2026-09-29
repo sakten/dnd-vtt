@@ -1,6 +1,7 @@
 ﻿import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
+import catalogRaw from '../data/catalog.json';
 import spellcastingRaw from '../data/spellcasting.json';
 import subclassRaw from '../data/subclassSpells.json';
 import featuresRaw from '../data/features.json';
@@ -14,7 +15,7 @@ import { parseDiceExpression } from '../dice';
 import { ATTACK_RIDERS } from './attackRiders';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
-import { AUTOMATION_SPECS } from './automation';
+import { AUTOMATION_SPECS, type SpellDef } from './automation';
 import { INVOCATION_MECHANICS } from './invocations';
 import { ABSORB_SPELL_TYPES, REACTION_SPELL_TRIGGERS } from './reactions';
 import { spellAttackCount, spellDamageExpression } from './spellCast';
@@ -27,6 +28,7 @@ import type { Spell } from './spells';
  */
 const HASHES = {
   spells: '2133927495d56bbf',
+  catalog: 'ba3454c758880378',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',
@@ -93,6 +95,7 @@ describe('снимок данных', () => {
   it('hash файлов не менялся', () => {
     expect({
       spells: hash(spellsRaw),
+      catalog: hash(catalogRaw),
       spellcasting: hash(spellcastingRaw),
       subclassSpells: hash(subclassRaw),
       features: hash(featuresRaw),
@@ -226,7 +229,6 @@ describe('снимок данных', () => {
       if (!SOURCES.has(s.source)) bad.push(`${s.key}: источник ${s.source}`);
       if (!Number.isInteger(s.level) || s.level < 0 || s.level > 6) bad.push(`${s.key}: круг ${s.level}`);
       if (!SCHOOLS.has(s.school)) bad.push(`${s.key}: школа ${s.school}`);
-      if (s.automation !== 'full' && s.automation !== 'manual') bad.push(`${s.key}: automation ${s.automation}`);
       for (const die of s.damage?.dice ?? []) {
         if (!/^(?:\d*d\d+|\d+)(?:\s*[+;]\s*(?:\d*d\d+|\d+))*$/i.test(die)) bad.push(`${s.key}: кость ${die}`);
       }
@@ -277,6 +279,28 @@ describe('снимок данных', () => {
     expect(bad).toEqual([]);
     expect(new Set(SPELLS.map((s) => s.key)).size).toBe(SPELLS.length);
     expect(new Set(SPELLS.map((s) => s.name)).size).toBe(SPELLS.length);
+  });
+
+  it('catalog.json: канонические записи (meta + automation) из spells.json', () => {
+    const data = catalogRaw as unknown as { attribution: string; count: number; spells: SpellDef[] };
+    expect(data.attribution).toContain('SRD 5.2');
+    expect(data.count).toBe(data.spells.length);
+    expect(data.count).toBe(SPELLS.length);
+    const meta = new Map(SPELLS.map((s) => [s.key, s]));
+    const bad: string[] = [];
+    for (const record of data.spells) {
+      const source = meta.get(record.key);
+      if (!source) {
+        bad.push(`${record.key}: нет в spells.json`);
+        continue;
+      }
+      if (record.name !== source.name) bad.push(`${record.key}: имя ${record.name}`);
+      if (!record.automation) bad.push(`${record.key}: нет automation`);
+      if (record.automation && record.automation.primary === 'manual' && record.automation.effects?.length) {
+        bad.push(`${record.key}: manual с эффектами`);
+      }
+    }
+    expect(bad).toEqual([]);
   });
 
   it('каталоги кода ссылаются на существующие заклинания', () => {

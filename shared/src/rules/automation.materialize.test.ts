@@ -47,9 +47,9 @@ describe('материализация SpellDef (R16 шаг 4, срез 1)', () 
   it('meta переносится без изменений; automation есть у всех 420 записей', () => {
     let registrySpecs = 0;
     for (const spell of SPELLS) {
-      const { automation: _flag, ...meta } = spell;
       const record = materializeSpell(spell);
       const { automation, ...recordMeta } = record;
+      const { automation: _legacy, ...meta } = spell as Spell & { automation?: unknown };
       expect(stable(recordMeta)).toBe(stable(meta));
       expect(automation).toBeDefined();
       if (AUTOMATION_SPECS[spell.key]) registrySpecs += 1;
@@ -76,7 +76,7 @@ describe('материализация SpellDef (R16 шаг 4, срез 1)', () 
             for (const spellMod of SPELL_MODS) {
               expected += 1;
               const opts = { castLevel, characterLevel, spellMod, ...(variant ? { variant } : {}) };
-              const oldDef = automationForSpell(spell, opts);
+              const oldDef = automationForSpell(record, opts);
               // Стеновые записи компилируются без ключей `WALL_DIMS`: габариты уже в записи.
               const newDef = compileWithoutWallDims(spell.key, () => compileSpec(spec, { spell, opts }));
               const params = `${spell.key}@${castLevel}/${characterLevel}${variant ? `/${variant}` : ''}#mod${spellMod}`;

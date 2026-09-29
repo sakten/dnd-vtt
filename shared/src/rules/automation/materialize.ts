@@ -12,11 +12,14 @@ import type { AutomationSpec, AutomationSpecCopy, ValueExpr } from './spec';
 export type MaterializedAutomation = Omit<AutomationSpec, 'key' | 'name'>;
 
 /**
- * Каноническая запись заклинания (прототип R16 шага 4): `SpellDef = meta + automation`.
- * Data-флаг `Spell.automation: 'full' | 'manual'` не переносится — его роль
- * переходит к наличию/отсутствию спека в записи (деривация из данных — fallback).
+ * Каноническая запись заклинания (R16 шаг 4): `SpellDef = meta + automation`.
+ * Data-флаг `Spell.automation: 'full' | 'manual'` снят — его роль играет
+ * наличие спека в записи (деривация из данных — только режим генерации `catalog`).
  */
-export type SpellDef = Omit<Spell, 'automation'> & { automation?: MaterializedAutomation };
+export type SpellDef = Spell & { automation: MaterializedAutomation };
+
+/** Носитель автоматизации для потребителей: запись или meta-объект (совместимость). */
+export type SpellAuto = Spell & { automation?: MaterializedAutomation };
 
 /**
  * Собирает каноническую запись заклинания из meta и спека `AUTOMATION_SPECS`.
@@ -29,10 +32,9 @@ export function materializeSpell(
   spell: Spell,
   registry: Record<string, AutomationSpec | AutomationSpecCopy> = AUTOMATION_SPECS
 ): SpellDef {
-  const { automation: _flag, ...meta } = spell;
   const spec = registry[spell.key];
-  if (!spec) return { ...meta, automation: generatedAutomation(spell) };
-  return { ...meta, automation: materializeAutomation(spec, spell, registry) };
+  if (!spec) return { ...spell, automation: generatedAutomation(spell) };
+  return { ...spell, automation: materializeAutomation(spec, spell, registry) };
 }
 
 /**

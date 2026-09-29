@@ -120,7 +120,7 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
       'XPHB:Spirit Guardians': AUTOMATION_SPECS['XPHB:Spirit Guardians']!,
       [copy.key]: copy,
     };
-    expect(spellVariantDef(copy.key, registry)).toEqual({ param: 'damageType', options: ['fire', 'cold'] });
+    expect(spellVariantDef(resolveSpec(copy, registry))).toEqual({ param: 'damageType', options: ['fire', 'cold'] });
     const spell = SPELLS.find((s) => s.key === 'XPHB:Spirit Guardians')!;
     const def = compileSpec(resolveSpec(copy, registry), { spell, opts: { variant: 'cold' } });
     expect(def.damage?.types).toEqual(['cold']);

@@ -249,14 +249,11 @@ async function main() {
   writeFileSync(outPath, JSON.stringify(output));
 
   const bySource: Record<string, number> = {};
-  const byAutomation: Record<string, number> = {};
   for (const s of normalized) {
     bySource[s.source] = (bySource[s.source] ?? 0) + 1;
-    byAutomation[s.automation] = (byAutomation[s.automation] ?? 0) + 1;
   }
   console.log(`Записано ${normalized.length} заклинаний → ${outPath}`);
   console.log('По источникам:', JSON.stringify(bySource));
-  console.log('По automation:', JSON.stringify(byAutomation));
 
   await buildClassData(dir, buildNameIndex(entries));
 }

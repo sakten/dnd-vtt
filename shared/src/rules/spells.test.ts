@@ -241,7 +241,6 @@ describe('normalizeSpell', () => {
     expect(spell.damage?.dice).toEqual(['8d6']);
     expect(spell.damage?.types).toEqual(['fire']);
     expect(spell.save).toEqual(['dex']);
-    expect(spell.automation).toBe('full');
     expect(spell.description).toHaveLength(1);
     expect(spell.description[0]).toContain('8d6 Fire damage');
     // `{@scaledamage base|levels|increment}` → в тексте инкремент (1d6), не база.
@@ -264,7 +263,6 @@ describe('normalizeSpell', () => {
     expect(spell.description).toEqual(['First sentence.']);
     expect(spell.higherLevel).toBeUndefined();
     expect(spell.save).toEqual(['wis']);
-    expect(spell.automation).toBe('manual');
   });
 
   it('ритуал и заклинательная атака', () => {
@@ -285,7 +283,6 @@ describe('normalizeSpell', () => {
     );
     expect(spell.ritual).toBe(true);
     expect(spell.spellAttack).toBe('ranged');
-    expect(spell.automation).toBe('full');
   });
 
   it('spellKey', () => {
@@ -315,7 +312,6 @@ describe('normalizeSpell', () => {
     );
     expect(spell.damage).toBeUndefined();
     expect(spell.healing).toBeUndefined();
-    expect(spell.automation).toBe('manual');
   });
 
   it('лечение берётся из {@dice} с контекстом «regains … Hit Points»', () => {

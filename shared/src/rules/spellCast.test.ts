@@ -37,7 +37,6 @@ function makeSpell(partial: Partial<Spell>): Spell {
     components: {},
     duration: [{ type: 'instant' }],
     classes: ['wizard'],
-    automation: 'full',
     description: [],
     ...partial,
   };

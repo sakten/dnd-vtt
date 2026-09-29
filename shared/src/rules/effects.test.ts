@@ -31,7 +31,8 @@ import {
   triggerOn,
   withRollParts,
 } from './effects';
-import { automationForSpell, spellAutomated } from './automation';
+import { automationForSpell, materializeSpell, spellAutomated } from './automation';
+import type { SpellDef } from './automation';
 import spellsRaw from '../data/spells.json';
 import { normalizeEffects } from '../normalize/effects';
 import type { Spell } from './spells';
@@ -449,8 +450,10 @@ describe('normalizeEffects: Immolation', () => {
 });
 
 describe('каталог эффектов заклинаний', () => {
-  const spellByKey = (key: string): Spell =>
-    (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === key)!;
+  const spellByKey = (key: string): SpellDef => {
+    const spell = (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === key)!;
+    return materializeSpell(spell);
+  };
 
   it('Shield даёт +5 AC до конца хода', () => {
     const defs = automationForSpell(spellByKey('XPHB:Shield')).effects;
@@ -478,7 +481,7 @@ describe('каталог эффектов заклинаний', () => {
   });
 
   it('Hex привязывает бонус урона к метке', () => {
-    const spell = (spellsRaw as unknown as { spells: Spell[] }).spells.find((s) => s.key === 'XPHB:Hex')!;
+    const spell = spellByKey('XPHB:Hex');
     const defs = automationForSpell(spell).effects;
     expect(defs?.[0]!.markTarget).toBe(true);
     expect(defs?.[0]!.to).toBe('self');
@@ -499,11 +502,11 @@ describe('каталог эффектов заклинаний', () => {
     expect(isBanished(undefined)).toBe(false);
   });
 
-  it('spellAutomated: full или есть каталог эффектов', () => {
-    expect(spellAutomated({ key: 'XPHB:Fireball', automation: 'full' })).toBe(true);
-    expect(spellAutomated({ key: 'XPHB:Shield', automation: 'manual' })).toBe(true);
-    expect(spellAutomated({ key: 'XPHB:Light', automation: 'manual' })).toBe(true);
-    expect(spellAutomated({ key: 'XPHB:Comprehend Languages', automation: 'manual' })).toBe(false);
+  it('spellAutomated: primary записи не manual', () => {
+    expect(spellAutomated(spellByKey('XPHB:Fireball'))).toBe(true);
+    expect(spellAutomated(spellByKey('XPHB:Shield'))).toBe(true);
+    expect(spellAutomated(spellByKey('XPHB:Light'))).toBe(true);
+    expect(spellAutomated(spellByKey('XPHB:Comprehend Languages'))).toBe(false);
   });
 });
 

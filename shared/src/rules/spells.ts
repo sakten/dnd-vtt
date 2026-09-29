@@ -19,7 +19,6 @@ export type SpellSchool =
   | 'Illusion'
   | 'Necromancy'
   | 'Transmutation';
-export type SpellAutomation = 'full' | 'manual';
 
 export interface SpellTime {
   number: number;
@@ -106,7 +105,6 @@ export interface Spell {
   areaSpec?: AreaSpec;
   /** Накладываемые состояния (ключи каталога). */
   conditions?: ConditionKey[];
-  automation: SpellAutomation;
   /** SRD 5.2: контент под CC-BY (полный текст правил хранится; галка для фильтрации). */
   srd?: boolean;
   /** SRD — полный текст; не-SRD — одно предложение. */
@@ -643,11 +641,6 @@ export function normalizeComponents(raw: unknown): SpellComponents {
   };
 }
 
-export function automationOf(input: { damage?: SpellDamage; save?: AbilityKey[]; spellAttack?: 'melee' | 'ranged' }): SpellAutomation {
-  if (input.damage?.dice.length) return 'full';
-  return 'manual';
-}
-
 function toStringArray(raw: unknown): string[] {
   return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
 }
@@ -717,7 +710,6 @@ export function normalizeSpell(raw: RawSpell, classes: string[]): Spell {
     area: toStringArray(raw.areaTags),
     areaSpec,
     conditions: conditions.length ? conditions : undefined,
-    automation: automationOf({ damage, save, spellAttack }),
     description,
     higherLevel: higherLevel.length ? higherLevel : undefined,
     upcast,
