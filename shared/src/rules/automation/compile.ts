@@ -4,7 +4,7 @@ import type { ConditionKey, Modifier, TriggerEvent, TriggerInstance } from '../.
 import { ABILITIES, DAMAGE_TYPES, SKILLS } from '../../labels';
 import { CONDITION_KEYS } from '../conditions';
 import type { Spell } from '../spells';
-import { spellCantripDice, spellDamageExpression, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
+import { spellCantripDice, spellDamageExpression, spellMaxRounds, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
 import { addDiceExpression, scaledDice, upcastSteps } from './helpers';
 import type {
   ActionSpec,
@@ -756,7 +756,10 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     characterLevel: input.opts.characterLevel ?? 1,
   };
   const concentration = spec.concentration !== undefined ? resolveLeveled(ctx, spec.concentration) : undefined;
-  const maxRounds = spec.maxRounds !== undefined ? resolveLeveled(ctx, spec.maxRounds) : undefined;
+  // Спецификация без своего лимита наследует правило данных: ровно 1 минута → 10 раундов
+  // (раньше это довешивал `automationForSpell` после компиляции — теперь запись самодостаточна).
+  const specMaxRounds = spec.maxRounds !== undefined ? resolveLeveled(ctx, spec.maxRounds) : undefined;
+  const maxRounds = specMaxRounds !== undefined ? specMaxRounds : spellMaxRounds(input.spell);
   const area =
     spec.area === undefined ? undefined : 'from' in spec.area ? (input.spell.areaSpec ?? spec.area.fallback) : spec.area;
   return {

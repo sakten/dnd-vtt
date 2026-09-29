@@ -7,4 +7,6 @@ export { automationForSpell, automationForAction, spellTempHp, spellDamageParts,
 export type { ActionAutomationOptions } from './derive';
 export { AUTOMATION_SPECS } from './specs';
 export { compileSpec, resolveSpec, validateSpec } from './compile';
+export { materializeAutomation, materializeSpell } from './materialize';
+export type { MaterializedAutomation, SpellDef } from './materialize';
 export type { ActionSpec, AutomationSpec, AutomationSpecCopy, ChoiceSpec, EffectSpec, LoadoutSpec, ValueExpr, WeaponAttackSpec } from './spec';
