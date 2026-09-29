@@ -14,7 +14,7 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
-import { applyEndEffects } from '../room/effects';
+import { finalizeRemovedEffects } from '../room/effects';
 import { endShapeToken } from './forms';
 import { endConcentrationOf } from './effects';
 import { handleMovementZones } from './zones';
@@ -213,13 +213,12 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         const next = normalizeEffects(patch.effects);
         const nextIds = new Set(next.map((e) => e.id));
         const removed = token.effects.filter((e) => !nextIds.has(e.id));
-        for (const old of removed) manager.changeMaxHp(room, token, old, -1);
         const oldIds = new Set(token.effects.map((e) => e.id));
+        token.effects = next;
         for (const effect of next) {
           if (!oldIds.has(effect.id)) manager.changeMaxHp(room, token, effect, 1);
         }
-        token.effects = next;
-        applyEndEffects(manager, room, token, removed);
+        finalizeRemovedEffects(manager, room, token, removed);
         // Ручное снятие якоря концентрации (меню токена): гасим связанные эффекты и зоны.
         if (removed.some((e) => e.concentration && e.sourceId === token.id)) {
           endConcentrationOf(ctx, room, token, { zones: 'all' });

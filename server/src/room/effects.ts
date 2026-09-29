@@ -327,11 +327,41 @@ function endEffectInstance(def: NonNullable<EffectInstance['onEnd']>, source: Ef
 }
 
 /** Накладывает `onEnd` снятых эффектов на носителя (сам `onEnd` не рекурсирует). */
-export function applyEndEffects(m: EffectsDeps, room: Room, token: Token, ending: EffectInstance[]): void {
+function applyEndEffects(m: EffectsDeps, room: Room, token: Token, ending: EffectInstance[]): void {
   for (const effect of ending) {
     if (!effect.onEnd) continue;
     applyEffect(m, room, token, endEffectInstance(effect.onEnd, effect));
   }
+}
+
+/**
+ * Финализация снятых эффектов: откат maxHp, возврат из изгнания, откат доминирования,
+ * чистка связанных состояний и `onEnd`. Эффекты вызывающий сам убирает из `token.effects`
+ * (до или после — хелпер их не читает). Возвращает имена вернувшихся из изгнания
+ * обычным порядком (для сообщений «эффект спал»); исчезнувших навсегда — в `vanished`.
+ */
+export function finalizeRemovedEffects(
+  m: EffectsDeps,
+  room: Room,
+  token: Token,
+  effects: EffectInstance[],
+  opts: { natural?: boolean; vanished?: { mapId: string; token: Token }[]; triggerEnd?: boolean } = {}
+): string[] {
+  const ended: string[] = [];
+  for (const effect of effects) {
+    changeMaxHp(m, room, token, effect, -1);
+    releaseDomination(token, effect);
+    if (effect.banish) {
+      const forever = opts.natural
+        ? releaseBanishEffect(room, token, effect, { vanished: opts.vanished, natural: true })
+        : releaseBanishEffect(room, token, effect);
+      if (!forever) ended.push(effect.name);
+    }
+  }
+  const ids = new Set(effects.map((e) => e.id));
+  if (ids.size) token.conditions = token.conditions.filter((c) => !(c.effectId && ids.has(c.effectId)));
+  if (opts.triggerEnd !== false) applyEndEffects(m, room, token, effects);
+  return ended;
 }
 
 /** Снимает эффект и его состояния с токена; false — эффекта не было. `triggerEnd:false` — без onEnd (замена при перекасте). */
@@ -344,12 +374,8 @@ export function removeEffect(
 ): boolean {
   const effect = token.effects.find((e) => e.id === effectId);
   if (!effect) return false;
-  changeMaxHp(m, room, token, effect, -1);
-  releaseBanishEffect(room, token, effect);
-  releaseDomination(token, effect);
   token.effects = token.effects.filter((e) => e.id !== effectId);
-  token.conditions = token.conditions.filter((c) => c.effectId !== effectId);
-  if (opts.triggerEnd !== false) applyEndEffects(m, room, token, [effect]);
+  finalizeRemovedEffects(m, room, token, [effect], { triggerEnd: opts.triggerEnd });
   m.saveSoon(room);
   return true;
 }
@@ -518,14 +544,7 @@ export function tickEffects(
       if (!success) forcedDodges.push(effect);
     }
     if (remove) {
-      changeMaxHp(m, room, token, effect, -1);
-      releaseDomination(token, effect);
-      token.conditions = token.conditions.filter((c) => c.effectId !== effect.id);
-      if (effect.onEnd) ending.push(effect);
-      if (effect.banish) {
-        const gone = releaseBanishEffect(room, token, effect, { vanished, natural: true });
-        if (!gone) removed.push(effect.name);
-      }
+      ending.push(effect);
       if (effect.concentration && effect.sourceId && effect.sourceKey) {
         removedConcentration.push({ sourceId: effect.sourceId, sourceKey: effect.sourceKey });
       }
@@ -540,7 +559,7 @@ export function tickEffects(
     forced.push(curse.name);
     changed = true;
   }
-  applyEndEffects(m, room, token, ending);
+  removed.push(...finalizeRemovedEffects(m, room, token, ending, { natural: true, vanished }));
 
   for (const map of room.scene.maps) {
     for (const other of map.tokens) {
@@ -553,10 +572,8 @@ export function tickEffects(
           effect.duration.of === 'source' &&
           effect.sourceId === token.id
         ) {
-          changeMaxHp(m, room, other, effect, -1);
-          other.conditions = other.conditions.filter((c) => c.effectId !== effect.id);
+          endingOther.push(effect);
           removed.push(effect.name);
-          if (effect.onEnd) endingOther.push(effect);
           if (effect.concentration && effect.sourceId && effect.sourceKey) {
             removedConcentration.push({ sourceId: effect.sourceId, sourceKey: effect.sourceKey });
           }
@@ -566,7 +583,7 @@ export function tickEffects(
         return true;
       });
       other.effects = keptOther;
-      applyEndEffects(m, room, other, endingOther);
+      finalizeRemovedEffects(m, room, other, endingOther);
     }
   }
 
@@ -647,18 +664,9 @@ export function clearConcentration(m: EffectsDeps, room: Room, sourceId: string)
         token.effects.filter((e) => e.concentration && e.sourceId === sourceId).map((e) => e.id)
       );
       if (!removedIds.size) continue;
-      const ending: EffectInstance[] = [];
-      for (const effect of token.effects) {
-        if (removedIds.has(effect.id)) {
-          changeMaxHp(m, room, token, effect, -1);
-          releaseBanishEffect(room, token, effect);
-          releaseDomination(token, effect);
-          if (effect.onEnd) ending.push(effect);
-        }
-      }
+      const ending = token.effects.filter((e) => removedIds.has(e.id));
       token.effects = token.effects.filter((e) => !removedIds.has(e.id));
-      token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
-      applyEndEffects(m, room, token, ending);
+      finalizeRemovedEffects(m, room, token, ending);
       changed.push({ mapId: map.id, token });
     }
     for (const entry of map.combat.entries) {
@@ -691,16 +699,9 @@ export function clearEffectsForPlayer(m: EffectsDeps, room: Room, playerId: stri
       if (token.libraryItemId !== libId) continue;
       for (const c of clearConcentration(m, room, token.id)) changed.set(c.token.id, c);
       if (!token.effects.length) continue;
-      const removedIds = new Set(token.effects.map((e) => e.id));
       const ending = [...token.effects];
-      for (const effect of token.effects) {
-        changeMaxHp(m, room, token, effect, -1);
-        releaseBanishEffect(room, token, effect);
-        releaseDomination(token, effect);
-      }
       token.effects = [];
-      token.conditions = token.conditions.filter((c) => !(c.effectId && removedIds.has(c.effectId)));
-      applyEndEffects(m, room, token, ending);
+      finalizeRemovedEffects(m, room, token, ending);
       changed.set(token.id, { mapId: map.id, token });
     }
   }
