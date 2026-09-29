@@ -46,7 +46,7 @@ function legendarySignature(statblock: TokenStatblock | undefined): string {
 }
 
 export function registerTokenHandlers(ctx: ConnCtx) {
-  const { manager, isDm, broadcastAll, emitToken, syncCombat } = ctx;
+  const { manager, isDm, broadcastAll, emitToken, emitChanged, syncCombat } = ctx;
     ctx.on('token:add', (payload) => {
       const scope = playerScope(ctx);
       if (!scope) return;
@@ -182,9 +182,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
             res.hp.temp = Math.max(0, Math.round(patch.hpTemp));
           }
           ctx.emitResources(room, stats.controllerId);
-          for (const c of manager.characterTokens(room, stats.controllerId)) {
-            emitToken(room, 'token:update', c.mapId, c.token);
-          }
+          emitChanged(room, manager.characterTokens(room, stats.controllerId));
         }
       } else {
         if (typeof patch.hpCurrent === 'number' && Number.isFinite(patch.hpCurrent)) {
@@ -203,9 +201,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
         if (token.shape && isIncapacitated(token.conditions)) endShapeToken(ctx, room, mapId, token);
         // Ручное снятие «Мёртв» = оживление: death-сейвы сбрасываются, лежачий — «Без сознания».
         if (hadDead && !token.conditions.some((c) => c.key === 'dead') && stats.controllerId) {
-          for (const c of manager.clearDeadState(room, stats.controllerId)) {
-            emitToken(room, 'token:update', c.mapId, c.token);
-          }
+          emitChanged(room, manager.clearDeadState(room, stats.controllerId));
           ctx.emitResources(room, stats.controllerId);
         }
       }
@@ -228,9 +224,7 @@ export function registerTokenHandlers(ctx: ConnCtx) {
           let pruned = false;
           for (const old of removed) {
             if (!old.concentration || !old.sourceId || !old.sourceKey) continue;
-            for (const changed of manager.pruneConcentration(room, old.sourceId, old.sourceKey)) {
-              emitToken(room, 'token:update', changed.mapId, changed.token);
-            }
+            emitChanged(room, manager.pruneConcentration(room, old.sourceId, old.sourceKey));
             pruned = true;
           }
           if (pruned) syncCombat(room, mapId);

@@ -308,9 +308,7 @@ export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): vo
   for (const { token, effect } of lostEffects) {
     if (!token.effects.some((e) => e.id === effect.id)) continue;
     if (effect.concentration && effect.sourceId) {
-      for (const changed of ctx.manager.clearConcentration(room, effect.sourceId)) {
-        ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-      }
+      ctx.emitChanged(room, ctx.manager.clearConcentration(room, effect.sourceId));
     } else {
       ctx.manager.removeEffect(room, token, effect.id);
     }
@@ -319,9 +317,7 @@ export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): vo
   }
   for (const zone of losers) {
     // Концентрация источника гибнет вместе с зоной.
-    for (const changed of ctx.manager.clearConcentration(room, zone.sourceId)) {
-      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
+    ctx.emitChanged(room, ctx.manager.clearConcentration(room, zone.sourceId));
     removeZone(ctx, room, mapId, zone);
     ctx.systemMessage(room, { code: 'automation.dispelled', params: { name: zone.name } });
   }
@@ -537,9 +533,7 @@ export function shrinkZone(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneIn
   if (zone.area.size <= 0) {
     removeZone(ctx, room, mapId, zone);
     // Длина 0 — заклинание оканчивается вместе с концентрацией.
-    for (const changed of ctx.manager.clearConcentration(room, zone.sourceId)) {
-      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
+    ctx.emitChanged(room, ctx.manager.clearConcentration(room, zone.sourceId));
   }
   ctx.broadcastZones(room, mapId);
 }

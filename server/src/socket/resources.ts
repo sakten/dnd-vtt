@@ -19,7 +19,7 @@ import { playerScope, rejectIfReaction } from './guards';
 import { pushRollMessage } from './messages';
 
 export function registerResourceHandlers(ctx: ConnCtx) {
-  const { manager, emitToken, emitChanged } = ctx;
+  const { manager, emitChanged } = ctx;
 
     ctx.on('resources:update', (payload) => {
       const scope = playerScope(ctx);
@@ -91,14 +91,10 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         // Зоны без концентрации (Daylight и подобные) тоже снимаются — длительности >1 мин не трекаем.
         for (const c of owned) removeZonesOfSource(ctx, room, c.token.id);
         // Истёкшие эффекты (и их состояния/концентрация) снимаются.
-        for (const c of manager.clearEffectsForPlayer(room, playerId)) {
-          emitToken(room, 'token:update', c.mapId, c.token);
-        }
+        emitChanged(room, manager.clearEffectsForPlayer(room, playerId));
       }
       room.resources[playerId] = applyRest(res, type);
-      for (const c of manager.characterTokens(room, playerId)) {
-        emitToken(room, 'token:update', c.mapId, c.token);
-      }
+      emitChanged(room, manager.characterTokens(room, playerId));
       ctx.emitResources(room, playerId);
       ctx.notifyPlayers(room);
     });
@@ -146,9 +142,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       }
       if (res.hp.deathFailures >= 3) {
         delete res.hp.stable;
-        for (const c of manager.markControlledTokensDead(room, playerId, true)) {
-          emitToken(room, 'token:update', c.mapId, c.token);
-        }
+        emitChanged(room, manager.markControlledTokensDead(room, playerId, true));
       } else if (res.hp.deathSuccesses >= 3) {
         // Три успеха = стабилен: death-сейвы больше не бросаются до получения урона.
         res.hp.stable = true;

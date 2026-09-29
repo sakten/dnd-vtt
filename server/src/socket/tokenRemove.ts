@@ -17,9 +17,7 @@ export function removeTokenCompletely(ctx: ConnCtx, room: Room, mapId: string, t
     if (!ctx.manager.removeEffect(room, token, effect.id)) continue;
     // У снятой цели могла быть последняя цель каста — концентрация кастера гаснет.
     if (effect.concentration && effect.sourceId && effect.sourceKey) {
-      for (const c of ctx.manager.pruneConcentration(room, effect.sourceId, effect.sourceKey)) {
-        ctx.emitToken(room, 'token:update', c.mapId, c.token);
-      }
+      ctx.emitChanged(room, ctx.manager.pruneConcentration(room, effect.sourceId, effect.sourceKey));
     }
   }
   ctx.emitChanged(room, ctx.manager.clearConcentration(room, token.id));
