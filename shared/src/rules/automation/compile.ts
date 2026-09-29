@@ -920,6 +920,8 @@ const CHOICE_OPTION_VOCABULARY: Partial<Record<ChoiceSpec['param'], ReadonlySet<
 export function validateSpec(spec: AutomationSpec): string[] {
   const errors: string[] = [];
   if (spec.primary === 'effect' && !spec.effects?.length && !spec.zone) errors.push('effect без effects/zone');
+  if (spec.primary === 'utility' && !spec.utility?.kind) errors.push('utility без utility.kind');
+  if (spec.primary === 'shape' && !spec.shape) errors.push('shape без shape');
   if (spec.shape && spec.primary !== 'save') errors.push('shape допустим только с save');
   if (spec.primary === 'attack' && !spec.attack && !spec.weaponAttack) {
     errors.push('attack без attack/weaponAttack');

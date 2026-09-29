@@ -2,13 +2,16 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
 import { materializeSpell, type Spell } from 'shared';
+import { MATERIALIZED_AUTOMATION_SCHEMA } from 'shared/automationSchema';
 
 /**
  * Прототип R16 шага 4 (срез 1, `SESSION.md` §0): собирает канонический каталог
  * `SpellDef = meta + automation` из `spells.json` + `AUTOMATION_SPECS`.
  * Ничего не переключает — пишет gitignored-артефакт `artifacts/catalog.json`;
- * байт-замок — `shared/src/rules/automation.materialize.test.ts`. Запуск: `npm run catalog`.
+ * байт-замок — `shared/src/rules/automation.materialize.test.ts`, структура —
+ * `automation.schema.test.ts`. Запуск: `npm run catalog`.
  */
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -16,6 +19,17 @@ const raw = JSON.parse(readFileSync(resolve(dir, '../shared/src/data/spells.json
   spells: Spell[];
 };
 const spells = raw.spells.map((spell) => materializeSpell(spell));
+
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+const check = ajv.compile(MATERIALIZED_AUTOMATION_SCHEMA);
+const invalid: string[] = [];
+for (const record of spells) {
+  if (record.automation && !check(record.automation)) {
+    invalid.push(`${record.key}: ${ajv.errorsText(check.errors, { separator: '; ' })}`);
+  }
+}
+if (invalid.length) throw new Error(`catalog.json: не прошли схему:\n${invalid.slice(0, 10).join('\n')}`);
+
 const withAutomation = spells.filter((record) => record.automation).length;
 const body = `${JSON.stringify({ count: spells.length, spells }, null, 2)}\n`;
 mkdirSync(resolve(dir, '../artifacts'), { recursive: true });

@@ -19,6 +19,10 @@
     "./invocationsData": {
       "types": "./src/invocationsData.ts",
       "import": "./src/invocationsData.ts"
+    },
+    "./automationSchema": {
+      "types": "./src/rules/automation/schema.ts",
+      "import": "./src/rules/automation/schema.ts"
     }
   },
   "scripts": {
