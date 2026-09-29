@@ -437,6 +437,10 @@ describe('поведение спеков (RAW, реальные данные)',
     expect(hunger?.triggers?.startOfTurn?.containment).toBe('anyCell');
     expect(hunger?.triggers?.endOfTurn?.damage?.types).toEqual(['acid']);
     expect(hunger?.flags).toEqual({ difficultTerrain: true, blocksLight: true });
+    // Апкаст (+1к6 к обеим частям за круг выше 3-го) — из данных, а не литералом.
+    const hungerUp = automationForSpell(find('XPHB:Hunger of Hadar'), { castLevel: 4 }).zone;
+    expect(hungerUp?.triggers?.startOfTurn?.damage?.dice).toBe('3d6');
+    expect(hungerUp?.triggers?.endOfTurn?.damage?.dice).toBe('3d6');
 
     const cloudkill = automationForSpell(find('XPHB:Cloudkill'));
     expect(cloudkill.zone?.movable).toBe(true);
@@ -866,5 +870,19 @@ describe('поведение спеков (RAW, реальные данные)',
     const banish = automationForSpell(find('XPHB:Dispel Evil and Good')).effects?.[0]?.actions?.[0]?.def;
     expect(banish).toMatchObject({ banishOnFail: true, save: { ability: 'cha' } });
     expect(banish?.requiresCreatureTypes).toEqual(['celestial', 'elemental', 'fey', 'fiend', 'undead']);
+  });
+
+  it('апкаст: каждый `upcast.dice` данных отражается в записи (кроме manual)', () => {
+    const bad: string[] = [];
+    for (const spell of SPELLS) {
+      const up = spell.upcast;
+      if (!up?.dice || spell.automation.primary === 'manual') continue;
+      const above = Math.max(spell.level, up.above ?? spell.level);
+      const level = above + Math.max(1, up.every ?? 1);
+      const base = automationForSpell(spell, { castLevel: Math.max(1, spell.level), characterLevel: 17 });
+      const upcast = automationForSpell(spell, { castLevel: level, characterLevel: 17 });
+      if (JSON.stringify(base) === JSON.stringify(upcast)) bad.push(spell.key);
+    }
+    expect(bad).toEqual([]);
   });
 });

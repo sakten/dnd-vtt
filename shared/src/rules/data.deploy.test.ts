@@ -28,7 +28,7 @@ import type { Spell } from './spells';
  */
 const HASHES = {
   spells: '2133927495d56bbf',
-  catalog: 'ba3454c758880378',
+  catalog: 'a327dfbcec3d4eb6',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',

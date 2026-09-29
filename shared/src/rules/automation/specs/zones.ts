@@ -27,11 +27,21 @@ export const ZONES_SPECS: Record<string, AutomationSpec> = {
       },
       triggers: {
         // «В области» — любое пересечение клеток (краевые большие токены тоже бьются).
-        startOfTurn: { containment: 'anyCell', damage: { dice: '2d6', types: ['cold'] } },
+        // Апкаст: обе части (+1к6 холодом/кислотой за круг выше 3-го) — из данных.
+        startOfTurn: {
+          containment: 'anyCell',
+          damage: {
+            dice: { scale: { dice: { ref: 'part', part: 'trigger', index: 0, fallback: '2d6' }, by: 'upcast' } },
+            types: ['cold'],
+          },
+        },
         endOfTurn: {
           containment: 'anyCell',
           save: { ability: 'dex' },
-          damage: { dice: '2d6', types: ['acid'] },
+          damage: {
+            dice: { scale: { dice: { ref: 'part', part: 'trigger', index: 1, fallback: '2d6' }, by: 'upcast' } },
+            types: ['acid'],
+          },
         },
       },
       flags: { difficultTerrain: true, blocksLight: true },

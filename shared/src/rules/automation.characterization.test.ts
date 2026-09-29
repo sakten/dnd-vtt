@@ -78,11 +78,10 @@ const actual = {
 };
 
 const EXPECTED = {
-  // derived изменён осознанно (R16 4.1–4.3): каталог manual/chip и призывы переведены
-  // в спеки (`manual`/`summon`), имя def Tenser's приведено к каноническому 'Transformation'
-  // (переименование 5e.tools PI), пустой `damage.types` у деривации не пишется (`[]` = нет типов;
-  // Absorb Elements). Прежние правки — в истории git.
-  derived: '33c2ac8fbd6b405c',
+  // derived изменён осознанно: Hunger of Hadar — апкаст обеих частей (+1к6/круг выше 3-го)
+  // подключён к данным (`part trigger`), раньше кости были литералом и не скейлились.
+  // Прежние правки (4.1–4.3) — в истории git.
+  derived: 'dcbb0cbb3e32de05',
   green: 245,
   red: 175,
 };
