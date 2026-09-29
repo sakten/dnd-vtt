@@ -100,10 +100,9 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       broadcastAll('character:update', { playerId: ctx.playerId, libraryItemId });
       const sheet = room.sheets[ctx.playerId];
       if (sheet) {
-        for (const c of manager.characterTokens(room, ctx.playerId)) {
-          syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
-          ctx.emitToken(room, 'token:update', c.mapId, c.token);
-        }
+        const owned = manager.characterTokens(room, ctx.playerId);
+        for (const c of owned) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
+        ctx.emitChanged(room, owned);
       }
       cb({ ok: true });
     });

@@ -304,10 +304,11 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         }
         room.resources[selfId] = created;
       }
-      for (const c of manager.characterTokens(room, selfId)) {
-        if (sheet) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
-        ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      const owned = manager.characterTokens(room, selfId);
+      if (sheet) {
+        for (const c of owned) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
       }
+      ctx.emitChanged(room, owned);
       const state = manager.toState(room);
       socket.emit('room:joined', {
         room: {

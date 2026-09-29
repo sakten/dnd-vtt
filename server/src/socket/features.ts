@@ -63,8 +63,7 @@ export function syncFeatureEffectsForItem(
   classes: ClassLevel[] | undefined,
   choices?: FeatureChoice[]
 ): void {
-  for (const { mapId, token } of tokensOfLibraryItem(room, libraryItemId)) {
-    syncFeatureEffects(ctx, room, mapId, token, classes ?? [], choices);
-    ctx.emitToken(room, 'token:update', mapId, token);
-  }
+  const tokens = tokensOfLibraryItem(room, libraryItemId);
+  for (const { mapId, token } of tokens) syncFeatureEffects(ctx, room, mapId, token, classes ?? [], choices);
+  ctx.emitChanged(room, tokens);
 }

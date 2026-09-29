@@ -170,9 +170,10 @@ export function removeConditionInstances(
   // Снятие эффекта-цели: если это была последняя цель каста — концентрация гаснет.
   for (const effect of removedEffects) {
     if (!effect.concentration || !effect.sourceId || !effect.sourceKey) continue;
-    for (const changed of ctx.manager.pruneConcentration(room, effect.sourceId, effect.sourceKey)) {
-      if (changed.token !== token) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
+    ctx.emitChanged(
+      room,
+      ctx.manager.pruneConcentration(room, effect.sourceId, effect.sourceKey).filter((c) => c.token !== token)
+    );
   }
   ctx.emitToken(room, 'token:update', mapId, token);
   return removed.map((c) => c.name);
@@ -216,9 +217,10 @@ export function removeBrokenEffects(
   for (const anchor of anchors) {
     const [sourceId, sourceKey] = anchor.split('\n');
     if (!sourceId || !sourceKey) continue;
-    for (const changed of ctx.manager.pruneConcentration(room, sourceId, sourceKey)) {
-      if (changed.token !== token) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
+    ctx.emitChanged(
+      room,
+      ctx.manager.pruneConcentration(room, sourceId, sourceKey).filter((c) => c.token !== token)
+    );
   }
   if (removed.length) ctx.emitToken(room, 'token:update', mapId, token);
   return removed;

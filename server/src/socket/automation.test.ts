@@ -1423,6 +1423,43 @@ describe('концентрация заклинаний с зонами', () => 
     expect(removeBrokenEffects(f.ctx, room, 'm1', token, 'attack')).toEqual([]);
   });
 
+  it('removeBrokenEffects: последняя цель гасит концентрацию кастера и рассылает его токен', () => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    // Якорь концентрации кастера (в игре его ставит executeAutomation).
+    f.manager.applyEffect(room, caster, {
+      id: 'anchor1',
+      name: 'Invisibility',
+      concentration: true,
+      anchor: true,
+      sourceId: caster.id,
+      sourceKey: 'XPHB:Invisibility',
+      duration: { type: 'concentration' },
+      modifiers: [],
+    });
+
+    const inv = findSpell('XPHB:Invisibility')!;
+    applyEffectTo(f.ctx, room, {
+      sourceKey: 'XPHB:Invisibility',
+      sourceId: caster.id,
+      mapId: 'm1',
+      effectDef: automationForSpell(inv, { castLevel: 2 }).effects![0]!,
+      target,
+    });
+    f.emitted.length = 0;
+
+    const removed = removeBrokenEffects(f.ctx, room, 'm1', target, 'attack');
+    expect(removed).toHaveLength(1);
+    // Целей у каста не осталось — якорь снят, в рассылке оба токена (кастер и цель).
+    expect(caster.effects.some((e) => e.concentration)).toBe(false);
+    const updated = f.emitted
+      .filter((e) => e.event === 'token:update')
+      .map((e) => (e.payload as { token: { id: string } }).token.id);
+    expect(updated).toEqual([caster.id, target.id]);
+  });
+
   it('Scatter: союзник без сейва, враг с WIS-спасом, точки — в 120 фт от кастера', () => {
     const { room, f } = setup();
     const map = room.scene.maps[0]!;
