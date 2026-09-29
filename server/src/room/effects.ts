@@ -502,30 +502,25 @@ export function tickEffects(
         }
       }
     }
+    // Изгнание с истёкшим сроком: имя в `removed` не дублируем — сообщение даёт отдельный путь.
+    const expire = (): void => {
+      remove = true;
+      if (!effect.banish) removed.push(effect.name);
+    };
     if (!remove && d.type === 'rounds' && phase === 'start') {
       d.rounds -= 1;
       changed = true;
-      if (d.rounds <= 0) {
-        remove = true;
-        // Изгнание с истёкшим сроком: сообщение о конце эффекта даёт отдельный путь.
-        if (!effect.banish) removed.push(effect.name);
-      }
+      if (d.rounds <= 0) expire();
     }
     // Лимит «1 минута» = 10 раундов: гаснет на 10-м ходу носителя, даже если
     // не снят спасом/концентрацией (спас при untilSave обрабатывается выше).
     if (!remove && effect.maxRounds != null && phase === 'start') {
       effect.maxRounds -= 1;
       changed = true;
-      if (effect.maxRounds <= 0) {
-        remove = true;
-        if (!effect.banish) removed.push(effect.name);
-      }
+      if (effect.maxRounds <= 0) expire();
     }
-    if (!remove && d.type === 'endOfTurn' && phase === 'start') {
-      if (d.of === 'target' || effect.sourceId === token.id) {
-        remove = true;
-        if (!effect.banish) removed.push(effect.name);
-      }
+    if (!remove && d.type === 'endOfTurn' && phase === 'start' && (d.of === 'target' || effect.sourceId === token.id)) {
+      expire();
     }
     // Compulsion: направление живёт до конца хода цели (движение ведёт мастер).
     if (phase === 'end' && effect.commandDirection) {

@@ -22,7 +22,7 @@ export function removeTokenCompletely(ctx: ConnCtx, room: Room, mapId: string, t
       }
     }
   }
-  for (const c of ctx.manager.clearConcentration(room, token.id)) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+  ctx.emitChanged(room, ctx.manager.clearConcentration(room, token.id));
   removeZonesOfSource(ctx, room, token.id);
   removeSummonsOf(ctx, room, summonSourceIds(room, token));
   endShapesOf(ctx, room, summonSourceIds(room, token));

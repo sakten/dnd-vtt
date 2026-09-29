@@ -33,9 +33,7 @@ export function endShapeToken(ctx: ConnCtx, room: Room, mapId: string, token: To
   syncShapeCombat(ctx, room, mapId, token);
   // Polymorph окончился досрочно (недееспособность/DM) — концентрация кастера тоже кончается.
   if (sourceTokenId) {
-    for (const c of ctx.manager.clearConcentration(room, sourceTokenId)) {
-      ctx.emitToken(room, 'token:update', c.mapId, c.token);
-    }
+    ctx.emitChanged(room, ctx.manager.clearConcentration(room, sourceTokenId));
   }
 }
 

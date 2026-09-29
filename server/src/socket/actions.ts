@@ -596,9 +596,7 @@ function useGrantedAction(
   }
   // Holy Weapon: «Разряд» завершает эффект-носитель (и концентрацию кастера).
   if (granted.endsEffect && effect.concentration && effect.sourceId) {
-    for (const changed of ctx.manager.clearConcentration(room, effect.sourceId)) {
-      ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-    }
+    ctx.emitChanged(room, ctx.manager.clearConcentration(room, effect.sourceId));
   }
 }
 

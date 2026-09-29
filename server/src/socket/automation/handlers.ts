@@ -529,7 +529,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     for (const target of input.targets) {
       const changed = ctx.manager.reviveToken(room, input.mapId, target);
       if (!changed.length) continue;
-      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      ctx.emitChanged(room, changed);
       const cid = ctx.manager.controllerOfToken(room, target);
       if (cid) ctx.emitResources(room, cid);
       revived.push(target.name);
@@ -550,7 +550,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     for (const target of input.targets) {
       const changed = ctx.manager.stabilizeToken(room, target);
       if (!changed.length) continue;
-      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      ctx.emitChanged(room, changed);
       const cid = ctx.manager.controllerOfToken(room, target);
       if (cid) ctx.emitResources(room, cid);
       stabilized.push(target.name);

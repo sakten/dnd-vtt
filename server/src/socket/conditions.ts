@@ -70,10 +70,7 @@ export function tickActiveTurn(ctx: ConnCtx, room: Room, mapId: string, phase: '
     removeTokenCompletely(ctx, room, gone.mapId, gone.token);
   }
   // Целей у каста не осталось — концентрация кастера снята (якоря/чипы обновились).
-  for (const changed of effects.pruned) {
-    if (vanishedIds.has(changed.token.id)) continue;
-    ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
-  }
+  ctx.emitChanged(room, effects.pruned.filter((c) => !vanishedIds.has(c.token.id)));
   if (effects.pruned.length) ctx.syncCombat(room, mapId);
 
   // Активным токеном был изгнанный навсегда — дальше тикать нечего (токена нет).

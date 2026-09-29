@@ -109,6 +109,8 @@ export interface ConnCtx {
   visibleLibrary: (room: Room, viewerId: string | null) => LibraryItem[];
   broadcastLibrary: (room: Room) => void;
   emitToken: (room: Room, event: 'token:add' | 'token:update', mapId: string, token: Token) => void;
+  /** Рассылка списка изменённых токенов (`{mapId, token}`): тики, снятия, патчи. */
+  emitChanged: (room: Room, changed: { mapId: string; token: Token }[]) => void;
   /** Отправляет `resources:update` конкретному игроку (по controllerId), если он подключён. */
   emitResources: (room: Room, playerId: string) => void;
   /** Рассылает обновлённый список игроков. */
@@ -242,6 +244,9 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         ctx.emitTo(room, p.id, event, { mapId, token: ctx.visibleToken(room, token, p.id, mapId) });
       }
     },
+    emitChanged: (room, changed) => {
+      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+    },
     emitResources: (room, playerId) => {
       const res = room.resources[playerId];
       if (res) ctx.emitTo(room, playerId, 'resources:update', res);
@@ -259,7 +264,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (hadWard && !token.effects.some((e) => e.deathWard)) {
         ctx.systemMessage(room, { code: 'automation.deathWard', params: { name: token.name } });
       }
-      for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+      ctx.emitChanged(room, changed);
       // Смерть/недееспособность меняют контроль клеток — пересчёт «Окружён».
       syncSurrounded(ctx, room, mapId);
       // Форма кончилась от урона: имя в бою — снова своё.
@@ -269,9 +274,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       }
       // Polymorph обнулил пул: форма снята, концентрация кастера прекращается.
       if (shapeSource && !token.shape) {
-        for (const c of manager.clearConcentration(room, shapeSource)) {
-          ctx.emitToken(room, 'token:update', c.mapId, c.token);
-        }
+        ctx.emitChanged(room, manager.clearConcentration(room, shapeSource));
       }
       const controllerId = manager.controllerOfToken(room, token);
       if (controllerId) ctx.emitResources(room, controllerId);

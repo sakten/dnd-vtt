@@ -107,7 +107,7 @@ export function endConcentrationOf(
   }
   removeConcSummonsOf(ctx, room, sourceIds);
   endShapesOf(ctx, room, sourceIds);
-  for (const c of changed) ctx.emitToken(room, 'token:update', c.mapId, c.token);
+  ctx.emitChanged(room, changed);
   return changed;
 }
 
@@ -121,7 +121,7 @@ export function rollConcentrationOnDamage(ctx: ConnCtx, room: Room, token: Token
   if (!result) return;
   pushSaveMessage(ctx, room, { subject: `Концентрация: ${result.names.join(', ')}`, roll: result.roll, success: result.success });
   if (!result.success) {
-    for (const changed of result.changed) ctx.emitToken(room, 'token:update', changed.mapId, changed.token);
+    ctx.emitChanged(room, result.changed);
     endConcentrationOf(ctx, room, token);
     ctx.systemMessage(room, {
       code: 'concentration.broken',

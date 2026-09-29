@@ -19,7 +19,7 @@ import { playerScope, rejectIfReaction } from './guards';
 import { pushRollMessage } from './messages';
 
 export function registerResourceHandlers(ctx: ConnCtx) {
-  const { manager, emitToken } = ctx;
+  const { manager, emitToken, emitChanged } = ctx;
 
     ctx.on('resources:update', (payload) => {
       const scope = playerScope(ctx);
@@ -34,7 +34,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax, sheet?.choices);
       const changed = manager.characterTokens(room, playerId);
       ctx.emitResources(room, playerId);
-      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+      emitChanged(room, changed);
       ctx.notifyPlayers(room);
     });
 
@@ -71,7 +71,7 @@ export function registerResourceHandlers(ctx: ConnCtx) {
         params: { subject: `Хит дайс d${entry.die} (лечение ${heal})` },
       });
       ctx.emitResources(room, playerId);
-      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+      emitChanged(room, changed);
       ctx.notifyPlayers(room);
     });
 

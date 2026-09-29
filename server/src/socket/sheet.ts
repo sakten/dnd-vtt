@@ -11,7 +11,7 @@ import { syncFeatureEffects } from './features';
 import { playerScope, rejectIfReaction } from './guards';
 
 export function registerSheetHandlers(ctx: ConnCtx) {
-  const { socket, manager, emitToken, classIdentity } = ctx;
+  const { socket, manager, emitChanged, classIdentity } = ctx;
 
     ctx.on('sheet:update', (sheet) => {
       const scope = playerScope(ctx);
@@ -48,7 +48,7 @@ export function registerSheetHandlers(ctx: ConnCtx) {
       for (const c of changed) syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes, normalized.choices);
       socket.emit('sheet:update', { sheet: normalized });
       ctx.emitResources(room, playerId);
-      for (const c of changed) emitToken(room, 'token:update', c.mapId, c.token);
+      emitChanged(room, changed);
       ctx.notifyPlayers(room);
     });
 
