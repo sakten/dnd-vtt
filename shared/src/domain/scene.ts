@@ -61,6 +61,15 @@ export interface Wall {
   blocksMovement?: boolean;
 }
 
+/** Эфемерный штрих рисования на карте: рассылается всем и гаснет у клиентов через 10 с. */
+export interface DrawStroke {
+  id: string;
+  mapId: string;
+  color: string;
+  /** Точки в мировых координатах. */
+  points: { x: number; y: number }[];
+}
+
 export const DEFAULT_GRID: GridSettings = {
   size: 50,
   color: '#ffffff',

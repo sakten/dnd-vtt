@@ -93,7 +93,7 @@ describe('door:toggle', () => {
     expect(texts(player.emitted).at(-1)).toContain('doors.opened');
   });
 
-  it('чужой токен и токен не в радиусе — ничего не делают', () => {
+  it('чужой токен и токен не в радиусе — отказ с сообщением', () => {
     const { room, map, token } = makeDoorRoom();
     token.x = 300; // далеко
     const player = makeConnCtx(room, { playerId: 'p1' });
@@ -102,6 +102,7 @@ describe('door:toggle', () => {
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBeUndefined();
     expect(wallsUpdates(player.emitted)).toHaveLength(0);
+    expect(player.selfEvents('chat:error')[0]!.payload).toMatchObject({ code: 'doorOutOfReach' });
 
     token.x = 50;
     const stranger = makeConnCtx(room, { playerId: 'p2' });
@@ -109,15 +110,17 @@ describe('door:toggle', () => {
     stranger.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBeUndefined();
     expect(wallsUpdates(stranger.emitted)).toHaveLength(0);
+    expect(stranger.selfEvents('chat:error')[0]!.payload).toMatchObject({ code: 'doorOutOfReach' });
   });
 
-  it('dmOnly-дверь игроку недоступна, DM — открывает', () => {
+  it('dmOnly-дверь игроку недоступна (явный отказ), DM — открывает', () => {
     const { room, map } = makeDoorRoom();
     map.walls[0]!.dmOnly = true;
     const player = makeConnCtx(room, { playerId: 'p1' });
     registerDoorHandlers(player.ctx);
     player.invoke('door:toggle', { mapId: 'm1', wallId: 'd1' });
     expect(map.walls[0]!.open).toBeUndefined();
+    expect(player.selfEvents('chat:error')[0]!.payload).toMatchObject({ code: 'doorDmOnly' });
 
     const dm = makeConnCtx(room, { dm: true });
     registerDoorHandlers(dm.ctx);

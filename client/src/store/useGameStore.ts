@@ -10,6 +10,7 @@ import { createTokenSlice } from './slices/tokens';
 import { createChatSlice } from './slices/chat';
 import { createSheetSlice } from './slices/sheet';
 import { createViewSlice } from './slices/view';
+import { createDrawSlice, DEFAULT_DRAW_COLOR } from './slices/draw';
 import { createReactionSlice } from './slices/reactions';
 import { createRollAnimSlice } from './slices/rollAnim';
 import { createRollModeSlice } from './slices/rollMode';
@@ -26,6 +27,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   ...createChatSlice(set, get),
   ...createSheetSlice(set, get),
   ...createViewSlice(set, get),
+  ...createDrawSlice(set, get),
   ...createReactionSlice(set, get),
   ...createRollAnimSlice(set, get),
   ...createRollModeSlice(set, get),
@@ -68,6 +70,8 @@ export const useGameStore = create<GameState>()((set, get) => ({
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },
     wallsMode: { active: false, tool: 'wall', start: null },
     lightMode: { active: false, kind: 'darkness' },
+    drawMode: { active: false, color: DEFAULT_DRAW_COLOR },
+    strokes: [],
     wallCandidates: null,
     movingTokens: {},
     dragGhost: null,

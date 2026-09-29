@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DEFAULT_AC, type PlayerResources, type ResourceItem } from 'shared';
+import { type PlayerResources, type ResourceItem } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { resourceLabel } from '../i18n/domain';
 import { characterTokenOf } from '../store/selectors';
 import { newId } from '../lib/id';
+import { acBreakdownOf, acTipOf } from '../lib/ac';
 
 function Pips({ current, max, onSet }: { current: number; max: number; onSet: (n: number) => void }) {
   return (
@@ -130,12 +131,15 @@ export default function ResourcesPanel() {
 
   if (!resources) return null;
   const r = resources;
-  // В форме AC — зверя (вид токена), иначе из листа; без данных — дефолт.
+  // В форме AC — зверя (вид токена), иначе из листа; эффекты (Щит и т.п.) учитываются.
   const characterToken = currentCharacterId
     ? maps.map((m) => characterTokenOf(m, currentCharacterId)).find((token) => !!token) ?? null
     : null;
-  const tokenAc = Number(characterToken?.ac ?? '');
-  const ac = tokenAc > 0 ? String(tokenAc) : sheet?.ac?.trim() || String(DEFAULT_AC);
+  const ac = acBreakdownOf(
+    characterToken?.ac ?? sheet?.ac,
+    characterToken?.effects,
+    sheet?.abilities ?? characterToken?.statblock?.abilities
+  );
   const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : t('ui.resources.title');
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
 
@@ -203,11 +207,16 @@ export default function ResourcesPanel() {
                 +<EditableNumber className="hp-temp" value={r.hp.temp} title={t('ui.resources.hpTempTitle')} onCommit={(n) => setHp({ temp: n })} />{' '}
                 {t('ui.resources.tempShort')}
               </span>
-              <div className="ac-shield" title={t('ui.resources.acTitle')}>
+              <div className="ac-shield" title={acTipOf(ac)}>
                 <svg className="ac-shield-svg" viewBox="0 0 24 28" aria-hidden="true">
                   <path d="M12 1.2 22 4.7v8.4c0 6.8-4.2 11.1-10 13.7C6.2 24.2 2 19.9 2 13.1V4.7Z" />
                 </svg>
-                <span className="ac-value">{ac || '—'}</span>
+                <span className="ac-value">{ac.effective || '—'}</span>
+                {ac.bonus !== 0 && (
+                  <em className={`ac-buff${ac.bonus < 0 ? ' negative' : ''}`}>
+                    {ac.bonus > 0 ? `+${ac.bonus}` : ac.bonus}
+                  </em>
+                )}
               </div>
             </div>
             <div className="death-saves">

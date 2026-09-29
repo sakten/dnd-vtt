@@ -2,6 +2,7 @@ import type {
   ActionCost,
   CharacterSheet,
   ChatMessage,
+  DrawStroke,
   ErrorPayload,
   FogState,
   FoundPath,
@@ -59,6 +60,16 @@ export interface WallsMode {
 export interface LightMode {
   active: boolean;
   kind: LightAreaKind;
+}
+
+export interface DrawMode {
+  active: boolean;
+  color: string;
+}
+
+/** Штрих рисования в сторе: когда исчезнет (performance.now). */
+export interface MapStroke extends DrawStroke {
+  expiresAt: number;
 }
 
 export interface MovingToken {
@@ -135,6 +146,9 @@ export interface GameState {
   fogMode: FogMode;
   wallsMode: WallsMode;
   lightMode: LightMode;
+  drawMode: DrawMode;
+  /** Эфемерные штрихи рисования (видит вся комната, гаснут через 10 с). */
+  strokes: MapStroke[];
   critHit: CritHit | null;
   /** Активные окна реакций (R1). */
   reactionOffer: ReactionOffer | null;
@@ -239,6 +253,13 @@ export interface GameState {
   updateVision: (mapId: string, vision: VisionSettings) => void;
   setLightMode: (patch: Partial<LightMode>) => void;
   updateAreas: (mapId: string, areas: LightArea[]) => void;
+  setDrawMode: (patch: Partial<DrawMode>) => void;
+  /** Добавить свой штрих: сразу локально и на сервер (остальным). */
+  commitStroke: (points: { x: number; y: number }[]) => void;
+  /** Получен штрих от другого клиента (или эхо) — в стор с временем жизни. */
+  onDrawStroke: (payload: DrawStroke) => void;
+  /** Убрать истёкшие штрихи. */
+  pruneStrokes: () => void;
   /** Кандидаты авто-поиска стен (превью до применения). */
   wallCandidates: Wall[] | null;
   setWallCandidates: (walls: Wall[] | null) => void;
@@ -256,7 +277,7 @@ export interface GameState {
   runAction: (
     tokenId: string,
     actionId: string,
-    extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost; offhand?: boolean; cleave?: boolean }
+    extra?: { targetIds?: string[]; attackIndex?: number; advantage?: 'a' | 'd'; slot?: ActionCost; offhand?: boolean; cleave?: boolean; featureAmount?: number }
   ) => void;
   castSpell: (payload: SpellCastPayload) => void;
   startAim: (payload: StartAimPayload) => void;

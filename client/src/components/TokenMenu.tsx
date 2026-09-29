@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
-  DEFAULT_AC,
   DEFAULT_SPEED,
   druidLevelOf,
   hasMoonCircle,
-  modifiedValue,
   statNumber,
   type ConditionInstance,
   type Faction,
@@ -14,6 +12,7 @@ import {
   type TokenStatblock,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
+import { acBreakdownOf, acTipOf } from '../lib/ac';
 import { t, type MessageKey } from '../i18n';
 import { effectDurationText, effectSummaryText } from '../i18n/domain';
 import { useMapToken } from '../store/hooks';
@@ -117,14 +116,13 @@ export default function TokenMenu() {
   const pct = hpMax > 0 ? Math.max(0, Math.min(1, hpCurrent / hpMax)) : 0;
   const hpColor = pct > 0.5 ? '#4ecb71' : pct > 0.25 ? '#ffd166' : '#ff6b6b';
 
-  const acExplicit = statNumber(draft.ac);
-  const acBase = acExplicit > 0 ? acExplicit : DEFAULT_AC;
   const acAbilities =
     currentCharacterId && token.libraryItemId === currentCharacterId
       ? sheet?.abilities
       : token.statblock?.abilities;
-  const acEffective = modifiedValue(acBase, token.effects ?? [], 'ac', {}, acAbilities);
-  const acBonus = acEffective - acBase;
+  const ac = acBreakdownOf(draft.ac, token.effects, acAbilities);
+  const acEffective = ac.effective;
+  const acBonus = ac.bonus;
 
   const visibleEffects = (token.effects ?? []).filter((e) => !e.hidden);
   const hiddenEffects = (token.effects ?? []).filter((e) => e.hidden);
@@ -190,19 +188,7 @@ export default function TokenMenu() {
           <div className="tm-head-info">
             <div className="tm-name">{draft.name || t('ui.token.noName')}</div>
             <div className="tm-stats">
-              <span
-                title={
-                  acBonus
-                    ? t('ui.tokenMenu.acBaseWithEffects', {
-                        base: acBase,
-                        default: acExplicit > 0 ? '' : t('ui.tokenMenu.defaultSuffix'),
-                        effective: acEffective,
-                      })
-                    : t('ui.tokenMenu.ac', {
-                        default: acExplicit > 0 ? '' : t('ui.tokenMenu.acDefault13'),
-                      })
-                }
-              >
+              <span title={acTipOf(ac)}>
                 AC {acEffective}
                 {acBonus !== 0 && (
                   <em className={`tm-ac-buff${acBonus < 0 ? ' negative' : ''}`}>

@@ -17,6 +17,7 @@ import DoorMenu from '../components/DoorMenu';
 import FogPanel from '../components/FogPanel';
 import WallsPanel from '../components/WallsPanel';
 import LightPanel from '../components/LightPanel';
+import DrawPanel from '../components/DrawPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
 import ActionPanel from '../components/ActionPanel';
@@ -42,6 +43,8 @@ export default function TableScreen() {
   const setWallsMode = useGameStore((s) => s.setWallsMode);
   const lightActive = useGameStore((s) => s.lightMode.active);
   const setLightMode = useGameStore((s) => s.setLightMode);
+  const drawActive = useGameStore((s) => s.drawMode.active);
+  const setDrawMode = useGameStore((s) => s.setDrawMode);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,11 +69,12 @@ export default function TableScreen() {
         if (st.fogMode.active) setFogMode({ active: false });
         if (st.wallsMode.active) setWallsMode({ active: false });
         if (st.lightMode.active) setLightMode({ active: false });
+        if (st.drawMode.active) setDrawMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, removeToken, setSelected, setFogMode, setWallsMode, setLightMode]);
+  }, [selected, removeToken, setSelected, setFogMode, setWallsMode, setLightMode, setDrawMode]);
 
   return (
     <div className="table-screen" data-testid="table-screen">
@@ -79,6 +83,7 @@ export default function TableScreen() {
       {fogActive && <FogPanel />}
       {wallsActive && <WallsPanel />}
       {lightActive && <LightPanel />}
+      {drawActive && <DrawPanel />}
       <MapsPanel />
       <TokenPanel />
       <ChatPanel />

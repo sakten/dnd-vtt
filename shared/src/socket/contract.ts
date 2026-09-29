@@ -3,7 +3,7 @@ import type { ChatMessage, ErrorPayload, RollKind } from '../domain/chat';
 import type { SpellFxPayload } from '../domain/fx';
 import type { CombatState } from '../domain/combat';
 import type { Player, RollAnimPayload, RoomState, OptionalRules } from '../domain/room';
-import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall } from '../domain/scene';
+import type { FogState, GridSettings, LightArea, MapInfo, VisionSettings, Wall, DrawStroke } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
 
@@ -47,6 +47,8 @@ export interface ServerToClientEvents {
   'roll:anim': (payload: RollAnimPayload) => void;
   /** Косметический эффект применения (заклинание/черта/способность монстра). */
   'fx:play': (payload: SpellFxPayload) => void;
+  /** Эфемерный штрих рисования на карте (виден всем, у клиентов гаснет через 10 с). */
+  'draw:stroke': (payload: DrawStroke) => void;
   'player:kicked': () => void;
   'room:deleted': () => void;
   'pong': () => void;
@@ -100,6 +102,8 @@ export interface ClientToServerEvents {
   'grid:update': (payload: { mapId: string; grid: GridSettings }) => void;
   /** Открыть/закрыть дверь (DM — всегда; игрок — контролируемый токен в 5 фт). */
   'door:toggle': (payload: { mapId: string; wallId: string; advantage?: 'a' | 'd' }) => void;
+  /** Штрих рисования: сервер валидирует и раздаёт остальным (без персиста). */
+  'draw:stroke': (payload: DrawStroke) => void;
   /** Настройки двери (только DM): «только для ведущего» и Сл взлома. */
   'door:update': (payload: { mapId: string; wallId: string; patch: { dmOnly?: boolean; pickDc?: number } }) => void;
   'player:remove': (payload: { id: string }) => void;
@@ -151,6 +155,8 @@ export interface ClientToServerEvents {
     direction?: { x: number; y: number };
     /** Telekinesis: точка назначения для выбранной цели (мировые координаты). */
     placements?: { targetId: string; x: number; y: number }[];
+    /** Выбор количества ресурса (Sharpen the Blade: 1–3 ки). */
+    featureAmount?: number;
   }) => void;
   'spell:cast': (payload: {
     mapId: string;

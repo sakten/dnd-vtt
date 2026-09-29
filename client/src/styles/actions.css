@@ -194,6 +194,24 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.sharpen-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: 13px;
+}
+
+.sharpen-amounts {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.sharpen-amount {
+  min-width: 48px;
+}
+
 .ap-panel {
   position: relative;
   flex: 1;
@@ -744,6 +762,17 @@
 .ap-vital.ac {
   font-size: 17px;
   padding: 2px 10px;
+}
+
+.ap-ac-buff {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.ap-ac-buff.negative {
+  color: var(--danger);
 }
 
 .ap-vital-icon {

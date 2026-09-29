@@ -51,6 +51,7 @@ import { canControlWith, useIsDm } from '../lib/control';
 import { newId } from '../lib/id';
 import { fogRects as buildFogRects, type WorldPoint } from '../lib/fog';
 import { useMapCamera } from '../lib/useMapCamera';
+import { usePanKeys } from '../lib/usePanKeys';
 import { useInvisibilityView, useBanishView } from '../lib/visibility';
 import { useFogBrush } from '../lib/useFogBrush';
 import { useAreaBrush } from '../lib/useAreaBrush';
@@ -67,6 +68,7 @@ import ObjectsLayer from './table/ObjectsLayer';
 import AimLayer from './table/AimLayer';
 import ZoneTargetLayer from './table/ZoneTargetLayer';
 import TokenLayer from './table/TokenLayer';
+import DrawLayer from './table/DrawLayer';
 import VeilLayer from './table/VeilLayer';
 import { buildFxMask, type FxMask } from './spellFx/mask';
 
@@ -152,6 +154,7 @@ export default function TableTop() {
   }, []);
   const { size, toWorld, handleWheel, handleStageDrag } = useMapCamera(containerRef);
   const { onDragOver, onDrop } = useTokenDrop(containerRef);
+  usePanKeys();
 
   const [wallCursor, setWallCursor] = useState<{ x: number; y: number } | null>(null);
   const [attackCursor, setAttackCursor] = useState<WorldPoint | null>(null);
@@ -173,6 +176,7 @@ export default function TableTop() {
   const wallStart = wallsMode.start;
   const updateWalls = useGameStore((s) => s.updateWalls);
   const lightMode = useGameStore((s) => s.lightMode);
+  const drawMode = useGameStore((s) => s.drawMode);
   const updateAreas = useGameStore((s) => s.updateAreas);
   const dragGhost = useGameStore((s) => s.dragGhost);
   const dragPath = useGameStore((s) => s.dragPath);
@@ -632,6 +636,8 @@ export default function TableTop() {
   });
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // В режиме рисования ввод перехватывает DrawLayer (пока не идёт прицеливание).
+    if (drawMode.active && !interaction) return;
     if (wallsMode.active) {
       // Запоминаем точку нажатия левой кнопкой: короткий клик ставит узел, драг — панорамирует карту.
       const pointer = e.evt.button === 0 ? e.target.getStage()?.getPointerPosition() : null;
@@ -662,6 +668,7 @@ export default function TableTop() {
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (drawMode.active && !interaction) return;
     if (wallsMode.active) {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
@@ -709,6 +716,7 @@ export default function TableTop() {
   };
 
   const handleMouseUp = () => {
+    if (drawMode.active && !interaction) return;
     if (lightMode.active) {
       areaBrush.end();
       return;
@@ -742,6 +750,7 @@ export default function TableTop() {
   };
 
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (drawMode.active && !interaction) return;
     if (wallsMode.active) {
       if (!isDm || e.evt.button !== 0) return;
       const stage = e.target.getStage();
@@ -780,18 +789,28 @@ export default function TableTop() {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       const door = stage && pointer ? doorAt(toWorld(stage, pointer)) : null;
-      st.setDoorMenu(door && !door.dmOnly && playerDoorReach(door) ? door.id : null);
+      if (!door || door.dmOnly || !playerDoorReach(door)) {
+        st.setDoorMenu(null);
+        return;
+      }
+      // Незапертая дверь открывается кликом сразу; запертая — меню со взломом.
+      if (door.pickDc) st.setDoorMenu(door.id);
+      else st.toggleDoor(door.id);
       return;
     }
     if (isDm && activeMap && e.evt.button === 0 && !scatter && !fogMode.active) {
-      // Мини-UI двери: DM открывает/закрывает и настраивает (в режиме «Стены» — как раньше).
+      // Клик — открыть/закрыть (незапертую), ПКМ — мини-UI с настройками и удалением.
       const st = useGameStore.getState();
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       if (stage && pointer) {
         const door = doorAt(toWorld(stage, pointer));
-        st.setDoorMenu(door ? door.id : null);
-        if (door) return;
+        if (door) {
+          if (door.pickDc) st.setDoorMenu(door.id);
+          else st.toggleDoor(door.id);
+          return;
+        }
+        st.setDoorMenu(null);
       }
     }
     if (aim) {
@@ -817,7 +836,7 @@ export default function TableTop() {
   return (
     <div
       ref={containerRef}
-      className={`table-top${aim || targeting || multiTarget || scatter ? ' targeting' : ''}${doorHover ? ` door-${doorHover.state}` : ''}`}
+      className={`table-top${aim || targeting || multiTarget || scatter ? ' targeting' : ''}${drawMode.active ? ' drawing' : ''}${doorHover ? ` door-${doorHover.state}` : ''}`}
       data-testid="table-top"
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -830,7 +849,7 @@ export default function TableTop() {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable={!fogMode.active && !lightMode.active && !aim && !multiTarget && !targeting && !scatter}
+          draggable={!fogMode.active && !lightMode.active && !aim && !multiTarget && !targeting && !scatter && !drawMode.active}
           onWheel={handleWheel}
           onDragMove={handleStageDrag}
           onDragEnd={handleStageDrag}
@@ -853,7 +872,15 @@ export default function TableTop() {
               if (hit) updateAreas(activeMap.id, activeMap.lightAreas.filter((a) => a.id !== hit.id));
               return;
             }
-            if (!wallsMode.active) return;
+            if (!wallsMode.active) {
+              // ПКМ по двери — мини-UI с настройками (ЛКМ теперь просто открывает/закрывает).
+              const door = doorAt(p);
+              if (door) {
+                e.evt.preventDefault();
+                useGameStore.getState().setDoorMenu(door.id);
+              }
+              return;
+            }
             e.evt.preventDefault();
             const hit = activeMap.walls.find((w) => distToSegment(p, w) <= 10 / view.scale);
             if (hit) updateWalls(activeMap.id, activeMap.walls.filter((w) => w.id !== hit.id));
@@ -948,6 +975,7 @@ export default function TableTop() {
               viewScale={view.scale}
             />
           </Layer>
+          {activeMap && <DrawLayer map={activeMap} active={drawMode.active} color={drawMode.color} />}
         </Stage>
       )}
       <AttackPreview data={attackPreview} />

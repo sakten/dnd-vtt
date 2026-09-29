@@ -101,8 +101,14 @@ export function registerDoorHandlers(ctx: ConnCtx) {
     if (!playerId) return;
     const cellPx = gridSizeOfMap(map);
     const actor = interactionActor(ctx, room, mapId, map.tokens, door, cellPx);
-    if (!actor) return; // нет подходящего токена рядом — тихо (курсор и так неактивен)
-    if (door.dmOnly) return; // открывает только ведущий
+    if (!actor) {
+      fail(ctx, 'doorOutOfReach');
+      return;
+    }
+    if (door.dmOnly) {
+      fail(ctx, 'doorDmOnly');
+      return;
+    }
 
     // Открытая дверь закрывается свободно (в том числе в бою).
     if (door.open) {

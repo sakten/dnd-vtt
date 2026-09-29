@@ -15,6 +15,7 @@ import {
   type Token,
 } from 'shared';
 import { t } from '../i18n';
+import { acBreakdownOf, acTipOf } from '../lib/ac';
 import ActionIcon from './ActionIcon';
 import WeaponIcon from './WeaponIcon';
 
@@ -49,7 +50,7 @@ export default function LoadoutPanel({ token, sheet, resources, readOnly, onOpen
     resources && resources.hp.max > 0
       ? resources.hp
       : { current: token.hpCurrent, max: statNumber(token.hpMax), temp: token.hpTemp ?? 0 };
-  const ac = token.ac || sheet.ac;
+  const ac = acBreakdownOf(token.ac || sheet.ac, token.effects, sheet.abilities ?? token.statblock?.abilities);
 
   const setHand = (hand: HandKey, value: string | undefined) => {
     const next: SheetHands = { ...sheet.hands };
@@ -131,9 +132,14 @@ export default function LoadoutPanel({ token, sheet, resources, readOnly, onOpen
           <div className="ap-portrait fallback">{(token.name || '?').slice(0, 1).toUpperCase()}</div>
         )}
         <div className="ap-vitals">
-          <span className="ap-vital ac" data-tip={t('ui.common.ac')}>
+          <span className="ap-vital ac" data-tip={acTipOf(ac)}>
             <ActionIcon id="shield" className="ap-vital-icon" />
-            {ac || '—'}
+            {ac.effective || '—'}
+            {ac.bonus !== 0 && (
+              <em className={`ap-ac-buff${ac.bonus < 0 ? ' negative' : ''}`}>
+                {ac.bonus > 0 ? `+${ac.bonus}` : ac.bonus}
+              </em>
+            )}
           </span>
         </div>
       </button>

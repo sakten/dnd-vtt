@@ -17,6 +17,8 @@ export default function Toolbar() {
   const setWallsMode = useGameStore((s) => s.setWallsMode);
   const lightActive = useGameStore((s) => s.lightMode.active);
   const setLightMode = useGameStore((s) => s.setLightMode);
+  const drawActive = useGameStore((s) => s.drawMode.active);
+  const setDrawMode = useGameStore((s) => s.setDrawMode);
   const setVisionModalOpen = useGameStore((s) => s.setVisionModalOpen);
   const setBestiaryOpen = useGameStore((s) => s.setBestiaryOpen);
   const combatActive = useGameStore((s) => activeMapOf(s)?.combat.active ?? false);
@@ -30,6 +32,22 @@ export default function Toolbar() {
       {!isDm && <DiceMenu />}
       <button onClick={fitView} disabled={!hasMap}>
         {t('ui.toolbar.fit')}
+      </button>
+      <button
+        className={drawActive ? 'active' : ''}
+        title={t('ui.toolbar.drawTitle')}
+        disabled={!hasMap}
+        onClick={() => {
+          const next = !drawActive;
+          setDrawMode({ active: next });
+          if (next) {
+            setFogMode({ active: false });
+            setWallsMode({ active: false });
+            setLightMode({ active: false });
+          }
+        }}
+      >
+        {t('ui.toolbar.draw')}
       </button>
       <button title={t('ui.toolbar.bestiaryTitle')} onClick={() => setBestiaryOpen(true)}>
         {t('ui.toolbar.bestiary')}
@@ -52,6 +70,7 @@ export default function Toolbar() {
             if (!fogActive) {
               setWallsMode({ active: false });
               setLightMode({ active: false });
+              setDrawMode({ active: false });
             }
           }}
         >
@@ -67,6 +86,7 @@ export default function Toolbar() {
             if (!wallsActive) {
               setFogMode({ active: false });
               setLightMode({ active: false });
+              setDrawMode({ active: false });
             }
           }}
         >
@@ -82,6 +102,7 @@ export default function Toolbar() {
             if (!lightActive) {
               setFogMode({ active: false });
               setWallsMode({ active: false });
+              setDrawMode({ active: false });
             }
           }}
         >

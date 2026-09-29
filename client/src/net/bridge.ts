@@ -131,6 +131,7 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): () 
 
   socket.on('roll:anim', (payload) => get().onRollAnim(payload));
   socket.on('fx:play', (payload) => get().onFxPlay(payload));
+  socket.on('draw:stroke', (payload) => get().onDrawStroke(payload));
 
   socket.on('sheet:update', (payload) => get().onSheetUpdate(payload));
   socket.on('resources:update', (resources) => get().onResourcesUpdate(resources));

@@ -4,6 +4,7 @@ import { registerAdminHandlers } from './socket/admin';
 import { registerRoomHandlers } from './socket/room';
 import { registerMapHandlers } from './socket/map';
 import { registerDoorHandlers } from './socket/doors';
+import { registerDrawHandlers } from './socket/draw';
 import { registerLibraryHandlers } from './socket/library';
 import { registerCombatHandlers } from './socket/combat';
 import { registerTokenHandlers } from './socket/token';
@@ -26,6 +27,7 @@ export function registerHandlers(ctx: ConnCtx) {
   registerRoomHandlers(ctx);
   registerMapHandlers(ctx);
   registerDoorHandlers(ctx);
+  registerDrawHandlers(ctx);
   registerLibraryHandlers(ctx);
   registerCombatHandlers(ctx);
   registerTokenHandlers(ctx);

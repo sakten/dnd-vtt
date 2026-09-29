@@ -140,23 +140,12 @@ await S.page.keyboard.press('Escape');
 await waitFor(S.page, () => !document.querySelector('[data-testid="walls-panel"]') && !window.__vtt.getState().wallsMode.active, 3000);
 check((await wallsLen()) === before + 3, 'второй Escape вышел из режима, сегменты остались');
 
-// Вне режима редактирования клик по двери открывает мини-UI; «Открыть» шлёт door:toggle.
+// Вне режима редактирования клик по незапертой двери открывает её сразу, без мини-UI.
 const doorMid = {
   sx: Math.round((pts.doorA.sx + pts.doorB.sx) / 2),
   sy: Math.round((pts.doorA.sy + pts.doorB.sy) / 2),
 };
 await S.page.mouse.click(doorMid.sx, doorMid.sy);
-await S.page.waitForSelector('[data-testid="object-menu"]');
-const openBtn = await findButton(S.page, '[data-testid="object-menu"] button', 'Открыть');
-check(!!openBtn, 'мини-UI двери открылся по клику вне режима «Стены»');
-// Клик по кнопке «Открыть»: синтезируем DOM-click (у меню transform-позиционирование,
-// из-за которого координатные клики нестабильны; поведение кнопки покрыто юнит-тестом).
-await S.page.evaluate(() => {
-  const b = [...document.querySelectorAll('[data-testid="object-menu"] button')].find((x) =>
-    x.textContent?.includes('Открыть')
-  );
-  b.click();
-});
 let doorAfter = false;
 for (let i = 0; i < 25 && !doorAfter; i++) {
   doorAfter = await S.page.evaluate((id) => {
@@ -166,8 +155,14 @@ for (let i = 0; i < 25 && !doorAfter; i++) {
   }, doorBefore.id);
   if (!doorAfter) await new Promise((r) => setTimeout(r, 200));
 }
-check(doorAfter, 'DM открывает дверь через мини-UI');
+check(doorAfter, 'DM открывает незапертую дверь кликом');
+check(!(await S.page.$('[data-testid="object-menu"]')), 'клик по незапертой двери не открывает мини-UI');
 await S.page.screenshot({ path: path.join(S.OUT, '14b-door-open.png') });
+
+// ПКМ по двери — мини-UI с настройками («только для ведущего», Сл взлома, удаление).
+await S.page.mouse.click(doorMid.sx, doorMid.sy, { button: 'right' });
+await S.page.waitForSelector('[data-testid="object-menu"]');
+check(!!(await S.page.$('[data-testid="object-menu"]')), 'ПКМ по двери открыл мини-UI настроек');
 await S.page.click('[data-testid="object-menu-close"]');
 await waitFor(S.page, () => !document.querySelector('[data-testid="object-menu"]'), 3000);
 

@@ -15,7 +15,8 @@ export default function TokenNameHint() {
       s.draggingTokenId !== null ||
       s.fogMode.active ||
       s.wallsMode.active ||
-      s.lightMode.active
+      s.lightMode.active ||
+      s.drawMode.active
   );
   const name = useGameStore((s) => {
     if (!s.hoverTokenId) return null;

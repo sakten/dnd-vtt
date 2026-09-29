@@ -316,6 +316,21 @@
   color: var(--text);
 }
 
+.ac-buff {
+  position: absolute;
+  top: 64%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.ac-buff.negative {
+  color: var(--danger);
+}
+
 .resource-current {
   font-family: Consolas, monospace;
   min-width: 24px;
