@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import spellsRaw from '../data/spells.json';
 import {
   AUTOMATION_SPECS,
-  AUTOMATION_SPELLS,
   automationForSpell,
   spellAutomated,
   spellDamageParts,
@@ -63,7 +62,6 @@ for (const [key, spec] of Object.entries(AUTOMATION_SPECS)) {
 }
 
 const actual = {
-  catalog: hash(AUTOMATION_SPELLS),
   // Кейсы сортируются по имени: порядок обхода спеков не должен влиять на замок
   // (разбиение specs на модули/перестановка записей — не смена механики).
   derived: hash(
@@ -77,11 +75,11 @@ const actual = {
 };
 
 const EXPECTED = {
-  catalog: '4cfa839af64cba8c',
-  // derived изменён осознанно (срез C): IR переведён на runtime-триггеры
-  // (`AutomationEffect.triggers` вместо именованных полей хуков) — форма вывода,
-  // механика не менялась. Прежние правки — в истории git.
-  derived: 'e4ae27231c5f3319',
+  // derived изменён осознанно (R16 4.1–4.3): каталог manual/chip и призывы переведены
+  // в спеки (`manual`/`summon`), имя def Tenser's приведено к каноническому 'Transformation'
+  // (переименование 5e.tools PI), пустой `damage.types` у деривации не пишется (`[]` = нет типов;
+  // Absorb Elements). Прежние правки — в истории git.
+  derived: '33c2ac8fbd6b405c',
   green: 245,
   red: 175,
 };

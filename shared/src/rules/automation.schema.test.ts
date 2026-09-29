@@ -47,7 +47,7 @@ describe('JSON-Schema AutomationSpec (R16 шаг 4, срез 2)', () => {
       const errors = materializedErrors(automation);
       if (errors.length) bad.push(`${spell.key}: ${errors.slice(0, 3).join('; ')}`);
     }
-    expect(checked).toBe(Object.keys(AUTOMATION_SPECS).length);
+    expect(checked).toBe(SPELLS.length);
     expect(bad).toEqual([]);
   });
 

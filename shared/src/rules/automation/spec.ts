@@ -35,7 +35,8 @@ export type ValueExpr =
         | 'spellMod'
         | 'castLevel'
         | 'characterLevel'
-        | 'choice';
+        | 'choice'
+        | 'spellAttackCount';
       /** Роль части (`part`): main/repeat/success/trigger/choice. */
       part?: DamagePartRole;
       /** Индекс части с этой ролью (составной урон: две `main`). */
@@ -73,6 +74,16 @@ export interface ChoiceSpec {
   param: 'damageType' | 'ability' | 'skill' | 'condition' | 'mode' | 'effect' | 'command';
   options: string[];
   default?: string;
+}
+
+/** Ручной режим записи (`primary: 'manual'`): плашка/действия мастера, авто-механики нет. */
+export interface ManualSpec {
+  /** Механика по решению владельца (Charm Monster/Compulsion): красный маркер не рисуется. */
+  byDesign?: boolean;
+  /** Плашка состояния, накладываемая кастом (без спасброска — ведёт мастер). */
+  chip?: ConditionKey | null;
+  /** Выданные мастеру действия ручного спелла (Compulsion: 4 направления). */
+  chipActions?: ActionSpec[];
 }
 
 /** Действие, выдаваемое эффектом (компилируется в `GrantedAction`). */
@@ -373,6 +384,20 @@ export interface EffectSpec {
   loadout?: LoadoutSpec;
 }
 
+/** Блок `summon` (R16 шаг 4): призыв шаблона каталога; числа — в записи. */
+export interface SummonSpec {
+  /** Ключ шаблона каталога (`XPHB:Bestial Spirit`). */
+  creature?: string;
+  /** Формы выбираются из каталога по флагу `familiar` (Find Familiar). */
+  fromFamiliar?: boolean;
+  count?: number;
+  /** Длительность без концентрации (фамильяр — постоянный). */
+  duration?: EffectDuration;
+  initiative: 'afterCaster' | 'own';
+  /** Базовый круг заклинания: ниже шаблон не используется. */
+  baseLevel?: number;
+}
+
 /** Стратегия `rider`: атака оружием при касте (True Strike, клинки-кантрипы, смайты). */
 export interface WeaponAttackSpec {
   riderDice?: ValueExpr;
@@ -431,7 +456,8 @@ export interface AutomationSpec {
    */
   lifeTransfer?: { factor: number };
   attack?: { rangeType: 'melee' | 'ranged'; advantageInZone?: boolean };
-  count?: number;
+  /** Число атак/снарядов/повторов: литерал или ссылка (`spellAttackCount` — скейл данных). */
+  count?: ValueExpr;
   /** Массовая цель без области: до N существ (Steel Wind Strike — 5). */
   targets?: number;
   /** Авто-цели по радиусу от кастера без выбора (Beacon of Hope: союзники в 30 фт). */
@@ -466,7 +492,11 @@ export interface AutomationSpec {
   saveSuccess?: EffectSpec[];
   zone?: ZoneSpec;
   weaponAttack?: WeaponAttackSpec;
+  /** Блок `summon`: призыв шаблона каталога. */
+  summon?: SummonSpec;
   choices?: ChoiceSpec[];
+  /** Ручной режим: плашка/действия мастера (валиден только с `primary: 'manual'`). */
+  manual?: ManualSpec;
 }
 
 /**

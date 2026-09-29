@@ -9,7 +9,6 @@ import {
   INVOCATION_MECHANICS,
   INVOCATION_PACT_KEYS,
   effectiveSpellRangeFeet,
-  eldritchBlastMods,
   familiarFormAvailable,
   invocationActionCast,
   invocationAtWillSpells,
@@ -17,6 +16,7 @@ import {
   invocationCoversSpell,
   invocationIssue,
   invocationLimit,
+  invocationPatches,
   invocationSenses,
   warlockLevelOf,
 } from './invocations';
@@ -80,13 +80,16 @@ describe('инвокации: ограничения и предпосылки',
 });
 
 describe('инвокации: механики движка', () => {
-  it('at-will заклинания, сенсы и модификаторы Blast', () => {
+  it('at-will заклинания, сенсы и патчи заклинаний', () => {
     const s = sheet({
       invocations: ['XPHB:Armor of Shadows', 'XPHB:Devil\'s Sight', 'XPHB:Agonizing Blast', 'XPHB:Repelling Blast'],
     });
     expect(invocationAtWillSpells(s)).toEqual(['XPHB:Mage Armor']);
     expect(invocationSenses(s)).toEqual([{ type: 'devilsight', range: 120 }]);
-    expect(eldritchBlastMods(s)).toEqual({ agonizing: true, repelling: true, spear: false });
+    expect(invocationPatches('XPHB:Eldritch Blast', s.invocations)).toEqual([
+      { automation: { 'damage.abilityMod': true } },
+      { automation: { force: { kind: 'push', feet: 10, maxSize: 'large' } } },
+    ]);
   });
 
   it('Pact of the Chain даёт Find Familiar без ячейки', () => {

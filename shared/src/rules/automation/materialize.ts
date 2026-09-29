@@ -2,7 +2,7 @@ import type { Spell } from '../spells';
 import { WALL_DIMS } from '../spellCast';
 import { resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
-import type { AutomationSpec, AutomationSpecCopy } from './spec';
+import type { AutomationSpec, AutomationSpecCopy, ValueExpr } from './spec';
 
 /**
  * Механическая часть канонической записи (R16 шаг 4): спек без `key`/`name` —
@@ -22,8 +22,8 @@ export type SpellDef = Omit<Spell, 'automation'> & { automation?: MaterializedAu
  * Собирает каноническую запись заклинания из meta и спека `AUTOMATION_SPECS`.
  * Копии (`extends`) сливаются — канон хранит слитую запись; габариты стен
  * (`WALL_DIMS` по ключу) разворачиваются в литералы записи. Заклинания без спека
- * (каталог/призывы/деривация/manual) остаются без `automation` — переходный шаг,
- * их формы разворачиваются в записи отдельными срезами.
+ * получают сгенерированный спек из данных (`generatedAutomation`): деривация
+ * (атака/спас/авто) со ссылками `spellDamage`/`spellAttackCount` и ручные записи.
  */
 export function materializeSpell(
   spell: Spell,
@@ -31,8 +31,40 @@ export function materializeSpell(
 ): SpellDef {
   const { automation: _flag, ...meta } = spell;
   const spec = registry[spell.key];
-  if (!spec) return { ...meta };
+  if (!spec) return { ...meta, automation: generatedAutomation(spell) };
   return { ...meta, automation: materializeAutomation(spec, spell, registry) };
+}
+
+/**
+ * Спек из данных заклинания — зеркало прежней деривации (`automationForSpell`):
+ * кости — ссылка `spellDamage` (скейл при компиляции), число атак — `spellAttackCount`,
+ * типы/хил/спас — из meta; без костей — `manual`.
+ */
+export function generatedAutomation(spell: Spell): MaterializedAutomation {
+  const concentration = spell.concentration === true ? { concentration: true } : {};
+  if (!spell.damage?.dice?.[0]?.trim()) return { primary: 'manual', ...concentration };
+  const dice: ValueExpr = { ref: 'spellDamage' };
+  const types = [...(spell.damage?.types ?? [])];
+  const typed = types.length ? { types } : {};
+  const roll = spell.healing === true ? { heal: { dice, ...typed } } : { damage: { dice, ...typed } };
+  if (spell.spellAttack) {
+    return {
+      primary: 'attack',
+      attack: { rangeType: spell.spellAttack },
+      count: { ref: 'spellAttackCount' },
+      ...roll,
+      ...concentration,
+    };
+  }
+  if (spell.save?.length && spell.save[0]) {
+    return {
+      primary: 'save',
+      save: { ability: spell.save[0], half: spell.saveHalf === true },
+      ...roll,
+      ...concentration,
+    };
+  }
+  return { primary: 'auto', count: { ref: 'spellAttackCount' }, ...roll, ...concentration };
 }
 
 /** Спек одной записи: `extends` слит, `WALL_DIMS` развёрнут, `key`/`name` сняты. */

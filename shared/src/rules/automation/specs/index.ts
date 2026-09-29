@@ -1,5 +1,7 @@
 import { EFFECTS_SPECS } from './effects';
 import { CATALOG_SPECS } from './catalog';
+import { MANUAL_SPECS } from './manual';
+import { SUMMONS_SPECS } from './summons';
 import { WEAPONS_SPECS } from './weapons';
 import { ZONES_SPECS } from './zones';
 import { WALLS_SPECS } from './walls';
@@ -16,6 +18,8 @@ import type { AutomationSpec } from '../spec';
 const MODULES: Record<string, AutomationSpec>[] = [
   EFFECTS_SPECS,
   CATALOG_SPECS,
+  MANUAL_SPECS,
+  SUMMONS_SPECS,
   WEAPONS_SPECS,
   ZONES_SPECS,
   WALLS_SPECS,
@@ -36,6 +40,7 @@ const MODULES: Record<string, AutomationSpec>[] = [
  *
  * Карта модулей (поиск: `grep "'КЛЮЧ':"` по папке `specs/`):
  * - `effects` — баффы/контроль/состояния; `catalog` — утилиты и малые зоны;
+ * - `manual` — ручные записи (плашка/действия мастера), `summons` — призывы шаблонов;
  * - `weapons` — loadout (оружие и атаки); `zones` — зоны/ауры; `walls` — стены;
  * - `hooks` — реактивные перехваты/защита (блок `triggers` эффектов); `choices` — carrier'ы выбора при касте;
  * - `movement` — телепорты/перемещение; `selection` — метки/цели/цепи;

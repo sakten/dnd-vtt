@@ -1,6 +1,7 @@
 import type { CharacterSheet } from '../domain/sheet';
 import type { InvocationEntry, InvocationPact, InvocationPrereq } from '../domain/invocation';
 import type { Sense } from '../domain/sense';
+import { applyPatch } from './automation/compile';
 import { spellRangeFeet } from './spellCast';
 import type { Spell } from './spells';
 import { PACT_OF_CHAIN_FORMS } from './summons';
@@ -24,10 +25,16 @@ export interface InvocationMechanics {
   actionCast?: boolean;
   /** Пакт-инвокация (Blade/Chain/Tome). */
   pact?: InvocationPact;
-  /** Модификатор Eldritch Blast. */
-  blast?: 'agonizing' | 'repelling' | 'spear';
+  /** Патчи заклинаний по именованным путям (модификаторы Eldritch Blast). */
+  patches?: Record<string, InvocationPatches>;
   /** Выбор 3 кантрипов + 2 ритуалов (Pact of the Tome). */
   tome?: boolean;
+}
+
+/** Патч инвокации: `automation.*` — деф, `meta.*` — поля заклинания (дальность). */
+export interface InvocationPatches {
+  automation?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
 }
 
 export const INVOCATION_MECHANICS: Record<string, InvocationMechanics> = {
@@ -37,9 +44,15 @@ export const INVOCATION_MECHANICS: Record<string, InvocationMechanics> = {
   // Pact of the Chain: Find Familiar без ячейки (XPHB) действием + особые формы в пикере.
   'XPHB:Pact of the Chain': { pact: 'chain', atWill: 'XPHB:Find Familiar', actionCast: true },
   'XPHB:Pact of the Tome': { pact: 'tome', tome: true },
-  'XPHB:Agonizing Blast': { blast: 'agonizing' },
-  'XPHB:Repelling Blast': { blast: 'repelling' },
-  'XPHB:Eldritch Spear': { blast: 'spear' },
+  'XPHB:Agonizing Blast': { patches: { 'XPHB:Eldritch Blast': { automation: { 'damage.abilityMod': true } } } },
+  'XPHB:Repelling Blast': {
+    patches: {
+      'XPHB:Eldritch Blast': { automation: { force: { kind: 'push', feet: 10, maxSize: 'large' } } },
+    },
+  },
+  'XPHB:Eldritch Spear': {
+    patches: { 'XPHB:Eldritch Blast': { meta: { 'range.distance.amount': 300 } } },
+  },
   'XPHB:Armor of Shadows': { atWill: 'XPHB:Mage Armor' },
   'XPHB:Fiendish Vigor': { atWill: 'XPHB:False Life' },
   'XPHB:Mask of Many Faces': { atWill: 'XPHB:Disguise Self' },
@@ -138,18 +151,14 @@ export function hasConcentrationAdvantage(sheet: Pick<CharacterSheet, 'invocatio
   return (sheet.invocations ?? []).some((key) => INVOCATION_MECHANICS[key]?.concentrationAdvantage === true);
 }
 
-/** Модификаторы Eldritch Blast: скейл урона/дальности и толчок. */
-export function eldritchBlastMods(sheet: Pick<CharacterSheet, 'invocations'>): {
-  agonizing: boolean;
-  repelling: boolean;
-  spear: boolean;
-} {
-  const mods = (sheet.invocations ?? []).map((key) => INVOCATION_MECHANICS[key]?.blast);
-  return {
-    agonizing: mods.includes('agonizing'),
-    repelling: mods.includes('repelling'),
-    spear: mods.includes('spear'),
-  };
+/** Патчи выбранных инвокаций для заклинания (в порядке списка инвокаций персонажа). */
+export function invocationPatches(spellKey: string, invocations?: string[]): InvocationPatches[] {
+  const out: InvocationPatches[] = [];
+  for (const key of invocations ?? []) {
+    const patch = INVOCATION_MECHANICS[key]?.patches?.[spellKey];
+    if (patch) out.push(patch);
+  }
+  return out;
 }
 
 /** Заклинание доступно персонажу без ячейки по инвокации. */
@@ -165,13 +174,13 @@ export function invocationActionCast(sheet: Pick<CharacterSheet, 'invocations'>,
   });
 }
 
-/** Дальность заклинания с учётом инвокаций (Eldritch Spear: Eldritch Blast на 300 фт). */
+/** Дальность заклинания с учётом инвокаций (Eldritch Spear: патч `range.distance.amount`). */
 export function effectiveSpellRangeFeet(spell: Pick<Spell, 'key' | 'range'>, invocations?: string[]): number | null {
-  const base = spellRangeFeet(spell as Spell);
-  if (spell.key === 'XPHB:Eldritch Blast' && invocations?.length && eldritchBlastMods({ invocations }).spear) {
-    return Math.max(base ?? 0, 300);
-  }
-  return base;
+  const meta = invocationPatches(spell.key, invocations).filter((p) => p.meta);
+  if (!meta.length) return spellRangeFeet(spell as Spell);
+  const copy = structuredClone(spell) as unknown as Record<string, unknown>;
+  for (const patch of meta) applyPatch(copy, patch.meta!);
+  return spellRangeFeet(copy as unknown as Spell);
 }
 
 /** Доступна ли форма фамильяра: обычные — всегда, особые Pact of the Chain — только с инвокацией. */
@@ -193,7 +202,7 @@ export function invocationAutomated(
   return (
     mechanics.sense !== undefined ||
     mechanics.concentrationAdvantage === true ||
-    mechanics.blast !== undefined ||
+    mechanics.patches !== undefined ||
     mechanics.pact === 'chain'
   );
 }

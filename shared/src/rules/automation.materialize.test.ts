@@ -44,21 +44,20 @@ function compileWithoutWallDims<T>(spellKey: string, fn: () => T): T {
 }
 
 describe('материализация SpellDef (R16 шаг 4, срез 1)', () => {
-  it('meta переносится без изменений; automation — только у записей со спеком', () => {
-    let withSpec = 0;
+  it('meta переносится без изменений; automation есть у всех 420 записей', () => {
+    let registrySpecs = 0;
     for (const spell of SPELLS) {
       const { automation: _flag, ...meta } = spell;
       const record = materializeSpell(spell);
       const { automation, ...recordMeta } = record;
       expect(stable(recordMeta)).toBe(stable(meta));
-      expect(automation !== undefined).toBe(!!AUTOMATION_SPECS[spell.key]);
-      if (automation) {
-        withSpec += 1;
-        const area = automation.zone?.area;
-        if (area && 'wall' in area) expect('from' in area.wall).toBe(false);
-      }
+      expect(automation).toBeDefined();
+      if (AUTOMATION_SPECS[spell.key]) registrySpecs += 1;
+      const area = automation!.zone?.area;
+      if (area && 'wall' in area) expect('from' in area.wall).toBe(false);
     }
-    expect(withSpec).toBe(Object.keys(AUTOMATION_SPECS).length);
+    expect(registrySpecs).toBe(Object.keys(AUTOMATION_SPECS).length);
+    expect(SPELLS).toHaveLength(420);
   });
 
   it('compileSpec(meta + automation) == старый automationForSpell: полный свип', { timeout: 120000 }, () => {

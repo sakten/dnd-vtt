@@ -1,5 +1,4 @@
 export { AUTOMATION_ACTIONS } from './header';
-export { AUTOMATION_SPELLS } from './catalog';
 export type { AutomationOptions, SpellVariantDef } from './variants';
 export { spellVariantDef } from './variants';
 export { shadowBladeReturnAction } from './helpers';
@@ -9,4 +8,4 @@ export { AUTOMATION_SPECS } from './specs';
 export { compileSpec, resolveSpec, validateSpec } from './compile';
 export { materializeAutomation, materializeSpell } from './materialize';
 export type { MaterializedAutomation, SpellDef } from './materialize';
-export type { ActionSpec, AutomationSpec, AutomationSpecCopy, ChoiceSpec, EffectSpec, LoadoutSpec, ValueExpr, WeaponAttackSpec } from './spec';
+export type { ActionSpec, AutomationSpec, AutomationSpecCopy, ChoiceSpec, EffectSpec, LoadoutSpec, ManualSpec, SummonSpec, ValueExpr, WeaponAttackSpec } from './spec';

@@ -1,10 +1,10 @@
-import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, ZoneDef } from '../../domain/automation';
+import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, SummonDef, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier, TriggerEvent, TriggerInstance } from '../../domain/effects';
 import { ABILITIES, DAMAGE_TYPES, SKILLS } from '../../labels';
 import { CONDITION_KEYS } from '../conditions';
 import type { Spell } from '../spells';
-import { spellCantripDice, spellDamageExpression, spellMaxRounds, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
+import { spellAttackCount, spellCantripDice, spellDamageExpression, spellMaxRounds, spellUpcastAt, wallAreaOf, WALL_DIMS } from '../spellCast';
 import { addDiceExpression, scaledDice, upcastSteps } from './helpers';
 import type {
   ActionSpec,
@@ -19,6 +19,7 @@ import type {
   LoadoutSpec,
   ModifierSpec,
   PayloadSpec,
+  SummonSpec,
   TriggerAction,
   TriggerList,
   UsesSpec,
@@ -151,6 +152,9 @@ function resolveValue(ctx: CompileCtx, expr: ValueExpr | undefined): string | nu
       break;
     case 'characterLevel':
       value = ctx.characterLevel;
+      break;
+    case 'spellAttackCount':
+      value = spellAttackCount(ctx.spell, ctx.castLevel, ctx.characterLevel);
       break;
     case 'choice': {
       const choice = expr.choice ? ctx.spec.choices?.find((c) => c.id === expr.choice) : ctx.spec.choices?.[0];
@@ -678,6 +682,21 @@ function compileDamage(ctx: CompileCtx, spec: DamageSpec): AutomationDice {
   };
 }
 
+/** Блок `summon`: шаблон каталога, круг — максимум базового и ячейки, длительность из меты. */
+function compileSummon(ctx: CompileCtx, summon: SummonSpec): SummonDef {
+  const baseLevel = summon.baseLevel ?? Math.max(1, ctx.spell.level);
+  return {
+    ...(summon.creature ? { creature: summon.creature } : {}),
+    ...(summon.fromFamiliar ? { choices: [] } : {}),
+    count: summon.count ?? 1,
+    duration: ctx.spell.concentration ? { type: 'concentration' } : summon.duration ?? { type: 'permanent' },
+    initiative: summon.initiative,
+    level: Math.max(baseLevel, ctx.castLevel),
+    spellAttack: true,
+    spellDc: true,
+  };
+}
+
 /** Компиляция payload спека (урон/лечение/эффекты триггера): кости — из `ValueExpr`. */
 function compilePayload(ctx: CompileCtx, payload: PayloadSpec): AutomationPayload {
   return {
@@ -791,7 +810,7 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     ...(spec.lifesteal ? { lifesteal: true } : {}),
     ...(spec.lifeTransfer ? { lifeTransfer: { ...spec.lifeTransfer } } : {}),
     ...(spec.attack ? { attack: { ...spec.attack } } : {}),
-    ...(spec.count !== undefined ? { count: spec.count } : {}),
+    ...(spec.count !== undefined ? { count: Number(mustValue(ctx, spec.count, 'count')) } : {}),
     ...(spec.targets !== undefined ? { targets: spec.targets } : {}),
     ...(spec.autoTargets ? { autoTargets: { ...spec.autoTargets } } : {}),
     ...(spec.chain ? { chain: { jumps: Number(mustValue(ctx, spec.chain.jumps, 'chain.jumps')), feet: spec.chain.feet } } : {}),
@@ -807,8 +826,18 @@ export function compileSpec(spec: AutomationSpec, input: CompileInput): Automati
     // `effects: []` тоже валиден (SG: пустой массив после мержа добавок) — отличие от `undefined`.
     ...(spec.effects !== undefined ? { effects: spec.effects.map((e) => compileEffect(ctx, e)) } : {}),
     ...(spec.saveSuccess?.length ? { saveSuccess: spec.saveSuccess.map((e) => compileEffect(ctx, e)) } : {}),
+    ...(spec.manual !== undefined
+      ? {
+          ...(spec.manual.byDesign ? { byDesign: true } : {}),
+          ...(spec.manual.chip ? { chip: spec.manual.chip } : {}),
+          ...(spec.manual.chipActions?.length
+            ? { chipActions: spec.manual.chipActions.map((a) => compileAction(ctx, a)) }
+            : {}),
+        }
+      : {}),
     ...(spec.zone ? { zone: compileZone(ctx, spec.zone) } : {}),
     ...(spec.weaponAttack ? { weaponAttack: compileWeaponAttack(ctx, spec.weaponAttack) } : {}),
+    ...(spec.summon ? { summon: compileSummon(ctx, spec.summon) } : {}),
   };
 }
 
@@ -880,6 +909,30 @@ function removeByPath(root: Record<string, unknown>, path: string): void {
 }
 
 /**
+ * Патч объекта (спека/дефа) по именованным путям — тот же язык, что у копий
+ * `extends` (§5): правки инвокаций поверх автозаписи (Agonizing/Repelling/…).
+ * `add` разрешает добавить отсутствующий лист (промежуточные узлы обязаны быть).
+ */
+export function applyPatch(
+  root: Record<string, unknown>,
+  patch: Record<string, unknown>,
+  opts: { add?: boolean } = {}
+): void {
+  for (const [path, value] of Object.entries(patch)) {
+    const segments = path.split('.');
+    let current: Record<string, unknown> = root;
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      const segment = segments[i]!;
+      if (!(segment in current)) throw new Error(`AutomationSpec patch ${path}: нет узла ${segment}`);
+      current = current[segment] as Record<string, unknown>;
+    }
+    const last = segments[segments.length - 1]!;
+    if (!opts.add && !(last in current)) throw new Error(`AutomationSpec patch ${path}: нет узла ${last}`);
+    current[last] = structuredClone(value);
+  }
+}
+
+/**
  * Резолв спека: копия `extends` разворачивается в базовый спек + `patch`/`remove`
  * (R16 шаг 4, `AUTOMATION.md` §5). Неизвестные база/путь — ошибка.
  */
@@ -923,6 +976,14 @@ export function validateSpec(spec: AutomationSpec): string[] {
   if (spec.primary === 'utility' && !spec.utility?.kind) errors.push('utility без utility.kind');
   if (spec.primary === 'shape' && !spec.shape) errors.push('shape без shape');
   if (spec.shape && spec.primary !== 'save') errors.push('shape допустим только с save');
+  if (spec.manual && spec.primary !== 'manual') errors.push('manual-блок допустим только с primary manual');
+  if (spec.manual?.chip && !spec.manual.byDesign) errors.push('chip без byDesign');
+  if (spec.manual?.chipActions?.length && !spec.manual.chip) errors.push('chipActions без chip');
+  if (spec.primary === 'manual' && (spec.damage || spec.effects?.length || spec.zone)) {
+    errors.push('manual с механикой');
+  }
+  if (spec.summon && spec.primary !== 'summon') errors.push('summon-блок допустим только с primary summon');
+  if (spec.primary === 'summon' && !spec.summon) errors.push('summon без summon');
   if (spec.primary === 'attack' && !spec.attack && !spec.weaponAttack) {
     errors.push('attack без attack/weaponAttack');
   }
@@ -1114,6 +1175,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
   }
   collectUtility(spec.utility);
   if (spec.chain) refs.push(spec.chain.jumps);
+  if (spec.count !== undefined) refs.push(spec.count);
   if (spec.burst) {
     if (spec.burst.dice !== undefined) refs.push(spec.burst.dice);
     refs.push(spec.burst.damageType);

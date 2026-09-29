@@ -14,7 +14,7 @@ import { parseDiceExpression } from '../dice';
 import { ATTACK_RIDERS } from './attackRiders';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
-import { AUTOMATION_SPELLS } from './automation';
+import { AUTOMATION_SPECS } from './automation';
 import { INVOCATION_MECHANICS } from './invocations';
 import { ABSORB_SPELL_TYPES, REACTION_SPELL_TRIGGERS } from './reactions';
 import { spellAttackCount, spellDamageExpression } from './spellCast';
@@ -88,23 +88,6 @@ const DAMAGE_KEYS = new Set([
 const AREA_SHAPES = new Set(['sphere', 'cone', 'cube', 'line', 'cylinder']);
 /** Роли частей урона (collectDamageParts на сборке; потребители берут по роли). */
 const PART_ROLES = new Set(['main', 'success', 'repeat', 'trigger', 'choice']);
-
-/** Состояния с авто-эффектами в `conditions.ts` (charmed/deafened — только чипы). */
-const MECHANICAL_CONDITIONS = new Set([
-  'blinded',
-  'exhaustion',
-  'frightened',
-  'grappled',
-  'incapacitated',
-  'invisible',
-  'paralyzed',
-  'petrified',
-  'poisoned',
-  'prone',
-  'restrained',
-  'stunned',
-  'unconscious',
-]);
 
 describe('снимок данных', () => {
   it('hash файлов не менялся', () => {
@@ -299,30 +282,25 @@ describe('снимок данных', () => {
   it('каталоги кода ссылаются на существующие заклинания', () => {
     const keys = new Set(SPELLS.map((s) => s.key));
     const catalogKeys = [
-      ...Object.keys(AUTOMATION_SPELLS),
+      ...Object.keys(AUTOMATION_SPECS),
       ...Object.keys(REACTION_SPELL_TRIGGERS),
       ...Object.keys(ABSORB_SPELL_TYPES),
     ];
     expect(catalogKeys.filter((key) => !keys.has(key))).toEqual([]);
 
     const badCatalog: string[] = [];
-    for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
-      if (def.key !== key) badCatalog.push(`${key}: ключ def ${def.key}`);
-      if (!def.name) badCatalog.push(`${key}: пустое имя`);
-      if (def.resolution === 'effect' && !def.effects?.length && !def.zone) {
-        badCatalog.push(`${key}: effect без эффектов и зоны`);
+    for (const [key, spec] of Object.entries(AUTOMATION_SPECS)) {
+      if (spec.key !== key) badCatalog.push(`${key}: ключ spec ${spec.key}`);
+      if (!spec.name) badCatalog.push(`${key}: пустое имя`);
+      const manual = spec.manual;
+      if (manual && spec.primary !== 'manual') badCatalog.push(`${key}: manual-блок не с primary manual`);
+      if (manual?.chip && !manual.byDesign) badCatalog.push(`${key}: chip без byDesign`);
+      if (manual?.chip && !CONDITION_KEYS.includes(manual.chip)) {
+        badCatalog.push(`${key}: chip ${manual.chip}`);
       }
-      if (def.resolution === 'manual' && (def.damage || def.effects?.length)) {
+      if (manual?.chipActions?.length && !manual.chip) badCatalog.push(`${key}: chipActions без chip`);
+      if (spec.primary === 'manual' && (spec.damage || spec.effects?.length || spec.zone)) {
         badCatalog.push(`${key}: manual с механикой`);
-      }
-      if (def.byDesign && def.resolution !== 'manual') {
-        badCatalog.push(`${key}: byDesign не manual`);
-      }
-      if (def.chip && (!def.byDesign || !CONDITION_KEYS.includes(def.chip))) {
-        badCatalog.push(`${key}: chip без byDesign или невалидное состояние`);
-      }
-      if (def.chipActions?.length && !def.chip) {
-        badCatalog.push(`${key}: chipActions без chip`);
       }
     }
     expect(badCatalog).toEqual([]);
@@ -350,28 +328,18 @@ describe('снимок данных', () => {
     expect(bad).toEqual([]);
   });
 
-  it('состояния каталога механически действуют (без «чипов»)', () => {
+  it('условия спеков: валидные ключи каталога состояний', () => {
     const bad: string[] = [];
-    for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
-      for (const effect of def.effects ?? []) {
-        const conditions = effect.conditions ?? [];
-        if (conditions.length && !conditions.some((c) => MECHANICAL_CONDITIONS.has(c))) {
-          bad.push(`${key}: ${conditions.join(', ')}`);
+    for (const [key, spec] of Object.entries(AUTOMATION_SPECS)) {
+      for (const effect of spec.effects ?? []) {
+        for (const entry of effect.conditions ?? []) {
+          const value = entry && typeof entry === 'object' && 'if' in entry ? entry.then : entry;
+          if (typeof value !== 'string') continue;
+          if (!(CONDITION_KEYS as readonly string[]).includes(value)) bad.push(`${key}: ${value}`);
         }
-      }
-    }
-    expect(bad).toEqual([]);
-  });
-
-  it('условия каталога автоматизации — валидные ключи', () => {
-    const bad: string[] = [];
-    for (const [key, def] of Object.entries(AUTOMATION_SPELLS)) {
-      for (const effect of def.effects ?? []) {
-        for (const condition of effect.conditions ?? []) {
-          if (!CONDITION_KEYS.includes(condition)) bad.push(`${key}: ${condition}`);
-        }
-        if (effect.escalate && !CONDITION_KEYS.includes(effect.escalate.condition)) {
-          bad.push(`${key}: escalate ${effect.escalate.condition}`);
+        const escalate = effect.escalate?.condition;
+        if (typeof escalate === 'string' && !(CONDITION_KEYS as readonly string[]).includes(escalate)) {
+          bad.push(`${key}: escalate ${escalate}`);
         }
       }
     }

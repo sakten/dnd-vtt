@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import bestiaryData from '../bestiaryData';
 import spellsData from '../spellsData';
-import { automationForSpell, bestiaryTokenFields, spellAutomated, summonSpellDef, SUMMON_SPELLS } from '../rules';
+import { AUTOMATION_SPECS, automationForSpell, bestiaryTokenFields, spellAutomated } from '../rules';
 
 const spellOf = (key: string) => spellsData.spells.find((spell) => spell.key === key)!;
+const summonSpecs = Object.entries(AUTOMATION_SPECS).filter(([, spec]) => spec.primary === 'summon');
 
 describe('призывы: каталог', () => {
   it('каждая привязка ссылается на существующее заклинание и шаблон каталога', () => {
-    expect(Object.keys(SUMMON_SPELLS).length).toBeGreaterThanOrEqual(12);
-    for (const [spellKey, def] of Object.entries(SUMMON_SPELLS)) {
+    expect(summonSpecs.length).toBeGreaterThanOrEqual(12);
+    for (const [spellKey, spec] of summonSpecs) {
       expect(spellOf(spellKey)).toBeTruthy();
-      if (def.template) expect(bestiaryData.entries.some((entry) => entry.key === def.template)).toBe(true);
-      if (def.fromFamiliar) expect(bestiaryData.entries.filter((entry) => entry.familiar).length).toBeGreaterThan(10);
+      const creature = spec.summon?.creature;
+      if (creature) expect(bestiaryData.entries.some((entry) => entry.key === creature)).toBe(true);
+      if (spec.summon?.fromFamiliar) {
+        expect(bestiaryData.entries.filter((entry) => entry.familiar).length).toBeGreaterThan(10);
+      }
     }
   });
 
@@ -55,6 +59,6 @@ describe('призывы: каталог', () => {
   });
 
   it('Summon Shadowspawn без шаблона в каталоге — не привязан', () => {
-    expect(summonSpellDef('TCE:Summon Shadowspawn')).toBeUndefined();
+    expect(AUTOMATION_SPECS['TCE:Summon Shadowspawn']).toBeUndefined();
   });
 });

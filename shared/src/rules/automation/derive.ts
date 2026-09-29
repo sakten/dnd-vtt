@@ -2,57 +2,41 @@ import type { ActionDef } from '../../domain/actions';
 import type { AutomationDef, AutomationDice } from '../../domain/automation';
 import type { ClassLevel } from '../../domain/sheet';
 import { AUTOMATION_ACTIONS } from '../automationActions';
-import { eldritchBlastMods } from '../invocations';
+import { invocationPatches } from '../invocations';
 import { monsterAbilityAutomation } from '../monsterAbility';
 import { isHealingSpell, spellAttackCount, spellDamageExpression, spellMaxRounds } from '../spellCast';
 import type { Spell } from '../spells';
-import { summonSpellDef } from '../summons';
-import { AUTOMATION_SPELLS } from './catalog';
-import { compileSpec, resolveSpec } from './compile';
+import { applyPatch, compileSpec, resolveSpec } from './compile';
 import { AUTOMATION_SPECS } from './specs';
 import { spellVariantDef } from './variants';
 import type { AutomationOptions } from './variants';
 
 /**
- * Определение автоматизации заклинания: спек → строка каталога → деривация из данных
- * (атака/спасбросок/автоурон) → `manual`. Уровни уже применены к `dice`/`count`.
- * Заклинаниям длительностью ровно 1 минута проставляется лимит 10 раундов.
+ * Определение автоматизации заклинания: спек → деривация из данных (атака/спас/автоурон)
+ * → `manual`; после сборки — патчи выбранных инвокаций (Agonizing/Repelling/Spear).
+ * Уровни уже применены к `dice`/`count`. Заклинаниям длительностью ровно 1 минута
+ * проставляется лимит 10 раундов.
  */
 export function automationForSpell(spell: Spell, opts: AutomationOptions = {}): AutomationDef {
-  const def = buildSpellAutomation(spell, opts);
+  const def = withInvocationPatches(spell.key, buildSpellAutomation(spell, opts), opts.invocations);
   // Билдер мог задать лимит сам (в т.ч. `null` — апкаст Dominate без лимита 1 мин).
   if (def.maxRounds !== undefined) return def;
   const maxRounds = spellMaxRounds(spell);
   return maxRounds ? { ...def, maxRounds } : def;
 }
 
+/** Патчи инвокаций поверх дефа: пути `automation.*` (`damage.abilityMod`, `force`, …). */
+function withInvocationPatches(spellKey: string, def: AutomationDef, invocations?: string[]): AutomationDef {
+  const patches = invocationPatches(spellKey, invocations).filter((p) => p.automation);
+  if (!patches.length) return def;
+  const copy = structuredClone(def) as unknown as Record<string, unknown>;
+  for (const patch of patches) applyPatch(copy, patch.automation!, { add: true });
+  return copy as unknown as AutomationDef;
+}
+
 function buildSpellAutomation(spell: Spell, opts: AutomationOptions): AutomationDef {
   const spec = AUTOMATION_SPECS[spell.key];
   if (spec) return compileSpec(resolveSpec(spec), { spell, opts });
-
-  const catalog = AUTOMATION_SPELLS[spell.key];
-  if (catalog) return catalog;
-
-  const summon = summonSpellDef(spell.key);
-  if (summon) {
-    const castLevel = Math.max(summon.baseLevel, opts.castLevel ?? Math.max(1, spell.level));
-    return {
-      key: spell.key,
-      name: spell.name,
-      resolution: 'summon',
-      concentration: spell.concentration === true || undefined,
-      summon: {
-        ...(summon.template ? { creature: summon.template } : {}),
-        ...(summon.fromFamiliar ? { choices: [] } : {}),
-        count: summon.count ?? 1,
-        duration: spell.concentration ? { type: 'concentration' } : summon.duration ?? { type: 'permanent' },
-        initiative: summon.initiative,
-        level: castLevel,
-        spellAttack: true,
-        spellDc: true,
-      },
-    };
-  }
 
   const castLevel = opts.castLevel ?? Math.max(1, spell.level);
   const characterLevel = opts.characterLevel ?? 1;
@@ -66,21 +50,18 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
   };
   if (!expression) return base;
 
-  const dice = { dice: expression, types: spell.damage?.types ?? [] };
+  const types = spell.damage?.types ?? [];
+  const dice = { dice: expression, ...(types.length ? { types } : {}) };
   const rolled = isHealingSpell(spell) ? { heal: dice } : { damage: dice };
   const count = spellAttackCount(spell, castLevel, characterLevel);
   if (spell.spellAttack) {
-    return withBlastMods(
-      spell,
-      {
-        ...base,
-        resolution: 'attack',
-        attack: { rangeType: spell.spellAttack },
-        count,
-        ...rolled,
-      },
-      opts.invocations
-    );
+    return {
+      ...base,
+      resolution: 'attack',
+      attack: { rangeType: spell.spellAttack },
+      count,
+      ...rolled,
+    };
   }
   if (spell.save?.length && spell.save[0]) {
     return {
@@ -91,16 +72,6 @@ function buildSpellAutomation(spell: Spell, opts: AutomationOptions): Automation
     };
   }
   return { ...base, resolution: 'auto', count, ...rolled };
-}
-
-  /** Модификаторы Eldritch Blast от инвокаций: Agonizing (+мод. характеристики) и Repelling (толчок). */
-function withBlastMods(spell: Spell, def: AutomationDef, invocations?: string[]): AutomationDef {
-  if (spell.key !== 'XPHB:Eldritch Blast' || !invocations?.length) return def;
-  const mods = eldritchBlastMods({ invocations });
-  let out = def;
-  if (mods.agonizing && out.damage) out = { ...out, damage: { ...out.damage, abilityMod: true } };
-  if (mods.repelling) out = { ...out, force: { kind: 'push', feet: 10, maxSize: 'large' } };
-  return out;
 }
 
 export interface ActionAutomationOptions {
@@ -181,15 +152,12 @@ export function spellDamageParts(spell: Spell): { dice: string; types: string[] 
 export function spellAutomated(spell: Pick<Spell, 'key' | 'automation'>): boolean {
   const spec = AUTOMATION_SPECS[spell.key];
   if (spec) return spec.primary !== 'manual';
-  const def = AUTOMATION_SPELLS[spell.key];
-  if (def) return def.resolution !== 'manual';
-  if (summonSpellDef(spell.key)) return true;
   return spell.automation === 'full';
 }
 
 /** Ручная механика «ведёт мастер» (Charm Monster/Compulsion): красный маркер не рисуем. */
 export function spellByDesign(spell: Pick<Spell, 'key'>): boolean {
-  return AUTOMATION_SPELLS[spell.key]?.byDesign === true;
+  return AUTOMATION_SPECS[spell.key]?.manual?.byDesign === true;
 }
 
 /**
