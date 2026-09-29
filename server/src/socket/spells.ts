@@ -20,7 +20,7 @@ import { casterStatsFor, spellClassFor } from './spellStats';
 import { collectSpellCast, expandChainTargets } from './spellTargeting';
 import { validateSpellCast } from './spellResolve';
 import { resolveSpellCastWithReactions } from './reactions';
-import { sanctuaryBlocks } from './sanctuary';
+import { gateAttackOnTarget } from './triggers';
 import { removeBrokenEffects } from './effectsApply';
 import { endConcentrationOf } from './effects';
 import { spellsInShapeAllowed } from './forms';
@@ -189,7 +189,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
 
     // Sanctuary: атака или дамажащий каст по защищённой цели — спас Мдр или потеря заклинания.
     if (!input.area && (spell.spellAttack || (spell.damage && !spell.healing))) {
-      const blocked = input.targets.filter((t) => sanctuaryBlocks(ctx, room, token, t));
+      const blocked = input.targets.filter((t) => gateAttackOnTarget(ctx, room, token, t));
       if (blocked.length) input.targets = input.targets.filter((t) => !blocked.includes(t));
     }
 

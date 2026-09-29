@@ -808,9 +808,9 @@ export function adjustTokenHp(
   mapId: string,
   token: Token,
   delta: number,
-  opts: { crit?: boolean } = {}
+  opts: { crit?: boolean; /** Событие урона (applyDamage): зажигает hp-триггеры; ручные правки — нет. */ damageEvent?: boolean } = {}
 ): { mapId: string; token: Token }[] {
-  const woken = delta < 0 ? wakeOnDamage(m, room, token) : [];
+  const woken = delta < 0 && opts.damageEvent ? wakeOnDamage(m, room, token) : [];
   // Урон в форме: сначала отдельный пул формы; обнуление — возврат.
   if (delta < 0 && token.shape) {
     const shape = token.shape;
@@ -832,7 +832,7 @@ export function adjustTokenHp(
     const before = res.hp.current;
     let next = before + delta;
     next = Math.min(res.hp.max, next);
-    if (delta < 0 && before > 0 && next <= 0 && consumeDeathWard(m, room, token)) next = 1;
+    if (delta < 0 && before > 0 && next <= 0 && opts.damageEvent && consumeDeathWard(m, room, token)) next = 1;
     res.hp.current = next;
     if (delta > 0) {
       // Лечение не оживляет: у мёртвого счётчики и «Мёртв» не сбрасываются (оживляет Revivify/ДМ).
@@ -862,7 +862,7 @@ export function adjustTokenHp(
   }
   let next = token.hpCurrent + delta;
   if (max > 0) next = Math.min(max, next);
-  if (delta < 0 && token.hpCurrent > 0 && next <= 0 && consumeDeathWard(m, room, token)) next = 1;
+  if (delta < 0 && token.hpCurrent > 0 && next <= 0 && opts.damageEvent && consumeDeathWard(m, room, token)) next = 1;
   const wasDead = token.conditions.some((c) => c.key === 'dead');
   token.hpCurrent = next;
   // Монстр мёртв при HP ≤ 0; лечение не оживляет (оживляет Revivify или снятие «Мёртв» ДМом).

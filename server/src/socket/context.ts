@@ -125,7 +125,7 @@ export interface ConnCtx {
     mapId: string,
     token: Token,
     amount: number,
-    opts?: { crit?: boolean; concentration?: boolean }
+    opts?: { crit?: boolean; concentration?: boolean; damageEvent?: boolean }
   ) => void;
   syncCombat: (room: Room, mapId: string) => void;
   cleanLabel: (label?: string) => string | undefined;
@@ -259,8 +259,9 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (!amount) return;
       const shapeBefore = token.shape?.key;
       const shapeSource = token.shape?.kind === 'polymorph' ? token.shape.sourceTokenId : undefined;
-      const hadWard = amount < 0 && token.effects.some((e) => hasTrigger(e, 'hpReachedZero'));
-      const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit });
+      // Death Ward — только на событие урона, не на ручную правку HP мастером.
+      const hadWard = !!opts.damageEvent && amount < 0 && token.effects.some((e) => hasTrigger(e, 'hpReachedZero'));
+      const changed = manager.adjustTokenHp(room, mapId, token, amount, { crit: opts.crit, damageEvent: opts.damageEvent });
       // Death Ward сработал и рассеялся — сообщаем в чат (HP уже 1).
       if (hadWard && !token.effects.some((e) => hasTrigger(e, 'hpReachedZero'))) {
         ctx.systemMessage(room, { code: 'automation.deathWard', params: { name: token.name } });
@@ -281,7 +282,7 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       if (controllerId) ctx.emitResources(room, controllerId);
       ctx.notifyPlayers(room);
       if (amount < 0 && opts.concentration !== false) rollConcentrationOnDamage(ctx, room, token, -amount);
-      if (amount < 0) rollDamageSavesOnDamage(ctx, room, mapId, token);
+      if (amount < 0 && opts.damageEvent) rollDamageSavesOnDamage(ctx, room, mapId, token);
     },
     syncCombat: (room, mapId) => {
       ctx.broadcastAll('combat:update', {

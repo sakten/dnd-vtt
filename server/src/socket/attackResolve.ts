@@ -66,7 +66,7 @@ import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { maybeRollAnim } from './rollAnim';
 import { familiarCannotAttack } from './summons';
-import { sanctuaryBlocks } from './sanctuary';
+import { gateAttackOnTarget } from './triggers';
 import { controllerIdOfToken, gridSizeOfMap } from '../rooms';
 
 export interface AttackResolveInput {
@@ -690,7 +690,7 @@ export function applyWeaponAttackDamage(
  */
 export function resolveWeaponAttack(ctx: ConnCtx, input: AttackResolveInput): AttackResolveResult {
   const room = ctx.getRoom();
-  if (room && sanctuaryBlocks(ctx, room, input.attacker, input.target)) return {};
+  if (room && gateAttackOnTarget(ctx, room, input.attacker, input.target)) return {};
   const { result, plan } = rollWeaponAttack(ctx, input);
   if (plan) {
     const damage = applyWeaponAttackDamage(ctx, plan);

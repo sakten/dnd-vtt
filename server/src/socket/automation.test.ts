@@ -27,7 +27,7 @@ import { applyEffectTo, removeBrokenEffects } from './effectsApply';
 import { pendingOffers } from './reactions';
 import { offerDamageReactions } from './reactions/windows';
 import { validateSpellCast } from './spellResolve';
-import { sanctuaryBlocks } from './sanctuary';
+import { gateAttackOnTarget } from './triggers';
 import { tickZones } from './zones';
 import { checkPartsForToken } from '../room/effects';
 
@@ -1156,12 +1156,12 @@ describe('концентрация заклинаний с зонами', () => 
     });
 
     const fail = vi.spyOn(Math, 'random').mockReturnValue(0); // d20 = 1 → провал
-    expect(sanctuaryBlocks(f.ctx, room, attacker!, warded!)).toBe(true);
+    expect(gateAttackOnTarget(f.ctx, room, attacker!, warded!)).toBe(true);
     fail.mockRestore();
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'automation.sanctuary')).toBe(true);
 
     const success = vi.spyOn(Math, 'random').mockReturnValue(0.95); // d20 = 20 → успех
-    expect(sanctuaryBlocks(f.ctx, room, attacker!, warded!)).toBe(false);
+    expect(gateAttackOnTarget(f.ctx, room, attacker!, warded!)).toBe(false);
     success.mockRestore();
   });
 
@@ -2355,7 +2355,7 @@ describe('лечение, стабильность и оживление', () =>
     });
     expect(target.effects.some((e) => hasTrigger(e, 'hpReachedZero'))).toBe(true);
 
-    f.ctx.applyHp(room, 'm1', target, -99);
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 99 });
 
     expect(room.resources.p1!.hp.current).toBe(1);
     expect(target.effects.some((e) => hasTrigger(e, 'hpReachedZero'))).toBe(false);

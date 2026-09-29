@@ -509,7 +509,7 @@ export class RoomManager {
     mapId: string,
     token: Token,
     delta: number,
-    opts: { crit?: boolean } = {}
+    opts: { crit?: boolean; damageEvent?: boolean } = {}
   ): { mapId: string; token: Token }[] {
     return Effects.adjustTokenHp(this, room, mapId, token, delta, opts);
   }

@@ -12,7 +12,7 @@ import {
   type WeaponDamageMods,
 } from '../attackResolve';
 import { applySmiteChoice, availableSmites, type SmiteOption } from '../smites';
-import { sanctuaryBlocks } from '../sanctuary';
+import { gateAttackOnTarget } from '../triggers';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import { audienceOf, type ReactionChoice } from './internal';
 import { applyAttackRollChoices, openRedirectWindow, preRollOffers } from './features';
@@ -235,7 +235,7 @@ export function resolveWeaponAttackWithReactions(
 ): AttackResolveResult {
   const room = ctx.getRoom();
   // Sanctuary: защищённая цель заставляет атакующего пройти спас или потерять атаку.
-  if (room && sanctuaryBlocks(ctx, room, input.attacker, input.target)) return {};
+  if (room && gateAttackOnTarget(ctx, room, input.attacker, input.target)) return {};
   const prepared = prepareWeaponAttack(ctx, input);
   if (prepared.error) return { error: prepared.error };
   const prep = prepared.prep;

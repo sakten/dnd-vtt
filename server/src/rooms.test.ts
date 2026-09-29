@@ -769,11 +769,45 @@ describe('RoomManager стабильность и оживление', () => {
     });
     room.scene.maps[0]!.tokens = [tk];
 
-    manager.adjustTokenHp(room, 'm1', tk, -30);
+    manager.adjustTokenHp(room, 'm1', tk, -30, { damageEvent: true });
 
     expect(room.resources.p1!.hp.current).toBe(1);
     expect(tk.effects.some((e) => hasTrigger(e, 'hpReachedZero'))).toBe(false);
     expect(tk.conditions.some((c) => c.key === 'unconscious')).toBe(false);
+  });
+
+  it('ручная правка HP мастером не зажигает hp-триггеры (wake/Death Ward)', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const tk = token('t1', {
+      hpCurrent: 10,
+      hpMax: '10',
+      effects: [
+        {
+          id: 'wd',
+          name: 'Death Ward',
+          duration: { type: 'permanent' },
+          modifiers: [],
+          triggers: [{ on: 'hpReachedZero', survive: { hp: 1 } }],
+        },
+        {
+          id: 'sleep',
+          name: 'Sleep',
+          duration: { type: 'concentration' },
+          modifiers: [],
+          triggers: [{ on: 'damaged', endEffect: true }],
+        },
+      ],
+      conditions: [{ key: 'unconscious', name: 'Без сознания', effectId: 'sleep' }],
+    });
+    room.scene.maps[0]!.tokens = [tk];
+
+    manager.adjustTokenHp(room, 'm1', tk, -30);
+
+    expect(tk.hpCurrent).toBe(-20);
+    expect(tk.effects.map((e) => e.id)).toEqual(['wd', 'sleep']);
+    // Состояние «Мёртв» — обычная hp-семантика (не триггеры): эффекты не тронуты выше.
+    expect(tk.conditions.some((c) => c.key === 'dead')).toBe(true);
   });
 });
 
@@ -1243,7 +1277,7 @@ describe('RoomManager эффекты', () => {
     });
     room.scene.maps[0]!.tokens = [tk];
 
-    manager.adjustTokenHp(room, 'm1', tk, -3);
+    manager.adjustTokenHp(room, 'm1', tk, -3, { damageEvent: true });
 
     expect(tk.effects).toHaveLength(0);
     expect(tk.conditions).toHaveLength(0);
@@ -1292,7 +1326,7 @@ describe('RoomManager эффекты', () => {
     manager.beginTurn(room, 'm1', 'e1');
     combat.turns.e1!.concentrationId = 'anchor';
 
-    const changed = manager.adjustTokenHp(room, 'm1', target, -3);
+    const changed = manager.adjustTokenHp(room, 'm1', target, -3, { damageEvent: true });
 
     expect(target.effects).toHaveLength(0);
     expect(caster.effects).toHaveLength(0);
@@ -1344,7 +1378,7 @@ describe('RoomManager эффекты', () => {
     });
     room.scene.maps[0]!.tokens = [caster, target];
 
-    manager.adjustTokenHp(room, 'm1', target, -3);
+    manager.adjustTokenHp(room, 'm1', target, -3, { damageEvent: true });
 
     expect(target.effects.map((e) => e.id)).toEqual(['chip']);
     expect(caster.effects.map((e) => e.id)).toEqual(['anchor']);
@@ -1387,7 +1421,7 @@ describe('RoomManager эффекты', () => {
     });
     room.scene.maps[0]!.tokens = [caster, target];
 
-    manager.adjustTokenHp(room, 'm1', target, -3);
+    manager.adjustTokenHp(room, 'm1', target, -3, { damageEvent: true });
 
     expect(target.effects).toHaveLength(0);
     expect(caster.effects).toHaveLength(0);
