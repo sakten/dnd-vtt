@@ -18,6 +18,7 @@
   gripAdjustedDamage,
   handOf,
   isBanished,
+  kenseiWeaponDefOf,
   legendaryOnly,
   loadoutOf,
   masteryAccessible,
@@ -600,6 +601,24 @@ function useGrantedAction(
   }
 }
 
+/** Agile Parry (кэнсэй): +2 AC до начала следующего хода после безоружного удара в действии «Атака». */
+function applyAgileParry(ctx: ConnCtx, room: Scope['room'], mapId: string, token: Token): void {
+  applyEffectTo(ctx, room, {
+    sourceKey: 'class:monk.kensei:agileParry',
+    sourceId: token.id,
+    mapId,
+    effectDef: {
+      name: 'Ловкая защита',
+      duration: { type: 'endOfTurn', of: 'target' },
+      modifiers: [{ target: 'ac', mode: 'add', value: 2 }],
+    },
+    target: token,
+  });
+  ctx.emitToken(room, 'token:update', mapId, token);
+  ctx.syncCombat(room, mapId);
+  ctx.systemMessage(room, { code: 'automation.agileParry', params: { name: token.name } });
+}
+
 /** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */
 function unarmedStrikeEntry(
   ctx: ConnCtx,
@@ -619,7 +638,7 @@ function unarmedStrikeEntry(
 export function registerActionHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
-    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction, placements }) => {
+    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction, placements, featureAmount }) => {
       if (!ctx.playerId || typeof actionId !== 'string') return;
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, tokenId);
@@ -775,6 +794,15 @@ export function registerActionHandlers(ctx: ConnCtx) {
           return;
         }
         const unarmed = action.id === 'unarmedStrike' || entry.kind === 'unarmed';
+        // Agile Parry (кэнсэй): безоружный удар частью действия «Атака» с melee-кэнсэй-оружием.
+        const agileParry = (() => {
+          if (action.id !== 'unarmedStrike' || offhand || !sheet) return false;
+          const weapon = kenseiWeaponDefOf({ attacks: sheet.attacks, hands: sheet.hands, classes: sheet.classes });
+          if (!weapon || weapon.rangeType !== 'melee') return false;
+          const turnState = manager.turnStateFor(room, mapId, token);
+          // Удар из запаса действия «Атака»; бонусный (Шквал) и доп. действие Haste не считаются.
+          return !turnState || turnState.attacksRemaining > 0 || (turnState.flurryAttacks <= 0 && turnState.extraActions <= 0);
+        })();
         const offTurn = manager.turnStateFor(room, mapId, token);
         const offRestrictions = restrictionsFor(token.conditions, token.effects);
         let attackEntry = entry;
@@ -954,7 +982,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
                 syncCombat(room, mapId);
                 return true;
               }
-              return spendPlainAttack();
+              const ok = spendPlainAttack();
+              if (ok && agileParry) applyAgileParry(ctx, room, mapId, token);
+              return ok;
             },
             // Shadow Blade: метание — клинок исчезает из руки (возврат бонусным действием).
             afterCommit: () => markShadowBladeThrown(ctx, room, mapId, token, attackEntry),
@@ -1017,7 +1047,25 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       // Прочие действия: списываем слот, дальше эффект.
-      const resourceAmount = action.resourceKey ? Math.max(1, action.resourceAmount ?? 1) : 0;
+      // Кэнсэй-фичи валидируем до траты слота/ки, чтобы отказ ничего не стоил.
+      if (action.id === 'class:monk.kensei:kenseisShot' || action.id === 'class:monk.kensei:sharpenTheBlade') {
+        const weapon = kenseiWeaponDefOf({ attacks: sheet?.attacks, hands: sheet?.hands, classes: sheet?.classes });
+        if (!weapon) {
+          fail(ctx, 'kenseiNoWeapon');
+          return;
+        }
+        if (action.id === 'class:monk.kensei:kenseisShot' && weapon.rangeType !== 'ranged') {
+          fail(ctx, 'kenseiNoRangedWeapon');
+          return;
+        }
+      }
+      // Sharpen the Blade: игрок выбирает 1–3 ки (payload), остальные — фиксированную стоимость.
+      const resourceAmount =
+        action.id === 'class:monk.kensei:sharpenTheBlade'
+          ? Math.max(1, Math.min(3, Math.round(Number(featureAmount) || action.resourceAmount || 1)))
+          : action.resourceKey
+            ? Math.max(1, action.resourceAmount ?? 1)
+            : 0;
       if (resourceAmount && !manager.hasResource(room, ctx.playerId, action.resourceKey!, resourceAmount)) {
         fail(ctx, 'noResource', action.resourceKey ? { key: action.resourceKey, name: action.name } : { name: action.name });
         return;
@@ -1078,6 +1126,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         direction,
         area: abilityArea ?? null,
         manual: { description: action.description ? [action.description] : undefined },
+        amount: resourceAmount || undefined,
       });
         return;
       }

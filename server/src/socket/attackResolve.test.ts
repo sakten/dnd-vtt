@@ -476,3 +476,160 @@ describe('Flame Arrows: заряды боеприпасов', () => {
     expect(attacker.effects.some((e) => e.name === 'Flame Arrows')).toBe(false);
   });
 });
+
+describe('кэнсэй (XGE): магичность и фильтр кэнсэй-оружия', () => {
+  const sheet = {
+    name: 'Кэнсэй',
+    senses: [],
+    abilities: { str: 10, dex: 16, con: 10, int: 10, wis: 14, cha: 10 },
+    proficiencyBonus: '3',
+    saves: {},
+    skills: {},
+    attacks: [],
+    classes: [{ className: 'monk', subclass: 'kensei', level: 6 }],
+    spells: [],
+    hpMax: '30',
+    ac: '15',
+    speed: 30,
+    damageDefenses: [],
+  };
+
+  const melee = {
+    id: 'w1',
+    name: 'Длинный меч',
+    hit: 'd20+5',
+    damage: '1d8+3',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'slashing',
+    weaponKey: 'XPHB:Longsword',
+  };
+
+  const hitFor = (
+    classes: { className: string; subclass?: string; level: number }[],
+    hands: { right?: string } | undefined,
+    attack: Record<string, unknown>,
+    attackerEffects: unknown[] = []
+  ): number => {
+    const attacker = makeToken('t1', { x: 50, y: 100, libraryItemId: 'lib1', attacks: [attack as never] });
+    const target = makeToken('t2', {
+      x: 100,
+      y: 100,
+      ac: '15',
+      hpMax: '30',
+      hpCurrent: 30,
+      damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'slashing' }],
+    });
+    attacker.effects = attackerEffects as never;
+    const room = makeCombatRoom([attacker, target], { p1: 'lib1' });
+    room.sheets.p1 = { ...sheet, classes, attacks: [attack as never], ...(hands ? { hands } : {}) } as never;
+    const f = makeConnCtx(room, { dm: true });
+    withRandom(0.5, () => {
+      resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: attack as never,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    return target.hpCurrent;
+  };
+
+  it('One with the Blade: кэнсэй-оружие 6 ур. обходит сопротивление «nonmagical»', () => {
+    // 1d8=5, +Dex 3 → 8; сопротивление режет вдвое (hp 26), магический тип — полный урон (hp 22).
+    expect(hitFor([{ className: 'monk', subclass: 'kensei', level: 5 }], { right: 'w1' }, melee)).toBe(26);
+    expect(hitFor([{ className: 'monk', subclass: 'kensei', level: 6 }], { right: 'w1' }, melee)).toBe(22);
+    expect(hitFor([{ className: 'monk', subclass: 'openHand', level: 6 }], { right: 'w1' }, melee)).toBe(26);
+  });
+
+  it('фильтр kenseiWeapon: бонус действует на оружие основной руки кэнсэя, не на чужой руке', () => {
+    const bow = {
+      id: 'w2',
+      name: 'Длинный лук',
+      hit: 'd20+5',
+      damage: '1d8+3',
+      rangeType: 'ranged' as const,
+      rangeNormal: 150,
+      rangeLong: 600,
+      damageType: 'piercing',
+      weaponKey: 'XPHB:Longbow',
+    };
+    const shot = [
+      {
+        id: 'ks',
+        name: "Kensei's Shot",
+        duration: { type: 'endOfTurn' as const, of: 'target' as const },
+        modifiers: [
+          { id: 'm1', target: 'damage' as const, mode: 'add' as const, value: '1d6', filter: { weapon: true, kenseiWeapon: true } },
+        ],
+      },
+    ];
+    // 1d8=5 (+3) + 1d6=4 → 12 урона (hp 18); без кэнсэй-оружия бонус не проходит (hp 22).
+    expect(hitFor([{ className: 'monk', subclass: 'kensei', level: 6 }], { right: 'w2' }, bow, shot)).toBe(18);
+    expect(hitFor([{ className: 'monk', subclass: 'kensei', level: 6 }], undefined, bow, shot)).toBe(22);
+  });
+});
+
+describe('атака оружием по себе запрещена', () => {
+  const entry = {
+    id: 'w1',
+    name: 'Рапира',
+    hit: 'd20+5',
+    damage: '1d8+3',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'piercing',
+    weaponKey: 'XPHB:Rapier',
+  };
+  const unarmed = {
+    name: 'Безоружный удар',
+    kind: 'unarmed' as const,
+    hit: 'd20+5',
+    damage: '1d6+3',
+    rangeType: 'melee' as const,
+    rangeNormal: 5,
+    rangeLong: 0,
+    damageType: 'bludgeoning',
+  };
+
+  it('оружие — ошибка attackSelf без урона; безоружный по себе проходит', () => {
+    const tk = makeToken('t1', { x: 100, y: 100, ac: '15', hpMax: '30', hpCurrent: 30, attacks: [entry] });
+    const room = makeCombatRoom([tk]);
+    const f = makeConnCtx(room, { dm: true });
+
+    let own: ReturnType<typeof resolveWeaponAttack> = {};
+    withRandom(0.5, () => {
+      own = resolveWeaponAttack(f.ctx, {
+        attacker: tk,
+        attackerMapId: 'm1',
+        target: tk,
+        targetMapId: 'm1',
+        attack: entry,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    expect(own.error).toMatchObject({ code: 'attackSelf' });
+    expect(tk.hpCurrent).toBe(30);
+
+    let fist: ReturnType<typeof resolveWeaponAttack> = {};
+    withRandom(0.5, () => {
+      fist = resolveWeaponAttack(f.ctx, {
+        attacker: tk,
+        attackerMapId: 'm1',
+        target: tk,
+        targetMapId: 'm1',
+        attack: unarmed,
+        author: 'A',
+        ignoreRange: true,
+      });
+    });
+    expect(fist.error).toBeUndefined();
+    expect(tk.hpCurrent).toBe(23); // 1d6 4 + 3
+  });
+});

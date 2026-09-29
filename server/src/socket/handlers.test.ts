@@ -18,7 +18,7 @@ import { registerRoomHandlers } from './room';
 import { registerTokenHandlers } from './token';
 import { registerActionHandlers } from './actions';
 import { resolveWeaponAttack } from './attackResolve';
-import { applyAttackRiders } from './attackRiders';
+import { applyAttackRiders, availableChoiceRiders } from './attackRiders';
 import { registerResourceHandlers } from './resources';
 import { registerSpellHandlers } from './spells';
 import { registerDiceHandlers } from './dice';
@@ -7658,5 +7658,175 @@ describe('resources:deathSave и стабильность', () => {
     }[];
     expect(rolls[0]?.roll.dice[0]?.advantage).toBe('a');
     expect(rolls[1]?.roll.dice[0]?.advantage).toBeNull();
+  });
+});
+
+describe('кэнсэй (XGE, до 12 уровня)', () => {
+  const kenseiAttack = (patch: Partial<AttackEntry> = {}): AttackEntry => ({
+    id: 'w1',
+    name: 'Рапира',
+    hit: 'd20+5',
+    damage: '1d8+3',
+    damageType: 'piercing',
+    rangeType: 'melee',
+    rangeNormal: 5,
+    rangeLong: 0,
+    weaponKey: 'XPHB:Rapier',
+    ...patch,
+  });
+
+  const kenseiSheet = (level: number, attacks: AttackEntry[] = [kenseiAttack()]): CharacterSheet => ({
+    ...casterSheet(),
+    abilities: { ...casterSheet().abilities, dex: 16 },
+    classes: [{ className: 'monk', subclass: 'kensei', level }],
+    spells: [],
+    attacks,
+    hands: { right: attacks[0]!.id! },
+  });
+
+  const focus = (current: number): PlayerResources => ({
+    ...casterResources(),
+    spellSlots: [],
+    resources: [{ id: 'r1', key: 'monk:focus', name: 'Фокус', current, max: current, reset: 'short' }],
+  });
+
+  it('Deft Strike: окно после попадания, 1 ки и кость боевых искусств, раз за ход', () => {
+    const room = makeRoom(
+      [makeToken('t1', { libraryItemId: 'lib1' }), makeToken('t2', { hpMax: '30', hpCurrent: 30, ac: '5' })],
+      { p1: 'lib1' }
+    );
+    room.sheets.p1 = kenseiSheet(6);
+    room.resources.p1 = focus(3);
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.9); // d20 19, d8 8
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+    const offer = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'rider:monk.kensei:deftStrike')
+    );
+    expect(offer).toBeDefined();
+
+    const responder = makeCtx(room, { playerId: 'p1' });
+    registerReactionHandlers(responder.ctx);
+    responder.invoke('reaction:respond', { id: offer!.id, optionId: 'rider:monk.kensei:deftStrike' });
+    rand.mockRestore();
+
+    expect(room.resources.p1!.resources[0]!.current).toBe(2);
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(11); // 30 − (1d8 8 + Dex 3 + кость 1d8 8)
+
+    // Раз за ход: метка «использовано» снимает наездника с предложений.
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    expect(availableChoiceRiders(f.ctx, room, tk, kenseiAttack()).some((r) => r.id === 'monk.kensei:deftStrike')).toBe(false);
+  });
+
+  it('Deft Strike не предлагается без кэнсэй-оружия в основной руке', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = { ...kenseiSheet(6), hands: undefined };
+    room.resources.p1 = focus(3);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    const tk = room.scene.maps[0]!.tokens[0]!;
+    expect(availableChoiceRiders(f.ctx, room, tk, kenseiAttack()).some((r) => r.id === 'monk.kensei:deftStrike')).toBe(false);
+    expect(availableChoiceRiders(f.ctx, room, tk, kenseiAttack({ id: 'w1' })).some((r) => r.id === 'monk.kensei:deftStrike')).toBe(false);
+  });
+
+  it('Agile Parry: +2 AC после безоружного удара в действии «Атака», но не бонусным', () => {
+    const agileEffect = (room: Room) =>
+      room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'class:monk.kensei:agileParry');
+
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = kenseiSheet(3);
+    room.resources.p1 = focus(2);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike' });
+    expect(agileEffect(room)?.modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 2 });
+
+    // Бонусный удар Шквала (не часть действия «Атака») эффекта не даёт.
+    const bonusRoom = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    bonusRoom.sheets.p1 = kenseiSheet(3);
+    bonusRoom.resources.p1 = focus(2);
+    const turn = bonusRoom.scene.maps[0]!.combat.turns.e1!;
+    turn.actionUsed = true;
+    turn.flurryAttacks = 1;
+    const fb = makeCtx(bonusRoom, { playerId: 'p1' });
+    registerActionHandlers(fb.ctx);
+    fb.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'unarmedStrike' });
+
+    expect(agileEffect(bonusRoom)).toBeUndefined();
+  });
+
+  it("Kensei's Shot: бонусное действие, +1d4 дальним кэнсэй-оружием; с мечом — отказ", () => {
+    const bow = kenseiAttack({ id: 'w2', name: 'Длинный лук', rangeType: 'ranged', rangeNormal: 150, rangeLong: 600, weaponKey: 'XPHB:Longbow', damage: '1d8+3' });
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = kenseiSheet(3, [bow]);
+    room.resources.p1 = focus(2);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:monk.kensei:kenseisShot', slot: 'bonus' });
+
+    const effect = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'class:monk.kensei:kenseisShot');
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: '1d4',
+      filter: { weapon: true, unarmed: false, attackType: 'ranged', kenseiWeapon: true },
+    });
+    expect(room.scene.maps[0]!.combat.turns.e1!.bonusActionUsed).toBe(true);
+
+    const meleeRoom = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    meleeRoom.sheets.p1 = kenseiSheet(3);
+    meleeRoom.resources.p1 = focus(2);
+    const fm = makeCtx(meleeRoom, { playerId: 'p1' });
+    registerActionHandlers(fm.ctx);
+    fm.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'class:monk.kensei:kenseisShot', slot: 'bonus' });
+
+    expect(fm.selfEvents('chat:error')[0]!.payload).toMatchObject({ code: 'kenseiNoRangedWeapon' });
+    expect(meleeRoom.scene.maps[0]!.tokens[0]!.effects.some((e) => e.sourceKey === 'class:monk.kensei:kenseisShot')).toBe(false);
+  });
+
+  it('Sharpen the Blade: выбранные 1–3 ки дают бонус к атаке и урону на 10 раундов', () => {
+    const room = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    room.sheets.p1 = kenseiSheet(11);
+    room.resources.p1 = focus(3);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+
+    f.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'class:monk.kensei:sharpenTheBlade',
+      slot: 'bonus',
+      featureAmount: 3,
+    });
+
+    expect(room.resources.p1!.resources[0]!.current).toBe(0);
+    const effect = room.scene.maps[0]!.tokens[0]!.effects.find((e) => e.sourceKey === 'class:monk.kensei:sharpenTheBlade');
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(effect?.modifiers).toHaveLength(2);
+    for (const mod of effect!.modifiers) {
+      expect(mod).toMatchObject({ mode: 'add', value: 3, filter: { weapon: true, unarmed: false, kenseiWeapon: true } });
+    }
+
+    // Без кэнсэй-оружия в руке — явный отказ, ки не тратятся.
+    const emptyRoom = makeRoom([makeToken('t1', { libraryItemId: 'lib1' })], { p1: 'lib1' });
+    emptyRoom.sheets.p1 = { ...kenseiSheet(11), hands: undefined };
+    emptyRoom.resources.p1 = focus(3);
+    const fe = makeCtx(emptyRoom, { playerId: 'p1' });
+    registerActionHandlers(fe.ctx);
+    fe.invoke('action:use', {
+      mapId: 'm1',
+      tokenId: 't1',
+      actionId: 'class:monk.kensei:sharpenTheBlade',
+      slot: 'bonus',
+      featureAmount: 2,
+    });
+    expect(fe.selfEvents('chat:error')[0]!.payload).toMatchObject({ code: 'kenseiNoWeapon' });
+    expect(emptyRoom.resources.p1!.resources[0]!.current).toBe(3);
   });
 });

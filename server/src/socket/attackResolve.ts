@@ -16,8 +16,10 @@ import {
   hostileTokens,
   isCriticalFail,
   isCriticalHit,
+  isKenseiAttack,
   isSurrounded,
   isUnarmedAttack,
+  kenseiMonkLevel,
   lightLevelAt,
   magicalDamageType,
   magicWeaponAttacks,
@@ -228,12 +230,23 @@ export function prepareWeaponAttack(
   if (familiarCannotAttack(attacker)) {
     return { error: { code: 'familiarNoAttack', params: { name: attacker?.name ?? '' } } };
   }
+  // Своё оружие в себя не наводится (мисклик по своему токену, а не боевое действие).
+  if (attacker && target && attacker.id === target.id && !isUnarmedAttack(attack)) {
+    return { error: { code: 'attackSelf' } };
+  }
   const attackerControllerId = attacker ? controllerIdOfToken(room, attacker) : undefined;
   const attackerSheet = attackerControllerId ? room.sheets[attackerControllerId] : undefined;
   const critMin = attackerSheet ? critRangeFor(attackerSheet.classes) : 20;
   const proficiency = attackerSheet
     ? proficiencyBonus(characterLevel(attackerSheet.classes) || 1)
     : 2;
+  // Кэнсэй-оружие: атака оружием основной руки кэнсэя-монаха.
+  const kenseiWeapon =
+    !!attacker &&
+    isKenseiAttack(
+      { attacks: attackerSheet?.attacks, hands: attackerSheet?.hands, classes: attackerSheet?.classes },
+      attack
+    );
 
   let distanceFeet = 0;
   let hasTarget = false;
@@ -332,6 +345,7 @@ export function prepareWeaponAttack(
     attackType: attack.rangeType === 'melee' || attack.rangeType === 'ranged' ? attack.rangeType : undefined,
     weapon: true,
     unarmed: isUnarmedAttack(attack),
+    kenseiWeapon,
     attackerType: creatureTypeOf(room, attacker),
   } as const;
   const effectParts = attackRollParts(attacker?.effects, target?.effects, effectCtx, abilities);
@@ -382,6 +396,7 @@ export function prepareWeaponAttack(
         // Оружейный контекст: модификаторы с `filter.weapon` (Magic Weapon, Divine Favor).
         weapon: true,
         unarmed: isUnarmedAttack(attack),
+        kenseiWeapon,
       },
       abilities
     ),
@@ -575,7 +590,21 @@ export function applyWeaponAttackDamage(
   if (!room) return undefined;
   const { target, targetMapId, attack, crit, baseParams, damageExpr } = plan;
   // Magic Weapon: физурон оружейных атак носителя идёт магическими типами (обход «nonmagical» защит).
-  const magicWeapon = magicWeaponAttacks(plan.attacker?.effects);
+  // One with the Blade (кэнсэй, 6 ур.): кэнсэй-оружие основной руки тоже считается магическим.
+  const attackerSheet = plan.attacker
+    ? (() => {
+        const cid = controllerIdOfToken(room, plan.attacker!);
+        return cid ? room.sheets[cid] : undefined;
+      })()
+    : undefined;
+  const kenseiMagic =
+    !!plan.attacker &&
+    kenseiMonkLevel(attackerSheet?.classes) >= 6 &&
+    isKenseiAttack(
+      { attacks: attackerSheet?.attacks, hands: attackerSheet?.hands, classes: attackerSheet?.classes },
+      plan.attack
+    );
+  const magicWeapon = magicWeaponAttacks(plan.attacker?.effects) || kenseiMagic;
   const damageTypeOf = (type: string | undefined) => (magicWeapon ? magicalDamageType(type) : type);
 
   let hitSuccess = plan.hitSuccess;

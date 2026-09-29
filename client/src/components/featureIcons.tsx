@@ -129,6 +129,22 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
       <path d="M15 8l2 2M17 8l-2 2" />
     </>
   ),
+  'class:monk.kensei:kenseisShot': (
+    <>
+      <path d="M4 4a16 16 0 0 1 16 16" />
+      <path d="M4 4h5M4 4v5" />
+      <path d="M6 6l12 12" />
+      <path d="M12 18h6v-6" />
+    </>
+  ),
+  'class:monk.kensei:sharpenTheBlade': (
+    <>
+      <path d="M4 20l3.5-.7L19 7.8l-2.8-2.8L4.7 16.5z" />
+      <path d="M15.2 6l2.8 2.8" />
+      <path d="M8 15l1 1" />
+      <path d="M17 3l.8 2.2L20 6l-2.2.8L17 9l-.8-2.2L14 6l2.2-.8z" />
+    </>
+  ),
 
   // Воин
   'class:fighter:secondWind': (

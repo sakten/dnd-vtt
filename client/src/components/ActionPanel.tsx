@@ -107,6 +107,7 @@ export default function ActionPanel() {
   const [casting, setCasting] = useState<{ spell: Spell; ability?: ActionDef } | null>(null);
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [shapeOpen, setShapeOpen] = useState(false);
+  const [sharpen, setSharpen] = useState<ActionDef | null>(null);
   const shapeToken = useGameStore((s) => s.shapeToken);
   const revertShape = useGameStore((s) => s.revertShape);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
@@ -391,6 +392,11 @@ export default function ActionPanel() {
         aria-label={label}
         disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
         onClick={() => {
+          // Sharpen the Blade: количество ки (1–3) игрок выбирает в мини-окне.
+          if (f.id === 'class:monk.kensei:sharpenTheBlade') {
+            setSharpen(f);
+            return;
+          }
           // «Дикий облик»: открываем выбор известной формы (принятие — сервер).
           if (f.id === 'class:druid:wildShape') {
             if (isCharacter && sheet && !token.shape) setShapeOpen(true);
@@ -798,6 +804,36 @@ export default function ActionPanel() {
             }}
             onClose={() => setShapeOpen(false)}
           />
+        </div>
+      )}
+      {sharpen && (
+        <div className="ap-shape-picker">
+          <div className="sharpen-picker" data-testid="sharpen-picker">
+            <strong>{t('ui.action.sharpenTitle')}</strong>
+            <span className="sharpen-amounts">
+              {[1, 2, 3].map((n) => {
+                const left = resourceLeft(sharpen);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    className="sharpen-amount"
+                    disabled={left !== null && left < n}
+                    onClick={() => {
+                      runAction(token.id, sharpen.id, { slot: featureSlot(sharpen, turnCtx), featureAmount: n });
+                      setSharpen(null);
+                    }}
+                  >
+                    {n}
+                    {t('ui.action.kiShort')}
+                  </button>
+                );
+              })}
+            </span>
+            <button type="button" className="icon" onClick={() => setSharpen(null)}>
+              {t('ui.common.close')}
+            </button>
+          </div>
         </div>
       )}
       {panelSpells.length > 0 && (

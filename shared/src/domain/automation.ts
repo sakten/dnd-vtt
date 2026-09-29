@@ -544,6 +544,10 @@ export interface AutomationUtility {
     | 'revive'
     /** Shadow Blade: вернуть брошенный клинок тени в руку (бонусным действием). */
     | 'recallWeapon'
+    /** Kensei's Shot: +1d4 (1d6 с 6 ур.) к урону дальнобойным кэнсэй-оружием до конца хода. */
+    | 'kenseisShot'
+    /** Sharpen the Blade: 1–3 ки — бонус к атаке и урону кэнсэй-оружия основной руки на 1 минуту. */
+    | 'sharpenBlade'
     /** Spare the Dying: цель на 0 HP становится стабильной. */
     | 'stabilize'
     /** Lesser/Greater Restoration: снять одно состояние из `endConditions` (выбор при касте). */

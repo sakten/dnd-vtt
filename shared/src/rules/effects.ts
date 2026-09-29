@@ -34,6 +34,8 @@ export interface ModifierContext {
   magical?: boolean;
   /** Тип существа атакующего (Protection from Evil and Good). */
   attackerType?: string;
+  /** Атака кэнсэй-оружием основной руки (XGE, Kensei). */
+  kenseiWeapon?: boolean;
 }
 
 /** Слагаемые, кости и режим d20, собранные с модификаторов. */
@@ -92,6 +94,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.unarmed !== undefined && f.unarmed !== ctx.unarmed) return false;
   if (f.conditions && (!ctx.condition || !f.conditions.includes(ctx.condition))) return false;
   if (f.magical !== undefined && f.magical !== ctx.magical) return false;
+  if (f.kenseiWeapon !== undefined && f.kenseiWeapon !== ctx.kenseiWeapon) return false;
   if (f.creatureTypes && (!ctx.attackerType || !f.creatureTypes.includes(ctx.attackerType))) return false;
   return true;
 }

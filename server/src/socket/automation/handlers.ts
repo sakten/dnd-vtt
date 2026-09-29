@@ -8,6 +8,9 @@ import {
   gridDistanceFeet,
   gridOfMap,
   isBanished,
+  kenseiMonkLevel,
+  kenseiWeaponDefOf,
+  kenseiWeaponKeyOf,
   passengerIssue,
   pointCell,
   rollDice,
@@ -29,8 +32,9 @@ import {
 } from 'shared';
 import type { ConnCtx } from '../context';
 import type { Room } from '../../roomTypes';
-import { gridSizeOfMap } from '../../rooms';
+import { gridSizeOfMap, sheetOfToken } from '../../rooms';
 import { checkPartsForToken } from '../../room/effects';
+import { applyEffectTo } from '../effectsApply';
 import { bonusDieOptions, spendBonusDie } from '../bonusDice';
 import { applyDamage, singleDamageType } from '../damage';
 import { fail, type ErrorCode } from '../errors';
@@ -479,6 +483,70 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     ctx.systemMessage(room, {
       code: 'automation.stepOfTheWind',
       params: { name: input.caster.name, feature: input.def.name },
+    });
+  },
+  /** Kensei's Shot: дальнобойное кэнсэй-оружие основной руки — +1d4 (1d6 с 6 ур.) до конца хода. */
+  kenseisShot: ({ ctx, room, input }) => {
+    const { sheet } = sheetOfToken(room, input.caster);
+    const weapon = kenseiWeaponDefOf({ attacks: sheet?.attacks, hands: sheet?.hands, classes: sheet?.classes });
+    if (!weapon || weapon.rangeType !== 'ranged') {
+      fail(ctx, 'kenseiNoRangedWeapon');
+      return;
+    }
+    const dice = kenseiMonkLevel(sheet?.classes) >= 6 ? '1d6' : '1d4';
+    applyEffectTo(ctx, room, {
+      sourceKey: input.def.key,
+      sourceId: input.caster.id,
+      mapId: input.mapId,
+      effectDef: {
+        name: input.def.name,
+        duration: { type: 'endOfTurn', of: 'target' },
+        modifiers: [
+          {
+            target: 'damage',
+            mode: 'add',
+            value: dice,
+            filter: { weapon: true, unarmed: false, attackType: 'ranged', kenseiWeapon: true },
+          },
+        ],
+      },
+      target: input.caster,
+    });
+    ctx.emitToken(room, 'token:update', input.mapId, input.caster);
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, {
+      code: 'automation.kenseisShot',
+      params: { name: input.caster.name, feature: input.def.name, dice },
+    });
+  },
+  /** Sharpen the Blade: 1–3 ки — бонус к атаке и урону кэнсэй-оружия основной руки на 1 минуту. */
+  sharpenBlade: ({ ctx, room, input }) => {
+    const { sheet } = sheetOfToken(room, input.caster);
+    const key = kenseiWeaponKeyOf({ attacks: sheet?.attacks, hands: sheet?.hands, classes: sheet?.classes });
+    if (!key) {
+      fail(ctx, 'kenseiNoWeapon');
+      return;
+    }
+    const amount = Math.max(1, Math.min(3, Math.round(input.amount ?? 1)));
+    applyEffectTo(ctx, room, {
+      sourceKey: input.def.key,
+      sourceId: input.caster.id,
+      mapId: input.mapId,
+      effectDef: {
+        name: input.def.name,
+        duration: { type: 'rounds', rounds: 10 },
+        modifiers: [
+          { target: 'attack', mode: 'add', value: amount, filter: { weapon: true, unarmed: false, kenseiWeapon: true } },
+          { target: 'damage', mode: 'add', value: amount, filter: { weapon: true, unarmed: false, kenseiWeapon: true } },
+        ],
+      },
+      target: input.caster,
+    });
+    ctx.emitToken(room, 'token:update', input.mapId, input.caster);
+    ctx.syncCombat(room, input.mapId);
+    ctx.systemMessage(room, {
+      code: 'automation.sharpenTheBlade',
+      params: { name: input.caster.name, feature: input.def.name, ki: amount },
     });
   },
   check: ({ ctx, room, input, utility }) => {

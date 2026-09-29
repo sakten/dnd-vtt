@@ -270,3 +270,41 @@ describe('пассажир телепорта', () => {
     });
   });
 });
+
+describe('атака оружием по себе', () => {
+  it('клик по своему токену не завершает режим и не шлёт атаку', () => {
+    const it = {
+      mode: 'target' as const,
+      target: {
+        kind: 'action' as const,
+        tokenId: 't1',
+        actionId: 'attack',
+        slot: 'action' as const,
+        attackIndex: 0,
+        label: '',
+      },
+    };
+    const own = pickTarget(it, 't1');
+    expect(own.next).toBe(it);
+    expect(own.command).toBeUndefined();
+    // По чужому токену атака как раньше.
+    expect(pickTarget(it, 't2').command).toMatchObject({ type: 'runAction', extra: { targetIds: ['t2'] } });
+    // Безоружный удар (без индекса оружия) по себе не блокируется.
+    const unarmed = {
+      mode: 'target' as const,
+      target: { kind: 'action' as const, tokenId: 't1', actionId: 'unarmedStrike', slot: 'action' as const, label: '' },
+    };
+    expect(pickTarget(unarmed, 't1').command).toMatchObject({ type: 'runAction' });
+  });
+
+  it('бросок атаки по своему токену (меню ROLL) не начинается', () => {
+    const it = {
+      mode: 'target' as const,
+      target: { kind: 'rollAttack' as const, tokenId: 't1', attackIndex: 0, label: '' },
+    };
+    const own = pickTarget(it, 't1');
+    expect(own.next).toBe(it);
+    expect(own.command).toBeUndefined();
+    expect(pickTarget(it, 't2').command).toMatchObject({ type: 'rollAttack' });
+  });
+});

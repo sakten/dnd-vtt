@@ -234,6 +234,32 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     },
   },
 
+  // Монах — кэнсэй (XGE): кэнсэй-оружие — оружие основной руки (см. rules/kensei.ts).
+  'monk.kensei:agileParry': { trait: 'passive', native: true },
+  'monk.kensei:oneWithTheBlade': { trait: 'passive', native: true },
+  'monk.kensei:kenseisShot': {
+    trait: 'active',
+    costs: ['bonus'],
+    automation: {
+      key: 'class:monk.kensei:kenseisShot',
+      name: 'Выстрел кэнсэя',
+      resolution: 'utility',
+      utility: { kind: 'kenseisShot' },
+    },
+  },
+  'monk.kensei:sharpenTheBlade': {
+    trait: 'active',
+    costs: ['bonus'],
+    resourceKey: 'monk:focus',
+    resourceAmount: 1,
+    automation: {
+      key: 'class:monk.kensei:sharpenTheBlade',
+      name: 'Отточенный клинок',
+      resolution: 'utility',
+      utility: { kind: 'sharpenBlade' },
+    },
+  },
+
   // Жрец — ядро
   'cleric:divineSpark': (classes) => {
     const dice = clericLevel(classes) >= 18 ? '4d8' : clericLevel(classes) >= 13 ? '3d8' : clericLevel(classes) >= 7 ? '2d8' : '1d8';

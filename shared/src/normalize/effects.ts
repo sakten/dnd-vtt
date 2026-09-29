@@ -81,6 +81,7 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   );
   if (conditions.length) out.conditions = [...new Set(conditions)];
   if (typeof f.magical === 'boolean') out.magical = f.magical;
+  if (typeof f.kenseiWeapon === 'boolean') out.kenseiWeapon = f.kenseiWeapon;
   if (Array.isArray(f.creatureTypes)) {
     const types = f.creatureTypes.filter(
       (t): t is string => typeof t === 'string' && CREATURE_TYPES.some((c) => c.key === t)

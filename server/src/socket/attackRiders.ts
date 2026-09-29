@@ -3,6 +3,8 @@ import {
   abilityMod,
   attackRidersFor,
   characterLevel,
+  isKenseiAttack,
+  martialArtsDie,
   parseDiceExpression,
   proficiencyBonus,
   type AbilityKey,
@@ -62,6 +64,8 @@ export function applyAttackRiders(
     8 +
     proficiencyBonus(characterLevel(sheet.classes)) +
     wisMod;
+  // Кэнсэй-оружие: наездники Deft Strike срабатывают только с оружием основной руки.
+  const kensei = !!attack && isKenseiAttack({ attacks: sheet.attacks, hands: sheet.hands, classes: sheet.classes }, attack);
 
   const parts: string[] = [];
   const notes: string[] = [];
@@ -69,6 +73,7 @@ export function applyAttackRiders(
     if (rider.requiresRage && !hasEffect(RAGE_KEY)) continue;
     if (rider.requiresReckless && !hasEffect(RECKLESS_KEY)) continue;
     if (rider.requiresMarker && !hasEffect(rider.requiresMarker)) continue;
+    if (rider.kensei && !kensei) continue;
     if (rider.choiceOnHit && !activated?.includes(rider.id)) continue;
     if (hasEffect(`${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
@@ -110,8 +115,10 @@ export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token,
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!cid || !sheet) return [];
   const out: ChoiceRider[] = [];
+  const kensei = !!attack && isKenseiAttack({ attacks: sheet.attacks, hands: sheet.hands, classes: sheet.classes }, attack);
   for (const rider of attackRidersFor(sheet.classes)) {
     if (!rider.choiceOnHit) continue;
+    if (rider.kensei && !kensei) continue;
     if (attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
     out.push({ id: rider.id, name: rider.name, resourceKey: rider.resourceKey, resourceAmount: rider.resourceAmount });
@@ -134,6 +141,7 @@ function riderExpression(
   const parts: string[] = [];
   if (rider.rageDamageDice) parts.push(level('barbarian') >= 9 ? '3d6' : '2d6');
   if (rider.dice) parts.push(rider.dice);
+  if (rider.martialArtsDice) parts.push(`1d${martialArtsDie(level('monk'))}`);
   if (rider.halfLevelBonus) {
     const flat = Math.ceil(level(rider.halfLevelBonus) / 2);
     if (flat) parts.push(String(flat));

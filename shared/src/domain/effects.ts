@@ -90,6 +90,8 @@ export interface ModifierFilter {
   conditions?: ConditionKey[];
   /** Только спасброски против заклинаний и магических эффектов (Circle of Power). */
   magical?: boolean;
+  /** Только атаки кэнсэй-оружием основной руки (XGE, Kensei). */
+  kenseiWeapon?: boolean;
   /** Тип существа атакующего (Protection from Evil and Good: помеха от шести типов). */
   creatureTypes?: string[];
 }

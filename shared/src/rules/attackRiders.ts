@@ -20,6 +20,8 @@ export interface AttackRiderDef {
   requiresReckless?: boolean;
   /** Срабатывает только с активной меткой (`sourceKey` эффекта-метки). */
   requiresMarker?: string;
+  /** Только попадание кэнсэй-оружием основной руки (XGE, Kensei). */
+  kensei?: boolean;
   /** Не автоматический: предлагается окном после попадания (Ошеломляющий удар). */
   choiceOnHit?: boolean;
   /** Расход ресурса при срабатывании. */
@@ -27,6 +29,8 @@ export interface AttackRiderDef {
   resourceAmount?: number;
   /** Добавочные кости (`2d6`); у Frenzy подставляются по уровню варвара. */
   dice?: string;
+  /** Кости = кость боевых искусств монаха (Deft Strike). */
+  martialArtsDice?: boolean;
   /** Кости = бонус урона Ярости: 2d6 до 9 уровня, 3d6 с 9-го. */
   rageDamageDice?: boolean;
   /** Плоский бонус = половина уровня класса (вверх) — Divine Fury. */
@@ -86,6 +90,18 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     resourceKey: 'monk:focus',
     resourceAmount: 1,
     save: { ability: 'con', condition: 'stunned', halfSpeedOnSuccess: true },
+  },
+  {
+    id: 'monk.kensei:deftStrike',
+    name: 'Ловкий удар',
+    className: 'monk',
+    subclass: 'kensei',
+    levelReq: 6,
+    kensei: true,
+    choiceOnHit: true,
+    resourceKey: 'monk:focus',
+    resourceAmount: 1,
+    martialArtsDice: true,
   },
 ];
 

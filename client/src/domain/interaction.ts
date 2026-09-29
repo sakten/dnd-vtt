@@ -341,6 +341,13 @@ export function confirmArea(interaction: Interaction | null): InteractionResult 
 export function pickTarget(interaction: Interaction | null, targetId: string): InteractionResult {
   if (interaction?.mode !== 'target') return { next: interaction };
   const t = interaction.target;
+  // Своё оружие в себя не наводится: клик по своему токену режим не завершает.
+  if (
+    (t.kind === 'action' && t.attackIndex !== undefined && targetId === t.tokenId) ||
+    (t.kind === 'rollAttack' && !!t.tokenId && targetId === t.tokenId)
+  ) {
+    return { next: interaction };
+  }
   if (t.kind === 'action') {
     return {
       next: null,

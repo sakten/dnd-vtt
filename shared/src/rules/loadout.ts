@@ -4,8 +4,9 @@ import type { EffectInstance } from '../domain/effects';
 import type { FeatureChoice } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetHands } from '../domain/sheet';
 import type { AttackEntry } from '../domain/token';
-import { proficiencyBonus } from './classes';
+import { proficiencyBonus, martialArtsDie } from './classes';
 import { handAttackOf, type HandKey } from './hands';
+import { kenseiMonkLevel, kenseiWeaponKeyOf } from './kensei';
 import { d20Expr } from './sheet';
 import { damageExpression, type WeaponContext } from './weapons';
 
@@ -97,13 +98,35 @@ export function loadoutOf(input: LoadoutInput): ActorLoadout {
   const effects = input.effects ?? [];
   const hasOverrides = effects.some((e) => e.weaponOverride);
   const blades = effects.filter((e) => e.shadowBlade);
-  if (!hasOverrides && !blades.length) return { attacks, hands: input.hands, context };
-  const mapped = hasOverrides ? attacks.map((attack) => applyWeaponOverrides(attack, effects, context)) : attacks;
+  // Кэнсэй-монах: оружие основной руки — monk weapon (Dex и кость боевых искусств).
+  const kenseiKey = kenseiWeaponKeyOf({ attacks, hands: input.hands, classes: input.classes });
+  const hasKensei = !!kenseiKey && attacks.some((attack) => attack.weaponKey === kenseiKey);
+  if (!hasOverrides && !blades.length && !hasKensei) return { attacks, hands: input.hands, context };
+  let mapped = hasKensei
+    ? attacks.map((attack) => applyKenseiWeapon(attack, kenseiKey!, context))
+    : attacks;
+  if (hasOverrides) mapped = mapped.map((attack) => applyWeaponOverrides(attack, effects, context));
   const extra = blades.flatMap((effect) => shadowBladeEntries(effect, context));
   // Клинок тени занимает правую руку вместо оружия; после конца эффекта руки возвращаются.
   const activeBlade = blades.find((e) => e.shadowBlade?.inHand);
   const hands = activeBlade ? { ...input.hands, right: `${SHADOW_BLADE_PREFIX}${activeBlade.id}` } : input.hands;
   return { attacks: extra.length ? [...mapped, ...extra] : mapped, hands, context };
+}
+
+/**
+ * Монах-кэнсэй: оружие основной руки считается monk weapon — Ловкость вместо
+ * Силы и кость боевых искусств вместо кости оружия (XGE, «Kensei Weapons»).
+ */
+function applyKenseiWeapon(attack: AttackEntry, kenseiKey: string, context: WeaponContext): AttackEntry {
+  if (attack.weaponKey !== kenseiKey) return attack;
+  const totalLevel = context.classes.reduce((acc, c) => acc + Math.max(1, c.level), 0);
+  const pb = proficiencyBonus(totalLevel || 1);
+  const mod = abilityMod(context.abilities.dex ?? 10);
+  return {
+    ...attack,
+    hit: d20Expr(pb + mod),
+    damage: damageExpression(`1d${martialArtsDie(kenseiMonkLevel(context.classes))}`, mod),
+  };
 }
 
 /**
