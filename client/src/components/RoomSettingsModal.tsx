@@ -2,8 +2,17 @@ import { useEffect, useState } from 'react';
 import type { SpellDef } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
+import { blankRecord } from '../lib/spellConstructor';
 import { CheckboxRow } from './Field';
 import Modal from './Modal';
+import SpellConstructorModal from './SpellConstructorModal';
+
+/** Состояние конструктора: черновик, фиксация ключа и стартовый экран. */
+interface EditorState {
+  record: SpellDef;
+  lockedKey: boolean;
+  start: 'wizard' | 'base' | 'form';
+}
 
 /** Экспорт записи 1:1: скачивание JSON кастомного заклинания целиком. */
 function downloadSpell(def: SpellDef) {
@@ -26,6 +35,7 @@ export default function RoomSettingsModal() {
   const close = useGameStore((s) => s.setRoomSettingsOpen);
   const [draft, setDraft] = useState(testMode);
   const [customJson, setCustomJson] = useState('');
+  const [editor, setEditor] = useState<EditorState | null>(null);
 
   useEffect(() => {
     setDraft(testMode);
@@ -50,6 +60,9 @@ export default function RoomSettingsModal() {
                 <span className="room-custom-name" title={spell.key}>
                   {spell.name}
                 </span>
+                <button type="button" onClick={() => setEditor({ record: spell, lockedKey: true, start: 'form' })}>
+                  {t('ui.roomSettings.customEdit')}
+                </button>
                 <button type="button" onClick={() => downloadSpell(spell)}>
                   {t('ui.roomSettings.customExport')}
                 </button>
@@ -60,6 +73,19 @@ export default function RoomSettingsModal() {
             ))}
           </ul>
         )}
+        <button
+          type="button"
+          className="primary"
+          onClick={() =>
+            setEditor({
+              record: blankRecord('attack', t('ui.constructor.defaultName')),
+              lockedKey: false,
+              start: 'wizard',
+            })
+          }
+        >
+          {t('ui.roomSettings.customCreate')}
+        </button>
         <textarea
           className="room-custom-json"
           placeholder={t('ui.roomSettings.customPlaceholder')}
@@ -82,6 +108,15 @@ export default function RoomSettingsModal() {
           {t('ui.common.done')}
         </button>
       </div>
+
+      {editor && (
+        <SpellConstructorModal
+          initial={editor.record}
+          lockedKey={editor.lockedKey}
+          start={editor.start}
+          onClose={() => setEditor(null)}
+        />
+      )}
     </Modal>
   );
 }

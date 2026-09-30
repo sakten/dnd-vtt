@@ -562,6 +562,100 @@
   font-size: 12px;
 }
 
+.modal.spell-constructor {
+  width: min(960px, 96vw);
+  max-height: 90vh;
+}
+.constructor-profiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.constructor-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+}
+.constructor-profile-name {
+  font-weight: 600;
+}
+.constructor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+}
+.constructor-fields {
+  max-height: 62vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.constructor-aside {
+  position: sticky;
+  top: 0;
+}
+.constructor-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.constructor-preview .spell-pick-icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+.constructor-preview-name {
+  font-weight: 600;
+}
+.constructor-preview-mech {
+  font-size: 12px;
+}
+.constructor-issues {
+  margin-top: 10px;
+  border: 1px solid #7a3030;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.constructor-issues ul {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #ffb4b4;
+}
+.constructor-base-list {
+  max-height: 46vh;
+}
+.constructor-base-item {
+  width: 100%;
+}
+.constructor-tier-label {
+  align-self: center;
+  min-width: 84px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.constructor-chip-title {
+  align-self: center;
+  margin-right: 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.constructor-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 6px 0;
+}
+.constructor-checks input[type='text'] {
+  min-width: 140px;
+}
+
 .spell-tooltip {
   position: fixed;
   z-index: var(--z-tip);
