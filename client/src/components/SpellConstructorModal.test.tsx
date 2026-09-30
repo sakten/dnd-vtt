@@ -108,6 +108,61 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.getByRole('button', { name: 'Сохранить' })).not.toBeDisabled();
   });
 
+  it('эффекты: модификатор правится, состояния снимаются чипом', () => {
+    const faith = copyRecord(spellsData.spells.find((s) => s.name === 'Shield of Faith')!, '(копия)');
+    render(<SpellConstructorModal initial={faith} lockedKey={false} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Значение (число или кости)'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.effects[0].modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 3 });
+  });
+
+  it('состояние эффекта снимается чипом (Hold Person)', () => {
+    const hold = copyRecord(spellsData.spells.find((s) => s.name === 'Hold Person')!, '(копия)');
+    render(<SpellConstructorModal initial={hold} lockedKey={false} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Парализован' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.effects[0].conditions).toBeUndefined();
+  });
+
+  it('переключение ветки: attack → save синхронит блок спасброска', () => {
+    render(
+      <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
+    );
+
+    fireEvent.change(screen.getByLabelText('Ветка'), { target: { value: 'save' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.primary).toBe('save');
+    expect(saved.automation.save).toEqual({ ability: 'dex' });
+    expect(saved.automation.attack).toBeUndefined();
+  });
+
+  it('ручная ветка: byDesign включается', () => {
+    const bladeWard = copyRecord(spellsData.spells.find((s) => s.name === 'Blade Ward')!, '(копия)');
+    render(<SpellConstructorModal initial={bladeWard} lockedKey={false} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ведёт мастер (byDesign)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.manual.byDesign).toBe(true);
+  });
+
   it('концентрация синхронит длительность и флаг записи', () => {
     const record = blankRecord('buff', 'Благословение');
     record.duration = [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }];

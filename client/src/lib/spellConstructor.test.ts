@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { CUSTOM_SPELL_PREFIX, automationForSpell } from 'shared';
 import spellsData from 'shared/spellsData';
-import { WIZARD_PROFILES, blankRecord, copyRecord, keyFromName, partUsageKeys, validateConstructor } from './spellConstructor';
+import {
+  WIZARD_PROFILES,
+  blankRecord,
+  canSwitchPrimary,
+  copyRecord,
+  keyFromName,
+  partUsageKeys,
+  switchPrimary,
+  validateConstructor,
+  withSave,
+  withSpellAttack,
+} from './spellConstructor';
 
 describe('конструктор кастомов (R16 К1)', () => {
   it('каждый профиль даёт компилируемую запись с CUSTOM-ключом', () => {
@@ -47,6 +58,37 @@ describe('конструктор кастомов (R16 К1)', () => {
     const usage = partUsageKeys(hoh);
     expect(usage[0]).toContain('ui.constructor.usage.startOfTurn');
     expect(usage[1]).toContain('ui.constructor.usage.endOfTurn');
+  });
+
+  it('переключение простой ветки: attack ↔ save ↔ effect, сложные — не трогаем', () => {
+    const attack = blankRecord('attack', 'Тест');
+    expect(canSwitchPrimary(attack)).toBe(true);
+    const save = switchPrimary(attack, 'save');
+    expect(save.automation.primary).toBe('save');
+    expect(save.automation.attack).toBeUndefined();
+    expect(save.automation.save).toMatchObject({ ability: 'dex' });
+    const effect = switchPrimary(save, 'effect');
+    expect(effect.automation.effects).toHaveLength(1);
+    expect(validateConstructor(effect)).toEqual({ spec: [], local: [] });
+
+    const jallarzi = spellsData.spells.find((s) => s.key === "XPHB:Jallarzi's Storm of Radiance")!;
+    expect(canSwitchPrimary(jallarzi)).toBe(false);
+    expect(switchPrimary(jallarzi, 'attack')).toBe(jallarzi);
+  });
+
+  it('синхронизация спасброска и атаки с автоматизацией', () => {
+    const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '');
+    const changed = withSave(fireball, 'con', true);
+    expect(changed.save).toEqual(['con']);
+    expect(changed.automation.save).toEqual({ ability: 'con', half: true });
+    const cleared = withSave(changed, undefined, false);
+    expect(cleared.save).toBeUndefined();
+    expect(cleared.automation.save).toBeUndefined();
+
+    const bolt = copyRecord(spellsData.spells.find((s) => s.name === 'Fire Bolt')!, '');
+    const melee = withSpellAttack(bolt, 'melee');
+    expect(melee.spellAttack).toBe('melee');
+    expect(melee.automation.attack).toEqual({ rangeType: 'melee' });
   });
 
   it('валидация: имя, кости и пробная компиляция', () => {

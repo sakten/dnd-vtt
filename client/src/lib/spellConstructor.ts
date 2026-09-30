@@ -4,6 +4,7 @@ import {
   generatedAutomation,
   parseDiceExpression,
   validateSpec,
+  type AbilityKey,
   type AutomationSpec,
   type MaterializedAutomation,
   type Spell,
@@ -163,9 +164,73 @@ export function partUsageKeys(record: SpellDef): Record<number, string[]> {
   return out;
 }
 
+export type SimpleBranch = 'attack' | 'save' | 'auto' | 'effect';
+
+/** Ветки, между которыми безопасно переключаться формой (без zone/призывов/форм/оружия). */
+const SIMPLE_BRANCHES: SimpleBranch[] = ['attack', 'save', 'auto', 'effect'];
+
+/** Можно ли менять ведущую ветку: автоматизация не содержит сложных блоков. */
+export function canSwitchPrimary(record: SpellDef): boolean {
+  const a = record.automation;
+  if (a.zone || a.summon || a.shape || a.weaponAttack || a.manual || a.utility || a.choices?.length) return false;
+  return SIMPLE_BRANCHES.includes(a.primary as SimpleBranch);
+}
+
+/**
+ * Переключение ведущей ветки простой записи: payload (damage/heal/effects)
+ * сохраняется, меняются только ветко-специфичные поля. Для сложных записей
+ * форма ветку не трогает (`canSwitchPrimary`).
+ */
+export function switchPrimary(record: SpellDef, primary: SimpleBranch): SpellDef {
+  if (!canSwitchPrimary(record)) return record;
+  const automation = structuredClone(record.automation);
+  delete automation.save;
+  delete automation.attack;
+  if (primary === 'attack') {
+    automation.attack = { rangeType: record.spellAttack ?? 'ranged' };
+    automation.count ??= { ref: 'spellAttackCount' };
+  } else if (primary === 'save') {
+    automation.save = { ability: record.save?.[0] ?? 'dex', ...(record.saveHalf ? { half: true } : {}) };
+  } else if (primary === 'effect' && !automation.effects?.length) {
+    automation.effects = [{ id: 'effect', name: record.name, duration: { type: 'permanent' }, to: 'targets', modifiers: [] }];
+  }
+  automation.primary = primary;
+  return { ...record, automation };
+}
+
+/** Смена характеристики атаки заклинанием: мета + `attack.rangeType` записи (если атака в ней есть). */
+export function withSpellAttack(record: SpellDef, value: Spell['spellAttack']): SpellDef {
+  const next: SpellDef = { ...record, spellAttack: value };
+  const attack = record.automation.attack;
+  if (value && attack && !record.automation.weaponAttack) {
+    next.automation = { ...record.automation, attack: { ...attack, rangeType: value } };
+  }
+  return next;
+}
+
+/** Смена спасброска: мета + `save` записи (характеристика/половина); пусто — блок убирается. */
+export function withSave(record: SpellDef, ability: AbilityKey | undefined, half: boolean): SpellDef {
+  const next: SpellDef = {
+    ...record,
+    save: ability ? [ability] : undefined,
+    saveHalf: ability && half ? true : undefined,
+  };
+  const automation = { ...record.automation };
+  if (ability) {
+    const save = { ...(automation.save ?? { ability }) };
+    save.ability = ability;
+    if (half) save.half = true;
+    else delete save.half;
+    automation.save = save;
+  } else {
+    delete automation.save;
+  }
+  next.automation = automation;
+  return next;
+}
+
 export type ConstructorIssueCode = 'nameRequired' | 'nameTooLong' | 'diceInvalid' | 'compileFailed';
-/** Локальная ошибка конструктора (мета/кости), вне `validateSpec`. */
-export interface ConstructorIssue {
+/** Локальная ошибка конструктора (мета/кости), вне `validateSpec`. */export interface ConstructorIssue {
   code: ConstructorIssueCode;
   params?: Record<string, string | number>;
 }

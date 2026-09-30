@@ -2,9 +2,15 @@ import { useMemo, useState } from 'react';
 import {
   ABILITIES,
   CLASSES,
+  CONDITION_KEYS,
   DAMAGE_TYPES,
   type AbilityKey,
   type AreaSpec,
+  type ConditionKey,
+  type EffectDuration,
+  type EffectSpec,
+  type ManualSpec,
+  type ModifierSpec,
   type Spell,
   type SpellDef,
   type SpellDuration,
@@ -12,16 +18,22 @@ import {
   type SpellUpcast,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
-import { abilityName, classLabel, damageLabel } from '../i18n/domain';
+import { abilityName, classLabel, conditionLabel, damageLabel } from '../i18n/domain';
 import { specIssueText } from '../i18n/errors';
 import { spellDisplayName } from '../i18n/names';
+import { newId } from '../lib/id';
 import {
   WIZARD_PROFILES,
   blankRecord,
+  canSwitchPrimary,
   copyRecord,
   keyFromName,
   partUsageKeys,
+  switchPrimary,
   validateConstructor,
+  withSave,
+  withSpellAttack,
+  type SimpleBranch,
   type WizardProfileId,
 } from '../lib/spellConstructor';
 import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
@@ -51,6 +63,34 @@ const DURATION_UNITS = ['minute', 'hour', 'day', 'round'] as const;
 const AREA_SHAPES: AreaSpec['shape'][] = ['sphere', 'cone', 'cube', 'line', 'cylinder'];
 const CANTrip_LEVELS = [5, 11, 17];
 const ABILITY_KEYS = ABILITIES.map((a) => a.key);
+/** Цели/режимы/длительности эффектов, редактируемые формой (остальное — JSON). */
+const MODIFIER_TARGETS = [
+  'attack',
+  'damage',
+  'ac',
+  'save',
+  'check',
+  'speed',
+  'initiative',
+  'maxHp',
+  'spellDc',
+  'spellAttack',
+  'extraActions',
+  'extraBonusActions',
+  'reach',
+] as const;
+const MODIFIER_MODES = [
+  'add',
+  'multiply',
+  'set',
+  'advantage',
+  'disadvantage',
+  'resistance',
+  'immunity',
+  'vulnerability',
+] as const;
+const EFFECT_DURATIONS = ['permanent', 'concentration', 'endOfTurn', 'rounds'] as const;
+const SIMPLE_SWITCH: SimpleBranch[] = ['attack', 'save', 'auto', 'effect'];
 
 type DurationKind = (typeof DURATION_KINDS)[number];
 
@@ -95,6 +135,68 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
   }, [record]);
   const damageParts = record.damage?.parts ?? [];
   const usage = useMemo(() => partUsageKeys(record), [record]);
+
+  const automation = record.automation;
+  const primary = automation.primary;
+  const switchable = canSwitchPrimary(record);
+  const effectsAllowed = ['attack', 'save', 'auto', 'effect', 'utility'].includes(primary);
+  const effects = automation.effects ?? [];
+  const setEffects = (list: EffectSpec[]) =>
+    setRecord((r) => ({ ...r, automation: { ...r.automation, effects: list.length ? list : undefined } }));
+  const patchEffect = (index: number, patch: Partial<EffectSpec>) => {
+    const list = [...effects];
+    list[index] = { ...list[index]!, ...patch };
+    setEffects(list);
+  };
+  const patchManual = (patch: Partial<ManualSpec>) =>
+    setRecord((r) => ({
+      ...r,
+      automation: { ...r.automation, manual: { ...(r.automation.manual ?? {}), ...patch } },
+    }));
+  const manual = automation.manual ?? {};
+  const patchModifier = (effectIndex: number, modIndex: number, patch: Partial<ModifierSpec>) => {
+    const list = [...(effects[effectIndex]!.modifiers ?? [])];
+    list[modIndex] = { ...(list[modIndex] as ModifierSpec), ...patch };
+    patchEffect(effectIndex, { modifiers: list });
+  };
+  const removeModifier = (effectIndex: number, modIndex: number) => {
+    patchEffect(effectIndex, {
+      modifiers: (effects[effectIndex]!.modifiers ?? []).filter((_, i) => i !== modIndex),
+    });
+  };
+  const addModifier = (effectIndex: number) => {
+    patchEffect(effectIndex, {
+      modifiers: [...(effects[effectIndex]!.modifiers ?? []), { target: 'damage', mode: 'add', value: 1 } as ModifierSpec],
+    });
+  };
+  const toggleCondition = (effectIndex: number, key: ConditionKey) => {
+    const list = effects[effectIndex]!.conditions ?? [];
+    const gated = list.filter((c) => typeof c !== 'string');
+    const plain = list.filter((c): c is string => typeof c === 'string');
+    const next = plain.includes(key) ? plain.filter((c) => c !== key) : [...plain, key];
+    const merged = [...gated, ...next];
+    patchEffect(effectIndex, { conditions: merged.length ? merged : undefined });
+  };
+  const addEffect = () => {
+    setEffects([
+      ...effects,
+      { id: newId(), name: record.name, duration: { type: 'permanent' }, to: 'targets', modifiers: [] },
+    ]);
+  };
+  const setEffectDuration = (effectIndex: number, kind: (typeof EFFECT_DURATIONS)[number], rounds: number) => {
+    const duration: EffectDuration =
+      kind === 'rounds'
+        ? { type: 'rounds', rounds: Math.max(1, rounds) }
+        : kind === 'endOfTurn'
+          ? { type: 'endOfTurn', of: 'target' }
+          : { type: kind };
+    patchEffect(effectIndex, { duration });
+  };
+  const parseModifierValue = (raw: string): number | string | undefined => {
+    const text = raw.trim();
+    if (!text) return undefined;
+    return /^-?\d+(\.\d+)?$/.test(text) ? Number(text) : text;
+  };
 
   const distanceType = record.range.distance?.type ?? (record.range.type === 'self' ? 'self' : 'touch');
   const distanceKinds: string[] = DISTANCE_KINDS.includes(distanceType as (typeof DISTANCE_KINDS)[number])
@@ -277,6 +379,19 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 ))}
               </select>
             </Field>
+            <Field label={t('ui.constructor.branch')}>
+              {switchable ? (
+                <select value={primary} onChange={(e) => setRecord((r) => switchPrimary(r, e.target.value as SimpleBranch))}>
+                  {SIMPLE_SWITCH.map((branch) => (
+                    <option key={branch} value={branch}>
+                      {t(`ui.constructor.branchName.${branch}` as MessageKey)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="constructor-branch">{t(`ui.constructor.branchName.${primary}` as MessageKey)}</span>
+              )}
+            </Field>
           </div>
 
           <div className="ability-types">
@@ -416,16 +531,29 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             <Field label={t('ui.constructor.attack')}>
               <select
                 value={record.spellAttack ?? ''}
-                onChange={(e) => setMeta({ spellAttack: (e.target.value || undefined) as Spell['spellAttack'] })}
+                onChange={(e) =>
+                  setRecord((r) => withSpellAttack(r, (e.target.value || undefined) as Spell['spellAttack']))
+                }
               >
-                <option value="">{t('ui.constructor.attackNone')}</option>
+                <option value="" disabled={primary === 'attack'}>
+                  {t('ui.constructor.attackNone')}
+                </option>
                 <option value="melee">{t('ui.constructor.attackMelee')}</option>
                 <option value="ranged">{t('ui.constructor.attackRanged')}</option>
               </select>
             </Field>
             <Field label={t('ui.constructor.save')}>
-              <select value={saveAbility} onChange={(e) => setMeta({ save: e.target.value ? [e.target.value as AbilityKey] : undefined })}>
-                <option value="">{t('ui.constructor.saveNone')}</option>
+              <select
+                value={saveAbility}
+                onChange={(e) =>
+                  setRecord((r) =>
+                    withSave(r, (e.target.value || undefined) as AbilityKey | undefined, r.saveHalf === true)
+                  )
+                }
+              >
+                <option value="" disabled={primary === 'save'}>
+                  {t('ui.constructor.saveNone')}
+                </option>
                 {ABILITY_KEYS.map((key) => (
                   <option key={key} value={key}>
                     {abilityName(key)}
@@ -438,7 +566,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 <input
                   type="checkbox"
                   checked={record.saveHalf === true}
-                  onChange={(e) => setMeta({ saveHalf: e.target.checked || undefined })}
+                  onChange={(e) => setRecord((r) => withSave(r, saveAbility, e.target.checked))}
                 />
                 <span>{t('ui.constructor.saveHalf')}</span>
               </label>
@@ -547,6 +675,152 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </Field>
             )}
           </div>
+
+          {effectsAllowed && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.effects')}</div>
+              {effects.map((effect, index) => {
+                const leveled = typeof effect.duration === 'object' && 'levels' in effect.duration;
+                const duration = leveled ? undefined : (effect.duration as EffectDuration);
+                const durationKind = duration?.type ?? 'permanent';
+                return (
+                  <div className="constructor-effect" key={effect.id}>
+                    <div className="field-row">
+                      <Field label={t('ui.constructor.effectName')}>
+                        <input
+                          type="text"
+                          value={effect.name}
+                          onChange={(e) => patchEffect(index, { name: e.target.value })}
+                        />
+                      </Field>
+                      <Field label={t('ui.constructor.effectTo')}>
+                        <select
+                          value={effect.to ?? 'targets'}
+                          onChange={(e) => patchEffect(index, { to: e.target.value as 'self' | 'targets' })}
+                        >
+                          <option value="targets">{t('ui.constructor.effectTo.targets')}</option>
+                          <option value="self">{t('ui.constructor.effectTo.self')}</option>
+                        </select>
+                      </Field>
+                      {leveled ? (
+                        <span className="hint">{t('ui.constructor.effectLeveled')}</span>
+                      ) : (
+                        <Field label={t('ui.constructor.duration')}>
+                          <select value={durationKind} onChange={(e) => setEffectDuration(index, e.target.value as (typeof EFFECT_DURATIONS)[number], duration?.type === 'rounds' ? duration.rounds : 1)}>
+                            {EFFECT_DURATIONS.map((kind) => (
+                              <option key={kind} value={kind}>
+                                {t(`ui.constructor.effectDuration.${kind}` as MessageKey)}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      )}
+                      {duration?.type === 'rounds' && (
+                        <Field label={t('ui.constructor.effectRound')}>
+                          <input
+                            type="number"
+                            min={1}
+                            value={duration.rounds}
+                            onChange={(e) => setEffectDuration(index, 'rounds', Number(e.target.value) || 1)}
+                          />
+                        </Field>
+                      )}
+                      <button type="button" onClick={() => setEffects(effects.filter((_, i) => i !== index))}>
+                        {t('ui.constructor.remove')}
+                      </button>
+                    </div>
+                    {(effect.modifiers ?? []).map((entry, mi) => {
+                      if (typeof entry !== 'object' || 'if' in entry) return null;
+                      const mod = entry as ModifierSpec;
+                      return (
+                        <div className="field-row constructor-modifier" key={mi}>
+                          <select
+                            value={mod.target}
+                            onChange={(e) => patchModifier(index, mi, { target: e.target.value as ModifierSpec['target'] })}
+                          >
+                            {MODIFIER_TARGETS.map((target) => (
+                              <option key={target} value={target}>
+                                {t(`ui.constructor.mtarget.${target}` as MessageKey)}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={mod.mode}
+                            onChange={(e) => patchModifier(index, mi, { mode: e.target.value as ModifierSpec['mode'] })}
+                          >
+                            {MODIFIER_MODES.map((mode) => (
+                              <option key={mode} value={mode}>
+                                {t(`ui.constructor.mmode.${mode}` as MessageKey)}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            placeholder={t('ui.constructor.modifierValue')}
+                            value={mod.value === undefined ? '' : String(mod.value)}
+                            onChange={(e) => patchModifier(index, mi, { value: parseModifierValue(e.target.value) })}
+                          />
+                          <button type="button" onClick={() => removeModifier(index, mi)}>
+                            {t('ui.constructor.remove')}
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <button type="button" onClick={() => addModifier(index)}>
+                      {t('ui.constructor.addModifier')}
+                    </button>
+                    <div className="ability-types">
+                      {CONDITION_KEYS.map((key) => {
+                        const checked = (effect.conditions ?? []).some((c) => c === key);
+                        return (
+                          <button
+                            type="button"
+                            key={key}
+                            className={`ability-type${checked ? ' on' : ''}`}
+                            onClick={() => toggleCondition(index, key)}
+                          >
+                            {conditionLabel(key)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              <button type="button" onClick={addEffect}>
+                {t('ui.constructor.addEffect')}
+              </button>
+            </>
+          )}
+
+          {primary === 'manual' && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.manual')}</div>
+              <div className="field-row">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={manual.byDesign === true}
+                    onChange={(e) => patchManual({ byDesign: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.manualByDesign')}</span>
+                </label>
+                <Field label={t('ui.constructor.manualChip')}>
+                  <select
+                    value={manual.chip ?? ''}
+                    onChange={(e) => patchManual({ chip: (e.target.value || undefined) as ConditionKey | undefined })}
+                  >
+                    <option value="">{t('ui.constructor.manualChipNone')}</option>
+                    {CONDITION_KEYS.map((key) => (
+                      <option key={key} value={key}>
+                        {conditionLabel(key)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </>
+          )}
 
           {record.level === 0 ? (
             <>
