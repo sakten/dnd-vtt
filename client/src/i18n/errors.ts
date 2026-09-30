@@ -1,4 +1,4 @@
-import type { ErrorPayload } from 'shared';
+import type { ErrorPayload, SpecIssue } from 'shared';
 import { t, type MessageKey } from './index';
 import { resourceLabel } from './domain';
 
@@ -11,4 +11,9 @@ export function errorText(payload: ErrorPayload | string): string {
     });
   }
   return t(`error.${payload.code}` as MessageKey, payload.params);
+}
+
+/** Текст семантической ошибки спека (конструктор кастомов): код → `error.spec.<code>`. */
+export function specIssueText(issue: SpecIssue): string {
+  return t(`error.spec.${issue.code}` as MessageKey, issue.params);
 }

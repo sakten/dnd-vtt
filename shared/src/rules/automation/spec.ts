@@ -519,3 +519,35 @@ export interface AutomationSpecCopy {
   patch?: Record<string, unknown>;
   remove?: string[];
 }
+
+/**
+ * Код семантической ошибки спека (`validateSpec`, R16): UI конструктора и
+ * серверный импорт показывают текст по коду (`error.spec.<code>` в i18n),
+ * не завися от языка сообщений компилятора.
+ */
+export type SpecIssueCode =
+  | 'effectWithoutEffects'
+  | 'utilityWithoutKind'
+  | 'shapeWithoutShape'
+  | 'shapeOnlyWithSave'
+  | 'manualBlockNeedsManualPrimary'
+  | 'chipWithoutByDesign'
+  | 'chipActionsWithoutChip'
+  | 'manualWithMechanics'
+  | 'summonBlockNeedsSummonPrimary'
+  | 'summonWithoutSummon'
+  | 'attackWithoutAttack'
+  | 'weaponAttackBadPrimary'
+  | 'effectsBadPrimary'
+  | 'weaponAttackWithoutStrategy'
+  | 'duplicateEffectId'
+  | 'zoneWithoutAreaDuration'
+  | 'choiceInvalidOption'
+  | 'actionBaseActionWithPayload'
+  | 'choiceRefUnknown';
+
+/** Семантическая ошибка спека: код + параметры подстановки (`id`/`choice`/`option`). */
+export interface SpecIssue {
+  code: SpecIssueCode;
+  params?: Record<string, string | number>;
+}

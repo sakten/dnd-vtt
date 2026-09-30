@@ -19,6 +19,7 @@ import type {
   LoadoutSpec,
   ModifierSpec,
   PayloadSpec,
+  SpecIssue,
   SummonSpec,
   TriggerAction,
   TriggerList,
@@ -767,8 +768,8 @@ function compileZone(ctx: CompileCtx, zone: ZoneSpec): ZoneDef {
 
 /** Компиляция спека в рантайм-формат `AutomationDef` (движок не меняется). */
 export function compileSpec(spec: AutomationSpec, input: CompileInput): AutomationDef {
-  const errors = validateSpec(spec);
-  if (errors.length) throw new Error(`AutomationSpec ${spec.key}: ${errors.join('; ')}`);
+  const issues = validateSpec(spec);
+  if (issues.length) throw new Error(`AutomationSpec ${spec.key}: ${formatSpecIssues(issues)}`);
   const ctx: CompileCtx = {
     ...input,
     spec,
@@ -966,49 +967,66 @@ const CHOICE_OPTION_VOCABULARY: Partial<Record<ChoiceSpec['param'], ReadonlySet<
   skill: new Set(SKILLS.map((s) => s.key)),
 };
 
+/** Сообщение компилятора/импорта из кодов: `code(param=value, ...)`. */
+export function formatSpecIssues(issues: SpecIssue[]): string {
+  return issues
+    .map((issue) => {
+      const params = issue.params
+        ? Object.entries(issue.params)
+            .map(([key, value]) => `${key}=${value}`)
+            .join(', ')
+        : '';
+      return params ? `${issue.code}(${params})` : issue.code;
+    })
+    .join('; ');
+}
+
 /**
  * Скелет валидатора (R16, `AUTOMATION.md` §6): недопустимые комбинации `primary` ×
- * блоки — ошибка компиляции, а не молчаливо игнорируемое поле. Матрица расширяется
- * по мере миграции батчей.
+ * блоки — ошибка компиляции, а не молчаливо игнорируемое поле. Ошибки — кодами
+ * (`SpecIssue`), текст подставляет UI (`error.spec.<code>`); сообщение компилятора —
+ * `formatSpecIssues` (код + параметры).
  */
-export function validateSpec(spec: AutomationSpec): string[] {
-  const errors: string[] = [];
-  if (spec.primary === 'effect' && !spec.effects?.length && !spec.zone) errors.push('effect без effects/zone');
-  if (spec.primary === 'utility' && !spec.utility?.kind) errors.push('utility без utility.kind');
-  if (spec.primary === 'shape' && !spec.shape) errors.push('shape без shape');
-  if (spec.shape && spec.primary !== 'save') errors.push('shape допустим только с save');
-  if (spec.manual && spec.primary !== 'manual') errors.push('manual-блок допустим только с primary manual');
-  if (spec.manual?.chip && !spec.manual.byDesign) errors.push('chip без byDesign');
-  if (spec.manual?.chipActions?.length && !spec.manual.chip) errors.push('chipActions без chip');
+export function validateSpec(spec: AutomationSpec): SpecIssue[] {
+  const issues: SpecIssue[] = [];
+  if (spec.primary === 'effect' && !spec.effects?.length && !spec.zone) issues.push({ code: 'effectWithoutEffects' });
+  if (spec.primary === 'utility' && !spec.utility?.kind) issues.push({ code: 'utilityWithoutKind' });
+  if (spec.primary === 'shape' && !spec.shape) issues.push({ code: 'shapeWithoutShape' });
+  if (spec.shape && spec.primary !== 'save') issues.push({ code: 'shapeOnlyWithSave' });
+  if (spec.manual && spec.primary !== 'manual') issues.push({ code: 'manualBlockNeedsManualPrimary' });
+  if (spec.manual?.chip && !spec.manual.byDesign) issues.push({ code: 'chipWithoutByDesign' });
+  if (spec.manual?.chipActions?.length && !spec.manual.chip) issues.push({ code: 'chipActionsWithoutChip' });
   if (spec.primary === 'manual' && (spec.damage || spec.effects?.length || spec.zone)) {
-    errors.push('manual с механикой');
+    issues.push({ code: 'manualWithMechanics' });
   }
-  if (spec.summon && spec.primary !== 'summon') errors.push('summon-блок допустим только с primary summon');
-  if (spec.primary === 'summon' && !spec.summon) errors.push('summon без summon');
+  if (spec.summon && spec.primary !== 'summon') issues.push({ code: 'summonBlockNeedsSummonPrimary' });
+  if (spec.primary === 'summon' && !spec.summon) issues.push({ code: 'summonWithoutSummon' });
   if (spec.primary === 'attack' && !spec.attack && !spec.weaponAttack) {
-    errors.push('attack без attack/weaponAttack');
+    issues.push({ code: 'attackWithoutAttack' });
   }
   if (!['attack', 'auto'].includes(spec.primary) && spec.weaponAttack) {
-    errors.push('weaponAttack допустим только с attack/auto (смайты — райдер после попадания)');
+    issues.push({ code: 'weaponAttackBadPrimary' });
   }
   if (spec.effects?.length && !['attack', 'save', 'auto', 'effect', 'utility'].includes(spec.primary)) {
-    errors.push('effects допустимы только для attack/save/auto/effect/utility (Far Step — носитель)');
+    issues.push({ code: 'effectsBadPrimary' });
   }
   if (spec.weaponAttack && (spec.weaponAttack.riderDice === undefined && !spec.weaponAttack.secondary && !spec.weaponAttack.hitEffect && !spec.weaponAttack.anyWeapon && !spec.weaponAttack.spellAbility && !spec.weaponAttack.replace)) {
-    errors.push('weaponAttack без стратегии');
+    issues.push({ code: 'weaponAttackWithoutStrategy' });
   }
   const effectIds = new Set<string>();
   for (const effect of spec.effects ?? []) {
-    if (effectIds.has(effect.id)) errors.push(`дублирующийся id эффекта ${effect.id}`);
+    if (effectIds.has(effect.id)) issues.push({ code: 'duplicateEffectId', params: { id: effect.id } });
     effectIds.add(effect.id);
   }
-  if (spec.zone && (!spec.zone.area || !spec.zone.duration)) errors.push('zone без area/duration');
+  if (spec.zone && (!spec.zone.area || !spec.zone.duration)) issues.push({ code: 'zoneWithoutAreaDuration' });
   const choiceIds = new Set((spec.choices ?? []).map((c) => c.id));
   for (const choice of spec.choices ?? []) {
     const vocabulary = CHOICE_OPTION_VOCABULARY[choice.param];
     if (!vocabulary) continue;
     for (const option of choice.options) {
-      if (!vocabulary.has(option)) errors.push(`выбор ${choice.id}: недопустимое значение ${option}`);
+      if (!vocabulary.has(option)) {
+        issues.push({ code: 'choiceInvalidOption', params: { choice: choice.id, option } });
+      }
     }
   }
   const refs: ValueExpr[] = [];
@@ -1159,7 +1177,7 @@ export function validateSpec(spec: AutomationSpec): string[] {
         action.requiresCreatureTypes?.length ||
         action.retarget)
     ) {
-      errors.push(`action.${action.id}: baseActionId несовместим с payload (payload молча теряется)`);
+      issues.push({ code: 'actionBaseActionWithPayload', params: { id: action.id } });
     }
     if (action.damage) {
       refs.push(action.damage.dice);
@@ -1231,10 +1249,10 @@ export function validateSpec(spec: AutomationSpec): string[] {
       return;
     }
     if (expr.ref === 'choice' && expr.choice && !choiceIds.has(expr.choice)) {
-      errors.push(`ссылка на неизвестный выбор ${expr.choice}`);
+      issues.push({ code: 'choiceRefUnknown', params: { choice: expr.choice } });
     }
     if (expr.fallback !== undefined) checkRef(expr.fallback);
   };
   for (const ref of refs) checkRef(ref);
-  return errors;
+  return issues;
 }

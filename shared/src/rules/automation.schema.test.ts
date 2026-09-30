@@ -76,14 +76,14 @@ describe('JSON-Schema AutomationSpec (R16 шаг 4, срез 2)', () => {
   });
 
   it('validateSpec: семантические требования primary (utility/shape)', () => {
-    expect(validateSpec({ key: 'TEST:NoUtility', name: 'NoUtility', primary: 'utility' })).toContain(
-      'utility без utility.kind'
-    );
-    expect(validateSpec({ key: 'TEST:NoShape', name: 'NoShape', primary: 'shape', save: { ability: 'wis' } })).toContain(
-      'shape без shape'
+    expect(validateSpec({ key: 'TEST:NoUtility', name: 'NoUtility', primary: 'utility' })).toContainEqual({
+      code: 'utilityWithoutKind',
+    });
+    expect(validateSpec({ key: 'TEST:NoShape', name: 'NoShape', primary: 'shape', save: { ability: 'wis' } })).toContainEqual(
+      { code: 'shapeWithoutShape' }
     );
     expect(
       validateSpec({ key: 'TEST:ShapeBad', name: 'ShapeBad', primary: 'effect', shape: { kind: 'polymorph' } })
-    ).toContain('shape допустим только с save');
+    ).toContainEqual({ code: 'shapeOnlyWithSave' });
   });
 });

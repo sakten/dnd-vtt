@@ -65,7 +65,9 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
         },
       ],
     } as unknown as AutomationSpec;
-    expect(validateSpec(badChoice).some((e) => e.includes('missing'))).toBe(true);
+    expect(validateSpec(badChoice).some((e) => e.code === 'choiceRefUnknown' && e.params?.choice === 'missing')).toBe(
+      true
+    );
   });
 
   it('выборы: мультивыбор адресуется по id, default и optional — из спека', () => {
@@ -135,7 +137,7 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
       choices: [{ id: 'damageType', param: 'damageType', options: ['fyre'] }],
       damage: { dice: '1d6', types: [{ ref: 'choice' }] },
     } as unknown as AutomationSpec;
-    expect(validateSpec(bad).some((e) => e.includes('fyre'))).toBe(true);
+    expect(validateSpec(bad).some((e) => e.code === 'choiceInvalidOption' && e.params?.option === 'fyre')).toBe(true);
 
     // Сентинел True Strike `weapon` — допустимое значение словаря типов урона.
     const weapon = {
@@ -164,7 +166,7 @@ describe('AutomationSpec (R16, пилот loadout)', () => {
         },
       ],
     } as unknown as AutomationSpec;
-    expect(validateSpec(bad).some((e) => e.includes('baseActionId'))).toBe(true);
+    expect(validateSpec(bad).some((e) => e.code === 'actionBaseActionWithPayload')).toBe(true);
     expect(() => compileSpec(bad, { spell: SPELLS[0]!, opts: {} })).toThrow();
 
     const ok = {

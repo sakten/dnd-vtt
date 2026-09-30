@@ -2,6 +2,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import {
   CUSTOM_SPELL_PREFIX,
   compileSpec,
+  formatSpecIssues,
   isRecord,
   resolveSpec,
   validateSpec,
@@ -104,8 +105,8 @@ function validateRecord(record: SpellDef): SpellDef {
     bad(`схема: ${ajv.errorsText(checkAutomation.errors, { separator: '; ' })}`);
   }
   const spec: AutomationSpec = { key: record.key, name: record.name, ...structuredClone(record.automation) };
-  const errors = validateSpec(spec);
-  if (errors.length) bad(errors.join('; '));
+  const issues = validateSpec(spec);
+  if (issues.length) bad(formatSpecIssues(issues));
   compileSpec(spec, { spell: record, opts: {} });
   return record;
 }
