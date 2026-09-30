@@ -101,8 +101,8 @@ describe('SpellConstructorModal (R16 К1)', () => {
     const hoh = spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!;
     render(<SpellConstructorModal initial={copyRecord(hoh, '(копия)')} lockedKey={false} onClose={vi.fn()} />);
 
-    expect(screen.queryByLabelText('Кости (например 3d6)')).toBeNull();
     expect(screen.getAllByText('Срабатывание')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Кости (например 3d6)')).toHaveLength(2);
     expect(screen.getAllByText(/начало хода/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/конец хода/).length).toBeGreaterThan(0);
     // Сводка записи: аура зоны (ослепление) и разница сейвов частей.
@@ -197,8 +197,56 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(saved.automation.summon).toMatchObject({ creature: 'XPHB:Fey Spirit' });
   });
 
-  it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {
+  it('зона HoH редактируется: тип части, сейв слота, аура', () => {
+    const hoh = copyRecord(spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!, '(копия)');
+    render(<SpellConstructorModal initial={hoh} lockedKey={false} onClose={vi.fn()} />);
+
+    expect(screen.getAllByLabelText('Кости (например 3d6)')).toHaveLength(2);
+    fireEvent.change(screen.getAllByLabelText('Тип')[0]!, { target: { value: 'fire' } });
+    // Слот начала хода привязан к части 1, конца хода — к части 2.
+    const slotDamage = screen.getAllByLabelText('Урон');
+    expect(slotDamage[0]).toHaveValue('part:0');
+    expect(slotDamage[1]).toHaveValue('part:1');
+    // Аура: снимаем ослепление.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ослеплён' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.damage.parts[0].types).toEqual(['fire']);
+    expect(saved.damage.types).toContain('fire');
+    expect(saved.automation.zone.aura.effects[0].conditions).toBeUndefined();
+  });
+
+  it('зона добавляется к эффекту и сохраняется', () => {
     render(
+      <SpellConstructorModal initial={blankRecord('buff', 'Тест')} lockedKey={false} onClose={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить зону' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.zone).toMatchObject({ area: { shape: 'sphere', size: 10 }, origin: 'point' });
+  });
+
+  it('выборы при касте добавляются и сохраняются', () => {
+    render(
+      <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить выбор' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.choices).toHaveLength(1);
+    expect(saved.automation.choices[0]).toMatchObject({ id: 'damageType', param: 'damageType', options: ['fire', 'cold'] });
+  });
+
+  it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {    render(
       <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
     );
     fireEvent.click(screen.getByRole('button', { name: 'JSON' }));

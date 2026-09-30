@@ -658,6 +658,12 @@
   font-size: 12px;
   color: var(--text-dim);
 }
+.constructor-zone-slot {
+  margin: 4px 0;
+}
+.constructor-zone-slot .field-row {
+  margin-left: 18px;
+}
 .constructor-base-list {
   max-height: 46vh;
 }

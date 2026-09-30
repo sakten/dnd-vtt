@@ -6,10 +6,16 @@ import {
   validateSpec,
   type AbilityKey,
   type AutomationSpec,
+  type ChoiceSpec,
+  type EffectSpec,
   type MaterializedAutomation,
+  type PayloadSpec,
   type Spell,
+  type SpellDamagePart,
   type SpellDef,
   type SpecIssue,
+  type ValueExpr,
+  type ZoneSpec,
 } from 'shared';
 
 /**
@@ -193,6 +199,139 @@ export function withSave(record: SpellDef, ability: AbilityKey | undefined, half
   }
   next.automation = automation;
   return next;
+}
+
+/** Правка части составного урона: кости/тип; агрегаты meta (`damage.dice`/`types`) пересобираются. */
+export function withDamagePart(record: SpellDef, index: number, patch: { dice?: string; type?: string }): SpellDef {
+  const parts = [...(record.damage?.parts ?? [])];
+  const part = { ...parts[index]! };
+  if (patch.dice !== undefined) part.dice = patch.dice;
+  if (patch.type !== undefined) part.types = [patch.type];
+  parts[index] = part;
+  const dice = [...new Set(parts.map((p) => p.dice))];
+  const types = [...new Set(parts.flatMap((p) => p.types))];
+  return { ...record, damage: { parts, dice, types } };
+}
+
+/** Зона записи по умолчанию (добавление блока). */
+export function blankZone(): ZoneSpec {
+  return { area: { shape: 'sphere', size: 10 }, origin: 'point', duration: { type: 'permanent' } };
+}
+
+/** Патч зоны записи; `null` — удалить блок (`primary: effect` тогда требует эффектов). */
+export function patchZone(record: SpellDef, patch: Partial<ZoneSpec> | null): SpellDef {
+  const automation = { ...record.automation };
+  if (patch === null) {
+    delete automation.zone;
+    return { ...record, automation };
+  }
+  automation.zone = { ...(record.automation.zone ?? blankZone()), ...patch };
+  return { ...record, automation };
+}
+
+export const ZONE_SLOTS = ['enter', 'exit', 'startOfTurn', 'endOfTurn'] as const;
+export type ZoneSlot = (typeof ZONE_SLOTS)[number];
+
+/** Включение/выключение слота триггера зоны (по умолчанию — `containment: anyCell`). */
+export function withZoneSlot(record: SpellDef, slot: ZoneSlot, enabled: boolean): SpellDef {
+  const zone = record.automation.zone;
+  if (!zone) return record;
+  const triggers = { ...(zone.triggers ?? {}) };
+  if (enabled) triggers[slot] ??= { containment: 'anyCell' };
+  else delete triggers[slot];
+  const next: ZoneSpec = { ...zone };
+  if (Object.keys(triggers).length) next.triggers = triggers;
+  else delete next.triggers;
+  return { ...record, automation: { ...record.automation, zone: next } };
+}
+
+/** Патч payload слота триггера зоны (спас/containment/урон/эффекты). */
+export function withZonePayload(record: SpellDef, slot: ZoneSlot, patch: Partial<PayloadSpec>): SpellDef {
+  const zone = record.automation.zone;
+  const payload: PayloadSpec = { ...(zone?.triggers?.[slot] ?? {}) };
+  const target = payload as Record<string, unknown>;
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete target[key];
+    else target[key] = value;
+  }
+  return {
+    ...record,
+    automation: {
+      ...record.automation,
+      zone: { ...(zone ?? blankZone()), triggers: { ...(zone?.triggers ?? {}), [slot]: payload } },
+    },
+  };
+}
+
+/** Эффекты ауры зоны (пусто — блок ауры без эффектов удаляется). */
+export function withZoneAura(record: SpellDef, effects: EffectSpec[]): SpellDef {
+  const zone = record.automation.zone;
+  if (!zone) return record;
+  const aura: PayloadSpec = { ...(zone.aura ?? {}) };
+  if (effects.length) aura.effects = effects;
+  else delete aura.effects;
+  const next: ZoneSpec = { ...zone };
+  if (aura.effects || aura.save || aura.damage) next.aura = aura;
+  else delete next.aura;
+  return { ...record, automation: { ...record.automation, zone: next } };
+}
+
+/** Источник урона слота: нет / привязка к части карточки / литерал. */
+export function slotDamageSource(
+  payload: PayloadSpec | undefined
+): { kind: 'none' } | { kind: 'part'; index?: number; role?: string } | { kind: 'literal' } {
+  const damage = payload?.damage;
+  if (!damage || !('dice' in damage)) return { kind: 'none' };
+  const expr = damage.dice;
+  if (!isRecord(expr)) return { kind: 'literal' };
+  const ref: unknown = 'scale' in expr && isRecord(expr.scale) ? expr.scale.dice : expr;
+  if (isRecord(ref)) {
+    const partRef = ref as { ref?: unknown; index?: unknown; part?: unknown };
+    if (partRef.ref === 'part') {
+      return {
+        kind: 'part',
+        ...(typeof partRef.index === 'number' ? { index: partRef.index } : {}),
+        ...(typeof partRef.part === 'string' ? { role: partRef.part } : {}),
+      };
+    }
+  }
+  return { kind: 'literal' };
+}
+
+/** Привязка урона слота к части карточки: ссылка `{ref:'part'}` с сохранением `scale`. */
+export function slotDamageWithPart(payload: PayloadSpec, part: SpellDamagePart, index: number): PayloadSpec {
+  const ref: ValueExpr = { ref: 'part', part: part.role, index };
+  const current = payload.damage;
+  let dice: ValueExpr = ref;
+  if (current && 'dice' in current && isRecord(current.dice) && 'scale' in current.dice) {
+    dice = { scale: { ...(current.dice.scale as Record<string, unknown>), dice: ref } } as ValueExpr;
+  }
+  return { ...payload, damage: { dice, types: [...part.types] } };
+}
+
+/** Литеральный урон слота (без привязки к частям карточки). */
+export function slotDamageLiteral(payload: PayloadSpec, dice: string, types: string[]): PayloadSpec {
+  return { ...payload, damage: { dice, types } };
+}
+
+/** Удаление урона слота. */
+export function slotDamageNone(payload: PayloadSpec): PayloadSpec {
+  const next = { ...payload };
+  delete next.damage;
+  return next;
+}
+
+/** Список выборов при касте (пусто — блок удаляется). */
+export function withChoices(record: SpellDef, choices: ChoiceSpec[]): SpellDef {
+  const automation = { ...record.automation };
+  if (choices.length) automation.choices = choices;
+  else delete automation.choices;
+  return { ...record, automation };
+}
+
+/** Новый выбор при касте: тип урона, два варианта по умолчанию. */
+export function blankChoice(): ChoiceSpec {
+  return { id: 'damageType', param: 'damageType', options: ['fire', 'cold'] };
 }
 
 /** Слот использования части урона: i18n-ключ, спасбросок payload и признак триггера. */

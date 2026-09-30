@@ -4,15 +4,16 @@ import {
   CLASSES,
   CONDITION_KEYS,
   DAMAGE_TYPES,
+  SKILLS,
   type AbilityKey,
   type AreaSpec,
   type BestiaryEntry,
   type BestiarySummonProfile,
+  type ChoiceSpec,
   type ConditionKey,
   type EffectDuration,
   type EffectSpec,
   type ManualSpec,
-  type ModifierSpec,
   type ShapeDef,
   type Spell,
   type SpellDef,
@@ -23,27 +24,38 @@ import {
   type UtilitySpec,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
-import { abilityName, classLabel, conditionLabel, damageLabel } from '../i18n/domain';
+import { abilityName, classLabel, conditionLabel, damageLabel, skillName } from '../i18n/domain';
 import { specIssueText } from '../i18n/errors';
 import { spellDisplayName } from '../i18n/names';
 import { newId } from '../lib/id';
 import {
   WIZARD_PROFILES,
+  ZONE_SLOTS,
   automationNotes,
+  blankChoice,
   blankRecord,
   canSwitchPrimary,
   copyRecord,
   keyFromName,
   partUsageKeys,
+  patchZone,
+  slotDamageSource,
+  slotDamageWithPart,
   switchPrimary,
   validateConstructor,
+  withChoices,
+  withDamagePart,
   withSave,
   withSpellAttack,
+  withZoneAura,
+  withZonePayload,
+  withZoneSlot,
   type AutomationNote,
   type PartUsage,
   type SimpleBranch,
   type WizardProfileId,
 } from '../lib/spellConstructor';
+import EffectListEditor, { EFFECT_DURATIONS } from './EffectListEditor';
 import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
 import { useSpells } from '../lib/useSpells';
 import { useGameStore } from '../store/useGameStore';
@@ -71,34 +83,8 @@ const DURATION_UNITS = ['minute', 'hour', 'day', 'round'] as const;
 const AREA_SHAPES: AreaSpec['shape'][] = ['sphere', 'cone', 'cube', 'line', 'cylinder'];
 const CANTrip_LEVELS = [5, 11, 17];
 const ABILITY_KEYS = ABILITIES.map((a) => a.key);
-/** Цели/режимы/длительности эффектов, редактируемые формой (остальное — JSON). */
-const MODIFIER_TARGETS = [
-  'attack',
-  'damage',
-  'ac',
-  'save',
-  'check',
-  'speed',
-  'initiative',
-  'maxHp',
-  'spellDc',
-  'spellAttack',
-  'extraActions',
-  'extraBonusActions',
-  'reach',
-] as const;
-const MODIFIER_MODES = [
-  'add',
-  'multiply',
-  'set',
-  'advantage',
-  'disadvantage',
-  'resistance',
-  'immunity',
-  'vulnerability',
-] as const;
-const EFFECT_DURATIONS = ['permanent', 'concentration', 'endOfTurn', 'rounds'] as const;
 const SIMPLE_SWITCH: SimpleBranch[] = ['attack', 'save', 'auto', 'effect'];
+const CHOICE_PARAMS = ['damageType', 'ability', 'skill', 'condition', 'mode', 'effect', 'command'] as const;
 /** Виды утилит, редактируемые формой (остальные — только JSON). */
 const UTILITY_KINDS = [
   'tempHp',
@@ -185,11 +171,6 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
   const effects = automation.effects ?? [];
   const setEffects = (list: EffectSpec[]) =>
     setRecord((r) => ({ ...r, automation: { ...r.automation, effects: list.length ? list : undefined } }));
-  const patchEffect = (index: number, patch: Partial<EffectSpec>) => {
-    const list = [...effects];
-    list[index] = { ...list[index]!, ...patch };
-    setEffects(list);
-  };
   const patchManual = (patch: Partial<ManualSpec>) =>
     setRecord((r) => ({
       ...r,
@@ -221,6 +202,29 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
       ...r,
       automation: { ...r.automation, shape: { kind: 'polymorph', ...(r.automation.shape ?? {}), ...patch } },
     }));
+
+  const zone = automation.zone;
+  const zoneArea = zone?.area && 'shape' in zone.area ? zone.area : undefined;
+  const zoneWall = !!zone?.area && 'wall' in zone.area;
+  const zoneDuration = zone && 'type' in (zone.duration as object) ? (zone.duration as EffectDuration) : undefined;
+  const setZoneDuration = (kind: (typeof EFFECT_DURATIONS)[number], rounds: number) => {
+    const duration: EffectDuration =
+      kind === 'rounds'
+        ? { type: 'rounds', rounds: Math.max(1, rounds) }
+        : kind === 'endOfTurn'
+          ? { type: 'endOfTurn', of: 'target' }
+          : { type: kind };
+    setRecord((r) => patchZone(r, { duration }));
+  };
+  const choices = automation.choices ?? [];
+  const setChoices = (list: ChoiceSpec[]) => setRecord((r) => withChoices(r, list));
+  const choiceValueOptions = (param: ChoiceSpec['param']): { key: string; label: string }[] | null => {
+    if (param === 'damageType') return DAMAGE_TYPES.map((d) => ({ key: d.key, label: damageLabel(d.key) }));
+    if (param === 'condition') return CONDITION_KEYS.map((k) => ({ key: k, label: conditionLabel(k) }));
+    if (param === 'ability') return ABILITY_KEYS.map((k) => ({ key: k, label: abilityName(k) }));
+    if (param === 'skill') return SKILLS.map((s) => ({ key: s.key, label: skillName(s.key) }));
+    return null;
+  };
 
   const issueTextsOf = (target: SpellDef) => {
     const v = validateConstructor(target);
@@ -263,49 +267,6 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     }
     importCustom(JSON.stringify(parsed));
     onClose();
-  };
-  const patchModifier = (effectIndex: number, modIndex: number, patch: Partial<ModifierSpec>) => {
-    const list = [...(effects[effectIndex]!.modifiers ?? [])];
-    list[modIndex] = { ...(list[modIndex] as ModifierSpec), ...patch };
-    patchEffect(effectIndex, { modifiers: list });
-  };
-  const removeModifier = (effectIndex: number, modIndex: number) => {
-    patchEffect(effectIndex, {
-      modifiers: (effects[effectIndex]!.modifiers ?? []).filter((_, i) => i !== modIndex),
-    });
-  };
-  const addModifier = (effectIndex: number) => {
-    patchEffect(effectIndex, {
-      modifiers: [...(effects[effectIndex]!.modifiers ?? []), { target: 'damage', mode: 'add', value: 1 } as ModifierSpec],
-    });
-  };
-  const toggleCondition = (effectIndex: number, key: ConditionKey) => {
-    const list = effects[effectIndex]!.conditions ?? [];
-    const gated = list.filter((c) => typeof c !== 'string');
-    const plain = list.filter((c): c is string => typeof c === 'string');
-    const next = plain.includes(key) ? plain.filter((c) => c !== key) : [...plain, key];
-    const merged = [...gated, ...next];
-    patchEffect(effectIndex, { conditions: merged.length ? merged : undefined });
-  };
-  const addEffect = () => {
-    setEffects([
-      ...effects,
-      { id: newId(), name: record.name, duration: { type: 'permanent' }, to: 'targets', modifiers: [] },
-    ]);
-  };
-  const setEffectDuration = (effectIndex: number, kind: (typeof EFFECT_DURATIONS)[number], rounds: number) => {
-    const duration: EffectDuration =
-      kind === 'rounds'
-        ? { type: 'rounds', rounds: Math.max(1, rounds) }
-        : kind === 'endOfTurn'
-          ? { type: 'endOfTurn', of: 'target' }
-          : { type: kind };
-    patchEffect(effectIndex, { duration });
-  };
-  const parseModifierValue = (raw: string): number | string | undefined => {
-    const text = raw.trim();
-    if (!text) return undefined;
-    return /^-?\d+(\.\d+)?$/.test(text) ? Number(text) : text;
   };
   /** Строка слота части урона: слот триггера + спасбросок (или «без спасброска»). */
   const usageText = (u: PartUsage): string => {
@@ -768,10 +729,31 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               {damageParts.map((part, index) => (
                 <div className="field-row constructor-part" key={index}>
                   <span className="constructor-tier-label">{t(`ui.constructor.role.${part.role}` as MessageKey)}</span>
-                  <span className="constructor-part-dice">{part.dice}</span>
-                  <span className="constructor-part-types">
-                    {part.types.map((type) => damageLabel(type)).join(' / ')}
-                  </span>
+                  <Field label={t('ui.constructor.damageDice')}>
+                    <input
+                      type="text"
+                      value={part.dice}
+                      onChange={(e) => setRecord((r) => withDamagePart(r, index, { dice: e.target.value.trim() }))}
+                    />
+                  </Field>
+                  {part.types.length === 1 ? (
+                    <Field label={t('ui.constructor.partType')}>
+                      <select
+                        value={part.types[0]}
+                        onChange={(e) => setRecord((r) => withDamagePart(r, index, { type: e.target.value }))}
+                      >
+                        {DAMAGE_TYPES.map((damage) => (
+                          <option key={damage.key} value={damage.key}>
+                            {damageLabel(damage.key)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  ) : (
+                    <span className="constructor-part-types">
+                      {part.types.map((type) => damageLabel(type)).join(' / ')}
+                    </span>
+                  )}
                   <span className="hint">{(usage[index] ?? []).map((u) => usageText(u)).join(' · ')}</span>
                 </div>
               ))}
@@ -816,18 +798,6 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   );
                 })}
               </div>
-            </>
-          )}
-
-          {notes.length > 0 && (
-            <>
-              <div className="sheet-section-title">{t('ui.constructor.automation')}</div>
-              <ul className="constructor-notes">
-                {notes.map((note, index) => (
-                  <li key={index}>{noteText(note)}</li>
-                ))}
-              </ul>
-              <p className="hint">{t('ui.constructor.automationHint')}</p>
             </>
           )}
 
@@ -880,117 +850,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           {effectsAllowed && (
             <>
               <div className="sheet-section-title">{t('ui.constructor.effects')}</div>
-              {effects.map((effect, index) => {
-                const leveled = typeof effect.duration === 'object' && 'levels' in effect.duration;
-                const duration = leveled ? undefined : (effect.duration as EffectDuration);
-                const durationKind = duration?.type ?? 'permanent';
-                return (
-                  <div className="constructor-effect" key={effect.id}>
-                    <div className="field-row">
-                      <Field label={t('ui.constructor.effectName')}>
-                        <input
-                          type="text"
-                          value={effect.name}
-                          onChange={(e) => patchEffect(index, { name: e.target.value })}
-                        />
-                      </Field>
-                      <Field label={t('ui.constructor.effectTo')}>
-                        <select
-                          value={effect.to ?? 'targets'}
-                          onChange={(e) => patchEffect(index, { to: e.target.value as 'self' | 'targets' })}
-                        >
-                          <option value="targets">{t('ui.constructor.effectTo.targets')}</option>
-                          <option value="self">{t('ui.constructor.effectTo.self')}</option>
-                        </select>
-                      </Field>
-                      {leveled ? (
-                        <span className="hint">{t('ui.constructor.effectLeveled')}</span>
-                      ) : (
-                        <Field label={t('ui.constructor.duration')}>
-                          <select value={durationKind} onChange={(e) => setEffectDuration(index, e.target.value as (typeof EFFECT_DURATIONS)[number], duration?.type === 'rounds' ? duration.rounds : 1)}>
-                            {EFFECT_DURATIONS.map((kind) => (
-                              <option key={kind} value={kind}>
-                                {t(`ui.constructor.effectDuration.${kind}` as MessageKey)}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                      )}
-                      {duration?.type === 'rounds' && (
-                        <Field label={t('ui.constructor.effectRound')}>
-                          <input
-                            type="number"
-                            min={1}
-                            value={duration.rounds}
-                            onChange={(e) => setEffectDuration(index, 'rounds', Number(e.target.value) || 1)}
-                          />
-                        </Field>
-                      )}
-                      <button type="button" onClick={() => setEffects(effects.filter((_, i) => i !== index))}>
-                        {t('ui.constructor.remove')}
-                      </button>
-                    </div>
-                    {(effect.modifiers ?? []).map((entry, mi) => {
-                      if (typeof entry !== 'object' || 'if' in entry) return null;
-                      const mod = entry as ModifierSpec;
-                      return (
-                        <div className="field-row constructor-modifier" key={mi}>
-                          <select
-                            value={mod.target}
-                            onChange={(e) => patchModifier(index, mi, { target: e.target.value as ModifierSpec['target'] })}
-                          >
-                            {MODIFIER_TARGETS.map((target) => (
-                              <option key={target} value={target}>
-                                {t(`ui.constructor.mtarget.${target}` as MessageKey)}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            value={mod.mode}
-                            onChange={(e) => patchModifier(index, mi, { mode: e.target.value as ModifierSpec['mode'] })}
-                          >
-                            {MODIFIER_MODES.map((mode) => (
-                              <option key={mode} value={mode}>
-                                {t(`ui.constructor.mmode.${mode}` as MessageKey)}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="text"
-                            placeholder={t('ui.constructor.modifierValue')}
-                            value={mod.value === undefined ? '' : String(mod.value)}
-                            onChange={(e) => patchModifier(index, mi, { value: parseModifierValue(e.target.value) })}
-                          />
-                          <button type="button" onClick={() => removeModifier(index, mi)}>
-                            {t('ui.constructor.remove')}
-                          </button>
-                        </div>
-                      );
-                    })}
-                    <button type="button" onClick={() => addModifier(index)}>
-                      {t('ui.constructor.addModifier')}
-                    </button>
-                    <div className="ability-types">
-                      {CONDITION_KEYS.map((key) => {
-                        const checked = (effect.conditions ?? []).some((c) => c === key);
-                        return (
-                          <button
-                            type="button"
-                            key={key}
-                            className={`ability-type${checked ? ' on' : ''}`}
-                            onClick={() => toggleCondition(index, key)}
-                          >
-                            {conditionLabel(key)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-              <button type="button" onClick={addEffect}>
-                {t('ui.constructor.addEffect')}
-              </button>
+              <EffectListEditor effects={effects} onChange={setEffects} defaultName={record.name} />
             </>
           )}
 
@@ -1189,6 +1049,419 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   <span>{t('ui.constructor.shapeCrByTarget')}</span>
                 </label>
               </div>
+            </>
+          )}
+
+          {zone ? (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.zone')}</div>
+              {zoneWall ? (
+                <p className="hint">{t('ui.constructor.zoneWallHint')}</p>
+              ) : (
+                <div className="field-row">
+                  <Field label={t('ui.constructor.areaShape')}>
+                    <select
+                      value={zoneArea?.shape ?? 'sphere'}
+                      onChange={(e) => {
+                        const shape = e.target.value as AreaSpec['shape'];
+                        setRecord((r) =>
+                          patchZone(r, {
+                            area: { shape, size: zoneArea?.size ?? 15, ...(shape === 'line' ? { width: zoneArea?.width ?? 5 } : {}) },
+                          })
+                        );
+                      }}
+                    >
+                      {AREA_SHAPES.map((shape) => (
+                        <option key={shape} value={shape}>
+                          {t(`ui.constructor.areaShapeName.${shape}` as MessageKey)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {zoneArea && (
+                    <Field label={t('ui.constructor.areaSize')}>
+                      <input
+                        type="number"
+                        min={5}
+                        step={5}
+                        value={zoneArea.size}
+                        onChange={(e) =>
+                          setRecord((r) => patchZone(r, { area: { ...zoneArea, size: Number(e.target.value) || 5 } }))
+                        }
+                      />
+                    </Field>
+                  )}
+                  <Field label={t('ui.constructor.zoneOrigin')}>
+                    <select
+                      value={zone.origin ?? 'point'}
+                      onChange={(e) =>
+                        setRecord((r) => patchZone(r, { origin: e.target.value as 'self' | 'point' }))
+                      }
+                    >
+                      <option value="point">{t('ui.constructor.zoneOriginPoint')}</option>
+                      <option value="self">{t('ui.constructor.zoneOriginSelf')}</option>
+                    </select>
+                  </Field>
+                  <Field label={t('ui.constructor.duration')}>
+                    {zoneDuration ? (
+                      <select
+                        value={zoneDuration.type}
+                        onChange={(e) =>
+                          setZoneDuration(
+                            e.target.value as (typeof EFFECT_DURATIONS)[number],
+                            zoneDuration.type === 'rounds' ? zoneDuration.rounds : 1
+                          )
+                        }
+                      >
+                        {EFFECT_DURATIONS.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {t(`ui.constructor.effectDuration.${kind}` as MessageKey)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="hint">{t('ui.constructor.effectLeveled')}</span>
+                    )}
+                  </Field>
+                  {zoneDuration?.type === 'rounds' && (
+                    <Field label={t('ui.constructor.effectRound')}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={zoneDuration.rounds}
+                        onChange={(e) => setZoneDuration('rounds', Number(e.target.value) || 1)}
+                      />
+                    </Field>
+                  )}
+                </div>
+              )}
+              <div className="constructor-checks">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={zone.flags?.difficultTerrain === true}
+                    onChange={(e) =>
+                      setRecord((r) =>
+                        patchZone(r, { flags: { ...(zone.flags ?? {}), difficultTerrain: e.target.checked || undefined } })
+                      )
+                    }
+                  />
+                  <span>{t('ui.constructor.flag.difficultTerrain')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={zone.flags?.blocksLight === true}
+                    onChange={(e) =>
+                      setRecord((r) =>
+                        patchZone(r, { flags: { ...(zone.flags ?? {}), blocksLight: e.target.checked || undefined } })
+                      )
+                    }
+                  />
+                  <span>{t('ui.constructor.flag.blocksLight')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={zone.flags?.silence === true}
+                    onChange={(e) =>
+                      setRecord((r) =>
+                        patchZone(r, { flags: { ...(zone.flags ?? {}), silence: e.target.checked || undefined } })
+                      )
+                    }
+                  />
+                  <span>{t('ui.constructor.flag.silence')}</span>
+                </label>
+                <Field label={t('ui.constructor.zoneObscured')}>
+                  <select
+                    value={zone.flags?.obscured ?? ''}
+                    onChange={(e) =>
+                      setRecord((r) =>
+                        patchZone(r, {
+                          flags: { ...(zone.flags ?? {}), obscured: (e.target.value || undefined) as 'light' | 'heavy' | undefined },
+                        })
+                      )
+                    }
+                  >
+                    <option value="">{t('ui.constructor.areaNone')}</option>
+                    <option value="light">{t('ui.constructor.zoneObscuredLight')}</option>
+                    <option value="heavy">{t('ui.constructor.zoneObscuredHeavy')}</option>
+                  </select>
+                </Field>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={zone.enterOncePerTurn === true}
+                    onChange={(e) => setRecord((r) => patchZone(r, { enterOncePerTurn: e.target.checked || undefined }))}
+                  />
+                  <span>{t('ui.constructor.zoneOncePerTurn')}</span>
+                </label>
+                <Field label={t('ui.constructor.zoneSide')}>
+                  <select
+                    value={zone.side ?? ''}
+                    onChange={(e) =>
+                      setRecord((r) => patchZone(r, { side: (e.target.value || undefined) as 'hostile' | 'ally' | undefined }))
+                    }
+                  >
+                    <option value="">{t('ui.constructor.areaNone')}</option>
+                    <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
+                    <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
+                  </select>
+                </Field>
+              </div>
+              {ZONE_SLOTS.map((slot) => {
+                const payload = zone.triggers?.[slot];
+                const source = slotDamageSource(payload);
+                const literalDamage = payload?.damage && 'dice' in payload.damage ? payload.damage : undefined;
+                return (
+                  <div className="constructor-zone-slot" key={slot}>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={!!payload}
+                        onChange={(e) => setRecord((r) => withZoneSlot(r, slot, e.target.checked))}
+                      />
+                      <span>{t(`ui.constructor.usage.${slot}` as MessageKey)}</span>
+                    </label>
+                    {payload && (
+                      <div className="field-row">
+                        <Field label={t('ui.constructor.save')}>
+                          <select
+                            value={payload.save?.ability ?? ''}
+                            onChange={(e) => {
+                              const ability = e.target.value as AbilityKey | '';
+                              setRecord((r) =>
+                                withZonePayload(r, slot, {
+                                  save: ability
+                                    ? { ability, ...(payload.save?.half ? { half: true } : {}) }
+                                    : undefined,
+                                })
+                              );
+                            }}
+                          >
+                            <option value="">{t('ui.constructor.saveNone')}</option>
+                            {ABILITY_KEYS.map((key) => (
+                              <option key={key} value={key}>
+                                {abilityName(key)}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        {payload.save && (
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={payload.save.half === true}
+                              onChange={(e) =>
+                                setRecord((r) =>
+                                  withZonePayload(r, slot, {
+                                    save: { ...payload.save!, half: e.target.checked || undefined },
+                                  })
+                                )
+                              }
+                            />
+                            <span>{t('ui.constructor.saveHalf')}</span>
+                          </label>
+                        )}
+                        <Field label={t('ui.constructor.containment')}>
+                          <select
+                            value={payload.containment ?? 'anyCell'}
+                            onChange={(e) =>
+                              setRecord((r) =>
+                                withZonePayload(r, slot, { containment: e.target.value as 'anyCell' | 'fullyWithin' })
+                              )
+                            }
+                          >
+                            <option value="anyCell">{t('ui.constructor.containmentAny')}</option>
+                            <option value="fullyWithin">{t('ui.constructor.containmentFull')}</option>
+                          </select>
+                        </Field>
+                        <Field label={t('ui.constructor.damage')}>
+                          <select
+                            value={source.kind === 'part' ? `part:${source.index ?? 0}` : source.kind}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === 'none') setRecord((r) => withZonePayload(r, slot, { damage: undefined }));
+                              else if (value === 'literal')
+                                setRecord((r) => withZonePayload(r, slot, { damage: { dice: '1d6', types: [] } }));
+                              else {
+                                const index = Number(value.slice('part:'.length)) || 0;
+                                const part = record.damage?.parts?.[index];
+                                if (part) {
+                                  setRecord((r) =>
+                                    withZonePayload(r, slot, { damage: slotDamageWithPart(payload, part, index).damage })
+                                  );
+                                }
+                              }
+                            }}
+                          >
+                            <option value="none">{t('ui.constructor.damageNone')}</option>
+                            {(record.damage?.parts ?? []).map((part, index) => (
+                              <option key={index} value={`part:${index}`}>
+                                {t('ui.constructor.damagePart', { n: index + 1 })} ·{' '}
+                                {part.types.map((type) => damageLabel(type)).join('/')}
+                              </option>
+                            ))}
+                            <option value="literal">{t('ui.constructor.damageLiteral')}</option>
+                          </select>
+                        </Field>
+                        {source.kind === 'literal' && literalDamage && (
+                          <Field label={t('ui.constructor.damageDice')}>
+                            <input
+                              type="text"
+                              value={
+                                typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number'
+                                  ? String(literalDamage.dice)
+                                  : ''
+                              }
+                              onChange={(e) => {
+                                const dice = e.target.value.trim();
+                                const types = (literalDamage.types ?? []).filter(
+                                  (type): type is string => typeof type === 'string'
+                                );
+                                setRecord((r) =>
+                                  withZonePayload(r, slot, { damage: dice ? { dice, types } : { dice: '', types } })
+                                );
+                              }}
+                            />
+                          </Field>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <button type="button" onClick={() => setRecord((r) => patchZone(r, null))}>
+                {t('ui.constructor.zoneRemove')}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setRecord((r) => patchZone(r, {}))}>
+              {t('ui.constructor.zoneAdd')}
+            </button>
+          )}
+
+          {zone && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.aura')}</div>
+              {zone.aura?.effects?.length ? (
+                <EffectListEditor
+                  effects={zone.aura.effects}
+                  onChange={(list) => setRecord((r) => withZoneAura(r, list))}
+                  defaultName={record.name}
+                  hint={t('ui.constructor.auraHint')}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRecord((r) =>
+                      withZoneAura(r, [
+                        { id: newId(), name: record.name, duration: { type: 'permanent' }, to: 'targets', modifiers: [] },
+                      ])
+                    )
+                  }
+                >
+                  {t('ui.constructor.auraAdd')}
+                </button>
+              )}
+            </>
+          )}
+
+          <div className="sheet-section-title">{t('ui.constructor.choices')}</div>
+          {choices.map((choice, index) => {
+            const options = choiceValueOptions(choice.param);
+            return (
+              <div className="field-row" key={choice.id}>
+                <Field label={t('ui.constructor.choiceId')}>
+                  <input
+                    type="text"
+                    value={choice.id}
+                    onChange={(e) =>
+                      setChoices(choices.map((c, i) => (i === index ? { ...c, id: e.target.value } : c)))
+                    }
+                  />
+                </Field>
+                <Field label={t('ui.constructor.choiceParam')}>
+                  <select
+                    value={choice.param}
+                    onChange={(e) => {
+                      const param = e.target.value as ChoiceSpec['param'];
+                      setChoices(choices.map((c, i) => (i === index ? { ...c, param, options: [] } : c)));
+                    }}
+                  >
+                    {CHOICE_PARAMS.map((param) => (
+                      <option key={param} value={param}>
+                        {param}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {options ? (
+                  <div className="ability-types">
+                    {options.map((option) => {
+                      const checked = choice.options.includes(option.key);
+                      return (
+                        <button
+                          type="button"
+                          key={option.key}
+                          className={`ability-type${checked ? ' on' : ''}`}
+                          onClick={() =>
+                            setChoices(
+                              choices.map((c, i) =>
+                                i === index
+                                  ? {
+                                      ...c,
+                                      options: checked
+                                        ? c.options.filter((o) => o !== option.key)
+                                        : [...c.options, option.key],
+                                    }
+                                  : c
+                              )
+                            )
+                          }
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Field label={t('ui.constructor.choiceOptions')}>
+                    <input
+                      type="text"
+                      value={choice.options.join(', ')}
+                      onChange={(e) =>
+                        setChoices(
+                          choices.map((c, i) =>
+                            i === index
+                              ? { ...c, options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) }
+                              : c
+                          )
+                        )
+                      }
+                    />
+                  </Field>
+                )}
+                <button type="button" onClick={() => setChoices(choices.filter((_, i) => i !== index))}>
+                  {t('ui.constructor.remove')}
+                </button>
+              </div>
+            );
+          })}
+          <button type="button" onClick={() => setChoices([...choices, blankChoice()])}>
+            {t('ui.constructor.addChoice')}
+          </button>
+
+          {notes.length > 0 && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.automation')}</div>
+              <ul className="constructor-notes">
+                {notes.map((note, index) => (
+                  <li key={index}>{noteText(note)}</li>
+                ))}
+              </ul>
+              <p className="hint">{t('ui.constructor.automationHint')}</p>
             </>
           )}
 
