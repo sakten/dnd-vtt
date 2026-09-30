@@ -110,6 +110,7 @@ export class RoomManager {
       nextZ: 0,
       resources: {},
       controllers: {},
+      customSpecs: [],
       testMode: false,
       ...(opts.test ? { test: true } : {}),
       optionalRules: { surrounded: false },

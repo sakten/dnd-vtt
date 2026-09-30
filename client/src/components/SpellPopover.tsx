@@ -139,7 +139,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
       .then((mod) => {
         if (!alive) return;
         const list = needForm
-          ? mod.default.entries.filter((entry) => familiarFormAvailable(entry.key, entry.familiar, pactChain))
+          ? mod.default.entries.filter((entry) => familiarFormAvailable(entry, pactChain))
           : mod.default.entries
               .filter((entry) => entry.type === 'beast')
               .filter((entry) => maxTargetCr === undefined || crValue(entry.cr) <= maxTargetCr)

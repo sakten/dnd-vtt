@@ -43,6 +43,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     role: 'player',
     testMode: false,
     optionalRules: { surrounded: false },
+    customSpecs: [],
     players: [],
     scene: { maps: [], activeMapId: null, grid: { ...DEFAULT_GRID } },
     viewMapId: null,

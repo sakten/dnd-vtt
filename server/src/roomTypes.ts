@@ -48,6 +48,7 @@ export function toPersistedRoom(room: Room): PersistedRoom {
     nextZ: room.nextZ,
     resources: room.resources,
     controllers: room.controllers,
+    customSpecs: room.customSpecs,
     testMode: room.testMode,
     ...(room.test ? { test: true } : {}),
     optionalRules: room.optionalRules,

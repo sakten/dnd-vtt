@@ -89,7 +89,7 @@ export function availableSmites(
     // После промаха доступны только смайты «после попадания или промаха» (Lightning Arrow).
     if (opts.onMiss && !SMITE_ON_MISS.has(key)) continue;
     if (!sheet.spells.some((s) => s.key === key)) continue;
-    const spell = findSpell(key);
+    const spell = findSpell(key, room);
     if (!spell) continue;
     const max = maxCastableLevel(spell, resources, undefined);
     const levels: number[] = [];
@@ -131,7 +131,7 @@ export function applySmiteChoice(
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
   if (!cid || !sheet || !sheet.spells.some((s) => s.key === spellKey)) return undefined;
-  const spell = findSpell(spellKey);
+  const spell = findSpell(spellKey, room);
   if (!spell) return undefined;
 
   if (!ctx.manager.spendSpellSlot(room, cid, level)) return undefined;

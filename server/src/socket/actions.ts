@@ -999,7 +999,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       if (action.spellKey) {
         if (rejectIfSpellsBlocked(ctx, token)) return;
-        const spell = findSpell(action.spellKey);
+          const spell = findSpell(action.spellKey, room);
         if (!spell) return;
         const stats = spellStatsFor(room, token) ?? monsterStats(shapeStatblock(token), undefined);
         const input = collectSpellCast(ctx, {

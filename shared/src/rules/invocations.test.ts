@@ -106,11 +106,13 @@ describe('инвокации: механики движка', () => {
 
 describe('формы фамильяра', () => {
   it('особые формы Pact of the Chain — только с инвокацией', () => {
-    expect(familiarFormAvailable('XMM:Quasit', true, false)).toBe(false);
-    expect(familiarFormAvailable('XMM:Quasit', true, true)).toBe(true);
-    expect(familiarFormAvailable('XMM:Imp', false, true)).toBe(true);
-    expect(familiarFormAvailable('XMM:Imp', false, false)).toBe(false);
-    expect(familiarFormAvailable('XMM:Owl', true, false)).toBe(true);
+    const pact = { familiar: true, pactOfChain: true };
+    expect(familiarFormAvailable(pact, false)).toBe(false);
+    expect(familiarFormAvailable(pact, true)).toBe(true);
+    // Imp: в сырых данных флага `familiar` нет — только особая форма.
+    expect(familiarFormAvailable({ pactOfChain: true }, true)).toBe(true);
+    expect(familiarFormAvailable({ pactOfChain: true }, false)).toBe(false);
+    expect(familiarFormAvailable({ familiar: true }, false)).toBe(true);
   });
 
   it('Pact of the Chain: Find Familiar — действием без ячейки', () => {

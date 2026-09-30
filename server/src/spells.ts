@@ -1,11 +1,17 @@
-import { automationForSpell, type Spell } from 'shared';
+import { automationForSpell, type Spell, type SpellDef } from 'shared';
 import spellData from 'shared/spellsData';
+import type { Room } from './roomTypes';
 
 /** Каталог заклинаний (Ф6): сервер — источник правды по механике. */
-const byKey = new Map<string, Spell>(spellData.spells.map((s) => [s.key, s]));
+const byKey = new Map<string, SpellDef>(spellData.spells.map((s) => [s.key, s]));
 
-export function findSpell(key: string): Spell | undefined {
-  return byKey.get(key);
+/** Заклинание комнаты: сначала кастомы (`CUSTOM:`, R16 срез 5), затем канон. */
+export function findSpellDef(room: Room | undefined, key: string): SpellDef | undefined {
+  return room?.customSpecs.find((s) => s.key === key) ?? byKey.get(key);
+}
+
+export function findSpell(key: string, room?: Room): Spell | undefined {
+  return findSpellDef(room, key);
 }
 
 export function findSpellByName(name: string): Spell | undefined {

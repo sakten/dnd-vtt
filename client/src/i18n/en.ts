@@ -20,6 +20,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.noLegendary': 'Not enough legendary actions',
   'error.recharging': 'Ability is recharging: {name}',
   'error.spellNotPrepared': 'Spell is not selected in the sheet',
+  'error.spellNotFound': 'Spell not found (the room custom may have been removed)',
   'error.spellLongCast': '{name}: long casting time — unavailable in combat',
   'error.strikeNotCharged': '{name}: spend a bonus action first',
   'error.spellNotInStatblock': 'Spell is not selected in the statblock',
@@ -57,6 +58,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.wrongAdminToken': 'Wrong GM password',
   'error.passwordRequired': 'GM password required',
   'error.badRequest': 'Invalid request',
+  'error.customInvalid': 'Custom spell not added: the JSON failed validation (schema, references or the extends base)',
   'error.roomNotFound': 'Room not found',
   'error.emptyName': 'Empty name',
   'error.noRoom': 'No room',
@@ -349,6 +351,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.field.round': 'Round',
 
   'ui.spellIcon.notImplemented': 'Effect not implemented: the GM handles the mechanics (name and description go to chat)',
+  'ui.spellIcon.custom': 'Room custom spell',
 
   'ui.error.title': 'Something went wrong',
   'ui.error.reload': 'Reload',
@@ -812,6 +815,7 @@ export const en: Partial<Record<MessageKey, string>> = {
 
   'ui.spellPicker.search': 'Search by name',
   'ui.spellPicker.allLevels': 'All levels',
+  'ui.spellPicker.custom': 'custom',
 
   'ui.spellPopover.cantrip': 'Cantrip',
   'ui.spellPopover.level': 'level {n}',
@@ -952,6 +956,14 @@ export const en: Partial<Record<MessageKey, string>> = {
     'If every free cell around a creature is controlled by adjacent enemies and there is more than one, they attack it with advantage. An adjacent enemy controls its own cell and the cells around it; reach does not extend control; an adjacent ally breaks the surround; walls and map edges are ignored. Applies to both sides.',
   'ui.roomSettings.testMode': 'Test mode',
   'ui.roomSettings.hint': 'All participants get GM rights inside the room: maps, grid, fog, combat, other players’ tokens and their stats. Room management in the admin panel stays with the GM.',
+  'ui.roomSettings.customTitle': 'Custom spells',
+  'ui.roomSettings.customHint':
+    'Import — paste JSON: a copy with extends+patch (base is the canon or an already imported spell) or a full record downloaded from the room. Customs work in this room for all players.',
+  'ui.roomSettings.customPlaceholder': 'Custom spell JSON…',
+  'ui.roomSettings.customImport': 'Import',
+  'ui.roomSettings.customExport': 'Download',
+  'ui.roomSettings.customRemove': 'Remove',
+  'ui.roomSettings.customEmpty': 'No custom spells.',
 
   'ui.actionCost.action': 'Action',
   'ui.actionCost.bonus': 'Bonus Action',

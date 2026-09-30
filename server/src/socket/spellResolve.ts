@@ -351,7 +351,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (input.dispelZoneId) {
       const zone = map?.zones?.find((z) => z.id === input.dispelZoneId);
       if (!zone) return { code: 'spellNoTarget' };
-      if (zoneSpellLevel(zone) === undefined) return { code: 'nothingToDispel' };
+      if (zoneSpellLevel(room, zone) === undefined) return { code: 'nothingToDispel' };
       const feet = (Math.hypot(zone.origin.x - caster.x, zone.origin.y - caster.y) / grid.size) * 5;
       if (feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
       return undefined;
@@ -361,7 +361,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
       const feet = gridDistanceFeet(caster, target, grid.size);
       if (feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
     }
-    if (!targets.some((t) => dispellableEffects(t).length > 0)) return { code: 'nothingToDispel' };
+    if (!targets.some((t) => dispellableEffects(room, t).length > 0)) return { code: 'nothingToDispel' };
     return undefined;
   }
 

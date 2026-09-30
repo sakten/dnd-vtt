@@ -339,7 +339,7 @@ export function openAttackHitWindows(
   const spellOpts = reactionSpellOptions(room, target, 'attackHit').filter((o) => {
     const absorb = absorbTypesOf(o.spellKey ?? '');
     if (absorb.length) return !!plan.damageType && absorb.includes(plan.damageType);
-    return total < ac + acBonusOf(o);
+    return total < ac + acBonusOf(room, o);
   });
   const options: ReactionOption[] = [
     ...spellOpts,

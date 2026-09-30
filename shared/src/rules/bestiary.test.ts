@@ -268,6 +268,11 @@ describe('бестиарий: заклинания и запись целико�
     expect(slugId('Fire Breath')).toBe('fire-breath');
   });
 
+  it('Pact of the Chain: особые формы получают флаг pactOfChain из данных', () => {
+    expect(bestiaryEntryFromRaw(SKELETON, known)!.pactOfChain).toBe(true);
+    expect(bestiaryEntryFromRaw(WOLF, known)!.pactOfChain).toBeUndefined();
+  });
+
   it('описание внешности строится из имени/статов', () => {
     expect(bestiaryEntryFromRaw(WOLF, known)!.appearance).toContain('fangs');
     expect(bestiaryEntryFromRaw(DRAGON, known)!.appearance).toContain('wings');
@@ -324,5 +329,15 @@ describe('бестиарий: защита и выставление', () => {
     expect(fields.ac).toBe('15');
     expect(fields.attacks[0]).toMatchObject({ hit: '+7', damage: '1d8 + 4 + 4' });
     expect(fields.statblock?.multiattack).toBe(2);
+  });
+
+  it('профиль записи заклинания перекрывает entry.summon (R16 срез 5b)', () => {
+    const entry = bestiaryEntryFromRaw(SPIRIT, known)!;
+    const fields = bestiaryTokenFields(entry, {
+      slotLevel: 4,
+      profile: { baseLevel: 2, hpPerLevel: 100 },
+    });
+    expect(fields.hpMax).toBe('220'); // 20 базовых + 100×(4−2); без профиля было бы 30
+    expect(fields.ac).toBe('13'); // в профиле записи acPerLevel нет — только база
   });
 });

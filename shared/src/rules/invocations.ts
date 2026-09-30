@@ -1,10 +1,10 @@
+import type { BestiaryEntry } from '../domain/bestiary';
 import type { CharacterSheet } from '../domain/sheet';
 import type { InvocationEntry, InvocationPact, InvocationPrereq } from '../domain/invocation';
 import type { Sense } from '../domain/sense';
 import { applyPatch } from './automation/compile';
 import { spellRangeFeet } from './spellCast';
 import type { Spell } from './spells';
-import { PACT_OF_CHAIN_FORMS } from './summons';
 
 /** Пакт-инвокации: ключи и требуемый уровень механики. */
 export const INVOCATION_PACT_KEYS: Record<InvocationPact, string> = {
@@ -184,8 +184,11 @@ export function effectiveSpellRangeFeet(spell: Pick<Spell, 'key' | 'range'>, inv
 }
 
 /** Доступна ли форма фамильяра: обычные — всегда, особые Pact of the Chain — только с инвокацией. */
-export function familiarFormAvailable(key: string, familiar: boolean | undefined, pactChain: boolean): boolean {
-  return PACT_OF_CHAIN_FORMS.includes(key) ? pactChain : familiar === true;
+export function familiarFormAvailable(
+  entry: Pick<BestiaryEntry, 'familiar' | 'pactOfChain'>,
+  pactChain: boolean
+): boolean {
+  return entry.pactOfChain === true ? pactChain : entry.familiar === true;
 }
 
 /**

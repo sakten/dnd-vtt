@@ -16,6 +16,7 @@ import { registerDiceHandlers } from './socket/dice';
 import { registerRollAnimHandlers } from './socket/rollAnim';
 import { registerActionHandlers } from './socket/actions';
 import { registerSpellHandlers } from './socket/spells';
+import { registerCustomHandlers } from './socket/custom';
 import { registerReactionHandlers } from './socket/reactions';
 
 /** Все регистраторы поверх готового контекста (используют и socket, и тест-кит). */
@@ -39,6 +40,7 @@ export function registerHandlers(ctx: ConnCtx) {
   registerRollAnimHandlers(ctx);
   registerActionHandlers(ctx);
   registerSpellHandlers(ctx);
+  registerCustomHandlers(ctx);
   registerReactionHandlers(ctx);
 }
 

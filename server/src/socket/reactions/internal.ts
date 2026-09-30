@@ -91,13 +91,13 @@ export function featFreeCastKey(room: Room, token: Token, spellKey: string): str
 export function spellPayable(room: Room, token: Token, spellLevel: number, spellKey: string): boolean {
   const cid = controllerIdOfToken(room, token);
   if (cid) {
-    const spell = findSpell(spellKey);
+    const spell = findSpell(spellKey, room);
     if (!spell) return false;
     if (maxCastableLevel(spell, room.resources[cid] ?? null) >= spellLevel) return true;
     // Magic Initiate: заряд бесплатного каста того же заклинания 1 круга.
     return !!featFreeCastKey(room, token, spellKey);
   }
-  const spell = findSpell(spellKey);
+  const spell = findSpell(spellKey, room);
   if (!spell) return false;
   return maxCastableLevel(spell, null, token.statblock?.spellcasting?.slots) >= spellLevel;
 }
@@ -110,7 +110,7 @@ export function hasPayableSpecial(manager: ConnCtx['manager'], room: Room, mapId
   if (shapeAllowsSpellcast(token.shape, sheet?.classes)) {
     for (const key of knownSpellKeys(room, token)) {
       const trigger = reactionSpellTrigger(key);
-      const spell = findSpell(key);
+      const spell = findSpell(key, room);
       if (trigger && spell && spellPayable(room, token, spell.level, key)) return true;
     }
   }

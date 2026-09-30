@@ -391,7 +391,7 @@ class ReactionQueue {
     // Реакции-эффекты (Primordial Ward): только слот реакции, без ячейки/ресурса.
     if (option.kind === 'effect') return true;
     if (option.kind === 'spell') {
-      const spell = option.spellKey ? findSpell(option.spellKey) : null;
+      const spell = option.spellKey ? findSpell(option.spellKey, room) : null;
       return !!spell && spellPayable(room, token, spell.level, spell.key);
     }
     if (!option.resourceKey) return false;

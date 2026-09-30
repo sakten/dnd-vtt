@@ -39,6 +39,11 @@ export interface BestiaryEntry {
   cr: string;
   /** Существо входит в списки фамильяров (Find Familiar / Pact of the Chain). */
   familiar?: boolean;
+  /**
+   * Особая форма Pact of the Chain (XPHB 2024): доступна фамильяру только
+   * с воззванием «Договор цепи» (R16 срез 5b: флаг из данных бестиария).
+   */
+  pactOfChain?: boolean;
   /** Иммунитеты к типам урона (ключи). */
   immunities: string[];
   /** Сопротивления к типам урона (ключи). */

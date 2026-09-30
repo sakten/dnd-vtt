@@ -1,4 +1,5 @@
 import type { ActionTargeting, AreaSpec } from '../../domain/actions';
+import type { BestiarySummonProfile } from '../../domain/bestiary';
 import type {
   AutomationResolution,
   AutomationSave,
@@ -396,6 +397,12 @@ export interface SummonSpec {
   initiative: 'afterCaster' | 'own';
   /** Базовый круг заклинания: ниже шаблон не используется. */
   baseLevel?: number;
+  /**
+   * Профиль скейла существа (R16 срез 5b): в каноне переносится из бестиария
+   * при `npm run catalog`; ручной/кастомный спек может задать свой (перекрывает
+   * `entry.summon` при спавне). Инлайн-статблоков нет — существо остаётся ключом.
+   */
+  profile?: BestiarySummonProfile;
 }
 
 /** Стратегия `rider`: атака оружием при касте (True Strike, клинки-кантрипы, смайты). */

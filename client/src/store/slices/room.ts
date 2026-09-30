@@ -6,7 +6,7 @@ import { clearOptimistic } from '../optimistic';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings' | 'setOptionalRules'>> = (set, get) => {
+export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | 'onConnected' | 'onConnectError' | 'onDisconnected' | 'onJoinError' | 'onRoomJoined' | 'onRoomRenamed' | 'onRoomSettings' | 'onCustomSpecs' | 'onRoomClosed' | 'onPlayersUpdate' | 'joinRoom' | 'removePlayer' | 'setRoomSettings' | 'setOptionalRules' | 'importCustomSpell' | 'removeCustomSpell'>> = (set, get) => {
   return {
     init: () => {
       if (get().socket) return;
@@ -43,6 +43,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | '
         role: player?.role ?? 'player',
         testMode: room.testMode === true,
         optionalRules: room.optionalRules ?? { surrounded: false },
+        customSpecs: room.customSpecs ?? [],
         players: room.players,
         scene: room.scene,
         viewMapId: room.scene.activeMapId,
@@ -62,6 +63,16 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | '
         testMode: testMode === true,
         optionalRules: optionalRules ?? s.optionalRules,
       })),
+
+    onCustomSpecs: (customSpecs) => set({ customSpecs }),
+
+    importCustomSpell: (json) => {
+      emit(get, 'custom:import', { json });
+    },
+
+    removeCustomSpell: (key) => {
+      emit(get, 'custom:remove', key);
+    },
 
     setRoomSettings: (testMode) => {
       emit(get, 'room:settings', { testMode });

@@ -42,8 +42,11 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       return;
     }
 
-    const spell = findSpell(spellKey);
-    if (!spell) return;
+    const spell = findSpell(spellKey, room);
+    if (!spell) {
+      fail(ctx, 'spellNotFound');
+      return;
+    }
     // Смайты не кастуются напрямую: применяются райдером после попадания оружием.
     if (SMITE_SPELLS.has(spellKey)) {
       fail(ctx, 'smiteOnHitOnly');

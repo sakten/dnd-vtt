@@ -1,15 +1,31 @@
 import { useEffect, useState } from 'react';
+import type { SpellDef } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { CheckboxRow } from './Field';
 import Modal from './Modal';
 
-/** Конфиг комнаты (только реальный DM): режим тестов с правами ведущего у всех. */
+/** Экспорт записи 1:1: скачивание JSON кастомного заклинания целиком. */
+function downloadSpell(def: SpellDef) {
+  const blob = new Blob([JSON.stringify(def, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${def.key.replace(/[/\\:*?"<>|]+/g, '_')}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Конфиг комнаты (только реальный DM): режим тестов и кастомные заклинания комнаты. */
 export default function RoomSettingsModal() {
   const testMode = useGameStore((s) => s.testMode);
+  const customSpecs = useGameStore((s) => s.customSpecs);
   const apply = useGameStore((s) => s.setRoomSettings);
+  const importCustom = useGameStore((s) => s.importCustomSpell);
+  const removeCustom = useGameStore((s) => s.removeCustomSpell);
   const close = useGameStore((s) => s.setRoomSettingsOpen);
   const [draft, setDraft] = useState(testMode);
+  const [customJson, setCustomJson] = useState('');
 
   useEffect(() => {
     setDraft(testMode);
@@ -21,6 +37,40 @@ export default function RoomSettingsModal() {
         {t('ui.roomSettings.testMode')}
       </CheckboxRow>
       <p className="hint">{t('ui.roomSettings.hint')}</p>
+
+      <section className="room-custom">
+        <h4>{t('ui.roomSettings.customTitle')}</h4>
+        <p className="hint">{t('ui.roomSettings.customHint')}</p>
+        {customSpecs.length === 0 ? (
+          <p className="hint">{t('ui.roomSettings.customEmpty')}</p>
+        ) : (
+          <ul className="room-custom-list">
+            {customSpecs.map((spell) => (
+              <li key={spell.key}>
+                <span className="room-custom-name" title={spell.key}>
+                  {spell.name}
+                </span>
+                <button type="button" onClick={() => downloadSpell(spell)}>
+                  {t('ui.roomSettings.customExport')}
+                </button>
+                <button type="button" onClick={() => removeCustom(spell.key)}>
+                  {t('ui.roomSettings.customRemove')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <textarea
+          className="room-custom-json"
+          placeholder={t('ui.roomSettings.customPlaceholder')}
+          value={customJson}
+          onChange={(e) => setCustomJson(e.target.value)}
+        />
+        <button type="button" disabled={!customJson.trim()} onClick={() => importCustom(customJson)}>
+          {t('ui.roomSettings.customImport')}
+        </button>
+      </section>
+
       <div className="modal-actions">
         <button
           className="primary"

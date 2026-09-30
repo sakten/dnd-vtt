@@ -1,6 +1,7 @@
 import type { ChatMessage } from './chat';
 import type { Role } from './core';
 import type { DiceRollResult } from '../dice';
+import type { SpellDef } from '../rules/automation/materialize';
 import type { Scene } from './scene';
 import type { LibraryItem } from './token';
 
@@ -36,6 +37,8 @@ export interface RoomState {
   players: Player[];
   chat: ChatMessage[];
   controllers: Record<string, string>;
+  /** Кастомные заклинания комнаты (R16 срез 5): слитые записи `SpellDef` с ключом `CUSTOM:`. */
+  customSpecs: SpellDef[];
   /** Режим тестов: все игроки получают права ведущего внутри комнаты. */
   testMode: boolean;
   /** Комната создана автотестами (smoke/e2e): чистка удаляет только помеченные. */

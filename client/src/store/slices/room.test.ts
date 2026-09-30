@@ -32,6 +32,7 @@ describe('room slice: подключение и режим тестов', () => 
       players: [{ id: 'p1', name: 'A', role: 'player', isConnected: true }],
       chat: [],
       controllers: {},
+      customSpecs: [],
       testMode: true,
       optionalRules: { surrounded: false },
     };

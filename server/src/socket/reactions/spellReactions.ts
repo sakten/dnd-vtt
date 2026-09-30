@@ -44,7 +44,7 @@ export function reactionSpellOptions(room: Room, token: Token, trigger: Reaction
   const out: ReactionOption[] = [];
   for (const key of knownSpellKeys(room, token)) {
     if (reactionSpellTrigger(key) !== trigger) continue;
-    const spell = findSpell(key);
+    const spell = findSpell(key, room);
     if (!spell || !spellPayable(room, token, spell.level, key)) continue;
     out.push({ id: `spell:${key}`, name: spell.name, kind: 'spell', spellKey: key });
   }
@@ -52,8 +52,8 @@ export function reactionSpellOptions(room: Room, token: Token, trigger: Reaction
 }
 
 /** Бонус к AC от эффектов варианта (Shield +5); 0 — если неизвестно. */
-export function acBonusOf(option: ReactionOption): number {
-  const spell = option.spellKey ? findSpell(option.spellKey) : undefined;
+export function acBonusOf(room: Room, option: ReactionOption): number {
+  const spell = option.spellKey ? findSpell(option.spellKey, room) : undefined;
   if (!spell) return 0;
   let bonus = 0;
   for (const def of automationForSpell(spell).effects ?? []) {
@@ -75,7 +75,7 @@ export function applyReactionChoice(
   const optionId = choice.optionId;
   if (!optionId?.startsWith('spell:')) return;
   const key = optionId.slice('spell:'.length);
-  const spell = findSpell(key);
+  const spell = findSpell(key, room);
   const token = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
   if (!spell || !token) return;
 

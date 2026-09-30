@@ -694,6 +694,7 @@ function compileSummon(ctx: CompileCtx, summon: SummonSpec): SummonDef {
     level: Math.max(baseLevel, ctx.castLevel),
     spellAttack: true,
     spellDc: true,
+    ...(summon.profile ? { profile: { ...summon.profile } } : {}),
   };
 }
 

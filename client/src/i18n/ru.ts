@@ -18,6 +18,7 @@
   'error.noLegendary': 'Не хватает легендарных действий',
   'error.recharging': 'Способность перезаряжается: {name}',
   'error.spellNotPrepared': 'Заклинание не выбрано в листе',
+  'error.spellNotFound': 'Заклинание не найдено (возможно, кастом удалён из комнаты)',
   'error.spellLongCast': '{name}: долгое накладывание — в бою недоступно',
   'error.strikeNotCharged': '{name}: сначала потратьте бонусное действие',
   'error.spellNotInStatblock': 'Заклинание не выбрано в статблоке',
@@ -54,6 +55,7 @@
   'error.wrongAdminToken': 'Неверный пароль ведущего',
   'error.passwordRequired': 'Нужен пароль ведущего',
   'error.badRequest': 'Некорректный запрос',
+  'error.customInvalid': 'Кастомное заклинание не добавлено: JSON не прошёл проверку (схема, ссылки или база extends)',
   'error.roomNotFound': 'Комната не найдена',
   'error.emptyName': 'Пустое название',
   'error.noRoom': 'Нет комнаты',
@@ -346,6 +348,7 @@
   'ui.field.round': 'Круглый',
 
   'ui.spellIcon.notImplemented': 'Эффект не реализован: механику ведёт мастер (в чат — название и описание)',
+  'ui.spellIcon.custom': 'Кастомное заклинание комнаты',
 
   'ui.error.title': 'Что-то пошло не так',
   'ui.error.reload': 'Перезагрузить',
@@ -809,6 +812,7 @@
 
   'ui.spellPicker.search': 'Поиск по названию',
   'ui.spellPicker.allLevels': 'Все круги',
+  'ui.spellPicker.custom': 'кастом',
 
   'ui.spellPopover.cantrip': 'Фокус',
   'ui.spellPopover.level': '{n} круг',
@@ -949,6 +953,14 @@
     'Если все свободные клетки вокруг существа контролируют смежные враги и их больше одного — они атакуют его с преимуществом. Смежный враг контролирует свою клетку и клетки вокруг себя; рич контроль не расширяет; союзник рядом ломает окружение; стены и края карты не учитываются. Работает в обе стороны.',
   'ui.roomSettings.testMode': 'Режим тестов',
   'ui.roomSettings.hint': 'Все участники получают права ведущего внутри комнаты: карты, сетка, туман, бой, чужие токены и их статы. Управление комнатами в админке остаётся у ведущего.',
+  'ui.roomSettings.customTitle': 'Кастомные заклинания',
+  'ui.roomSettings.customHint':
+    'Импорт — вставь JSON: копия с extends+patch (база — канон или уже импортированное) либо полная запись, скачанная из комнаты. Кастомы действуют в этой комнате и у всех игроков.',
+  'ui.roomSettings.customPlaceholder': 'JSON кастомного заклинания…',
+  'ui.roomSettings.customImport': 'Импортировать',
+  'ui.roomSettings.customExport': 'Скачать',
+  'ui.roomSettings.customRemove': 'Удалить',
+  'ui.roomSettings.customEmpty': 'Кастомных заклинаний нет.',
 
   'ui.actionCost.action': 'Действие',
   'ui.actionCost.bonus': 'Бонусное действие',

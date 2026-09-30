@@ -5,7 +5,6 @@ import {
   hasInvocation,
   INVOCATION_PACT_KEYS,
   isBanished,
-  PACT_OF_CHAIN_FORMS,
   snapToGrid,
   tokenCells,
   type LibraryItem,
@@ -48,7 +47,7 @@ export function familiarCannotAttack(token: Token | null | undefined): boolean {
 export function summonFormIssue(key: string, pactChain: boolean): 'summonNoPact' | 'summonNoForm' | undefined {
   const entry = bestiaryData.entries.find((e) => e.key === key);
   if (!entry) return 'summonNoForm';
-  if (PACT_OF_CHAIN_FORMS.includes(entry.key)) return pactChain ? undefined : 'summonNoPact';
+  if (entry.pactOfChain === true) return pactChain ? undefined : 'summonNoPact';
   return entry.familiar === true ? undefined : 'summonNoForm';
 }
 
@@ -184,7 +183,7 @@ export function removeConcSummonsOf(ctx: ConnCtx, room: Room, casterTokenIds: Se
         !!token.summon &&
         casterTokenIds.has(token.summon.casterTokenId) &&
         !!key &&
-        findSpell(key)?.concentration === true
+        findSpell(key, room)?.concentration === true
       );
     });
     for (const token of doomed) {
@@ -219,6 +218,7 @@ export function runSummon(ctx: ConnCtx, request: SummonRequest): Token[] {
   const fields = bestiaryTokenFields(entry, {
     slotLevel: request.level,
     ...(request.stats ? { spellAttackBonus: request.stats.attack } : {}),
+    ...(request.def.profile ? { profile: request.def.profile } : {}),
   });
   const playerId = controllerPlayerId(room, request.caster);
   const ownerName = playerId ? ctx.manager.characterName(room, request.mapId, playerId) : request.caster.owner;
@@ -251,7 +251,7 @@ export function runSummon(ctx: ConnCtx, request: SummonRequest): Token[] {
     token.summon = {
       casterTokenId: request.caster.id,
       ...(request.spellKey ? { spellKey: request.spellKey } : {}),
-      ...(pactChain && PACT_OF_CHAIN_FORMS.includes(entry.key) ? { pact: true } : {}),
+      ...(pactChain && entry.pactOfChain === true ? { pact: true } : {}),
     };
     // Призыв на стороне кастера (герой → ally), иначе свои бьют по нему «по возможности».
     token.faction = request.caster.faction;

@@ -1306,6 +1306,7 @@ const automation: Record<string, unknown> = {
         duration: { $ref: '#/$defs/duration' },
         initiative: enumOf(['afterCaster', 'own']),
         baseLevel: { type: 'integer', minimum: 1 },
+        profile: { $ref: '#/$defs/summonProfile' },
       },
       required: ['initiative'],
       additionalProperties: false,
@@ -1322,6 +1323,19 @@ const automation: Record<string, unknown> = {
     choices: { type: 'array', items: { $ref: '#/$defs/choiceSpec' } },
   },
   required: ['primary'],
+};
+
+const summonProfile: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    baseLevel: { type: 'integer', minimum: 0 },
+    hpPerLevel: { type: 'integer' },
+    acPerLevel: { type: 'integer' },
+    spellAttack: { type: 'boolean' },
+    spellDc: { type: 'boolean' },
+    multiattackHalfLevel: { type: 'boolean' },
+  },
+  additionalProperties: false,
 };
 
 const DEFS: Record<string, unknown> = {
@@ -1361,6 +1375,7 @@ const DEFS: Record<string, unknown> = {
   zoneSpec,
   weaponAttackSpec,
   choiceSpec,
+  summonProfile,
   automation,
   spec: {
     type: 'object',

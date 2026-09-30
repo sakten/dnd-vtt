@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import type { Spell } from 'shared';
+import { CUSTOM_SPELL_PREFIX, type Spell } from 'shared';
 import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
 import { t } from '../i18n';
 import { spellDisplayName } from '../i18n/names';
@@ -84,7 +84,12 @@ export default function SpellPicker({ candidates, title, countLabel, levels, sta
               }}
             >
               <SpellIcon spell={s} className="spell-pick-icon" />
-              <span className="spell-pick-name">{spellDisplayName(s)}</span>
+              <span className="spell-pick-name">
+                {spellDisplayName(s)}
+                {s.key.startsWith(CUSTOM_SPELL_PREFIX) && (
+                  <span className="spell-pick-custom">{t('ui.spellPicker.custom')}</span>
+                )}
+              </span>
               <span className="spell-pick-meta">
                 {spellLevelLabel(s.level)} · {spellSchoolLabel(s.school)}
                 {s.concentration ? ` · ${t('ui.spells.concentrationShort')}` : ''}

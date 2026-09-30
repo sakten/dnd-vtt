@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { materializeSpell, type Spell } from 'shared';
+import bestiaryData from 'shared/bestiaryData';
 import { MATERIALIZED_AUTOMATION_SCHEMA } from 'shared/automationSchema';
 
 /**
@@ -13,6 +14,10 @@ import { MATERIALIZED_AUTOMATION_SCHEMA } from 'shared/automationSchema';
  * (обновление меты) каталог перегенерировать. Замки: `automation.materialize.test.ts`
  * (байт-равенство компиляции), `automation.schema.test.ts` (структура, ajv),
  * deploy-тест (hash файла). Запуск: `npm run catalog`.
+ *
+ * Срез 5b: профиль скейла существа (`SummonSpec.profile`) переносится из
+ * бестиария в запись заклинания — существо остаётся ключом, числа апкаста
+ * (HP/AC за круг, атака/СЛ кастера) едут в json заклинания.
  */
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -21,7 +26,17 @@ const raw = JSON.parse(readFileSync(resolve(dir, '../shared/src/data/spells.json
   count: number;
   spells: Spell[];
 };
-const spells = raw.spells.map((spell) => materializeSpell(spell));
+const bestiaryByKey = new Map(bestiaryData.entries.map((entry) => [entry.key, entry]));
+const spells = raw.spells.map((spell) => {
+  const record = materializeSpell(spell);
+  const summon = record.automation.summon;
+  if (summon?.creature) {
+    const entry = bestiaryByKey.get(summon.creature);
+    if (!entry) throw new Error(`catalog.json: существо ${summon.creature} не найдено в бестиарии`);
+    if (entry.summon) summon.profile = { ...entry.summon };
+  }
+  return record;
+});
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const check = ajv.compile(MATERIALIZED_AUTOMATION_SCHEMA);

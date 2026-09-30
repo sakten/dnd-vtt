@@ -104,6 +104,26 @@ describe('призывы: серверный спавн', () => {
     expect(summon.statblock?.multiattack).toBe(2);
   });
 
+  it('профиль из записи заклинания перекрывает entry.summon (R16 срез 5b)', () => {
+    const { room, map, f } = setup();
+    const spell = findSpell('XPHB:Summon Fey')!;
+    const def = automationForSpell(spell, { castLevel: 4 });
+    // Кастом/запись с другим скейлом: без него было бы 30 + 10×(4−3) = 40.
+    def.summon!.profile = { baseLevel: 3, hpPerLevel: 100 };
+    executeAutomation(f.ctx, {
+      caster: room.scene.maps[0]!.tokens[0]!,
+      mapId: 'm1',
+      def,
+      targets: [],
+      stats,
+      author: 'DM',
+      origin: { x: 200, y: 200 },
+    });
+    expect(map.tokens[1]!.hpMax).toBe('130');
+    // Атака без флага spellAttack в профиле — бонус кастера не подставляется.
+    expect(map.tokens[1]!.attacks[0]!.hit).toBe('+0');
+  });
+
   it('занятая точка: призыв встаёт на свободные клетки рядом', () => {
     const { room, map, f } = setup();
     const blocker = makeToken('b1', { x: 200, y: 200 });

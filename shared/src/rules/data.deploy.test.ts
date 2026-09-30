@@ -28,13 +28,13 @@ import type { Spell } from './spells';
  */
 const HASHES = {
   spells: '2133927495d56bbf',
-  catalog: 'a327dfbcec3d4eb6',
+  catalog: 'd93bd6ae16aeece1',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: 'f8d310ec0a56a339',
-  bestiary: '6827a0264048d489',
+  bestiary: 'be59ae7bbab059d3',
   invocations: '7efff7e520cc92ad',
 };
 
@@ -287,6 +287,8 @@ describe('снимок данных', () => {
     expect(data.count).toBe(data.spells.length);
     expect(data.count).toBe(SPELLS.length);
     const meta = new Map(SPELLS.map((s) => [s.key, s]));
+    const bestiary = bestiaryRaw as unknown as { entries: BestiaryEntry[] };
+    const byBestiaryKey = new Map(bestiary.entries.map((e) => [e.key, e]));
     const bad: string[] = [];
     for (const record of data.spells) {
       const source = meta.get(record.key);
@@ -298,6 +300,13 @@ describe('снимок данных', () => {
       if (!record.automation) bad.push(`${record.key}: нет automation`);
       if (record.automation && record.automation.primary === 'manual' && record.automation.effects?.length) {
         bad.push(`${record.key}: manual с эффектами`);
+      }
+      // Срез 5b: существо призыва — ключ бестиария, профиль скейла перенесён в запись.
+      const summon = record.automation?.summon;
+      if (summon?.creature) {
+        const entry = byBestiaryKey.get(summon.creature);
+        if (!entry) bad.push(`${record.key}: существо ${summon.creature} не в бестиарии`);
+        if (entry?.summon && !summon.profile) bad.push(`${record.key}: профиль ${summon.creature} не перенесён`);
       }
     }
     expect(bad).toEqual([]);
@@ -429,6 +438,21 @@ describe('снимок данных', () => {
       }
     }
     expect(bad).toEqual([]);
+    // Срез 5b: особые формы Pact of the Chain помечены в данных (рантайм читает флаг).
+    const pact = data.entries.filter((e) => e.pactOfChain).map((e) => e.key).sort();
+    expect(pact).toEqual(
+      [
+        'XMM:Imp',
+        'XMM:Pseudodragon',
+        'XMM:Quasit',
+        'XMM:Skeleton',
+        'XMM:Sphinx of Wonder',
+        'XMM:Sprite',
+        'XMM:Venomous Snake',
+      ].sort()
+    );
+    // Профиль скейла есть только у шаблонов призыва (XPHB) — не у обычных монстров.
+    expect(data.entries.filter((e) => e.summon && !e.key.startsWith('XPHB:'))).toEqual([]);
   });
 
   it('парсеры проходят весь снимок без сбоев', () => {    const bad: string[] = [];

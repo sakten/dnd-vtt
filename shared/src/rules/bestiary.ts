@@ -29,6 +29,20 @@ const ABILITY_WORDS: Record<string, AbilityKey> = {
 };
 const SIZE_CODES = new Set<MonsterSize>(['T', 'S', 'M', 'L', 'H', 'G']);
 const SIZE_CELLS: Record<MonsterSize, number> = { T: 1, S: 1, M: 1, L: 2, H: 3, G: 4 };
+/**
+ * Особые формы фамильяра Pact of the Chain (XPHB 2024, Find Familiar): в сырых
+ * данных 5e.tools флага нет — список ведётся здесь и попадает в запись бестиария
+ * как `pactOfChain`; рантайм читает данные (`entry.pactOfChain`), не список.
+ */
+const PACT_OF_CHAIN_KEYS = new Set([
+  'XMM:Imp',
+  'XMM:Pseudodragon',
+  'XMM:Quasit',
+  'XMM:Skeleton',
+  'XMM:Sphinx of Wonder',
+  'XMM:Sprite',
+  'XMM:Venomous Snake',
+]);
 const DAMAGE_WORDS = new Set([
   'bludgeoning',
   'piercing',
@@ -735,6 +749,7 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
     type: parseType(raw.type),
     cr: parseCr(raw.cr) || '—',
     ...(raw.familiar === true ? { familiar: true } : {}),
+    ...(PACT_OF_CHAIN_KEYS.has(key) ? { pactOfChain: true } : {}),
     immunities: parseDamageDefenses(raw.immune, DAMAGE_WORDS, 'immune'),
     resistances: parseDamageDefenses(raw.resist, DAMAGE_WORDS, 'resist'),
     vulnerabilities: parseDamageDefenses(raw.vulnerable, DAMAGE_WORDS, 'vulnerable'),
@@ -765,6 +780,12 @@ export interface BestiarySpawnOptions {
   slotLevel?: number;
   /** Модификатор атаки заклинанием кастера (заменяет «spell attack» в атаках). */
   spellAttackBonus?: number;
+  /**
+   * Профиль скейла из записи заклинания (R16 срез 5b): перекрывает `entry.summon`
+   * (канон переносит профиль бестиария в запись при `npm run catalog`; кастомы
+   * могут задать свой). Без профиля — поведение по данным бестиария.
+   */
+  profile?: BestiarySummonProfile;
 }
 
 /** Подстановка круга в формулы шаблона: `1d10 + 3 + summonSpellLevel` → `1d10 + 3 + 4`. */
@@ -778,7 +799,7 @@ export function bestiaryTokenFields(entry: BestiaryEntry, opts: BestiarySpawnOpt
   const defense = (type: DamageDefense['type'], list: string[]): DamageDefense[] =>
     list.map((damageType) => ({ id: `${base}:${type}:${damageType}`, type, damageType }));
   const dexMod = Math.floor((entry.abilities.dex - 10) / 2);
-  const profile = entry.summon;
+  const profile = opts.profile ?? entry.summon;
   const level = opts.slotLevel;
   const steps = profile && level !== undefined && profile.baseLevel !== undefined ? Math.max(0, level - profile.baseLevel) : 0;
   const hpMax = profile?.hpPerLevel && steps ? entry.hpAverage + profile.hpPerLevel * steps : entry.hpAverage;

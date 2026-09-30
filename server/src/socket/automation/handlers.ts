@@ -818,7 +818,7 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
     if (input.dispelZoneId) {
       const map = ctx.manager.findMap(room, input.mapId);
       const zone = map?.zones?.find((z) => z.id === input.dispelZoneId);
-      const level = zone ? zoneSpellLevel(zone) : undefined;
+      const level = zone ? zoneSpellLevel(room, zone) : undefined;
       if (!zone || level === undefined) {
         fail(ctx, 'spellNoTarget');
         return;
@@ -836,8 +836,8 @@ const UTILITY_HANDLERS: Record<AutomationUtility['kind'], UtilityHandler> = {
       return;
     }
     let ended = false;
-    for (const effect of dispellableEffects(target)) {
-      const level = effectSpellLevel(effect);
+    for (const effect of dispellableEffects(room, target)) {
+      const level = effectSpellLevel(room, effect);
       if (level === undefined || !check(level, effect.name)) continue;
       endDispelledEffect(ctx, room, input.mapId, target, effect);
       ended = true;

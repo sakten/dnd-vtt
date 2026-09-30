@@ -235,13 +235,13 @@ export function removeZone(ctx: ConnCtx, room: Room, mapId: string, zone: ZoneIn
 }
 
 /** Уровень заклинания-источника зоны (undefined — не заклинание/неизвестно). */
-function zoneSpellLevel(zone: ZoneInstance): number | undefined {
-  return findSpell(zone.sourceKey)?.level;
+function zoneSpellLevel(room: Room, zone: ZoneInstance): number | undefined {
+  return findSpell(zone.sourceKey, room)?.level;
 }
 
 /** Уровень заклинания-источника эффекта (undefined — не заклинание/неизвестно). */
-function effectSpellLevel(effect: EffectInstance): number | undefined {
-  return effect.sourceKey ? findSpell(effect.sourceKey)?.level : undefined;
+function effectSpellLevel(room: Room, effect: EffectInstance): number | undefined {
+  return effect.sourceKey ? findSpell(effect.sourceKey, room)?.level : undefined;
 }
 
 /**
@@ -261,8 +261,8 @@ export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): vo
     }
     return cells;
   };
-  const lights = map.zones.filter((z) => z.light && zoneSpellLevel(z) !== undefined);
-  const darks = map.zones.filter((z) => zoneVisionKind(z) === 'magical' && zoneSpellLevel(z) !== undefined);
+  const lights = map.zones.filter((z) => z.light && zoneSpellLevel(room, z) !== undefined);
+  const darks = map.zones.filter((z) => zoneVisionKind(z) === 'magical' && zoneSpellLevel(room, z) !== undefined);
   const losers = new Set<ZoneInstance>();
   const lostEffects: { token: Token; effect: EffectInstance }[] = [];
   for (const light of lights) {
@@ -270,15 +270,15 @@ export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): vo
     for (const dark of darks) {
       if (light === dark || losers.has(light) || losers.has(dark)) continue;
       if (!cellsOf(dark).some((key) => lightSet.has(key))) continue;
-      const lightLevel = zoneSpellLevel(light)!;
-      const darkLevel = zoneSpellLevel(dark)!;
+      const lightLevel = zoneSpellLevel(room, light)!;
+      const darkLevel = zoneSpellLevel(room, dark)!;
       losers.add(lightLevel >= darkLevel ? dark : light);
     }
   }
   // Свет-эффекты на токенах внутри тьмы: ниже уровнем — гаснет эффект, равный/выше — гибнет тьма.
   for (const dark of darks) {
     if (losers.has(dark)) continue;
-    const darkLevel = zoneSpellLevel(dark)!;
+    const darkLevel = zoneSpellLevel(room, dark)!;
     const inside = tokensInArea(
       map.tokens.filter((t) => !isBanished(t)),
       dark.area,
@@ -292,7 +292,7 @@ export function resolveLightDispels(ctx: ConnCtx, room: Room, mapId: string): vo
     for (const token of inside) {
       for (const effect of token.effects) {
         if (!effect.light) continue;
-        const level = effectSpellLevel(effect);
+        const level = effectSpellLevel(room, effect);
         if (level === undefined) continue;
         if (level >= darkLevel) {
           losers.add(dark);

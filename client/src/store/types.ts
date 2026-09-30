@@ -19,6 +19,7 @@ import type {
   RollKind,
   Scene,
   ServerToClientEvents,
+  SpellDef,
   SpellFxPayload,
   Token,
   TokenFields,
@@ -114,6 +115,8 @@ export interface GameState {
   testMode: boolean;
   /** Опциональные правила комнаты (DM): «Окружение» и т.п. */
   optionalRules: OptionalRules;
+  /** Кастомные заклинания комнаты (`CUSTOM:`, R16 срез 5) — видны всем игрокам. */
+  customSpecs: SpellDef[];
   players: Player[];
   scene: Scene;
   viewMapId: string | null;
@@ -244,6 +247,10 @@ export interface GameState {
   setRoomSettings: (testMode: boolean) => void;
   /** Сменить опциональные правила (сервер применяет только от реального DM). */
   setOptionalRules: (rules: OptionalRules) => void;
+  /** Импорт кастомного заклинания (сервер применяет только от реального DM). */
+  importCustomSpell: (json: string) => void;
+  /** Удаление кастомного заклинания комнаты (только реальный DM). */
+  removeCustomSpell: (key: string) => void;
   setTokenMenu: (id: string | null) => void;
   setDoorMenu: (id: string | null) => void;
   setFogMode: (patch: Partial<FogMode>) => void;
@@ -316,6 +323,7 @@ export interface GameState {
   onRoomJoined: (payload: Parameters<ServerToClientEvents['room:joined']>[0]) => void;
   onRoomRenamed: (payload: Parameters<ServerToClientEvents['room:renamed']>[0]) => void;
   onRoomSettings: (payload: Parameters<ServerToClientEvents['room:settings']>[0]) => void;
+  onCustomSpecs: (customSpecs: SpellDef[]) => void;
   onRoomClosed: (message: string) => void;
   onPlayersUpdate: (players: Player[]) => void;
   onMapsUpdate: (payload: Parameters<ServerToClientEvents['maps:update']>[0]) => void;

@@ -11,18 +11,18 @@ import { removeZone } from './zones';
  */
 
 /** Эффекты-заклинания на токене, которые может окончить Dispel Magic (служебные скрытые — нет). */
-export function dispellableEffects(token: Token): EffectInstance[] {
-  return token.effects.filter((e) => !!e.sourceKey && !e.hidden && !!findSpell(e.sourceKey));
+export function dispellableEffects(room: Room, token: Token): EffectInstance[] {
+  return token.effects.filter((e) => !!e.sourceKey && !e.hidden && !!findSpell(e.sourceKey, room));
 }
 
 /** Уровень заклинания-источника эффекта (undefined — не заклинание). */
-export function effectSpellLevel(effect: EffectInstance): number | undefined {
-  return effect.sourceKey ? findSpell(effect.sourceKey)?.level : undefined;
+export function effectSpellLevel(room: Room, effect: EffectInstance): number | undefined {
+  return effect.sourceKey ? findSpell(effect.sourceKey, room)?.level : undefined;
 }
 
 /** Уровень заклинания-источника зоны (undefined — не заклинание). */
-export function zoneSpellLevel(zone: ZoneInstance): number | undefined {
-  return zone.sourceKey ? findSpell(zone.sourceKey)?.level : undefined;
+export function zoneSpellLevel(room: Room, zone: ZoneInstance): number | undefined {
+  return zone.sourceKey ? findSpell(zone.sourceKey, room)?.level : undefined;
 }
 
 /**

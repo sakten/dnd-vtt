@@ -1,4 +1,5 @@
 import type { ActionCost, ActionTargeting, AreaSpec } from './actions';
+import type { BestiarySummonProfile } from './bestiary';
 import type { Sense } from './sense';
 import type { AbilityKey } from './core';
 import type {
@@ -454,6 +455,12 @@ export interface SummonDef {
   spellAttack?: boolean;
   /** Спасброски шаблона — СЛ заклинаний кастера. */
   spellDc?: boolean;
+  /**
+   * Профиль скейла существа из записи заклинания (R16 срез 5b): HP/AC за круг,
+   * мультиатака, атака/СЛ кастера. Для канона переносится из бестиария
+   * (`npm run catalog`); фолбэк — `entry.summon` при спавне.
+   */
+  profile?: BestiarySummonProfile;
 }
 
 /** Трансформа цели заклинанием (Polymorph): форма — зверь, выбранный кастером. */

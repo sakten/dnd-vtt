@@ -80,6 +80,7 @@ function baseRoom(tokens: Token[], controllers: Record<string, string>, combat =
     nextZ: 0,
     resources: {},
     controllers,
+    customSpecs: [],
     testMode: false,
     optionalRules: { surrounded: false },
   };

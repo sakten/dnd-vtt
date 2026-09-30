@@ -97,6 +97,7 @@ export function attachSocketBridge(socket: AppSocket, get: () => GameState): () 
   });
   socket.on('room:renamed', (payload) => get().onRoomRenamed(payload));
   socket.on('room:settings', (payload) => get().onRoomSettings(payload));
+  socket.on('room:customSpecs', (customSpecs) => get().onCustomSpecs(customSpecs));
   socket.on('room:deleted', () => {
     get().onRoomClosed(t('ui.bridge.roomDeleted'));
     clearRoomParam();
