@@ -392,6 +392,41 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(saved.automation.effects[0].onEnd.name).toBe('Вялость+');
   });
 
+  it('продвинутая зона: предел урона, цена движения, excludeSource, onCreate', () => {
+    const guardian = copyRecord(spellsData.spells.find((s) => s.name === 'Guardian of Faith')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={guardian} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Предел урона'), { target: { value: '50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.zone.dealtLimit).toBe(50);
+    first.unmount();
+
+    const thorns = copyRecord(spellsData.spells.find((s) => s.name === 'Wall of Thorns')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={thorns} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Цена движения (×)'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.zone.flags.movementCost).toBe(2);
+    second.unmount();
+
+    const spirits = copyRecord(spellsData.spells.find((s) => s.name === 'Spirit Guardians')!, '(копия)');
+    const third = render(<SpellConstructorModal initial={spirits} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Не действует на источник' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Не действует на источник' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Нежить' }).at(-1)!);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedSpirits = JSON.parse(lastImportJson());
+    expect(savedSpirits.automation.zone.excludeSource).toBeUndefined();
+    expect(savedSpirits.automation.zone.excludeCreatureTypes).toEqual(['undead']);
+    third.unmount();
+
+    const storm = copyRecord(spellsData.spells.find((s) => s.name === 'Storm Sphere')!, '(копия)');
+    render(<SpellConstructorModal initial={storm} lockedKey={false} onClose={vi.fn()} />);
+    const create = screen.getByRole('checkbox', { name: 'Эффект при создании' });
+    expect(create).toBeChecked();
+    fireEvent.click(create);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.zone.onCreate).toBeUndefined();
+  });
+
   it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {    render(
       <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
     );

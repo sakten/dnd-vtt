@@ -245,15 +245,21 @@ export function withZoneSlot(record: SpellDef, slot: ZoneSlot, enabled: boolean)
   return { ...record, automation: { ...record.automation, zone: next } };
 }
 
-/** Патч payload слота триггера зоны (спас/containment/урон/эффекты). */
-export function withZonePayload(record: SpellDef, slot: ZoneSlot, patch: Partial<PayloadSpec>): SpellDef {
-  const zone = record.automation.zone;
-  const payload: PayloadSpec = { ...(zone?.triggers?.[slot] ?? {}) };
-  const target = payload as Record<string, unknown>;
+/** Патч payload: `undefined` убирает поле (общий для слотов зоны и `onCreate`/`aura`). */
+export function patchPayloadSpec(payload: PayloadSpec, patch: Partial<PayloadSpec>): PayloadSpec {
+  const next: PayloadSpec = { ...payload };
+  const target = next as Record<string, unknown>;
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) delete target[key];
     else target[key] = value;
   }
+  return next;
+}
+
+/** Патч payload слота триггера зоны (спас/containment/урон/эффекты). */
+export function withZonePayload(record: SpellDef, slot: ZoneSlot, patch: Partial<PayloadSpec>): SpellDef {
+  const zone = record.automation.zone;
+  const payload = patchPayloadSpec(zone?.triggers?.[slot] ?? {}, patch);
   return {
     ...record,
     automation: {

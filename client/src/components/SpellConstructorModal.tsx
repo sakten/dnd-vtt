@@ -3,6 +3,7 @@ import {
   ABILITIES,
   CLASSES,
   CONDITION_KEYS,
+  CREATURE_TYPES,
   DAMAGE_TYPES,
   SKILLS,
   type AbilityKey,
@@ -14,8 +15,10 @@ import {
   type EffectDuration,
   type EffectSpec,
   type ManualSpec,
+  type PayloadSpec,
   type ShapeDef,
   type Spell,
+  type SpellDamagePart,
   type SpellDef,
   type SpellDuration,
   type SpellSchool,
@@ -25,7 +28,7 @@ import {
   type WeaponAttackSpec,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
-import { abilityName, classLabel, conditionLabel, damageLabel, skillName } from '../i18n/domain';
+import { abilityName, classLabel, conditionLabel, creatureTypeLabel, damageLabel, skillName } from '../i18n/domain';
 import { specIssueText } from '../i18n/errors';
 import { spellDisplayName } from '../i18n/names';
 import { newId } from '../lib/id';
@@ -39,6 +42,7 @@ import {
   copyRecord,
   keyFromName,
   partUsageKeys,
+  patchPayloadSpec,
   patchZone,
   slotDamageSource,
   slotDamageWithPart,
@@ -111,6 +115,128 @@ interface Props {
   /** Стартовый экран: «с нуля» (мастер), копия канона, готовый черновик. */
   start?: Stage;
   onClose: () => void;
+}
+
+/** Поля payload зоны (слоты триггеров и `onCreate`): спас, containment, привязка урона. */
+function ZonePayloadFields({
+  payload,
+  parts,
+  patch,
+}: {
+  payload: PayloadSpec;
+  parts: SpellDamagePart[];
+  patch: (patch: Partial<PayloadSpec>) => void;
+}) {
+  const source = slotDamageSource(payload);
+  const literalDamage = payload.damage && 'dice' in payload.damage ? payload.damage : undefined;
+  return (
+    <div className="field-row">
+      <Field label={t('ui.constructor.save')}>
+        <select
+          value={payload.save?.ability ?? ''}
+          onChange={(e) => {
+            const ability = e.target.value as AbilityKey | '';
+            patch({ save: ability ? { ability, ...(payload.save?.half ? { half: true } : {}) } : undefined });
+          }}
+        >
+          <option value="">{t('ui.constructor.saveNone')}</option>
+          {ABILITY_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {abilityName(key)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {payload.save && (
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={payload.save.half === true}
+            onChange={(e) => patch({ save: { ...payload.save!, half: e.target.checked || undefined } })}
+          />
+          <span>{t('ui.constructor.saveHalf')}</span>
+        </label>
+      )}
+      <Field label={t('ui.constructor.containment')}>
+        <select
+          value={payload.containment ?? 'anyCell'}
+          onChange={(e) => patch({ containment: e.target.value as 'anyCell' | 'fullyWithin' })}
+        >
+          <option value="anyCell">{t('ui.constructor.containmentAny')}</option>
+          <option value="fullyWithin">{t('ui.constructor.containmentFull')}</option>
+        </select>
+      </Field>
+      <Field label={t('ui.constructor.damage')}>
+        <select
+          value={source.kind === 'part' ? `part:${source.index ?? 0}` : source.kind}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === 'none') patch({ damage: undefined });
+            else if (value === 'literal') {
+              const dice =
+                literalDamage && (typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number')
+                  ? literalDamage.dice
+                  : '1d6';
+              patch({ damage: { dice, types: literalDamage?.types ?? [] } });
+            } else {
+              const index = Number(value.slice('part:'.length)) || 0;
+              const part = parts[index];
+              if (part) patch({ damage: slotDamageWithPart(payload, part, index).damage });
+            }
+          }}
+        >
+          <option value="none">{t('ui.constructor.damageNone')}</option>
+          {parts.map((part, index) => (
+            <option key={index} value={`part:${index}`}>
+              {t('ui.constructor.damagePart', { n: index + 1 })} · {part.types.map((type) => damageLabel(type)).join('/')}
+            </option>
+          ))}
+          <option value="literal">{t('ui.constructor.damageLiteral')}</option>
+        </select>
+      </Field>
+      {source.kind === 'literal' && literalDamage && (
+        <>
+          <Field label={t('ui.constructor.damageDice')}>
+            <input
+              type="text"
+              value={
+                typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number'
+                  ? String(literalDamage.dice)
+                  : ''
+              }
+              onChange={(e) => patch({ damage: { ...literalDamage, dice: e.target.value.trim() } })}
+            />
+          </Field>
+          <div className="ability-types">
+            {DAMAGE_TYPES.map((damage) => {
+              const types = (literalDamage.types ?? []).filter((type): type is string => typeof type === 'string');
+              const checked = types.includes(damage.key);
+              return (
+                <button
+                  type="button"
+                  key={damage.key}
+                  className={`ability-type${checked ? ' on' : ''}`}
+                  onClick={() =>
+                    patch({
+                      damage: {
+                        ...literalDamage,
+                        types: checked ? types.filter((type) => type !== damage.key) : [...types, damage.key],
+                      },
+                    })
+                  }
+                >
+                  {damageLabel(damage.key)}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {(payload.effects?.length || payload.heal || payload.successDamage || payload.healTo !== undefined) && (
+        <span className="hint">{t('ui.constructor.triggerGated')}</span>
+      )}
+    </div>
+  );
 }
 
 /** Конструктор кастомного заклинания (R16 К1): вход, мета-форма, превью, сохранение. */
@@ -1475,8 +1601,6 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </div>
               {ZONE_SLOTS.map((slot) => {
                 const payload = zone.triggers?.[slot];
-                const source = slotDamageSource(payload);
-                const literalDamage = payload?.damage && 'dice' in payload.damage ? payload.damage : undefined;
                 return (
                   <div className="constructor-zone-slot" key={slot}>
                     <label className="checkbox-row">
@@ -1488,113 +1612,116 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                       <span>{t(`ui.constructor.usage.${slot}` as MessageKey)}</span>
                     </label>
                     {payload && (
-                      <div className="field-row">
-                        <Field label={t('ui.constructor.save')}>
-                          <select
-                            value={payload.save?.ability ?? ''}
-                            onChange={(e) => {
-                              const ability = e.target.value as AbilityKey | '';
-                              setRecord((r) =>
-                                withZonePayload(r, slot, {
-                                  save: ability
-                                    ? { ability, ...(payload.save?.half ? { half: true } : {}) }
-                                    : undefined,
-                                })
-                              );
-                            }}
-                          >
-                            <option value="">{t('ui.constructor.saveNone')}</option>
-                            {ABILITY_KEYS.map((key) => (
-                              <option key={key} value={key}>
-                                {abilityName(key)}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        {payload.save && (
-                          <label className="checkbox-row">
-                            <input
-                              type="checkbox"
-                              checked={payload.save.half === true}
-                              onChange={(e) =>
-                                setRecord((r) =>
-                                  withZonePayload(r, slot, {
-                                    save: { ...payload.save!, half: e.target.checked || undefined },
-                                  })
-                                )
-                              }
-                            />
-                            <span>{t('ui.constructor.saveHalf')}</span>
-                          </label>
-                        )}
-                        <Field label={t('ui.constructor.containment')}>
-                          <select
-                            value={payload.containment ?? 'anyCell'}
-                            onChange={(e) =>
-                              setRecord((r) =>
-                                withZonePayload(r, slot, { containment: e.target.value as 'anyCell' | 'fullyWithin' })
-                              )
-                            }
-                          >
-                            <option value="anyCell">{t('ui.constructor.containmentAny')}</option>
-                            <option value="fullyWithin">{t('ui.constructor.containmentFull')}</option>
-                          </select>
-                        </Field>
-                        <Field label={t('ui.constructor.damage')}>
-                          <select
-                            value={source.kind === 'part' ? `part:${source.index ?? 0}` : source.kind}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === 'none') setRecord((r) => withZonePayload(r, slot, { damage: undefined }));
-                              else if (value === 'literal')
-                                setRecord((r) => withZonePayload(r, slot, { damage: { dice: '1d6', types: [] } }));
-                              else {
-                                const index = Number(value.slice('part:'.length)) || 0;
-                                const part = record.damage?.parts?.[index];
-                                if (part) {
-                                  setRecord((r) =>
-                                    withZonePayload(r, slot, { damage: slotDamageWithPart(payload, part, index).damage })
-                                  );
-                                }
-                              }
-                            }}
-                          >
-                            <option value="none">{t('ui.constructor.damageNone')}</option>
-                            {(record.damage?.parts ?? []).map((part, index) => (
-                              <option key={index} value={`part:${index}`}>
-                                {t('ui.constructor.damagePart', { n: index + 1 })} ·{' '}
-                                {part.types.map((type) => damageLabel(type)).join('/')}
-                              </option>
-                            ))}
-                            <option value="literal">{t('ui.constructor.damageLiteral')}</option>
-                          </select>
-                        </Field>
-                        {source.kind === 'literal' && literalDamage && (
-                          <Field label={t('ui.constructor.damageDice')}>
-                            <input
-                              type="text"
-                              value={
-                                typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number'
-                                  ? String(literalDamage.dice)
-                                  : ''
-                              }
-                              onChange={(e) => {
-                                const dice = e.target.value.trim();
-                                const types = (literalDamage.types ?? []).filter(
-                                  (type): type is string => typeof type === 'string'
-                                );
-                                setRecord((r) =>
-                                  withZonePayload(r, slot, { damage: dice ? { dice, types } : { dice: '', types } })
-                                );
-                              }}
-                            />
-                          </Field>
-                        )}
-                      </div>
+                      <ZonePayloadFields
+                        payload={payload}
+                        parts={record.damage?.parts ?? []}
+                        patch={(p) => setRecord((r) => withZonePayload(r, slot, p))}
+                      />
                     )}
                   </div>
                 );
               })}
+              <div className="field-row">
+                <Field label={t('ui.constructor.zoneCharges')}>
+                  <ExprField
+                    value={zone.charges}
+                    onChange={(value) => setRecord((r) => patchZone(r, { charges: value }))}
+                    placeholder="4"
+                  />
+                </Field>
+                <Field label={t('ui.constructor.zoneDealtLimit')}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={zone.dealtLimit ?? ''}
+                    onChange={(e) =>
+                      setRecord((r) => patchZone(r, { dealtLimit: Number(e.target.value) || undefined }))
+                    }
+                  />
+                </Field>
+                <Field label={t('ui.constructor.zoneAnchor')}>
+                  <select
+                    value={zone.anchor ?? ''}
+                    onChange={(e) =>
+                      setRecord((r) => patchZone(r, { anchor: (e.target.value || undefined) as 'source' | 'point' | undefined }))
+                    }
+                  >
+                    <option value="">{t('ui.constructor.areaNone')}</option>
+                    <option value="source">{t('ui.constructor.zoneAnchorSource')}</option>
+                    <option value="point">{t('ui.constructor.zoneAnchorPoint')}</option>
+                  </select>
+                </Field>
+                <Field label={t('ui.constructor.zoneMovementCost')}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={zone.flags?.movementCost ?? ''}
+                    onChange={(e) =>
+                      setRecord((r) =>
+                        patchZone(r, {
+                          flags: { ...(zone.flags ?? {}), movementCost: Number(e.target.value) || undefined },
+                        })
+                      )
+                    }
+                  />
+                </Field>
+              </div>
+              <div className="constructor-checks">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={zone.excludeSource === true}
+                    onChange={(e) => setRecord((r) => patchZone(r, { excludeSource: e.target.checked || undefined }))}
+                  />
+                  <span>{t('ui.constructor.zoneExcludeSource')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={!!zone.onCreate}
+                    onChange={(e) =>
+                      setRecord((r) =>
+                        patchZone(r, { onCreate: e.target.checked ? { containment: 'anyCell' } : undefined })
+                      )
+                    }
+                  />
+                  <span>{t('ui.constructor.zoneOnCreate')}</span>
+                </label>
+              </div>
+              {zone.onCreate && (
+                <ZonePayloadFields
+                  payload={zone.onCreate}
+                  parts={record.damage?.parts ?? []}
+                  patch={(p) =>
+                    setRecord((r) => patchZone(r, { onCreate: patchPayloadSpec(zone.onCreate ?? {}, p) }))
+                  }
+                />
+              )}
+              <div className="ability-types">
+                <span className="constructor-chip-title">{t('ui.constructor.zoneExcludeTypes')}</span>
+                {CREATURE_TYPES.map((type) => {
+                  const checked = (zone.excludeCreatureTypes ?? []).includes(type.key);
+                  return (
+                    <button
+                      type="button"
+                      key={type.key}
+                      className={`ability-type${checked ? ' on' : ''}`}
+                      onClick={() =>
+                        setRecord((r) =>
+                          patchZone(r, {
+                            excludeCreatureTypes: checked
+                              ? (zone.excludeCreatureTypes ?? []).filter((key) => key !== type.key)
+                              : [...(zone.excludeCreatureTypes ?? []), type.key],
+                          })
+                        )
+                      }
+                    >
+                      {creatureTypeLabel(type.key)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="hint">{t('ui.constructor.zoneHint')}</p>
               <button type="button" onClick={() => setRecord((r) => patchZone(r, null))}>
                 {t('ui.constructor.zoneRemove')}
               </button>
