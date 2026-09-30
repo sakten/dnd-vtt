@@ -22,6 +22,7 @@ import {
   type SpellUpcast,
   type SummonSpec,
   type UtilitySpec,
+  type WeaponAttackSpec,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
 import { abilityName, classLabel, conditionLabel, damageLabel, skillName } from '../i18n/domain';
@@ -55,7 +56,7 @@ import {
   type SimpleBranch,
   type WizardProfileId,
 } from '../lib/spellConstructor';
-import EffectListEditor, { EFFECT_DURATIONS } from './EffectListEditor';
+import EffectListEditor, { EFFECT_DURATIONS, ExprField } from './EffectListEditor';
 import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
 import { useSpells } from '../lib/useSpells';
 import { useGameStore } from '../store/useGameStore';
@@ -204,6 +205,17 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     }));
 
   const zone = automation.zone;
+  const wa = automation.weaponAttack;
+  const patchWeaponAttack = (patch: Partial<WeaponAttackSpec> | null) =>
+    setRecord((r) => {
+      const next = { ...r.automation };
+      if (patch === null) {
+        delete next.weaponAttack;
+        return { ...r, automation: next };
+      }
+      next.weaponAttack = { ...(r.automation.weaponAttack ?? {}), ...patch } as WeaponAttackSpec;
+      return { ...r, automation: next };
+    });
   const zoneArea = zone?.area && 'shape' in zone.area ? zone.area : undefined;
   const zoneWall = !!zone?.area && 'wall' in zone.area;
   const zoneDuration = zone && 'type' in (zone.duration as object) ? (zone.duration as EffectDuration) : undefined;
@@ -722,6 +734,258 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </label>
             )}
           </div>
+
+          {wa ? (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.weaponAttack')}</div>
+              <div className="constructor-checks">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={wa.replace === true}
+                    onChange={(e) => patchWeaponAttack({ replace: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.weaponReplace')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={wa.anyWeapon === true}
+                    onChange={(e) => patchWeaponAttack({ anyWeapon: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.weaponAny')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={wa.spellAbility === true}
+                    onChange={(e) => patchWeaponAttack({ spellAbility: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.weaponSpellAbility')}</span>
+                </label>
+              </div>
+              <div className="field-row">
+                <Field label={t('ui.constructor.riderDice')}>
+                  <ExprField value={wa.riderDice} onChange={(value) => patchWeaponAttack({ riderDice: value })} placeholder="1d8" />
+                </Field>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={!!wa.secondary}
+                    onChange={(e) =>
+                      patchWeaponAttack({
+                        secondary: e.target.checked
+                          ? {
+                              rangeFeet: 5,
+                              damageType: record.damage?.types?.[0] ?? 'fire',
+                            }
+                          : undefined,
+                      })
+                    }
+                  />
+                  <span>{t('ui.constructor.weaponSecondary')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={!!wa.hitEffect}
+                    onChange={(e) =>
+                      patchWeaponAttack({
+                        hitEffect: e.target.checked
+                          ? { name: record.name, duration: { type: 'endOfTurn', of: 'target' }, to: 'targets' }
+                          : undefined,
+                      })
+                    }
+                  />
+                  <span>{t('ui.constructor.weaponHitEffect')}</span>
+                </label>
+                <button type="button" onClick={() => patchWeaponAttack(null)}>
+                  {t('ui.constructor.remove')}
+                </button>
+              </div>
+              {wa.secondary && (
+                <div className="field-row">
+                  <Field label={t('ui.constructor.weaponRangeFeet')}>
+                    <input
+                      type="number"
+                      min={0}
+                      value={wa.secondary.rangeFeet}
+                      onChange={(e) =>
+                        patchWeaponAttack({ secondary: { ...wa.secondary!, rangeFeet: Number(e.target.value) || 0 } })
+                      }
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.loadoutDice')}>
+                    <ExprField
+                      value={wa.secondary.dice}
+                      onChange={(value) => patchWeaponAttack({ secondary: { ...wa.secondary!, dice: value } })}
+                      placeholder="2d6"
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.partType')}>
+                    <select
+                      value={wa.secondary.damageType}
+                      onChange={(e) => patchWeaponAttack({ secondary: { ...wa.secondary!, damageType: e.target.value } })}
+                    >
+                      {DAMAGE_TYPES.map((damage) => (
+                        <option key={damage.key} value={damage.key}>
+                          {damageLabel(damage.key)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label={t('ui.constructor.save')}>
+                    <select
+                      value={wa.secondary.save?.ability ?? ''}
+                      onChange={(e) => {
+                        const ability = e.target.value as AbilityKey | '';
+                        patchWeaponAttack({
+                          secondary: {
+                            ...wa.secondary!,
+                            save: ability ? { ability, ...(wa.secondary!.save?.half ? { half: true } : {}) } : undefined,
+                          },
+                        });
+                      }}
+                    >
+                      <option value="">{t('ui.constructor.saveNone')}</option>
+                      {ABILITY_KEYS.map((key) => (
+                        <option key={key} value={key}>
+                          {abilityName(key)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {wa.secondary.save && (
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={wa.secondary.save.half === true}
+                        onChange={(e) =>
+                          patchWeaponAttack({
+                            secondary: {
+                              ...wa.secondary!,
+                              save: { ...wa.secondary!.save!, half: e.target.checked || undefined },
+                            },
+                          })
+                        }
+                      />
+                      <span>{t('ui.constructor.saveHalf')}</span>
+                    </label>
+                  )}
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={wa.secondary.includePrimary === true}
+                      onChange={(e) =>
+                        patchWeaponAttack({
+                          secondary: { ...wa.secondary!, includePrimary: e.target.checked || undefined },
+                        })
+                      }
+                    />
+                    <span>{t('ui.constructor.weaponIncludePrimary')}</span>
+                  </label>
+                </div>
+              )}
+              {wa.hitEffect && (
+                <>
+                  <div className="field-row">
+                    <Field label={t('ui.constructor.effectName')}>
+                      <input
+                        type="text"
+                        value={wa.hitEffect.name}
+                        onChange={(e) => patchWeaponAttack({ hitEffect: { ...wa.hitEffect!, name: e.target.value } })}
+                      />
+                    </Field>
+                    <Field label={t('ui.constructor.effectTo')}>
+                      <select
+                        value={wa.hitEffect.to ?? 'targets'}
+                        onChange={(e) =>
+                          patchWeaponAttack({
+                            hitEffect: { ...wa.hitEffect!, to: e.target.value as 'self' | 'targets' },
+                          })
+                        }
+                      >
+                        <option value="targets">{t('ui.constructor.effectTo.targets')}</option>
+                        <option value="self">{t('ui.constructor.effectTo.self')}</option>
+                      </select>
+                    </Field>
+                    <Field label={t('ui.constructor.duration')}>
+                      <select
+                        value={wa.hitEffect.duration.type}
+                        onChange={(e) =>
+                          patchWeaponAttack({
+                            hitEffect: {
+                              ...wa.hitEffect!,
+                              duration:
+                                e.target.value === 'rounds'
+                                  ? { type: 'rounds', rounds: 1 }
+                                  : e.target.value === 'endOfTurn'
+                                    ? { type: 'endOfTurn', of: 'target' }
+                                    : ({ type: e.target.value } as EffectDuration),
+                            },
+                          })
+                        }
+                      >
+                        {EFFECT_DURATIONS.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {t(`ui.constructor.effectDuration.${kind}` as MessageKey)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {wa.hitEffect.duration.type === 'rounds' && (
+                      <Field label={t('ui.constructor.effectRound')}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={wa.hitEffect.duration.rounds}
+                          onChange={(e) =>
+                            patchWeaponAttack({
+                              hitEffect: { ...wa.hitEffect!, duration: { type: 'rounds', rounds: Number(e.target.value) || 1 } },
+                            })
+                          }
+                        />
+                      </Field>
+                    )}
+                  </div>
+                  <div className="ability-types">
+                    {CONDITION_KEYS.map((key) => {
+                      const checked = (wa.hitEffect!.conditions ?? []).includes(key);
+                      return (
+                        <button
+                          type="button"
+                          key={key}
+                          className={`ability-type${checked ? ' on' : ''}`}
+                          onClick={() =>
+                            patchWeaponAttack({
+                              hitEffect: {
+                                ...wa.hitEffect!,
+                                conditions: checked
+                                  ? (wa.hitEffect!.conditions ?? []).filter((c) => c !== key)
+                                  : [...(wa.hitEffect!.conditions ?? []), key],
+                              },
+                            })
+                          }
+                        >
+                          {conditionLabel(key)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(wa.hitEffect.modifiers?.length || wa.hitEffect.triggers) && (
+                    <p className="hint">{t('ui.constructor.triggerGated')}</p>
+                  )}
+                </>
+              )}
+              <p className="hint">{t('ui.constructor.weaponHint')}</p>
+            </>
+          ) : (
+            (primary === 'attack' || primary === 'auto') && (
+              <button type="button" onClick={() => patchWeaponAttack({ anyWeapon: true, riderDice: '1d6' })}>
+                {t('ui.constructor.weaponAttackAdd')}
+              </button>
+            )
+          )}
 
           <div className="sheet-section-title">{t('ui.constructor.damage')}</div>
           {damageParts.length > 0 ? (

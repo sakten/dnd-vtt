@@ -10,6 +10,10 @@ vi.mock('../lib/useSpells', () => ({ useSpellByKey: () => new Map(), useSpells: 
 
 let emitted: EmittedEvent[] = [];
 
+/** JSON последнего импорта (в тесте может быть несколько сохранений). */
+const lastImportJson = (): string =>
+  (emitted.filter((e) => e.event === 'custom:import').at(-1)!.payload as { json: string }).json;
+
 beforeEach(() => {
   const { socket, emitted: list } = fakeSocket();
   emitted = list;
@@ -92,7 +96,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.range).toEqual({ type: 'point', distance: { type: 'touch' } });
   });
@@ -120,7 +124,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.effects[0].modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 3 });
   });
@@ -133,7 +137,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.effects[0].conditions).toBeUndefined();
   });
@@ -147,7 +151,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.primary).toBe('save');
     expect(saved.automation.save).toEqual({ ability: 'dex' });
@@ -162,7 +166,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.manual.byDesign).toBe(true);
   });
@@ -175,7 +179,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.utility).toMatchObject({ kind: 'tempHp', dice: '2d4 + 4' });
   });
@@ -192,7 +196,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.summon).toMatchObject({ creature: 'XPHB:Fey Spirit' });
   });
@@ -212,7 +216,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.damage.parts[0].types).toEqual(['fire']);
     expect(saved.damage.types).toContain('fire');
@@ -227,7 +231,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.zone).toMatchObject({ area: { shape: 'sphere', size: 10 }, origin: 'point' });
   });
@@ -240,7 +244,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.choices).toHaveLength(1);
     expect(saved.automation.choices[0]).toMatchObject({ id: 'damageType', param: 'damageType', options: ['fire', 'cold'] });
@@ -256,7 +260,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.effects[0].triggers.damaged.damage).toEqual({
       damageType: 'fire',
@@ -280,11 +284,60 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.automation.effects[0].triggers.targetedByAttack).toEqual({
       save: { ability: 'wis', onFail: [{ cancel: true }] },
     });
+  });
+
+  it('лоадаут: Shillelagh (подмена) и Magic Weapon (усиление)', () => {
+    const shillelagh = copyRecord(spellsData.spells.find((s) => s.name === 'Shillelagh')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={shillelagh} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByDisplayValue('Подмена оружия')).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue('XPHB:Club, XPHB:Quarterstaff'), { target: { value: 'XPHB:Club' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedShillelagh = JSON.parse(
+      lastImportJson()
+    );
+    expect(savedShillelagh.automation.effects[0].loadout.weapons).toEqual(['XPHB:Club']);
+    expect(savedShillelagh.automation.effects[0].loadout.damageType).toEqual({ ref: 'type0', fallback: 'force' });
+    first.unmount();
+
+    const magic = copyRecord(spellsData.spells.find((s) => s.name === 'Magic Weapon')!, '(копия)');
+    render(<SpellConstructorModal initial={magic} lockedKey={false} onClose={vi.fn()} />);
+    const magicCheck = screen.getByRole('checkbox', { name: 'Атаки магические' });
+    expect(magicCheck).toBeChecked();
+    fireEvent.click(magicCheck);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedMagic = JSON.parse(
+      lastImportJson()
+    );
+    expect(savedMagic.automation.effects[0].loadout.magic).toBeUndefined();
+  });
+
+  it('райдер оружия: GFB secondary правится, True Strike — флаги', () => {
+    const gfb = copyRecord(spellsData.spells.find((s) => s.name === 'Green-Flame Blade')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={gfb} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Вторичный урон вокруг' })).toBeChecked();
+    fireEvent.change(screen.getByLabelText('Радиус, футы'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedGfb = JSON.parse(
+      lastImportJson()
+    );
+    expect(savedGfb.automation.weaponAttack.secondary).toMatchObject({ rangeFeet: 10, damageType: 'fire' });
+    first.unmount();
+
+    const trueStrike = copyRecord(spellsData.spells.find((s) => s.name === 'True Strike')!, '(копия)');
+    render(<SpellConstructorModal initial={trueStrike} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Любое оружие' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Атака от характеристики заклинания' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedTs = JSON.parse(
+      lastImportJson()
+    );
+    expect(savedTs.automation.weaponAttack.spellAbility).toBeUndefined();
+    expect(savedTs.automation.weaponAttack.anyWeapon).toBe(true);
   });
 
   it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {    render(
@@ -316,7 +369,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
-      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+      lastImportJson()
     );
     expect(saved.concentration).toBeUndefined();
     expect(saved.duration[0].concentration).toBeUndefined();

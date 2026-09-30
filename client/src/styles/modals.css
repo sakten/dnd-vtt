@@ -679,6 +679,9 @@
 .constructor-trigger-op input {
   max-width: 160px;
 }
+.constructor-loadout {
+  margin: 4px 0;
+}
 .constructor-base-list {
   max-height: 46vh;
 }

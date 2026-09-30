@@ -2,15 +2,16 @@ import type { ReactNode } from 'react';
 import {
   CONDITION_KEYS,
   DAMAGE_TYPES,
+  type AbilityKey,
   type ConditionKey,
   type EffectDuration,
   type EffectSpec,
   type EffectTriggerSpec,
   type EffectTriggers,
+  type LoadoutSpec,
   type ModifierSpec,
   type TriggerAction,
   type ValueExpr,
-  type AbilityKey,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
@@ -113,6 +114,37 @@ const toggleType = (types: ValueExpr[], key: string): ValueExpr[] =>
 
 const ABILITY_KEYS: AbilityKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
+/** Значение-ссылка (`{ref}`/`tiers`/`concat`) показывается «из данных»; литерал правится полем. */
+export function ExprField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: ValueExpr | undefined;
+  onChange: (value: ValueExpr | undefined) => void;
+  placeholder?: string;
+}) {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return (
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={String(value)}
+        onChange={(e) => onChange(e.target.value.trim() || undefined)}
+      />
+    );
+  }
+  return <span className="hint">{t('ui.constructor.fromData')}</span>;
+}
+
+type LoadoutKind = LoadoutSpec['kind'];
+
+const blankLoadout = (kind: LoadoutKind): LoadoutSpec => {
+  if (kind === 'augment') return { kind: 'augment', magic: true };
+  if (kind === 'weaponOverride') return { kind: 'weaponOverride', weapons: [], dice: '1d8', damageType: 'force', abilityMod: 0 };
+  return { kind: 'shadowBlade', dice: '2d8', inHand: true };
+};
+
 /** Цели/режимы/длительности эффектов, редактируемые формой (остальное — JSON). */
 export const MODIFIER_TARGETS = [
   'attack',
@@ -189,6 +221,7 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
           : { type: kind };
     patchEffect(effectIndex, { duration });
   };
+  const setLoadout = (effectIndex: number, spec: LoadoutSpec | undefined) => patchEffect(effectIndex, { loadout: spec });
   const parseModifierValue = (raw: string): number | string | undefined => {
     const text = raw.trim();
     if (!text) return undefined;
@@ -515,6 +548,108 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
             <button type="button" onClick={() => addModifier(index)}>
               {t('ui.constructor.addModifier')}
             </button>
+            <div className="constructor-loadout">
+              <div className="constructor-chip-title">{t('ui.constructor.loadout')}</div>
+              <select
+                value={effect.loadout?.kind ?? ''}
+                onChange={(e) =>
+                  setLoadout(index, e.target.value ? blankLoadout(e.target.value as LoadoutKind) : undefined)
+                }
+              >
+                <option value="">{t('ui.constructor.loadoutNone')}</option>
+                <option value="augment">{t('ui.constructor.loadout.augment')}</option>
+                <option value="weaponOverride">{t('ui.constructor.loadout.weaponOverride')}</option>
+                <option value="shadowBlade">{t('ui.constructor.loadout.shadowBlade')}</option>
+              </select>
+              {effect.loadout?.kind === 'augment' && (
+                <span className="field-row">
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={effect.loadout.magic === true}
+                      onChange={(e) =>
+                        setLoadout(index, { ...effect.loadout!, magic: e.target.checked || undefined } as LoadoutSpec)
+                      }
+                    />
+                    <span>{t('ui.constructor.loadoutMagic')}</span>
+                  </label>
+                  <Field label={t('ui.constructor.loadoutAttack')}>
+                    <ExprField
+                      value={effect.loadout.attack}
+                      onChange={(value) => setLoadout(index, { ...effect.loadout!, attack: value } as LoadoutSpec)}
+                      placeholder="+1"
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.loadoutDamage')}>
+                    <ExprField
+                      value={effect.loadout.damage}
+                      onChange={(value) => setLoadout(index, { ...effect.loadout!, damage: value } as LoadoutSpec)}
+                      placeholder="+1"
+                    />
+                  </Field>
+                </span>
+              )}
+              {effect.loadout?.kind === 'weaponOverride' && (
+                <span className="field-row">
+                  <Field label={t('ui.constructor.loadoutWeapons')}>
+                    <input
+                      type="text"
+                      placeholder="XPHB:Club, XPHB:Quarterstaff"
+                      value={effect.loadout.weapons.join(', ')}
+                      onChange={(e) =>
+                        setLoadout(index, {
+                          ...effect.loadout!,
+                          weapons: e.target.value
+                            .split(',')
+                            .map((key) => key.trim())
+                            .filter(Boolean),
+                        } as LoadoutSpec)
+                      }
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.loadoutDice')}>
+                    <ExprField
+                      value={effect.loadout.dice}
+                      onChange={(value) => setLoadout(index, { ...effect.loadout!, dice: value } as LoadoutSpec)}
+                      placeholder="1d8"
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.partType')}>
+                    <ExprField
+                      value={effect.loadout.damageType}
+                      onChange={(value) => setLoadout(index, { ...effect.loadout!, damageType: value } as LoadoutSpec)}
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.loadoutAbilityMod')}>
+                    <ExprField
+                      value={effect.loadout.abilityMod}
+                      onChange={(value) => setLoadout(index, { ...effect.loadout!, abilityMod: value } as LoadoutSpec)}
+                    />
+                  </Field>
+                </span>
+              )}
+              {effect.loadout?.kind === 'shadowBlade' && (
+                <span className="field-row">
+                  <Field label={t('ui.constructor.loadoutDice')}>
+                    <ExprField
+                      value={effect.loadout.dice}
+                      onChange={(value) => setLoadout(index, { ...effect.loadout!, dice: value } as LoadoutSpec)}
+                      placeholder="2d8"
+                    />
+                  </Field>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={effect.loadout.inHand === true}
+                      onChange={(e) =>
+                        setLoadout(index, { ...effect.loadout!, inHand: e.target.checked } as LoadoutSpec)
+                      }
+                    />
+                    <span>{t('ui.constructor.loadoutInHand')}</span>
+                  </label>
+                </span>
+              )}
+            </div>
             <div className="ability-types">
               {CONDITION_KEYS.map((key) => {
                 const checked = (effect.conditions ?? []).some((c) => c === key);
