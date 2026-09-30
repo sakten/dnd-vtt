@@ -49,9 +49,9 @@ function blankMeta(name: string): Spell {
     level: 1,
     school: 'Evocation',
     time: [{ number: 1, unit: 'action' }],
-    range: { type: 'ranged', distance: { type: 'feet', amount: 60 } },
+    range: { type: 'point', distance: { type: 'feet', amount: 60 } },
     components: { v: true, s: true },
-    duration: [{ type: 'instantaneous' }],
+    duration: [{ type: 'instant' }],
     classes: [],
     description: [''],
   };
@@ -107,8 +107,63 @@ export function copyRecord(base: SpellDef, suffix: string): SpellDef {
   return clone;
 }
 
-export type ConstructorIssueCode = 'nameRequired' | 'nameTooLong' | 'diceInvalid' | 'compileFailed';
+/** I18n-ключ слота срабатывания части урона по пути ссылки `{ref:'part'}` в автоматизации. */
+function partUsageKey(path: string[]): string | undefined {
+  const TRIGGER_SLOTS = new Set(['startOfTurn', 'endOfTurn', 'enter', 'exit']);
+  const trigger = path.indexOf('triggers');
+  if (trigger >= 0) {
+    const slot = path[trigger + 1];
+    return slot && TRIGGER_SLOTS.has(slot) ? `ui.constructor.usage.${slot}` : 'ui.constructor.usage.zoneTrigger';
+  }
+  if (path.includes('onCreate')) return 'ui.constructor.usage.onCreate';
+  if (path.includes('aura')) return 'ui.constructor.usage.aura';
+  if (path.includes('successDamage')) return 'ui.constructor.usage.onSuccess';
+  if (path.includes('damage')) return 'ui.constructor.usage.onCast';
+  if (path.includes('heal')) return 'ui.constructor.usage.heal';
+  return undefined;
+}
 
+/**
+ * Когда срабатывает каждая часть урона карточки: сканирует автоматизацию на ссылки
+ * `{ref:'part'}` и сопоставляет индексу части i18n-ключ слота (Hunger of Hadar:
+ * холод — начало хода, кислота — конец хода). Ссылки без индекса (`role`) относят
+ * слот ко всем частям этой роли.
+ */
+export function partUsageKeys(record: SpellDef): Record<number, string[]> {
+  const parts = record.damage?.parts ?? [];
+  const found = new Map<number, Set<string>>();
+  const add = (index: number, key: string) => {
+    const set = found.get(index) ?? new Set<string>();
+    set.add(key);
+    found.set(index, set);
+  };
+  const walk = (node: unknown, path: string[]) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, path);
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    if (obj.ref === 'part') {
+      const key = partUsageKey(path);
+      if (key) {
+        if (typeof obj.index === 'number') add(obj.index, key);
+        else if (typeof obj.part === 'string') {
+          parts.forEach((part, index) => {
+            if (part.role === obj.part) add(index, key);
+          });
+        }
+      }
+    }
+    for (const [key, value] of Object.entries(obj)) walk(value, [...path, key]);
+  };
+  walk(record.automation, []);
+  const out: Record<number, string[]> = {};
+  for (const [index, keys] of found) out[index] = [...keys];
+  return out;
+}
+
+export type ConstructorIssueCode = 'nameRequired' | 'nameTooLong' | 'diceInvalid' | 'compileFailed';
 /** Локальная ошибка конструктора (мета/кости), вне `validateSpec`. */
 export interface ConstructorIssue {
   code: ConstructorIssueCode;

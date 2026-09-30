@@ -20,6 +20,7 @@ import {
   blankRecord,
   copyRecord,
   keyFromName,
+  partUsageKeys,
   validateConstructor,
   type WizardProfileId,
 } from '../lib/spellConstructor';
@@ -43,8 +44,10 @@ const SCHOOLS: SpellSchool[] = [
   'Transmutation',
 ];
 const UNITS = ['action', 'bonus', 'reaction', 'minute', 'hour'] as const;
-const RANGE_TYPES = ['touch', 'ranged', 'self'] as const;
-const DURATION_KINDS = ['instantaneous', 'concentration', 'timed', 'permanent'] as const;
+/** Вид дистанции (в данных — `range.distance.type`, `range.type` обычно `point`). */
+const DISTANCE_KINDS = ['feet', 'touch', 'self', 'sight'] as const;
+const DURATION_KINDS = ['instant', 'timed', 'permanent'] as const;
+const DURATION_UNITS = ['minute', 'hour', 'day', 'round'] as const;
 const AREA_SHAPES: AreaSpec['shape'][] = ['sphere', 'cone', 'cube', 'line', 'cylinder'];
 const CANTrip_LEVELS = [5, 11, 17];
 const ABILITY_KEYS = ABILITIES.map((a) => a.key);
@@ -90,20 +93,44 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
       return '';
     }
   }, [record]);
+  const damageParts = record.damage?.parts ?? [];
+  const usage = useMemo(() => partUsageKeys(record), [record]);
+
+  const distanceType = record.range.distance?.type ?? (record.range.type === 'self' ? 'self' : 'touch');
+  const distanceKinds: string[] = DISTANCE_KINDS.includes(distanceType as (typeof DISTANCE_KINDS)[number])
+    ? [...DISTANCE_KINDS]
+    : [distanceType, ...DISTANCE_KINDS];
+  const setDistanceKind = (kind: string) =>
+    setMeta({
+      range: {
+        ...record.range,
+        distance: kind === 'feet' ? { type: 'feet', amount: record.range.distance?.amount ?? 60 } : { type: kind },
+      },
+    });
 
   const duration = record.duration[0];
   const durationKind: DurationKind =
-    duration?.type === 'concentration' || duration?.type === 'timed' || duration?.type === 'permanent'
-      ? duration.type
-      : 'instantaneous';
+    duration?.type === 'timed' || duration?.type === 'permanent' ? duration.type : 'instant';
+  const durationConcentration = duration?.concentration === true;
   const durationAmount = duration?.duration?.amount ?? 1;
-  const durationUnit = duration?.duration?.type ?? 'minutes';
-  const setDuration = (kind: DurationKind, amount = durationAmount, unit = durationUnit) => {
+  const durationUnit = duration?.duration?.type ?? 'minute';
+  const durationUnits: string[] = DURATION_UNITS.includes(durationUnit as (typeof DURATION_UNITS)[number])
+    ? [...DURATION_UNITS]
+    : [durationUnit, ...DURATION_UNITS];
+  const setDuration = (
+    kind: DurationKind,
+    amount = durationAmount,
+    unit = durationUnit,
+    concentration = durationConcentration
+  ) => {
     let next: SpellDuration[];
-    if (kind === 'instantaneous') next = [{ type: 'instantaneous' }];
+    if (kind === 'instant') next = [{ type: 'instant' }];
     else if (kind === 'permanent') next = [{ type: 'permanent' }];
-    else next = [{ type: kind, duration: { type: unit, amount } }];
-    setMeta({ duration: next, concentration: kind === 'concentration' ? true : undefined });
+    else {
+      next = [{ type: 'timed', duration: { type: unit, amount }, ...(concentration ? { concentration: true } : {}) }];
+    }
+    const conc = kind === 'timed' && concentration;
+    setMeta({ duration: next, concentration: conc || undefined });
   };
 
   const saveAbility = (record.save?.[0] ?? '') as AbilityKey | '';
@@ -273,21 +300,15 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
 
           <div className="field-row">
             <Field label={t('ui.constructor.range')}>
-              <select
-                value={record.range.type}
-                onChange={(e) => {
-                  const type = e.target.value;
-                  setMeta({ range: type === 'ranged' ? { type, distance: { type: 'feet', amount: 60 } } : { type } });
-                }}
-              >
-                {RANGE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {t(`ui.constructor.rangeType.${type}` as MessageKey)}
+              <select value={distanceType} onChange={(e) => setDistanceKind(e.target.value)}>
+                {distanceKinds.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {t(`ui.constructor.rangeType.${kind}` as MessageKey)}
                   </option>
                 ))}
               </select>
             </Field>
-            {record.range.type === 'ranged' && (
+            {distanceType === 'feet' && (
               <Field label={t('ui.constructor.rangeFeet')}>
                 <input
                   type="number"
@@ -311,15 +332,37 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 ))}
               </select>
             </Field>
-            {(durationKind === 'timed' || durationKind === 'concentration') && (
-              <Field label={t('ui.constructor.durationAmount')}>
-                <input
-                  type="number"
-                  min={1}
-                  value={durationAmount}
-                  onChange={(e) => setDuration(durationKind, Number(e.target.value) || 1, durationUnit)}
-                />
-              </Field>
+            {durationKind === 'timed' && (
+              <>
+                <Field label={t('ui.constructor.durationAmount')}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={durationAmount}
+                    onChange={(e) => setDuration(durationKind, Number(e.target.value) || 1, durationUnit)}
+                  />
+                </Field>
+                <Field label={t('ui.constructor.durationUnit')}>
+                  <select
+                    value={durationUnit}
+                    onChange={(e) => setDuration(durationKind, durationAmount, e.target.value, durationConcentration)}
+                  >
+                    {durationUnits.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {t(`ui.constructor.durationUnit.${unit}` as MessageKey)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={durationConcentration}
+                    onChange={(e) => setDuration(durationKind, durationAmount, durationUnit, e.target.checked)}
+                  />
+                  <span>{t('ui.constructor.concentration')}</span>
+                </label>
+              </>
             )}
           </div>
 
@@ -403,43 +446,61 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           </div>
 
           <div className="sheet-section-title">{t('ui.constructor.damage')}</div>
-          <div className="field-row">
-            <Field label={t('ui.constructor.damageDice')}>
-              <input
-                type="text"
-                placeholder="3d6"
-                value={(record.damage?.dice ?? []).join(' + ')}
-                onChange={(e) => {
-                  const dice = e.target.value
-                    .split('+')
-                    .map((x) => x.trim())
-                    .filter(Boolean);
-                  setMeta({ damage: dice.length ? { dice, types: record.damage?.types ?? [] } : undefined });
-                }}
-              />
-            </Field>
-          </div>
-          <div className="ability-types">
-            {DAMAGE_TYPES.map((damage) => {
-              const checked = record.damage?.types?.includes(damage.key) ?? false;
-              return (
-                <button
-                  type="button"
-                  key={damage.key}
-                  className={`ability-type${checked ? ' on' : ''}`}
-                  onClick={() => {
-                    if (!record.damage) return;
-                    const types = checked
-                      ? record.damage.types.filter((x) => x !== damage.key)
-                      : [...record.damage.types, damage.key];
-                    setMeta({ damage: { ...record.damage, types } });
-                  }}
-                >
-                  {damageLabel(damage.key)}
-                </button>
-              );
-            })}
-          </div>
+          {damageParts.length > 0 ? (
+            <>
+              {damageParts.map((part, index) => (
+                <div className="field-row constructor-part" key={index}>
+                  <span className="constructor-tier-label">{t(`ui.constructor.role.${part.role}` as MessageKey)}</span>
+                  <span className="constructor-part-dice">{part.dice}</span>
+                  <span className="constructor-part-types">
+                    {part.types.map((type) => damageLabel(type)).join(' / ')}
+                  </span>
+                  <span className="hint">{(usage[index] ?? []).map((key) => t(key as MessageKey)).join(', ')}</span>
+                </div>
+              ))}
+              <p className="hint">{t('ui.constructor.partsHint')}</p>
+            </>
+          ) : (
+            <>
+              <div className="field-row">
+                <Field label={t('ui.constructor.damageDice')}>
+                  <input
+                    type="text"
+                    placeholder="3d6"
+                    value={(record.damage?.dice ?? []).join(' + ')}
+                    onChange={(e) => {
+                      const dice = e.target.value
+                        .split('+')
+                        .map((x) => x.trim())
+                        .filter(Boolean);
+                      setMeta({ damage: dice.length ? { dice, types: record.damage?.types ?? [] } : undefined });
+                    }}
+                  />
+                </Field>
+              </div>
+              <div className="ability-types">
+                {DAMAGE_TYPES.map((damage) => {
+                  const checked = record.damage?.types?.includes(damage.key) ?? false;
+                  return (
+                    <button
+                      type="button"
+                      key={damage.key}
+                      className={`ability-type${checked ? ' on' : ''}`}
+                      onClick={() => {
+                        if (!record.damage) return;
+                        const types = checked
+                          ? record.damage.types.filter((x) => x !== damage.key)
+                          : [...record.damage.types, damage.key];
+                        setMeta({ damage: { ...record.damage, types } });
+                      }}
+                    >
+                      {damageLabel(damage.key)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           <div className="sheet-section-title">{t('ui.constructor.area')}</div>
           <div className="field-row">

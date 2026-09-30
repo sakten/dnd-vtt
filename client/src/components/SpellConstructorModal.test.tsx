@@ -1,8 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import spellsData from 'shared/spellsData';
 import { useGameStore } from '../store/useGameStore';
 import { fakeSocket, type EmittedEvent } from '../test/fixtures';
-import { blankRecord } from '../lib/spellConstructor';
+import { blankRecord, copyRecord } from '../lib/spellConstructor';
 import SpellConstructorModal from './SpellConstructorModal';
 
 vi.mock('../lib/useSpells', () => ({ useSpellByKey: () => new Map(), useSpells: () => null }));
@@ -77,5 +78,51 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Лечение/ }));
     expect(screen.getByLabelText('Название')).toHaveValue('Новое заклинание');
     expect(screen.getByRole('button', { name: 'Сохранить' })).not.toBeDisabled();
+  });
+
+  it('копия Fireball: дистанция в футах, смена на касание сохраняется', () => {
+    const record = blankRecord('save', 'Огненный шар');
+    record.range = { type: 'point', distance: { type: 'feet', amount: 150 } };
+    render(<SpellConstructorModal initial={record} lockedKey={false} onClose={vi.fn()} />);
+
+    expect(screen.getByLabelText('Дистанция')).toHaveValue('feet');
+    expect(screen.getByLabelText('Дистанция, футы')).toHaveValue(150);
+
+    fireEvent.change(screen.getByLabelText('Дистанция'), { target: { value: 'touch' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.range).toEqual({ type: 'point', distance: { type: 'touch' } });
+  });
+
+  it('составной урон: части с типами и слотами, простого редактора нет', () => {
+    const hoh = spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!;
+    render(<SpellConstructorModal initial={copyRecord(hoh, '(копия)')} lockedKey={false} onClose={vi.fn()} />);
+
+    expect(screen.queryByLabelText('Кости (например 3d6)')).toBeNull();
+    expect(screen.getAllByText('Срабатывание')).toHaveLength(2);
+    expect(screen.getByText('начало хода')).toBeTruthy();
+    expect(screen.getByText('конец хода')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сохранить' })).not.toBeDisabled();
+  });
+
+  it('концентрация синхронит длительность и флаг записи', () => {
+    const record = blankRecord('buff', 'Благословение');
+    record.duration = [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }];
+    record.concentration = true;
+    render(<SpellConstructorModal initial={record} lockedKey={false} onClose={vi.fn()} />);
+
+    const conc = screen.getByRole('checkbox', { name: 'Концентрация' });
+    expect(conc).toBeChecked();
+    fireEvent.click(conc);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.concentration).toBeUndefined();
+    expect(saved.duration[0].concentration).toBeUndefined();
   });
 });

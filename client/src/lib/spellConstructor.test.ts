@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CUSTOM_SPELL_PREFIX, automationForSpell } from 'shared';
-import { WIZARD_PROFILES, blankRecord, copyRecord, keyFromName, validateConstructor } from './spellConstructor';
+import spellsData from 'shared/spellsData';
+import { WIZARD_PROFILES, blankRecord, copyRecord, keyFromName, partUsageKeys, validateConstructor } from './spellConstructor';
 
 describe('конструктор кастомов (R16 К1)', () => {
   it('каждый профиль даёт компилируемую запись с CUSTOM-ключом', () => {
@@ -20,6 +21,32 @@ describe('конструктор кастомов (R16 К1)', () => {
     expect(copy.key).toBe(keyFromName('Огненный шар (копия)'));
     expect(copy.automation.area).toEqual({ shape: 'sphere', size: 20 });
     expect(copy.source).toBe('CUSTOM');
+  });
+
+  it('копия канона сохраняет range/duration в формате данных (Fireball/Bless)', () => {
+    const fireball = spellsData.spells.find((s) => s.name === 'Fireball')!;
+    const fireCopy = copyRecord(fireball, '(копия)');
+    expect(fireCopy.range).toEqual({ type: 'point', distance: { type: 'feet', amount: 150 } });
+    expect(fireCopy.duration).toEqual([{ type: 'instant' }]);
+    expect(validateConstructor(fireCopy)).toEqual({ spec: [], local: [] });
+
+    const bless = spellsData.spells.find((s) => s.name === 'Bless')!;
+    const blessCopy = copyRecord(bless, '(копия)');
+    expect(blessCopy.range).toEqual({ type: 'point', distance: { type: 'feet', amount: 30 } });
+    expect(blessCopy.duration[0]).toMatchObject({
+      type: 'timed',
+      concentration: true,
+      duration: { type: 'minute', amount: 1 },
+    });
+    expect(blessCopy.concentration).toBe(true);
+    expect(validateConstructor(blessCopy)).toEqual({ spec: [], local: [] });
+  });
+
+  it('части урона: слоты срабатывания из автоматизации (Hunger of Hadar)', () => {
+    const hoh = spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!;
+    const usage = partUsageKeys(hoh);
+    expect(usage[0]).toContain('ui.constructor.usage.startOfTurn');
+    expect(usage[1]).toContain('ui.constructor.usage.endOfTurn');
   });
 
   it('валидация: имя, кости и пробная компиляция', () => {
