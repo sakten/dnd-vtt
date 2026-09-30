@@ -9,4 +9,4 @@ export { compileSpec, formatSpecIssues, resolveSpec, validateSpec } from './comp
 export { generatedAutomation } from './generate';
 export { materializeAutomation, materializeSpell } from './materialize';
 export type { MaterializedAutomation, SpellAuto, SpellDef } from './materialize';
-export type { ActionSpec, AutomationSpec, AutomationSpecCopy, ChoiceSpec, EffectSpec, EffectTriggerSpec, EffectTriggers, LoadoutSpec, ManualSpec, ModifierSpec, PayloadSpec, SpecIssue, SpecIssueCode, SummonSpec, TriggerAction, UtilitySpec, ValueExpr, WeaponAttackSpec, ZoneSpec } from './spec';
+export type { ActionSpec, AutomationSpec, AutomationSpecCopy, ChoiceSpec, EffectSpec, EffectTriggerSpec, EffectTriggers, LoadoutSpec, ManualSpec, ModifierSpec, PayloadSpec, SpecIssue, SpecIssueCode, SummonSpec, TriggerAction, UsesSpec, UtilitySpec, ValueExpr, WeaponAttackSpec, ZoneSpec } from './spec';

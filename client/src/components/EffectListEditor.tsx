@@ -2,6 +2,9 @@ import type { ReactNode } from 'react';
 import {
   CONDITION_KEYS,
   DAMAGE_TYPES,
+  DEFAULT_SENSE_RANGES,
+  SENSE_TYPES,
+  SKILLS,
   type AbilityKey,
   type ConditionKey,
   type EffectDuration,
@@ -10,11 +13,13 @@ import {
   type EffectTriggers,
   type LoadoutSpec,
   type ModifierSpec,
+  type Sense,
   type TriggerAction,
+  type UsesSpec,
   type ValueExpr,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
-import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
+import { abilityName, conditionLabel, damageLabel, senseLabel, skillName } from '../i18n/domain';
 import { newId } from '../lib/id';
 import { Field } from './Field';
 
@@ -130,7 +135,14 @@ export function ExprField({
         type="text"
         placeholder={placeholder}
         value={String(value)}
-        onChange={(e) => onChange(e.target.value.trim() || undefined)}
+        onChange={(e) => {
+          const text = e.target.value.trim();
+          if (!text) {
+            onChange(undefined);
+            return;
+          }
+          onChange(/^-?\d+$/.test(text) ? Number(text) : text);
+        }}
       />
     );
   }
@@ -143,6 +155,23 @@ const blankLoadout = (kind: LoadoutKind): LoadoutSpec => {
   if (kind === 'augment') return { kind: 'augment', magic: true };
   if (kind === 'weaponOverride') return { kind: 'weaponOverride', weapons: [], dice: '1d8', damageType: 'force', abilityMod: 0 };
   return { kind: 'shadowBlade', dice: '2d8', inHand: true };
+};
+
+const blankUses = (kind: UsesSpec['kind']): UsesSpec => {
+  if (kind === 'charges') return { kind: 'charges', count: 1 };
+  if (kind === 'misdirect') return { kind: 'misdirect', charges: 3, die: 'd6', threshold: 6 };
+  return { kind };
+};
+
+const literalSenses = (value: EffectSpec['senses']): Sense[] | undefined =>
+  Array.isArray(value) ? value : undefined;
+
+const literalTurnDodge = (value: EffectSpec['turnDodge']): ValueExpr | undefined =>
+  value && typeof value === 'object' && !('if' in value) ? value.ability : undefined;
+
+const literalBooleans = (value: unknown): boolean | undefined => {
+  if (value === true || value === false) return value;
+  return undefined;
 };
 
 /** Цели/режимы/длительности эффектов, редактируемые формой (остальное — JSON). */
@@ -222,6 +251,29 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
     patchEffect(effectIndex, { duration });
   };
   const setLoadout = (effectIndex: number, spec: LoadoutSpec | undefined) => patchEffect(effectIndex, { loadout: spec });
+  const setUses = (effectIndex: number, uses: UsesSpec | undefined) => patchEffect(effectIndex, { uses });
+  const toggleSense = (effectIndex: number, type: Sense['type']) => {
+    const list = literalSenses(effects[effectIndex]!.senses);
+    if (!list) return;
+    const next = list.some((sense) => sense.type === type)
+      ? list.filter((sense) => sense.type !== type)
+      : [...list, { type, range: DEFAULT_SENSE_RANGES[type] ?? 60 }];
+    patchEffect(effectIndex, { senses: next.length ? next : undefined });
+  };
+  const toggleImmunity = (effectIndex: number, key: ConditionKey) => {
+    const list = effects[effectIndex]!.conditionImmunities ?? [];
+    const gated = list.filter((c) => typeof c !== 'string');
+    const plain = list.filter((c): c is string => typeof c === 'string');
+    const next = plain.includes(key) ? plain.filter((c) => c !== key) : [...plain, key];
+    patchEffect(effectIndex, { conditionImmunities: gated.length || next.length ? [...gated, ...next] : undefined });
+  };
+  const patchEscape = (effectIndex: number, patch: Partial<NonNullable<EffectSpec['escape']>> | null) => {
+    if (patch === null) {
+      patchEffect(effectIndex, { escape: undefined });
+      return;
+    }
+    patchEffect(effectIndex, { escape: { ...(effects[effectIndex]!.escape ?? { ability: 'dex' }), ...patch } });
+  };
   const parseModifierValue = (raw: string): number | string | undefined => {
     const text = raw.trim();
     if (!text) return undefined;
@@ -457,6 +509,7 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
         const leveled = typeof effect.duration === 'object' && 'levels' in effect.duration;
         const duration = leveled ? undefined : (effect.duration as EffectDuration);
         const durationKind = duration?.type ?? 'permanent';
+        const uses = effect.uses;
         return (
           <div className="constructor-effect" key={effect.id}>
             <div className="field-row">
@@ -650,6 +703,240 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
                 </span>
               )}
             </div>
+            <div className="constructor-uses">
+              <div className="constructor-chip-title">{t('ui.constructor.uses')}</div>
+              <select
+                value={uses?.kind ?? ''}
+                onChange={(e) => setUses(index, e.target.value ? blankUses(e.target.value as UsesSpec['kind']) : undefined)}
+              >
+                <option value="">{t('ui.constructor.usesNone')}</option>
+                <option value="charges">{t('ui.constructor.uses.charges')}</option>
+                <option value="consumeOnAttack">{t('ui.constructor.uses.consumeOnAttack')}</option>
+                <option value="consumeOnSave">{t('ui.constructor.uses.consumeOnSave')}</option>
+                <option value="misdirect">{t('ui.constructor.uses.misdirect')}</option>
+              </select>
+              {uses?.kind === 'charges' && (
+                <span className="field-row">
+                  <Field label={t('ui.constructor.usesCount')}>
+                    <ExprField value={uses.count} onChange={(value) => setUses(index, { ...uses, count: value ?? 1 })} />
+                  </Field>
+                  <Field label={t('ui.constructor.usesOn')}>
+                    <select
+                      value={uses.on ?? ''}
+                      onChange={(e) =>
+                        setUses(index, {
+                          ...uses,
+                          on: (e.target.value || undefined) as 'rangedWeaponAttack' | undefined,
+                        })
+                      }
+                    >
+                      <option value="">{t('ui.constructor.usesOnAny')}</option>
+                      <option value="rangedWeaponAttack">{t('ui.constructor.usesOnRanged')}</option>
+                    </select>
+                  </Field>
+                </span>
+              )}
+              {uses?.kind === 'misdirect' && (
+                <span className="field-row">
+                  <Field label={t('ui.constructor.usesCount')}>
+                    <input
+                      type="number"
+                      min={1}
+                      value={uses.charges}
+                      onChange={(e) => setUses(index, { ...uses, charges: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.usesDie')}>
+                    <input
+                      type="text"
+                      value={uses.die}
+                      onChange={(e) => setUses(index, { ...uses, die: e.target.value.trim() || 'd6' })}
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.usesThreshold')}>
+                    <input
+                      type="number"
+                      min={1}
+                      value={uses.threshold}
+                      onChange={(e) => setUses(index, { ...uses, threshold: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </Field>
+                </span>
+              )}
+            </div>
+            <details className="constructor-extra">
+              <summary>{t('ui.constructor.extra')}</summary>
+              <div className="field-row">
+                <Field label={t('ui.constructor.extraTempHp')}>
+                  <ExprField value={effect.tempHp} onChange={(value) => patchEffect(index, { tempHp: value })} placeholder="1d4 + 4" />
+                </Field>
+                <Field label={t('ui.constructor.extraTargets')}>
+                  <ExprField value={effect.targets} onChange={(value) => patchEffect(index, { targets: value })} placeholder="3" />
+                </Field>
+                <Field label={t('ui.constructor.extraMaxHpBonus')}>
+                  <input
+                    type="text"
+                    placeholder="2d10"
+                    value={effect.maxHpBonus?.dice ?? ''}
+                    onChange={(e) =>
+                      patchEffect(index, { maxHpBonus: e.target.value.trim() ? { dice: e.target.value.trim() } : undefined })
+                    }
+                  />
+                </Field>
+                <Field label={t('ui.constructor.extraTurnDodge')}>
+                  {literalTurnDodge(effect.turnDodge) !== undefined || effect.turnDodge === undefined ? (
+                    <select
+                      value={literalText(literalTurnDodge(effect.turnDodge))}
+                      onChange={(e) => patchEffect(index, { turnDodge: e.target.value ? { ability: e.target.value } : undefined })}
+                    >
+                      <option value="">{t('ui.constructor.areaNone')}</option>
+                      {ABILITY_KEYS.map((key) => (
+                        <option key={key} value={key}>
+                          {abilityName(key)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="hint">{t('ui.constructor.triggerGated')}</span>
+                  )}
+                </Field>
+              </div>
+              <div className="constructor-checks">
+                {(['seesInvisible', 'mark', 'markTarget', 'dominates', 'banish', 'selfOnFail'] as const).map((key) => (
+                  <label className="checkbox-row" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={literalBooleans(effect[key]) === true}
+                      onChange={(e) =>
+                        patchEffect(index, { [key]: e.target.checked || undefined } as Partial<EffectSpec>)
+                      }
+                    />
+                    <span>{t(`ui.constructor.extra.${key}` as MessageKey)}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="ability-types">
+                <span className="constructor-chip-title">{t('ui.constructor.extraSenses')}</span>
+                {SENSE_TYPES.map((type) => {
+                  const checked = literalSenses(effect.senses)?.some((sense) => sense.type === type) === true;
+                  return (
+                    <button
+                      type="button"
+                      key={type}
+                      className={`ability-type${checked ? ' on' : ''}`}
+                      onClick={() => toggleSense(index, type)}
+                    >
+                      {senseLabel(type)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="ability-types">
+                <span className="constructor-chip-title">{t('ui.constructor.extraConditionImmunities')}</span>
+                {CONDITION_KEYS.map((key) => {
+                  const checked = (effect.conditionImmunities ?? []).some((c) => c === key);
+                  return (
+                    <button
+                      type="button"
+                      key={key}
+                      className={`ability-type${checked ? ' on' : ''}`}
+                      onClick={() => toggleImmunity(index, key)}
+                    >
+                      {conditionLabel(key)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="field-row">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={!!effect.escape}
+                    onChange={(e) => patchEscape(index, e.target.checked ? {} : null)}
+                  />
+                  <span>{t('ui.constructor.extraEscape')}</span>
+                </label>
+                {effect.escape && (
+                  <>
+                    <Field label={t('ui.constructor.extraEscapeKind')}>
+                      <select
+                        value={effect.escape.kind ?? ''}
+                        onChange={(e) =>
+                          patchEscape(index, { kind: (e.target.value || undefined) as 'check' | 'save' | undefined })
+                        }
+                      >
+                        <option value="">{t('ui.constructor.areaNone')}</option>
+                        <option value="check">{t('ui.constructor.escapeKind.check')}</option>
+                        <option value="save">{t('ui.constructor.escapeKind.save')}</option>
+                      </select>
+                    </Field>
+                    <Field label={t('ui.constructor.save')}>
+                      <select
+                        value={literalText(effect.escape.ability)}
+                        onChange={(e) => patchEscape(index, { ability: e.target.value })}
+                      >
+                        {ABILITY_KEYS.map((key) => (
+                          <option key={key} value={key}>
+                            {abilityName(key)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label={t('ui.constructor.extraEscapeSkill')}>
+                      <select
+                        value={literalText(effect.escape.skill)}
+                        onChange={(e) => patchEscape(index, { skill: e.target.value || undefined })}
+                      >
+                        <option value="">{t('ui.constructor.areaNone')}</option>
+                        {SKILLS.map((skill) => (
+                          <option key={skill.key} value={skill.key}>
+                            {skillName(skill.key)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label={t('ui.constructor.extraEscapeDc')}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={effect.escape.dc ?? ''}
+                        onChange={(e) => patchEscape(index, { dc: Number(e.target.value) || undefined })}
+                      />
+                    </Field>
+                  </>
+                )}
+              </div>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={!!effect.onEnd}
+                  onChange={(e) =>
+                    patchEffect(index, {
+                      onEnd: e.target.checked
+                        ? {
+                            id: 'onEnd',
+                            name: t('ui.constructor.onEndDefault'),
+                            duration: { type: 'permanent' },
+                            to: 'self',
+                            modifiers: [],
+                          }
+                        : undefined,
+                    })
+                  }
+                />
+                <span>{t('ui.constructor.extraOnEnd')}</span>
+              </label>
+              {effect.onEnd && (
+                <div className="constructor-onend">
+                  <EffectListEditor
+                    effects={[effect.onEnd]}
+                    onChange={(list) => patchEffect(index, { onEnd: list[0] })}
+                    defaultName={effect.onEnd.name}
+                  />
+                </div>
+              )}
+              <p className="hint">{t('ui.constructor.extraHint')}</p>
+            </details>
             <div className="ability-types">
               {CONDITION_KEYS.map((key) => {
                 const checked = (effect.conditions ?? []).some((c) => c === key);

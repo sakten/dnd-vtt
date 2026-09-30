@@ -133,7 +133,8 @@ describe('SpellConstructorModal (R16 К1)', () => {
     const hold = copyRecord(spellsData.spells.find((s) => s.name === 'Hold Person')!, '(копия)');
     render(<SpellConstructorModal initial={hold} lockedKey={false} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Парализован' }));
+    // Чипы состояний идут последними (иммунитеты в блоке «Дополнительно» раньше).
+    fireEvent.click(screen.getAllByRole('button', { name: 'Парализован' }).at(-1)!);
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
@@ -211,8 +212,8 @@ describe('SpellConstructorModal (R16 К1)', () => {
     const slotDamage = screen.getAllByLabelText('Урон');
     expect(slotDamage[0]).toHaveValue('part:0');
     expect(slotDamage[1]).toHaveValue('part:1');
-    // Аура: снимаем ослепление.
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ослеплён' })[0]!);
+    // Аура: снимаем ослепление (чипы состояний идут последними среди кнопок).
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ослеплён' }).at(-1)!);
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     const saved = JSON.parse(
@@ -338,6 +339,57 @@ describe('SpellConstructorModal (R16 К1)', () => {
     );
     expect(savedTs.automation.weaponAttack.spellAbility).toBeUndefined();
     expect(savedTs.automation.weaponAttack.anyWeapon).toBe(true);
+  });
+
+  it('расходы: заряды Flame Arrows и подмена Mirror Image', () => {
+    const arrows = copyRecord(spellsData.spells.find((s) => s.name === 'Flame Arrows')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={arrows} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByDisplayValue('Заряды')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Зарядов'), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedArrows = JSON.parse(lastImportJson());
+    expect(savedArrows.automation.effects[0].uses).toEqual({ kind: 'charges', count: 6, on: 'rangedWeaponAttack' });
+    first.unmount();
+
+    const mirror = copyRecord(spellsData.spells.find((s) => s.name === 'Mirror Image')!, '(копия)');
+    render(<SpellConstructorModal initial={mirror} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByDisplayValue('Подмена (Mirror Image)')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Порог'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedMirror = JSON.parse(lastImportJson());
+    expect(savedMirror.automation.effects[0].uses).toMatchObject({ kind: 'misdirect', threshold: 4, die: 'd6' });
+  });
+
+  it('особые поля: Darkvision (восприятие) и Web (выпутывание)', () => {
+    const darkvision = copyRecord(spellsData.spells.find((s) => s.name === 'Darkvision')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={darkvision} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText('Дополнительно'));
+    fireEvent.click(screen.getByRole('button', { name: 'Тёмное зрение' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedVision = JSON.parse(lastImportJson());
+    expect(savedVision.automation.effects[0].senses).toBeUndefined();
+    first.unmount();
+
+    const web = copyRecord(spellsData.spells.find((s) => s.name === 'Web')!, '(копия)');
+    render(<SpellConstructorModal initial={web} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText('Дополнительно'));
+    fireEvent.change(screen.getByLabelText('СЛ'), { target: { value: '15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedWeb = JSON.parse(lastImportJson());
+    expect(savedWeb.automation.effects[0].escape).toMatchObject({ ability: 'str', skill: 'athletics', dc: 15 });
+  });
+
+  it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
+    const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
+    render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);
+    // Вложенный onEnd рендерит свой блок «Дополнительно» — открываем внешний (первый).
+    fireEvent.click(screen.getAllByText('Дополнительно')[0]!);
+    expect(screen.getAllByRole('checkbox', { name: 'Эффект при снятии' })[0]).toBeChecked();
+    fireEvent.change(screen.getByDisplayValue('Вялость'), { target: { value: 'Вялость+' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(lastImportJson());
+    expect(saved.automation.effects[0].onEnd.name).toBe('Вялость+');
   });
 
   it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {    render(
