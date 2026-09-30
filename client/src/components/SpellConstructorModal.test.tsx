@@ -103,8 +103,12 @@ describe('SpellConstructorModal (R16 К1)', () => {
 
     expect(screen.queryByLabelText('Кости (например 3d6)')).toBeNull();
     expect(screen.getAllByText('Срабатывание')).toHaveLength(2);
-    expect(screen.getByText('начало хода')).toBeTruthy();
-    expect(screen.getByText('конец хода')).toBeTruthy();
+    expect(screen.getAllByText(/начало хода/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/конец хода/).length).toBeGreaterThan(0);
+    // Сводка записи: аура зоны (ослепление) и разница сейвов частей.
+    expect(screen.getAllByText(/Ослеплён/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/спас Ловкость/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/без спасброска/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Сохранить' })).not.toBeDisabled();
   });
 

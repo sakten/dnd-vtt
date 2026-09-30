@@ -29,6 +29,7 @@ import { spellDisplayName } from '../i18n/names';
 import { newId } from '../lib/id';
 import {
   WIZARD_PROFILES,
+  automationNotes,
   blankRecord,
   canSwitchPrimary,
   copyRecord,
@@ -38,6 +39,8 @@ import {
   validateConstructor,
   withSave,
   withSpellAttack,
+  type AutomationNote,
+  type PartUsage,
   type SimpleBranch,
   type WizardProfileId,
 } from '../lib/spellConstructor';
@@ -159,6 +162,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
   }, [record]);
   const damageParts = record.damage?.parts ?? [];
   const usage = useMemo(() => partUsageKeys(record), [record]);
+  const notes = useMemo(() => automationNotes(record), [record]);
 
   // Каталог существ для пикера призыва — ленивый чанк (как в других панелях).
   useEffect(() => {
@@ -302,6 +306,58 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     const text = raw.trim();
     if (!text) return undefined;
     return /^-?\d+(\.\d+)?$/.test(text) ? Number(text) : text;
+  };
+  /** Строка слота части урона: слот триггера + спасбросок (или «без спасброска»). */
+  const usageText = (u: PartUsage): string => {
+    const base = t(u.key as MessageKey);
+    if (!u.trigger) return base;
+    const save = u.save ? t('ui.constructor.note.save', { ability: abilityName(u.save) }) : t('ui.constructor.usageNoSave');
+    return `${base} · ${save}`;
+  };
+  /** Строка read-only заметки о сложной автоматизации. */
+  const noteText = (note: AutomationNote): string => {
+    switch (note.kind) {
+      case 'zone': {
+        const shape =
+          note.shape && (AREA_SHAPES as string[]).includes(note.shape)
+            ? t(`ui.constructor.areaShapeName.${note.shape}` as MessageKey)
+            : note.shape;
+        const duration =
+          note.duration && (EFFECT_DURATIONS as readonly string[]).includes(note.duration)
+            ? t(`ui.constructor.effectDuration.${note.duration}` as MessageKey)
+            : note.duration;
+        const flags = (note.flags ?? []).map((flag) => t(`ui.constructor.flag.${flag}` as MessageKey));
+        return [t('ui.constructor.note.zone'), shape, note.size, duration, ...flags].filter(Boolean).join(' · ');
+      }
+      case 'zoneTrigger': {
+        const slot = note.slot ? t(`ui.constructor.usage.${note.slot}` as MessageKey) : '';
+        const save = note.ability
+          ? t('ui.constructor.note.save', { ability: abilityName(note.ability) })
+          : t('ui.constructor.usageNoSave');
+        const damage = note.types?.length
+          ? ` · ${t('ui.constructor.note.damage')}: ${note.types.map((type) => damageLabel(type)).join('/')}`
+          : '';
+        return `${t('ui.constructor.note.zoneTrigger')}${slot ? ` (${slot})` : ''}: ${save}${damage}`;
+      }
+      case 'auraEffect':
+        return `${t('ui.constructor.note.aura')}: ${note.name}${
+          note.conditions?.length ? ` · ${note.conditions.map((c) => conditionLabel(c)).join(', ')}` : ''
+        }`;
+      case 'effectTriggers':
+        return `${t('ui.constructor.note.effectTriggers')}: ${note.name}`;
+      case 'choice':
+        return `${t('ui.constructor.note.choice')} «${note.name}»: ${(note.options ?? [])
+          .map((option) => (note.param === 'damageType' ? damageLabel(option) : option))
+          .join(', ')}`;
+      case 'weaponAttack':
+        return t('ui.constructor.note.weaponAttack');
+      case 'uses':
+        return t('ui.constructor.note.uses');
+      case 'movement':
+        return t('ui.constructor.note.movement');
+      case 'loadout':
+        return t('ui.constructor.note.loadout');
+    }
   };
 
   const distanceType = record.range.distance?.type ?? (record.range.type === 'self' ? 'self' : 'touch');
@@ -716,7 +772,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   <span className="constructor-part-types">
                     {part.types.map((type) => damageLabel(type)).join(' / ')}
                   </span>
-                  <span className="hint">{(usage[index] ?? []).map((key) => t(key as MessageKey)).join(', ')}</span>
+                  <span className="hint">{(usage[index] ?? []).map((u) => usageText(u)).join(' · ')}</span>
                 </div>
               ))}
               <p className="hint">{t('ui.constructor.partsHint')}</p>
@@ -760,6 +816,18 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   );
                 })}
               </div>
+            </>
+          )}
+
+          {notes.length > 0 && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.automation')}</div>
+              <ul className="constructor-notes">
+                {notes.map((note, index) => (
+                  <li key={index}>{noteText(note)}</li>
+                ))}
+              </ul>
+              <p className="hint">{t('ui.constructor.automationHint')}</p>
             </>
           )}
 

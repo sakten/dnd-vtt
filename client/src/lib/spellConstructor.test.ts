@@ -3,6 +3,7 @@ import { CUSTOM_SPELL_PREFIX, automationForSpell } from 'shared';
 import spellsData from 'shared/spellsData';
 import {
   WIZARD_PROFILES,
+  automationNotes,
   blankRecord,
   canSwitchPrimary,
   copyRecord,
@@ -58,11 +59,24 @@ describe('конструктор кастомов (R16 К1)', () => {
     expect(validateConstructor(blessCopy)).toEqual({ spec: [], local: [] });
   });
 
-  it('части урона: слоты срабатывания из автоматизации (Hunger of Hadar)', () => {
+  it('части урона: слоты и спасброски из автоматизации (Hunger of Hadar)', () => {
     const hoh = spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!;
     const usage = partUsageKeys(hoh);
-    expect(usage[0]).toContain('ui.constructor.usage.startOfTurn');
-    expect(usage[1]).toContain('ui.constructor.usage.endOfTurn');
+    expect(usage[0]).toContainEqual({ key: 'ui.constructor.usage.startOfTurn', trigger: true });
+    expect(usage[1]).toContainEqual({ key: 'ui.constructor.usage.endOfTurn', save: 'dex', trigger: true });
+  });
+
+  it('сводка автоматизации: зона, триггеры со спасом и аура (Hunger of Hadar)', () => {
+    const hoh = spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!;
+    const notes = automationNotes(hoh);
+    expect(notes).toContainEqual(
+      expect.objectContaining({ kind: 'zone', shape: 'sphere', size: 20, duration: 'concentration' })
+    );
+    expect(notes).toContainEqual(expect.objectContaining({ kind: 'zoneTrigger', slot: 'startOfTurn', types: ['cold'] }));
+    expect(notes).toContainEqual(
+      expect.objectContaining({ kind: 'zoneTrigger', slot: 'endOfTurn', ability: 'dex', types: ['acid'] })
+    );
+    expect(notes).toContainEqual(expect.objectContaining({ kind: 'auraEffect', conditions: ['blinded'] }));
   });
 
   it('переключение простой ветки: attack ↔ save ↔ effect, сложные — не трогаем', () => {

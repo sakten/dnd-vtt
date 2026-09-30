@@ -130,46 +130,6 @@ function partUsageKey(path: string[]): string | undefined {
   return undefined;
 }
 
-/**
- * Когда срабатывает каждая часть урона карточки: сканирует автоматизацию на ссылки
- * `{ref:'part'}` и сопоставляет индексу части i18n-ключ слота (Hunger of Hadar:
- * холод — начало хода, кислота — конец хода). Ссылки без индекса (`role`) относят
- * слот ко всем частям этой роли.
- */
-export function partUsageKeys(record: SpellDef): Record<number, string[]> {
-  const parts = record.damage?.parts ?? [];
-  const found = new Map<number, Set<string>>();
-  const add = (index: number, key: string) => {
-    const set = found.get(index) ?? new Set<string>();
-    set.add(key);
-    found.set(index, set);
-  };
-  const walk = (node: unknown, path: string[]) => {
-    if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) {
-      for (const item of node) walk(item, path);
-      return;
-    }
-    const obj = node as Record<string, unknown>;
-    if (obj.ref === 'part') {
-      const key = partUsageKey(path);
-      if (key) {
-        if (typeof obj.index === 'number') add(obj.index, key);
-        else if (typeof obj.part === 'string') {
-          parts.forEach((part, index) => {
-            if (part.role === obj.part) add(index, key);
-          });
-        }
-      }
-    }
-    for (const [key, value] of Object.entries(obj)) walk(value, [...path, key]);
-  };
-  walk(record.automation, []);
-  const out: Record<number, string[]> = {};
-  for (const [index, keys] of found) out[index] = [...keys];
-  return out;
-}
-
 export type SimpleBranch = 'attack' | 'save' | 'auto' | 'effect';
 
 /** Ветки, между которыми безопасно переключаться формой (без zone/призывов/форм/оружия). */
@@ -233,6 +193,151 @@ export function withSave(record: SpellDef, ability: AbilityKey | undefined, half
   }
   next.automation = automation;
   return next;
+}
+
+/** Слот использования части урона: i18n-ключ, спасбросок payload и признак триггера. */
+export interface PartUsage {
+  /** I18n-ключ слота (`ui.constructor.usage.*`). */
+  key: string;
+  /** Спасбросок payload слота (Hunger of Hadar: кислота — DEX). */
+  save?: AbilityKey;
+  /** Слот из `triggers` зоны/эффекта — для подписи «без спасброска». */
+  trigger?: boolean;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
+const saveAbilityOf = (payload: unknown): AbilityKey | undefined => {
+  if (!isRecord(payload) || !isRecord(payload.save)) return undefined;
+  const ability = payload.save.ability;
+  return typeof ability === 'string' ? (ability as AbilityKey) : undefined;
+};
+
+/**
+ * Когда срабатывает каждая часть урона карточки: сканирует автоматизацию на ссылки
+ * `{ref:'part'}` и сопоставляет индексу части слот + спасбросок payload (Hunger of
+ * Hadar: холод — начало хода без сейва, кислота — конец хода со спасом DEX).
+ * Ссылки без индекса (`role`) относят слот ко всем частям этой роли.
+ */
+export function partUsageKeys(record: SpellDef): Record<number, PartUsage[]> {
+  const parts = record.damage?.parts ?? [];
+  const found = new Map<number, PartUsage[]>();
+  const add = (index: number, usage: PartUsage) => {
+    const list = found.get(index) ?? [];
+    if (!list.some((u) => u.key === usage.key && u.save === usage.save && u.trigger === usage.trigger)) {
+      list.push(usage);
+    }
+    found.set(index, list);
+  };
+  const walk = (node: unknown, path: string[], payload?: Record<string, unknown>) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, path, payload);
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    // Payload-объект триггера: `{ save, damage }` — спас относится к вложенным костям.
+    const nextPayload = 'damage' in obj || 'save' in obj ? obj : payload;
+    if (obj.ref === 'part') {
+      const key = partUsageKey(path);
+      if (key) {
+        const save = saveAbilityOf(nextPayload);
+        const usage: PartUsage = {
+          key,
+          ...(save ? { save } : {}),
+          ...(path.includes('triggers') ? { trigger: true } : {}),
+        };
+        if (typeof obj.index === 'number') add(obj.index, usage);
+        else if (typeof obj.part === 'string') {
+          parts.forEach((part, index) => {
+            if (part.role === obj.part) add(index, usage);
+          });
+        }
+      }
+    }
+    for (const [key, value] of Object.entries(obj)) walk(value, [...path, key], nextPayload);
+  };
+  walk(record.automation, []);
+  return Object.fromEntries(found);
+}
+
+/** Read-only заметка о блоках автоматизации, которые форма пока не редактирует. */
+export interface AutomationNote {
+  kind: 'zone' | 'zoneTrigger' | 'auraEffect' | 'effectTriggers' | 'choice' | 'weaponAttack' | 'uses' | 'movement' | 'loadout';
+  slot?: string;
+  ability?: AbilityKey;
+  types?: string[];
+  name?: string;
+  param?: string;
+  options?: string[];
+  shape?: string;
+  size?: number;
+  duration?: string;
+  flags?: string[];
+  conditions?: string[];
+}
+
+const damageTypesOf = (damage: unknown): string[] => {
+  if (!isRecord(damage)) return [];
+  if (Array.isArray(damage.parts)) {
+    const out = new Set<string>();
+    for (const part of damage.parts) {
+      if (!isRecord(part)) continue;
+      if (typeof part.type === 'string') out.add(part.type);
+      if (Array.isArray(part.types)) for (const type of part.types) if (typeof type === 'string') out.add(type);
+    }
+    return [...out];
+  }
+  return Array.isArray(damage.types) ? damage.types.filter((type): type is string => typeof type === 'string') : [];
+};
+
+/** Сводка сложной автоматизации записи (зоны, триггеры, ауры, выборы) для формы. */
+export function automationNotes(record: SpellDef): AutomationNote[] {
+  const notes: AutomationNote[] = [];
+  const automation = record.automation;
+  const zone = automation.zone;
+  if (zone) {
+    const area = !zone.area ? undefined : 'shape' in zone.area ? zone.area : undefined;
+    const duration = isRecord(zone.duration) && typeof zone.duration.type === 'string' ? zone.duration.type : undefined;
+    notes.push({
+      kind: 'zone',
+      ...(area ? { shape: area.shape, size: area.size } : {}),
+      ...(duration ? { duration } : {}),
+      flags: Object.entries(zone.flags ?? {})
+        .filter(([, value]) => value === true)
+        .map(([key]) => key),
+    });
+    for (const [slot, payload] of Object.entries(zone.triggers ?? {})) {
+      if (!payload) continue;
+      notes.push({
+        kind: 'zoneTrigger',
+        slot,
+        ...(saveAbilityOf(payload) ? { ability: saveAbilityOf(payload) } : {}),
+        types: damageTypesOf(payload.damage),
+      });
+    }
+    for (const effect of zone.aura?.effects ?? []) {
+      notes.push({
+        kind: 'auraEffect',
+        name: effect.name,
+        conditions: (effect.conditions ?? []).filter((c): c is string => typeof c === 'string'),
+      });
+    }
+  }
+  for (const effect of automation.effects ?? []) {
+    if (effect.triggers && Object.keys(effect.triggers).length) {
+      notes.push({ kind: 'effectTriggers', name: effect.name });
+    }
+    if (effect.loadout) notes.push({ kind: 'loadout' });
+    if (effect.uses) notes.push({ kind: 'uses' });
+  }
+  for (const choice of automation.choices ?? []) {
+    notes.push({ kind: 'choice', name: choice.id, param: choice.param, options: [...choice.options] });
+  }
+  if (automation.weaponAttack) notes.push({ kind: 'weaponAttack' });
+  if (automation.movement) notes.push({ kind: 'movement' });
+  return notes;
 }
 
 export type ConstructorIssueCode =
