@@ -664,6 +664,21 @@
 .constructor-zone-slot .field-row {
   margin-left: 18px;
 }
+.constructor-triggers {
+  margin-top: 6px;
+  border-top: 1px dashed var(--panel-border);
+  padding-top: 4px;
+}
+.constructor-trigger-event {
+  margin: 4px 0;
+}
+.constructor-trigger-op {
+  margin-left: 18px;
+}
+.constructor-trigger-op select,
+.constructor-trigger-op input {
+  max-width: 160px;
+}
 .constructor-base-list {
   max-height: 46vh;
 }

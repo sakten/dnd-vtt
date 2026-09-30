@@ -246,6 +246,47 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(saved.automation.choices[0]).toMatchObject({ id: 'damageType', param: 'damageType', options: ['fire', 'cold'] });
   });
 
+  it('реакции: ответ уроном (Armor of Agathys) — тип правится, amount сохраняется', () => {
+    const armor = copyRecord(spellsData.spells.find((s) => s.name === 'Armor of Agathys')!, '(копия)');
+    render(<SpellConstructorModal initial={armor} lockedKey={false} onClose={vi.fn()} />);
+
+    expect(screen.getByRole('checkbox', { name: 'Получен урон' })).toBeChecked();
+    expect(screen.getByDisplayValue('Ответ уроном')).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue('Холод'), { target: { value: 'fire' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.effects[0].triggers.damaged.damage).toEqual({
+      damageType: 'fire',
+      amount: { sum: [5, { ref: 'upcastFlat' }] },
+      to: 'source',
+    });
+  });
+
+  it('реакции: Death Ward (выживание) и Sanctuary (спас + вложенная отмена)', () => {
+    const ward = copyRecord(spellsData.spells.find((s) => s.name === 'Death Ward')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={ward} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Падение до 0 HP' })).toBeChecked();
+    expect(screen.getByDisplayValue('Выжить на 1 HP')).toBeTruthy();
+    first.unmount();
+
+    const sanctuary = copyRecord(spellsData.spells.find((s) => s.name === 'Sanctuary')!, '(копия)');
+    render(<SpellConstructorModal initial={sanctuary} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Цель атаки' })).toBeChecked();
+    // Спас операции показан и сохраняется 1:1 (компилятор допускает только WIS + cancel).
+    expect(screen.getAllByDisplayValue('Мудрость').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.effects[0].triggers.targetedByAttack).toEqual({
+      save: { ability: 'wis', onFail: [{ cancel: true }] },
+    });
+  });
+
   it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {    render(
       <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
     );
