@@ -19,7 +19,7 @@ import {
  * валидатором (схема + `validateSpec` + `compileSpec`).
  */
 
-export type WizardProfileId = 'attack' | 'save' | 'heal' | 'buff' | 'control';
+export type WizardProfileId = 'attack' | 'save' | 'heal' | 'buff' | 'control' | 'summon' | 'utility';
 
 export interface WizardProfile {
   id: WizardProfileId;
@@ -34,6 +34,8 @@ export const WIZARD_PROFILES: WizardProfile[] = [
   { id: 'heal', labelKey: 'ui.constructor.profile.heal', hintKey: 'ui.constructor.profile.healHint' },
   { id: 'buff', labelKey: 'ui.constructor.profile.buff', hintKey: 'ui.constructor.profile.buffHint' },
   { id: 'control', labelKey: 'ui.constructor.profile.control', hintKey: 'ui.constructor.profile.controlHint' },
+  { id: 'summon', labelKey: 'ui.constructor.profile.summon', hintKey: 'ui.constructor.profile.summonHint' },
+  { id: 'utility', labelKey: 'ui.constructor.profile.utility', hintKey: 'ui.constructor.profile.utilityHint' },
 ];
 
 /** Ключ кастомной записи из имени (сервер дополнит префикс, если его нет). */
@@ -95,6 +97,10 @@ export function blankRecord(profile: WizardProfileId, name: string): SpellDef {
           effects: [{ id: 'effect', name, duration: { type: 'permanent' }, to: 'targets', modifiers: [], conditions: [] }],
         },
       };
+    case 'summon':
+      return { ...spell, automation: { primary: 'summon', summon: { initiative: 'afterCaster' } } };
+    case 'utility':
+      return { ...spell, automation: { primary: 'utility', utility: { kind: 'tempHp', dice: '1d4 + 4' } } };
   }
   return { ...spell, automation: generatedAutomation(spell) };
 }
@@ -229,7 +235,12 @@ export function withSave(record: SpellDef, ability: AbilityKey | undefined, half
   return next;
 }
 
-export type ConstructorIssueCode = 'nameRequired' | 'nameTooLong' | 'diceInvalid' | 'compileFailed';
+export type ConstructorIssueCode =
+  | 'nameRequired'
+  | 'nameTooLong'
+  | 'diceInvalid'
+  | 'compileFailed'
+  | 'summonFormRequired';
 /** Локальная ошибка конструктора (мета/кости), вне `validateSpec`. */export interface ConstructorIssue {
   code: ConstructorIssueCode;
   params?: Record<string, string | number>;
@@ -260,6 +271,10 @@ export function validateConstructor(record: SpellDef): ConstructorValidation {
   const name = record.name.trim();
   if (!name) local.push({ code: 'nameRequired' });
   else if (name.length > 80) local.push({ code: 'nameTooLong' });
+  const summon = record.automation.summon;
+  if (record.automation.primary === 'summon' && summon && !summon.creature && !summon.fromFamiliar) {
+    local.push({ code: 'summonFormRequired' });
+  }
   for (const expr of diceExpressions(record)) {
     try {
       parseDiceExpression(expr);

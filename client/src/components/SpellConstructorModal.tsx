@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ABILITIES,
   CLASSES,
@@ -6,16 +6,21 @@ import {
   DAMAGE_TYPES,
   type AbilityKey,
   type AreaSpec,
+  type BestiaryEntry,
+  type BestiarySummonProfile,
   type ConditionKey,
   type EffectDuration,
   type EffectSpec,
   type ManualSpec,
   type ModifierSpec,
+  type ShapeDef,
   type Spell,
   type SpellDef,
   type SpellDuration,
   type SpellSchool,
   type SpellUpcast,
+  type SummonSpec,
+  type UtilitySpec,
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
 import { abilityName, classLabel, conditionLabel, damageLabel } from '../i18n/domain';
@@ -91,6 +96,21 @@ const MODIFIER_MODES = [
 ] as const;
 const EFFECT_DURATIONS = ['permanent', 'concentration', 'endOfTurn', 'rounds'] as const;
 const SIMPLE_SWITCH: SimpleBranch[] = ['attack', 'save', 'auto', 'effect'];
+/** Виды утилит, редактируемые формой (остальные — только JSON). */
+const UTILITY_KINDS = [
+  'tempHp',
+  'healPool',
+  'teleport',
+  'extraAttacks',
+  'extraMovement',
+  'disengage',
+  'wake',
+  'revive',
+  'stabilize',
+  'extraAction',
+] as const;
+const UTILITY_DICE_KINDS = new Set<string>(['tempHp', 'healPool']);
+const UTILITY_AMOUNT_KINDS = new Set<string>(['teleport', 'extraAttacks', 'extraMovement', 'healPool']);
 
 type DurationKind = (typeof DURATION_KINDS)[number];
 
@@ -110,6 +130,10 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
   const spells = useSpells();
   const importCustom = useGameStore((s) => s.importCustomSpell);
   const [query, setQuery] = useState('');
+  const [tab, setTab] = useState<'form' | 'json'>('form');
+  const [jsonText, setJsonText] = useState('');
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [bestiary, setBestiary] = useState<BestiaryEntry[] | null>(null);
 
   const setMeta = (patch: Partial<Spell>) =>
     setRecord((r) => {
@@ -136,6 +160,20 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
   const damageParts = record.damage?.parts ?? [];
   const usage = useMemo(() => partUsageKeys(record), [record]);
 
+  // Каталог существ для пикера призыва — ленивый чанк (как в других панелях).
+  useEffect(() => {
+    if (record.automation.primary !== 'summon' || bestiary) return;
+    let alive = true;
+    import('shared/bestiaryData')
+      .then((mod) => {
+        if (alive) setBestiary([...mod.default.entries].sort((a, b) => a.name.localeCompare(b.name)));
+      })
+      .catch(() => void 0);
+    return () => {
+      alive = false;
+    };
+  }, [record.automation.primary, bestiary]);
+
   const automation = record.automation;
   const primary = automation.primary;
   const switchable = canSwitchPrimary(record);
@@ -154,6 +192,74 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
       automation: { ...r.automation, manual: { ...(r.automation.manual ?? {}), ...patch } },
     }));
   const manual = automation.manual ?? {};
+  const summon = automation.summon;
+  const patchSummon = (patch: Partial<SummonSpec>) =>
+    setRecord((r) => ({
+      ...r,
+      automation: {
+        ...r.automation,
+        summon: { initiative: 'afterCaster', ...(r.automation.summon ?? {}), ...patch },
+      },
+    }));
+  const patchProfile = (patch: Partial<BestiarySummonProfile>) => {
+    const merged = { ...(summon?.profile ?? {}), ...patch };
+    const clean = Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== undefined));
+    patchSummon({ profile: Object.keys(clean).length ? (clean as BestiarySummonProfile) : undefined });
+  };
+  const utility = automation.utility;
+  const patchUtility = (patch: Partial<UtilitySpec>) =>
+    setRecord((r) => ({
+      ...r,
+      automation: { ...r.automation, utility: { kind: 'tempHp', ...(r.automation.utility ?? {}), ...patch } },
+    }));
+  const patchShape = (patch: Partial<ShapeDef>) =>
+    setRecord((r) => ({
+      ...r,
+      automation: { ...r.automation, shape: { kind: 'polymorph', ...(r.automation.shape ?? {}), ...patch } },
+    }));
+
+  const issueTextsOf = (target: SpellDef) => {
+    const v = validateConstructor(target);
+    return [
+      ...v.local.map((issue) => t(`ui.constructor.issue.${issue.code}` as MessageKey, issue.params)),
+      ...v.spec.map(specIssueText),
+    ];
+  };
+  const openJson = () => {
+    setJsonText(JSON.stringify(record, null, 2));
+    setJsonError(null);
+    setTab('json');
+  };
+  const parseJson = (): SpellDef | undefined => {
+    try {
+      const parsed = JSON.parse(jsonText) as SpellDef;
+      if (!parsed || typeof parsed !== 'object' || !parsed.automation) throw new Error('record');
+      parsed.key = lockedKey ? record.key : keyFromName(parsed.name || record.name);
+      return parsed;
+    } catch {
+      setJsonError(t('ui.constructor.jsonInvalid'));
+      return undefined;
+    }
+  };
+  const applyJson = () => {
+    const parsed = parseJson();
+    if (!parsed) return;
+    setRecord(structuredClone(parsed));
+    setTab('form');
+    setJsonError(null);
+  };
+  const saveJson = () => {
+    const parsed = parseJson();
+    if (!parsed) return;
+    // Ошибки — переключаемся на форму с живой валидацией; иначе сохраняем запись из JSON.
+    if (issueTextsOf(parsed).length) {
+      setRecord(structuredClone(parsed));
+      setTab('form');
+      return;
+    }
+    importCustom(JSON.stringify(parsed));
+    onClose();
+  };
   const patchModifier = (effectIndex: number, modIndex: number, patch: Partial<ModifierSpec>) => {
     const list = [...(effects[effectIndex]!.modifiers ?? [])];
     list[modIndex] = { ...(list[modIndex] as ModifierSpec), ...patch };
@@ -340,6 +446,33 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
 
   return (
     <Modal onClose={onClose} className="spell-constructor" title={t('ui.constructor.title')}>
+      <div className="constructor-tabs">
+        <button type="button" className={tab === 'form' ? 'active' : ''} onClick={() => setTab('form')}>
+          {t('ui.constructor.tabForm')}
+        </button>
+        <button type="button" className={tab === 'json' ? 'active' : ''} onClick={openJson}>
+          {t('ui.constructor.tabJson')}
+        </button>
+      </div>
+      {tab === 'json' ? (
+        <>
+          <textarea
+            className="room-custom-json constructor-json"
+            value={jsonText}
+            onChange={(e) => setJsonText(e.target.value)}
+          />
+          {jsonError && <p className="hint constructor-json-error">{jsonError}</p>}
+          <p className="hint">{t('ui.constructor.jsonHint')}</p>
+          <div className="modal-actions">
+            <button type="button" onClick={applyJson}>
+              {t('ui.constructor.jsonApply')}
+            </button>
+            <button type="button" className="primary" onClick={saveJson}>
+              {t('ui.common.save')}
+            </button>
+          </div>
+        </>
+      ) : (
       <div className="constructor-grid">
         <div className="constructor-fields">
           <div className="field-row">
@@ -822,6 +955,175 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             </>
           )}
 
+          {primary === 'summon' && summon && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.summon')}</div>
+              <div className="field-row">
+                <Field label={t('ui.constructor.summonCreature')}>
+                  <select
+                    value={summon.creature ?? ''}
+                    onChange={(e) => patchSummon({ creature: e.target.value || undefined })}
+                  >
+                    <option value="">{t('ui.constructor.summonNone')}</option>
+                    {(bestiary ?? []).map((entry) => (
+                      <option key={entry.key} value={entry.key}>
+                        {entry.name} · {entry.source}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={t('ui.constructor.summonInitiative')}>
+                  <select
+                    value={summon.initiative}
+                    onChange={(e) => patchSummon({ initiative: e.target.value as SummonSpec['initiative'] })}
+                  >
+                    <option value="afterCaster">{t('ui.constructor.summonAfterCaster')}</option>
+                    <option value="own">{t('ui.constructor.summonOwn')}</option>
+                  </select>
+                </Field>
+                <Field label={t('ui.constructor.summonCount')}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={9}
+                    value={summon.count ?? 1}
+                    onChange={(e) => patchSummon({ count: Math.max(1, Number(e.target.value) || 1) })}
+                  />
+                </Field>
+                <Field label={t('ui.constructor.summonBaseLevel')}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={9}
+                    value={summon.baseLevel ?? ''}
+                    onChange={(e) => patchSummon({ baseLevel: Number(e.target.value) || undefined })}
+                  />
+                </Field>
+              </div>
+              <div className="constructor-checks">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={summon.fromFamiliar === true}
+                    onChange={(e) => patchSummon({ fromFamiliar: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.summonFamiliar')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={summon.profile?.spellAttack === true}
+                    onChange={(e) => patchProfile({ spellAttack: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.summonSpellAttack')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={summon.profile?.spellDc === true}
+                    onChange={(e) => patchProfile({ spellDc: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.summonSpellDc')}</span>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={summon.profile?.multiattackHalfLevel === true}
+                    onChange={(e) => patchProfile({ multiattackHalfLevel: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.summonMultiattack')}</span>
+                </label>
+              </div>
+              <div className="field-row">
+                <Field label={t('ui.constructor.summonProfileBase')}>
+                  <input
+                    type="number"
+                    min={0}
+                    max={9}
+                    value={summon.profile?.baseLevel ?? ''}
+                    onChange={(e) => patchProfile({ baseLevel: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label={t('ui.constructor.summonHpPerLevel')}>
+                  <input
+                    type="number"
+                    value={summon.profile?.hpPerLevel ?? ''}
+                    onChange={(e) => patchProfile({ hpPerLevel: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label={t('ui.constructor.summonAcPerLevel')}>
+                  <input
+                    type="number"
+                    value={summon.profile?.acPerLevel ?? ''}
+                    onChange={(e) => patchProfile({ acPerLevel: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  />
+                </Field>
+              </div>
+              <p className="hint">{t('ui.constructor.summonHint')}</p>
+            </>
+          )}
+
+          {primary === 'utility' && utility && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.utility')}</div>
+              <div className="field-row">
+                <Field label={t('ui.constructor.utilityKind')}>
+                  <select
+                    value={utility.kind}
+                    onChange={(e) => patchUtility({ kind: e.target.value as UtilitySpec['kind'] })}
+                  >
+                    {!UTILITY_KINDS.includes(utility.kind as (typeof UTILITY_KINDS)[number]) && (
+                      <option value={utility.kind}>{utility.kind}</option>
+                    )}
+                    {UTILITY_KINDS.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {t(`ui.constructor.utilityKind.${kind}` as MessageKey)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {UTILITY_DICE_KINDS.has(utility.kind) && (
+                  <Field label={t('ui.constructor.utilityDice')}>
+                    <input
+                      type="text"
+                      placeholder="1d4 + 4"
+                      value={typeof utility.dice === 'string' || typeof utility.dice === 'number' ? String(utility.dice) : ''}
+                      onChange={(e) => patchUtility({ dice: e.target.value.trim() || undefined })}
+                    />
+                  </Field>
+                )}
+                {UTILITY_AMOUNT_KINDS.has(utility.kind) && (
+                  <Field label={t('ui.constructor.utilityAmount')}>
+                    <input
+                      type="number"
+                      min={0}
+                      value={utility.amount ?? ''}
+                      onChange={(e) => patchUtility({ amount: Number(e.target.value) || undefined })}
+                    />
+                  </Field>
+                )}
+              </div>
+              <p className="hint">{t('ui.constructor.utilityHint')}</p>
+            </>
+          )}
+
+          {automation.shape && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.shape')}</div>
+              <div className="field-row">
+                <span className="constructor-tier-label">{t('ui.constructor.shapePolymorph')}</span>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={automation.shape.crByTarget === true}
+                    onChange={(e) => patchShape({ crByTarget: e.target.checked || undefined })}
+                  />
+                  <span>{t('ui.constructor.shapeCrByTarget')}</span>
+                </label>
+              </div>
+            </>
+          )}
+
           {record.level === 0 ? (
             <>
               <div className="sheet-section-title">{t('ui.constructor.cantrip')}</div>
@@ -920,6 +1222,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           </div>
         </div>
       </div>
+      )}
     </Modal>
   );
 }

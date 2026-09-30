@@ -163,6 +163,54 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(saved.automation.manual.byDesign).toBe(true);
   });
 
+  it('утилита: кости tempHp правятся', () => {
+    render(
+      <SpellConstructorModal initial={blankRecord('utility', 'Щит')} lockedKey={false} onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getByLabelText('Кости'), { target: { value: '2d4 + 4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.utility).toMatchObject({ kind: 'tempHp', dice: '2d4 + 4' });
+  });
+
+  it('призыв: без существа сохранить нельзя, выбор существа разблокирует', async () => {
+    render(
+      <SpellConstructorModal initial={blankRecord('summon', 'Зов')} lockedKey={false} onClose={vi.fn()} />
+    );
+    expect(screen.getByText('Выберите существо призыва')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+
+    const option = await screen.findByRole('option', { name: /Fey Spirit · XPHB/ });
+    fireEvent.change(screen.getByLabelText('Существо'), { target: { value: option.getAttribute('value') } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const saved = JSON.parse(
+      (emitted.find((e) => e.event === 'custom:import')!.payload as { json: string }).json
+    );
+    expect(saved.automation.summon).toMatchObject({ creature: 'XPHB:Fey Spirit' });
+  });
+
+  it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {
+    render(
+      <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'JSON' }));
+    const area = screen.getByRole('textbox');
+
+    fireEvent.change(area, { target: { value: 'не json' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Применить' }));
+    expect(screen.getByText(/Некорректный JSON/)).toBeTruthy();
+
+    const record = blankRecord('attack', 'Тест');
+    record.name = 'Из JSON';
+    fireEvent.change(area, { target: { value: JSON.stringify(record) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Применить' }));
+    expect(screen.getByLabelText('Название')).toHaveValue('Из JSON');
+  });
+
   it('концентрация синхронит длительность и флаг записи', () => {
     const record = blankRecord('buff', 'Благословение');
     record.duration = [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }];

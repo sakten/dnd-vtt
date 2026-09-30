@@ -627,6 +627,31 @@
   font-size: 12px;
   color: #ffb4b4;
 }
+.constructor-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.constructor-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.constructor-json {
+  min-height: 46vh;
+}
+.constructor-json-error {
+  color: #ffb4b4;
+}
+.constructor-branch {
+  align-self: center;
+  color: var(--accent);
+}
+.constructor-effect {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+}
 .constructor-base-list {
   max-height: 46vh;
 }

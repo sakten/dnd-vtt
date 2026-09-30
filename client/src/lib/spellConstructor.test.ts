@@ -19,6 +19,11 @@ describe('конструктор кастомов (R16 К1)', () => {
     for (const profile of WIZARD_PROFILES) {
       const record = blankRecord(profile.id, `Тест ${profile.id}`);
       expect(record.key).toBe(`${CUSTOM_SPELL_PREFIX}Тест ${profile.id}`);
+      if (profile.id === 'summon') {
+        // Призыв без существа не сохраняется (проверка формы), затем выбираем шаблон.
+        expect(validateConstructor(record).local).toContainEqual({ code: 'summonFormRequired' });
+        record.automation.summon!.creature = 'XPHB:Fey Spirit';
+      }
       expect(validateConstructor(record)).toEqual({ spec: [], local: [] });
       expect(() => automationForSpell(record)).not.toThrow();
     }
@@ -89,6 +94,18 @@ describe('конструктор кастомов (R16 К1)', () => {
     const melee = withSpellAttack(bolt, 'melee');
     expect(melee.spellAttack).toBe('melee');
     expect(melee.automation.attack).toEqual({ rangeType: 'melee' });
+  });
+
+  it('призыв и утилита: профили мастера, проверка формы призыва', () => {
+    const summon = blankRecord('summon', 'Зов');
+    expect(validateConstructor(summon).local).toContainEqual({ code: 'summonFormRequired' });
+    summon.automation.summon!.creature = 'XPHB:Fey Spirit';
+    expect(validateConstructor(summon)).toEqual({ spec: [], local: [] });
+    expect(() => automationForSpell(summon)).not.toThrow();
+
+    const utility = blankRecord('utility', 'Щит');
+    expect(validateConstructor(utility)).toEqual({ spec: [], local: [] });
+    expect(automationForSpell(utility).utility).toMatchObject({ kind: 'tempHp', dice: '1d4 + 4' });
   });
 
   it('валидация: имя, кости и пробная компиляция', () => {
