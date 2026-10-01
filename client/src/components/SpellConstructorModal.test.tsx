@@ -561,6 +561,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     // Урон × Спас × Область: наведение скрыто, эффекты добавляются чипом.
     expect(screen.queryByRole('checkbox', { name: 'Наведение' })).toBeNull();
     expect(screen.queryByText('Эффекты')).toBeNull();
+    expect(screen.queryByLabelText('Целей')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Добавить эффект' }));
     expect(screen.getByText('Эффекты')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Убрать эффект' }));
@@ -570,6 +571,12 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(JSON.parse(lastImportJson()).automation.effects).toHaveLength(1);
     first.unmount();
+
+    // Мультицель без области (Steel Wind Strike): «Целей» на месте.
+    const strike = copyRecord(spellsData.spells.find((s) => s.name === 'Steel Wind Strike')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={strike} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Целей')).toHaveValue(5);
+    second.unmount();
 
     // Эффект × Авто: блок урона скрыт, редактор эффектов на месте.
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');

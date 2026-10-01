@@ -770,6 +770,10 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     !!automation.heal;
   const payloadAllows = (allowed: KitPayload[]): boolean =>
     !recognized || (payloadKind ? allowed.includes(payloadKind) : false);
+  /** «Целей» — мультицель без области (Steel Wind Strike): у area-каста скрыта. */
+  const showTopTargets =
+    !recognized || (payloadAllows(['damage', 'effect']) && kit?.delivery === 'creatures');
+  const showTopSide = payloadAllows(['damage', 'effect']);
   const showAttackField =
     !recognized ||
     kit?.resolution === 'attack' ||
@@ -2724,27 +2728,27 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             </>
           )}
           <div className="field-row">
-            {payloadAllows(['damage', 'effect']) && (
-              <>
-                <Field label={t('ui.constructor.topTargets')}>
-                  <input
-                    type="number"
-                    min={0}
-                    value={automation.targets ?? ''}
-                    onChange={(e) => patchTop({ targets: Number(e.target.value) || undefined })}
-                  />
-                </Field>
-                <Field label={t('ui.constructor.topSide')}>
-                  <select
-                    value={automation.side ?? ''}
-                    onChange={(e) => patchTop({ side: (e.target.value || undefined) as 'hostile' | 'ally' | undefined })}
-                  >
-                    <option value="">{t('ui.constructor.areaNone')}</option>
-                    <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
-                    <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
-                  </select>
-                </Field>
-              </>
+            {showTopTargets && (
+              <Field label={t('ui.constructor.topTargets')}>
+                <input
+                  type="number"
+                  min={0}
+                  value={automation.targets ?? ''}
+                  onChange={(e) => patchTop({ targets: Number(e.target.value) || undefined })}
+                />
+              </Field>
+            )}
+            {showTopSide && (
+              <Field label={t('ui.constructor.topSide')}>
+                <select
+                  value={automation.side ?? ''}
+                  onChange={(e) => patchTop({ side: (e.target.value || undefined) as 'hostile' | 'ally' | undefined })}
+                >
+                  <option value="">{t('ui.constructor.areaNone')}</option>
+                  <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
+                  <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
+                </select>
+              </Field>
             )}
             {payloadAllows(['effect', 'heal']) && (
               <>
