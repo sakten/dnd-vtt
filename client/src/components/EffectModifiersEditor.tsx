@@ -1,4 +1,4 @@
-import type { ModifierSpec, ValueExpr } from 'shared';
+import { modifierModeAllowed, type ModifierSpec, type ValueExpr } from 'shared';
 import { t, type MessageKey } from '../i18n';
 
 /** Цели/режимы модификаторов, редактируемые формой (остальное — JSON). */
@@ -62,7 +62,10 @@ export default function EffectModifiersEditor<T extends GatedModifier>({
           <div className="field-row constructor-modifier" key={index}>
             <select
               value={mod.target}
-              onChange={(e) => patch(index, { target: e.target.value as ModifierSpec['target'] })}
+              onChange={(e) => {
+                const target = e.target.value as ModifierSpec['target'];
+                patch(index, modifierModeAllowed(target, mod.mode) ? { target } : { target, mode: 'add' });
+              }}
             >
               {MODIFIER_TARGETS.map((target) => (
                 <option key={target} value={target}>
@@ -71,7 +74,7 @@ export default function EffectModifiersEditor<T extends GatedModifier>({
               ))}
             </select>
             <select value={mod.mode} onChange={(e) => patch(index, { mode: e.target.value as ModifierSpec['mode'] })}>
-              {MODIFIER_MODES.map((mode) => (
+              {MODIFIER_MODES.filter((mode) => modifierModeAllowed(mod.target, mode)).map((mode) => (
                 <option key={mode} value={mode}>
                   {t(`ui.constructor.mmode.${mode}` as MessageKey)}
                 </option>

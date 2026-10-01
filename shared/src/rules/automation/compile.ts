@@ -1,6 +1,7 @@
 import type { AutomationDef, AutomationDice, AutomationEffect, AutomationPayload, AutomationUtility, GrantedAction, SummonDef, ZoneDef } from '../../domain/automation';
 import type { AbilityKey } from '../../domain/core';
 import type { ConditionKey, Modifier, TriggerEvent, TriggerInstance } from '../../domain/effects';
+import { modifierModeAllowed } from '../../domain/effects';
 import { ABILITIES, DAMAGE_TYPES, SKILLS } from '../../labels';
 import { CONDITION_KEYS } from '../conditions';
 import type { Spell } from '../spells';
@@ -1019,6 +1020,28 @@ export function validateSpec(spec: AutomationSpec): SpecIssue[] {
     effectIds.add(effect.id);
   }
   if (spec.zone && (!spec.zone.area || !spec.zone.duration)) issues.push({ code: 'zoneWithoutAreaDuration' });
+  // Пары «цель × режим» модификаторов: AC+иммунитет и подобное — ошибка, а не тихий no-op.
+  const checkModifiers = (node: unknown): void => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node) checkModifiers(item);
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    if (Array.isArray(obj.modifiers)) {
+      for (const entry of obj.modifiers) {
+        const wrap = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : null;
+        const mod = wrap && 'then' in wrap ? wrap.then : wrap;
+        if (!mod || typeof mod !== 'object') continue;
+        const { target, mode } = mod as { target?: unknown; mode?: unknown };
+        if (typeof target === 'string' && typeof mode === 'string' && !modifierModeAllowed(target, mode)) {
+          issues.push({ code: 'modifierBadMode', params: { target, mode } });
+        }
+      }
+    }
+    for (const value of Object.values(obj)) checkModifiers(value);
+  };
+  checkModifiers(spec);
   const choiceIds = new Set((spec.choices ?? []).map((c) => c.id));
   for (const choice of spec.choices ?? []) {
     const vocabulary = CHOICE_OPTION_VOCABULARY[choice.param];

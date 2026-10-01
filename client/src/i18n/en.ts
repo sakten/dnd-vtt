@@ -60,6 +60,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.badRequest': 'Invalid request',
   'error.customInvalid': 'Custom spell not added: the JSON failed validation (schema, references or the extends base)',
   'error.spec.effectWithoutEffects': 'The “effect” branch requires effects or a zone',
+  'error.spec.modifierBadMode': 'Invalid modifier combination: {target} × {mode}',
   'error.spec.utilityWithoutKind': 'The “utility” branch needs a kind (utility.kind)',
   'error.spec.shapeWithoutShape': 'The “shape” branch requires a shape block',
   'error.spec.shapeOnlyWithSave': 'Shape is allowed only in the “save” branch',

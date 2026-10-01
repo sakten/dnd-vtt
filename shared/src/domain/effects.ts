@@ -69,6 +69,19 @@ export type ModifierMode =
   | 'immunity'
   | 'vulnerability';
 
+/** Режимы защиты от урона: только `target: 'damage'`. */
+const DEFENSE_MODES = new Set<string>(['resistance', 'immunity', 'vulnerability']);
+/** Режимы преимущества/помехи: только броски (атака/спас/проверка). */
+const ROLL_MODES = new Set<string>(['advantage', 'disadvantage']);
+const ROLL_TARGETS = new Set<string>(['attack', 'save', 'check']);
+
+/** Допустима ли пара «цель × режим» модификатора (одна матрица для формы и валидации). */
+export function modifierModeAllowed(target: ModifierTarget | string, mode: ModifierMode | string): boolean {
+  if (DEFENSE_MODES.has(mode)) return target === 'damage';
+  if (ROLL_MODES.has(mode)) return ROLL_TARGETS.has(target);
+  return true;
+}
+
 export interface ModifierFilter {
   attackType?: 'melee' | 'ranged';
   ability?: AbilityKey;

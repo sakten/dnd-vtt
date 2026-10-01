@@ -544,7 +544,8 @@ export type SpecIssueCode =
   | 'zoneWithoutAreaDuration'
   | 'choiceInvalidOption'
   | 'actionBaseActionWithPayload'
-  | 'choiceRefUnknown';
+  | 'choiceRefUnknown'
+  | 'modifierBadMode';
 
 /** Семантическая ошибка спека: код + параметры подстановки (`id`/`choice`/`option`). */
 export interface SpecIssue {

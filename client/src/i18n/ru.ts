@@ -57,6 +57,7 @@
   'error.badRequest': 'Некорректный запрос',
   'error.customInvalid': 'Кастомное заклинание не добавлено: JSON не прошёл проверку (схема, ссылки или база extends)',
   'error.spec.effectWithoutEffects': 'Ветка «эффект» требует эффектов или зоны',
+  'error.spec.modifierBadMode': 'Недопустимая пара модификатора: {target} × {mode}',
   'error.spec.utilityWithoutKind': 'Ветке «утилита» нужен вид (utility.kind)',
   'error.spec.shapeWithoutShape': 'Ветка «форма» требует блока shape',
   'error.spec.shapeOnlyWithSave': 'Форма (shape) допустима только в ветке «спасбросок»',

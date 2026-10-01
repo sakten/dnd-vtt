@@ -86,4 +86,42 @@ describe('JSON-Schema AutomationSpec (R16 шаг 4, срез 2)', () => {
       validateSpec({ key: 'TEST:ShapeBad', name: 'ShapeBad', primary: 'effect', shape: { kind: 'polymorph' } })
     ).toContainEqual({ code: 'shapeOnlyWithSave' });
   });
+
+  it('validateSpec: недопустимые пары «цель × режим» модификаторов', () => {
+    const bad = validateSpec({
+      key: 'TEST:BadMod',
+      name: 'BadMod',
+      primary: 'effect',
+      effects: [
+        {
+          id: 'e',
+          name: 'Bad',
+          duration: { type: 'permanent' },
+          to: 'targets',
+          modifiers: [{ target: 'ac', mode: 'immunity', value: 2 }],
+        },
+      ],
+    });
+    expect(bad).toContainEqual({ code: 'modifierBadMode', params: { target: 'ac', mode: 'immunity' } });
+
+    const ok = validateSpec({
+      key: 'TEST:GoodMod',
+      name: 'GoodMod',
+      primary: 'effect',
+      effects: [
+        {
+          id: 'e',
+          name: 'Good',
+          duration: { type: 'permanent' },
+          to: 'targets',
+          modifiers: [
+            { target: 'ac', mode: 'set', value: 16 },
+            { target: 'damage', mode: 'resistance', filter: { damageType: 'fire' } },
+            { target: 'save', mode: 'advantage' },
+          ],
+        },
+      ],
+    });
+    expect(ok).toEqual([]);
+  });
 });
