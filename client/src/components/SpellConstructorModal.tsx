@@ -38,6 +38,7 @@ import {
   automationNotes,
   blankChoice,
   blankRecord,
+  canConvertPayload,
   canSwitchPrimary,
   copyRecord,
   keyFromName,
@@ -50,6 +51,7 @@ import {
   validateConstructor,
   withChoices,
   withDamagePart,
+  withPayloadHeal,
   withSave,
   withSpellAttack,
   withZoneAura,
@@ -354,6 +356,15 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           : { type: kind };
     setRecord((r) => patchZone(r, { duration }));
   };
+  const patchTop = (patch: Record<string, unknown>) =>
+    setRecord((r) => {
+      const automation = { ...r.automation } as Record<string, unknown>;
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined) delete automation[key];
+        else automation[key] = value;
+      }
+      return { ...r, automation: automation as typeof r.automation };
+    });
   const choices = automation.choices ?? [];
   const setChoices = (list: ChoiceSpec[]) => setRecord((r) => withChoices(r, list));
   const choiceValueOptions = (param: ChoiceSpec['param']): { key: string; label: string }[] | null => {
@@ -1843,6 +1854,235 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           <button type="button" onClick={() => setChoices([...choices, blankChoice()])}>
             {t('ui.constructor.addChoice')}
           </button>
+
+          <div className="sheet-section-title">{t('ui.constructor.toplevel')}</div>
+          {(automation.damage || automation.heal) && canConvertPayload(record) && (
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={!!automation.heal}
+                onChange={(e) => setRecord((r) => withPayloadHeal(r, e.target.checked))}
+              />
+              <span>{t('ui.constructor.healPayload')}</span>
+            </label>
+          )}
+          <div className="field-row">
+            <Field label={t('ui.constructor.topTargets')}>
+              <input
+                type="number"
+                min={0}
+                value={automation.targets ?? ''}
+                onChange={(e) => patchTop({ targets: Number(e.target.value) || undefined })}
+              />
+            </Field>
+            <Field label={t('ui.constructor.topSide')}>
+              <select
+                value={automation.side ?? ''}
+                onChange={(e) => patchTop({ side: (e.target.value || undefined) as 'hostile' | 'ally' | undefined })}
+              >
+                <option value="">{t('ui.constructor.areaNone')}</option>
+                <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
+                <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
+              </select>
+            </Field>
+            <Field label={t('ui.constructor.topAutoTargets')}>
+              <input
+                type="number"
+                min={0}
+                value={automation.autoTargets?.feet ?? ''}
+                onChange={(e) =>
+                  patchTop({
+                    autoTargets: e.target.value
+                      ? {
+                          feet: Number(e.target.value) || 0,
+                          side: automation.autoTargets?.side ?? 'ally',
+                          ...(automation.autoTargets?.includeSelf ? { includeSelf: true } : {}),
+                        }
+                      : undefined,
+                  })
+                }
+              />
+            </Field>
+            {automation.autoTargets && (
+              <Field label={t('ui.constructor.topSide')}>
+                <select
+                  value={automation.autoTargets.side}
+                  onChange={(e) =>
+                    patchTop({ autoTargets: { ...automation.autoTargets!, side: e.target.value as 'hostile' | 'ally' | 'any' } })
+                  }
+                >
+                  <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
+                  <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
+                  <option value="any">{t('ui.constructor.topSideAny')}</option>
+                </select>
+              </Field>
+            )}
+          </div>
+          <div className="constructor-checks">
+            {(
+              [
+                ['halfOnMiss', 'ui.constructor.topHalfOnMiss'],
+                ['lifesteal', 'ui.constructor.topLifesteal'],
+                ['maxHpFromDamage', 'ui.constructor.topMaxHpFromDamage'],
+                ['undeadTempHp', 'ui.constructor.topUndeadTempHp'],
+              ] as const
+            ).map(([key, label]) => (
+              <label className="checkbox-row" key={key}>
+                <input
+                  type="checkbox"
+                  checked={automation[key] === true}
+                  onChange={(e) => patchTop({ [key]: e.target.checked || undefined })}
+                />
+                <span>{t(label)}</span>
+              </label>
+            ))}
+            {automation.lifeTransfer && (
+              <Field label={t('ui.constructor.topLifeTransfer')}>
+                <input
+                  type="number"
+                  min={1}
+                  value={automation.lifeTransfer.factor}
+                  onChange={(e) => patchTop({ lifeTransfer: { factor: Math.max(1, Number(e.target.value) || 1) } })}
+                />
+              </Field>
+            )}
+          </div>
+          {automation.successDamage && (
+            <div className="field-row">
+              <Field label={t('ui.constructor.topSuccessDamage')}>
+                {automation.successDamage && 'dice' in automation.successDamage ? (
+                  <ExprField
+                    value={automation.successDamage.dice}
+                    onChange={(value) => {
+                      const current = automation.successDamage!;
+                      if ('dice' in current) patchTop({ successDamage: { ...current, dice: value ?? '1d8' } });
+                    }}
+                  />
+                ) : (
+                  <span className="hint">{t('ui.constructor.triggerGated')}</span>
+                )}
+              </Field>
+            </div>
+          )}
+          {automation.burst && (
+            <div className="field-row">
+              <Field label={t('ui.constructor.topBurstRange')}>
+                <input
+                  type="number"
+                  min={0}
+                  value={automation.burst.rangeFeet}
+                  onChange={(e) => patchTop({ burst: { ...automation.burst!, rangeFeet: Number(e.target.value) || 0 } })}
+                />
+              </Field>
+              <Field label={t('ui.constructor.damageDice')}>
+                <ExprField
+                  value={automation.burst.dice}
+                  onChange={(value) => patchTop({ burst: { ...automation.burst!, dice: value } })}
+                />
+              </Field>
+              <Field label={t('ui.constructor.partType')}>
+                <select
+                  value={typeof automation.burst.damageType === 'string' ? automation.burst.damageType : ''}
+                  onChange={(e) => patchTop({ burst: { ...automation.burst!, damageType: e.target.value } })}
+                >
+                  {DAMAGE_TYPES.map((damage) => (
+                    <option key={damage.key} value={damage.key}>
+                      {damageLabel(damage.key)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label={t('ui.constructor.save')}>
+                <select
+                  value={automation.burst.save?.ability ?? ''}
+                  onChange={(e) => {
+                    const ability = e.target.value as AbilityKey | '';
+                    patchTop({
+                      burst: {
+                        ...automation.burst!,
+                        save: ability ? { ability, ...(automation.burst!.save?.half ? { half: true } : {}) } : undefined,
+                      },
+                    });
+                  }}
+                >
+                  <option value="">{t('ui.constructor.saveNone')}</option>
+                  {ABILITY_KEYS.map((key) => (
+                    <option key={key} value={key}>
+                      {abilityName(key)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={automation.burst.includePrimary === true}
+                  onChange={(e) => patchTop({ burst: { ...automation.burst!, includePrimary: e.target.checked || undefined } })}
+                />
+                <span>{t('ui.constructor.topBurstInclude')}</span>
+              </label>
+            </div>
+          )}
+          {automation.chain && (
+            <div className="field-row">
+              <Field label={t('ui.constructor.topChainJumps')}>
+                <ExprField
+                  value={automation.chain.jumps}
+                  onChange={(value) => patchTop({ chain: { ...automation.chain!, jumps: value ?? 1 } })}
+                />
+              </Field>
+              <Field label={t('ui.constructor.topChainFeet')}>
+                <input
+                  type="number"
+                  min={0}
+                  value={automation.chain.feet}
+                  onChange={(e) => patchTop({ chain: { ...automation.chain!, feet: Number(e.target.value) || 0 } })}
+                />
+              </Field>
+            </div>
+          )}
+          {automation.force && (
+            <div className="field-row">
+              <Field label={t('ui.constructor.topForce')}>
+                <select
+                  value={automation.force.kind}
+                  onChange={(e) =>
+                    patchTop({ force: { ...automation.force!, kind: e.target.value as 'push' | 'pull' } })
+                  }
+                >
+                  <option value="push">{t('ui.constructor.topForcePush')}</option>
+                  <option value="pull">{t('ui.constructor.topForcePull')}</option>
+                </select>
+              </Field>
+              <Field label={t('ui.constructor.topForceFeet')}>
+                <input
+                  type="number"
+                  min={0}
+                  value={automation.force.feet}
+                  onChange={(e) => patchTop({ force: { ...automation.force!, feet: Number(e.target.value) || 0 } })}
+                />
+              </Field>
+              <Field label={t('ui.constructor.topForceMaxSize')}>
+                <select
+                  value={automation.force.maxSize ?? ''}
+                  onChange={(e) =>
+                    patchTop({
+                      force: {
+                        ...automation.force!,
+                        maxSize: (e.target.value || undefined) as 'normal' | 'large' | 'huge' | undefined,
+                      },
+                    })
+                  }
+                >
+                  <option value="">{t('ui.constructor.areaNone')}</option>
+                  <option value="normal">{t('ui.constructor.topForceSize.normal')}</option>
+                  <option value="large">{t('ui.constructor.topForceSize.large')}</option>
+                  <option value="huge">{t('ui.constructor.topForceSize.huge')}</option>
+                </select>
+              </Field>
+            </div>
+          )}
+          <p className="hint">{t('ui.constructor.topHint')}</p>
 
           {notes.length > 0 && (
             <>

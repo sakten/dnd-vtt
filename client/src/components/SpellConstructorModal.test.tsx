@@ -427,6 +427,68 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(JSON.parse(lastImportJson()).automation.zone.onCreate).toBeUndefined();
   });
 
+  it('верхнеуровневое: конверсия урон→лечение, burst/chain/force', () => {
+    const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={fireball} lockedKey={false} onClose={vi.fn()} />);
+    const heal = screen.getByRole('checkbox', { name: 'Это лечение' });
+    expect(heal).not.toBeChecked();
+    fireEvent.click(heal);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedFireball = JSON.parse(lastImportJson());
+    expect(savedFireball.healing).toBe(true);
+    expect(savedFireball.automation.heal).toBeTruthy();
+    expect(savedFireball.automation.damage).toBeUndefined();
+    first.unmount();
+
+    const ice = copyRecord(spellsData.spells.find((s) => s.name === 'Ice Knife')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={ice} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Радиус всплеска, футы'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.burst.rangeFeet).toBe(10);
+    second.unmount();
+
+    const chain = copyRecord(spellsData.spells.find((s) => s.name === 'Chain Lightning')!, '(копия)');
+    const third = render(<SpellConstructorModal initial={chain} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Дистанция скачка, футы'), { target: { value: '60' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.chain.feet).toBe(60);
+    third.unmount();
+
+    const smite = copyRecord(spellsData.spells.find((s) => s.name === 'Thunderous Smite')!, '(копия)');
+    render(<SpellConstructorModal initial={smite} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByDisplayValue('Толчок')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Футов'), { target: { value: '15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.force.feet).toBe(15);
+  });
+
+  it('верхнеуровневое: lifesteal, сторона и авто-цели', () => {
+    const vampiric = copyRecord(spellsData.spells.find((s) => s.name === 'Vampiric Touch')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={vampiric} lockedKey={false} onClose={vi.fn()} />);
+    const lifesteal = screen.getByRole('checkbox', { name: 'Лечит кастера на половину урона' });
+    expect(lifesteal).toBeChecked();
+    fireEvent.click(lifesteal);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.lifesteal).toBeUndefined();
+    first.unmount();
+
+    const spirits = copyRecord(spellsData.spells.find((s) => s.name === 'Spirit Guardians')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={spirits} lockedKey={false} onClose={vi.fn()} />);
+    // Последний селект «Сторона» — верхнеуровневый (первый — у зоны).
+    fireEvent.change(screen.getAllByLabelText('Сторона').at(-1)!, { target: { value: 'ally' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedSpirits = JSON.parse(lastImportJson());
+    expect(savedSpirits.automation.side).toBe('ally');
+    expect(savedSpirits.automation.zone.side).toBe('hostile');
+    second.unmount();
+
+    const hope = copyRecord(spellsData.spells.find((s) => s.name === 'Beacon of Hope')!, '(копия)');
+    render(<SpellConstructorModal initial={hope} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Авто-цели, футы'), { target: { value: '60' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.autoTargets).toMatchObject({ feet: 60, side: 'ally', includeSelf: true });
+  });
+
   it('JSON-вкладка: ошибка при битом JSON, «Применить» пересобирает форму', () => {    render(
       <SpellConstructorModal initial={blankRecord('attack', 'Тест')} lockedKey={false} onClose={vi.fn()} />
     );

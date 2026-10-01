@@ -485,6 +485,39 @@ export function automationNotes(record: SpellDef): AutomationNote[] {
   return notes;
 }
 
+/** Возможна ли конверсия урон↔лечение: составной урон (`parts`) не конвертируется. */
+export function canConvertPayload(record: SpellDef): boolean {
+  const damage = record.automation.damage;
+  return !damage || !('parts' in damage);
+}
+
+/** Переключение payload между уроном и лечением (мета `healing` синхронизируется). */
+export function withPayloadHeal(record: SpellDef, healing: boolean): SpellDef {
+  const automation = { ...record.automation };
+  if (healing) {
+    if (automation.damage && 'dice' in automation.damage) {
+      automation.heal = {
+        dice: automation.damage.dice,
+        ...(automation.damage.types ? { types: automation.damage.types } : {}),
+      };
+      delete automation.damage;
+    } else if (!automation.heal) {
+      automation.heal = { dice: { ref: 'spellDamage' } };
+    }
+    return { ...record, healing: true, automation };
+  }
+  if (automation.heal) {
+    automation.damage = {
+      dice: automation.heal.dice,
+      ...(automation.heal.types ? { types: automation.heal.types } : {}),
+    };
+    delete automation.heal;
+  } else if (!automation.damage) {
+    automation.damage = { dice: { ref: 'spellDamage' } };
+  }
+  return { ...record, healing: undefined, automation };
+}
+
 export type ConstructorIssueCode =
   | 'nameRequired'
   | 'nameTooLong'
