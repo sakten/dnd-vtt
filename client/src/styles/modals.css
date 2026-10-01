@@ -563,8 +563,11 @@
 }
 
 .modal.spell-constructor {
-  width: min(960px, 96vw);
-  max-height: 90vh;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
 }
 .constructor-profiles {
   display: grid;
@@ -621,10 +624,25 @@
   gap: 14px;
   align-items: start;
 }
+.modal.spell-constructor > .constructor-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
 .constructor-fields {
   max-height: 62vh;
   overflow-y: auto;
   padding-right: 6px;
+}
+.modal.spell-constructor .constructor-fields {
+  max-height: none;
+  min-height: 0;
+  height: 100%;
+}
+.modal.spell-constructor .constructor-aside {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
 }
 .constructor-aside {
   position: sticky;
