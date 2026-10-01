@@ -1318,7 +1318,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.weaponHitEffect': 'On-hit effect',
   'ui.constructor.weaponRangeFeet': 'Radius, feet',
   'ui.constructor.weaponIncludePrimary': 'Include the primary target',
-  'ui.constructor.weaponHint': 'Smite/blade rider; hit-effect modifiers and triggers live in JSON.',
+  'ui.constructor.weaponHint': 'Smite/blade rider; gates and nested operations live in JSON.',
   'ui.constructor.loadout': 'Weapon (loadout)',
   'ui.constructor.loadoutNone': 'None',
   'ui.constructor.loadout.augment': 'Weapon augment',

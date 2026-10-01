@@ -533,6 +533,23 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.getByLabelText('Точка назначения, футы')).toHaveValue(120);
   });
 
+  it('hitEffect: модификаторы и триггеры Booming Blade', () => {
+    const boom = copyRecord(spellsData.spells.find((s) => s.name === 'Booming Blade')!, '(копия)');
+    render(<SpellConstructorModal initial={boom} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Добровольное движение' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить модификатор' }));
+    fireEvent.change(screen.getByPlaceholderText('Значение (число или кости)'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Добровольное движение' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const saved = JSON.parse(lastImportJson());
+    expect(saved.automation.weaponAttack.hitEffect.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'add',
+      value: 2,
+    });
+    expect(saved.automation.weaponAttack.hitEffect.triggers).toBeUndefined();
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

@@ -66,6 +66,8 @@ import {
   type WizardProfileId,
 } from '../lib/spellConstructor';
 import EffectListEditor, { EFFECT_DURATIONS, ExprField, LightFields } from './EffectListEditor';
+import EffectModifiersEditor from './EffectModifiersEditor';
+import EffectTriggersEditor from './EffectTriggersEditor';
 import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
 import { useSpells } from '../lib/useSpells';
 import { useGameStore } from '../store/useGameStore';
@@ -1338,9 +1340,14 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                       );
                     })}
                   </div>
-                  {(wa.hitEffect.modifiers?.length || wa.hitEffect.triggers) && (
-                    <p className="hint">{t('ui.constructor.triggerGated')}</p>
-                  )}
+                  <EffectModifiersEditor
+                    modifiers={wa.hitEffect.modifiers}
+                    onChange={(modifiers) => patchWeaponAttack({ hitEffect: { ...wa.hitEffect!, modifiers } })}
+                  />
+                  <EffectTriggersEditor
+                    triggers={wa.hitEffect.triggers}
+                    onChange={(triggers) => patchWeaponAttack({ hitEffect: { ...wa.hitEffect!, triggers } })}
+                  />
                 </>
               )}
               <p className="hint">{t('ui.constructor.weaponHint')}</p>

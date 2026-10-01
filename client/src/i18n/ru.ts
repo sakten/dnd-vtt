@@ -1315,7 +1315,7 @@
   'ui.constructor.weaponHitEffect': 'Эффект при попадании',
   'ui.constructor.weaponRangeFeet': 'Радиус, футы',
   'ui.constructor.weaponIncludePrimary': 'Включая основную цель',
-  'ui.constructor.weaponHint': 'Райдер смайтов и клинков; модификаторы и триггеры эффекта попадания — в JSON.',
+  'ui.constructor.weaponHint': 'Райдер смайтов и клинков; гейты и вложенные операции — в JSON.',
   'ui.constructor.loadout': 'Оружие (лоадаут)',
   'ui.constructor.loadoutNone': 'Нет',
   'ui.constructor.loadout.augment': 'Усиление оружия',
