@@ -1606,16 +1606,17 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             </>
           )}
 
-          {showEffectsEditor ? (
+          {effectsAllowed && (
+            <button type="button" onClick={effects.length ? () => setEffects([]) : addCarrierEffect}>
+              {effects.length ? t('ui.constructor.removeEffect') : t('ui.constructor.addEffect')}
+            </button>
+          )}
+          {showEffectsEditor && (
             <>
               <div className="sheet-section-title">{t('ui.constructor.effects')}</div>
               <EffectListEditor effects={effects} onChange={setEffects} defaultName={record.name} />
             </>
-          ) : effectsAllowed ? (
-            <button type="button" onClick={addCarrierEffect}>
-              {t('ui.constructor.addEffect')}
-            </button>
-          ) : null}
+          )}
 
           {primary === 'manual' && (
             <>

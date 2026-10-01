@@ -1067,7 +1067,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.metaAttacks': 'Rays/attacks (card)',
   'ui.constructor.metaCount': 'Attack count (record)',
   'ui.constructor.damage': 'Damage',
-  'ui.constructor.damageDice': 'Dice (e.g. 3d6)',
+  'ui.constructor.damageDice': 'Dice (e.g. 3d6fire)',
   'ui.constructor.partsHint':
     'Card parts: dice, type and when they trigger. Editing dice/type rebuilds the card aggregates.',
   'ui.constructor.role.main': 'Main',
@@ -1106,6 +1106,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.effectDuration.rounds': 'Rounds',
   'ui.constructor.effectRound': 'Rounds',
   'ui.constructor.addEffect': 'Add effect',
+  'ui.constructor.removeEffect': 'Remove effect',
   'ui.constructor.addModifier': 'Add modifier',
   'ui.constructor.modifierValue': 'Value (number or dice)',
   'ui.constructor.remove': 'Remove',

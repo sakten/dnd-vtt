@@ -52,7 +52,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Кости (например 3d6)'), { target: { value: 'abc' } });
+    fireEvent.change(screen.getByLabelText('Кости (например 3d6fire)'), { target: { value: 'abc' } });
     expect(screen.getByText('Проверка не пройдена')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
 
@@ -109,7 +109,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     render(<SpellConstructorModal initial={copyRecord(hoh, '(копия)')} lockedKey={false} onClose={vi.fn()} />);
 
     expect(screen.getAllByText('Срабатывание')).toHaveLength(2);
-    expect(screen.getAllByLabelText('Кости (например 3d6)')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Кости (например 3d6fire)')).toHaveLength(2);
     expect(screen.getAllByText(/начало хода/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/конец хода/).length).toBeGreaterThan(0);
     // Сводка записи: аура зоны (ослепление) и разница сейвов частей.
@@ -209,7 +209,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     const hoh = copyRecord(spellsData.spells.find((s) => s.name === 'Hunger of Hadar')!, '(копия)');
     render(<SpellConstructorModal initial={hoh} lockedKey={false} onClose={vi.fn()} />);
 
-    expect(screen.getAllByLabelText('Кости (например 3d6)')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Кости (например 3d6fire)')).toHaveLength(2);
     fireEvent.change(screen.getAllByLabelText('Тип')[0]!, { target: { value: 'fire' } });
     // Слот начала хода привязан к части 1, конца хода — к части 2.
     const slotDamage = screen.getAllByLabelText('Урон');
@@ -561,6 +561,10 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.queryByText('Эффекты')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Добавить эффект' }));
     expect(screen.getByText('Эффекты')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Убрать эффект' }));
+    expect(screen.queryByText('Эффекты')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Добавить эффект' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить эффект' }));
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(JSON.parse(lastImportJson()).automation.effects).toHaveLength(1);
     first.unmount();
@@ -602,7 +606,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
   it('урон: тип пишется в поле костей с подсказками, чипов типов нет', () => {
     const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
     render(<SpellConstructorModal initial={fireball} lockedKey={false} onClose={vi.fn()} />);
-    const dice = screen.getByLabelText('Кости (например 3d6)') as HTMLInputElement;
+    const dice = screen.getByLabelText('Кости (например 3d6fire)') as HTMLInputElement;
     expect(dice).toHaveValue('8d6fire');
     expect(screen.queryByRole('button', { name: 'Огонь' })).toBeNull();
 

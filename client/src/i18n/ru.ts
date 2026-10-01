@@ -1064,7 +1064,7 @@
   'ui.constructor.metaAttacks': 'Лучей/атак (карточка)',
   'ui.constructor.metaCount': 'Число атак (запись)',
   'ui.constructor.damage': 'Урон',
-  'ui.constructor.damageDice': 'Кости (например 3d6)',
+  'ui.constructor.damageDice': 'Кости (например 3d6fire)',
   'ui.constructor.partsHint':
     'Части карточки: кость, тип и когда срабатывает. Правка кости/типа пересобирает агрегаты карточки.',
   'ui.constructor.role.main': 'Основной',
@@ -1103,6 +1103,7 @@
   'ui.constructor.effectDuration.rounds': 'Раунды',
   'ui.constructor.effectRound': 'Раундов',
   'ui.constructor.addEffect': 'Добавить эффект',
+  'ui.constructor.removeEffect': 'Убрать эффект',
   'ui.constructor.addModifier': 'Добавить модификатор',
   'ui.constructor.modifierValue': 'Значение (число или кости)',
   'ui.constructor.remove': 'Удалить',
