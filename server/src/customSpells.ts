@@ -5,6 +5,7 @@ import {
   formatSpecIssues,
   isRecord,
   resolveSpec,
+  syncChoiceDamage,
   validateSpec,
   type AutomationSpec,
   type AutomationSpecCopy,
@@ -101,14 +102,15 @@ function pickMeta(raw: Record<string, unknown>): Omit<Spell, 'key' | 'name'> {
 
 /** Схема + семантика (`validateSpec`) + пробная компиляция — ошибки до записи в комнату. */
 function validateRecord(record: SpellDef): SpellDef {
-  if (!checkAutomation(record.automation)) {
+  const synced = syncChoiceDamage(record);
+  if (!checkAutomation(synced.automation)) {
     bad(`схема: ${ajv.errorsText(checkAutomation.errors, { separator: '; ' })}`);
   }
-  const spec: AutomationSpec = { key: record.key, name: record.name, ...structuredClone(record.automation) };
+  const spec: AutomationSpec = { key: synced.key, name: synced.name, ...structuredClone(synced.automation) };
   const issues = validateSpec(spec);
   if (issues.length) bad(formatSpecIssues(issues));
-  compileSpec(spec, { spell: record, opts: {} });
-  return record;
+  compileSpec(spec, { spell: synced, opts: {} });
+  return synced;
 }
 
 /** Импорт кастомного заклинания: копия `extends` или полная запись. */

@@ -7,6 +7,7 @@ export type { ActionAutomationOptions } from './derive';
 export { AUTOMATION_SPECS } from './specs';
 export { compileSpec, formatSpecIssues, resolveSpec, validateSpec } from './compile';
 export { generatedAutomation } from './generate';
+export { syncChoiceDamage } from './choices';
 export { materializeAutomation, materializeSpell } from './materialize';
 export type { MaterializedAutomation, SpellAuto, SpellDef } from './materialize';
 export type { ActionSpec, AutomationSpec, AutomationSpecCopy, ChoiceSpec, DamageSpec, EffectSpec, EffectTriggerSpec, EffectTriggers, LoadoutSpec, ManualSpec, ModifierSpec, PayloadSpec, SpecIssue, SpecIssueCode, SummonSpec, TriggerAction, UsesSpec, UtilitySpec, ValueExpr, WeaponAttackSpec, ZoneSpec } from './spec';

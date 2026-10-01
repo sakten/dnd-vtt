@@ -417,6 +417,8 @@ export function spellHasArea(spell: Spell): boolean {
   if (CAST_AREA_OVERRIDES[spell.key]) return true;
   if (!spell.areaSpec) return false;
   if (POINT_ZONE_SPELLS.has(spell.key)) return true;
+  // Кастомы не несут 5e.tools areaTags: геометрия в записи — достаточный признак.
+  if (spell.source === 'CUSTOM') return true;
   if ((spell.save?.length ?? 0) === 0) return false;
   if (spell.range.type === 'emanation') return true;
   return (spell.area ?? []).some((t) => AOE_TAGS.has(t));

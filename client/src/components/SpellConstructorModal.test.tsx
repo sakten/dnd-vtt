@@ -253,6 +253,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     );
     expect(saved.automation.choices).toHaveLength(1);
     expect(saved.automation.choices[0]).toMatchObject({ id: 'damageType', param: 'damageType', options: ['fire', 'cold'] });
+    expect(saved.automation.damage.types).toEqual([{ ref: 'choice', choice: 'damageType', fallback: 'force' }]);
   });
 
   it('реакции: ответ уроном (Armor of Agathys) — тип правится, amount сохраняется', () => {

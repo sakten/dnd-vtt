@@ -6,7 +6,7 @@ import {
   type SpellDef,
   type ZoneSpec,
 } from 'shared';
-import { blankMeta, blankRecord, blankZone } from './spellConstructor';
+import { blankMeta, blankRecord, blankZone, withAreaSpec } from './spellConstructor';
 
 /**
  * Таксономия конструктора (Р1): «что накладываем» (payload) × «как попадаем»
@@ -161,7 +161,7 @@ export function kitRecord(name: string, kit: SpellKit): SpellDef {
 
 function withDelivery(spell: SpellDef, kit: SpellKit): SpellDef {
   if (kit.delivery === 'area') {
-    return { ...spell, areaSpec: { shape: 'sphere', size: 20 } };
+    return withAreaSpec(spell, { shape: 'sphere', size: 20 });
   }
   if (kit.delivery !== 'zone' && kit.delivery !== 'aura') return spell;
   const duration: EffectDuration = { type: 'concentration' };
@@ -178,12 +178,16 @@ function withDelivery(spell: SpellDef, kit: SpellKit): SpellDef {
     triggers: kit.delivery === 'aura' ? { startOfTurn: payload } : { enter: payload },
     ...(kit.delivery === 'aura' ? { anchor: 'source' as const, side: 'hostile' as const, excludeSource: true } : {}),
   };
-  return {
-    ...spell,
-    concentration: true,
-    duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
-    automation: { ...spell.automation, zone },
-  };
+  const zoneArea = zone.area && 'shape' in zone.area ? zone.area : undefined;
+  return withAreaSpec(
+    {
+      ...spell,
+      concentration: true,
+      duration: [{ type: 'timed', concentration: true, duration: { type: 'minute', amount: 1 } }],
+      automation: { ...spell.automation, zone },
+    },
+    zoneArea
+  );
 }
 
 /** Есть ли payload указанного вида в слотах зоны (триггеры/аура/onCreate). */

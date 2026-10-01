@@ -51,6 +51,7 @@ import {
   switchPrimary,
   validateConstructor,
   withChoices,
+  withAreaSpec,
   withDamageDice,
   withDamagePart,
   withPayloadHeal,
@@ -1562,7 +1563,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             <>
               <div className="sheet-section-title">{t('ui.constructor.area')}</div>
               <div className="field-row">
-                <AreaFields value={area} onChange={(next) => setMeta({ areaSpec: next })} />
+                <AreaFields value={area} onChange={(next) => setRecord((r) => withAreaSpec(r, next))} />
               </div>
             </>
           )}

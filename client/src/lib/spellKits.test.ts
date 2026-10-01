@@ -56,12 +56,15 @@ describe('spellKits (Р1: оси конструктора)', () => {
   it('kitRecord: доставка задаёт область/зону/ауру', () => {
     const area = kitRecord('Тест', { payload: 'damage', resolution: 'save', delivery: 'area' });
     expect(area.areaSpec).toEqual({ shape: 'sphere', size: 20 });
+    expect(area.area).toEqual(['S']);
 
     const zone = kitRecord('Тест', { payload: 'damage', resolution: 'save', delivery: 'zone' });
     expect(zone.automation.zone).toMatchObject({ area: { shape: 'sphere', size: 10 }, origin: 'point' });
     expect(zone.automation.zone?.anchor).toBeUndefined();
     expect(zone.concentration).toBe(true);
     expect(zone.automation.zone?.triggers?.enter).toMatchObject({ damage: { dice: { ref: 'spellDamage' } } });
+    expect(zone.areaSpec).toEqual({ shape: 'sphere', size: 10 });
+    expect(zone.area).toEqual(['S']);
 
     const aura = kitRecord('Тест', { payload: 'damage', resolution: 'save', delivery: 'aura' });
     expect(aura.automation.zone).toMatchObject({ anchor: 'source', side: 'hostile', excludeSource: true });

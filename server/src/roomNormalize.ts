@@ -1,5 +1,5 @@
 import type { CharacterSheet, EffectInstance, Scene } from 'shared';
-import { isRecord, normalizeLibraryItem, normalizeScene, normalizeSheet } from 'shared';
+import { isRecord, normalizeLibraryItem, normalizeScene, normalizeSheet, syncChoiceDamage } from 'shared';
 import type { PersistedRoom, Room } from './roomTypes';
 import { isCustomSpellDef } from './customSpells';
 import { clearCharacterStats } from './room/tokens';
@@ -119,7 +119,7 @@ export function hydrateRoom(p: PersistedRoom): Room {
     nextZ: p.nextZ ?? 0,
     resources: isRecord(p.resources) ? p.resources : {},
     controllers,
-    customSpecs: Array.isArray(p.customSpecs) ? p.customSpecs.filter(isCustomSpellDef) : [],
+    customSpecs: Array.isArray(p.customSpecs) ? p.customSpecs.filter(isCustomSpellDef).map(syncChoiceDamage) : [],
     testMode: p.testMode === true,
     ...(p.test === true ? { test: true } : {}),
     optionalRules: { surrounded: p.optionalRules?.surrounded === true },

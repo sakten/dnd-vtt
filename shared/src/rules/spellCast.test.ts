@@ -264,6 +264,12 @@ describe('области (Ф7)', () => {
       spellHasArea(makeSpell({ areaSpec: { shape: 'sphere', size: 20 }, save: ['dex'], area: ['ST'] }))
     ).toBe(false);
     expect(spellHasArea(makeSpell({ areaSpec: { shape: 'sphere', size: 20 }, area: ['S'] }))).toBe(false);
+    // Кастомы не несут 5e.tools areaTags: геометрия в записи — достаточный признак.
+    expect(
+      spellHasArea(
+        makeSpell({ key: 'CUSTOM:Bomb', source: 'CUSTOM', areaSpec: { shape: 'sphere', size: 20 }, save: ['dex'] })
+      )
+    ).toBe(true);
     // Эманация от себя — область даже без AoE-тега (Conjure Woodland Beings).
     expect(
       spellHasArea(

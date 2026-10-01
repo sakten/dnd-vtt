@@ -3,8 +3,10 @@ import {
   automationForSpell,
   generatedAutomation,
   parseDiceExpression,
+  syncChoiceDamage,
   validateSpec,
   type AbilityKey,
+  type AreaSpec,
   type AutomationSpec,
   type ChoiceSpec,
   type EffectSpec,
@@ -203,6 +205,21 @@ export function withSave(record: SpellDef, ability: AbilityKey | undefined, half
   return next;
 }
 
+/** 5e.tools areaTags по геометрии: нужны `spellHasArea` и подписям. */
+const AREA_TAGS: Record<AreaSpec['shape'], string> = {
+  sphere: 'S',
+  cone: 'N',
+  cube: 'C',
+  line: 'L',
+  cylinder: 'S',
+  ring: 'S',
+};
+
+/** Мета-область: геометрия + AoE-тег (каст по области, подпись формы). */
+export function withAreaSpec(record: SpellDef, areaSpec: AreaSpec | undefined): SpellDef {
+  return { ...record, areaSpec, area: areaSpec ? [AREA_TAGS[areaSpec.shape] ?? 'S'] : undefined };
+}
+
 /** Кости/типы урона карточки (чат-синтаксис в форме); типы синхронизируются в автоматизацию. */
 export function withDamageDice(record: SpellDef, value: { dice: string[]; types: string[] }): SpellDef {
   const damage = value.dice.length ? { dice: value.dice, types: value.types } : undefined;
@@ -368,7 +385,7 @@ export function withChoices(record: SpellDef, choices: ChoiceSpec[]): SpellDef {
   const automation = { ...record.automation };
   if (choices.length) automation.choices = choices;
   else delete automation.choices;
-  return { ...record, automation };
+  return syncChoiceDamage({ ...record, automation });
 }
 
 /** Новый выбор при касте: тип урона, два варианта по умолчанию. */
