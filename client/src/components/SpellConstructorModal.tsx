@@ -233,42 +233,17 @@ function ZonePayloadFields({
         </select>
       </Field>
       {source.kind === 'literal' && literalDamage && (
-        <>
-          <Field label={t('ui.constructor.damageDice')}>
-            <input
-              type="text"
-              value={
-                typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number'
-                  ? String(literalDamage.dice)
-                  : ''
-              }
-              onChange={(e) => patch({ damage: { ...literalDamage, dice: e.target.value.trim() } })}
-            />
-          </Field>
-          <div className="ability-types">
-            {DAMAGE_TYPES.map((damage) => {
-              const types = (literalDamage.types ?? []).filter((type): type is string => typeof type === 'string');
-              const checked = types.includes(damage.key);
-              return (
-                <button
-                  type="button"
-                  key={damage.key}
-                  className={`ability-type${checked ? ' on' : ''}`}
-                  onClick={() =>
-                    patch({
-                      damage: {
-                        ...literalDamage,
-                        types: checked ? types.filter((type) => type !== damage.key) : [...types, damage.key],
-                      },
-                    })
-                  }
-                >
-                  {damageLabel(damage.key)}
-                </button>
-              );
-            })}
-          </div>
-        </>
+        <DamageDiceField
+          value={{
+            dice:
+              typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number'
+                ? [String(literalDamage.dice)]
+                : [],
+            types: (literalDamage.types ?? []).filter((type): type is string => typeof type === 'string'),
+          }}
+          onChange={(next) => patch({ damage: { ...literalDamage, dice: next.dice[0] ?? '1d6', types: next.types } })}
+          placeholder="1d6fire"
+        />
       )}
       {(payload.effects?.length || payload.heal || payload.successDamage || payload.healTo !== undefined) && (
         <span className="hint">{t('ui.constructor.triggerGated')}</span>
@@ -337,6 +312,10 @@ function AreaFields({
   );
 }
 
+/** Литеральное значение выражения (иначе пусто — «из данных»). */
+const literalExpr = (value: unknown): string =>
+  typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+
 /** Урон (`DamageSpec`) в форме: литеральные кости/типы; составной — «из данных». */
 function DamageSpecFields({
   damage,
@@ -346,30 +325,22 @@ function DamageSpecFields({
   onChange: (damage: DamageSpec | undefined) => void;
 }) {
   if (!damage || !('dice' in damage)) return <span className="hint">{t('ui.constructor.fromData')}</span>;
-  const types = damage.types ?? [];
-  const toggle = (key: string) =>
-    onChange({
-      ...damage,
-      types: types.some((type) => type === key) ? types.filter((type) => type !== key) : [...types, key],
-    });
-  return (
-    <>
+  if (typeof damage.dice !== 'string' && typeof damage.dice !== 'number') {
+    return (
       <Field label={t('ui.constructor.damageDice')}>
-        <ExprField value={damage.dice} onChange={(value) => onChange({ ...damage, dice: value ?? '1d6' })} />
+        <ExprField value={damage.dice} onChange={() => undefined} />
       </Field>
-      <div className="ability-types">
-        {DAMAGE_TYPES.map((entry) => (
-          <button
-            type="button"
-            key={entry.key}
-            className={`ability-type${types.some((type) => type === entry.key) ? ' on' : ''}`}
-            onClick={() => toggle(entry.key)}
-          >
-            {damageLabel(entry.key)}
-          </button>
-        ))}
-      </div>
-    </>
+    );
+  }
+  return (
+    <DamageDiceField
+      value={{
+        dice: [String(damage.dice)],
+        types: (damage.types ?? []).filter((type): type is string => typeof type === 'string'),
+      }}
+      onChange={(next) => onChange({ ...damage, dice: next.dice[0] ?? '1d6', types: next.types })}
+      placeholder="1d6fire"
+    />
   );
 }
 
@@ -2852,24 +2823,45 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   onChange={(e) => patchTop({ burst: { ...automation.burst!, rangeFeet: Number(e.target.value) || 0 } })}
                 />
               </Field>
-              <Field label={t('ui.constructor.damageDice')}>
-                <ExprField
-                  value={automation.burst.dice}
-                  onChange={(value) => patchTop({ burst: { ...automation.burst!, dice: value } })}
+              {literalExpr(automation.burst.dice) !== '' ? (
+                <DamageDiceField
+                  value={{
+                    dice: [literalExpr(automation.burst.dice)],
+                    types: literalExpr(automation.burst.damageType) ? [literalExpr(automation.burst.damageType)] : [],
+                  }}
+                  onChange={(next) =>
+                    patchTop({
+                      burst: {
+                        ...automation.burst!,
+                        dice: next.dice[0] ?? automation.burst!.dice,
+                        damageType: next.types[0] ?? automation.burst!.damageType,
+                      },
+                    })
+                  }
+                  placeholder="2d6fire"
                 />
-              </Field>
-              <Field label={t('ui.constructor.partType')}>
-                <select
-                  value={typeof automation.burst.damageType === 'string' ? automation.burst.damageType : ''}
-                  onChange={(e) => patchTop({ burst: { ...automation.burst!, damageType: e.target.value } })}
-                >
-                  {DAMAGE_TYPES.map((damage) => (
-                    <option key={damage.key} value={damage.key}>
-                      {damageLabel(damage.key)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              ) : (
+                <>
+                  <Field label={t('ui.constructor.damageDice')}>
+                    <ExprField
+                      value={automation.burst.dice}
+                      onChange={(value) => patchTop({ burst: { ...automation.burst!, dice: value } })}
+                    />
+                  </Field>
+                  <Field label={t('ui.constructor.partType')}>
+                    <select
+                      value={literalExpr(automation.burst.damageType)}
+                      onChange={(e) => patchTop({ burst: { ...automation.burst!, damageType: e.target.value } })}
+                    >
+                      {DAMAGE_TYPES.map((damage) => (
+                        <option key={damage.key} value={damage.key}>
+                          {damageLabel(damage.key)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </>
+              )}
               <Field label={t('ui.constructor.save')}>
                 <select
                   value={automation.burst.save?.ability ?? ''}

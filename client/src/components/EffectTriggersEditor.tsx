@@ -11,6 +11,7 @@ import {
 } from 'shared';
 import { t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
+import DamageDiceField from './DamageDiceField';
 import { Field } from './Field';
 
 /** Реактивные события эффекта (`EffectTriggers`), редактируемые формой. */
@@ -187,53 +188,41 @@ export default function EffectTriggersEditor({
       }
       case 'reduce': {
         const red = (op as { reduce: { dice: ValueExpr; types: ValueExpr[] } }).reduce;
+        if (!literalText(red.dice)) return <span className="hint">{t('ui.constructor.fromData')}</span>;
         return (
-          <>
-            <input
-              type="text"
-              placeholder="1d4"
-              value={literalText(red.dice)}
-              disabled={!literalText(red.dice)}
-              onChange={(e) => set({ reduce: { ...red, dice: e.target.value.trim() } })}
-            />
-            {DAMAGE_TYPES.map((damage) => {
-              const checked = red.types.some((type) => type === damage.key);
-              return (
-                <button
-                  type="button"
-                  key={damage.key}
-                  className={`ability-type${checked ? ' on' : ''}`}
-                  onClick={() => set({ reduce: { ...red, types: toggleType(red.types, damage.key) } })}
-                >
-                  {damageLabel(damage.key)}
-                </button>
-              );
-            })}
-          </>
+          <DamageDiceField
+            value={{
+              dice: [literalText(red.dice)],
+              types: red.types.filter((type): type is string => typeof type === 'string'),
+            }}
+            onChange={(next) => set({ reduce: { ...red, dice: next.dice[0] ?? '1d4', types: next.types } })}
+            placeholder="1d4fire"
+          />
         );
       }
       case 'extraDamage': {
         const extra = (
           op as { extraDamage: { dice: ValueExpr; damageType: ValueExpr; from?: 'source'; oncePerTurn?: boolean } }
         ).extraDamage;
+        if (!literalText(extra.dice)) return <span className="hint">{t('ui.constructor.fromData')}</span>;
         return (
           <>
-            <input
-              type="text"
-              placeholder="1d6"
-              value={literalText(extra.dice)}
-              onChange={(e) => set({ extraDamage: { ...extra, dice: e.target.value.trim() } })}
+            <DamageDiceField
+              value={{
+                dice: [literalText(extra.dice)],
+                types: literalText(extra.damageType) ? [literalText(extra.damageType)] : [],
+              }}
+              onChange={(next) =>
+                set({
+                  extraDamage: {
+                    ...extra,
+                    dice: next.dice[0] ?? '1d6',
+                    damageType: next.types[0] ?? (literalText(extra.damageType) || 'force'),
+                  },
+                })
+              }
+              placeholder="1d6fire"
             />
-            <select
-              value={literalText(extra.damageType)}
-              onChange={(e) => set({ extraDamage: { ...extra, damageType: e.target.value } })}
-            >
-              {DAMAGE_TYPES.map((damage) => (
-                <option key={damage.key} value={damage.key}>
-                  {damageLabel(damage.key)}
-                </option>
-              ))}
-            </select>
             <label className="checkbox-row">
               <input
                 type="checkbox"
@@ -419,47 +408,29 @@ export default function EffectTriggersEditor({
                     onChange={(e) => setTurnSlot(slot, { ...spec, tempHp: e.target.value.trim() || undefined })}
                   />
                 </Field>
-                {spec.damage && 'dice' in spec.damage && (
-                  <>
-                    <Field label={t('ui.constructor.damageDice')}>
-                      <input
-                        type="text"
-                        value={literalText(spec.damage.dice)}
-                        disabled={!literalText(spec.damage.dice)}
-                        onChange={(e) =>
-                          setTurnSlot(slot, {
-                            ...spec,
-                            damage: {
-                              ...(spec.damage as { dice: ValueExpr; types?: ValueExpr[] }),
-                              dice: e.target.value.trim(),
-                            },
-                          })
-                        }
-                      />
-                    </Field>
-                    {DAMAGE_TYPES.map((damage) => {
-                      const types = (spec.damage as { types?: ValueExpr[] }).types ?? [];
-                      const checked = types.some((type) => type === damage.key);
-                      return (
-                        <button
-                          type="button"
-                          key={damage.key}
-                          className={`ability-type${checked ? ' on' : ''}`}
-                          onClick={() =>
-                            setTurnSlot(slot, {
-                              ...spec,
-                              damage: {
-                                ...(spec.damage as { dice: ValueExpr; types?: ValueExpr[] }),
-                                types: toggleType(types, damage.key),
-                              },
-                            })
-                          }
-                        >
-                          {damageLabel(damage.key)}
-                        </button>
-                      );
-                    })}
-                  </>
+                {spec.damage && 'dice' in spec.damage && literalText(spec.damage.dice) !== '' && (
+                  <DamageDiceField
+                    value={{
+                      dice: [literalText(spec.damage.dice)],
+                      types: (spec.damage.types ?? []).filter(
+                        (type): type is string => typeof type === 'string'
+                      ),
+                    }}
+                    onChange={(next) =>
+                      setTurnSlot(slot, {
+                        ...spec,
+                        damage: {
+                          ...(spec.damage as { dice: ValueExpr; types?: ValueExpr[] }),
+                          dice: next.dice[0] ?? '1d6',
+                          types: next.types,
+                        },
+                      })
+                    }
+                    placeholder="1d6fire"
+                  />
+                )}
+                {spec.damage && 'dice' in spec.damage && literalText(spec.damage.dice) === '' && (
+                  <span className="hint">{t('ui.constructor.fromData')}</span>
                 )}
                 {spec.damage && 'parts' in spec.damage && (
                   <span className="hint">{t('ui.constructor.triggerGated')}</span>
