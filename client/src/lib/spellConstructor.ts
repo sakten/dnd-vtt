@@ -338,14 +338,20 @@ export function withZoneAura(record: SpellDef, effects: EffectSpec[]): SpellDef 
 /** Источник урона слота: нет / привязка к части карточки / литерал. */
 export function slotDamageSource(
   payload: PayloadSpec | undefined
-): { kind: 'none' } | { kind: 'part'; index?: number; role?: string } | { kind: 'literal' } {
+):
+  | { kind: 'none' }
+  | { kind: 'part'; index?: number; role?: string }
+  | { kind: 'literal' }
+  | { kind: 'data'; fallback?: string } {
   const damage = payload?.damage;
-  if (!damage || !('dice' in damage)) return { kind: 'none' };
+  if (!damage) return { kind: 'none' };
+  // Составной урон payload'а — «из данных» (части карточки).
+  if ('parts' in damage) return { kind: 'data' };
   const expr = damage.dice;
   if (!isRecord(expr)) return { kind: 'literal' };
   const ref: unknown = 'scale' in expr && isRecord(expr.scale) ? expr.scale.dice : expr;
   if (isRecord(ref)) {
-    const partRef = ref as { ref?: unknown; index?: unknown; part?: unknown };
+    const partRef = ref as { ref?: unknown; index?: unknown; part?: unknown; fallback?: unknown };
     if (partRef.ref === 'part') {
       return {
         kind: 'part',
@@ -353,6 +359,19 @@ export function slotDamageSource(
         ...(typeof partRef.part === 'string' ? { role: partRef.part } : {}),
       };
     }
+    // Ссылка на данные заклинания (`spellDamage`, `cantrip`, `upcastDice`) — «из данных».
+    if (typeof partRef.ref === 'string') {
+      return {
+        kind: 'data',
+        ...(typeof partRef.fallback === 'string' || typeof partRef.fallback === 'number'
+          ? { fallback: String(partRef.fallback) }
+          : {}),
+      };
+    }
+  }
+  // Выражения-агрегаты (`concat`, `join`, `tiers`, `perLevel`) — тоже «из данных».
+  if ((['concat', 'join', 'tiers', 'perLevel', 'add', 'sum'] as const).some((key) => key in expr)) {
+    return { kind: 'data' };
   }
   return { kind: 'literal' };
 }

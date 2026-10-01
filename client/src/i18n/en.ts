@@ -1345,6 +1345,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.triggerOp.reactionSaveCondition': 'Reaction: save + condition',
   'ui.constructor.triggerOp.save': 'Bearer save',
   'ui.constructor.fromData': 'From data',
+  'ui.constructor.fromDataValue': 'From data: {value}',
+  'ui.constructor.ownValue': 'Custom',
   'ui.constructor.weaponAttack': 'Weapon attack on cast',
   'ui.constructor.weaponAttackAdd': 'Add weapon attack',
   'ui.constructor.weaponReplace': 'Replace weapon damage',

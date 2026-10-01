@@ -12,6 +12,7 @@ import {
 import { t, type MessageKey } from '../i18n';
 import { abilityName, conditionLabel, damageLabel } from '../i18n/domain';
 import DamageDiceField from './DamageDiceField';
+import { ExprField } from './ExprField';
 import { Field } from './Field';
 
 /** Реактивные события эффекта (`EffectTriggers`), редактируемые формой. */
@@ -188,7 +189,11 @@ export default function EffectTriggersEditor({
       }
       case 'reduce': {
         const red = (op as { reduce: { dice: ValueExpr; types: ValueExpr[] } }).reduce;
-        if (!literalText(red.dice)) return <span className="hint">{t('ui.constructor.fromData')}</span>;
+        if (!literalText(red.dice)) {
+          return (
+            <ExprField value={red.dice} onChange={(dice) => set({ reduce: { ...red, dice: dice ?? '1d4' } })} />
+          );
+        }
         return (
           <DamageDiceField
             value={{
@@ -204,7 +209,14 @@ export default function EffectTriggersEditor({
         const extra = (
           op as { extraDamage: { dice: ValueExpr; damageType: ValueExpr; from?: 'source'; oncePerTurn?: boolean } }
         ).extraDamage;
-        if (!literalText(extra.dice)) return <span className="hint">{t('ui.constructor.fromData')}</span>;
+        if (!literalText(extra.dice)) {
+          return (
+            <ExprField
+              value={extra.dice}
+              onChange={(dice) => set({ extraDamage: { ...extra, dice: dice ?? '1d6' } })}
+            />
+          );
+        }
         return (
           <>
             <DamageDiceField
@@ -430,7 +442,19 @@ export default function EffectTriggersEditor({
                   />
                 )}
                 {spec.damage && 'dice' in spec.damage && literalText(spec.damage.dice) === '' && (
-                  <span className="hint">{t('ui.constructor.fromData')}</span>
+                  <ExprField
+                    value={spec.damage.dice}
+                    onChange={(dice) =>
+                      setTurnSlot(slot, {
+                        ...spec,
+                        damage: {
+                          ...(spec.damage as { dice: ValueExpr; types?: ValueExpr[] }),
+                          dice: dice ?? '1d6',
+                        },
+                      })
+                    }
+                    placeholder="1d6fire"
+                  />
                 )}
                 {spec.damage && 'parts' in spec.damage && (
                   <span className="hint">{t('ui.constructor.triggerGated')}</span>

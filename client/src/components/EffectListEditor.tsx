@@ -19,42 +19,14 @@ import { abilityName, conditionLabel, senseLabel, skillName } from '../i18n/doma
 import { newId } from '../lib/id';
 import EffectModifiersEditor from './EffectModifiersEditor';
 import EffectTriggersEditor from './EffectTriggersEditor';
+export { ExprField } from './ExprField';
+import { ExprField } from './ExprField';
 import { Field } from './Field';
 
 const ABILITY_KEYS: AbilityKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
 const literalText = (value: ValueExpr | undefined): string =>
   typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-
-/** Значение-ссылка (`{ref}`/`tiers`/`concat`) показывается «из данных»; литерал правится полем. */
-export function ExprField({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: ValueExpr | undefined;
-  onChange: (value: ValueExpr | undefined) => void;
-  placeholder?: string;
-}) {
-  if (typeof value === 'string' || typeof value === 'number') {
-    return (
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={String(value)}
-        onChange={(e) => {
-          const text = e.target.value.trim();
-          if (!text) {
-            onChange(undefined);
-            return;
-          }
-          onChange(/^-?\d+$/.test(text) ? Number(text) : text);
-        }}
-      />
-    );
-  }
-  return <span className="hint">{t('ui.constructor.fromData')}</span>;
-}
 
 type LoadoutKind = LoadoutSpec['kind'];
 

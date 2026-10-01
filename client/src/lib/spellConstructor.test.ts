@@ -12,6 +12,7 @@ import {
   keyFromName,
   partUsageKeys,
   removeUpcastTier,
+  slotDamageSource,
   switchPrimary,
   validateConstructor,
   withPayloadHeal,
@@ -173,5 +174,21 @@ describe('конструктор кастомов (R16 К1)', () => {
     expect(edited.upcast?.tiers?.[0]).toEqual({ level: 3, dice: '2d8', attack: 2 });
 
     expect(removeUpcastTier(edited, 0).upcast?.tiers).toBeUndefined();
+  });
+
+  it('slotDamageSource: ссылки и части — «из данных», литерал — поле', () => {
+    expect(slotDamageSource(undefined)).toEqual({ kind: 'none' });
+    expect(slotDamageSource({ damage: { dice: '1d6', types: ['fire'] } })).toEqual({ kind: 'literal' });
+    expect(slotDamageSource({ damage: { parts: [] } })).toEqual({ kind: 'data' });
+    expect(
+      slotDamageSource({ damage: { dice: { ref: 'part', part: 'main', index: 0 }, types: ['fire'] } })
+    ).toEqual({ kind: 'part', role: 'main', index: 0 });
+    expect(slotDamageSource({ damage: { dice: { ref: 'spellDamage', fallback: '2d10' }, types: ['radiant'] } })).toEqual({
+      kind: 'data',
+      fallback: '2d10',
+    });
+    expect(
+      slotDamageSource({ damage: { dice: { concat: [{ ref: 'part', part: 'trigger' }, 'cold'] }, types: ['cold'] } })
+    ).toEqual({ kind: 'data' });
   });
 });

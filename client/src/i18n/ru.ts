@@ -1342,6 +1342,8 @@
   'ui.constructor.triggerOp.reactionSaveCondition': 'Реакция: спас + состояние',
   'ui.constructor.triggerOp.save': 'Спас носителя',
   'ui.constructor.fromData': 'Из данных',
+  'ui.constructor.fromDataValue': 'Из данных: {value}',
+  'ui.constructor.ownValue': 'Свои',
   'ui.constructor.weaponAttack': 'Атака оружием при касте',
   'ui.constructor.weaponAttackAdd': 'Добавить атаку оружием',
   'ui.constructor.weaponReplace': 'Заменить урон оружия',

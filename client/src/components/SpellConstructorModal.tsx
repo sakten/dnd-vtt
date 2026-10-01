@@ -214,12 +214,15 @@ function ZonePayloadFields({
           onChange={(e) => {
             const value = e.target.value;
             if (value === 'none') patch({ damage: undefined });
+            else if (value === 'data') return;
             else if (value === 'literal') {
-              const dice =
-                literalDamage && (typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number')
-                  ? literalDamage.dice
-                  : '1d6';
-              patch({ damage: { dice, types: literalDamage?.types ?? [] } });
+              const seed =
+                source.kind === 'data' && source.fallback
+                  ? source.fallback
+                  : literalDamage && (typeof literalDamage.dice === 'string' || typeof literalDamage.dice === 'number')
+                    ? literalDamage.dice
+                    : '1d6';
+              patch({ damage: { dice: seed, types: literalDamage?.types ?? [] } });
             } else {
               const index = Number(value.slice('part:'.length)) || 0;
               const part = parts[index];
@@ -230,12 +233,20 @@ function ZonePayloadFields({
           <option value="none">{t('ui.constructor.damageNone')}</option>
           {parts.map((part, index) => (
             <option key={index} value={`part:${index}`}>
-              {t('ui.constructor.damagePart', { n: index + 1 })} · {part.types.map((type) => damageLabel(type)).join('/')}
+              {t('ui.constructor.damagePart', { n: index + 1 })} В· {part.types.map((type) => damageLabel(type)).join('/')}
             </option>
           ))}
+          {source.kind === 'data' && <option value="data">{t('ui.constructor.fromData')}</option>}
           <option value="literal">{t('ui.constructor.damageLiteral')}</option>
         </select>
       </Field>
+      {source.kind === 'data' && (
+        <span className="hint">
+          {source.fallback
+            ? t('ui.constructor.fromDataValue', { value: source.fallback })
+            : t('ui.constructor.fromData')}
+        </span>
+      )}
       {source.kind === 'literal' && literalDamage && (
         <DamageDiceField
           value={{
@@ -332,7 +343,11 @@ function DamageSpecFields({
   if (typeof damage.dice !== 'string' && typeof damage.dice !== 'number') {
     return (
       <Field label={t('ui.constructor.damageDice')}>
-        <ExprField value={damage.dice} onChange={() => undefined} />
+        <ExprField
+          value={damage.dice}
+          onChange={(dice) => onChange({ ...damage, dice: dice ?? '1d6' })}
+          placeholder="1d6fire"
+        />
       </Field>
     );
   }
@@ -1771,11 +1786,10 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 </Field>
                 {UTILITY_DICE_KINDS.has(utility.kind) && (
                   <Field label={t('ui.constructor.utilityDice')}>
-                    <input
-                      type="text"
+                    <ExprField
+                      value={utility.dice}
+                      onChange={(value) => patchUtility({ dice: value })}
                       placeholder="1d4 + 4"
-                      value={typeof utility.dice === 'string' || typeof utility.dice === 'number' ? String(utility.dice) : ''}
-                      onChange={(e) => patchUtility({ dice: e.target.value.trim() || undefined })}
                     />
                   </Field>
                 )}

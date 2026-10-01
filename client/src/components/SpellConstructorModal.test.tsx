@@ -680,6 +680,27 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(JSON.parse(lastImportJson()).upcast.tiers[0].dice).toBe('4d8');
   });
 
+  it('ссылки: «Свои» у secondary weapon attack и у зонального payload', () => {
+    const gfb = copyRecord(spellsData.spells.find((s) => s.name === 'Green-Flame Blade')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={gfb} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Свои' })[1]!);
+    fireEvent.change(screen.getByPlaceholderText('2d6'), { target: { value: '2d6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.weaponAttack.secondary.dice).toBe('2d6');
+    first.unmount();
+
+    const moon = copyRecord(spellsData.spells.find((s) => s.name === 'Moonbeam')!, '(копия)');
+    render(<SpellConstructorModal initial={moon} lockedKey={false} onClose={vi.fn()} />);
+    const damageSelect = screen.getAllByLabelText('Урон')[0]!;
+    expect(damageSelect).toHaveValue('data');
+    fireEvent.change(damageSelect, { target: { value: 'literal' } });
+    fireEvent.change(screen.getAllByLabelText('Кости (например 3d6fire)')[1]!, { target: { value: '3d6radiant' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const saved = JSON.parse(lastImportJson());
+    expect(saved.automation.zone.triggers.enter.damage.dice).toBe('3d6');
+    expect(saved.automation.zone.triggers.enter.damage.types).toEqual(['radiant']);
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);
