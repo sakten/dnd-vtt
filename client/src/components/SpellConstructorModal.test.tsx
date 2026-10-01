@@ -737,6 +737,18 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(JSON.parse(lastImportJson()).automation.burst.dice).toBe('1d6');
     bombRender.unmount();
 
+    // Всплеск без костей: поле редактируемое, а не «Из данных».
+    const noDice = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
+    noDice.automation.burst = { rangeFeet: 5, damageType: 'fire' };
+    const noDiceRender = render(<SpellConstructorModal initial={noDice} lockedKey={false} onClose={vi.fn()} />);
+    const burstDice = screen.getAllByLabelText('Кости (например 3d6fire)')[1]!;
+    fireEvent.change(burstDice, { target: { value: '2d6acid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedNoDice = JSON.parse(lastImportJson());
+    expect(savedNoDice.automation.burst.dice).toBe('2d6');
+    expect(savedNoDice.automation.burst.damageType).toBe('acid');
+    noDiceRender.unmount();
+
     const ice = copyRecord(spellsData.spells.find((s) => s.name === 'Ice Knife')!, '(копия)');
     const second = render(<SpellConstructorModal initial={ice} lockedKey={false} onClose={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('Радиус всплеска, футы'), { target: { value: '10' } });

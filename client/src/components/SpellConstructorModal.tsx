@@ -2875,10 +2875,12 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   onChange={(e) => patchTop({ burst: { ...automation.burst!, rangeFeet: Number(e.target.value) || 0 } })}
                 />
               </Field>
-              {literalExpr(automation.burst.dice) !== '' ? (
+              {automation.burst.dice === undefined ||
+              typeof automation.burst.dice === 'string' ||
+              typeof automation.burst.dice === 'number' ? (
                 <DamageDiceField
                   value={{
-                    dice: [literalExpr(automation.burst.dice)],
+                    dice: literalExpr(automation.burst.dice) !== '' ? [literalExpr(automation.burst.dice)] : [],
                     types: literalExpr(automation.burst.damageType) ? [literalExpr(automation.burst.damageType)] : [],
                   }}
                   onChange={(next) =>
