@@ -11,8 +11,10 @@ import {
   type EffectSpec,
   type EffectTriggerSpec,
   type EffectTriggers,
+  type LightSource,
   type LoadoutSpec,
   type ModifierSpec,
+  type Restrictions,
   type Sense,
   type TriggerAction,
   type UsesSpec,
@@ -174,6 +176,77 @@ const literalBooleans = (value: unknown): boolean | undefined => {
   return undefined;
 };
 
+/** Ограничения экономики эффекта, редактируемые формой (`noActionsFromEffect` — служебный). */
+const RESTRICTION_CHECKS = [
+  'noActions',
+  'noBonus',
+  'noReactions',
+  'noOpportunityAttacks',
+  'ignoresOpportunityAttacks',
+  'oneAttackOnly',
+  'actionOrBonusOnly',
+  'noSpells',
+] as const;
+type RestrictionKey = (typeof RESTRICTION_CHECKS)[number];
+
+const withRestriction = (current: Restrictions | undefined, patch: Partial<Restrictions>): Restrictions | undefined => {
+  const next: Record<string, unknown> = { ...(current ?? {}), ...patch };
+  for (const [key, value] of Object.entries(next)) {
+    if (value === undefined || value === false) delete next[key];
+  }
+  return Object.keys(next).length ? (next as Restrictions) : undefined;
+};
+
+/** Свет источника (эффект/зона): яркий радиус, сумерки и флаг солнечного. */
+export function LightFields({
+  value,
+  onChange,
+}: {
+  value: LightSource | undefined;
+  onChange: (value: LightSource | undefined) => void;
+}) {
+  return (
+    <>
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={!!value}
+          onChange={(e) => onChange(e.target.checked ? { bright: 20, dim: 20 } : undefined)}
+        />
+        <span>{t('ui.constructor.light')}</span>
+      </label>
+      {value && (
+        <span className="field-row">
+          <Field label={t('ui.constructor.lightBright')}>
+            <input
+              type="number"
+              min={0}
+              value={value.bright}
+              onChange={(e) => onChange({ ...value, bright: Math.max(0, Number(e.target.value) || 0) })}
+            />
+          </Field>
+          <Field label={t('ui.constructor.lightDim')}>
+            <input
+              type="number"
+              min={0}
+              value={value.dim}
+              onChange={(e) => onChange({ ...value, dim: Math.max(0, Number(e.target.value) || 0) })}
+            />
+          </Field>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={value.sunlight === true}
+              onChange={(e) => onChange({ ...value, sunlight: e.target.checked || undefined })}
+            />
+            <span>{t('ui.constructor.lightSunlight')}</span>
+          </label>
+        </span>
+      )}
+    </>
+  );
+}
+
 /** Цели/режимы/длительности эффектов, редактируемые формой (остальное — JSON). */
 export const MODIFIER_TARGETS = [
   'attack',
@@ -266,6 +339,19 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
     const plain = list.filter((c): c is string => typeof c === 'string');
     const next = plain.includes(key) ? plain.filter((c) => c !== key) : [...plain, key];
     patchEffect(effectIndex, { conditionImmunities: gated.length || next.length ? [...gated, ...next] : undefined });
+  };
+  const toggleRestriction = (effectIndex: number, key: RestrictionKey) => {
+    const current = effects[effectIndex]!.restrictions ?? {};
+    patchEffect(effectIndex, {
+      restrictions: withRestriction(current, { [key]: current[key] ? undefined : true } as Partial<Restrictions>),
+    });
+  };
+  const setSpellFailure = (effectIndex: number, value: number) => {
+    patchEffect(effectIndex, {
+      restrictions: withRestriction(effects[effectIndex]!.restrictions, {
+        spellFailureChance: Number.isFinite(value) && value > 0 ? Math.min(100, Math.round(value)) : undefined,
+      }),
+    });
   };
   const patchEscape = (effectIndex: number, patch: Partial<NonNullable<EffectSpec['escape']>> | null) => {
     if (patch === null) {
@@ -935,6 +1021,31 @@ export default function EffectListEditor({ effects, onChange, defaultName, hint 
                   />
                 </div>
               )}
+              <div className="field-row">
+                <LightFields value={effect.light} onChange={(light) => patchEffect(index, { light })} />
+              </div>
+              <div className="constructor-checks">
+                <span className="constructor-chip-title">{t('ui.constructor.restrictions')}</span>
+                {RESTRICTION_CHECKS.map((key) => (
+                  <label className="checkbox-row" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={effect.restrictions?.[key] === true}
+                      onChange={() => toggleRestriction(index, key)}
+                    />
+                    <span>{t(`ui.constructor.restriction.${key}` as MessageKey)}</span>
+                  </label>
+                ))}
+                <Field label={t('ui.constructor.restriction.spellFailureChance')}>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={effect.restrictions?.spellFailureChance ?? ''}
+                    onChange={(e) => setSpellFailure(index, Number(e.target.value))}
+                  />
+                </Field>
+              </div>
               <p className="hint">{t('ui.constructor.extraHint')}</p>
             </details>
             <div className="ability-types">

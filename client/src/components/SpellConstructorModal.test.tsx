@@ -379,6 +379,160 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(savedWeb.automation.effects[0].escape).toMatchObject({ ability: 'str', skill: 'athletics', dc: 15 });
   });
 
+  it('свет: эффект Light и зона Moonbeam', () => {
+    const light = copyRecord(spellsData.spells.find((s) => s.name === 'Light')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={light} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText('Дополнительно'));
+    const bright = screen.getByLabelText('Яркий, футы');
+    expect(bright).toHaveValue(20);
+    fireEvent.change(bright, { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Солнечный' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedLight = JSON.parse(lastImportJson());
+    expect(savedLight.automation.effects[0].light).toEqual({ bright: 30, dim: 20, sunlight: true });
+    first.unmount();
+
+    const moonbeam = copyRecord(spellsData.spells.find((s) => s.name === 'Moonbeam')!, '(копия)');
+    render(<SpellConstructorModal initial={moonbeam} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Сумерки, футы'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedMoon = JSON.parse(lastImportJson());
+    expect(savedMoon.automation.zone.light).toEqual({ bright: 0, dim: 10 });
+  });
+
+  it('restrictions Slow: чекбоксы и провал соматики', () => {
+    const slow = copyRecord(spellsData.spells.find((s) => s.name === 'Slow')!, '(копия)');
+    render(<SpellConstructorModal initial={slow} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText('Дополнительно'));
+    expect(screen.getByRole('checkbox', { name: 'Одна атака за ход' })).toBeChecked();
+    expect(screen.getByLabelText('Провал соматики, %')).toHaveValue(25);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Одна атака за ход' }));
+    fireEvent.change(screen.getByLabelText('Провал соматики, %'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const saved = JSON.parse(lastImportJson());
+    expect(saved.automation.effects[0].restrictions).toMatchObject({
+      noReactions: true,
+      actionOrBonusOnly: true,
+      spellFailureChance: 10,
+    });
+    expect(saved.automation.effects[0].restrictions.oneAttackOnly).toBeUndefined();
+  });
+
+  it('лучи: meta-атаки правятся, count записи — «из данных»', () => {
+    const rays = copyRecord(spellsData.spells.find((s) => s.name === 'Scorching Ray')!, '(копия)');
+    render(<SpellConstructorModal initial={rays} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getAllByText('Из данных').length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText('Лучей/атак (карточка)'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const saved = JSON.parse(lastImportJson());
+    expect(saved.attacks).toBe(4);
+    expect(saved.automation.count).toEqual({ ref: 'spellAttackCount' });
+  });
+
+  it('наведение: вид/дистанция/цели, включение с нуля', () => {
+    const misty = copyRecord(spellsData.spells.find((s) => s.name === 'Misty Step')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={misty} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Наводить')).toHaveValue('point');
+    fireEvent.change(screen.getByLabelText('Наводить'), { target: { value: 'creature' } });
+    fireEvent.change(screen.getByLabelText('Дистанция наведения, футы'), { target: { value: '60' } });
+    fireEvent.change(screen.getByLabelText('Целей наведения'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.targeting).toEqual({ kind: 'creature', range: 60, targets: 2 });
+    first.unmount();
+
+    const shield = copyRecord(spellsData.spells.find((s) => s.name === 'Shield')!, '(копия)');
+    render(<SpellConstructorModal initial={shield} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.queryByLabelText('Наводить')).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Наведение' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.targeting).toEqual({ kind: 'creature', range: 30 });
+  });
+
+  it('область каста: своя (Call Lightning) и из карточки (Sunbeam)', () => {
+    const call = copyRecord(spellsData.spells.find((s) => s.name === 'Call Lightning')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={call} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Источник')).toHaveValue('own');
+    fireEvent.change(screen.getByLabelText('Размер области каста, футы'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.area).toEqual({ shape: 'sphere', size: 10 });
+    first.unmount();
+
+    const sun = copyRecord(spellsData.spells.find((s) => s.name === 'Sunbeam')!, '(копия)');
+    render(<SpellConstructorModal initial={sun} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Источник')).toHaveValue('spell');
+    fireEvent.change(screen.getByLabelText('Размер области каста, футы'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.area).toEqual({
+      from: 'spell',
+      fallback: { shape: 'line', size: 30, width: 5 },
+    });
+  });
+
+  it('действия зоны: перемещение, спас+область и добавление пресета', () => {
+    const sphere = copyRecord(spellsData.spells.find((s) => s.name === 'Flaming Sphere')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={sphere} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Перемещение, футы'), { target: { value: '60' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedSphere = JSON.parse(lastImportJson());
+    expect(savedSphere.automation.zone.actions[0].utility).toEqual({ kind: 'moveZone', amount: 60 });
+    expect(savedSphere.automation.zone.actions[0].defKey).toBe('zone:move');
+    first.unmount();
+
+    const storm = copyRecord(spellsData.spells.find((s) => s.name === 'Call Lightning')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={storm} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Размер действия, футы'), { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedStorm = JSON.parse(lastImportJson());
+    expect(savedStorm.automation.zone.actions[0].area).toMatchObject({ shape: 'sphere', size: 10 });
+    expect(savedStorm.automation.zone.actions[0].targeting.area).toMatchObject({ shape: 'sphere', size: 10 });
+    second.unmount();
+
+    const spirits = copyRecord(spellsData.spells.find((s) => s.name === 'Spirit Guardians')!, '(копия)');
+    render(<SpellConstructorModal initial={spirits} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByDisplayValue('Добавить действие'), { target: { value: 'move' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedSpirits = JSON.parse(lastImportJson());
+    expect(savedSpirits.automation.zone.actions).toEqual([
+      {
+        id: 'move',
+        name: 'Перемещение зоны',
+        cost: 'bonus',
+        defKey: 'zone:move',
+        primary: 'utility',
+        utility: { kind: 'moveZone', amount: 30 },
+        targeting: { kind: 'point', range: 30 },
+      },
+    ]);
+  });
+
+  it('утилита-экстра: пассажир/вспышка, blockedDamage и Scatter', () => {
+    const thunder = copyRecord(spellsData.spells.find((s) => s.name === 'Thunder Step')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={thunder} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Пассажир' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Вспышка в покинутой точке' })).toBeChecked();
+    fireEvent.change(screen.getByLabelText('Вспышка: радиус, футы'), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedThunder = JSON.parse(lastImportJson());
+    expect(savedThunder.automation.utility.fromBurst.feet).toBe(20);
+    expect(savedThunder.automation.utility.passenger).toEqual({ feet: 5, destFeet: 5, maxSize: true });
+    first.unmount();
+
+    const door = copyRecord(spellsData.spells.find((s) => s.name === 'Dimension Door')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={door} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Сквозь стены (без линии видимости)' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Урон провала телепорта' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedDoor = JSON.parse(lastImportJson());
+    expect(savedDoor.automation.utility.blockedDamage).toBeUndefined();
+    expect(savedDoor.automation.utility.ignoreSight).toBe(true);
+    second.unmount();
+
+    const scatter = copyRecord(spellsData.spells.find((s) => s.name === 'Scatter')!, '(копия)');
+    render(<SpellConstructorModal initial={scatter} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Целей (Scatter)')).toHaveValue(5);
+    expect(screen.getByLabelText('Точка назначения, футы')).toHaveValue(120);
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

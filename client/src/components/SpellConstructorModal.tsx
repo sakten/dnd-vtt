@@ -7,11 +7,14 @@ import {
   DAMAGE_TYPES,
   SKILLS,
   type AbilityKey,
+  type ActionSpec,
+  type ActionTargeting,
   type AreaSpec,
   type BestiaryEntry,
   type BestiarySummonProfile,
   type ChoiceSpec,
   type ConditionKey,
+  type DamageSpec,
   type EffectDuration,
   type EffectSpec,
   type ManualSpec,
@@ -62,7 +65,7 @@ import {
   type SimpleBranch,
   type WizardProfileId,
 } from '../lib/spellConstructor';
-import EffectListEditor, { EFFECT_DURATIONS, ExprField } from './EffectListEditor';
+import EffectListEditor, { EFFECT_DURATIONS, ExprField, LightFields } from './EffectListEditor';
 import { spellLevelLabel, spellMechanicsShort, spellSchoolLabel } from '../lib/spellText';
 import { useSpells } from '../lib/useSpells';
 import { useGameStore } from '../store/useGameStore';
@@ -92,21 +95,44 @@ const CANTrip_LEVELS = [5, 11, 17];
 const ABILITY_KEYS = ABILITIES.map((a) => a.key);
 const SIMPLE_SWITCH: SimpleBranch[] = ['attack', 'save', 'auto', 'effect'];
 const CHOICE_PARAMS = ['damageType', 'ability', 'skill', 'condition', 'mode', 'effect', 'command'] as const;
-/** Виды утилит, редактируемые формой (остальные — только JSON). */
+/** Виды утилит (R16): поля под каждый вид, экзотика — в JSON. */
 const UTILITY_KINDS = [
-  'tempHp',
+  'extraAction',
+  'extraMovement',
+  'disengage',
+  'check',
+  'extraAttacks',
+  'weaponAttack',
   'healPool',
+  'tempHp',
+  'patientDefense',
+  'stepOfTheWind',
+  'moveZone',
+  'teleport',
+  'scatter',
+  'wake',
+  'revive',
+  'recallWeapon',
+  'kenseisShot',
+  'sharpenBlade',
+  'stabilize',
+  'endCondition',
+  'direction',
+  'telekinesis',
+  'dispel',
+] as const;
+const UTILITY_DICE_KINDS = new Set<string>(['tempHp', 'healPool']);
+const UTILITY_AMOUNT_KINDS = new Set<string>([
   'teleport',
   'extraAttacks',
   'extraMovement',
-  'disengage',
-  'wake',
-  'revive',
-  'stabilize',
+  'healPool',
+  'moveZone',
+  'telekinesis',
+  'sharpenBlade',
   'extraAction',
-] as const;
-const UTILITY_DICE_KINDS = new Set<string>(['tempHp', 'healPool']);
-const UTILITY_AMOUNT_KINDS = new Set<string>(['teleport', 'extraAttacks', 'extraMovement', 'healPool']);
+]);
+const UTILITY_MAXSIZE_KINDS = new Set<string>(['telekinesis']);
 
 type DurationKind = (typeof DURATION_KINDS)[number];
 
@@ -241,6 +267,102 @@ function ZonePayloadFields({
   );
 }
 
+/** Поля геометрии области (`AreaSpec`): форма/размер/ширина линии; подписи настраиваются. */
+function AreaFields({
+  value,
+  onChange,
+  none = true,
+  labels = { shape: 'ui.constructor.areaShape', size: 'ui.constructor.areaSize', width: 'ui.constructor.areaWidth' },
+}: {
+  value: AreaSpec | undefined;
+  onChange: (area: AreaSpec | undefined) => void;
+  none?: boolean;
+  labels?: { shape: MessageKey; size: MessageKey; width: MessageKey };
+}) {
+  return (
+    <>
+      <Field label={t(labels.shape)}>
+        <select
+          value={value?.shape ?? ''}
+          onChange={(e) => {
+            const shape = e.target.value as AreaSpec['shape'] | '';
+            onChange(
+              shape
+                ? { shape, size: value?.size ?? 15, ...(shape === 'line' ? { width: value?.width ?? 5 } : {}) }
+                : undefined
+            );
+          }}
+        >
+          {none && <option value="">{t('ui.constructor.areaNone')}</option>}
+          {AREA_SHAPES.map((shape) => (
+            <option key={shape} value={shape}>
+              {t(`ui.constructor.areaShapeName.${shape}` as MessageKey)}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {value && (
+        <Field label={t(labels.size)}>
+          <input
+            type="number"
+            min={5}
+            step={5}
+            value={value.size}
+            onChange={(e) => onChange({ ...value, size: Number(e.target.value) || 5 })}
+          />
+        </Field>
+      )}
+      {value?.shape === 'line' && (
+        <Field label={t(labels.width)}>
+          <input
+            type="number"
+            min={5}
+            step={5}
+            value={value.width ?? 5}
+            onChange={(e) => onChange({ ...value, width: Number(e.target.value) || 5 })}
+          />
+        </Field>
+      )}
+    </>
+  );
+}
+
+/** Урон (`DamageSpec`) в форме: литеральные кости/типы; составной — «из данных». */
+function DamageSpecFields({
+  damage,
+  onChange,
+}: {
+  damage: DamageSpec | undefined;
+  onChange: (damage: DamageSpec | undefined) => void;
+}) {
+  if (!damage || !('dice' in damage)) return <span className="hint">{t('ui.constructor.fromData')}</span>;
+  const types = damage.types ?? [];
+  const toggle = (key: string) =>
+    onChange({
+      ...damage,
+      types: types.some((type) => type === key) ? types.filter((type) => type !== key) : [...types, key],
+    });
+  return (
+    <>
+      <Field label={t('ui.constructor.damageDice')}>
+        <ExprField value={damage.dice} onChange={(value) => onChange({ ...damage, dice: value ?? '1d6' })} />
+      </Field>
+      <div className="ability-types">
+        {DAMAGE_TYPES.map((entry) => (
+          <button
+            type="button"
+            key={entry.key}
+            className={`ability-type${types.some((type) => type === entry.key) ? ' on' : ''}`}
+            onClick={() => toggle(entry.key)}
+          >
+            {damageLabel(entry.key)}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /** Конструктор кастомного заклинания (R16 К1): вход, мета-форма, превью, сохранение. */
 export default function SpellConstructorModal({ initial, lockedKey, start = 'form', onClose }: Props) {
   const [stage, setStage] = useState<Stage>(start);
@@ -356,6 +478,62 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           : { type: kind };
     setRecord((r) => patchZone(r, { duration }));
   };
+  const zoneActions = zone?.actions ?? [];
+  const setZoneActions = (list: ActionSpec[]) =>
+    setRecord((r) => patchZone(r, { actions: list.length ? list : undefined }));
+  const patchZoneAction = (index: number, patch: Partial<ActionSpec>) => {
+    const list = [...zoneActions];
+    list[index] = { ...list[index]!, ...patch };
+    setZoneActions(list);
+  };
+  const zoneActionKind = (action: ActionSpec): 'move' | 'attack' | 'save' | 'other' => {
+    if (action.utility?.kind === 'moveZone') return 'move';
+    if (action.primary === 'attack') return 'attack';
+    if (action.primary === 'save') return 'save';
+    return 'other';
+  };
+  const zoneActionRange = (action: ActionSpec): number | undefined =>
+    action.targeting && 'range' in action.targeting ? action.targeting.range : undefined;
+  const setZoneActionRange = (index: number, range: number | undefined, fallbackKind: ActionTargeting['kind']) => {
+    const action = zoneActions[index]!;
+    const targeting = action.targeting ?? { kind: fallbackKind };
+    patchZoneAction(index, { targeting: { ...targeting, range } as ActionSpec['targeting'] });
+  };
+  const blankZoneAction = (kind: 'move' | 'attack' | 'save'): ActionSpec => {
+    if (kind === 'move') {
+      return {
+        id: 'move',
+        name: t('ui.constructor.zoneActionMove'),
+        cost: 'bonus',
+        defKey: 'zone:move',
+        primary: 'utility',
+        utility: { kind: 'moveZone', amount: 30 },
+        targeting: { kind: 'point', range: 30 },
+      };
+    }
+    if (kind === 'attack') {
+      return {
+        id: 'strike',
+        name: record.name,
+        cost: 'action',
+        primary: 'attack',
+        attack: { rangeType: 'melee' },
+        count: 1,
+        damage: { dice: { ref: 'spellDamage' }, types: ['force'] },
+        targeting: { kind: 'creature', range: 5, from: 'origin' },
+      };
+    }
+    return {
+      id: 'strike',
+      name: record.name,
+      cost: 'action',
+      primary: 'save',
+      save: { ability: 'dex', half: true },
+      damage: { dice: { ref: 'spellDamage' }, types: ['lightning'] },
+      area: { shape: 'sphere', size: 5 },
+      targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 60 },
+    };
+  };
   const patchTop = (patch: Record<string, unknown>) =>
     setRecord((r) => {
       const automation = { ...r.automation } as Record<string, unknown>;
@@ -365,6 +543,39 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
       }
       return { ...r, automation: automation as typeof r.automation };
     });
+  const targeting = automation.targeting;
+  const patchTargeting = (patch: Partial<ActionTargeting> | null) => {
+    if (patch === null) {
+      patchTop({ targeting: undefined });
+      return;
+    }
+    const next = { ...(targeting ?? { kind: 'creature', range: 30 }) } as Record<string, unknown>;
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete next[key];
+      else next[key] = value;
+    }
+    patchTop({ targeting: next });
+  };
+  const instantArea = automation.area;
+  const instantAreaFromSpell = !!instantArea && 'from' in instantArea;
+  const instantAreaLiteral: AreaSpec | undefined = !instantArea
+    ? undefined
+    : 'from' in instantArea
+      ? instantArea.fallback
+      : instantArea;
+  const setInstantAreaMode = (mode: '' | 'own' | 'spell') => {
+    const literal = instantAreaLiteral ?? { shape: 'sphere', size: 10 };
+    if (!mode) patchTop({ area: undefined });
+    else if (mode === 'spell') patchTop({ area: { from: 'spell', fallback: literal } });
+    else patchTop({ area: literal });
+  };
+  const setInstantAreaLiteral = (next: AreaSpec | undefined) => {
+    if (!next) {
+      patchTop({ area: undefined });
+      return;
+    }
+    patchTop({ area: instantAreaFromSpell ? { from: 'spell', fallback: next } : next });
+  };
   const choices = automation.choices ?? [];
   const setChoices = (list: ChoiceSpec[]) => setRecord((r) => withChoices(r, list));
   const choiceValueOptions = (param: ChoiceSpec['param']): { key: string; label: string }[] | null => {
@@ -870,6 +1081,24 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 <span>{t('ui.constructor.saveHalf')}</span>
               </label>
             )}
+            {(primary === 'attack' || primary === 'auto') && (
+              <>
+                <Field label={t('ui.constructor.metaAttacks')}>
+                  <input
+                    type="number"
+                    min={2}
+                    value={record.attacks ?? ''}
+                    onChange={(e) => {
+                      const n = Math.round(Number(e.target.value));
+                      setMeta({ attacks: n >= 2 ? n : undefined });
+                    }}
+                  />
+                </Field>
+                <Field label={t('ui.constructor.metaCount')}>
+                  <ExprField value={automation.count} onChange={(value) => patchTop({ count: value })} placeholder="3" />
+                </Field>
+              </>
+            )}
           </div>
 
           {wa ? (
@@ -1204,47 +1433,31 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
 
           <div className="sheet-section-title">{t('ui.constructor.area')}</div>
           <div className="field-row">
-            <Field label={t('ui.constructor.areaShape')}>
+            <AreaFields value={area} onChange={(next) => setMeta({ areaSpec: next })} />
+          </div>
+
+          <div className="sheet-section-title">{t('ui.constructor.instantArea')}</div>
+          <div className="field-row">
+            <Field label={t('ui.constructor.instantAreaMode')}>
               <select
-                value={area?.shape ?? ''}
-                onChange={(e) => {
-                  const shape = e.target.value as AreaSpec['shape'] | '';
-                  setMeta({
-                    areaSpec: shape
-                      ? { shape, size: area?.size ?? 15, ...(shape === 'line' ? { width: area?.width ?? 5 } : {}) }
-                      : undefined,
-                  });
-                }}
+                value={instantArea ? (instantAreaFromSpell ? 'spell' : 'own') : ''}
+                onChange={(e) => setInstantAreaMode(e.target.value as '' | 'own' | 'spell')}
               >
                 <option value="">{t('ui.constructor.areaNone')}</option>
-                {AREA_SHAPES.map((shape) => (
-                  <option key={shape} value={shape}>
-                    {t(`ui.constructor.areaShapeName.${shape}` as MessageKey)}
-                  </option>
-                ))}
+                <option value="own">{t('ui.constructor.instantAreaOwn')}</option>
+                <option value="spell">{t('ui.constructor.instantAreaSpell')}</option>
               </select>
             </Field>
-            {area && (
-              <Field label={t('ui.constructor.areaSize')}>
-                <input
-                  type="number"
-                  min={5}
-                  step={5}
-                  value={area.size}
-                  onChange={(e) => setMeta({ areaSpec: { ...area, size: Number(e.target.value) || 5 } })}
-                />
-              </Field>
-            )}
-            {area?.shape === 'line' && (
-              <Field label={t('ui.constructor.areaWidth')}>
-                <input
-                  type="number"
-                  min={5}
-                  step={5}
-                  value={area.width ?? 5}
-                  onChange={(e) => setMeta({ areaSpec: { ...area, width: Number(e.target.value) || 5 } })}
-                />
-              </Field>
+            {instantAreaLiteral && (
+              <AreaFields
+                value={instantAreaLiteral}
+                onChange={setInstantAreaLiteral}
+                labels={{
+                  shape: 'ui.constructor.instantAreaShape',
+                  size: 'ui.constructor.instantAreaSize',
+                  width: 'ui.constructor.instantAreaWidth',
+                }}
+              />
             )}
           </div>
 
@@ -1431,7 +1644,203 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                     />
                   </Field>
                 )}
+                {utility.kind === 'check' && (
+                  <Field label={t('ui.constructor.utilityCheckAbility')}>
+                    <select
+                      value={utility.ability ?? ''}
+                      onChange={(e) => patchUtility({ ability: (e.target.value || undefined) as AbilityKey | undefined })}
+                    >
+                      <option value="">{t('ui.constructor.areaNone')}</option>
+                      {ABILITY_KEYS.map((key) => (
+                        <option key={key} value={key}>
+                          {abilityName(key)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+                {UTILITY_MAXSIZE_KINDS.has(utility.kind) && (
+                  <Field label={t('ui.constructor.topForceMaxSize')}>
+                    <select
+                      value={utility.maxSize ?? ''}
+                      onChange={(e) =>
+                        patchUtility({ maxSize: (e.target.value || undefined) as 'normal' | 'large' | 'huge' | undefined })
+                      }
+                    >
+                      <option value="">{t('ui.constructor.areaNone')}</option>
+                      <option value="normal">{t('ui.constructor.topForceSize.normal')}</option>
+                      <option value="large">{t('ui.constructor.topForceSize.large')}</option>
+                      <option value="huge">{t('ui.constructor.topForceSize.huge')}</option>
+                    </select>
+                  </Field>
+                )}
+                {utility.kind === 'scatter' && (
+                  <>
+                    <Field label={t('ui.constructor.utilityScatterTargets')}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={utility.targets ?? ''}
+                        onChange={(e) => patchUtility({ targets: Number(e.target.value) || undefined })}
+                      />
+                    </Field>
+                    <Field label={t('ui.constructor.utilityDestinationFeet')}>
+                      <input
+                        type="number"
+                        min={0}
+                        value={utility.destinationFeet ?? ''}
+                        onChange={(e) => patchUtility({ destinationFeet: Number(e.target.value) || undefined })}
+                      />
+                    </Field>
+                  </>
+                )}
               </div>
+              {utility.kind === 'teleport' && (
+                <>
+                  <div className="constructor-checks">
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={!!utility.passenger}
+                        onChange={(e) =>
+                          patchUtility({ passenger: e.target.checked ? { feet: 5, destFeet: 5 } : undefined })
+                        }
+                      />
+                      <span>{t('ui.constructor.utilityPassenger')}</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={!!utility.fromBurst}
+                        onChange={(e) =>
+                          patchUtility({
+                            fromBurst: e.target.checked ? { feet: 10, save: { ability: 'dex' } } : undefined,
+                          })
+                        }
+                      />
+                      <span>{t('ui.constructor.utilityFromBurst')}</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={!!utility.blockedDamage}
+                        onChange={(e) =>
+                          patchUtility({
+                            blockedDamage: e.target.checked ? { dice: '4d6', types: ['force'] } : undefined,
+                          })
+                        }
+                      />
+                      <span>{t('ui.constructor.utilityBlockedDamage')}</span>
+                    </label>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={utility.ignoreSight === true}
+                        onChange={(e) => patchUtility({ ignoreSight: e.target.checked || undefined })}
+                      />
+                      <span>{t('ui.constructor.utilityIgnoreSight')}</span>
+                    </label>
+                  </div>
+                  {utility.passenger && (
+                    <div className="field-row">
+                      <Field label={t('ui.constructor.utilityPassengerFeet')}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={utility.passenger.feet}
+                          onChange={(e) =>
+                            patchUtility({ passenger: { ...utility.passenger!, feet: Number(e.target.value) || 0 } })
+                          }
+                        />
+                      </Field>
+                      <Field label={t('ui.constructor.utilityPassengerDest')}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={utility.passenger.destFeet}
+                          onChange={(e) =>
+                            patchUtility({
+                              passenger: { ...utility.passenger!, destFeet: Number(e.target.value) || 0 },
+                            })
+                          }
+                        />
+                      </Field>
+                      <label className="checkbox-row">
+                        <input
+                          type="checkbox"
+                          checked={utility.passenger.maxSize === true}
+                          onChange={(e) =>
+                            patchUtility({
+                              passenger: { ...utility.passenger!, maxSize: e.target.checked || undefined },
+                            })
+                          }
+                        />
+                        <span>{t('ui.constructor.utilityPassengerMaxSize')}</span>
+                      </label>
+                    </div>
+                  )}
+                  {utility.fromBurst && (
+                    <div className="field-row">
+                      <Field label={t('ui.constructor.utilityBurstFeet')}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={utility.fromBurst.feet}
+                          onChange={(e) =>
+                            patchUtility({ fromBurst: { ...utility.fromBurst!, feet: Number(e.target.value) || 0 } })
+                          }
+                        />
+                      </Field>
+                      <Field label={t('ui.constructor.save')}>
+                        <select
+                          value={utility.fromBurst.save.ability}
+                          onChange={(e) =>
+                            patchUtility({
+                              fromBurst: {
+                                ...utility.fromBurst!,
+                                save: { ...utility.fromBurst!.save, ability: e.target.value as AbilityKey },
+                              },
+                            })
+                          }
+                        >
+                          {ABILITY_KEYS.map((key) => (
+                            <option key={key} value={key}>
+                              {abilityName(key)}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <label className="checkbox-row">
+                        <input
+                          type="checkbox"
+                          checked={utility.fromBurst.save.half === true}
+                          onChange={(e) =>
+                            patchUtility({
+                              fromBurst: {
+                                ...utility.fromBurst!,
+                                save: { ...utility.fromBurst!.save, half: e.target.checked || undefined },
+                              },
+                            })
+                          }
+                        />
+                        <span>{t('ui.constructor.saveHalf')}</span>
+                      </label>
+                      <DamageSpecFields
+                        damage={utility.fromBurst.damage}
+                        onChange={(damage) => patchUtility({ fromBurst: { ...utility.fromBurst!, damage } })}
+                      />
+                    </div>
+                  )}
+                  {utility.blockedDamage && (
+                    <div className="field-row">
+                      <DamageSpecFields
+                        damage={utility.blockedDamage}
+                        onChange={(damage) => patchUtility({ blockedDamage: damage })}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
               <p className="hint">{t('ui.constructor.utilityHint')}</p>
             </>
           )}
@@ -1610,6 +2019,12 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   </select>
                 </Field>
               </div>
+              <div className="field-row">
+                <LightFields
+                  value={zone.light}
+                  onChange={(light) => setRecord((r) => patchZone(r, { light }))}
+                />
+              </div>
               {ZONE_SLOTS.map((slot) => {
                 const payload = zone.triggers?.[slot];
                 return (
@@ -1732,6 +2147,206 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                   );
                 })}
               </div>
+              <div className="sheet-section-title">{t('ui.constructor.zoneActions')}</div>
+              {zoneActions.map((action, index) => {
+                const kind = zoneActionKind(action);
+                return (
+                  <div className="constructor-effect" key={`${action.id}-${index}`}>
+                    <div className="field-row">
+                      <Field label={t('ui.constructor.effectName')}>
+                        <input
+                          type="text"
+                          value={action.name}
+                          onChange={(e) => patchZoneAction(index, { name: e.target.value })}
+                        />
+                      </Field>
+                      <Field label={t('ui.constructor.zoneActionCost')}>
+                        <select
+                          value={action.cost}
+                          onChange={(e) => patchZoneAction(index, { cost: e.target.value as ActionSpec['cost'] })}
+                        >
+                          <option value="action">{t('ui.constructor.unit.action')}</option>
+                          <option value="bonus">{t('ui.constructor.unit.bonus')}</option>
+                          <option value="free">{t('ui.constructor.zoneActionFree')}</option>
+                        </select>
+                      </Field>
+                      <button type="button" onClick={() => setZoneActions(zoneActions.filter((_, i) => i !== index))}>
+                        {t('ui.constructor.remove')}
+                      </button>
+                    </div>
+                    {kind === 'move' && (
+                      <div className="field-row">
+                        <Field label={t('ui.constructor.zoneActionAmount')}>
+                          <input
+                            type="number"
+                            min={0}
+                            value={action.utility?.amount ?? ''}
+                            onChange={(e) =>
+                              patchZoneAction(index, {
+                                utility: { ...action.utility!, amount: Number(e.target.value) || undefined },
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field label={t('ui.constructor.targetingRange')}>
+                          <input
+                            type="number"
+                            min={0}
+                            value={zoneActionRange(action) ?? ''}
+                            onChange={(e) => setZoneActionRange(index, Number(e.target.value) || undefined, 'point')}
+                          />
+                        </Field>
+                      </div>
+                    )}
+                    {kind === 'attack' && (
+                      <>
+                        <div className="field-row">
+                          <Field label={t('ui.constructor.attack')}>
+                            <select
+                              value={action.attack?.rangeType ?? 'melee'}
+                              onChange={(e) =>
+                                patchZoneAction(index, {
+                                  attack: {
+                                    ...(action.attack ?? { rangeType: 'melee' }),
+                                    rangeType: e.target.value as 'melee' | 'ranged',
+                                  },
+                                })
+                              }
+                            >
+                              <option value="melee">{t('ui.constructor.attackMelee')}</option>
+                              <option value="ranged">{t('ui.constructor.attackRanged')}</option>
+                            </select>
+                          </Field>
+                          <Field label={t('ui.constructor.targetingRange')}>
+                            <input
+                              type="number"
+                              min={0}
+                              value={zoneActionRange(action) ?? ''}
+                            onChange={(e) => setZoneActionRange(index, Number(e.target.value) || undefined, 'creature')}
+                            />
+                          </Field>
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={action.damage !== undefined && 'dice' in action.damage && action.damage.abilityMod === true}
+                              onChange={(e) =>
+                                action.damage && 'dice' in action.damage
+                                  ? patchZoneAction(index, {
+                                      damage: { ...action.damage, abilityMod: e.target.checked || undefined },
+                                    })
+                                  : undefined
+                              }
+                            />
+                            <span>{t('ui.constructor.zoneActionAbilityMod')}</span>
+                          </label>
+                          <Field label={t('ui.constructor.zoneActionShrink')}>
+                            <input
+                              type="number"
+                              min={0}
+                              value={action.shrinkFeet ?? ''}
+                              onChange={(e) =>
+                                patchZoneAction(index, { shrinkFeet: Number(e.target.value) || undefined })
+                              }
+                            />
+                          </Field>
+                        </div>
+                        <div className="field-row">
+                          <DamageSpecFields
+                            damage={action.damage}
+                            onChange={(damage) => patchZoneAction(index, { damage: damage as ActionSpec['damage'] })}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {kind === 'save' && (
+                      <>
+                        <div className="field-row">
+                          <Field label={t('ui.constructor.save')}>
+                            <select
+                              value={action.save?.ability ?? 'dex'}
+                              onChange={(e) =>
+                                patchZoneAction(index, {
+                                  save: { ...(action.save ?? { ability: 'dex' }), ability: e.target.value as AbilityKey },
+                                })
+                              }
+                            >
+                              {ABILITY_KEYS.map((key) => (
+                                <option key={key} value={key}>
+                                  {abilityName(key)}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={action.save?.half === true}
+                              onChange={(e) =>
+                                patchZoneAction(index, {
+                                  save: {
+                                    ...(action.save ?? { ability: 'dex' }),
+                                    half: e.target.checked || undefined,
+                                  },
+                                })
+                              }
+                            />
+                            <span>{t('ui.constructor.saveHalf')}</span>
+                          </label>
+                          <Field label={t('ui.constructor.targetingRange')}>
+                            <input
+                              type="number"
+                              min={0}
+                              value={zoneActionRange(action) ?? ''}
+                            onChange={(e) => setZoneActionRange(index, Number(e.target.value) || undefined, 'area')}
+                            />
+                          </Field>
+                        </div>
+                        <div className="field-row">
+                          <DamageSpecFields
+                            damage={action.damage}
+                            onChange={(damage) => patchZoneAction(index, { damage: damage as ActionSpec['damage'] })}
+                          />
+                          <AreaFields
+                            value={action.area && 'shape' in action.area ? action.area : undefined}
+                            onChange={(next) =>
+                              patchZoneAction(index, {
+                                area: next,
+                                ...(action.targeting?.kind === 'area'
+                                  ? {
+                                      targeting: {
+                                        ...action.targeting,
+                                        area: next ?? { shape: 'sphere', size: 5 },
+                                      },
+                                    }
+                                  : {}),
+                              })
+                            }
+                            labels={{
+                              shape: 'ui.constructor.zoneActionAreaShape',
+                              size: 'ui.constructor.zoneActionAreaSize',
+                              width: 'ui.constructor.zoneActionAreaWidth',
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {kind === 'other' && <p className="hint">{t('ui.constructor.fromData')}</p>}
+                  </div>
+                );
+              })}
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setZoneActions([...zoneActions, blankZoneAction(e.target.value as 'move' | 'attack' | 'save')]);
+                  }
+                }}
+              >
+                <option value="">{t('ui.constructor.zoneActionAdd')}</option>
+                <option value="move">{t('ui.constructor.zoneActionMove')}</option>
+                <option value="attack">{t('ui.constructor.zoneActionAttack')}</option>
+                <option value="save">{t('ui.constructor.zoneActionSave')}</option>
+              </select>
               <p className="hint">{t('ui.constructor.zoneHint')}</p>
               <button type="button" onClick={() => setRecord((r) => patchZone(r, null))}>
                 {t('ui.constructor.zoneRemove')}
@@ -1865,6 +2480,87 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               />
               <span>{t('ui.constructor.healPayload')}</span>
             </label>
+          )}
+          <div className="constructor-checks">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={!!targeting}
+                onChange={(e) => patchTargeting(e.target.checked ? {} : null)}
+              />
+              <span>{t('ui.constructor.targeting')}</span>
+            </label>
+          </div>
+          {targeting && (
+            <>
+              <div className="field-row">
+                <Field label={t('ui.constructor.targetingKind')}>
+                  <select
+                    value={targeting.kind}
+                    onChange={(e) => {
+                      const kind = e.target.value as ActionTargeting['kind'];
+                      patchTargeting({
+                        kind,
+                        ...(kind === 'area' ? { area: targeting.area ?? { shape: 'sphere', size: 15 } } : {}),
+                      });
+                    }}
+                  >
+                    {(['creature', 'point', 'area', 'self'] as const).map((kind) => (
+                      <option key={kind} value={kind}>
+                        {t(`ui.constructor.targetingKind.${kind}` as MessageKey)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {targeting.kind !== 'self' && (
+                  <Field label={t('ui.constructor.targetingRange')}>
+                    <input
+                      type="number"
+                      min={0}
+                      value={targeting.range ?? ''}
+                      onChange={(e) => patchTargeting({ range: Number(e.target.value) || undefined })}
+                    />
+                  </Field>
+                )}
+                {targeting.kind === 'creature' && (
+                  <>
+                    <Field label={t('ui.constructor.targetingTargets')}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={targeting.targets ?? ''}
+                        onChange={(e) => patchTargeting({ targets: Number(e.target.value) || undefined })}
+                      />
+                    </Field>
+                    <Field label={t('ui.constructor.targetingFrom')}>
+                      <select
+                        value={targeting.from ?? ''}
+                        onChange={(e) =>
+                          patchTargeting({ from: (e.target.value || undefined) as ActionTargeting['from'] })
+                        }
+                      >
+                        <option value="">{t('ui.constructor.targetingFrom.caster')}</option>
+                        <option value="origin">{t('ui.constructor.targetingFrom.origin')}</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
+              </div>
+              {targeting.kind === 'area' && (
+                <div className="field-row">
+                  <AreaFields
+                    value={targeting.area}
+                    none={false}
+                    onChange={(next) => patchTargeting({ area: next ?? { shape: 'sphere', size: 15 } })}
+                    labels={{
+                      shape: 'ui.constructor.targetingAreaShape',
+                      size: 'ui.constructor.targetingAreaSize',
+                      width: 'ui.constructor.targetingAreaWidth',
+                    }}
+                  />
+                </div>
+              )}
+            </>
           )}
           <div className="field-row">
             <Field label={t('ui.constructor.topTargets')}>
@@ -2082,7 +2778,6 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </Field>
             </div>
           )}
-          <p className="hint">{t('ui.constructor.topHint')}</p>
 
           {notes.length > 0 && (
             <>
