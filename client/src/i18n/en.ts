@@ -1270,6 +1270,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.topLifeTransfer': 'Life transfer (×)',
   'ui.constructor.topSuccessDamage': 'Damage on a success',
   'ui.constructor.topBurst': 'Burst around the target',
+  'ui.constructor.burstNoDice': 'A burst without dice deals no damage — enter e.g. 1d6, or the type in the dice (1d6fire).',
   'ui.constructor.topBurstRange': 'Burst radius, feet',
   'ui.constructor.topBurstInclude': 'Include the primary target',
   'ui.constructor.topChainJumps': 'Jumps',

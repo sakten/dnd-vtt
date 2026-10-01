@@ -2857,7 +2857,9 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 type="checkbox"
                 checked={!!automation.burst}
                 onChange={(e) =>
-                  patchTop({ burst: e.target.checked ? { rangeFeet: 5, damageType: 'fire' } : undefined })
+                  patchTop({
+                    burst: e.target.checked ? { rangeFeet: 5, dice: '1d6', damageType: 'fire' } : undefined,
+                  })
                 }
               />
               <span>{t('ui.constructor.topBurst')}</span>
@@ -2896,6 +2898,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                     <ExprField
                       value={automation.burst.dice}
                       onChange={(value) => patchTop({ burst: { ...automation.burst!, dice: value } })}
+                      placeholder="1d6"
                     />
                   </Field>
                   <Field label={t('ui.constructor.partType')}>
@@ -2941,6 +2944,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 />
                 <span>{t('ui.constructor.topBurstInclude')}</span>
               </label>
+              {!automation.burst.dice && <span className="hint">{t('ui.constructor.burstNoDice')}</span>}
             </div>
           )}
           {automation.chain && (

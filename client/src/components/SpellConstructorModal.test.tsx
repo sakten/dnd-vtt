@@ -729,6 +729,14 @@ describe('SpellConstructorModal (R16 К1)', () => {
   });
 
   it('верхнеуровневое: burst/chain/force', () => {
+    // Всплеск, добавленный галкой, сразу получает кости (иначе он молча пустой).
+    const bomb = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
+    const bombRender = render(<SpellConstructorModal initial={bomb} lockedKey={false} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Всплеск вокруг цели' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.burst.dice).toBe('1d6');
+    bombRender.unmount();
+
     const ice = copyRecord(spellsData.spells.find((s) => s.name === 'Ice Knife')!, '(копия)');
     const second = render(<SpellConstructorModal initial={ice} lockedKey={false} onClose={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('Радиус всплеска, футы'), { target: { value: '10' } });

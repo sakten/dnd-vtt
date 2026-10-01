@@ -1267,6 +1267,7 @@
   'ui.constructor.topLifeTransfer': 'Перенос жизни (×)',
   'ui.constructor.topSuccessDamage': 'Урон при успехе',
   'ui.constructor.topBurst': 'Всплеск вокруг цели',
+  'ui.constructor.burstNoDice': 'Без костей всплеск не наносит урон — впишите, например 1d6, или тип в кости (1d6fire).',
   'ui.constructor.topBurstRange': 'Радиус всплеска, футы',
   'ui.constructor.topBurstInclude': 'Включая основную цель',
   'ui.constructor.topChainJumps': 'Скачков',
