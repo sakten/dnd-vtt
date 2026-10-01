@@ -553,6 +553,25 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(saved.automation.weaponAttack.hitEffect.triggers).toBeUndefined();
   });
 
+  it('kit-режим: видны только блоки типа, payload добавляется чипом', () => {
+    const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={fireball} lockedKey={false} onClose={vi.fn()} />);
+    // Урон × Спас × Область: наведение скрыто, эффекты добавляются чипом.
+    expect(screen.queryByRole('checkbox', { name: 'Наведение' })).toBeNull();
+    expect(screen.queryByText('Эффекты')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить эффект' }));
+    expect(screen.getByText('Эффекты')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).automation.effects).toHaveLength(1);
+    first.unmount();
+
+    // Эффект × Авто: блок урона скрыт, редактор эффектов на месте.
+    const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
+    render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.queryByText('Урон')).toBeNull();
+    expect(screen.getByText('Эффекты')).toBeTruthy();
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

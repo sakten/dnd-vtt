@@ -1258,6 +1258,7 @@
   'ui.constructor.topUndeadTempHp': 'Нежити — врем. HP вместо урона',
   'ui.constructor.topLifeTransfer': 'Перенос жизни (×)',
   'ui.constructor.topSuccessDamage': 'Урон при успехе',
+  'ui.constructor.topBurst': 'Всплеск вокруг цели',
   'ui.constructor.topBurstRange': 'Радиус всплеска, футы',
   'ui.constructor.topBurstInclude': 'Включая основную цель',
   'ui.constructor.topChainJumps': 'Скачков',

@@ -67,6 +67,7 @@ import {
   KIT_RESOLUTIONS,
   isGridPayload,
   kitDeliveries,
+  kitOf,
   kitRecord,
   type KitPayload,
 } from '../lib/spellKits';
@@ -728,6 +729,47 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
 
   const saveAbility = (record.save?.[0] ?? '') as AbilityKey | '';
   const area = record.areaSpec;
+  const kit = useMemo(() => kitOf(record), [record]);
+  const payloadKind = kit?.payload;
+  const recognized = kit !== null;
+  /** Р2: для распознанного kit показываем только блоки, относящиеся к типу. */
+  const showEffectsEditor = effectsAllowed && (!recognized || payloadKind === 'effect' || effects.length > 0);
+  const showTargeting =
+    !!targeting ||
+    !recognized ||
+    payloadKind === 'utility' ||
+    (kit?.delivery === 'creatures' && kit?.resolution !== 'attack');
+  const showTop =
+    !recognized ||
+    payloadKind === 'damage' ||
+    payloadKind === 'heal' ||
+    payloadKind === 'effect' ||
+    payloadKind === 'utility' ||
+    (payloadKind === 'manual' && !!targeting);
+  const showArea = !recognized || !!area || !!automation.area || kit?.delivery === 'area' || kit?.delivery === 'zone';
+  const showInstantArea = !recognized || !!automation.area;
+  const showChoices =
+    choices.length > 0 ||
+    !recognized ||
+    payloadKind === 'damage' ||
+    payloadKind === 'heal' ||
+    payloadKind === 'effect' ||
+    payloadKind === 'weapon';
+  const showZoneAdd =
+    !recognized ||
+    ((payloadKind === 'damage' || payloadKind === 'heal' || payloadKind === 'effect') && kit?.resolution !== 'attack');
+  const showDamage =
+    !recognized ||
+    payloadKind === 'damage' ||
+    payloadKind === 'heal' ||
+    !!record.damage ||
+    !!automation.damage ||
+    !!automation.heal;
+  const addCarrierEffect = () =>
+    setEffects([
+      ...effects,
+      { id: newId(), name: record.name, duration: { type: 'permanent' }, to: 'targets', modifiers: [] },
+    ]);
   const upcast = (patch: Partial<SpellUpcast>) =>
     setMeta({ upcast: { above: upcastAbove(), ...record.upcast, ...patch } });
   function upcastAbove(): number | undefined {
@@ -1417,6 +1459,8 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             )
           )}
 
+          {showDamage && (
+            <>
           <div className="sheet-section-title">{t('ui.constructor.damage')}</div>
           {damageParts.length > 0 ? (
             <>
@@ -1494,43 +1538,57 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </div>
             </>
           )}
+            </>
+          )}
 
-          <div className="sheet-section-title">{t('ui.constructor.area')}</div>
-          <div className="field-row">
-            <AreaFields value={area} onChange={(next) => setMeta({ areaSpec: next })} />
-          </div>
+          {showArea && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.area')}</div>
+              <div className="field-row">
+                <AreaFields value={area} onChange={(next) => setMeta({ areaSpec: next })} />
+              </div>
+            </>
+          )}
 
-          <div className="sheet-section-title">{t('ui.constructor.instantArea')}</div>
-          <div className="field-row">
-            <Field label={t('ui.constructor.instantAreaMode')}>
-              <select
-                value={instantArea ? (instantAreaFromSpell ? 'spell' : 'own') : ''}
-                onChange={(e) => setInstantAreaMode(e.target.value as '' | 'own' | 'spell')}
-              >
-                <option value="">{t('ui.constructor.areaNone')}</option>
-                <option value="own">{t('ui.constructor.instantAreaOwn')}</option>
-                <option value="spell">{t('ui.constructor.instantAreaSpell')}</option>
-              </select>
-            </Field>
-            {instantAreaLiteral && (
-              <AreaFields
-                value={instantAreaLiteral}
-                onChange={setInstantAreaLiteral}
-                labels={{
-                  shape: 'ui.constructor.instantAreaShape',
-                  size: 'ui.constructor.instantAreaSize',
-                  width: 'ui.constructor.instantAreaWidth',
-                }}
-              />
-            )}
-          </div>
+          {showInstantArea && (
+            <>
+              <div className="sheet-section-title">{t('ui.constructor.instantArea')}</div>
+              <div className="field-row">
+                <Field label={t('ui.constructor.instantAreaMode')}>
+                  <select
+                    value={instantArea ? (instantAreaFromSpell ? 'spell' : 'own') : ''}
+                    onChange={(e) => setInstantAreaMode(e.target.value as '' | 'own' | 'spell')}
+                  >
+                    <option value="">{t('ui.constructor.areaNone')}</option>
+                    <option value="own">{t('ui.constructor.instantAreaOwn')}</option>
+                    <option value="spell">{t('ui.constructor.instantAreaSpell')}</option>
+                  </select>
+                </Field>
+                {instantAreaLiteral && (
+                  <AreaFields
+                    value={instantAreaLiteral}
+                    onChange={setInstantAreaLiteral}
+                    labels={{
+                      shape: 'ui.constructor.instantAreaShape',
+                      size: 'ui.constructor.instantAreaSize',
+                      width: 'ui.constructor.instantAreaWidth',
+                    }}
+                  />
+                )}
+              </div>
+            </>
+          )}
 
-          {effectsAllowed && (
+          {showEffectsEditor ? (
             <>
               <div className="sheet-section-title">{t('ui.constructor.effects')}</div>
               <EffectListEditor effects={effects} onChange={setEffects} defaultName={record.name} />
             </>
-          )}
+          ) : effectsAllowed ? (
+            <button type="button" onClick={addCarrierEffect}>
+              {t('ui.constructor.addEffect')}
+            </button>
+          ) : null}
 
           {primary === 'manual' && (
             <>
@@ -2416,11 +2474,11 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 {t('ui.constructor.zoneRemove')}
               </button>
             </>
-          ) : (
+          ) : showZoneAdd ? (
             <button type="button" onClick={() => setRecord((r) => patchZone(r, {}))}>
               {t('ui.constructor.zoneAdd')}
             </button>
-          )}
+          ) : null}
 
           {zone && (
             <>
@@ -2449,6 +2507,8 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             </>
           )}
 
+          {showChoices && (
+            <>
           <div className="sheet-section-title">{t('ui.constructor.choices')}</div>
           {choices.map((choice, index) => {
             const options = choiceValueOptions(choice.param);
@@ -2533,7 +2593,11 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           <button type="button" onClick={() => setChoices([...choices, blankChoice()])}>
             {t('ui.constructor.addChoice')}
           </button>
+            </>
+          )}
 
+          {showTop && (
+            <>
           <div className="sheet-section-title">{t('ui.constructor.toplevel')}</div>
           {(automation.damage || automation.heal) && canConvertPayload(record) && (
             <label className="checkbox-row">
@@ -2545,17 +2609,19 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               <span>{t('ui.constructor.healPayload')}</span>
             </label>
           )}
-          <div className="constructor-checks">
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={!!targeting}
-                onChange={(e) => patchTargeting(e.target.checked ? {} : null)}
-              />
-              <span>{t('ui.constructor.targeting')}</span>
-            </label>
-          </div>
-          {targeting && (
+          {showTargeting && (
+            <div className="constructor-checks">
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={!!targeting}
+                  onChange={(e) => patchTargeting(e.target.checked ? {} : null)}
+                />
+                <span>{t('ui.constructor.targeting')}</span>
+              </label>
+            </div>
+          )}
+          {showTargeting && targeting && (
             <>
               <div className="field-row">
                 <Field label={t('ui.constructor.targetingKind')}>
@@ -2724,6 +2790,18 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </Field>
             </div>
           )}
+          {payloadKind === 'damage' && kit?.resolution !== 'auto' && (
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={!!automation.burst}
+                onChange={(e) =>
+                  patchTop({ burst: e.target.checked ? { rangeFeet: 5, damageType: 'fire' } : undefined })
+                }
+              />
+              <span>{t('ui.constructor.topBurst')}</span>
+            </label>
+          )}
           {automation.burst && (
             <div className="field-row">
               <Field label={t('ui.constructor.topBurstRange')}>
@@ -2841,6 +2919,8 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 </select>
               </Field>
             </div>
+          )}
+            </>
           )}
 
           {notes.length > 0 && (

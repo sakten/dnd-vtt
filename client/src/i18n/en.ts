@@ -1261,6 +1261,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.topUndeadTempHp': 'Undead get temp HP instead of damage',
   'ui.constructor.topLifeTransfer': 'Life transfer (×)',
   'ui.constructor.topSuccessDamage': 'Damage on a success',
+  'ui.constructor.topBurst': 'Burst around the target',
   'ui.constructor.topBurstRange': 'Burst radius, feet',
   'ui.constructor.topBurstInclude': 'Include the primary target',
   'ui.constructor.topChainJumps': 'Jumps',
