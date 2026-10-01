@@ -618,6 +618,25 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(saved.automation.damage.types).toEqual(['cold']);
   });
 
+  it('kit-режим: у AoE нет выбора атаки, у атаки нет спасброска', () => {
+    const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={fireball} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.queryByLabelText('Атака заклинанием')).toBeNull();
+    expect(screen.getByLabelText('Спасбросок')).toBeTruthy();
+    first.unmount();
+
+    const ray = copyRecord(spellsData.spells.find((s) => s.name === 'Scorching Ray')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={ray} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Атака заклинанием')).toBeTruthy();
+    expect(screen.queryByLabelText('Спасбросок')).toBeNull();
+    second.unmount();
+
+    const missile = copyRecord(spellsData.spells.find((s) => s.name === 'Magic Missile')!, '(копия)');
+    render(<SpellConstructorModal initial={missile} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.queryByLabelText('Атака заклинанием')).toBeNull();
+    expect(screen.queryByLabelText('Спасбросок')).toBeNull();
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

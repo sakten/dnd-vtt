@@ -793,6 +793,14 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     !!record.damage ||
     !!automation.damage ||
     !!automation.heal;
+  const showAttackField =
+    !recognized ||
+    kit?.resolution === 'attack' ||
+    !!record.spellAttack ||
+    !!automation.attack ||
+    !!automation.weaponAttack;
+  const showSaveField = !recognized || kit?.resolution === 'save' || !!record.save || !!automation.save;
+  const showAttackSave = showAttackField || showSaveField || primary === 'attack' || primary === 'auto';
   const kitSummary = useMemo(() => {
     const current = kitOf(record);
     if (!current) return t('ui.constructor.kitMixed');
@@ -1178,8 +1186,11 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             )}
           </div>
 
+          {showAttackSave && (
+            <>
           <div className="sheet-section-title">{t('ui.constructor.attackSave')}</div>
           <div className="field-row">
+            {showAttackField && (
             <Field label={t('ui.constructor.attack')}>
               <select
                 value={record.spellAttack ?? ''}
@@ -1194,6 +1205,8 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 <option value="ranged">{t('ui.constructor.attackRanged')}</option>
               </select>
             </Field>
+            )}
+            {showSaveField && (
             <Field label={t('ui.constructor.save')}>
               <select
                 value={saveAbility}
@@ -1213,6 +1226,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 ))}
               </select>
             </Field>
+            )}
             {saveAbility && (
               <label className="checkbox-row">
                 <input
@@ -1242,6 +1256,8 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </>
             )}
           </div>
+            </>
+          )}
 
           {wa ? (
             <>
