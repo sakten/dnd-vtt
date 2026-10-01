@@ -50,7 +50,7 @@ export function keyFromName(name: string): string {
 }
 
 /** Базовая мета нового кастомного заклинания. */
-function blankMeta(name: string): Spell {
+export function blankMeta(name: string): Spell {
   return {
     key: keyFromName(name),
     name,

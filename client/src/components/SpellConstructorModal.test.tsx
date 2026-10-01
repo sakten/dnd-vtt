@@ -69,7 +69,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.getByLabelText('Ключ')).toHaveValue('CUSTOM:Старое имя');
   });
 
-  it('мастер: профиль создаёт запись и открывает форму', () => {
+  it('мастер: две оси создают запись и открывают форму', () => {
     render(
       <SpellConstructorModal
         initial={blankRecord('attack', 'Новое заклинание')}
@@ -80,8 +80,11 @@ describe('SpellConstructorModal (R16 К1)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Лечение/ }));
+    // Сетка «как × куда»: у лечения доступен «Без броска»; выбираем цели.
+    fireEvent.click(screen.getByRole('button', { name: 'Без броска: Цели' }));
     expect(screen.getByLabelText('Название')).toHaveValue('Новое заклинание');
     expect(screen.getByRole('button', { name: 'Сохранить' })).not.toBeDisabled();
+    expect(screen.getByText('Это лечение')).toBeTruthy();
   });
 
   it('копия Fireball: дистанция в футах, смена на касание сохраняется', () => {

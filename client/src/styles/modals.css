@@ -583,6 +583,30 @@
 .constructor-profile-name {
   font-weight: 600;
 }
+.constructor-kit-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+}
+.constructor-kit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.constructor-kit-row .constructor-tier-label {
+  flex: 0 0 130px;
+}
+.constructor-kit-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  flex: 1;
+}
+.constructor-kit-cells .constructor-profile {
+  align-items: center;
+  padding: 8px 10px;
+}
 .constructor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;

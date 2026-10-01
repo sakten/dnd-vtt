@@ -36,11 +36,9 @@ import { specIssueText } from '../i18n/errors';
 import { spellDisplayName } from '../i18n/names';
 import { newId } from '../lib/id';
 import {
-  WIZARD_PROFILES,
   ZONE_SLOTS,
   automationNotes,
   blankChoice,
-  blankRecord,
   canConvertPayload,
   canSwitchPrimary,
   copyRecord,
@@ -63,8 +61,15 @@ import {
   type AutomationNote,
   type PartUsage,
   type SimpleBranch,
-  type WizardProfileId,
 } from '../lib/spellConstructor';
+import {
+  KIT_PAYLOADS,
+  KIT_RESOLUTIONS,
+  isGridPayload,
+  kitDeliveries,
+  kitRecord,
+  type KitPayload,
+} from '../lib/spellKits';
 import EffectListEditor, { EFFECT_DURATIONS, ExprField, LightFields } from './EffectListEditor';
 import EffectModifiersEditor from './EffectModifiersEditor';
 import EffectTriggersEditor from './EffectTriggersEditor';
@@ -75,7 +80,7 @@ import { Field } from './Field';
 import Modal from './Modal';
 import SpellIcon from './SpellIcon';
 
-type Stage = 'wizard' | 'base' | 'form';
+type Stage = 'wizard' | 'grid' | 'base' | 'form';
 
 const SCHOOLS: SpellSchool[] = [
   'Abjuration',
@@ -368,6 +373,7 @@ function DamageSpecFields({
 /** Конструктор кастомного заклинания (R16 К1): вход, мета-форма, превью, сохранение. */
 export default function SpellConstructorModal({ initial, lockedKey, start = 'form', onClose }: Props) {
   const [stage, setStage] = useState<Stage>(start);
+  const [kitPayload, setKitPayload] = useState<KitPayload | null>(null);
   const [record, setRecord] = useState<SpellDef>(() => structuredClone(initial));
   const spells = useSpells();
   const importCustom = useGameStore((s) => s.importCustomSpell);
@@ -751,31 +757,82 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     })
     .slice(0, 60);
 
-  if (stage === 'wizard' || stage === 'base') {
+  if (stage === 'wizard' || stage === 'grid' || stage === 'base') {
     return (
       <Modal onClose={onClose} className="spell-constructor" title={t('ui.constructor.title')}>
         {stage === 'wizard' ? (
           <>
-            <div className="sheet-section-title">{t('ui.constructor.wizardTitle')}</div>
+            <div className="sheet-section-title">{t('ui.constructor.kitTitle')}</div>
             <div className="constructor-profiles">
-              {WIZARD_PROFILES.map((profile) => (
+              {KIT_PAYLOADS.map((payload) => (
                 <button
                   type="button"
-                  key={profile.id}
+                  key={payload.id}
                   className="constructor-profile"
                   onClick={() => {
-                    setRecord(blankRecord(profile.id as WizardProfileId, t('ui.constructor.defaultName')));
-                    setStage('form');
+                    if (isGridPayload(payload.id)) {
+                      setKitPayload(payload.id);
+                      setStage('grid');
+                    } else {
+                      setRecord(kitRecord(t('ui.constructor.defaultName'), { payload: payload.id }));
+                      setStage('form');
+                    }
                   }}
                 >
-                  <span className="constructor-profile-name">{t(profile.labelKey as MessageKey)}</span>
-                  <span className="hint">{t(profile.hintKey as MessageKey)}</span>
+                  <span className="constructor-profile-name">{t(payload.labelKey as MessageKey)}</span>
+                  <span className="hint">{t(payload.hintKey as MessageKey)}</span>
                 </button>
               ))}
             </div>
             <div className="modal-actions">
               <button type="button" onClick={() => setStage('base')}>
                 {t('ui.constructor.copyTitle')}
+              </button>
+              <button type="button" onClick={onClose}>
+                {t('ui.common.cancel')}
+              </button>
+            </div>
+          </>
+        ) : stage === 'grid' ? (
+          <>
+            <div className="sheet-section-title">{t('ui.constructor.gridTitle')}</div>
+            <div className="constructor-kit-grid">
+              {KIT_RESOLUTIONS.map((resolution) => (
+                <div className="constructor-kit-row" key={resolution}>
+                  <span className="constructor-tier-label">
+                    {t(`ui.constructor.gridResolution.${resolution}` as MessageKey)}
+                  </span>
+                  <div className="constructor-kit-cells">
+                    {kitDeliveries(resolution).map((delivery) => (
+                      <button
+                        type="button"
+                        key={delivery}
+                        className="constructor-profile"
+                        aria-label={t('ui.constructor.gridCell', {
+                          resolution: t(`ui.constructor.gridResolution.${resolution}` as MessageKey),
+                          delivery: t(`ui.constructor.gridDelivery.${delivery}` as MessageKey),
+                        })}
+                        onClick={() => {
+                          setRecord(
+                            kitRecord(t('ui.constructor.defaultName'), {
+                              payload: kitPayload ?? 'damage',
+                              resolution,
+                              delivery,
+                            })
+                          );
+                          setStage('form');
+                        }}
+                      >
+                        {t(`ui.constructor.gridDelivery.${delivery}` as MessageKey)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setStage('wizard')}>
+                {t('ui.constructor.backToWizard')}
               </button>
               <button type="button" onClick={onClose}>
                 {t('ui.common.cancel')}
