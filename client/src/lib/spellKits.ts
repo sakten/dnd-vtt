@@ -1,4 +1,11 @@
-import { generatedAutomation, type EffectDuration, type EffectSpec, type SpellDef, type ZoneSpec } from 'shared';
+import {
+  generatedAutomation,
+  type EffectDuration,
+  type EffectSpec,
+  type PayloadSpec,
+  type SpellDef,
+  type ZoneSpec,
+} from 'shared';
 import { blankMeta, blankRecord, blankZone } from './spellConstructor';
 
 /**
@@ -39,6 +46,13 @@ export function isGridPayload(payload: KitPayload): boolean {
 /** Совместимые доставки: атака — только по целям; спас/авто — все четыре. */
 export function kitDeliveries(resolution: KitResolution): KitDelivery[] {
   return resolution === 'attack' ? ['creatures'] : KIT_DELIVERIES;
+}
+
+/** Разрешения по payload: лечение — только без броска, эффект — спас/авто (атака = оружие). */
+export function kitResolutions(payload: KitPayload): KitResolution[] {
+  if (payload === 'heal') return ['auto'];
+  if (payload === 'effect') return ['save', 'auto'];
+  return KIT_RESOLUTIONS;
 }
 
 /** Эффект-носитель для профилей «эффект» (бафф/контроль). */
@@ -151,9 +165,17 @@ function withDelivery(spell: SpellDef, kit: SpellKit): SpellDef {
   }
   if (kit.delivery !== 'zone' && kit.delivery !== 'aura') return spell;
   const duration: EffectDuration = { type: 'concentration' };
+  const source = spell.automation;
+  const payload: PayloadSpec = {
+    ...(source.save ? { save: source.save } : {}),
+    ...(source.damage ? { damage: source.damage } : {}),
+    ...(source.heal ? { heal: { dice: source.heal.dice } } : {}),
+    ...(source.effects?.length ? { effects: source.effects } : {}),
+  };
   const zone: ZoneSpec = {
     ...blankZone(),
     duration,
+    triggers: kit.delivery === 'aura' ? { startOfTurn: payload } : { enter: payload },
     ...(kit.delivery === 'aura' ? { anchor: 'source' as const, side: 'hostile' as const, excludeSource: true } : {}),
   };
   return {

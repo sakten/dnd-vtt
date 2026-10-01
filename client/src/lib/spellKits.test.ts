@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { automationForSpell } from 'shared';
 import spellsData from 'shared/spellsData';
-import { KIT_DELIVERIES, KIT_RESOLUTIONS, isGridPayload, kitDeliveries, kitOf, kitRecord, type SpellKit } from './spellKits';
+import {
+  KIT_DELIVERIES,
+  KIT_RESOLUTIONS,
+  isGridPayload,
+  kitDeliveries,
+  kitOf,
+  kitRecord,
+  kitResolutions,
+  type SpellKit,
+} from './spellKits';
 
 const find = (name: string) => spellsData.spells.find((s) => s.name === name)!;
 
@@ -11,6 +20,9 @@ describe('spellKits (Р1: оси конструктора)', () => {
     expect(kitDeliveries('attack')).toEqual(['creatures']);
     expect(kitDeliveries('save')).toEqual(KIT_DELIVERIES);
     expect(kitDeliveries('auto')).toEqual(KIT_DELIVERIES);
+    expect(kitResolutions('damage')).toEqual(KIT_RESOLUTIONS);
+    expect(kitResolutions('heal')).toEqual(['auto']);
+    expect(kitResolutions('effect')).toEqual(['save', 'auto']);
     expect(isGridPayload('damage')).toBe(true);
     expect(isGridPayload('summon')).toBe(false);
   });
@@ -49,9 +61,11 @@ describe('spellKits (Р1: оси конструктора)', () => {
     expect(zone.automation.zone).toMatchObject({ area: { shape: 'sphere', size: 10 }, origin: 'point' });
     expect(zone.automation.zone?.anchor).toBeUndefined();
     expect(zone.concentration).toBe(true);
+    expect(zone.automation.zone?.triggers?.enter).toMatchObject({ damage: { dice: { ref: 'spellDamage' } } });
 
     const aura = kitRecord('Тест', { payload: 'damage', resolution: 'save', delivery: 'aura' });
     expect(aura.automation.zone).toMatchObject({ anchor: 'source', side: 'hostile', excludeSource: true });
+    expect(aura.automation.zone?.triggers?.startOfTurn).toBeTruthy();
 
     const effect = kitRecord('Тест', { payload: 'effect', resolution: 'save', delivery: 'creatures' });
     expect(effect.automation.primary).toBe('effect');

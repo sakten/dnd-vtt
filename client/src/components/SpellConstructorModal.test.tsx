@@ -84,7 +84,8 @@ describe('SpellConstructorModal (R16 К1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Без броска: Цели' }));
     expect(screen.getByLabelText('Название')).toHaveValue('Новое заклинание');
     expect(screen.getByRole('button', { name: 'Сохранить' })).not.toBeDisabled();
-    expect(screen.getByText('Это лечение')).toBeTruthy();
+    expect(screen.queryByText('Это лечение')).toBeNull();
+    expect(screen.getByText(/^Лечение$/)).toBeTruthy();
   });
 
   it('копия Fireball: дистанция в футах, смена на касание сохраняется', () => {
@@ -574,6 +575,9 @@ describe('SpellConstructorModal (R16 К1)', () => {
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);
     expect(screen.queryByText('Урон')).toBeNull();
     expect(screen.getByText('Эффекты')).toBeTruthy();
+    expect(screen.queryByText('Половина урона при промахе')).toBeNull();
+    expect(screen.queryByText('Лечит кастера на половину урона')).toBeNull();
+    expect(screen.getByText('Авто-цели, футы')).toBeTruthy();
   });
 
   it('Р3: тип зоны (статичная/перемещаемая/аура), сводка kit и подсказка реакции', () => {
@@ -689,19 +693,7 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(JSON.parse(lastImportJson()).automation.zone.onCreate).toBeUndefined();
   });
 
-  it('верхнеуровневое: конверсия урон→лечение, burst/chain/force', () => {
-    const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
-    const first = render(<SpellConstructorModal initial={fireball} lockedKey={false} onClose={vi.fn()} />);
-    const heal = screen.getByRole('checkbox', { name: 'Это лечение' });
-    expect(heal).not.toBeChecked();
-    fireEvent.click(heal);
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-    const savedFireball = JSON.parse(lastImportJson());
-    expect(savedFireball.healing).toBe(true);
-    expect(savedFireball.automation.heal).toBeTruthy();
-    expect(savedFireball.automation.damage).toBeUndefined();
-    first.unmount();
-
+  it('верхнеуровневое: burst/chain/force', () => {
     const ice = copyRecord(spellsData.spells.find((s) => s.name === 'Ice Knife')!, '(копия)');
     const second = render(<SpellConstructorModal initial={ice} lockedKey={false} onClose={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('Радиус всплеска, футы'), { target: { value: '10' } });

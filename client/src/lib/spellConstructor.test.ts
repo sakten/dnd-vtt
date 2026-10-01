@@ -5,12 +5,14 @@ import {
   WIZARD_PROFILES,
   automationNotes,
   blankRecord,
+  canConvertPayload,
   canSwitchPrimary,
   copyRecord,
   keyFromName,
   partUsageKeys,
   switchPrimary,
   validateConstructor,
+  withPayloadHeal,
   withSave,
   withSpellAttack,
 } from './spellConstructor';
@@ -141,5 +143,21 @@ describe('конструктор кастомов (R16 К1)', () => {
     // Эффект без эффектов и зоны — ошибка ветки effect.
     record.automation.effects = [];
     expect(validateConstructor(record).spec).toContainEqual({ code: 'effectWithoutEffects' });
+  });
+
+  it('конверсия урон↔лечение: переключает payload и мета-флаг', () => {
+    const spell = blankRecord('save', 'Тест');
+    const healed = withPayloadHeal(spell, true);
+    expect(healed.healing).toBe(true);
+    expect(healed.automation.heal).toEqual({ dice: { ref: 'spellDamage' }, types: ['fire'] });
+    expect(healed.automation.damage).toBeUndefined();
+
+    const back = withPayloadHeal(healed, false);
+    expect(back.healing).toBeUndefined();
+    expect(back.automation.damage).toEqual({ dice: { ref: 'spellDamage' }, types: ['fire'] });
+    expect(back.automation.heal).toBeUndefined();
+
+    expect(canConvertPayload(spell)).toBe(true);
+    expect(canConvertPayload({ ...spell, automation: { ...spell.automation, damage: { parts: [] } } })).toBe(false);
   });
 });

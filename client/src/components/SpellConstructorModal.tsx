@@ -65,11 +65,11 @@ import {
 } from '../lib/spellConstructor';
 import {
   KIT_PAYLOADS,
-  KIT_RESOLUTIONS,
   isGridPayload,
   kitDeliveries,
   kitOf,
   kitRecord,
+  kitResolutions,
   type KitPayload,
 } from '../lib/spellKits';
 import DamageDiceField from './DamageDiceField';
@@ -764,6 +764,8 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     !!record.damage ||
     !!automation.damage ||
     !!automation.heal;
+  const payloadAllows = (allowed: KitPayload[]): boolean =>
+    !recognized || (payloadKind ? allowed.includes(payloadKind) : false);
   const showAttackField =
     !recognized ||
     kit?.resolution === 'attack' ||
@@ -855,7 +857,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           <>
             <div className="sheet-section-title">{t('ui.constructor.gridTitle')}</div>
             <div className="constructor-kit-grid">
-              {KIT_RESOLUTIONS.map((resolution) => (
+              {kitResolutions(kitPayload ?? 'damage').map((resolution) => (
                 <div className="constructor-kit-row" key={resolution}>
                   <span className="constructor-tier-label">
                     {t(`ui.constructor.gridResolution.${resolution}` as MessageKey)}
@@ -1489,7 +1491,9 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
 
           {showDamage && (
             <>
-          <div className="sheet-section-title">{t('ui.constructor.damage')}</div>
+          <div className="sheet-section-title">
+            {t(record.healing ? 'ui.constructor.kit.heal' : 'ui.constructor.damage')}
+          </div>
           {damageParts.length > 0 ? (
             <>
               {damageParts.map((part, index) => (
@@ -2610,7 +2614,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           {showTop && (
             <>
           <div className="sheet-section-title">{t('ui.constructor.toplevel')}</div>
-          {(automation.damage || automation.heal) && canConvertPayload(record) && (
+          {!recognized && (automation.damage || automation.heal) && canConvertPayload(record) && (
             <label className="checkbox-row">
               <input
                 type="checkbox"
@@ -2704,76 +2708,102 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
             </>
           )}
           <div className="field-row">
-            <Field label={t('ui.constructor.topTargets')}>
-              <input
-                type="number"
-                min={0}
-                value={automation.targets ?? ''}
-                onChange={(e) => patchTop({ targets: Number(e.target.value) || undefined })}
-              />
-            </Field>
-            <Field label={t('ui.constructor.topSide')}>
-              <select
-                value={automation.side ?? ''}
-                onChange={(e) => patchTop({ side: (e.target.value || undefined) as 'hostile' | 'ally' | undefined })}
-              >
-                <option value="">{t('ui.constructor.areaNone')}</option>
-                <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
-                <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
-              </select>
-            </Field>
-            <Field label={t('ui.constructor.topAutoTargets')}>
-              <input
-                type="number"
-                min={0}
-                value={automation.autoTargets?.feet ?? ''}
-                onChange={(e) =>
-                  patchTop({
-                    autoTargets: e.target.value
-                      ? {
-                          feet: Number(e.target.value) || 0,
-                          side: automation.autoTargets?.side ?? 'ally',
-                          ...(automation.autoTargets?.includeSelf ? { includeSelf: true } : {}),
-                        }
-                      : undefined,
-                  })
-                }
-              />
-            </Field>
-            {automation.autoTargets && (
-              <Field label={t('ui.constructor.topSide')}>
-                <select
-                  value={automation.autoTargets.side}
-                  onChange={(e) =>
-                    patchTop({ autoTargets: { ...automation.autoTargets!, side: e.target.value as 'hostile' | 'ally' | 'any' } })
-                  }
-                >
-                  <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
-                  <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
-                  <option value="any">{t('ui.constructor.topSideAny')}</option>
-                </select>
-              </Field>
+            {payloadAllows(['damage', 'effect']) && (
+              <>
+                <Field label={t('ui.constructor.topTargets')}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={automation.targets ?? ''}
+                    onChange={(e) => patchTop({ targets: Number(e.target.value) || undefined })}
+                  />
+                </Field>
+                <Field label={t('ui.constructor.topSide')}>
+                  <select
+                    value={automation.side ?? ''}
+                    onChange={(e) => patchTop({ side: (e.target.value || undefined) as 'hostile' | 'ally' | undefined })}
+                  >
+                    <option value="">{t('ui.constructor.areaNone')}</option>
+                    <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
+                    <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
+                  </select>
+                </Field>
+              </>
+            )}
+            {payloadAllows(['effect', 'heal']) && (
+              <>
+                <Field label={t('ui.constructor.topAutoTargets')}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={automation.autoTargets?.feet ?? ''}
+                    onChange={(e) =>
+                      patchTop({
+                        autoTargets: e.target.value
+                          ? {
+                              feet: Number(e.target.value) || 0,
+                              side: automation.autoTargets?.side ?? 'ally',
+                              ...(automation.autoTargets?.includeSelf ? { includeSelf: true } : {}),
+                            }
+                          : undefined,
+                      })
+                    }
+                  />
+                </Field>
+                {automation.autoTargets && (
+                  <Field label={t('ui.constructor.topSide')}>
+                    <select
+                      value={automation.autoTargets.side}
+                      onChange={(e) =>
+                        patchTop({
+                          autoTargets: {
+                            ...automation.autoTargets!,
+                            side: e.target.value as 'hostile' | 'ally' | 'any',
+                          },
+                        })
+                      }
+                    >
+                      <option value="ally">{t('ui.constructor.zoneSideAlly')}</option>
+                      <option value="hostile">{t('ui.constructor.zoneSideHostile')}</option>
+                      <option value="any">{t('ui.constructor.topSideAny')}</option>
+                    </select>
+                  </Field>
+                )}
+              </>
             )}
           </div>
           <div className="constructor-checks">
-            {(
-              [
-                ['halfOnMiss', 'ui.constructor.topHalfOnMiss'],
-                ['lifesteal', 'ui.constructor.topLifesteal'],
-                ['maxHpFromDamage', 'ui.constructor.topMaxHpFromDamage'],
-                ['undeadTempHp', 'ui.constructor.topUndeadTempHp'],
-              ] as const
-            ).map(([key, label]) => (
-              <label className="checkbox-row" key={key}>
-                <input
-                  type="checkbox"
-                  checked={automation[key] === true}
-                  onChange={(e) => patchTop({ [key]: e.target.checked || undefined })}
-                />
-                <span>{t(label)}</span>
-              </label>
-            ))}
-            {automation.lifeTransfer && (
+            {payloadAllows(['damage']) && (
+              <>
+                {(kit?.resolution === 'attack' || !recognized) && (
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={automation.halfOnMiss === true}
+                      onChange={(e) => patchTop({ halfOnMiss: e.target.checked || undefined })}
+                    />
+                    <span>{t('ui.constructor.topHalfOnMiss')}</span>
+                  </label>
+                )}
+                {(
+                  [
+                    ['lifesteal', 'ui.constructor.topLifesteal'],
+                    ['maxHpFromDamage', 'ui.constructor.topMaxHpFromDamage'],
+                    ['undeadTempHp', 'ui.constructor.topUndeadTempHp'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label className="checkbox-row" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={automation[key] === true}
+                      onChange={(e) => patchTop({ [key]: e.target.checked || undefined })}
+                    />
+                    <span>{t(label)}</span>
+                  </label>
+                ))}
+              </>
+            )}
+            {payloadAllows(['heal']) && automation.lifeTransfer && (
               <Field label={t('ui.constructor.topLifeTransfer')}>
                 <input
                   type="number"
@@ -2784,7 +2814,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               </Field>
             )}
           </div>
-          {automation.successDamage && (
+          {payloadAllows(['damage']) && automation.successDamage && (
             <div className="field-row">
               <Field label={t('ui.constructor.topSuccessDamage')}>
                 {automation.successDamage && 'dice' in automation.successDamage ? (
