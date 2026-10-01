@@ -572,6 +572,33 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.getByText('Эффекты')).toBeTruthy();
   });
 
+  it('Р3: тип зоны (статичная/перемещаемая/аура), сводка kit и подсказка реакции', () => {
+    const sphere = copyRecord(spellsData.spells.find((s) => s.name === 'Flaming Sphere')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={sphere} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByText('Урон · Без броска · Зона')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Тип зоны'), { target: { value: 'aura' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedAura = JSON.parse(lastImportJson()).automation.zone;
+    expect(savedAura.anchor).toBe('source');
+    expect(savedAura.actions).toBeUndefined();
+    first.unmount();
+
+    const spirits = copyRecord(spellsData.spells.find((s) => s.name === 'Spirit Guardians')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={spirits} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByText('Урон · Спасбросок · Аура')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Тип зоны'), { target: { value: 'movable' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const savedMovable = JSON.parse(lastImportJson()).automation.zone;
+    expect(savedMovable.anchor).toBeUndefined();
+    expect(savedMovable.movable).toBe(true);
+    expect(savedMovable.actions[0].utility).toEqual({ kind: 'moveZone', amount: 30 });
+    second.unmount();
+
+    const shield = copyRecord(spellsData.spells.find((s) => s.name === 'Shield')!, '(копия)');
+    render(<SpellConstructorModal initial={shield} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByText(/Реакция:/)).toBeTruthy();
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

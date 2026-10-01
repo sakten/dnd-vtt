@@ -543,6 +543,32 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
       targeting: { kind: 'area', area: { shape: 'sphere', size: 5 }, range: 60 },
     };
   };
+  const zoneHasMove = (z: NonNullable<typeof zone>): boolean =>
+    (z.actions ?? []).some((action) => action.defKey === 'zone:move' || action.utility?.kind === 'moveZone');
+  const zoneKindOf = (z: NonNullable<typeof zone>): 'static' | 'movable' | 'aura' =>
+    z.anchor === 'source' ? 'aura' : zoneHasMove(z) ? 'movable' : 'static';
+  const setZoneKind = (kind: 'static' | 'movable' | 'aura') => {
+    if (!zone) return;
+    const existingMove = (zone.actions ?? []).find(
+      (action) => action.defKey === 'zone:move' || action.utility?.kind === 'moveZone'
+    );
+    const rest = (zone.actions ?? []).filter(
+      (action) => action.defKey !== 'zone:move' && action.utility?.kind !== 'moveZone'
+    );
+    if (kind === 'aura') {
+      setRecord((r) =>
+        patchZone(r, { anchor: 'source', movable: undefined, actions: rest.length ? rest : undefined })
+      );
+      return;
+    }
+    if (kind === 'movable') {
+      setRecord((r) =>
+        patchZone(r, { anchor: undefined, movable: true, actions: [...rest, existingMove ?? blankZoneAction('move')] })
+      );
+      return;
+    }
+    setRecord((r) => patchZone(r, { anchor: undefined, movable: undefined, actions: rest.length ? rest : undefined }));
+  };
   const patchTop = (patch: Record<string, unknown>) =>
     setRecord((r) => {
       const automation = { ...r.automation } as Record<string, unknown>;
@@ -765,6 +791,15 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     !!record.damage ||
     !!automation.damage ||
     !!automation.heal;
+  const kitSummary = useMemo(() => {
+    const current = kitOf(record);
+    if (!current) return t('ui.constructor.kitMixed');
+    return [
+      t(`ui.constructor.kit.${current.payload}` as MessageKey),
+      ...(current.resolution ? [t(`ui.constructor.gridResolution.${current.resolution}` as MessageKey)] : []),
+      ...(current.delivery ? [t(`ui.constructor.gridDelivery.${current.delivery}` as MessageKey)] : []),
+    ].join(' · ');
+  }, [record]);
   const addCarrierEffect = () =>
     setEffects([
       ...effects,
@@ -932,6 +967,7 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           {t('ui.constructor.tabJson')}
         </button>
       </div>
+      <p className="hint constructor-kit-summary">{kitSummary}</p>
       {tab === 'json' ? (
         <>
           <textarea
@@ -1004,6 +1040,9 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
               )}
             </Field>
           </div>
+          {record.time[0]?.unit === 'reaction' && (
+            <p className="hint">{t('ui.constructor.reactionHint')}</p>
+          )}
 
           <div className="ability-types">
             <span className="constructor-chip-title">{t('ui.constructor.classes')}</span>
@@ -1987,6 +2026,18 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           {zone ? (
             <>
               <div className="sheet-section-title">{t('ui.constructor.zone')}</div>
+              <div className="field-row">
+                <Field label={t('ui.constructor.zoneKind')}>
+                  <select
+                    value={zoneKindOf(zone)}
+                    onChange={(e) => setZoneKind(e.target.value as 'static' | 'movable' | 'aura')}
+                  >
+                    <option value="static">{t('ui.constructor.zoneKind.static')}</option>
+                    <option value="movable">{t('ui.constructor.zoneKind.movable')}</option>
+                    <option value="aura">{t('ui.constructor.zoneKind.aura')}</option>
+                  </select>
+                </Field>
+              </div>
               {zoneWall ? (
                 <p className="hint">{t('ui.constructor.zoneWallHint')}</p>
               ) : (
