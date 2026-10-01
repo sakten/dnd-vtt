@@ -51,6 +51,7 @@ import {
   switchPrimary,
   validateConstructor,
   withChoices,
+  withDamageDice,
   withDamagePart,
   withPayloadHeal,
   withSave,
@@ -71,6 +72,7 @@ import {
   kitRecord,
   type KitPayload,
 } from '../lib/spellKits';
+import DamageDiceField from './DamageDiceField';
 import EffectListEditor, { EFFECT_DURATIONS, ExprField, LightFields } from './EffectListEditor';
 import EffectModifiersEditor from './EffectModifiersEditor';
 import EffectTriggersEditor from './EffectTriggersEditor';
@@ -1539,41 +1541,11 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           ) : (
             <>
               <div className="field-row">
-                <Field label={t('ui.constructor.damageDice')}>
-                  <input
-                    type="text"
-                    placeholder="3d6"
-                    value={(record.damage?.dice ?? []).join(' + ')}
-                    onChange={(e) => {
-                      const dice = e.target.value
-                        .split('+')
-                        .map((x) => x.trim())
-                        .filter(Boolean);
-                      setMeta({ damage: dice.length ? { dice, types: record.damage?.types ?? [] } : undefined });
-                    }}
-                  />
-                </Field>
-              </div>
-              <div className="ability-types">
-                {DAMAGE_TYPES.map((damage) => {
-                  const checked = record.damage?.types?.includes(damage.key) ?? false;
-                  return (
-                    <button
-                      type="button"
-                      key={damage.key}
-                      className={`ability-type${checked ? ' on' : ''}`}
-                      onClick={() => {
-                        if (!record.damage) return;
-                        const types = checked
-                          ? record.damage.types.filter((x) => x !== damage.key)
-                          : [...record.damage.types, damage.key];
-                        setMeta({ damage: { ...record.damage, types } });
-                      }}
-                    >
-                      {damageLabel(damage.key)}
-                    </button>
-                  );
-                })}
+                <DamageDiceField
+                  value={{ dice: record.damage?.dice ?? [], types: record.damage?.types ?? [] }}
+                  onChange={(next) => setRecord((r) => withDamageDice(r, next))}
+                  placeholder="3d6fire"
+                />
               </div>
             </>
           )}

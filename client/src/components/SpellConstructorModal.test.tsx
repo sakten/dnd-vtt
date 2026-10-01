@@ -599,6 +599,25 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.getByText(/Реакция:/)).toBeTruthy();
   });
 
+  it('урон: тип пишется в поле костей с подсказками, чипов типов нет', () => {
+    const fireball = copyRecord(spellsData.spells.find((s) => s.name === 'Fireball')!, '(копия)');
+    render(<SpellConstructorModal initial={fireball} lockedKey={false} onClose={vi.fn()} />);
+    const dice = screen.getByLabelText('Кости (например 3d6)') as HTMLInputElement;
+    expect(dice).toHaveValue('8d6fire');
+    expect(screen.queryByRole('button', { name: 'Огонь' })).toBeNull();
+
+    fireEvent.change(dice, { target: { value: '10d6co' } });
+    dice.setSelectionRange(6, 6);
+    fireEvent.select(dice);
+    fireEvent.mouseDown(screen.getByRole('button', { name: /Холод/ }));
+    expect(dice).toHaveValue('10d6cold');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    const saved = JSON.parse(lastImportJson());
+    expect(saved.damage).toEqual({ dice: ['10d6'], types: ['cold'] });
+    expect(saved.automation.damage.types).toEqual(['cold']);
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

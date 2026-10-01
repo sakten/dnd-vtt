@@ -201,9 +201,18 @@ export function withSave(record: SpellDef, ability: AbilityKey | undefined, half
   return next;
 }
 
+/** Кости/типы урона карточки (чат-синтаксис в форме); типы синхронизируются в автоматизацию. */
+export function withDamageDice(record: SpellDef, value: { dice: string[]; types: string[] }): SpellDef {
+  const damage = value.dice.length ? { dice: value.dice, types: value.types } : undefined;
+  const automation = { ...record.automation };
+  const types = value.types.length ? value.types : undefined;
+  if (automation.damage && 'dice' in automation.damage) automation.damage = { ...automation.damage, types };
+  if (automation.heal) automation.heal = { ...automation.heal, types };
+  return { ...record, damage, automation };
+}
+
 /** Правка части составного урона: кости/тип; агрегаты meta (`damage.dice`/`types`) пересобираются. */
-export function withDamagePart(record: SpellDef, index: number, patch: { dice?: string; type?: string }): SpellDef {
-  const parts = [...(record.damage?.parts ?? [])];
+export function withDamagePart(record: SpellDef, index: number, patch: { dice?: string; type?: string }): SpellDef {  const parts = [...(record.damage?.parts ?? [])];
   const part = { ...parts[index]! };
   if (patch.dice !== undefined) part.dice = patch.dice;
   if (patch.type !== undefined) part.types = [patch.type];
