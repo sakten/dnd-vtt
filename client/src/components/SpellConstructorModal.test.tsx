@@ -645,6 +645,33 @@ describe('SpellConstructorModal (R16 К1)', () => {
     expect(screen.queryByLabelText('Спасбросок')).toBeNull();
   });
 
+  it('апкаст по kit: лучи — урону, цели — эффекту, у призыва скрыт, ступени — оружию', () => {
+    const ray = copyRecord(spellsData.spells.find((s) => s.name === 'Scorching Ray')!, '(копия)');
+    const first = render(<SpellConstructorModal initial={ray} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Лучей/атак за круг')).toBeTruthy();
+    expect(screen.queryByLabelText('Целей за круг')).toBeNull();
+    first.unmount();
+
+    const bless = copyRecord(spellsData.spells.find((s) => s.name === 'Bless')!, '(копия)');
+    const second = render(<SpellConstructorModal initial={bless} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Целей за круг')).toBeTruthy();
+    expect(screen.queryByLabelText('Лучей/атак за круг')).toBeNull();
+    second.unmount();
+
+    const summon = blankRecord('summon', 'Зов');
+    const third = render(<SpellConstructorModal initial={summon} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.queryByText('Апкаст')).toBeNull();
+    expect(screen.getByText(/отдельный апкаст не нужен/)).toBeTruthy();
+    third.unmount();
+
+    const blade = copyRecord(spellsData.spells.find((s) => s.name === 'Shadow Blade')!, '(копия)');
+    render(<SpellConstructorModal initial={blade} lockedKey={false} onClose={vi.fn()} />);
+    expect(screen.getAllByText('Ступень')).toHaveLength(3);
+    fireEvent.change(screen.getAllByLabelText('Кости за круг')[1]!, { target: { value: '4d8' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(JSON.parse(lastImportJson()).upcast.tiers[0].dice).toBe('4d8');
+  });
+
   it('Haste: эффект при снятии (onEnd) правится вложенным редактором', () => {
     const haste = copyRecord(spellsData.spells.find((s) => s.name === 'Haste')!, '(копия)');
     render(<SpellConstructorModal initial={haste} lockedKey={false} onClose={vi.fn()} />);

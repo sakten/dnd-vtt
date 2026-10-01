@@ -1158,7 +1158,7 @@
   'ui.constructor.summonHpPerLevel': 'HP за круг',
   'ui.constructor.summonAcPerLevel': 'AC за круг',
   'ui.constructor.summonHint':
-    'Существо — ключ бестиария; профиль хранится в записи и перекрывает данные бестиария при спавне.',
+    'Существо — ключ бестиария; профиль хранится в записи и перекрывает данные бестиария при спавне. Скейл от круга задают поля профиля (HP/AC за круг, baseLevel, мультиатака) — отдельный апкаст не нужен.',
   'ui.constructor.utility': 'Утилита',
   'ui.constructor.utilityKind': 'Вид',
   'ui.constructor.utilityDice': 'Кости',
@@ -1450,6 +1450,8 @@
   'ui.constructor.upcastFlat': 'Плоско за круг',
   'ui.constructor.upcastTargets': 'Целей за круг',
   'ui.constructor.upcastAttacks': 'Лучей/атак за круг',
+  'ui.constructor.upcastTier': 'Ступень',
+  'ui.constructor.addTier': 'Добавить ступень',
   'ui.constructor.description': 'Описание',
   'ui.constructor.preview': 'Предпросмотр',
   'ui.constructor.issues': 'Проверка не пройдена',

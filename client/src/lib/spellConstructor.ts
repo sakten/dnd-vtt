@@ -13,6 +13,8 @@ import {
   type Spell,
   type SpellDamagePart,
   type SpellDef,
+  type SpellUpcast,
+  type SpellUpcastTier,
   type SpecIssue,
   type ValueExpr,
   type ZoneSpec,
@@ -209,6 +211,31 @@ export function withDamageDice(record: SpellDef, value: { dice: string[]; types:
   if (automation.damage && 'dice' in automation.damage) automation.damage = { ...automation.damage, types };
   if (automation.heal) automation.heal = { ...automation.heal, types };
   return { ...record, damage, automation };
+}
+
+/** Правка ступени апкаста (`upcast.tiers`) — фиксированные значения с круга. */
+export function withUpcastTier(record: SpellDef, index: number, patch: Partial<SpellUpcastTier>): SpellDef {
+  const tiers = [...(record.upcast?.tiers ?? [])];
+  tiers[index] = { ...tiers[index]!, ...patch };
+  return { ...record, upcast: { ...(record.upcast ?? {}), tiers } };
+}
+
+/** Добавить ступень апкаста (следующий чётный круг после базового). */
+export function addUpcastTier(record: SpellDef): SpellDef {
+  const above = record.upcast?.above ?? (record.level > 0 ? record.level : 1);
+  return {
+    ...record,
+    upcast: { ...(record.upcast ?? {}), tiers: [...(record.upcast?.tiers ?? []), { level: above + 2 }] },
+  };
+}
+
+/** Удалить ступень апкаста; пустой список убирает блок. */
+export function removeUpcastTier(record: SpellDef, index: number): SpellDef {
+  const tiers = (record.upcast?.tiers ?? []).filter((_, i) => i !== index);
+  const upcast: SpellUpcast = { ...(record.upcast ?? {}) };
+  if (tiers.length) upcast.tiers = tiers;
+  else delete upcast.tiers;
+  return { ...record, upcast };
 }
 
 /** Правка части составного урона: кости/тип; агрегаты meta (`damage.dice`/`types`) пересобираются. */

@@ -1161,7 +1161,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.summonHpPerLevel': 'HP per level',
   'ui.constructor.summonAcPerLevel': 'AC per level',
   'ui.constructor.summonHint':
-    'The creature is a bestiary key; the profile is stored in the record and overrides the bestiary data on spawn.',
+    'The creature is a bestiary key; the profile is stored in the record and overrides the bestiary data on spawn. Level scaling lives in the profile fields (HP/AC per level, base level, multiattack) — no separate upcast needed.',
   'ui.constructor.utility': 'Utility',
   'ui.constructor.utilityKind': 'Kind',
   'ui.constructor.utilityDice': 'Dice',
@@ -1453,6 +1453,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.upcastFlat': 'Flat per level',
   'ui.constructor.upcastTargets': 'Targets per level',
   'ui.constructor.upcastAttacks': 'Beams/attacks per level',
+  'ui.constructor.upcastTier': 'Tier',
+  'ui.constructor.addTier': 'Add tier',
   'ui.constructor.description': 'Description',
   'ui.constructor.preview': 'Preview',
   'ui.constructor.issues': 'Validation failed',

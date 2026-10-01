@@ -56,9 +56,12 @@ import {
   withPayloadHeal,
   withSave,
   withSpellAttack,
+  withUpcastTier,
   withZoneAura,
   withZonePayload,
   withZoneSlot,
+  addUpcastTier,
+  removeUpcastTier,
   type AutomationNote,
   type PartUsage,
   type SimpleBranch,
@@ -774,6 +777,18 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
     !!automation.weaponAttack;
   const showSaveField = !recognized || kit?.resolution === 'save' || !!record.save || !!automation.save;
   const showAttackSave = showAttackField || showSaveField || primary === 'attack' || primary === 'auto';
+  const showUpcast =
+    !recognized ||
+    payloadKind === 'damage' ||
+    payloadKind === 'heal' ||
+    payloadKind === 'effect' ||
+    payloadKind === 'utility' ||
+    payloadKind === 'weapon';
+  const showUpcastTargets = !recognized || payloadKind === 'effect';
+  const showUpcastAttacks = !recognized || payloadKind === 'damage';
+  const showUpcastTiers = !recognized || payloadKind === 'weapon' || (record.upcast?.tiers?.length ?? 0) > 0;
+  const showCantripDice = !recognized || ['damage', 'heal', 'effect', 'weapon'].includes(payloadKind ?? '');
+  const showCantripCount = !recognized || (payloadKind === 'damage' && kit?.resolution !== 'save');
   const kitSummary = useMemo(() => {
     const current = kitOf(record);
     if (!current) return t('ui.constructor.kitMixed');
@@ -2998,34 +3013,40 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
           )}
 
           {record.level === 0 ? (
-            <>
-              <div className="sheet-section-title">{t('ui.constructor.cantrip')}</div>
-              {CANTrip_LEVELS.map((level) => {
-                const item = tier(level);
-                return (
-                  <div className="field-row" key={level}>
-                    <span className="constructor-tier-label">{t('ui.constructor.cantripLevel', { level })}</span>
-                    <Field label={t('ui.constructor.upcastDice')}>
-                      <input
-                        type="text"
-                        placeholder="2d10"
-                        value={item?.dice ?? ''}
-                        onChange={(e) => setTier(level, { dice: e.target.value.trim() || undefined })}
-                      />
-                    </Field>
-                    <Field label={t('ui.constructor.upcastAttacks')}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={item?.count ?? ''}
-                        onChange={(e) => setTier(level, { count: Number(e.target.value) || undefined })}
-                      />
-                    </Field>
-                  </div>
-                );
-              })}
-            </>
-          ) : (
+            showUpcast && (
+              <>
+                <div className="sheet-section-title">{t('ui.constructor.cantrip')}</div>
+                {CANTrip_LEVELS.map((level) => {
+                  const item = tier(level);
+                  return (
+                    <div className="field-row" key={level}>
+                      <span className="constructor-tier-label">{t('ui.constructor.cantripLevel', { level })}</span>
+                      {showCantripDice && (
+                        <Field label={t('ui.constructor.upcastDice')}>
+                          <input
+                            type="text"
+                            placeholder="2d10"
+                            value={item?.dice ?? ''}
+                            onChange={(e) => setTier(level, { dice: e.target.value.trim() || undefined })}
+                          />
+                        </Field>
+                      )}
+                      {showCantripCount && (
+                        <Field label={t('ui.constructor.upcastAttacks')}>
+                          <input
+                            type="number"
+                            min={0}
+                            value={item?.count ?? ''}
+                            onChange={(e) => setTier(level, { count: Number(e.target.value) || undefined })}
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )
+          ) : showUpcast ? (
             <>
               <div className="sheet-section-title">{t('ui.constructor.upcast')}</div>
               <div className="field-row">
@@ -3044,15 +3065,65 @@ export default function SpellConstructorModal({ initial, lockedKey, start = 'for
                 <Field label={t('ui.constructor.upcastFlat')}>
                   <input type="number" value={record.upcast?.flat ?? ''} onChange={(e) => upcast({ flat: Number(e.target.value) || undefined })} />
                 </Field>
-                <Field label={t('ui.constructor.upcastTargets')}>
-                  <input type="number" min={0} value={record.upcast?.targets ?? ''} onChange={(e) => upcast({ targets: Number(e.target.value) || undefined })} />
-                </Field>
-                <Field label={t('ui.constructor.upcastAttacks')}>
-                  <input type="number" min={0} value={record.upcast?.attacks ?? ''} onChange={(e) => upcast({ attacks: Number(e.target.value) || undefined })} />
-                </Field>
+                {showUpcastTargets && (
+                  <Field label={t('ui.constructor.upcastTargets')}>
+                    <input type="number" min={0} value={record.upcast?.targets ?? ''} onChange={(e) => upcast({ targets: Number(e.target.value) || undefined })} />
+                  </Field>
+                )}
+                {showUpcastAttacks && (
+                  <Field label={t('ui.constructor.upcastAttacks')}>
+                    <input type="number" min={0} value={record.upcast?.attacks ?? ''} onChange={(e) => upcast({ attacks: Number(e.target.value) || undefined })} />
+                  </Field>
+                )}
               </div>
+              {showUpcastTiers && (
+                <>
+                  {(record.upcast?.tiers ?? []).map((row, index) => (
+                    <div className="field-row" key={index}>
+                      <span className="constructor-tier-label">{t('ui.constructor.upcastTier')}</span>
+                      <Field label={t('ui.constructor.upcastAbove')}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={9}
+                          value={row.level}
+                          onChange={(e) =>
+                            setRecord((r) => withUpcastTier(r, index, { level: Number(e.target.value) || 0 }))
+                          }
+                        />
+                      </Field>
+                      <Field label={t('ui.constructor.upcastDice')}>
+                        <input
+                          type="text"
+                          placeholder="2d8"
+                          value={row.dice ?? ''}
+                          onChange={(e) =>
+                            setRecord((r) => withUpcastTier(r, index, { dice: e.target.value.trim() || undefined }))
+                          }
+                        />
+                      </Field>
+                      <Field label={t('ui.constructor.upcastAttacks')}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={row.attack ?? ''}
+                          onChange={(e) =>
+                            setRecord((r) => withUpcastTier(r, index, { attack: Number(e.target.value) || undefined }))
+                          }
+                        />
+                      </Field>
+                      <button type="button" onClick={() => setRecord((r) => removeUpcastTier(r, index))}>
+                        {t('ui.constructor.remove')}
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setRecord((r) => addUpcastTier(r))}>
+                    {t('ui.constructor.addTier')}
+                  </button>
+                </>
+              )}
             </>
-          )}
+          ) : null}
 
           <div className="sheet-section-title">{t('ui.constructor.description')}</div>
           <textarea

@@ -3,6 +3,7 @@ import { CUSTOM_SPELL_PREFIX, automationForSpell } from 'shared';
 import spellsData from 'shared/spellsData';
 import {
   WIZARD_PROFILES,
+  addUpcastTier,
   automationNotes,
   blankRecord,
   canConvertPayload,
@@ -10,11 +11,13 @@ import {
   copyRecord,
   keyFromName,
   partUsageKeys,
+  removeUpcastTier,
   switchPrimary,
   validateConstructor,
   withPayloadHeal,
   withSave,
   withSpellAttack,
+  withUpcastTier,
 } from './spellConstructor';
 
 describe('конструктор кастомов (R16 К1)', () => {
@@ -159,5 +162,16 @@ describe('конструктор кастомов (R16 К1)', () => {
 
     expect(canConvertPayload(spell)).toBe(true);
     expect(canConvertPayload({ ...spell, automation: { ...spell.automation, damage: { parts: [] } } })).toBe(false);
+  });
+
+  it('ступени апкаста: добавление, правка и удаление', () => {
+    const spell = blankRecord('attack', 'Тест');
+    const added = addUpcastTier(spell);
+    expect(added.upcast?.tiers).toEqual([{ level: 3 }]);
+
+    const edited = withUpcastTier(added, 0, { dice: '2d8', attack: 2 });
+    expect(edited.upcast?.tiers?.[0]).toEqual({ level: 3, dice: '2d8', attack: 2 });
+
+    expect(removeUpcastTier(edited, 0).upcast?.tiers).toBeUndefined();
   });
 });
