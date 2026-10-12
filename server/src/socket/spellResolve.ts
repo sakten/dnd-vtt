@@ -145,6 +145,8 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (!held) return { code: 'noHeldWeapon' };
     // True Strike бьёт и дальним оружием; остальные клинки — только ближним.
     if (!def.weaponAttack.anyWeapon && held.rangeType !== 'melee') return { code: 'noHeldWeapon' };
+    // Пустые формулы оружия: атака не состоится — отказ до списания действия.
+    if (!held.hit.trim() && !held.damage.trim()) return { code: 'weaponUnusable' };
     if (!targets[0]) return { code: 'spellNoTarget' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);

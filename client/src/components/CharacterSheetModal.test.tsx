@@ -50,6 +50,39 @@ describe('CharacterSheetModal', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('поле «Попадание» атаки редактируется и уходит в sheet:update (кэнсэй-монах)', () => {
+    useGameStore.setState({
+      sheet: {
+        ...defaultSheet(),
+        name: 'Тест',
+        classes: [{ className: 'monk', level: 5, subclass: 'kensei' }],
+        attacks: [
+          {
+            id: 'a1',
+            name: 'Длинный меч',
+            hit: 'd20+5',
+            damage: '1d8+3',
+            rangeType: 'melee',
+            rangeNormal: 5,
+            rangeLong: 0,
+            weaponKey: 'XPHB:Longsword',
+          },
+        ],
+      },
+    });
+    render(<CharacterSheetModal open onClose={vi.fn()} />);
+
+    const hit = screen.getByDisplayValue('d20+5') as HTMLInputElement;
+    expect(hit.readOnly).toBe(false);
+    fireEvent.change(hit, { target: { value: 'd20+7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const update = emitted.find((e) => e.event === 'sheet:update');
+    const saved = (update!.payload as CharacterSheet).attacks[0]!;
+    expect(saved.hit).toBe('d20+7');
+    expect(saved.manualHit).toBe(true);
+  });
+
   it('показывает иммунитеты к состояниям от эффектов', () => {
     useGameStore.setState({
       scene: makeScene([

@@ -153,6 +153,54 @@ describe('атака по возможности в форме', () => {
     expect(pendingOffers(room.code)).toHaveLength(0);
     expect(room.chat.some((m) => m.kind === 'text' && m.system?.code === 'reactions.opportunity')).toBe(false);
   });
+
+  it('персонаж: запись «Без дистанции» (кантрип в атаках) в OA не предлагается', () => {
+    const { room, token, f } = setup();
+    room.sheets['p1']!.attacks.push({
+      name: 'Огненный снаряд',
+      hit: 'd20+5',
+      damage: '1d10fire',
+      rangeType: 'none',
+      rangeNormal: 0,
+      rangeLong: 0,
+    });
+    expect(opportunitySources(f.ctx, room, token).map((s) => s.name)).toEqual(['Скимитар']);
+  });
+
+  it('мёртвый реактор не бьёт атаку по возможности', () => {
+    const { room, token, f } = setup();
+    token.conditions = [{ key: 'dead', name: 'Мёртв' }];
+    const mover = makeToken('t2', {
+      name: 'Гоблин',
+      x: 150,
+      y: 100,
+      ac: '12',
+      hpMax: '10',
+      hpCurrent: 10,
+      faction: 'enemy',
+    });
+    room.scene.maps[0]!.tokens.push(mover);
+
+    executeOpportunityAttack(f.ctx, room, 'm1', token, mover);
+
+    expect(room.chat).toHaveLength(0);
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(false);
+  });
+
+  it('мёртвый реактор не получает оффер OA', () => {
+    const { room, token, f } = setup();
+    token.conditions = [{ key: 'dead', name: 'Мёртв' }];
+    const mover = makeToken('t2', { name: 'Гоблин', x: 150, y: 100, faction: 'enemy' });
+    room.scene.maps[0]!.tokens.push(mover);
+
+    triggerOpportunityAttacks(f.ctx, room, 'm1', mover, [
+      { x: 150, y: 100 },
+      { x: 400, y: 100 },
+    ]);
+
+    expect(pendingOffers(room.code)).toHaveLength(0);
+    expect(room.scene.maps[0]!.combat.turns['e1']!.reactionUsed).toBe(false);
+  });
 });
 
 describe('видимость для атаки по возможности', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { attackRidersFor } from './attackRiders';
 import { classFeatures } from './classActions';
 import { CLASSES, martialArtsDie } from './classes';
-import { featureActionAutomation, featureMechanics, passiveFeatures } from './featureAutomation';
+import { featureActionAutomation, featureChoiceOptions, featureMechanics, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
 import { reactionFeatures } from './reactions';
 
@@ -181,6 +181,23 @@ describe('каталог черт (features.json)', () => {
     const passives = passiveFeatures([{ className: 'bard', level: 2 }]);
     expect(passives.some((p) => p.key === 'bard:jackOfAllTrades')).toBe(true);
     expect(passiveFeatures([{ className: 'bard', level: 1 }]).some((p) => p.key === 'bard:jackOfAllTrades')).toBe(false);
+  });
+
+  it('Обольщающая магия: спас Мдр, состояние выбирается при использовании', () => {
+    const classes = [{ className: 'bard', level: 5, subclass: 'glamour' }];
+    const def = featureActionAutomation('class:bard.glamour:beguilingMagic', classes);
+    expect(def?.save).toEqual({ ability: 'wis' });
+    expect(def?.effects?.[0]).toMatchObject({
+      conditions: ['charmed'],
+      duration: { type: 'untilSave', ability: 'wis', timing: 'end' },
+    });
+    expect(featureChoiceOptions('class:bard.glamour:beguilingMagic')).toEqual(['charmed', 'frightened']);
+    const frightened = featureActionAutomation('class:bard.glamour:beguilingMagic', classes, 'frightened');
+    expect(frightened?.effects?.[0]?.conditions).toEqual(['frightened']);
+    const button = classFeatures(classes).find((a) => a.id === 'class:bard.glamour:beguilingMagic');
+    expect(button?.costs).toEqual(['free']);
+    expect(button?.targeting).toEqual({ kind: 'creature', range: 60 });
+    expect(button?.resourceKey).toBe('bard.glamour:beguilingMagic');
   });
 
   it('Божественная искра: лечение/урон по Мдр, 2d8 с 7 уровня, тратит Проведение', () => {

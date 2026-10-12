@@ -164,6 +164,8 @@ export interface ClientToServerEvents {
     placements?: { targetId: string; x: number; y: number }[];
     /** Выбор количества ресурса (Sharpen the Blade: 1–3 ки). */
     featureAmount?: number;
+    /** Выбор варианта применения черты (Обольщающая магия: «charmed»/«frightened»). */
+    variant?: string;
   }) => void;
   'spell:cast': (payload: {
     mapId: string;

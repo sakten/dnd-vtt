@@ -21,6 +21,7 @@ import {
 import type { Room } from '../roomTypes';
 import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { applyDamage } from './damage';
 import { applyEffectTo } from './effectsApply';
 import { resolveWeaponAttackWithReactions } from './reactions/attack';
@@ -35,7 +36,12 @@ import type { SpellCastInput } from './spellResolve';
 export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput, def: AutomationDef): void {
   const spec = def.weaponAttack;
   const target = input.targets.find((t): t is Token => !!t);
-  if (!spec || !target) return;
+  if (!spec) return;
+  // До сюда доходит только валидный каст, но молча выходить нельзя — игрок теряет действие.
+  if (!target) {
+    fail(ctx, 'spellNoTarget');
+    return;
+  }
   const sheet = sheetOfToken(room, input.caster).sheet;
   const loadout = loadoutOf({
     attacks: sheet?.attacks,
@@ -44,7 +50,14 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
     ...weaponContextOf(sheet),
   });
   const held = sheet ? handOf(loadout, 'right') : undefined;
-  if (!held || (!spec.anyWeapon && held.rangeType !== 'melee')) return;
+  if (!held || (!spec.anyWeapon && held.rangeType !== 'melee')) {
+    fail(ctx, 'noHeldWeapon');
+    return;
+  }
+  if (!held.hit.trim() && !held.damage.trim()) {
+    fail(ctx, 'weaponUnusable');
+    return;
+  }
   const weapon = held.weaponKey ? weaponByKey(held.weaponKey) : undefined;
   const grip = rightGrip(loadout.attacks, loadout.hands);
   let base = held;
@@ -62,6 +75,10 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
         ),
         name: held.name,
         ...(held.id ? { id: held.id } : {}),
+        // Дистанции — из листа: досягаемость/выстрел настраиваются в карточке.
+        rangeType: held.rangeType,
+        rangeNormal: held.rangeNormal,
+        rangeLong: held.rangeLong,
       };
     }
   }

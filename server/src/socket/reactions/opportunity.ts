@@ -37,8 +37,14 @@ export interface OpportunitySource {
 
 /** Melee-атаки текущего облика: в форме — статблок зверя (actorStats), иначе своё оружие. */
 function meleeWeapons(room: Room, token: Token): AttackEntry[] {
+  const hasSheet = !!sheetOfToken(room, token).sheet;
   return actorStats(room, token).attacks.filter(
-    (a) => a.hit && (a.rangeType === 'melee' || a.rangeType === 'none')
+    (a) =>
+      a.hit &&
+      (a.rangeType === 'melee' ||
+        // «Без дистанции» — атаки статблоков (укус и т.п.); у персонажа такую запись
+        // (например, добавленный вручную кантрип-«выстрел») в OA не предлагаем.
+        (a.rangeType === 'none' && !hasSheet))
   );
 }
 
@@ -76,6 +82,8 @@ export function executeOpportunityAttack(
   mover: Token,
   sourceIndex = 0
 ): void {
+  // Мёртвый/недееспособный реактор атаку по возможности не проводит.
+  if (isIncapacitated(reactor.conditions) || hasCondition(reactor.conditions, 'dead')) return;
   const source = opportunitySources(ctx, room, reactor)[sourceIndex];
   if (!source) return;
   if (!ctx.manager.spendSlot(room, mapId, reactor, 'reaction')) return;
@@ -139,6 +147,8 @@ export function triggerOpportunityAttacks(
     if (reactor.id === mover.id) continue;
     if (!hostile(reactor, mover)) continue;
     if (isIncapacitated(reactor.conditions)) continue;
+    // Мёртвый не реагирует (RAW: атака по возможности — действие живого существа).
+    if (hasCondition(reactor.conditions, 'dead')) continue;
     // RAW: атака по возможности — только по существу, которое реактор видит.
     // Слепой/невидящий невидимого не реагирует; стены и тьма — общий расчёт видимости.
     if (hasCondition(reactor.conditions, 'blinded')) continue;

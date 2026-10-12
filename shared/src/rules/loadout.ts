@@ -4,11 +4,11 @@ import type { EffectInstance } from '../domain/effects';
 import type { FeatureChoice } from '../domain/feature';
 import type { CharacterSheet, ClassLevel, SheetHands } from '../domain/sheet';
 import type { AttackEntry } from '../domain/token';
-import { proficiencyBonus, martialArtsDie } from './classes';
-import { handAttackOf, type HandKey } from './hands';
-import { kenseiMonkLevel, kenseiWeaponKeyOf } from './kensei';
+import { proficiencyBonus } from './classes';
+import { handAttackOf, rightGrip, type HandKey } from './hands';
+import { kenseiWeaponKeyOf } from './kensei';
 import { d20Expr } from './sheet';
-import { damageExpression, type WeaponContext } from './weapons';
+import { damageExpression, isMonkWeapon, weaponAttackEntry, weaponByKey, type WeaponContext } from './weapons';
 
 /** Контекст оружия из листа персонажа (характеристики, классы, выборы). */
 export function weaponContextOf(sheet?: CharacterSheet | null): WeaponContext {
@@ -84,7 +84,8 @@ function shadowBladeEntries(effect: EffectInstance, context: WeaponContext): Att
 /**
  * Производный лоадаут: сохранённые атаки/руки + оружие и оверрайды от активных
  * эффектов (Shadow Blade — временный клинок в правой руке, Shillelagh — кость и
- * характеристика клуба/посоха). Чистая функция, одинаковая на клиенте и сервере,
+ * характеристика клуба/посоха) + оружие монаха (кость боевых искусств и лучшая
+ * из Силы/Ловкости). Чистая функция, одинаковая на клиенте и сервере,
  * поэтому порядок и индексы атак совпадают. Без таких эффектов возвращает исходные
  * значения без копирования.
  */
@@ -98,12 +99,19 @@ export function loadoutOf(input: LoadoutInput): ActorLoadout {
   const effects = input.effects ?? [];
   const hasOverrides = effects.some((e) => e.weaponOverride);
   const blades = effects.filter((e) => e.shadowBlade);
-  // Кэнсэй-монах: оружие основной руки — monk weapon (Dex и кость боевых искусств).
+  // Монах: оружие монаха (2024) и кэнсэй-оружие основной руки — max(Сила, Ловкость) и кость боевых искусств.
+  const monkLevel = context.classes.find((c) => c.className === 'monk')?.level ?? 0;
   const kenseiKey = kenseiWeaponKeyOf({ attacks, hands: input.hands, classes: input.classes });
-  const hasKensei = !!kenseiKey && attacks.some((attack) => attack.weaponKey === kenseiKey);
-  if (!hasOverrides && !blades.length && !hasKensei) return { attacks, hands: input.hands, context };
-  let mapped = hasKensei
-    ? attacks.map((attack) => applyKenseiWeapon(attack, kenseiKey!, context))
+  const hasMonk =
+    monkLevel > 0 &&
+    attacks.some(
+      (attack) =>
+        !!attack.weaponKey &&
+        (attack.weaponKey === kenseiKey || isMonkWeapon(weaponByKey(attack.weaponKey)))
+    );
+  if (!hasOverrides && !blades.length && !hasMonk) return { attacks, hands: input.hands, context };
+  let mapped = hasMonk
+    ? attacks.map((attack) => applyMonkWeapon(attack, attacks, input.hands, context, kenseiKey))
     : attacks;
   if (hasOverrides) mapped = mapped.map((attack) => applyWeaponOverrides(attack, effects, context));
   const extra = blades.flatMap((effect) => shadowBladeEntries(effect, context));
@@ -114,19 +122,32 @@ export function loadoutOf(input: LoadoutInput): ActorLoadout {
 }
 
 /**
- * Монах-кэнсэй: оружие основной руки считается monk weapon — Ловкость вместо
- * Силы и кость боевых искусств вместо кости оружия (XGE, «Kensei Weapons»).
+ * Монах: оружие монаха (простое рукопашное/лёгкое воинское) и кэнсэй-оружие
+ * основной руки — попадание и урон от лучшей характеристики, кость боевых
+ * искусств вместо меньшей кости оружия (XGE «Kensei Weapons» / PHB'24 «Martial Arts»).
+ * Имя, тип урона и дистанции остаются из листа.
  */
-function applyKenseiWeapon(attack: AttackEntry, kenseiKey: string, context: WeaponContext): AttackEntry {
-  if (attack.weaponKey !== kenseiKey) return attack;
-  const totalLevel = context.classes.reduce((acc, c) => acc + Math.max(1, c.level), 0);
-  const pb = proficiencyBonus(totalLevel || 1);
-  const mod = abilityMod(context.abilities.dex ?? 10);
-  return {
-    ...attack,
-    hit: d20Expr(pb + mod),
-    damage: damageExpression(`1d${martialArtsDie(kenseiMonkLevel(context.classes))}`, mod),
-  };
+function applyMonkWeapon(
+  attack: AttackEntry,
+  attacks: AttackEntry[],
+  hands: SheetHands | undefined,
+  context: WeaponContext,
+  kenseiKey: string | undefined
+): AttackEntry {
+  if (!attack.weaponKey) return attack;
+  const weapon = weaponByKey(attack.weaponKey);
+  if (!weapon || weapon.unarmed) return attack;
+  const kensei = attack.weaponKey === kenseiKey;
+  if (!kensei && !isMonkWeapon(weapon)) return attack;
+  const entry = weaponAttackEntry(weapon, context, {
+    ...(!kensei && hands?.right === attack.id ? { grip: rightGrip(attacks, hands) } : {}),
+    monkWeapon: true,
+  });
+  // Ручные формулы в листе уважаем: автопересчёт трогает только нетронутые поля.
+  const hit = attack.manualHit ? attack.hit : entry.hit;
+  const damage = attack.manualDamage ? attack.damage : entry.damage;
+  if (hit === attack.hit && damage === attack.damage) return attack;
+  return { ...attack, hit, damage };
 }
 
 /**

@@ -44,6 +44,14 @@ describe('normalizeAttacks', () => {
     expect(bad?.weaponKey).toBeUndefined();
     expect(bad?.grip).toBeUndefined();
   });
+
+  it('сохраняет пометки ручных формул (manualHit/manualDamage)', () => {
+    const [manual] = normalizeAttacks([{ name: 'Меч', manualHit: true, manualDamage: true }]);
+    expect(manual?.manualHit).toBe(true);
+    expect(manual?.manualDamage).toBe(true);
+    const [auto] = normalizeAttacks([{ name: 'Меч', manualHit: false }]);
+    expect(auto?.manualHit).toBeUndefined();
+  });
 });
 
 describe('normalizeSheet', () => {

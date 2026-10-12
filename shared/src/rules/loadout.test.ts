@@ -152,3 +152,53 @@ describe('weaponContextOf', () => {
     expect(ctx.choices?.[0]?.key).toBe('XPHB:tavernBrawler');
   });
 });
+
+describe('оружие монаха (Martial Arts)', () => {
+  const dagger: AttackEntry = {
+    id: 'dg',
+    name: 'Кинжал',
+    hit: 'd20+str',
+    damage: '1d4+str',
+    damageType: 'piercing',
+    rangeType: 'melee',
+    rangeNormal: 5,
+    rangeLong: 0,
+    weaponKey: 'XPHB:Dagger',
+  };
+
+  it('5 уровень: кость боевых искусств d8 и лучшая из Сила/Ловкость', () => {
+    const loadout = loadoutOf({
+      attacks: [dagger],
+      hands: { right: 'dg' },
+      abilities: { str: 10, dex: 16 },
+      classes: [{ className: 'monk', level: 5 }],
+    });
+    expect(loadout.attacks[0]).toMatchObject({ hit: 'd20+6', damage: '1d8+3' });
+  });
+
+  it('1 уровень: кинжал d6 вместо d4, попадание от Силы при её превосходстве', () => {
+    const loadout = loadoutOf({
+      attacks: [dagger],
+      hands: { right: 'dg' },
+      abilities: { str: 16, dex: 10 },
+      classes: [{ className: 'monk', level: 1 }],
+    });
+    expect(loadout.attacks[0]).toMatchObject({ hit: 'd20+5', damage: '1d6+3' });
+  });
+
+  it('не-монах, дальнее и тяжёлое воинское оружие — без подмены', () => {
+    const bow: AttackEntry = { ...dagger, id: 'bw', weaponKey: 'XPHB:Shortbow', rangeType: 'ranged', rangeNormal: 80, rangeLong: 320 };
+    const greatsword: AttackEntry = { ...dagger, id: 'gs', weaponKey: 'XPHB:Greatsword', damage: '2d6+str' };
+    const loadout = loadoutOf({
+      attacks: [bow, greatsword],
+      abilities: { str: 16, dex: 10 },
+      classes: [{ className: 'monk', level: 5 }],
+    });
+    expect(loadout.attacks[0]!.damage).toBe('1d4+str');
+    expect(loadout.attacks[1]!.damage).toBe('2d6+str');
+    expect(
+      loadoutOf({ attacks: [dagger], hands: { right: 'dg' }, abilities: { str: 16 }, classes: [{ className: 'fighter', level: 5 }] })
+        .attacks[0]!.damage
+    ).toBe('1d4+str');
+  });
+});

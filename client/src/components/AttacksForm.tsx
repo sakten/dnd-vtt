@@ -57,8 +57,20 @@ export default function AttacksForm({
   weaponContext,
   readOnly,
 }: Props) {
+  // Правка формул вручную помечается: классовые автопересчёты (монах/кэнсэй) её не трогают.
   const setAttack = (index: number, patch: Partial<AttackEntry>) =>
-    onChange(attacks.map((a, i) => (i === index ? { ...a, ...patch } : a)));
+    onChange(
+      attacks.map((a, i) =>
+        i === index
+          ? {
+              ...a,
+              ...patch,
+              ...(patch.hit !== undefined ? { manualHit: true } : {}),
+              ...(patch.damage !== undefined ? { manualDamage: true } : {}),
+            }
+          : a
+      )
+    );
   const addAttack = () => {
     if (attacks.length < MAX_ATTACKS) onChange([...attacks, emptyAttack()]);
   };

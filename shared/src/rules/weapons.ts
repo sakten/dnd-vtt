@@ -79,6 +79,12 @@ export function thrownRange(weapon: WeaponDef): { normal: number; long: number }
   return THROWN_RANGES[weapon.key];
 }
 
+/** Оружие монаха (2024): простое рукопашное или рукопашное воинское со свойством «Лёгкое». */
+export function isMonkWeapon(weapon: WeaponDef | undefined): boolean {
+  if (!weapon || weapon.unarmed || weapon.rangeType !== 'melee') return false;
+  return weapon.category === 'simple' || weapon.properties.includes('L');
+}
+
 /**
  * Атаки для оружия: обычная, а у метательного ближнего боя — ещё и бросок
  * (отдельная ranged-атака той же формулы: 5/0 в ближнем, например 20/60 броском).
@@ -156,11 +162,13 @@ export function weaponAbilityMod(weapon: WeaponDef, ctx: WeaponContext): number 
  * (дальнее и фехтовальное — Ловкость или лучшая, иначе Сила; безоружный удар
  * у монаха — Ловкость и кость боевых искусств). `offhand` — атака второй рукой
  * (Light/Nick): урон без модификатора, но не выше нуля.
+ * `monkWeapon` — считать оружие монашеским (кэнсэй-оружие: даже не-лёгкое воинское):
+ * попадание/урон — максимум из Силы и Ловкости, кость — не хуже кости боевых искусств.
  */
 export function weaponAttackEntry(
   weapon: WeaponDef,
   ctx: WeaponContext,
-  opts: { offhand?: boolean; grip?: '1h' | '2h' } = {}
+  opts: { offhand?: boolean; grip?: '1h' | '2h'; monkWeapon?: boolean } = {}
 ): AttackEntry {
   const totalLevel = ctx.classes.reduce((acc, entry) => acc + Math.max(1, entry.level), 0);
   const pb = proficiencyBonus(totalLevel || 1);
@@ -182,11 +190,17 @@ export function weaponAttackEntry(
     };
   }
 
-  const mod = weaponAbilityMod(weapon, ctx);
+  const monkLevel = ctx.classes.find((c) => c.className === 'monk')?.level ?? 0;
+  const monkWeapon = monkLevel > 0 && (opts.monkWeapon === true || isMonkWeapon(weapon));
+  const mod =
+    monkWeapon && weapon.rangeType === 'melee'
+      ? Math.max(abilityMod(ctx.abilities.str ?? 10), abilityMod(ctx.abilities.dex ?? 10))
+      : weaponAbilityMod(weapon, ctx);
   // Универсальное оружие: кость по хвату (`grip`), по умолчанию двуручная;
-  // атака второй рукой всегда одноручная.
+  // атака второй рукой всегда одноручная. У монаха кость заменяется костью боевых искусств.
   const versatile = weapon.properties.includes('V') && !!weapon.versatileDamage;
-  const dice = versatile && !opts.offhand && opts.grip !== '1h' ? weapon.versatileDamage! : weapon.damage;
+  let dice = versatile && !opts.offhand && opts.grip !== '1h' ? weapon.versatileDamage! : weapon.damage;
+  if (monkWeapon) dice = `1d${martialArtsDie(monkLevel)}`;
   return {
     name: weapon.name,
     hit: hitExpression(pb + mod),

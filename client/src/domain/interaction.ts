@@ -104,6 +104,8 @@ export type TargetingState =
       /** Точка действия (Spiritual Weapon): цель выбирается в 5 фт от неё. */
       origin?: Point;
       nearFeet?: number;
+      /** Вариант применения черты (Обольщающая магия: «charmed»/«frightened»). */
+      variant?: string;
     }
   | {
       kind: 'spell';
@@ -203,6 +205,8 @@ export type InteractionCommand =
         advantage?: 'a' | 'd';
         offhand?: boolean;
         cleave?: boolean;
+        /** Вариант применения черты (Обольщающая магия). */
+        variant?: string;
         /** Telekinesis: точка назначения для цели. */
         placements?: { targetId: string; x: number; y: number }[];
       };
@@ -314,6 +318,7 @@ export function confirmArea(interaction: Interaction | null): InteractionResult 
           advantage: aim.advantage,
           origin: aim.origin ?? undefined,
           direction: aim.direction ?? undefined,
+          ...(aim.variant ? { variant: aim.variant } : {}),
         },
       },
     };
@@ -362,6 +367,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           advantage: t.advantage,
           ...(t.offhand ? { offhand: true } : {}),
           ...(t.cleave ? { cleave: true } : {}),
+          ...(t.variant ? { variant: t.variant } : {}),
         },
       },
     };

@@ -751,6 +751,8 @@ export default function TableTop() {
 
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (drawMode.active && !interaction) return;
+    // Правая/средняя кнопка не применяет действие (ПКМ в режиме прицела — отмена в onContextMenu).
+    if (e.evt instanceof MouseEvent && e.evt.button !== 0) return;
     if (wallsMode.active) {
       if (!isDm || e.evt.button !== 0) return;
       const stage = e.target.getStage();
@@ -859,6 +861,12 @@ export default function TableTop() {
           onMouseUp={handleMouseUp}
           onClick={handleClick}
           onContextMenu={(e) => {
+            // ПКМ в режиме применения/прицеливания — отмена (а не подтверждение).
+            if (interaction) {
+              e.evt.preventDefault();
+              cancelInteraction();
+              return;
+            }
             if (!isDm || !activeMap) return;
             const stage = e.target.getStage();
             const pointer = stage?.getPointerPosition();

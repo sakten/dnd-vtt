@@ -93,6 +93,37 @@ describe('attackDamageRoll', () => {
   });
 });
 
+describe('досягаемость из записи атаки', () => {
+  it('ренж 10 в карточке: цель в 10 фт в досягаемости и получает урон', () => {
+    const reach = {
+      name: 'Глефа',
+      hit: 'd20+5',
+      damage: '1d10+3',
+      rangeType: 'melee' as const,
+      rangeNormal: 10,
+      rangeLong: 0,
+      damageType: 'slashing',
+    };
+    const attacker = makeToken('t1', { x: 50, y: 100, attacks: [reach] });
+    const target = makeToken('t2', { x: 150, y: 100, ac: '15', hpMax: '20', hpCurrent: 20 });
+    const room = makeCombatRoom([attacker, target]);
+    const f = makeConnCtx(room, { dm: true });
+    withRandom(0.5, () => {
+      const result = resolveWeaponAttack(f.ctx, {
+        attacker,
+        attackerMapId: 'm1',
+        target,
+        targetMapId: 'm1',
+        attack: reach,
+        author: 'A',
+      });
+      expect(result.error).toBeUndefined();
+      expect(result.hitRoll).toBeDefined();
+      expect(target.hpCurrent).toBeLessThan(20);
+    });
+  });
+});
+
 describe('оружие: граница ошибок', () => {
   const attack = (damage: string) => ({
     name: 'Меч',

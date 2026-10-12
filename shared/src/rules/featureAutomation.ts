@@ -14,6 +14,23 @@ import { featuresFor } from './features';
 
 export type FeatureMechanicsSource = FeatureMechanics | ((classes: ClassLevel[]) => FeatureMechanics);
 
+/** id действия Обольщающей магии (`class:<ключ>`); состояние выбирается при использовании. */
+export const BEGUILING_MAGIC_ID = 'class:bard.glamour:beguilingMagic';
+
+const BEGUILING_CONDITIONS = ['charmed', 'frightened'] as const;
+
+/** Варианты применения активной черты (`action:use.variant`); undefined — выбора нет. */
+export function featureChoiceOptions(actionId: string): readonly string[] | undefined {
+  return actionId === BEGUILING_MAGIC_ID ? BEGUILING_CONDITIONS : undefined;
+}
+
+/** Вариант применения: Обольщающая магия — Очарован (по умолчанию) или Испуган. */
+function withFeatureChoice(actionId: string, def: AutomationDef, choice?: string): AutomationDef {
+  if (actionId !== BEGUILING_MAGIC_ID) return def;
+  const condition = choice === 'frightened' ? 'frightened' : 'charmed';
+  return { ...def, effects: def.effects?.map((e) => ({ ...e, conditions: [condition] })) };
+}
+
 export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   // Варвар — ядро
   'barbarian:rage': (classes) => {
@@ -389,6 +406,32 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     };
   },
   'bard.valor:extraAttack': { trait: 'passive', native: true },
+  // Обольщающая магия (Обаяние, 3): цель в 60 фт — спас Мдр, при провале Очарован
+  // или Испуган (выбор при использовании) до успешного повтора в конце хода.
+  'bard.glamour:beguilingMagic': (classes) => {
+    if (bardLevel(classes) < 3) return { trait: 'passive' };
+    return {
+      trait: 'active',
+      name: 'Обольщающая магия',
+      costs: ['free'],
+      targeting: { kind: 'creature', range: 60 },
+      automation: {
+        key: BEGUILING_MAGIC_ID,
+        name: 'Обольщающая магия',
+        resolution: 'save',
+        save: { ability: 'wis' },
+        effects: [
+          {
+            name: 'Обольщающая магия',
+            duration: { type: 'untilSave', ability: 'wis', dc: 0, timing: 'end' },
+            to: 'targets',
+            modifiers: [],
+            conditions: ['charmed'],
+          },
+        ],
+      },
+    };
+  },
   // Мантия вдохновения (Обаяние, 3): бонусное действие, трата BI, 2×кость временных HP до CHA существ.
   'bard.glamour:mantleOfInspiration': (classes) => {
     const bard = classes.find((c) => c.className === 'bard');
@@ -434,6 +477,10 @@ function barbarianLevel(classes: ClassLevel[]): number {
   return clampLevel(classes.find((c) => c.className === 'barbarian')?.level ?? 0);
 }
 
+function bardLevel(classes: ClassLevel[]): number {
+  return clampLevel(classes.find((c) => c.className === 'bard')?.level ?? 0);
+}
+
 function monkLevel(classes: ClassLevel[]): number {
   return clampLevel(classes.find((c) => c.className === 'monk')?.level ?? 0);
 }
@@ -450,9 +497,14 @@ export function featureMechanics(key: string, classes: ClassLevel[] = []): Featu
 }
 
 /** Автоматизация активной черты по id действия (`class:<key>`), когда нет строки в `AUTOMATION_ACTIONS`. */
-export function featureActionAutomation(actionId: string, classes: ClassLevel[] | undefined): AutomationDef | undefined {
+export function featureActionAutomation(
+  actionId: string,
+  classes: ClassLevel[] | undefined,
+  choice?: string
+): AutomationDef | undefined {
   if (!actionId.startsWith('class:') || !classes) return undefined;
-  return featureMechanics(actionId.slice('class:'.length), classes)?.automation;
+  const def = featureMechanics(actionId.slice('class:'.length), classes)?.automation;
+  return def ? withFeatureChoice(actionId, def, choice) : undefined;
 }
 
 export interface PassiveFeature {

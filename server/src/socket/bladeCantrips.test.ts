@@ -303,6 +303,20 @@ describe('Booming Blade, True Strike и Zephyr Strike', () => {
     expect(primary.hpCurrent).toBe(27); // d20 11 + Инт 6 = 17 ≥ 12; (1d10+3 = 9) + (1d6 = 4)
   });
 
+  it('валидация: пустые формулы оружия в правой руке — weaponUnusable (действие не тратится)', () => {
+    const empty: AttackEntry = { ...SWORD, hit: '', damage: '' };
+    const { room, input } = setupSpell('XPHB:True Strike', { attacks: [empty] });
+    expect(validateSpellCast(room, input)).toEqual({ code: 'weaponUnusable' });
+  });
+
+  it('ренж оружия из карточки: True Strike достаёт цель в 10 фт при «Досягаемости» 10', () => {
+    const reach: AttackEntry = { ...SWORD, rangeNormal: 10 };
+    const { primary, f, input } = setupSpell('XPHB:True Strike', { attacks: [reach], targetAc: '12' });
+    primary.x = 150; // 10 фт от кастера
+    withRandom(0.5, () => resolveSpellCast(f.ctx, { ...input, variant: 'radiant' }));
+    expect(primary.hpCurrent).toBe(27); // атака состоялась и нанёсся урон
+  });
+
   it('Zephyr Strike: расход на атаку — преимущество, 1d8 силовым и скорость +30', () => {
     const { attacker, primary, f, input } = setupSpell('XGE:Zephyr Strike');
     withRandom(0.5, () => resolveSpellCast(f.ctx, input));

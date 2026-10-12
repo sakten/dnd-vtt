@@ -638,7 +638,7 @@ function unarmedStrikeEntry(
 export function registerActionHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, systemMessage } = ctx;
 
-    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction, placements, featureAmount }) => {
+    ctx.on('action:use', ({ mapId, tokenId, actionId, targetIds, attackIndex, advantage, slot, offhand, cleave, origin, direction, placements, featureAmount, variant }) => {
       if (!ctx.playerId || typeof actionId !== 'string') return;
       if (rejectIfReaction(ctx)) return;
       const scope = scopedToken(ctx, mapId, tokenId);
@@ -1098,7 +1098,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       // Автоматизированные действия (базовые/классовые) — через общий executor.
-      const def = automationForAction(action, { classes: sheet?.classes }) ?? featureActionAutomation(action.id, sheet?.classes);
+      const def =
+        automationForAction(action, { classes: sheet?.classes }) ??
+        featureActionAutomation(action.id, sheet?.classes, variant);
       if (def) {
         const targets = actionTargets(ctx, room, mapId, token, {
           area: abilityArea,

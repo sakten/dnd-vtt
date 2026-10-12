@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
 import { aimOriginKind } from '../domain/interaction';
@@ -21,7 +21,7 @@ import { useActionContext } from '../lib/useActionContext';
 import { useActiveMap } from '../store/hooks';
 import { spellMechanics } from '../lib/spellText';
 import { t } from '../i18n';
-import { baseActionLabel, masteryLabel } from '../i18n/domain';
+import { baseActionLabel, conditionLabel, masteryLabel } from '../i18n/domain';
 import { featureDisplayName } from '../i18n/names';
 import { useDragSize } from '../lib/useDragSize';
 import { useSpellByKey } from '../lib/useSpells';
@@ -31,6 +31,7 @@ import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 import FeatureIcon from './featureIcons';
 import LoadoutPanel from './LoadoutPanel';
+import Modal from './Modal';
 import SpellIcon from './SpellIcon';
 import ShapePicker from './ShapePicker';
 import SpellPopover from './SpellPopover';
@@ -108,6 +109,8 @@ export default function ActionPanel() {
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [shapeOpen, setShapeOpen] = useState(false);
   const [sharpen, setSharpen] = useState<ActionDef | null>(null);
+  /** Черта с выбором варианта при использовании (Обольщающая магия: Очарован/Испуган). */
+  const [choicePrompt, setChoicePrompt] = useState<{ action: ActionDef; options: readonly string[] } | null>(null);
   const shapeToken = useGameStore((s) => s.shapeToken);
   const revertShape = useGameStore((s) => s.revertShape);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
@@ -532,6 +535,16 @@ export default function ActionPanel() {
   };
 
   const activateAbility = (a: ActionDef) => {
+    // Черта с выбором при использовании (Обольщающая магия): сначала спрашиваем вариант.
+    const options = featureChoiceOptions(a.id);
+    if (options && options.length > 1) {
+      setChoicePrompt({ action: a, options });
+      return;
+    }
+    beginAbility(a);
+  };
+
+  const beginAbility = (a: ActionDef, variant?: string) => {
     const slot = abilitySlot(a);
     if (a.spellKey) {
       const spell = spellByKey.get(a.spellKey);
@@ -548,6 +561,7 @@ export default function ActionPanel() {
         spec: targeting.area,
         originKind: aimOriginKind(targeting.area.shape),
         rangeFeet: targeting.range ?? 30,
+        ...(variant ? { variant } : {}),
       });
       return;
     }
@@ -557,10 +571,17 @@ export default function ActionPanel() {
         startMultiTarget({ tokenId: token.id, actionId: a.id, slot, count, distinct: true });
         return;
       }
-      startTargeting({ kind: 'action', tokenId: token.id, actionId: a.id, slot, label: a.name });
+      startTargeting({
+        kind: 'action',
+        tokenId: token.id,
+        actionId: a.id,
+        slot,
+        label: a.name,
+        ...(variant ? { variant } : {}),
+      });
       return;
     }
-    runAction(token.id, a.id, { slot });
+    runAction(token.id, a.id, { slot, ...(variant ? { variant } : {}) });
   };
 
   const abilityButton = (a: ActionDef) => (
@@ -960,6 +981,27 @@ export default function ActionPanel() {
           abilityAction={casting.ability ? { id: casting.ability.id, slot: abilitySlot(casting.ability) } : undefined}
           onClose={() => setCasting(null)}
         />
+      )}
+      {choicePrompt && (
+        <Modal onClose={() => setChoicePrompt(null)} title={choicePrompt.action.name} testId="feature-choice">
+          <div className="sheet-section-title">{t('ui.action.chooseCondition')}</div>
+          <div className="ap-icons">
+            {choicePrompt.options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className="ap-chip"
+                onClick={() => {
+                  const action = choicePrompt.action;
+                  setChoicePrompt(null);
+                  beginAbility(action, option);
+                }}
+              >
+                {conditionLabel(option)}
+              </button>
+            ))}
+          </div>
+        </Modal>
       )}
       {tip && <IconTip tip={tip} />}
     </div>

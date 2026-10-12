@@ -13,6 +13,7 @@ export type ErrorCode =
   | 'noActions'
   | 'noWeapon'
   | 'noHeldWeapon'
+  | 'weaponUnusable'
   | 'noClubOrStaff'
   | 'legendaryOnly'
   | 'legendarySlotOnly'

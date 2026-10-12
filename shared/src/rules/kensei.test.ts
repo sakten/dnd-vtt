@@ -85,4 +85,19 @@ describe('kensei: monk weapon основной руки', () => {
     expect(isKenseiAttack(actor, longsword({ weaponKey: 'XPHB:Longbow' }))).toBe(false);
     expect(isKenseiAttack(actor, undefined)).toBe(false);
   });
+
+  it('ручные формулы не перетираются автопересчётом (manualHit/manualDamage)', () => {
+    const both = [
+      longsword({ manualHit: true, manualDamage: true, hit: 'd20+9', damage: '1d8+5' }),
+    ];
+    expect(
+      loadoutOf({ attacks: both, hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]
+    ).toMatchObject({ hit: 'd20+9', damage: '1d8+5' });
+
+    // Правили только попадание — урон остаётся костью боевых искусств.
+    const hitOnly = [longsword({ manualHit: true, hit: 'd20+9' })];
+    expect(
+      loadoutOf({ attacks: hitOnly, hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]
+    ).toMatchObject({ hit: 'd20+9', damage: '1d6+3' });
+  });
 });

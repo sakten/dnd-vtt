@@ -27,6 +27,8 @@ function coerceAttack(raw: Partial<AttackEntry> | null | undefined): AttackEntry
     kind: raw?.kind === 'unarmed' ? 'unarmed' : undefined,
     weaponKey: typeof raw?.weaponKey === 'string' && raw.weaponKey ? raw.weaponKey.slice(0, 80) : undefined,
     grip: raw?.grip === '1h' || raw?.grip === '2h' ? raw.grip : undefined,
+    manualHit: raw?.manualHit === true ? true : undefined,
+    manualDamage: raw?.manualDamage === true ? true : undefined,
   };
 }
 
