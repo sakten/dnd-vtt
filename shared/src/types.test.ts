@@ -50,7 +50,9 @@ describe('normalizeAttacks', () => {
     expect(manual?.manualHit).toBe(true);
     expect(manual?.manualDamage).toBe(true);
     const [auto] = normalizeAttacks([{ name: 'Меч', manualHit: false }]);
-    expect(auto?.manualHit).toBeUndefined();
+    expect(auto?.manualHit).toBe(false);
+    const [legacy] = normalizeAttacks([{ name: 'Меч' }]);
+    expect(legacy?.manualHit).toBeUndefined();
   });
 });
 

@@ -167,6 +167,32 @@ describe('атака по возможности в форме', () => {
     expect(opportunitySources(f.ctx, room, token).map((s) => s.name)).toEqual(['Скимитар']);
   });
 
+  it('персонаж: кривая «ближняя» запись с досягаемостью 120 (Fire Bolt) в OA не предлагается', () => {
+    const { room, token, f } = setup();
+    room.sheets['p1']!.attacks.push({
+      name: 'Огненный снаряд',
+      hit: 'd20+3+d4',
+      damage: 'd10',
+      rangeType: 'melee',
+      rangeNormal: 120,
+      rangeLong: 0,
+    });
+    expect(opportunitySources(f.ctx, room, token).map((s) => s.name)).toEqual(['Скимитар']);
+  });
+
+  it('персонаж: досягаемость 10 (кнут/древковое) в OA остаётся', () => {
+    const { room, token, f } = setup();
+    room.sheets['p1']!.attacks.push({
+      name: 'Кнут',
+      hit: 'd20+5',
+      damage: '1d4+3',
+      rangeType: 'melee',
+      rangeNormal: 10,
+      rangeLong: 0,
+    });
+    expect(opportunitySources(f.ctx, room, token).map((s) => s.name)).toEqual(['Скимитар', 'Кнут']);
+  });
+
   it('мёртвый реактор не бьёт атаку по возможности', () => {
     const { room, token, f } = setup();
     token.conditions = [{ key: 'dead', name: 'Мёртв' }];

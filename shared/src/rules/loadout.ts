@@ -8,7 +8,7 @@ import { proficiencyBonus } from './classes';
 import { handAttackOf, rightGrip, type HandKey } from './hands';
 import { kenseiWeaponKeyOf } from './kensei';
 import { d20Expr } from './sheet';
-import { damageExpression, isMonkWeapon, weaponAttackEntry, weaponByKey, type WeaponContext } from './weapons';
+import { damageExpression, isMonkWeapon, weaponAttackEntry, weaponByKey, type WeaponContext, type WeaponDef } from './weapons';
 
 /** Контекст оружия из листа персонажа (характеристики, классы, выборы). */
 export function weaponContextOf(sheet?: CharacterSheet | null): WeaponContext {
@@ -139,15 +139,36 @@ function applyMonkWeapon(
   if (!weapon || weapon.unarmed) return attack;
   const kensei = attack.weaponKey === kenseiKey;
   if (!kensei && !isMonkWeapon(weapon)) return attack;
-  const entry = weaponAttackEntry(weapon, context, {
-    ...(!kensei && hands?.right === attack.id ? { grip: rightGrip(attacks, hands) } : {}),
-    monkWeapon: true,
-  });
-  // Ручные формулы в листе уважаем: автопересчёт трогает только нетронутые поля.
-  const hit = attack.manualHit ? attack.hit : entry.hit;
-  const damage = attack.manualDamage ? attack.damage : entry.damage;
+  const baseOpts = { ...(!kensei && hands?.right === attack.id ? { grip: rightGrip(attacks, hands) } : {}) };
+  // Базовый (немонашеский) расчёт — для сравнения: совпадает → запись считаем авторасчётом.
+  const base = weaponAttackEntry(weapon, context, { ...baseOpts, monkWeapon: false });
+  const entry = weaponAttackEntry(weapon, context, { ...baseOpts, monkWeapon: true });
+  // Пометка: `true` — правили вручную; `false` — явный авторасчёт (добавлено из списка);
+  // `undefined` — старая запись: ручной считаем, если формула не совпала с авторасчётом
+  // (сохраняем ручное «+1»-оружие), иначе обновляем по правилам класса.
+  const autoHit =
+    attack.manualHit === false || (attack.manualHit === undefined && attack.hit.trim() === base.hit);
+  const autoDamage =
+    attack.manualDamage === false ||
+    (attack.manualDamage === undefined && damageIsAuto(weapon, context, baseOpts, attack.damage, base.damage));
+  const hit = autoHit ? entry.hit : attack.hit;
+  const damage = autoDamage ? entry.damage : attack.damage;
   if (hit === attack.hit && damage === attack.damage) return attack;
   return { ...attack, hit, damage };
+}
+
+/** Совпадает ли урон с авторасчётом: текущий хват или второй хват универсального оружия. */
+function damageIsAuto(
+  weapon: WeaponDef,
+  context: WeaponContext,
+  baseOpts: { grip?: '1h' | '2h' },
+  damage: string,
+  baseDamage: string
+): boolean {
+  if (damage.trim() === baseDamage) return true;
+  if (!weapon.properties.includes('V') || !weapon.versatileDamage) return false;
+  const otherGrip = baseOpts.grip === '1h' ? '2h' : '1h';
+  return damage.trim() === weaponAttackEntry(weapon, context, { ...baseOpts, grip: otherGrip, monkWeapon: false }).damage;
 }
 
 /**

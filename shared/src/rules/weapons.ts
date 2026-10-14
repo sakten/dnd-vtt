@@ -191,7 +191,9 @@ export function weaponAttackEntry(
   }
 
   const monkLevel = ctx.classes.find((c) => c.className === 'monk')?.level ?? 0;
-  const monkWeapon = monkLevel > 0 && (opts.monkWeapon === true || isMonkWeapon(weapon));
+  // `monkWeapon: false` — явно без монашеской подмены (базовый расчёт для сравнения в loadout).
+  const monkWeapon =
+    monkLevel > 0 && opts.monkWeapon !== false && (opts.monkWeapon === true || isMonkWeapon(weapon));
   const mod =
     monkWeapon && weapon.rangeType === 'melee'
       ? Math.max(abilityMod(ctx.abilities.str ?? 10), abilityMod(ctx.abilities.dex ?? 10))

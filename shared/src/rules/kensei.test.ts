@@ -7,8 +7,8 @@ import { loadoutOf } from './loadout';
 const longsword = (patch: Partial<AttackEntry> = {}): AttackEntry => ({
   id: 'a1',
   name: 'Longsword',
-  hit: 'd20+str',
-  damage: '1d8+str',
+  hit: 'd20+2',
+  damage: '1d8',
   damageType: 'slashing',
   rangeType: 'melee',
   rangeNormal: 5,
@@ -67,16 +67,17 @@ describe('kensei: monk weapon основной руки', () => {
   });
 
   it('кость растёт по уровню монаха (11 ур. — d10)', () => {
-    const loadout = loadoutOf({ attacks: [longsword()], hands: hands('a1'), abilities, classes: kensei(11) });
+    const loadout = loadoutOf({ attacks: [longsword({ hit: 'd20+4' })], hands: hands('a1'), abilities, classes: kensei(11) });
     expect(loadout.attacks[0]!.damage).toBe('1d10+3');
+    expect(loadout.attacks[0]!.hit).toBe('d20+7');
   });
 
   it('без кэнсэй-уровня, в левой руке или с недопустимым оружием — без подмены', () => {
     const base = [longsword()];
-    expect(loadoutOf({ attacks: base, hands: hands('a1'), abilities, classes: kensei(2) }).attacks[0]!.damage).toBe('1d8+str');
-    expect(loadoutOf({ attacks: base, hands: hands(undefined, 'a1'), abilities, classes: kensei(3) }).attacks[0]!.damage).toBe('1d8+str');
-    expect(loadoutOf({ attacks: base, hands: hands('a1'), abilities, classes: [{ className: 'monk', level: 3, subclass: 'openHand' }] }).attacks[0]!.damage).toBe('1d8+str');
-    expect(loadoutOf({ attacks: [longsword({ weaponKey: 'XPHB:Greatsword' })], hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]!.damage).toBe('1d8+str');
+    expect(loadoutOf({ attacks: base, hands: hands('a1'), abilities, classes: kensei(2) }).attacks[0]!.damage).toBe('1d8');
+    expect(loadoutOf({ attacks: base, hands: hands(undefined, 'a1'), abilities, classes: kensei(3) }).attacks[0]!.damage).toBe('1d8');
+    expect(loadoutOf({ attacks: base, hands: hands('a1'), abilities, classes: [{ className: 'monk', level: 3, subclass: 'openHand' }] }).attacks[0]!.damage).toBe('1d8');
+    expect(loadoutOf({ attacks: [longsword({ weaponKey: 'XPHB:Greatsword' })], hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]!.damage).toBe('1d8');
   });
 
   it('isKenseiAttack: атака именно кэнсэй-оружием основной руки', () => {
@@ -99,5 +100,19 @@ describe('kensei: monk weapon основной руки', () => {
     expect(
       loadoutOf({ attacks: hitOnly, hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]
     ).toMatchObject({ hit: 'd20+9', damage: '1d6+3' });
+  });
+
+  it('старые записи без пометки: ручное «+1» не перетирается, авторасчёт обновляется', () => {
+    // Ручная запись (формулы не совпадают с авторасчётом) — сохраняем как есть.
+    const legacyManual = [longsword({ hit: 'd20+9', damage: '1d8+5' })];
+    expect(
+      loadoutOf({ attacks: legacyManual, hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]
+    ).toMatchObject({ hit: 'd20+9', damage: '1d8+5' });
+
+    // Авторасчётная запись (канон для текущих уровня/характеристик) — обновляем.
+    const canonical = [longsword()];
+    expect(
+      loadoutOf({ attacks: canonical, hands: hands('a1'), abilities, classes: kensei(3) }).attacks[0]
+    ).toMatchObject({ hit: 'd20+5', damage: '1d6+3' });
   });
 });

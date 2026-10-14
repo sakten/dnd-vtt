@@ -154,11 +154,12 @@ describe('weaponContextOf', () => {
 });
 
 describe('оружие монаха (Martial Arts)', () => {
+  /** Канон для монаха 5 ур., Сила 10 / Лов 16: попадание d20+6, кость кинжала 1d4+3. */
   const dagger: AttackEntry = {
     id: 'dg',
     name: 'Кинжал',
-    hit: 'd20+str',
-    damage: '1d4+str',
+    hit: 'd20+6',
+    damage: '1d4+3',
     damageType: 'piercing',
     rangeType: 'melee',
     rangeNormal: 5,
@@ -178,12 +179,22 @@ describe('оружие монаха (Martial Arts)', () => {
 
   it('1 уровень: кинжал d6 вместо d4, попадание от Силы при её превосходстве', () => {
     const loadout = loadoutOf({
-      attacks: [dagger],
+      attacks: [{ ...dagger, hit: 'd20+5' }],
       hands: { right: 'dg' },
       abilities: { str: 16, dex: 10 },
       classes: [{ className: 'monk', level: 1 }],
     });
     expect(loadout.attacks[0]).toMatchObject({ hit: 'd20+5', damage: '1d6+3' });
+  });
+
+  it('ручные формулы старой записи не перетираются (нет канона — считаем ручной)', () => {
+    const loadout = loadoutOf({
+      attacks: [{ ...dagger, hit: 'd20+9', damage: '1d4+5' }],
+      hands: { right: 'dg' },
+      abilities: { str: 10, dex: 16 },
+      classes: [{ className: 'monk', level: 5 }],
+    });
+    expect(loadout.attacks[0]).toMatchObject({ hit: 'd20+9', damage: '1d4+5' });
   });
 
   it('не-монах, дальнее и тяжёлое воинское оружие — без подмены', () => {
@@ -194,11 +205,11 @@ describe('оружие монаха (Martial Arts)', () => {
       abilities: { str: 16, dex: 10 },
       classes: [{ className: 'monk', level: 5 }],
     });
-    expect(loadout.attacks[0]!.damage).toBe('1d4+str');
+    expect(loadout.attacks[0]!.damage).toBe('1d4+3');
     expect(loadout.attacks[1]!.damage).toBe('2d6+str');
     expect(
       loadoutOf({ attacks: [dagger], hands: { right: 'dg' }, abilities: { str: 16 }, classes: [{ className: 'fighter', level: 5 }] })
         .attacks[0]!.damage
-    ).toBe('1d4+str');
+    ).toBe('1d4+3');
   });
 });

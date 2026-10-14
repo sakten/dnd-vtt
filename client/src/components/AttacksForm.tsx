@@ -81,8 +81,11 @@ export default function AttacksForm({
     if (!weaponContext) return;
     const display = weaponDisplayName(weapon.key, weapon.name);
     // Метательное ближнего боя добавляется двумя атаками: ближней (5/0) и броском.
+    // Формулы из списка — авторасчёт (`manual*: false`): классовые пересчёты их обновляют.
     const entries = weaponAttackEntries(weapon, weaponContext).map((e, i) => ({
       ...e,
+      manualHit: false,
+      manualDamage: false,
       name: i > 0 ? `${display} (${t('ui.attacks.thrown')})` : display,
     }));
     if (weapon.unarmed) {

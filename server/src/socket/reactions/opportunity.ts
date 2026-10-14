@@ -38,14 +38,15 @@ export interface OpportunitySource {
 /** Melee-атаки текущего облика: в форме — статблок зверя (actorStats), иначе своё оружие. */
 function meleeWeapons(room: Room, token: Token): AttackEntry[] {
   const hasSheet = !!sheetOfToken(room, token).sheet;
-  return actorStats(room, token).attacks.filter(
-    (a) =>
-      a.hit &&
-      (a.rangeType === 'melee' ||
-        // «Без дистанции» — атаки статблоков (укус и т.п.); у персонажа такую запись
-        // (например, добавленный вручную кантрип-«выстрел») в OA не предлагаем.
-        (a.rangeType === 'none' && !hasSheet))
-  );
+  return actorStats(room, token).attacks.filter((a) => {
+    if (!a.hit) return false;
+    // «Без дистанции» — атаки статблоков (укус и т.п.); у персонажа такую запись
+    // (например, добавленный вручную кантрип-«выстрел») в OA не предлагаем.
+    if (a.rangeType === 'none') return !hasSheet;
+    if (a.rangeType !== 'melee') return false;
+    // Персонаж: досягаемость выше оружейной — ручная запись-заклинание (Fire Bolt 120 фт).
+    return !hasSheet || a.rangeNormal <= CHARACTER_MELEE_REACH_FT;
+  });
 }
 
 /** Melee-способности статблока (у зверей атаки лежат в actions, не в attacks). */
@@ -56,6 +57,9 @@ function meleeAbilities(token: Token): ActionDef[] {
 /**
  * Все подходящие атаки для OA: оружие/атаки формы → melee-способности статблока →
  * безоружный удар персонажа (только без формы: у зверя своих безоружных нет).
+ * Персонажу в OA предлагаем только настоящее ближнее оружие/безоружный удар:
+ * «без дистанции» и «досягаемость» 60–120 фт — это ручные записи-заклинания
+ * (например, «Огненный снаряд»), им в OA не место.
  */
 export function opportunitySources(ctx: ConnCtx, room: Room, token: Token): OpportunitySource[] {
   const out: OpportunitySource[] = meleeWeapons(room, token).map((w) => ({ name: w.name, weapon: w }));
@@ -67,6 +71,9 @@ export function opportunitySources(ctx: ConnCtx, room: Room, token: Token): Oppo
   const unarmed = unarmedStrikeEntry(undefined, { abilities, classes: sheet.classes, choices: sheet.choices });
   return [{ name: unarmed.name, weapon: unarmed }];
 }
+
+/** Максимальная досягаемость оружия ближнего боя персонажа (дальше — запись не оружие). */
+const CHARACTER_MELEE_REACH_FT = 15;
 
 /** Первая подходящая атака (без выбора) — авто-OA и ответные атаки черт. */
 export function opportunityAttack(ctx: ConnCtx, room: Room, token: Token): OpportunitySource | null {
