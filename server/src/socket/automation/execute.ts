@@ -16,6 +16,7 @@ import {
   rollDice,
   saveNoDamage,
   seesInvisible,
+  seesHidden,
   sideMatches,
   sourcesCounts,
   takenDamageParts,
@@ -207,6 +208,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       surrounded,
       attackerSeesInvisible: seesInvisible(caster.effects),
       targetSeesInvisible: seesInvisible(target.effects),
+      attackerSeesHidden: seesHidden(caster, distance),
+      targetSeesHidden: seesHidden(target, distance),
     });
     // Storm Sphere: цель внутри сферы-источника действия — преимущество броска атаки.
     if (advantageInZone && run.zoneId && castMap) {

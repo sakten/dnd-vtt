@@ -4,6 +4,7 @@ import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
 import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
 import { areaCellKey, areaCellsSpread, cellCenter, cellChebyshev, pointCell, type AreaGrid } from './areas';
+import { seesInvisible } from './effects';
 import { crossesWalls, type Point } from './walls';
 import { wallsWithZones } from './zoneWalls';
 
@@ -228,6 +229,19 @@ export function tokenSenses(token: Pick<Token, 'senses' | 'effects'>): Sense[] {
     if (range !== undefined && range > 0) out.push({ type, range });
   }
   return out;
+}
+
+/**
+ * Зритель видит скрытых (условие `hidden`): соседняя клетка (≤5 фт), истинное
+ * зрение в пределах дальности или эффект «видит невидимых» (See Invisibility).
+ */
+export function seesHidden(
+  viewer: Pick<Token, 'senses' | 'effects'>,
+  distanceFeet: number
+): boolean {
+  if (seesInvisible(viewer.effects)) return true;
+  if (distanceFeet <= 5) return true;
+  return tokenSenses(viewer).some((s) => s.type === 'truesight' && s.range >= distanceFeet);
 }
 
 /** Вид области, накрывающей точку (первая по списку), иначе null. */

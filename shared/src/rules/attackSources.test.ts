@@ -73,6 +73,22 @@ describe('collectAttackSources', () => {
     expect(collectAttackSources({ targetConditions: invisible, attackerSeesInvisible: true })).toEqual([]);
   });
 
+  it('Скрытый: adv/dis как у невидимости, отмена «увидевшим» (сосед/истинное зрение)', () => {
+    const hidden = [cond('hidden')];
+    expect(collectAttackSources({ attackerConditions: hidden })).toEqual([
+      { side: 'advantage', kind: 'condition', key: 'hidden' },
+    ]);
+    expect(collectAttackSources({ attackerConditions: hidden, targetSeesHidden: true })).toEqual([]);
+    expect(collectAttackSources({ targetConditions: hidden })).toEqual([
+      { side: 'disadvantage', kind: 'condition', key: 'hidden' },
+    ]);
+    expect(collectAttackSources({ targetConditions: hidden, attackerSeesHidden: true })).toEqual([]);
+    // См. невидимых не мешает: у скрытого своя отмена.
+    expect(collectAttackSources({ targetConditions: hidden, attackerSeesInvisible: true })).toEqual([
+      { side: 'disadvantage', kind: 'condition', key: 'hidden' },
+    ]);
+  });
+
   it('Shadow Blade: цель в сумерках/темноте — преимущество (dusk)', () => {
     expect(collectAttackSources({ dusk: true })).toEqual([{ side: 'advantage', kind: 'rule', key: 'shadowBlade' }]);
     expect(collectAttackSources({ dusk: false })).toEqual([]);

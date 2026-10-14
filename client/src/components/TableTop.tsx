@@ -21,6 +21,7 @@ import {
   pointCell,
   reachableCells,
   seesInvisible,
+  seesHidden,
   segmentRectDistance,
   shadowBladeEffectIdOf,
   sightContextOf,
@@ -430,6 +431,8 @@ export default function TableTop() {
       dusk: !!attack && !!shadowBladeEffectIdOf(attack) && lightLevelAt(sight, { x: to.x, y: to.y }) !== 'bright',
       attackerSeesInvisible: seesInvisible(from.effects),
       targetSeesInvisible: seesInvisible(to.effects),
+      attackerSeesHidden: seesHidden(from, feet),
+      targetSeesHidden: seesHidden(to, feet),
       attackerEffects: from.effects,
       targetEffects: to.effects,
       effectContext: {

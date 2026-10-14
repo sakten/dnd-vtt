@@ -1,5 +1,5 @@
 /** Типы восприятия (зрения): значение — дистанция в футах. */
-export const SENSE_TYPES = ['darkvision', 'blindsight', 'devilsight'] as const;
+export const SENSE_TYPES = ['darkvision', 'blindsight', 'devilsight', 'truesight'] as const;
 
 export type SenseType = (typeof SENSE_TYPES)[number];
 
@@ -15,4 +15,5 @@ export const DEFAULT_SENSE_RANGES: Record<SenseType, number> = {
   darkvision: 60,
   blindsight: 10,
   devilsight: 120,
+  truesight: 120,
 };

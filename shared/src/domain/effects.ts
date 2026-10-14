@@ -13,6 +13,7 @@ export type ConditionKey =
   | 'exhaustion'
   | 'frightened'
   | 'grappled'
+  | 'hidden'
   | 'incapacitated'
   | 'invisible'
   | 'paralyzed'

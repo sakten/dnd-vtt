@@ -31,9 +31,11 @@ describe('каталог состояний', () => {
 describe('авто-эффекты', () => {
   it('преимущество/помеха атакующему', () => {
     expect(attackerAdvantage([c('invisible')])).toBe(true);
+    expect(attackerAdvantage([c('hidden')])).toBe(true);
     expect(attackerAdvantage([c('poisoned')])).toBe(false);
     expect(attackerDisadvantage([c('poisoned')])).toBe(true);
     expect(attackerDisadvantage([c('prone')])).toBe(true);
+    expect(attackerDisadvantage([c('hidden')])).toBe(false);
     expect(attackerDisadvantage([c('charmed')])).toBe(false);
   });
 
@@ -42,6 +44,7 @@ describe('авто-эффекты', () => {
     expect(advantageAgainst([c('prone')], 'melee')).toBe(true);
     expect(advantageAgainst([c('prone')], 'ranged')).toBe(false);
     expect(disadvantageAgainst([c('invisible')], 'melee')).toBe(true);
+    expect(disadvantageAgainst([c('hidden')], 'melee')).toBe(true);
     expect(disadvantageAgainst([c('prone')], 'ranged')).toBe(true);
     expect(disadvantageAgainst([c('prone')], 'melee')).toBe(false);
   });

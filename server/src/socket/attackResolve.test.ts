@@ -667,3 +667,73 @@ describe('атака оружием по себе запрещена', () => {
     expect(tk.hpCurrent).toBe(23); // 1d6 4 + 3
   });
 });
+
+describe('скрытый (hidden): adv/dis и отмена соседом/истинным зрением', () => {
+  const entry = {
+    name: 'Меч',
+    hit: 'd20+5',
+    damage: '1d8+3',
+    rangeType: 'melee' as const,
+    rangeNormal: 15,
+    rangeLong: 0,
+    damageType: 'slashing',
+  };
+  const hidden = [{ key: 'hidden' as const, name: 'Скрытый', rounds: null }];
+
+  const prep = (opts: {
+    attackerX: number;
+    targetX: number;
+    attackerHidden?: boolean;
+    targetHidden?: boolean;
+    attackerSenses?: { type: 'truesight'; range: number }[];
+    targetSenses?: { type: 'truesight'; range: number }[];
+  }) => {
+    const attacker = makeToken('t1', {
+      x: opts.attackerX,
+      y: 100,
+      faction: 'ally',
+      conditions: opts.attackerHidden ? hidden : [],
+      ...(opts.attackerSenses ? { senses: opts.attackerSenses } : {}),
+    });
+    const target = makeToken('t2', {
+      x: opts.targetX,
+      y: 100,
+      faction: 'enemy',
+      ac: '15',
+      hpMax: '20',
+      hpCurrent: 20,
+      conditions: opts.targetHidden ? hidden : [],
+      ...(opts.targetSenses ? { senses: opts.targetSenses } : {}),
+    });
+    const room = makeCombatRoom([attacker, target]);
+    const f = makeConnCtx(room, { dm: true });
+    const result = prepareWeaponAttack(f.ctx, {
+      attacker,
+      attackerMapId: 'm1',
+      target,
+      targetMapId: 'm1',
+      attack: entry,
+      author: 'A',
+      ignoreRange: true,
+    });
+    return result.prep!;
+  };
+
+  it('скрытый атакующий: преимущество, пока цель не увидела', () => {
+    expect(prep({ attackerX: 50, targetX: 150, attackerHidden: true }).advCount).toBe(1);
+    // Цель с истинным зрением (10 фт в пределах 60) — отмена.
+    expect(
+      prep({ attackerX: 50, targetX: 150, attackerHidden: true, targetSenses: [{ type: 'truesight', range: 60 }] }).advCount
+    ).toBe(0);
+    // Соседняя клетка (5 фт) — тоже отмена.
+    expect(prep({ attackerX: 50, targetX: 100, attackerHidden: true }).advCount).toBe(0);
+  });
+
+  it('скрытая цель: помеха, пока атакующий не увидел', () => {
+    expect(prep({ attackerX: 50, targetX: 150, targetHidden: true }).disCount).toBe(1);
+    expect(
+      prep({ attackerX: 50, targetX: 150, targetHidden: true, attackerSenses: [{ type: 'truesight', range: 60 }] }).disCount
+    ).toBe(0);
+    expect(prep({ attackerX: 50, targetX: 100, targetHidden: true }).disCount).toBe(0);
+  });
+});

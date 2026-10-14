@@ -1576,6 +1576,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.sense.darkvision': 'Darkvision',
   'domain.sense.blindsight': 'Blindsight',
   'domain.sense.devilsight': "Devil's Sight",
+  'domain.sense.truesight': 'Truesight',
 
   'domain.lightArea.darkness': 'Darkness',
   'domain.lightArea.magical': 'Magical Darkness',
@@ -1671,6 +1672,9 @@ export const en: Partial<Record<MessageKey, string>> = {
   'domain.condition.frightened': 'Frightened',
   'domain.conditionHint.frightened': 'Disadvantage on attacks and checks while the source is in sight; cannot move closer.',
   'domain.condition.grappled': 'Grappled',
+  'domain.condition.hidden': 'Hidden',
+  'domain.conditionHint.hidden':
+    'Hidden: visible only from adjacent cells or with truesight; attacks have advantage; attacks against it have disadvantage.',
   'domain.conditionHint.grappled': 'Speed 0; disadvantage on attacks; attacks against it have advantage.',
   'domain.condition.incapacitated': 'Incapacitated',
   'domain.conditionHint.incapacitated': 'Cannot take actions or reactions.',

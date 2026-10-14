@@ -33,6 +33,10 @@ export interface AttackSourceInput {
   attackerSeesInvisible?: boolean;
   /** Цель видит невидимых: преимущество невидимого атакующего не действует. */
   targetSeesInvisible?: boolean;
+  /** Атакующий видит скрытых (сосед/истинное зрение/See Invisibility): помеха по скрытой цели не действует. */
+  attackerSeesHidden?: boolean;
+  /** Цель видит скрытых: преимущество скрытого атакующего не действует. */
+  targetSeesHidden?: boolean;
   /** Опциональное правило «Окружение»: цель окружена смежными врагами. */
   surrounded?: boolean;
   /** Shadow Blade: цель в сумерках/темноте — преимущество клинка тени. */
@@ -57,6 +61,7 @@ export function collectAttackSources(input: AttackSourceInput): AttackSource[] {
   if (input.explicit === 'd') out.push({ side: 'disadvantage', kind: 'explicit' });
   for (const key of attackerAdvantageReasons(input.attackerConditions)) {
     if (key === 'invisible' && input.targetSeesInvisible) continue;
+    if (key === 'hidden' && input.targetSeesHidden) continue;
     out.push(condition('advantage', key));
   }
   for (const key of attackerDisadvantageReasons(input.attackerConditions)) out.push(condition('disadvantage', key));
@@ -64,6 +69,7 @@ export function collectAttackSources(input: AttackSourceInput): AttackSource[] {
     for (const key of advantageAgainstReasons(input.targetConditions, rangeType)) out.push(condition('advantage', key));
     for (const key of disadvantageAgainstReasons(input.targetConditions, rangeType)) {
       if (key === 'invisible' && input.attackerSeesInvisible) continue;
+      if (key === 'hidden' && input.attackerSeesHidden) continue;
       out.push(condition('disadvantage', key));
     }
   }

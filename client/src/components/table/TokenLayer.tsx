@@ -4,7 +4,7 @@ import TokenView from '../TokenView';
 import { useImage } from '../../lib/useImage';
 import { tokenImageUrl } from '../../lib/imageVariants';
 import { isCellHidden, type WorldPoint } from '../../lib/fog';
-import { tokenInvisible } from '../../lib/visibility';
+import { tokenHidden, tokenInvisible } from '../../lib/visibility';
 import { t } from '../../i18n';
 
 /** Бледная копия токена на месте начала перетаскивания. */
@@ -73,7 +73,7 @@ export default function TokenLayer({
             !banishedHidden.has(tok.id)
         )
         .map((tok) => (
-          <TokenView key={tok.id} token={tok} ghost={tokenInvisible(tok) || isBanished(tok)} />
+          <TokenView key={tok.id} token={tok} ghost={tokenInvisible(tok) || tokenHidden(tok) || isBanished(tok)} />
         ))}
       {dragPath && dragPath.points.length > 1 && (
         <>

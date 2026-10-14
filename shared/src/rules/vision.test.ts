@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
 import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee, lightCells, lightLevelAt, tokenSenses, zoneVisionCells, zoneVisionKind, zoneVisionKindAt } from './vision';
+import { canSee, lightCells, lightLevelAt, seesHidden, tokenSenses, zoneVisionCells, zoneVisionKind, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -280,5 +280,28 @@ describe('lightLevelAt (Shadow Blade: свет у цели)', () => {
     expect(lightLevelAt({ ...SIGHT, light }, point)).toBe('dim');
     expect(lightLevelAt({ ...SIGHT, light }, { x: 75, y: 25 })).toBe('bright');
     expect(lightLevelAt({ ...DARK_SIGHT, light }, { x: 75, y: 25 })).toBe('bright');
+  });
+});
+
+describe('seesHidden', () => {
+  const viewer = (patch: { senses?: Sense[]; effects?: { seesInvisible?: boolean }[] } = {}) => ({
+    senses: patch.senses ?? [],
+    effects: (patch.effects ?? []) as never,
+  });
+
+  it('соседняя клетка видна всем, дальше — нет', () => {
+    expect(seesHidden(viewer(), 5)).toBe(true);
+    expect(seesHidden(viewer(), 10)).toBe(false);
+  });
+
+  it('истинное зрение: в пределах дальности видно, дальше — нет', () => {
+    const truesight = viewer({ senses: [{ type: 'truesight', range: 60 }] });
+    expect(seesHidden(truesight, 30)).toBe(true);
+    expect(seesHidden(truesight, 120)).toBe(false);
+    expect(seesHidden(viewer({ senses: [{ type: 'darkvision', range: 120 }] }), 120)).toBe(false);
+  });
+
+  it('See Invisibility (эффект) раскрывает скрытого на любой дистанции', () => {
+    expect(seesHidden(viewer({ effects: [{ seesInvisible: true }] }), 600)).toBe(true);
   });
 });

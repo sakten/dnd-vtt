@@ -14,6 +14,7 @@ export const CONDITION_NAMES: Record<ConditionKey, string> = {
   exhaustion: 'Истощение',
   frightened: 'Испуган',
   grappled: 'Схвачен',
+  hidden: 'Скрытый',
   incapacitated: 'Недееспособен',
   invisible: 'Невидим',
   paralyzed: 'Парализован',
@@ -42,6 +43,7 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionKey, string> = {
   exhaustion: '−2 к броскам d20 и −5 фт скорости за каждый уровень; 6 — смерть.',
   frightened: 'Помеха на атаки и проверки, пока источник в поле зрения; не может приближаться.',
   grappled: 'Скорость 0; помеха на атаки; по нему — преимущество.',
+  hidden: 'Скрыт: видно только с соседних клеток или истинным зрением; атаки с преимуществом; по нему — с помехой.',
   incapacitated: 'Не может совершать действия и реакции.',
   invisible: 'Атаки с преимуществом; по нему — с помехой; не отображается игрокам.',
   paralyzed: 'Недееспособен, не двигается; авто-провал спасбросков Str/Dex; атаки в упор — авто-крит.',
@@ -84,7 +86,7 @@ const matchingKeys = (c: ConditionInstance[] | undefined, ...keys: ConditionKey[
 
 /** Атакующий получает преимущество (Невидим, скрыт и т.п.). */
 export function attackerAdvantageReasons(conditions: ConditionInstance[] | undefined): ConditionKey[] {
-  return matchingKeys(conditions, 'invisible');
+  return matchingKeys(conditions, 'invisible', 'hidden');
 }
 
 /** Атакующий получает преимущество (краткая проверка). */
@@ -120,12 +122,12 @@ export function advantageAgainst(
   return advantageAgainstReasons(conditions, rangeType).length > 0;
 }
 
-/** Помеха по цели (Невидим; Сбит с ног — дальний). */
+/** Помеха по цели (Невидим, Скрытый; Сбит с ног — дальний). */
 export function disadvantageAgainstReasons(
   conditions: ConditionInstance[] | undefined,
   rangeType: AttackRangeType = 'melee'
 ): ConditionKey[] {
-  const out = matchingKeys(conditions, 'invisible');
+  const out = matchingKeys(conditions, 'invisible', 'hidden');
   if (rangeType === 'ranged') out.push(...matchingKeys(conditions, 'prone'));
   return out;
 }

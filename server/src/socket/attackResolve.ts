@@ -33,6 +33,7 @@ import {
   rollDice,
   rollMode,
   seesInvisible,
+  seesHidden,
   shadowBladeEffectIdOf,
   sightContextOf,
   sourcesCounts,
@@ -370,6 +371,13 @@ export function prepareWeaponAttack(
     dusk,
     attackerSeesInvisible: seesInvisible(attacker?.effects),
     targetSeesInvisible: seesInvisible(target?.effects),
+    // Скрытый: виден с соседней клетки, истинным зрением (в пределах) или See Invisibility.
+    attackerSeesHidden:
+      !!attacker && !!target && hasTarget &&
+      seesHidden({ effects: attacker.effects, senses: actorStats(room, attacker).senses }, distanceFeet),
+    targetSeesHidden:
+      !!attacker && !!target && hasTarget &&
+      seesHidden({ effects: target.effects, senses: actorStats(room, target).senses }, distanceFeet),
   });
   const { advantage: advCount, disadvantage: disCount } = sourcesCounts(sources);
 

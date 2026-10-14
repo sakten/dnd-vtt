@@ -12,6 +12,7 @@ const PATHS: Record<ConditionKey, string> = {
   exhaustion: 'M13 2 4 14h6l-1 8 9-12h-6z',
   frightened: 'M12 3l9 16H3z M12 9v4 M12 16h.01',
   grappled: 'M9 8a3 3 0 1 1 6 0v3a3 3 0 1 1-6 0z M6 13a3 3 0 1 1 6 0v3a3 3 0 1 1-6 0z',
+  hidden: 'M12 4a4 4 0 0 1 4 4c0 1.5-.7 2.4-1.5 3.2 2.6.9 4.5 3 4.5 5.8H5c0-2.8 1.9-4.9 4.5-5.8C8.7 10.4 8 9.5 8 8a4 4 0 0 1 4-4z',
   incapacitated: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M6 6l12 12',
   invisible: 'M12 4a10 10 0 0 0 0 16 10 10 0 0 0 0-16z M12 9a3 3 0 0 0 0 6',
   paralyzed: 'M4 12h3l2-4 2 8 2-4h7',

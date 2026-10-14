@@ -74,6 +74,7 @@ const SENSE_RES: { re: RegExp; type: Sense['type'] }[] = [
   { re: /darkvision (\d+)/i, type: 'darkvision' },
   { re: /blindsight (\d+)/i, type: 'blindsight' },
   { re: /devil'?s sight (\d+)/i, type: 'devilsight' },
+  { re: /truesight (\d+)/i, type: 'truesight' },
 ];
 const AREA_SHAPES: Record<string, AreaSpec['shape']> = {
   cone: 'cone',

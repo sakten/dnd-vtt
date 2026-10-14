@@ -1573,6 +1573,7 @@
   'domain.sense.darkvision': 'Тёмное зрение',
   'domain.sense.blindsight': 'Слепое зрение',
   'domain.sense.devilsight': 'Дьявольское зрение',
+  'domain.sense.truesight': 'Истинное зрение',
 
   'domain.lightArea.darkness': 'Тьма',
   'domain.lightArea.magical': 'Магическая тьма',
@@ -1669,6 +1670,8 @@
   'domain.conditionHint.frightened': 'Помеха на атаки и проверки, пока источник в поле зрения; не может приближаться.',
   'domain.condition.grappled': 'Схвачен',
   'domain.conditionHint.grappled': 'Скорость 0; помеха на атаки; по нему — преимущество.',
+  'domain.condition.hidden': 'Скрытый',
+  'domain.conditionHint.hidden': 'Скрыт: видно только с соседних клеток или истинным зрением; атаки с преимуществом; по нему — с помехой.',
   'domain.condition.incapacitated': 'Недееспособен',
   'domain.conditionHint.incapacitated': 'Не может совершать действия и реакции.',
   'domain.condition.invisible': 'Невидим',
