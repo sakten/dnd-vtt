@@ -6,6 +6,7 @@ import { useIsDm } from '../lib/control';
 import { readImageSize, uploadImage } from '../lib/api';
 import { detectGridFromUrl } from '../lib/gridDetectImage';
 import { GRID_AUTO_CONFIDENCE } from '../lib/gridDetect';
+import { thumbUrl } from '../lib/imageVariants';
 
 export default function MapsPanel() {
   const maps = useGameStore((s) => s.scene.maps);
@@ -93,7 +94,17 @@ export default function MapsPanel() {
             title={t('ui.maps.switchTitle')}
             onClick={() => switchMap(m.id)}
           >
-            <img src={m.url} alt={m.name} draggable={false} />
+            <img
+              src={thumbUrl(m.url)}
+              alt={m.name}
+              draggable={false}
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (img.dataset.original === '1') return;
+                img.dataset.original = '1';
+                img.src = m.url;
+              }}
+            />
             {editingId === m.id ? (
               <input
                 className="map-name-input"

@@ -3,7 +3,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
-import { THUMB_SIZE, TOKEN_SIZE, writeImageDerivatives } from './images';
+import { THUMB_SIZE, TOKEN_SIZE, ensureDerivative, writeImageDerivatives } from './images';
 
 let dir: string;
 let file: string;
@@ -53,5 +53,28 @@ describe('производные загруженных картинок', () =>
     await writeImageDerivatives(file);
     const after = (await fsp.stat(`${file}.thumb.webp`)).mtimeMs;
     expect(after).toBe(before);
+  });
+
+  it('карте создаёт миниатюру, но не токенную копию', async () => {
+    const map = path.join(dir, 'map.png');
+    await sharp({ create: { width: 1200, height: 900, channels: 4, background: { r: 10, g: 90, b: 40, alpha: 1 } } })
+      .png()
+      .toFile(map);
+    await writeImageDerivatives(map, { token: false });
+    const thumb = await sharp(`${map}.thumb.webp`).metadata();
+    expect(thumb.width).toBe(THUMB_SIZE);
+    await expect(fsp.access(`${map}.token.webp`)).rejects.toBeTruthy();
+  });
+
+  it('ensureDerivative досоздаёт старую загрузку при первом запросе', async () => {
+    const old = path.join(dir, 'old.jpg');
+    await sharp({ create: { width: 500, height: 300, channels: 3, background: { r: 20, g: 20, b: 20 } } })
+      .jpeg()
+      .toFile(old);
+    const dest = await ensureDerivative(old, 'token');
+    expect(dest).toBe(`${old}.token.webp`);
+    const meta = await sharp(dest).metadata();
+    expect(meta.format).toBe('webp');
+    expect(meta.width).toBe(TOKEN_SIZE);
   });
 });

@@ -16,6 +16,7 @@ import {
 } from 'shared';
 import { t } from '../i18n';
 import { acBreakdownOf, acTipOf } from '../lib/ac';
+import { thumbUrl } from '../lib/imageVariants';
 import ActionIcon from './ActionIcon';
 import WeaponIcon from './WeaponIcon';
 
@@ -127,7 +128,7 @@ export default function LoadoutPanel({ token, sheet, resources, readOnly, onOpen
         title={t('ui.chat.sheetTitle')}
       >
         {token.imageUrl ? (
-          <img className="ap-portrait" src={token.imageUrl} alt="" />
+          <img className="ap-portrait" src={thumbUrl(token.imageUrl)} alt="" />
         ) : (
           <div className="ap-portrait fallback">{(token.name || '?').slice(0, 1).toUpperCase()}</div>
         )}

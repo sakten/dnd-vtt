@@ -11,7 +11,7 @@ import { registerSocket } from './socket';
 import { HERE, UPLOADS_DIR, dirSize, ensureDirs, roomUploadDir } from './store';
 import { ROOM_QUOTA_BYTES, ROOM_QUOTA_MB } from './config';
 import { bestiaryEntryByKey, bestiaryIconSvgForKey, bestiaryPortraitFile } from './bestiaryIcons';
-import { writeImageDerivatives } from './images';
+import { ensureDerivative, writeImageDerivatives, type DerivativeKind } from './images';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_DIST = path.resolve(HERE, '../../client/dist');
@@ -147,13 +147,14 @@ app.post(
       res.status(413).json({ error: `Превышен лимит загрузок комнаты (${ROOM_QUOTA_MB} МБ)` });
       return;
     }
-    // Токенам/портретам — лёгкие webp-производные; карты (kind=map) не сжимаем.
-    if (req.query.kind !== 'map') {
-      await writeImageDerivatives(req.file.path).catch(() => void 0);
-    }
+    // Токенам/портретам — лёгкие webp-производные; картам (kind=map) — только
+    // миниатюра для списка, сам файл карты для стола не сжимаем.
+    await writeImageDerivatives(req.file.path, { token: req.query.kind !== 'map' }).catch(() => void 0);
     res.json({ url: `/uploads/${roomCode}/${req.file.filename}` });
   }
 );
+
+const UPLOAD_CACHE = { maxAge: '365d', immutable: true } as const;
 
 app.use(
   '/uploads',
@@ -161,21 +162,31 @@ app.use(
     res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
     next();
   },
-  // Производные (thumb/token webp) есть не у всех файлов: карты не сжимаются,
-  // у старых загрузок их нет. Отдаём оригинал, чтобы не было 404.
+  // Производные (thumb/token webp) досоздаются при первом запросе: у старых
+  // загрузок их нет, карты получают миниатюру для панели. Имена файлов —
+  // UUID, поэтому кэшируем надолго.
   async (req, res, next) => {
     const rel = req.path.replace(/^\/+/, '');
-    const match = /^(.+\.(?:png|jpe?g|webp|gif))\.(?:thumb|token)\.webp$/i.exec(rel);
+    const match = /^(.+\.(?:png|jpe?g|webp|gif))\.(thumb|token)\.webp$/i.exec(rel);
     if (!match || match[1]!.includes('..')) return next();
     const original = path.join(UPLOADS_DIR, match[1]!);
+    const suffix: DerivativeKind = match[2]!.toLowerCase() === 'thumb' ? 'thumb' : 'token';
     try {
       await fsp.access(original);
-      res.sendFile(original, { maxAge: 300000 });
     } catch {
       next();
+      return;
+    }
+    try {
+      const derived = await ensureDerivative(original, suffix);
+      res.sendFile(derived, UPLOAD_CACHE);
+    } catch {
+      // Перекодировать не вышло — отдаём оригинал и не кэшируем надолго,
+      // чтобы после починки клиент получил настоящую производную.
+      res.sendFile(original, { maxAge: 300000 });
     }
   },
-  express.static(UPLOADS_DIR)
+  express.static(UPLOADS_DIR, UPLOAD_CACHE)
 );
 app.use(
   express.static(CLIENT_DIST, {
