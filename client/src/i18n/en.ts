@@ -755,6 +755,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.resources.notesPlaceholder': 'Player notes…',
 
   'ui.maps.uploadError': 'Failed to upload the map',
+  'ui.maps.uploading': 'Uploading…',
   'ui.maps.title': 'Maps',
   'ui.maps.add': 'Add map',
   'ui.maps.empty': 'Add a map',

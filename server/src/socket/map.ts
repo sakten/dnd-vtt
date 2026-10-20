@@ -23,8 +23,10 @@ export function registerMapHandlers(ctx: ConnCtx) {
       if (!url || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
       // Сетку можно передать сразу (авто-выравнивание новой карты).
       const grid = payload?.grid !== undefined ? normalizeGrid(payload.grid, room.scene.grid) : undefined;
-      manager.addMap(room, { name: name || 'Карта', url, width, height, ...(grid ? { grid } : {}) });
+      // Новую карту сразу показываем добавившему (остальные остаются на своей).
+      const added = manager.addMap(room, { name: name || 'Карта', url, width, height, ...(grid ? { grid } : {}) });
       broadcastMaps(room);
+      if (ctx.playerId) ctx.emitTo(room, ctx.playerId, 'map:bring', { activeMapId: added.id });
     });
 
     ctx.on('map:remove', (id) => {

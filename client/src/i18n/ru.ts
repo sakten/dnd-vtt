@@ -752,6 +752,7 @@
   'ui.resources.notesPlaceholder': 'Заметки игрока…',
 
   'ui.maps.uploadError': 'Не удалось загрузить карту',
+  'ui.maps.uploading': 'Загрузка…',
   'ui.maps.title': 'Карты',
   'ui.maps.add': 'Добавить карту',
   'ui.maps.empty': 'Добавьте карту',

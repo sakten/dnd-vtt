@@ -190,6 +190,9 @@ app.use(
 );
 app.use(
   express.static(CLIENT_DIST, {
+    // Ассеты Vite хэшированы по содержимому — кэшируем надолго.
+    maxAge: '365d',
+    immutable: true,
     // index.html не кэшируем: иначе браузер держит старый бандл после обновления.
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

@@ -23,6 +23,12 @@
   letter-spacing: 1px;
 }
 
+.maps-uploading {
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .maps-panel-list {
   display: flex;
   flex-direction: column;

@@ -75,5 +75,7 @@ describe('grid:update (независимые сетки карт)', () => {
     // Существующие карты не изменились.
     expect(room.scene.maps[0]!.grid.size).toBe(50);
     expect(room.scene.maps[1]!.grid.size).toBe(30);
+    // Добавивший сразу переключается на новую карту.
+    expect(dm.selfEvents('map:bring')).toEqual([{ to: 's:self', event: 'map:bring', payload: { activeMapId: added.id } }]);
   });
 });

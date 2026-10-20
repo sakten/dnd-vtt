@@ -46,6 +46,7 @@ import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
 import type { TargetingState } from '../domain/interaction';
 import { useImage } from '../lib/useImage';
+import { thumbUrl } from '../lib/imageVariants';
 import { visibleCells } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
 import { canControlWith, useIsDm } from '../lib/control';
@@ -76,9 +77,13 @@ import { buildFxMask, type FxMask } from './spellFx/mask';
 const SpellFxOverlay = lazy(() => import('./spellFx/SpellFxOverlay'));
 
 function MapSprite({ map }: { map: MapInfo }) {
+  // Пока полный файл грузится, показываем миниатюру (она уже в кэше панели карт),
+  // а не растянутую предыдущую карту.
   const image = useImage(map.url);
-  if (!image) return null;
-  return <KonvaImage image={image} width={map.width} height={map.height} listening={false} />;
+  const preview = useImage(thumbUrl(map.url));
+  const shown = image ?? preview;
+  if (!shown) return null;
+  return <KonvaImage image={shown} width={map.width} height={map.height} listening={false} />;
 }
 
 /** Атаки актора для подписей прицеливания: лист контролёра или сам токен (производный лоадаут). */

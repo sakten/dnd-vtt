@@ -21,6 +21,7 @@ export default function MapsPanel() {
   const editInputRef = useRef<HTMLInputElement>(null);
   const editingRef = useRef<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const isDm = useIsDm();
 
@@ -49,6 +50,7 @@ export default function MapsPanel() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    setUploading(true);
     try {
       const url = await uploadImage(file, 'map');
       const size = await readImageSize(url);
@@ -57,6 +59,8 @@ export default function MapsPanel() {
       addMap(file.name.replace(/\.[^.]+$/, ''), url, size.width, size.height, grid ?? undefined);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : t('ui.maps.uploadError'));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -77,8 +81,14 @@ export default function MapsPanel() {
     <div className="maps-panel">
       <div className="maps-panel-header">
         <span>{t('ui.maps.title')}</span>
+        {uploading && <span className="maps-uploading">{t('ui.maps.uploading')}</span>}
         {isDm && (
-          <button className="icon maps-add" title={t('ui.maps.add')} onClick={() => fileRef.current?.click()}>
+          <button
+            className="icon maps-add"
+            title={t('ui.maps.add')}
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
             +
           </button>
         )}
