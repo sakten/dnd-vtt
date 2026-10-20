@@ -904,7 +904,7 @@ export default function TableTop() {
             }
           }}
         >
-          <Layer>
+          <Layer listening={false}>
             {activeMap && <MapSprite map={activeMap} />}
             <ObjectsLayer
               map={activeMap}
@@ -918,8 +918,8 @@ export default function TableTop() {
               fogRects={fogRects}
               rectPreview={rectPreview}
             />
+            <GridLayer grid={grid} view={view} viewport={size} />
           </Layer>
-          <GridLayer grid={grid} view={view} viewport={size} />
           <Layer listening={false}>
             <LightLayer
               tokens={(activeMap?.tokens ?? []).filter((t) => !isBanished(t))}
@@ -927,8 +927,6 @@ export default function TableTop() {
               grid={grid}
               dimmed={!!visionView}
             />
-          </Layer>
-          <Layer listening={false}>
             <ZoneLayer
               zones={activeMap?.zones ?? []}
               grid={grid}

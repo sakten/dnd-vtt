@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Layer, Line } from 'react-konva';
+import { Line } from 'react-konva';
 import type { GridSettings } from 'shared';
 import type { ViewState } from '../store/types';
 
@@ -9,6 +9,7 @@ interface Props {
   viewport: { w: number; h: number };
 }
 
+/** Линии сетки в мировых координатах; рисуются внутри фонового слоя (без своего Layer). */
 export default function GridLayer({ grid, view, viewport }: Props) {
   const lines = useMemo(() => {
     if (!grid.visible || viewport.w === 0 || viewport.h === 0) return [];
@@ -37,10 +38,10 @@ export default function GridLayer({ grid, view, viewport }: Props) {
   if (lines.length === 0) return null;
 
   return (
-    <Layer listening={false}>
+    <>
       {lines.map((pts, i) => (
-        <Line key={i} points={pts} stroke={grid.color} strokeWidth={1} opacity={grid.opacity} />
+        <Line key={i} points={pts} stroke={grid.color} strokeWidth={1} opacity={grid.opacity} listening={false} />
       ))}
-    </Layer>
+    </>
   );
 }

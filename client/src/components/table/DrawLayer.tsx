@@ -81,6 +81,8 @@ export default function DrawLayer({ map, active, color }: Props) {
   };
 
   const visible = strokes.filter((s) => s.mapId === map.id);
+  // Без активного режима и живых штрихов слой не нужен: не держим лишний canvas.
+  if (!active && visible.length === 0 && !draft) return null;
 
   return (
     <Layer listening={active && !interaction}>
