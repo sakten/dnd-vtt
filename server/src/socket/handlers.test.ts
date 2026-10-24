@@ -795,6 +795,53 @@ describe('action:use', () => {
     expect(room.resources.p2!.spellSlots[0]!.current).toBe(0);
   });
 
+  it('Направленный удар после Щита: заклинательная атака снова попадает', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100 }),
+        makeToken('t2', { libraryItemId: 'lib2', x: 200, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1', p2: 'lib2' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.players.push({ id: 'p2', name: 'P2', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 6, subclass: 'war' }],
+      spells: [{ key: 'XPHB:Guiding Bolt', className: 'cleric' }],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [{ level: 1, current: 1, max: 1 }],
+      resources: [{ id: 'cd1', key: 'cleric:channelDivinity', name: 'Проведение', current: 2, max: 2, reset: 'short' }],
+    };
+    room.sheets.p2 = { ...casterSheet(), ac: '20', spells: [{ key: 'XPHB:Shield', className: 'wizard' }] };
+    room.resources.p2 = { ...casterResources(), spellSlots: [{ level: 1, current: 1, max: 1 }] };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 17 (+6) = 23 → попадание по AC 20
+    const f1 = makeCtx(room, { playerId: 'p1' });
+    registerSpellHandlers(f1.ctx);
+    registerReactionHandlers(f1.ctx);
+
+    f1.invoke('spell:cast', { mapId: 'm1', tokenId: 't1', spellKey: 'XPHB:Guiding Bolt', slotLevel: 1, targetIds: ['t2'] });
+
+    const shield = pendingOffers('TEST').find((o) => o.options.some((op) => op.id === 'spell:XPHB:Shield'));
+    expect(shield).toBeDefined();
+    const f2 = makeCtx(room, { playerId: 'p2' });
+    registerReactionHandlers(f2.ctx);
+    f2.invoke('reaction:respond', { id: shield!.id, optionId: 'spell:XPHB:Shield' });
+
+    const miss = pendingOffers('TEST').find((o) =>
+      o.options.some((op) => op.id === 'feature:cleric.war:guidedStrike:self')
+    );
+    expect(miss).toBeDefined();
+    f1.invoke('reaction:respond', { id: miss!.id, optionId: 'feature:cleric.war:guidedStrike:self' });
+    rand.mockRestore();
+
+    expect(room.resources.p2!.hp.current).toBeLessThan(30);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
+  });
+
   it('Eldritch Blast (2 луча): окно реакции на промах, следующий луч — после ответа', () => {
     const room = makeRoom(
       [
@@ -3446,6 +3493,42 @@ describe('token:update права', () => {
     expect(token.speed).toBe(50);
     expect(token.statblock?.abilities.str).toBe(20);
   });
+
+  it('ручное добавление состояния не пробивает иммунитет Heroism', () => {
+    const room = makeRoom([
+      makeToken('t1', {
+        effects: [
+          {
+            id: 'hero',
+            name: 'Heroism',
+            sourceKey: 'XPHB:Heroism',
+            sourceId: 't2',
+            concentration: true,
+            duration: { type: 'concentration' },
+            modifiers: [],
+            conditionImmunities: ['frightened'],
+          },
+        ],
+      }),
+    ]);
+    const f = makeCtx(room, { dm: true });
+    registerTokenHandlers(f.ctx);
+    const token = room.scene.maps[0]!.tokens[0]!;
+
+    f.invoke('token:update', {
+      mapId: 'm1',
+      id: 't1',
+      patch: { conditions: [{ key: 'frightened', name: 'Испуган' }] },
+    });
+    expect(token.conditions.some((c) => c.key === 'frightened')).toBe(false);
+
+    f.invoke('token:update', {
+      mapId: 'm1',
+      id: 't1',
+      patch: { conditions: [{ key: 'blinded', name: 'Ослеплён' }] },
+    });
+    expect(token.conditions.some((c) => c.key === 'blinded')).toBe(true);
+  });
 });
 
 /** Синтетическая зона с эффектом на входе (Web-подобная). */
@@ -6071,6 +6154,72 @@ describe('реакции (R1)', () => {
     expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(27); // 12 + 10 ≥ AC 15 → 1d8 3
     expect(room.resources.p1!.resources[0]!.current).toBe(1);
     expect(combatOf(room).turns.e1!.reactionUsed).toBe(false);
+  });
+
+  it('Направленный удар после Щита: попадание стало промахом — окно промаха и +10', () => {
+    const room = makeRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', {
+          x: 150,
+          y: 100,
+          hpMax: '30',
+          hpCurrent: 30,
+          ac: '15',
+          statblock: {
+            abilities,
+            spellcasting: { ability: 'int', spells: ['XPHB:Shield'], slots: [{ level: 1, max: 1, current: 1 }] },
+          },
+        }),
+      ],
+      { p1: 'lib1' }
+    );
+    room.players.push({ id: 'p1', name: 'P1', role: 'player', isConnected: true, socketId: null });
+    room.sheets.p1 = {
+      ...casterSheet(),
+      abilities: { ...casterSheet().abilities, wis: 16 },
+      classes: [{ className: 'cleric', level: 3, subclass: 'war' }],
+      spells: [],
+      attacks: [melee('Молот', 'd20')],
+    };
+    room.resources.p1 = {
+      ...casterResources(),
+      spellSlots: [],
+      resources: [
+        {
+          id: 'r1',
+          key: 'cleric:channelDivinity',
+          name: 'Проведение божественности',
+          current: 2,
+          max: 2,
+          reset: 'short',
+        },
+      ],
+    };
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.8); // d20 = 17 (попадание), d8 = 7
+    // DM в комнате нужен для аудитории реакции неуправляемой цели (Щит).
+    const dmg = makeCtx(room, { dm: true });
+    registerReactionHandlers(dmg.ctx);
+    const f = makeCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    registerReactionHandlers(f.ctx);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'attack', attackIndex: 0, targetIds: ['t2'] });
+
+    const shield = pendingOffers('TEST').find((o) => o.trigger === 'attackHit')!;
+    expect(shield.options.map((o) => o.id)).toContain('spell:XPHB:Shield');
+    dmg.invoke('reaction:respond', { id: shield.id, optionId: 'spell:XPHB:Shield' });
+
+    const miss = pendingOffers('TEST').find((o) => o.trigger === 'attackMiss');
+    expect(miss).toBeDefined();
+    expect(miss!.options.map((o) => o.id)).toContain('feature:cleric.war:guidedStrike:self');
+
+    dmg.invoke('reaction:respond', { id: miss!.id, optionId: 'feature:cleric.war:guidedStrike:self' });
+    rand.mockRestore();
+
+    // 17 + 10 ≥ AC 20 после Щита — попадание и урон 1d8 (7).
+    expect(room.scene.maps[0]!.tokens[1]!.hpCurrent).toBe(23);
+    expect(room.resources.p1!.resources[0]!.current).toBe(1);
   });
 
   it('Кость вдохновения и Направленный удар — одна панель с обеими опциями', () => {

@@ -397,6 +397,7 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
     if (e.seesInvisible === true) effect.seesInvisible = true;
+    if (typeof e.viewFrom === 'string' && e.viewFrom) effect.viewFrom = e.viewFrom.slice(0, 80);
     if (e.banish && typeof e.banish === 'object') {
       const b = e.banish as { x?: unknown; y?: unknown };
       if (typeof b.x === 'number' && typeof b.y === 'number' && Number.isFinite(b.x) && Number.isFinite(b.y)) {

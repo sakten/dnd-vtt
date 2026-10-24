@@ -9,10 +9,12 @@ import {
   grantedSpells,
   handOf,
   invocationAtWillSpells,
+  isBanished,
   isIncapacitated,
   isTriggeredAbility,
   loadoutOf,
   weaponContextOf,
+  type ActionCost,
   type ActionDef,
   type AttackEntry,
   type Spell,
@@ -178,11 +180,37 @@ export function useActionContext(): ActionContext | null {
         });
       }
     }
+    // Find Familiar: бонусное действие «смотреть глазами фамильяра» (своё зрение сохраняется).
+    const casterIds = new Set(
+      map.tokens
+        .filter((t) => t.id === token.id || (!!token.libraryItemId && t.libraryItemId === token.libraryItemId))
+        .map((t) => t.id)
+    );
+    const familiar = map.tokens.find(
+      (t) =>
+        !isBanished(t) &&
+        t.summon?.spellKey === 'XPHB:Find Familiar' &&
+        casterIds.has(t.summon.casterTokenId)
+    );
+    const familiarActive = !!familiar && token.effects.some((e) => e.viewFrom === familiar.id);
+    const familiarActions: ActionDef[] = familiar
+      ? [
+          {
+            id: 'familiar:senses',
+            name: familiarActive ? t('ui.action.familiarSensesEnd') : t('ui.action.familiarSenses'),
+            source: 'basic' as const,
+            costs: familiarActive ? (['free', 'bonus'] as ActionCost[]) : (['bonus'] as ActionCost[]),
+            iconKey: 'familiar:senses',
+            description: t('ui.action.familiarSensesHint'),
+          },
+        ]
+      : [];
     const features = [
       ...(isCharacter && sheet ? classFeatures(sheet.classes) : []),
       ...escapeActions,
       ...grantedActions,
       ...zoneActions,
+      ...familiarActions,
     ];
     const attacksPer = isCharacter && !inShape
       ? attacksPerAction(sheet?.classes ?? [])

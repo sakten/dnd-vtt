@@ -340,6 +340,11 @@ export interface EffectInstance {
   ignoresDifficultTerrain?: boolean;
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
+  /**
+   * Обзор через другой токен (Find Familiar: смотреть глазами фамильяра):
+   * id токена-источника зрения; носитель сохраняет и своё восприятие.
+   */
+  viewFrom?: string;
   /** Banishment: точка возврата изгнанного существа после снятия эффекта. */
   banish?: { x: number; y: number };
   /** Dominate Beast/Person: носитель под контролем источника (команды), пока эффект жив. */

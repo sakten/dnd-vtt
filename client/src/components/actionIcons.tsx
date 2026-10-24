@@ -477,6 +477,20 @@ export const ACTION_ICON_FALLBACKS: Record<string, ReactNode> = {
       <path d="M20.4 12 13.6 5.4v3.4H4.4v6.4h9.2v3.4z" fill="#74c0fc" stroke="#1c5f9e" strokeWidth="0.7" strokeLinejoin="round" />
     </>
   ),
+  // Find Familiar — смотреть глазами фамильяра
+  senses: (
+    <>
+      <path
+        d="M2.8 12s3.4-5.6 9.2-5.6S21.2 12 21.2 12s-3.4 5.6-9.2 5.6S2.8 12 2.8 12z"
+        fill="#dbeafe"
+        stroke="#3b82f6"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="2.8" fill="#1d4ed8" />
+      <circle cx="13" cy="11" r="0.9" fill="#eff6ff" />
+    </>
+  ),
 };
 
 /** id действия из ключа `<ключ заклинания>:<id>` (последний сегмент). */

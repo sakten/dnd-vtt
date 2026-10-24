@@ -1,7 +1,7 @@
 import type { Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
-import { removeSummonsOf, summonSourceIds } from './summons';
+import { clearViewsOfToken, removeSummonsOf, summonSourceIds } from './summons';
 import { endShapesOf } from './forms';
 import { removeZonesOfSource } from './zones';
 import { syncSurrounded } from './surrounded';
@@ -21,6 +21,8 @@ export function removeTokenCompletely(ctx: ConnCtx, room: Room, mapId: string, t
     }
   }
   ctx.emitChanged(room, ctx.manager.clearConcentration(room, token.id));
+  // Обзор через удаляемый токен (фамильяр): снять у тех, кто смотрел.
+  clearViewsOfToken(ctx, room, token.id);
   removeZonesOfSource(ctx, room, token.id);
   removeSummonsOf(ctx, room, summonSourceIds(room, token));
   endShapesOf(ctx, room, summonSourceIds(room, token));

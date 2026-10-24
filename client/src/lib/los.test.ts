@@ -127,6 +127,34 @@ describe('visionViewers', () => {
   it('без своих токенов — откат к объединению', () => {
     expect(visionViewers(tokens, false, () => false)).toHaveLength(2);
   });
+
+  it('Find Familiar: обзор через фамильяра добавляется к своему', () => {
+    const familiar = {
+      id: 'fam',
+      x: 425,
+      y: 425,
+      name: 'Owl',
+      isPlayerToken: false,
+      senses: [{ type: 'darkvision', range: 120 }],
+      effects: [],
+    } as unknown as Token;
+    const caster = {
+      ...tokens[0]!,
+      effects: [
+        {
+          id: 'e1',
+          name: 'Чувства фамильяра',
+          duration: { type: 'endOfTurn', of: 'source' },
+          modifiers: [],
+          viewFrom: 'fam',
+        },
+      ],
+    } as Token;
+    expect(visionViewers([caster, tokens[1]!, familiar], false, ownOne)).toEqual([
+      { x: 25, y: 25, senses: [{ type: 'darkvision', range: 60 }] },
+      { x: 425, y: 425, senses: [{ type: 'darkvision', range: 120 }] },
+    ]);
+  });
 });
 
 describe('visibleCells', () => {

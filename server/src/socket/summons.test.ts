@@ -144,6 +144,22 @@ describe('призывы: серверный спавн', () => {
     expect(map.combat.turns['e1']?.concentrationId).toBeFalsy();
   });
 
+  it('Find Familiar: сенсы формы и обзор глазами фамильяра за бонусное действие', () => {
+    const { room, map, caster, f } = setup();
+    cast(room, f, 'XPHB:Find Familiar', 1, { x: 150, y: 150 }, 'XMM:Owl');
+    const familiar = map.tokens[1]!;
+    expect(familiar.senses).toEqual([{ type: 'darkvision', range: 120 }]);
+    expect(familiar.summon?.formKey).toBe('XMM:Owl');
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'familiar:senses' });
+    const eye = caster.effects.find((e) => e.viewFrom === familiar.id);
+    expect(eye?.duration).toEqual({ type: 'endOfTurn', of: 'source' });
+    expect(map.combat.turns.e1!.bonusActionUsed).toBe(true);
+
+    f.invoke('action:use', { mapId: 'm1', tokenId: 't1', actionId: 'familiar:senses' });
+    expect(caster.effects.some((e) => e.viewFrom === familiar.id)).toBe(false);
+  });
+
   it('Find Familiar без выбранной формы — спавна нет', () => {
     const { room, map, f } = setup();
     cast(room, f, 'XPHB:Find Familiar', 1, { x: 150, y: 150 });

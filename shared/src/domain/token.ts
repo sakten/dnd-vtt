@@ -36,6 +36,8 @@ export interface TokenSummon {
   casterTokenId: string;
   /** Ключ заклинания (для сообщений и изгнания). */
   spellKey?: string;
+  /** Ключ формы в каталоге бестиария (сенсы фамильяра и т.п.). */
+  formKey?: string;
   /** Особая форма Pact of the Chain: фамильяр может атаковать. */
   pact?: boolean;
 }

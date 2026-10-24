@@ -1,9 +1,10 @@
-import type { ReactionOption } from 'shared';
+import { resolveAttack, type ReactionOption } from 'shared';
 import type { Room } from '../../roomTypes';
 import type { ConnCtx } from '../context';
 import { availableChoiceRiders } from '../attackRiders';
 import {
   applyWeaponAttackDamage,
+  mergeDamageMods,
   prepareWeaponAttack,
   rollPreparedAttack,
   type AttackResolveInput,
@@ -151,7 +152,11 @@ function continueAfterRoll(
 
   // Атака по возможности не проверяет дистанцию, но окна реакций открывает как обычная:
   // вложенные паузы (промах/попадание) отыгрывают до продолжения очереди реакций.
-  const openHitWindows = (): boolean => {
+  /**
+   * `carry` — модификаторы прошлых окон (Cutting Words/Парирование), которые не
+   * записаны в эффекты цели; их нужно сохранять при повторной проверке попадания.
+   */
+  function openHitWindows(carry: WeaponDamageMods = {}): boolean {
     if (!target || !targetMapId || result.hitSuccess !== true || result.crit) return false;
     const ac = ctx.manager.acForToken(room, target);
     const total = result.hitRoll ? result.hitRoll.total + plan.penalty : 0;
@@ -160,13 +165,26 @@ function continueAfterRoll(
       room,
       windowPlan,
       { ac, total, melee: plan.attack.rangeType !== 'ranged' },
-      (mods) => applyDamageWithRiders(mods)
+      (mods) => {
+        const currentRoom = ctx.getRoom();
+        if (!currentRoom) return;
+        const all = mergeDamageMods(carry, mods);
+        // Shield/Парирование: AC мог вырасти после реакций — пересчитываем попадание.
+        const acNow = ctx.manager.acForToken(currentRoom, target) + (all.extraAc ?? 0);
+        if (acNow <= 0 || resolveAttack(total, result.crit === true, false, acNow)) {
+          applyDamageWithRiders(all);
+          return;
+        }
+        // Щит/Режущие слова превратили попадание в промах: снова окно промаха.
+        if (!openMissWindows(all)) applyWeaponAttackDamage(ctx, plan, all);
+      }
     );
-  };
+  }
 
   // Промах: Ответный удар цели (реакция), Направленный удар (+10) и кости вдохновения;
   // Lightning Arrow («после попадания или промаха») — отдельный оффер атакующего.
-  if (result.hitSuccess === false && target && targetMapId) {
+  function openMissWindows(carry: WeaponDamageMods = {}): boolean {
+    if (!target || !targetMapId) return false;
     let missSmiteChoice: string | undefined;
     const missSmites =
       plan.attacker && plan.attackerMapId
@@ -186,36 +204,46 @@ function continueAfterRoll(
             },
           ]
         : [];
-    const opened = openAttackMissWindows(
+    return openAttackMissWindows(
       ctx,
       room,
       windowPlan,
       ({ bonus, inspiration }) => {
         const currentRoom = ctx.getRoom();
         if (!currentRoom) {
-          applyDamage();
+          applyDamage(carry);
           return;
         }
         if (bonus + inspiration > 0) {
           plan.penalty += bonus + inspiration;
+          const total = result.hitRoll ? result.hitRoll.total + plan.penalty : 0;
+          const ac = ctx.manager.acForToken(currentRoom, target) + (carry.extraAc ?? 0);
+          // Бросок мог остаться промахом (+10 не хватило) — попадания нет, Graze как за промах.
+          if (!resolveAttack(total, result.crit === true, false, ac)) {
+            applyWeaponAttackDamage(ctx, plan, carry);
+            return;
+          }
           plan.hitSuccess = true;
           result.hitSuccess = true;
-          if (!openHitWindows()) applyDamageWithRiders();
+          if (!openHitWindows(carry)) applyDamageWithRiders(carry);
         } else if (missSmiteChoice && plan.attacker) {
           const applied = applySmiteChoice(ctx, currentRoom, targetMapId, plan.attacker, target, missSmiteChoice, {
             onMiss: true,
           });
           if (applied?.replaceDamage) hitReplacement = applied.replaceDamage;
           if (applied?.afterDamage) smiteAfterDamage.push(applied.afterDamage);
-          applyDamage();
+          applyDamage(carry);
         } else {
           // Graze: промах оружием с мастерством — урон по модификатору характеристики.
-          applyWeaponAttackDamage(ctx, plan);
+          applyWeaponAttackDamage(ctx, plan, carry);
         }
       },
       smiteOffers
     );
-    if (opened) return result;
+  }
+
+  if (result.hitSuccess === false && target && targetMapId) {
+    if (openMissWindows()) return result;
     // Graze без окна реакций.
     applyWeaponAttackDamage(ctx, plan);
     return result;

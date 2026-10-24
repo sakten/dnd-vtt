@@ -116,7 +116,7 @@ export function attackSight(room: Room, map: MapInfo): SightContext {
   // Свет заклинаний (Light, Daylight, факелы-эффекты) — как в вуали: в «Темноте» он снимает невидимость.
   return {
     ...sightContextOf(map, grid),
-    light: mapLightCells(map.tokens, map.zones ?? [], grid, wallsWithZones(map.walls, map.zones, grid)),
+    light: mapLightCells(map.tokens, map.zones ?? [], grid, wallsWithZones(map.walls, map.zones, grid), undefined, map.lights),
   };
 }
 
@@ -545,6 +545,25 @@ export interface WeaponDamageMods {
   replaceExpr?: string;
   /** Тип урона замены (Lightning Arrow: электричество) — для метки и защит. */
   replaceDamageType?: string;
+}
+
+/**
+ * Суммирует модификаторы урона соседних окон реакций (Щит → Направленный удар → …):
+ * `extraAc`/`flatReduction`/`extraDamage` складываются, половина урона — дизъюнкция.
+ */
+export function mergeDamageMods(a: WeaponDamageMods, b: WeaponDamageMods): WeaponDamageMods {
+  const extraAc = (a.extraAc ?? 0) + (b.extraAc ?? 0);
+  const flatReduction = (a.flatReduction ?? 0) + (b.flatReduction ?? 0);
+  const extraDamage = (a.extraDamage ?? 0) + (b.extraDamage ?? 0);
+  return {
+    ...a,
+    ...b,
+    ...(a.halveDamage || b.halveDamage ? { halveDamage: true } : {}),
+    ...(extraAc ? { extraAc } : {}),
+    ...(flatReduction ? { flatReduction } : {}),
+    ...(extraDamage ? { extraDamage } : {}),
+    ...((b.redirect ?? a.redirect) ? { redirect: b.redirect ?? a.redirect } : {}),
+  };
 }
 
 export interface WeaponDamageResult {

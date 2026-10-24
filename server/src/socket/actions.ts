@@ -60,6 +60,7 @@ import { shapeAttacks, shapeStatblock } from '../room/shape';
 import { creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone, shrinkZone } from './zones';
+import { toggleFamiliarSenses } from './summons';
 import { resolveZoneSectionAttack } from './zoneAttacks';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -655,6 +656,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // «Выпутаться» (Web и подобные): действие, проверка характеристики против СЛ эффекта.
       if (actionId.startsWith('escape:')) {
         escapeEffect(ctx, scope, actionId.slice('escape:'.length), advantage);
+        return;
+      }
+
+      // Find Familiar: бонусное действие «смотреть глазами фамильяра» (до начала своего хода).
+      if (actionId === 'familiar:senses') {
+        toggleFamiliarSenses(ctx, room, mapId, token);
         return;
       }
 

@@ -35,7 +35,13 @@ import type { Room } from '../../roomTypes';
 import { gridSizeOfMap } from '../../rooms';
 import { creatureTypeOf } from '../../room/actor';
 import { applyDamage, singleDamageType } from '../damage';
-import { attackDamageRoll, attackHitRoll, attackUnseen, type WeaponDamageMods } from '../attackResolve';
+import {
+  attackDamageRoll,
+  attackHitRoll,
+  attackUnseen,
+  mergeDamageMods,
+  type WeaponDamageMods,
+} from '../attackResolve';
 import { fail } from '../errors';
 import { removeConditionInstances } from '../effectsApply';
 import { applyForcedMovement } from '../force';
@@ -300,37 +306,65 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       done();
     };
 
-    /** Окно попадания: Shield/Absorb/Отражение/Режущие слова; onDone — попадание после реакций. */
-    const withHitWindows = (total: number, onDone: (ok: boolean, mods?: WeaponDamageMods) => void) => {
-      if (!castMap) return onDone(true);
+    /**
+     * Окно попадания: Shield/Absorb/Отражение/Режущие слова; onDone — попадание после реакций.
+     * `carry` — модификаторы прошлых окон (Cutting Words): не записаны в эффекты цели,
+     * но нужны для повторной проверки попадания и урона.
+     */
+    const withHitWindows = (
+      total: number,
+      onDone: (ok: boolean, mods?: WeaponDamageMods) => void,
+      carry: WeaponDamageMods = {}
+    ) => {
+      if (!castMap) return onDone(true, carry);
       const opened = openAttackHitWindows(ctx, room, windowPlan, { ac, total, melee: rangeType !== 'ranged' }, (mods) => {
         if (!ctx.getRoom()) return;
+        const all = mergeDamageMods(carry, mods);
         // Shield/Парирование: AC мог вырасти после реакций — пересчитываем попадание.
-        const acNow = ctx.manager.acForToken(room, target) + (mods.extraAc ?? 0);
-        onDone(resolveAttack(total, hit.crit, false, acNow), mods);
+        const acNow = ctx.manager.acForToken(room, target) + (all.extraAc ?? 0);
+        onDone(resolveAttack(total, hit.crit, false, acNow), all);
       });
-      if (!opened) onDone(true);
+      if (!opened) onDone(true, carry);
     };
+
+    /** Окно после промаха (Направленный удар +10, вдохновение); попадание после +10 — снова окна. */
+    function openMissWindows(baseTotal: number, acAfter: number, carry: WeaponDamageMods = {}): boolean {
+      if (!target) return false;
+      return openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
+        if (!ctx.getRoom()) return;
+        const total = baseTotal + bonus + inspiration;
+        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, acAfter)) return afterMiss();
+        withHitWindows(
+          total,
+          (ok, mods) => {
+            if (ok) {
+              applyRayHit(mods ?? {}, afterRay);
+              return;
+            }
+            // Ещё одна защитная реакция подняла AC — снова окно промаха.
+            const acNow = ctx.manager.acForToken(room, target) + (mods?.extraAc ?? 0);
+            if (!openMissWindows(total, acNow, mods ?? {})) afterMiss();
+          },
+          carry
+        );
+      });
+    }
 
     // Промах: окно реакций (Направленный удар +10, кости вдохновения).
     if (hit.hitSuccess === false) {
-      const opened = openAttackMissWindows(ctx, room, windowPlan, ({ bonus, inspiration }) => {
-        if (!ctx.getRoom()) return;
-        const total = hit.hitRoll.total + penalty + bonus + inspiration;
-        if (bonus + inspiration <= 0 || !resolveAttack(total, hit.crit, false, ac)) return afterMiss();
-        withHitWindows(total, (ok, mods) => {
-          if (ok) applyRayHit(mods ?? {}, afterRay);
-          else afterMiss();
-        });
-      });
-      if (opened) return;
+      if (openMissWindows(hit.hitRoll.total + penalty, ac)) return;
       return afterMiss();
     }
 
     // Попадание: окно защитных реакций цели и защитников-союзников.
     withHitWindows(hit.hitRoll.total + penalty, (ok, mods) => {
-      if (ok) applyRayHit(mods ?? {}, afterRay);
-      else afterRay();
+      if (ok) {
+        applyRayHit(mods ?? {}, afterRay);
+        return;
+      }
+      // Shield превратил попадание в промах — окно промаха, иначе половина урона (Melf).
+      const acNow = ctx.manager.acForToken(room, target) + (mods?.extraAc ?? 0);
+      if (!openMissWindows(hit.hitRoll.total + penalty, acNow, mods ?? {})) afterRay();
     });
   };
 

@@ -36,7 +36,17 @@ export function visionViewers(tokens: Token[], merge: boolean, isOwn: (token: To
   const party = tokens.filter((t) => t.isPlayerToken);
   const own = party.filter(isOwn);
   const use = merge || own.length === 0 ? party : own;
-  return use.map((t) => ({ x: t.x, y: t.y, senses: tokenSenses(t) }));
+  const viewers = use.map((t) => ({ x: t.x, y: t.y, senses: tokenSenses(t) }));
+  // Find Familiar: обзор через фамильяра добавляется к своему (XPHB 2024 — своё зрение не теряется).
+  for (const viewer of use) {
+    for (const effect of viewer.effects ?? []) {
+      if (!effect.viewFrom) continue;
+      const source = tokens.find((t) => t.id === effect.viewFrom);
+      if (!source || use.includes(source)) continue;
+      viewers.push({ x: source.x, y: source.y, senses: tokenSenses(source) });
+    }
+  }
+  return viewers;
 }
 
 /**

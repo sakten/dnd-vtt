@@ -23,6 +23,8 @@ export type ErrorCode =
   | 'spellNotFound'
   | 'spellNotInStatblock'
   | 'familiarNoAttack'
+  | 'noFamiliar'
+  | 'familiarTooFar'
   | 'summonNoPact'
   | 'summonNoForm'
   | 'summonNoSpace'

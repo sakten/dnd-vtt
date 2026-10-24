@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   bestiaryTokenFields,
+  gridDistanceFeet,
   gridOfMap,
   hasInvocation,
   INVOCATION_PACT_KEYS,
@@ -17,6 +18,7 @@ import bestiaryData from 'shared/bestiaryData';
 import { findSpell } from '../spells';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
+import { fail } from './errors';
 import { syncSurrounded } from './surrounded';
 
 export interface SummonRequest {
@@ -145,8 +147,94 @@ export function summonSourceIds(room: Room, caster: Token): Set<string> {
   return ids;
 }
 
+/** Ключ эффекта «смотреть глазами фамильяра» (Find Familiar). */
+export const FAMILIAR_SENSES_KEY = 'XPHB:Find Familiar:senses';
+
+/** Сенсы формы бестиария: у старых призывов их нет — досыпаем по ключу формы/имени. */
+function summonSenses(token: Token): void {
+  if (token.senses.length) return;
+  const formKey = token.summon?.formKey;
+  const entry =
+    (formKey ? bestiaryData.entries.find((e) => e.key === formKey) : undefined) ??
+    bestiaryData.entries.find((e) => e.name === token.name && (e.familiar || e.pactOfChain));
+  if (entry?.senses.length) token.senses = [...entry.senses];
+}
+
+/**
+ * Бонусное действие Find Familiar: смотреть глазами фамильяра до начала
+ * следующего хода (XPHB 2024). Своё восприятие сохраняется, обзор дополняется.
+ * Повторное использование снимает эффект без траты действия.
+ */
+export function toggleFamiliarSenses(ctx: ConnCtx, room: Room, mapId: string, caster: Token): void {
+  const map = ctx.manager.findMap(room, mapId);
+  if (!map) return;
+  const active = caster.effects.filter((e) => e.viewFrom && e.sourceKey === FAMILIAR_SENSES_KEY);
+  if (active.length) {
+    for (const effect of active) ctx.manager.removeEffect(room, caster, effect.id);
+    ctx.emitToken(room, 'token:update', mapId, caster);
+    ctx.syncCombat(room, mapId);
+    ctx.systemMessage(room, { code: 'automation.familiarSensesEnd', params: { name: caster.name } });
+    return;
+  }
+  const sourceIds = summonSourceIds(room, caster);
+  const familiar = map.tokens.find(
+    (t) => t.summon?.spellKey === 'XPHB:Find Familiar' && sourceIds.has(t.summon.casterTokenId)
+  );
+  if (!familiar) {
+    fail(ctx, 'noFamiliar');
+    return;
+  }
+  const grid = gridOfMap(map, room.scene.grid);
+  const feet = gridDistanceFeet(caster, familiar, grid.size);
+  if (feet > 100) {
+    fail(ctx, 'familiarTooFar', { feet: Math.round(feet) });
+    return;
+  }
+  const combat = ctx.manager.combatOf(room, mapId);
+  const isActive = !combat?.active || ctx.manager.isActiveToken(room, mapId, caster.id);
+  if (combat?.active && !isActive && !ctx.isDm()) {
+    fail(ctx, 'notYourTurn');
+    return;
+  }
+  if (!ctx.manager.spendSlot(room, mapId, caster, 'bonus')) {
+    fail(ctx, 'noActions');
+    return;
+  }
+  summonSenses(familiar);
+  ctx.emitToken(room, 'token:update', mapId, familiar);
+  ctx.manager.applyEffect(room, caster, {
+    id: randomUUID(),
+    name: 'Чувства фамильяра',
+    sourceKey: FAMILIAR_SENSES_KEY,
+    sourceId: caster.id,
+    duration: { type: 'endOfTurn', of: 'source' },
+    modifiers: [],
+    viewFrom: familiar.id,
+  });
+  ctx.emitToken(room, 'token:update', mapId, caster);
+  ctx.syncCombat(room, mapId);
+  ctx.systemMessage(room, {
+    code: 'automation.familiarSenses',
+    params: { name: caster.name, target: familiar.name },
+  });
+}
+
+/** Снимает «обзор через токен» со всех, кто на него смотрел (токен удаляется). */
+export function clearViewsOfToken(ctx: ConnCtx, room: Room, tokenId: string): void {
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      const views = token.effects.filter((e) => e.viewFrom === tokenId);
+      if (!views.length) continue;
+      for (const effect of views) ctx.manager.removeEffect(room, token, effect.id);
+      ctx.emitToken(room, 'token:update', map.id, token);
+    }
+  }
+}
+
 /** Убирает один призыв: эффекты, токен, запись в бою, рассылка. */
 export function removeSummonToken(ctx: ConnCtx, room: Room, mapId: string, token: Token): void {
+  // Если кто-то смотрел глазами этого призыва — вернуть обычное зрение.
+  clearViewsOfToken(ctx, room, token.id);
   for (const effect of [...token.effects]) ctx.manager.removeEffect(room, token, effect.id);
   ctx.manager.removeToken(room, mapId, token.id);
   ctx.broadcastAll('token:remove', { mapId, id: token.id });
@@ -251,8 +339,11 @@ export function runSummon(ctx: ConnCtx, request: SummonRequest): Token[] {
     token.summon = {
       casterTokenId: request.caster.id,
       ...(request.spellKey ? { spellKey: request.spellKey } : {}),
+      ...(entry.key ? { formKey: entry.key } : {}),
       ...(pactChain && entry.pactOfChain === true ? { pact: true } : {}),
     };
+    // Сенсы формы (фамильяр: «получает преимущества особых чувств»).
+    token.senses = [...entry.senses];
     // Призыв на стороне кастера (герой → ally), иначе свои бьют по нему «по возможности».
     token.faction = request.caster.faction;
     spawned.push(token);

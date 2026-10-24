@@ -232,6 +232,25 @@ describe('RoomManager ход', () => {
     expect(combat.turns.e1!.movementUsed).toBe(0);
   });
 
+  it('Рывок/Шаг ветра добавляет скорость к максимуму, не сбрасывая пройденное', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const combat = room.scene.maps[0]!.combat;
+    combat.active = true;
+    combat.entries = [entry('e1', 't1', 20)];
+    combat.currentIndex = 0;
+    const tk = token('t1', { speed: 40 });
+    room.scene.maps[0]!.tokens = [tk];
+    manager.beginTurn(room, 'm1', 'e1');
+
+    manager.setMovement(room, 'm1', 't1', 40);
+    manager.grantExtraMovement(room, 'm1', tk, manager.tokenSpeed(room, tk));
+
+    expect(combat.turns.e1!.movementMax).toBe(80);
+    expect(combat.turns.e1!.movementUsed).toBe(40);
+    expect(combat.turns.e1!.movementMax - combat.turns.e1!.movementUsed).toBe(40);
+  });
+
   it('скорость берётся из листа контролёра, легендарные — из статблока', () => {
     const manager = setup();
     const sheet: CharacterSheet = {
@@ -270,6 +289,7 @@ describe('RoomManager ход', () => {
             zones: [],            walls: [],
             vision: { los: false, darkness: false },
             lightAreas: [],
+            lights: [],
             fog: defaultFog(DEFAULT_GRID),
             grid: { ...DEFAULT_GRID },
             combat: emptyCombatState(),

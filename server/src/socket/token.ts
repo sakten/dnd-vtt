@@ -14,7 +14,7 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
-import { finalizeRemovedEffects } from '../room/effects';
+import { finalizeRemovedEffects, tokenConditionImmunities } from '../room/effects';
 import { endShapeToken } from './forms';
 import { endConcentrationOf } from './effects';
 import { handleMovementZones } from './zones';
@@ -196,7 +196,14 @@ export function registerTokenHandlers(ctx: ConnCtx) {
       }
       if (Array.isArray(patch.conditions)) {
         const hadDead = token.conditions.some((c) => c.key === 'dead');
-        token.conditions = normalizeConditions(patch.conditions);
+        const next = normalizeConditions(patch.conditions);
+        // Иммунитет к состояниям (Heroism, Freedom of Movement, бестиарий) действует
+        // и для ручной правки: новые иммунные состояния не добавляются, снятие — можно.
+        const before = new Set(token.conditions.map((c) => c.key));
+        // Если эффекты меняются этим же патчем, иммунитет считаем по их новому набору.
+        const futureEffects = Array.isArray(patch.effects) ? normalizeEffects(patch.effects) : token.effects;
+        const immune = tokenConditionImmunities(room, { ...token, effects: futureEffects });
+        token.conditions = next.filter((c) => !immune.has(c.key) || before.has(c.key));
         // Недееспособность с панели условий снимает форму так же, как через эффекты (XPHB).
         if (token.shape && isIncapacitated(token.conditions)) endShapeToken(ctx, room, mapId, token);
         // Ручное снятие «Мёртв» = оживление: death-сейвы сбрасываются, лежачий — «Без сознания».
