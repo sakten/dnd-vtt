@@ -243,8 +243,8 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
   /** Клик: в режиме выбора цели — применить по токену, иначе выбрать/открыть меню. */
   const activate = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const st = useGameStore.getState();
-    // В режиме «Стены» клик по токену не мешает рисовать: событие уходит на сцену.
-    if (st.wallsMode.active) return;
+    // В режимах «Стены»/«Свет» клик по токену не мешает инструменту: событие уходит на сцену.
+    if (st.wallsMode.active || st.lightMode.active) return;
     const it = st.interaction;
     if (it?.mode === 'target') {
       e.cancelBubble = true;

@@ -32,15 +32,16 @@ let cache: LightCache | null = null;
 const listeners = new Set<() => void>();
 let trailing: ReturnType<typeof setTimeout> | null = null;
 
-/** Сигнатура светящих эмиттеров: позиции/свет токенов и свет зон (выбор ярчайшего — как в `mapLights`). */
+/** Сигнатура светящих эмиттеров: позиции/свет токенов, свет зон и размещённые источники (выбор ярчайшего — как в `mapLights`). */
 function lightKey(
   present: Parameters<typeof mapLights>[0],
   zones: Parameters<typeof mapLights>[1],
+  lights: NonNullable<Parameters<typeof mapLights>[3]>,
   grid: GridSettings,
   size: { width: number; height: number }
 ): string {
-  const emitters = mapLights(present, zones, grid.size || 50).map(
-    (l) => `${l.key}@${l.x},${l.y}:${l.light.bright}/${l.light.dim}/${l.light.sunlight ? 1 : 0}`
+  const emitters = mapLights(present, zones, grid.size || 50, lights).map(
+    (l) => `${l.key}@${l.x},${l.y}:${l.light.bright}/${l.light.dim}/${l.light.sunlight ? 1 : 0}/${l.color ?? ''}`
   );
   return `${emitters.join('|')}#${grid.size}/${grid.offsetX}/${grid.offsetY}/${size.width}x${size.height}`;
 }
@@ -51,6 +52,7 @@ export function useMapLight(): Map<string, LightLevel> {
   const grid: GridSettings = useGameStore(activeGridOf);
   const tokens = map?.tokens;
   const zones = map?.zones;
+  const lights = map?.lights;
   const walls = map?.walls;
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -66,7 +68,7 @@ export function useMapLight(): Map<string, LightLevel> {
     const present = tokens.filter((t) => !isBanished(t));
     const areaGrid = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
     const size = { width: map.width, height: map.height };
-    const key = lightKey(present, zones ?? [], grid, size);
+    const key = lightKey(present, zones ?? [], lights ?? [], grid, size);
     const now = Date.now();
     if (cache && cache.mapId === map.id && cache.walls === walls && cache.zones === zones && cache.key === key) {
       return cache.value;
@@ -94,9 +96,10 @@ export function useMapLight(): Map<string, LightLevel> {
       zones ?? [],
       areaGrid,
       wallsWithZones(walls ?? [], zones ?? [], areaGrid),
-      bounds
+      bounds,
+      lights ?? []
     );
     cache = { mapId: map.id, walls, zones, key, value, at: now };
     return value;
-  }, [map, tokens, zones, walls, grid.size, grid.offsetX, grid.offsetY, tick]);
+  }, [map, tokens, zones, lights, walls, grid.size, grid.offsetX, grid.offsetY, tick]);
 }

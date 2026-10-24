@@ -65,6 +65,7 @@ function baseRoom(tokens: Token[], controllers: Record<string, string>, combat =
           zones: [],          walls: [],
           vision: { los: false, darkness: false },
           lightAreas: [],
+          lights: [],
           fog: defaultFog(DEFAULT_GRID),
           grid: { ...DEFAULT_GRID },
           combat,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ZoneInstance } from '../domain/automation';
 import type { Sense } from '../domain/sense';
-import type { LightArea, LightAreaKind, Wall } from '../domain/scene';
-import { canSee, lightCells, lightLevelAt, seesHidden, tokenSenses, zoneVisionCells, zoneVisionKind, zoneVisionKindAt } from './vision';
+import type { LightArea, LightAreaKind, MapLight, Wall } from '../domain/scene';
+import { canSee, lightCells, lightLevelAt, mapLightCells, mapLights, seesHidden, tokenSenses, zoneVisionCells, zoneVisionKind, zoneVisionKindAt } from './vision';
 import { countAttackAdvantage } from './combat';
 
 const SIGHT = { walls: [] as Wall[], darkness: false, cellSize: 50, offsetX: 0, offsetY: 0 };
@@ -95,6 +95,17 @@ describe('свет заклинаний', () => {
     expect(full.size).toBeGreaterThan(clipped.size);
     expect(clipped.size).toBe(4);
     expect([...clipped.keys()].sort()).toEqual(['0,0', '0,1', '1,0', '1,1']);
+  });
+
+  it('размещённый источник света освещает клетки и попадает в эмиттеры', () => {
+    const light: MapLight = { id: 'l1', x: 25, y: 25, bright: 10, dim: 10, color: '#ffaa00' };
+    expect(mapLights([], [], 50, [light])).toEqual([
+      { key: 'm:l1', x: 25, y: 25, light: { bright: 10, dim: 10 }, color: '#ffaa00' },
+    ]);
+    const cells = mapLightCells([], [], grid, [], null, [light]);
+    expect(cells.get('0,0')).toBe('bright');
+    expect(cells.get('2,0')).toBe('bright');
+    expect(cells.get('3,0')).toBe('dim');
   });
 
   it('canSee: свет перекрывает обычную тьму, но не мглу и магическую тьму', () => {

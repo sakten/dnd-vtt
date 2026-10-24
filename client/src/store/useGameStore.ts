@@ -70,7 +70,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     doorMenuId: null,
     fogMode: { active: false, tool: 'brush', action: 'hide', brush: 2 },
     wallsMode: { active: false, tool: 'wall', start: null },
-    lightMode: { active: false, kind: 'darkness' },
+    lightMode: { active: false, kind: 'darkness', place: null },
     drawMode: { active: false, color: DEFAULT_DRAW_COLOR },
     strokes: [],
     wallCandidates: null,

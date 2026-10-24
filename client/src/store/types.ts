@@ -10,6 +10,7 @@ import type {
   LibraryItem,
   LightArea,
   LightAreaKind,
+  MapLight,
   OptionalRules,
   Player,
   PlayerResources,
@@ -61,6 +62,8 @@ export interface WallsMode {
 export interface LightMode {
   active: boolean;
   kind: LightAreaKind;
+  /** Режим размещения источника света; null — тянем прямоугольник области тьмы. */
+  place: { bright: number; dim: number; color: string } | null;
 }
 
 export interface DrawMode {
@@ -260,6 +263,8 @@ export interface GameState {
   updateVision: (mapId: string, vision: VisionSettings) => void;
   setLightMode: (patch: Partial<LightMode>) => void;
   updateAreas: (mapId: string, areas: LightArea[]) => void;
+  /** Размещённые источники света карты (DM; свет и тени считаются как у заклинаний). */
+  updateLights: (mapId: string, lights: MapLight[]) => void;
   setDrawMode: (patch: Partial<DrawMode>) => void;
   /** Добавить свой штрих: сразу локально и на сервер (остальным). */
   commitStroke: (points: { x: number; y: number }[]) => void;
@@ -332,6 +337,7 @@ export interface GameState {
   onWallsUpdate: (payload: Parameters<ServerToClientEvents['walls:update']>[0]) => void;
   onVisionUpdate: (payload: Parameters<ServerToClientEvents['vision:update']>[0]) => void;
   onAreasUpdate: (payload: Parameters<ServerToClientEvents['areas:update']>[0]) => void;
+  onLightsUpdate: (payload: Parameters<ServerToClientEvents['lights:update']>[0]) => void;
   onZonesUpdate: (payload: Parameters<ServerToClientEvents['zones:update']>[0]) => void;
   onGridUpdate: (payload: { mapId: string; grid: GridSettings }) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;

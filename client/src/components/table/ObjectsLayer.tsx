@@ -1,4 +1,4 @@
-import { Line, Rect, Group } from 'react-konva';
+import { Circle, Line, Rect, Group } from 'react-konva';
 import type { LightArea, MapInfo, Wall } from 'shared';
 import DoorView from '../DoorView';
 import type { CellRect, RectPreview } from '../../lib/fog';
@@ -58,6 +58,20 @@ export default function ObjectsLayer({
             stroke={LIGHT_AREA_COLORS[a.kind]}
             strokeWidth={2 / viewScale}
             dash={[8 / viewScale, 5 / viewScale]}
+            listening={false}
+          />
+        ))}
+      {isDm &&
+        (map?.lights ?? []).map((l) => (
+          <Circle
+            key={`light-${l.id}`}
+            x={l.x}
+            y={l.y}
+            radius={5 / viewScale}
+            fill={l.color ?? '#ffd166'}
+            stroke="#07090d"
+            strokeWidth={1.5 / viewScale}
+            opacity={0.95}
             listening={false}
           />
         ))}

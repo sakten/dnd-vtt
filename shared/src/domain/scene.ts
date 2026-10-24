@@ -41,6 +41,17 @@ export interface LightArea {
   h: number;
 }
 
+/** Размещённый DM источник света: точка в мировых координатах (яркий/сумеречный радиус в футах). */
+export interface MapLight {
+  id: string;
+  x: number;
+  y: number;
+  bright: number;
+  dim: number;
+  /** Цвет ореола, `#rrggbb` (по умолчанию тёплый). */
+  color?: string;
+}
+
 /** Сегмент стены по узлам сетки: обзор (kind) и проход/действия — независимые оси. */
 export interface Wall {
   id: string;
@@ -84,6 +95,7 @@ export const DEFAULT_GRID: GridSettings = {
 export const MAX_FOG_CELLS = 50_000;
 export const MAX_WALL_SEGMENTS = 2000;
 export const MAX_LIGHT_AREAS = 200;
+export const MAX_MAP_LIGHTS = 200;
 
 export function defaultFog(grid: GridSettings): FogState {
   return { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY, hidden: [] };
@@ -124,6 +136,8 @@ export interface MapInfo {
   vision: VisionSettings;
   /** Области тьмы/магической тьмы/мглы. */
   lightAreas: LightArea[];
+  /** Размещённые DM источники света (факелы, фонари, костры). */
+  lights: MapLight[];
   fog: FogState;
   /** Сетка карты: у каждой карты своя (размер/сдвиг/цвет/снэп). */
   grid: GridSettings;

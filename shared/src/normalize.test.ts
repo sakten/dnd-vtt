@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyCombatState } from './domain/combat';
 import { DEFAULT_SPEED } from './domain/core';
 import { DEFAULT_GRID, defaultFog } from './domain/scene';
-import { isRecord, normalizeLibraryItem, normalizeMapInfo, normalizeScene, normalizeToken, normalizeWalls } from './normalize';
+import { isRecord, normalizeLibraryItem, normalizeMapInfo, normalizeMapLights, normalizeScene, normalizeToken, normalizeWalls } from './normalize';
 
 describe('isRecord', () => {
   it('отсекает null, массивы и примитивы', () => {
@@ -36,6 +36,22 @@ describe('normalizeWalls: дверные настройки', () => {
     expect(walls[0]!.pickDc).toBeUndefined();
     expect(walls[1]!.pickDc).toBe(40);
     expect(walls[2]!.pickDc).toBeUndefined();
+  });
+});
+
+describe('normalizeMapLights: источники света карты', () => {
+  it('оставляет валидные, чистит мусор и нормализует цвет/радиусы', () => {
+    const lights = normalizeMapLights([
+      { id: 'l1', x: 25, y: 75, bright: 20, dim: 20, color: '#FFAA00' },
+      { id: 'l2', x: 0, y: 0, bright: -5, dim: 0 },
+      { id: '', x: 0, y: 0, bright: 10, dim: 10 },
+      { id: 'l3', x: 'x', y: 0, bright: 10, dim: 10 },
+      { id: 'l4', x: 0, y: 0, bright: 999, dim: 999, color: 'red' },
+    ]);
+    expect(lights).toEqual([
+      { id: 'l1', x: 25, y: 75, bright: 20, dim: 20, color: '#ffaa00' },
+      { id: 'l4', x: 0, y: 0, bright: 120, dim: 120 },
+    ]);
   });
 });
 

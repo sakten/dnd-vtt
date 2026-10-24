@@ -1,7 +1,7 @@
 import type { ZoneInstance } from '../domain/automation';
 import type { LightSource } from '../domain/automation';
 import { SENSE_TYPES, type Sense, type SenseType } from '../domain/sense';
-import type { LightArea, LightAreaKind, MapInfo, Wall } from '../domain/scene';
+import type { LightArea, LightAreaKind, MapInfo, MapLight, Wall } from '../domain/scene';
 import type { Token } from '../domain/token';
 import { areaCellKey, areaCellsSpread, cellCenter, cellChebyshev, pointCell, type AreaGrid } from './areas';
 import { seesInvisible } from './effects';
@@ -60,6 +60,8 @@ export interface MapLightSource {
   x: number;
   y: number;
   light: LightSource;
+  /** Цвет ореола для размещённых источников (`#rrggbb`). */
+  color?: string;
 }
 
 /** Свет ярче: bright > dim, при равенстве — больший суммарный радиус. */
@@ -69,8 +71,13 @@ function brighterLight(a: LightSource, b: LightSource): boolean {
   return a.bright + a.dim > b.bright + b.dim;
 }
 
-/** Источники света карты: сильнейший видимый свет эффекта на токен + светящиеся зоны. */
-export function mapLights(tokens: Token[], zones: ZoneInstance[], gridSize = 50): MapLightSource[] {
+/** Источники света карты: сильнейший видимый свет эффекта на токен + светящиеся зоны + размещённые источники. */
+export function mapLights(
+  tokens: Token[],
+  zones: ZoneInstance[],
+  gridSize = 50,
+  lights: MapLight[] = []
+): MapLightSource[] {
   const items: MapLightSource[] = [];
   for (const token of tokens) {
     let best: LightSource | undefined;
@@ -97,6 +104,15 @@ export function mapLights(tokens: Token[], zones: ZoneInstance[], gridSize = 50)
     }
     items.push({ key: `z:${zone.id}`, x, y, light: zone.light });
   }
+  for (const light of lights) {
+    items.push({
+      key: `m:${light.id}`,
+      x: light.x,
+      y: light.y,
+      light: { bright: light.bright, dim: light.dim },
+      ...(light.color ? { color: light.color } : {}),
+    });
+  }
   return items;
 }
 
@@ -107,9 +123,11 @@ export function mapLightCells(
   grid: AreaGrid,
   walls: Wall[] = [],
   /** Границы расчёта в клетках (карта); без значения — всё поле источника. */
-  bounds?: { cx0: number; cy0: number; cx1: number; cy1: number } | null
+  bounds?: { cx0: number; cy0: number; cx1: number; cy1: number } | null,
+  /** Размещённые DM источники света. */
+  lights: MapLight[] = []
 ): Map<string, LightLevel> {
-  const emitters: LightEmitter[] = mapLights(tokens, zones, grid.size).map((l) => ({ x: l.x, y: l.y, light: l.light }));
+  const emitters: LightEmitter[] = mapLights(tokens, zones, grid.size, lights).map((l) => ({ x: l.x, y: l.y, light: l.light }));
   return lightCells(emitters, grid, walls, bounds);
 }
 

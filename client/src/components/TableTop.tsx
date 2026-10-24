@@ -184,6 +184,7 @@ export default function TableTop() {
   const lightMode = useGameStore((s) => s.lightMode);
   const drawMode = useGameStore((s) => s.drawMode);
   const updateAreas = useGameStore((s) => s.updateAreas);
+  const updateLights = useGameStore((s) => s.updateLights);
   const dragGhost = useGameStore((s) => s.dragGhost);
   const dragPath = useGameStore((s) => s.dragPath);
   const wallCandidates = useGameStore((s) => s.wallCandidates);
@@ -643,6 +644,27 @@ export default function TableTop() {
     y: snapToGrid(p.y, grid.offsetY, grid.size, 0),
   });
 
+  /** Поставить источник света в центр клетки (режим `lightMode.place`). */
+  const placeLight = (world: { x: number; y: number }) => {
+    if (!activeMap || !lightMode.place) return;
+    const cell = grid.size || 50;
+    const p = {
+      x: snapToGrid(world.x, grid.offsetX, cell, 1),
+      y: snapToGrid(world.y, grid.offsetY, cell, 1),
+    };
+    updateLights(activeMap.id, [
+      ...(activeMap.lights ?? []),
+      {
+        id: newId(),
+        x: p.x,
+        y: p.y,
+        bright: lightMode.place.bright,
+        dim: lightMode.place.dim,
+        color: lightMode.place.color,
+      },
+    ]);
+  };
+
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // В режиме рисования ввод перехватывает DrawLayer (пока не идёт прицеливание).
     if (drawMode.active && !interaction) return;
@@ -658,6 +680,12 @@ export default function TableTop() {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       if (!stage || !pointer) return;
+      // Режим размещения источников: клик ставит свет (в т.ч. поверх токена), прямоугольник не тянем.
+      if (lightMode.place) {
+        if (e.evt.button !== 0) return;
+        placeLight(toWorld(stage, pointer));
+        return;
+      }
       areaBrush.begin(toWorld(stage, pointer));
       return;
     }
@@ -684,7 +712,7 @@ export default function TableTop() {
       return;
     }
     if (lightMode.active) {
-      if (!areaBrush.rectPreview) return;
+      if (lightMode.place || !areaBrush.rectPreview) return;
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       if (!stage || !pointer) return;
@@ -726,7 +754,7 @@ export default function TableTop() {
   const handleMouseUp = () => {
     if (drawMode.active && !interaction) return;
     if (lightMode.active) {
-      areaBrush.end();
+      if (!lightMode.place) areaBrush.end();
       return;
     }
     if (!fogMode.active) return;
@@ -808,7 +836,7 @@ export default function TableTop() {
       else st.toggleDoor(door.id);
       return;
     }
-    if (isDm && activeMap && e.evt.button === 0 && !scatter && !fogMode.active) {
+    if (isDm && activeMap && e.evt.button === 0 && !scatter && !fogMode.active && !lightMode.active) {
       // Клик — открыть/закрыть (незапертую), ПКМ — мини-UI с настройками и удалением.
       const st = useGameStore.getState();
       const stage = e.target.getStage();
@@ -885,7 +913,14 @@ export default function TableTop() {
               const hit = activeMap.lightAreas.find(
                 (a) => p.x >= a.x && p.x <= a.x + a.w && p.y >= a.y && p.y <= a.y + a.h
               );
-              if (hit) updateAreas(activeMap.id, activeMap.lightAreas.filter((a) => a.id !== hit.id));
+              if (hit) {
+                updateAreas(activeMap.id, activeMap.lightAreas.filter((a) => a.id !== hit.id));
+                return;
+              }
+              const light = (activeMap.lights ?? []).find(
+                (l) => Math.hypot(l.x - p.x, l.y - p.y) <= 14 / view.scale
+              );
+              if (light) updateLights(activeMap.id, (activeMap.lights ?? []).filter((l) => l.id !== light.id));
               return;
             }
             if (!wallsMode.active) {
@@ -904,6 +939,15 @@ export default function TableTop() {
             else setWallsMode({ start: null });
           }}
           onTouchStart={(e) => {
+            if (lightMode.active && lightMode.place && isDm) {
+              const stage = e.target.getStage();
+              const pointer = stage?.getPointerPosition();
+              if (stage && pointer) {
+                e.evt.preventDefault();
+                placeLight(toWorld(stage, pointer));
+                return;
+              }
+            }
             if (!fogMode.active && e.target === e.target.getStage()) {
               setSelected(null);
             }
@@ -929,6 +973,7 @@ export default function TableTop() {
             <LightLayer
               tokens={(activeMap?.tokens ?? []).filter((t) => !isBanished(t))}
               zones={activeMap?.zones ?? []}
+              lights={activeMap?.lights ?? []}
               grid={grid}
               dimmed={!!visionView}
             />

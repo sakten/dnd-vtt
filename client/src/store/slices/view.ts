@@ -28,7 +28,13 @@ export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 
         return { wallsMode };
       }),
 
-    setLightMode: (patch) => set((s) => ({ lightMode: { ...s.lightMode, ...patch } })),
+    setLightMode: (patch) =>
+      set((s) => {
+        const lightMode = { ...s.lightMode, ...patch };
+        // Выключили инструмент — сбрасываем и режим размещения источников.
+        if (patch.active === false) lightMode.place = null;
+        return { lightMode };
+      }),
 
     setWallCandidates: (wallCandidates) => set({ wallCandidates }),
 

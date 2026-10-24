@@ -4,6 +4,7 @@ import {
   MAX_WALL_SEGMENTS,
   normalizeGrid,
   normalizeLightAreas,
+  normalizeMapLights,
   snapToGrid,
   type Wall,
 } from 'shared';
@@ -138,6 +139,16 @@ export function registerMapHandlers(ctx: ConnCtx) {
       if (!map) return;
       map.lightAreas = normalizeLightAreas(lightAreas);
       broadcast('areas:update', { mapId, lightAreas: map.lightAreas });
+    });
+
+    ctx.on('lights:update', ({ mapId: rawMapId, lights }) => {
+      const room = dmRoom();
+      const mapId = asString(rawMapId);
+      if (!room || !mapId || !Array.isArray(lights)) return;
+      const map = room.scene.maps.find((m) => m.id === mapId);
+      if (!map) return;
+      map.lights = normalizeMapLights(lights);
+      broadcast('lights:update', { mapId, lights: map.lights });
     });
 
     ctx.on('grid:update', ({ mapId: rawMapId, grid }) => {

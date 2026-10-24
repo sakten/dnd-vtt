@@ -79,3 +79,36 @@ describe('grid:update (независимые сетки карт)', () => {
     expect(dm.selfEvents('map:bring')).toEqual([{ to: 's:self', event: 'map:bring', payload: { activeMapId: added.id } }]);
   });
 });
+
+describe('lights:update (размещённые источники света)', () => {
+  it('DM ставит источники, сервер нормализует и рассылает', () => {
+    const room = makeTwoMapRoom();
+    const dm = makeConnCtx(room, { dm: true });
+    registerMapHandlers(dm.ctx);
+
+    dm.invoke('lights:update', {
+      mapId: 'm1',
+      lights: [
+        { id: 'l1', x: 25, y: 75, bright: 20, dim: 20, color: '#FFAA00' },
+        { id: '', x: 0, y: 0, bright: 10, dim: 10 },
+      ],
+    });
+
+    expect(room.scene.maps[0]!.lights).toEqual([
+      { id: 'l1', x: 25, y: 75, bright: 20, dim: 20, color: '#ffaa00' },
+    ]);
+    const sent = dm.emitted.find((e) => e.event === 'lights:update');
+    expect(sent?.payload).toMatchObject({ mapId: 'm1', lights: room.scene.maps[0]!.lights });
+  });
+
+  it('игрок не может ставить свет', () => {
+    const room = makeTwoMapRoom();
+    const player = makeConnCtx(room, { playerId: 'p1' });
+    registerMapHandlers(player.ctx);
+
+    player.invoke('lights:update', { mapId: 'm1', lights: [{ id: 'l1', x: 0, y: 0, bright: 20, dim: 20 }] });
+
+    expect(room.scene.maps[0]!.lights).toEqual([]);
+    expect(player.emitted.some((e) => e.event === 'lights:update')).toBe(false);
+  });
+});

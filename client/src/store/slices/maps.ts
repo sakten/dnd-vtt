@@ -1,12 +1,12 @@
-import { MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from 'shared';
+import { MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from 'shared';
 import { t } from '../../i18n';
-import { applyMapGrid, setFog, setLightAreas, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
+import { applyMapGrid, setFog, setLightAreas, setLights, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
 import { activeMapOf } from '../selectors';
 import { emit, emitInMap, emitThrottled, flushThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateDoor' | 'setDoorMenu' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas'>> = (set, get) => {
+export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onLightsUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateDoor' | 'setDoorMenu' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas' | 'updateLights'>> = (set, get) => {
   // Клиент режет payload теми же лимитами, что и сервер: локальная и серверная версии не расходятся.
   const limitError = (what: string, max: number) =>
     get().onChatError(t('ui.store.limit', { what, max }));
@@ -34,6 +34,7 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     onWallsUpdate: ({ mapId, walls }) => set((s) => ({ scene: setWalls(s.scene, mapId, walls) })),
     onVisionUpdate: ({ mapId, vision }) => set((s) => ({ scene: setVision(s.scene, mapId, vision) })),
     onAreasUpdate: ({ mapId, lightAreas }) => set((s) => ({ scene: setLightAreas(s.scene, mapId, lightAreas) })),
+    onLightsUpdate: ({ mapId, lights }) => set((s) => ({ scene: setLights(s.scene, mapId, lights) })),
     onZonesUpdate: ({ mapId, zones }) => set((s) => ({ scene: setZones(s.scene, mapId, zones) })),
     onGridUpdate: ({ mapId, grid }) =>
       set((s) => ({ scene: applyMapGrid({ ...s.scene, grid }, mapId, grid) })),
@@ -138,6 +139,17 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
       emitThrottled(get, `areas:${mapId}`, 150, 'areas:update', () => {
         const latest = get().scene.maps.find((m) => m.id === mapId)?.lightAreas;
         return latest ? { mapId, lightAreas: latest } : undefined;
+      });
+    },
+
+    updateLights: (mapId, lights) => {
+      if (!get().socket) return;
+      const next = lights.slice(0, MAX_MAP_LIGHTS);
+      if (next.length !== lights.length) limitError(t('ui.store.lights'), MAX_MAP_LIGHTS);
+      set((s) => ({ scene: setLights(s.scene, mapId, next) }));
+      emitThrottled(get, `lights:${mapId}`, 150, 'lights:update', () => {
+        const latest = get().scene.maps.find((m) => m.id === mapId)?.lights;
+        return latest ? { mapId, lights: latest } : undefined;
       });
     },
   };

@@ -4,6 +4,7 @@ import {
   type FogState,
   type GridSettings,
   type LightArea,
+  type MapLight,
   type MapInfo,
   type Scene,
   type Token,
@@ -78,6 +79,10 @@ export function setVision(scene: Scene, mapId: string, vision: VisionSettings): 
 
 export function setLightAreas(scene: Scene, mapId: string, lightAreas: LightArea[]): Scene {
   return updateMap(scene, mapId, (m) => ({ ...m, lightAreas }));
+}
+
+export function setLights(scene: Scene, mapId: string, lights: MapLight[]): Scene {
+  return updateMap(scene, mapId, (m) => ({ ...m, lights }));
 }
 
 export function setZones(scene: Scene, mapId: string, zones: MapInfo['zones']): Scene {

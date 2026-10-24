@@ -44,6 +44,7 @@ export function addMap(
     zones: [],    walls: [],
     vision: { los: false, darkness: false },
     lightAreas: [],
+    lights: [],
     fog: defaultFog(grid),
     grid,
     combat: emptyCombatState(),

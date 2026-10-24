@@ -1,6 +1,6 @@
 import type { ZoneInstance } from '../domain/automation';
-import { DEFAULT_GRID, DEFAULT_VISION, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from '../domain/scene';
-import type { FogState, GridSettings, LightArea, LightAreaKind, MapInfo, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
+import { DEFAULT_GRID, DEFAULT_VISION, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from '../domain/scene';
+import type { FogState, GridSettings, LightArea, LightAreaKind, MapInfo, MapLight, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
 import { normalizeToken } from './token';
@@ -78,6 +78,31 @@ export function normalizeLightAreas(raw: unknown): LightArea[] {
   return out;
 }
 
+/** Источники света карты: валидные радиусы, цвет — только `#rrggbb`. */
+export function normalizeMapLights(raw: unknown): MapLight[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MapLight[] = [];
+  for (const item of raw.slice(0, MAX_MAP_LIGHTS)) {
+    if (!isRecord(item)) continue;
+    const id = String(item.id ?? '');
+    const x = Number(item.x);
+    const y = Number(item.y);
+    const bright = Number(item.bright);
+    const dim = Number(item.dim);
+    if (!id || ![x, y, bright, dim].every(Number.isFinite) || bright < 0 || dim < 0 || bright + dim <= 0) continue;
+    const color = typeof item.color === 'string' && /^#[0-9a-f]{6}$/i.test(item.color) ? item.color.toLowerCase() : undefined;
+    out.push({
+      id,
+      x,
+      y,
+      bright: Math.min(120, Math.round(bright)),
+      dim: Math.min(120, Math.round(dim)),
+      ...(color ? { color } : {}),
+    });
+  }
+  return out;
+}
+
 /** Нормализация стены: числовые координаты, известный вид, лимит сегментов. */
 export function normalizeWalls(raw: unknown): Wall[] {
   if (!Array.isArray(raw)) return [];
@@ -131,6 +156,7 @@ export function normalizeMapInfo(
     walls: normalizeWalls(source.walls),
     vision: normalizeVision(source.vision),
     lightAreas: normalizeLightAreas(source.lightAreas),
+    lights: normalizeMapLights(source.lights),
     fog,
     grid,
     combat: normalizeCombatState(source.combat),

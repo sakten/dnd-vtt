@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_WALL_SEGMENTS } from 'shared';
+import { DEFAULT_GRID, MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from 'shared';
 import { fakeSocket, makeScene, type EmittedEvent } from '../../test/fixtures';
 import { clearThrottled } from '../helpers';
 import { useGameStore } from '../useGameStore';
@@ -9,7 +9,7 @@ let emitted: EmittedEvent[] = [];
 beforeEach(() => {
   const fake = fakeSocket();
   emitted = fake.emitted;
-  for (const key of ['grid:m1', 'grid:m2', 'fog:m1', 'walls:m1', 'areas:m1']) clearThrottled(key);
+  for (const key of ['grid:m1', 'grid:m2', 'fog:m1', 'walls:m1', 'areas:m1', 'lights:m1']) clearThrottled(key);
   useGameStore.setState({
     socket: fake.socket,
     scene: makeScene(),
@@ -93,6 +93,23 @@ describe('maps slice: лимиты патчей (как на сервере)', (
     const s = useGameStore.getState();
     expect(s.scene.maps[0]!.lightAreas.length).toBe(MAX_LIGHT_AREAS);
     expect(s.chatError).toContain('лимит');
+  });
+
+  it('updateLights обрезает источники света и шлёт lights:update', () => {
+    const lights = Array.from({ length: MAX_MAP_LIGHTS + 1 }, (_, i) => ({
+      id: `l${i}`,
+      x: 25,
+      y: 25,
+      bright: 20,
+      dim: 20,
+    }));
+    useGameStore.getState().updateLights('m1', lights);
+
+    const s = useGameStore.getState();
+    expect(s.scene.maps[0]!.lights.length).toBe(MAX_MAP_LIGHTS);
+    expect(s.chatError).toContain('лимит');
+    const sent = emitted.find((e) => e.event === 'lights:update');
+    expect((sent!.payload as { lights: unknown[] }).lights.length).toBe(MAX_MAP_LIGHTS);
   });
 
   it('toggleDoor шлёт door:toggle с mapId активной карты', () => {
