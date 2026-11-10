@@ -4,7 +4,7 @@ import { emptyCombatState, emptyTurnState, type LibraryItem } from 'shared';
 import { fakeSocket, makeMap, makeScene, makeToken } from '../test/fixtures';
 import { useGameStore } from '../store/useGameStore';
 import { useActionContext } from './useActionContext';
-import { isCharacterTokenWith, useCanEndTurn, useIsRealDm } from './control';
+import { isCharacterTokenWith, useCanEndTurn, useCanMarkPlayerToken, useIsRealDm } from './control';
 import { useInvisibilityView } from './visibility';
 
 const PLAYER = { id: 'p1', name: 'Игрок', role: 'player' as const, isConnected: true };
@@ -57,6 +57,22 @@ describe('useIsRealDm', () => {
 
     useGameStore.setState({ role: 'player', testMode: true });
     expect(renderHook(() => useIsRealDm()).result.current).toBe(false);
+  });
+});
+
+describe('useCanMarkPlayerToken', () => {
+  it('автор предмета — да, чужой игрок — нет, старый свободный — да, чужой токен — нет, DM — да', () => {
+    const own = { createdBy: 'p1', isPlayerToken: false };
+    const other = { createdBy: 'p2', isPlayerToken: false };
+    const legacy = { createdBy: '', isPlayerToken: false };
+    const legacyToken = { createdBy: '', isPlayerToken: true };
+    expect(renderHook(() => useCanMarkPlayerToken(own)).result.current).toBe(true);
+    expect(renderHook(() => useCanMarkPlayerToken(other)).result.current).toBe(false);
+    expect(renderHook(() => useCanMarkPlayerToken(legacy)).result.current).toBe(true);
+    expect(renderHook(() => useCanMarkPlayerToken(legacyToken)).result.current).toBe(false);
+
+    useGameStore.setState({ role: 'dm' });
+    expect(renderHook(() => useCanMarkPlayerToken(other)).result.current).toBe(true);
   });
 });
 

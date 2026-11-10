@@ -172,7 +172,13 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
     const target = targets[i] ?? targets[targets.length - 1] ?? targets[0];
     if (!target) return resolveRay(i + 1);
     const label = rays > 1 ? `${subject} (${i + 1}/${rays})` : subject;
-    const effectCtx = { rangeType, attackType: rangeType, attackerType: creatureTypeOf(room, caster) } as const;
+    const effectCtx = {
+      rangeType,
+      attackType: rangeType,
+      attackerType: creatureTypeOf(room, caster),
+      // Эффекты с filter.targetId (Vex и подобные) — против конкретной цели.
+      targetId: target.id,
+    } as const;
     const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
     const unseen = castMap ? attackUnseen(room, caster, target, castMap) : undefined;

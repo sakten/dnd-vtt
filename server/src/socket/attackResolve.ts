@@ -348,6 +348,8 @@ export function prepareWeaponAttack(
     unarmed: isUnarmedAttack(attack),
     kenseiWeapon,
     attackerType: creatureTypeOf(room, attacker),
+    // Vex и подобные эффекты «против этой цели» (filter.targetId).
+    targetId: target?.id,
   } as const;
   const effectParts = attackRollParts(attacker?.effects, target?.effects, effectCtx, abilities);
   // Источники adv/dis — единый сборщик (тот же, что у клиентского предпросмотра).

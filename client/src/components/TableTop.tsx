@@ -445,6 +445,8 @@ export default function TableTop() {
         rangeType,
         attackType: rangeType === 'melee' || rangeType === 'ranged' ? rangeType : undefined,
         weapon: !!attack,
+        // Эффекты «против этой цели» (Vex): преимущество следующей атаки.
+        targetId: to.id,
       },
       abilities,
     });
@@ -960,6 +962,9 @@ export default function TableTop() {
               isDm={isDm}
               viewScale={view.scale}
               cellPx={grid.size || 50}
+              grid={grid}
+              visibleCells={visionView?.base ?? null}
+              hiddenCells={hiddenSet}
               doorHover={doorHover}
               wallCandidates={wallCandidates}
               wallStart={wallStart}

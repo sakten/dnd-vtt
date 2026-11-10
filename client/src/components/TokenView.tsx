@@ -22,8 +22,9 @@ import { activeGridOf, activeMapOf } from '../store/selectors';
 import { enterableCell } from '../lib/los';
 import { tokenImageUrl } from '../lib/imageVariants';
 import { useVisionViewers } from '../lib/useVision';
+import { tokenSeenByConditions } from '../lib/visibility';
 import { useMapLight } from '../lib/light';
-import { startWalkSession, walkFrame, walkedPoints } from '../lib/walk';
+import { startWalkSession, walkAlreadyDone, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
 
@@ -174,6 +175,13 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       return;
     }
     const current = tokenRef.current;
+    const now = performance.now();
+    // Скрытый токен мог пройти мимо, пока его не рисовали: к появлению движение уже
+    // закончилось — не проигрываем старый маршрут (иначе кажется, что он идёт сейчас).
+    if (walkAlreadyDone(moving, now)) {
+      finishTokenWalk(current.id, []);
+      return;
+    }
     const st = useGameStore.getState();
     const map = activeMapOf(st);
     const sight = map
@@ -193,11 +201,20 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
         : [];
     const senses = tokenSenses(current);
     const seenFrom = (point: { x: number; y: number }) =>
-      new Set(enemies.filter((e) => sight && canSee(point, e, senses, sight)).map((e) => e.id));
+      new Set(
+        enemies
+          .filter(
+            (e) =>
+              sight &&
+              canSee(point, e, senses, sight) &&
+              tokenSeenByConditions(current, e, grid.size, point)
+          )
+          .map((e) => e.id)
+      );
     const baseline = moving.own ? seenFrom({ x: current.x, y: current.y }) : null;
 
     let raf = 0;
-    const session = startWalkSession(moving.points, performance.now());
+    const session = startWalkSession(moving.points, moving.startedAt ?? now);
     const finish = (walked: { x: number; y: number }[]) => {
       window.clearTimeout(timer);
       cancelAnimationFrame(raf);
@@ -234,7 +251,7 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       cancelAnimationFrame(raf);
       window.clearTimeout(timer);
     };
-  }, [moving, token.id, finishTokenWalk, moveToken, stepTokenWalk]);
+  }, [moving, token.id, finishTokenWalk, moveToken, stepTokenWalk, grid.size]);
 
   const circleClip = (ctx: Konva.Context) => {
     ctx.arc(0, 0, token.w / 2, 0, Math.PI * 2, false);

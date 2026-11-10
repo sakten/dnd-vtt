@@ -117,6 +117,19 @@ describe('normalizeTokenFieldsPatch', () => {
       normalizeTokenFieldsPatch({ showStats: true }, { ac: '', hpMax: '' }, { includeDm: true }).showStats
     ).toBe(true);
   });
+
+  it('пометку «токен игрока» даёт includePlayerToken, но не остальные DM-поля', () => {
+    const prev = { ac: '', hpMax: '' };
+    expect(normalizeTokenFieldsPatch({ isPlayerToken: true }, prev)).not.toHaveProperty('isPlayerToken');
+    const patch = normalizeTokenFieldsPatch(
+      { isPlayerToken: true, owner: 'p1', showStats: true },
+      prev,
+      { includePlayerToken: true }
+    );
+    expect(patch.isPlayerToken).toBe(true);
+    expect(patch).not.toHaveProperty('owner');
+    expect(patch).not.toHaveProperty('showStats');
+  });
 });
 
 describe('redactToken / redactLibraryItem', () => {

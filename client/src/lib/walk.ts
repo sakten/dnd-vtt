@@ -62,3 +62,11 @@ export function walkedPoints(session: WalkSession, stepIndex: number): WalkPoint
   const last = Math.max(0, Math.min(stepIndex, session.points.length - 1));
   return session.points.slice(0, last + 1);
 }
+
+/** Наблюдательский поход уже завершился к моменту появления токена — не проигрываем его заново. */
+export function walkAlreadyDone(
+  walk: { own: boolean; duration: number; startedAt?: number },
+  now: number
+): boolean {
+  return !walk.own && walk.startedAt !== undefined && now - walk.startedAt >= walk.duration;
+}

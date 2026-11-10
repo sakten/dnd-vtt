@@ -64,6 +64,8 @@ export interface TokenShape {
 
 export interface LibraryItem extends TokenFields {
   id: string;
+  /** id игрока, создавшего предмет: только он (или DM) может пометить его токеном игрока. */
+  createdBy?: string;
 }
 
 export interface Token extends TokenFields {

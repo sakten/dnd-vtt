@@ -204,3 +204,22 @@ export function applyWeaponOverrides(
 export function handOf(loadout: ActorLoadout, hand: HandKey): AttackEntry | undefined {
   return handAttackOf(loadout.attacks, loadout.hands, hand);
 }
+
+/**
+ * Оружие правой руки для каста «оружием» с `anyWeapon` (True Strike): если цель
+ * дальше ближней дистанции, берём дальнюю (метательную) запись того же оружия
+ * из листа — копьё/кинжал. Иначе — обычная рука.
+ */
+export function spellWeaponEntry(loadout: ActorLoadout, targetFeet: number): AttackEntry | undefined {
+  const right = handOf(loadout, 'right');
+  if (!right) return undefined;
+  if (right.rangeType !== 'melee' || targetFeet <= (right.rangeNormal || 5)) return right;
+  const ranged = loadout.attacks.find(
+    (attack) =>
+      !!attack.weaponKey &&
+      attack.weaponKey === right.weaponKey &&
+      attack.rangeType !== 'melee' &&
+      (attack.rangeLong || attack.rangeNormal || 0) >= targetFeet
+  );
+  return ranged ?? right;
+}

@@ -1,4 +1,4 @@
-﻿export const ru = {
+export const ru = {
   'ui.language': 'Язык интерфейса',
 
   'error.reactionPending': 'Ожидание реакции',
@@ -476,6 +476,7 @@
   'ui.tokenFields.senses': 'Восприятие',
   'ui.tokenFields.senseRange': '{sense} {range} фт',
   'ui.tokenFields.isPlayerToken': 'Это токен игрока',
+  'ui.tokenFields.playerTokenAuthorOnly': 'Пометить может автор предмета или ведущий',
   'ui.tokenFields.owner': 'Владелец (имя персонажа; пусто — сам персонаж)',
   'ui.tokenFields.ownerPlaceholder': 'Например: Гэндальф',
   'ui.tokenFields.showStats': 'Показывать статы игрокам',

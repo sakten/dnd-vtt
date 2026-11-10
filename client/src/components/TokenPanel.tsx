@@ -5,7 +5,7 @@ import { useGameStore } from '../store/useGameStore';
 import { uploadImage } from '../lib/api';
 import { thumbUrl } from '../lib/imageVariants';
 import { t } from '../i18n';
-import { canAddLibraryItem, canSetAsCharacter, useIsDm } from '../lib/control';
+import { canAddLibraryItem, canSetAsCharacter, useCanMarkPlayerToken, useIsDm } from '../lib/control';
 import { useDragSize } from '../lib/useDragSize';
 import Modal from './Modal';
 import StatblockForm from './StatblockForm';
@@ -45,6 +45,7 @@ export default function TokenPanel() {
   };
 
   const editing = items.find((i) => i.id === editingId) ?? null;
+  const canMarkPlayerToken = useCanMarkPlayerToken(editing);
 
   const [draft, setDraft] = useState<TokenFields | null>(null);
   const draftInvalid = !draft || !statsPaired(draft.ac ?? '', draft.hpMax ?? '');
@@ -252,7 +253,11 @@ export default function TokenPanel() {
           </div>
           <div className="tm-body">
             {tab === 'main' && (
-              <TokenFieldsForm value={draft} onChange={(patch) => setDraft({ ...draft, ...patch })} />
+              <TokenFieldsForm
+                value={draft}
+                onChange={(patch) => setDraft({ ...draft, ...patch })}
+                canMarkPlayerToken={canMarkPlayerToken}
+              />
             )}
             {tab === 'statblock' && isDm && (
               <StatblockForm

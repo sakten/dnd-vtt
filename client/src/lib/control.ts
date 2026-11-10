@@ -122,3 +122,21 @@ export function canAddLibraryItem(item: Pick<LibraryItem, 'id' | 'isPlayerToken'
 export function canSetAsCharacter(item: Pick<LibraryItem, 'isPlayerToken' | 'owner'>): boolean {
   return item.isPlayerToken && !item.owner.trim();
 }
+
+/** Может ли игрок сам пометить предмет «токеном игрока»: его автор, DM,
+ *  либо (старый предмет без автора) — свободный неотмеченный предмет. */
+export function canMarkPlayerTokenWith(
+  s: Pick<State, 'role' | 'testMode' | 'selfId'>,
+  item: Pick<LibraryItem, 'createdBy' | 'isPlayerToken'> | null | undefined
+): boolean {
+  if (isDmWith(s)) return true;
+  if (!s.selfId || !item) return false;
+  if (item.isPlayerToken) return item.createdBy === s.selfId;
+  return !item.createdBy || item.createdBy === s.selfId;
+}
+
+export function useCanMarkPlayerToken(
+  item: Pick<LibraryItem, 'createdBy' | 'isPlayerToken'> | null | undefined
+): boolean {
+  return useGameStore((s) => canMarkPlayerTokenWith(s, item));
+}

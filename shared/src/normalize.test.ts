@@ -77,6 +77,11 @@ describe('normalizeLibraryItem', () => {
     expect(item.imageUrl).toBe('/uploads/g.png');
     expect(item.name).toHaveLength(60);
   });
+
+  it('createdBy сохраняется, не-строка — пусто', () => {
+    expect(normalizeLibraryItem({ id: 'l1', createdBy: 'p1' }).createdBy).toBe('p1');
+    expect(normalizeLibraryItem({ id: 'l2', createdBy: 42 }).createdBy).toBe('');
+  });
 });
 
 describe('normalizeMapInfo', () => {

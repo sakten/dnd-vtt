@@ -22,7 +22,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       const room = getRoom();
       if (!room) return;
       if (rejectIfReaction(ctx)) return;
-      manager.addLibraryItem(room, payload);
+      manager.addLibraryItem(room, payload, ctx.playerId ?? '');
       broadcastLibrary(room);
     });
 
@@ -30,9 +30,25 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       const room = getRoom();
       if (!room) return;
       if (rejectIfReaction(ctx)) return;
-      // DM-поля (owner/isPlayerToken/showStats/canInteract/statblock) — как в token:update.
-      manager.updateLibraryItem(room, id, patch, isDm());
       const item = room.library.find((i) => i.id === id);
+      const dm = isDm();
+      // Автор предмета (игрок) может сам пометить его «токеном игрока»; остальные
+      // DM-поля (owner/showStats/canInteract/statblock) — только ведущий.
+      const mine = !!ctx.playerId && item?.createdBy === ctx.playerId;
+      // Старые предметы без createdBy: свободный (ничей, не выставлен, не персонаж)
+      // предмет игрок может «усыновить» пометкой — дальше авторство закрепляется.
+      const legacyFree =
+        !dm &&
+        !!ctx.playerId &&
+        !!item &&
+        !item.isPlayerToken &&
+        !item.createdBy &&
+        !item.owner.trim() &&
+        !room.scene.maps.some((m) => m.tokens.some((t) => t.libraryItemId === item.id)) &&
+        !Object.values(room.controllers).includes(item.id);
+      const adopt = legacyFree && patch.isPlayerToken === true;
+      if (adopt && item && ctx.playerId) item.createdBy = ctx.playerId;
+      manager.updateLibraryItem(room, id, patch, dm, !dm && (mine || adopt));
       if (item && (!item.isPlayerToken || item.owner.trim())) {
         emitFrozen(room, manager.freezeCharacterTokensOfItem(room, id));
         for (const pid of manager.clearControllersForItem(room, id)) {

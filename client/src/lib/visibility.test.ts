@@ -1,7 +1,7 @@
 ﻿import { describe, expect, it } from 'vitest';
 import type { ConditionInstance, EffectInstance } from 'shared';
 import { makeToken } from '../test/fixtures';
-import { invisibilityViewFor, tokenHidden, tokenInvisible } from './visibility';
+import { invisibilityViewFor, tokenHidden, tokenInvisible, tokenSeenByConditions } from './visibility';
 
 const invisibleCond: ConditionInstance = { key: 'invisible', name: 'Невидим' };
 const hiddenCond: ConditionInstance = { key: 'hidden', name: 'Скрытый' };
@@ -51,6 +51,27 @@ describe('РЅРµРІРёРґРёРјРѕСЃС‚СЊ: РєС‚Рѕ С‡С�
     const ghost = makeToken('ghost', { conditions: [invisibleCond], faction: 'ally' });
     const view = invisibilityViewFor([ghost], [], false);
     expect(view.masked.has('ghost')).toBe(true);
+  });
+});
+
+describe('tokenSeenByConditions: что прерывает движение', () => {
+  it('невидимый не виден без See Invisibility (даже вплотную)', () => {
+    const ghost = makeToken('g', { x: 0, y: 0, conditions: [invisibleCond] });
+    const viewer = makeToken('v', { x: 50, y: 0 });
+    expect(tokenSeenByConditions(viewer, ghost, 50)).toBe(false);
+
+    const seer = makeToken('s', { x: 50, y: 0, effects: [seeInvisibleEffect] });
+    expect(tokenSeenByConditions(seer, ghost, 50)).toBe(true);
+  });
+
+  it('скрытый виден вплотную или истинным зрением', () => {
+    const hidden = makeToken('h', { x: 0, y: 0, conditions: [hiddenCond] });
+    const far = makeToken('v', { x: 200, y: 0 });
+    expect(tokenSeenByConditions(far, hidden, 50)).toBe(false);
+    expect(tokenSeenByConditions(far, hidden, 50, { x: 50, y: 0 })).toBe(true);
+
+    const truesight = makeToken('t', { x: 200, y: 0, senses: [{ type: 'truesight', range: 60 }] });
+    expect(tokenSeenByConditions(truesight, hidden, 50)).toBe(true);
   });
 });
 

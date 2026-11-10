@@ -22,6 +22,25 @@ export function tokenHidden(token: Pick<Token, 'conditions'>): boolean {
   return hasCondition(token.conditions, 'hidden');
 }
 
+/**
+ * Виден ли токен зрителю по состояниям (без LOS/тумана): невидимый — только с
+ * See Invisibility; скрытый — с соседней клетки, истинным зрением или See Invisibility.
+ * `at` — позиция зрителя, если она отличается от его токена (шаг по маршруту).
+ */
+export function tokenSeenByConditions(
+  viewer: Token,
+  token: Token,
+  gridSize: number,
+  at: { x: number; y: number } = { x: viewer.x, y: viewer.y }
+): boolean {
+  if (tokenInvisible(token) && !seesInvisible(viewer.effects)) return false;
+  if (tokenHidden(token)) {
+    const feet = gridDistanceFeet({ ...viewer, x: at.x, y: at.y }, token, gridSize);
+    if (!seesHidden(viewer, feet)) return false;
+  }
+  return true;
+}
+
 export interface InvisibilityView {
   /** Токены, скрытые невидимостью/скрытностью от текущего зрителя (карта и чипы скрываются). */
   hidden: Set<string>;

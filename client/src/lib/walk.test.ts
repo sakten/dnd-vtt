@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { startWalkSession, walkDuration, walkFrame, walkedPoints } from './walk';
+import { startWalkSession, walkAlreadyDone, walkDuration, walkFrame, walkedPoints } from './walk';
 
 const POINTS = [
   { x: 0, y: 0 },
@@ -56,5 +56,14 @@ describe('walkedPoints', () => {
       { x: 50, y: 0 },
     ]);
     expect(walkedPoints(session, 99)).toEqual(POINTS);
+  });
+});
+
+describe('walkAlreadyDone', () => {
+  it('завершённый наблюдательский поход не проигрывается при позднем появлении', () => {
+    expect(walkAlreadyDone({ own: false, duration: 150, startedAt: 1000 }, 1200)).toBe(true);
+    expect(walkAlreadyDone({ own: false, duration: 150, startedAt: 1000 }, 1100)).toBe(false);
+    expect(walkAlreadyDone({ own: true, duration: 150, startedAt: 0 }, 99999)).toBe(false);
+    expect(walkAlreadyDone({ own: false, duration: 150 }, 99999)).toBe(false);
   });
 });

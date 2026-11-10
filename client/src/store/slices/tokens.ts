@@ -97,6 +97,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
         points: path.points,
         duration: Math.min(1500, Math.max(150, (path.points.length - 1) * 150)),
         own: true,
+        startedAt: performance.now(),
         diagonalsBefore: turn?.diagonalsUsed ?? 0,
         ...(path.steps ? { steps: path.steps } : {}),
       };
@@ -184,6 +185,7 @@ export const createTokenSlice: Slice<Pick<GameState, 'onTokenAdd' | 'onTokenUpda
             points: path,
             duration: Math.min(1500, Math.max(150, (path.length - 1) * 150)),
             own: false,
+            startedAt: performance.now(),
             diagonalsBefore: 0,
           },
         },

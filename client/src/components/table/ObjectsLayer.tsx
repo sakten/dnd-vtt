@@ -1,13 +1,19 @@
+import { useMemo } from 'react';
 import { Circle, Line, Rect, Group } from 'react-konva';
 import type { LightArea, MapInfo, Wall } from 'shared';
 import DoorView from '../DoorView';
 import type { CellRect, RectPreview } from '../../lib/fog';
+import { visibleWallPieces, type WallGrid } from '../../lib/wallRender';
 
 const WALL_COLORS: Record<Wall['kind'], string> = {
   wall: '#e6e8ee',
   door: '#e0a458',
   window: '#7cc7e8',
 };
+
+/** Стены для игрока: тёмный кант + каменная кромка, чтобы не путать с вуалью и дверями. */
+const PLAYER_WALL_EDGE = '#0f131a';
+const PLAYER_WALL_CORE = '#b7bfcc';
 
 const LIGHT_AREA_COLORS: Record<LightArea['kind'], string> = {
   darkness: '#3b4f8a',
@@ -22,6 +28,10 @@ interface Props {
   isDm: boolean;
   viewScale: number;
   cellPx: number;
+  grid: WallGrid;
+  /** Видимые игроку клетки (base вуали); null — обзор не считался. */
+  visibleCells: Set<string> | null;
+  hiddenCells: Set<string>;
   doorHover: { id: string; state: 'open' | 'blocked' } | null;
   wallCandidates: Wall[] | null | undefined;
   wallStart: { x: number; y: number } | null;
@@ -36,6 +46,9 @@ export default function ObjectsLayer({
   isDm,
   viewScale,
   cellPx,
+  grid,
+  visibleCells,
+  hiddenCells,
   doorHover,
   wallCandidates,
   wallStart,
@@ -43,6 +56,11 @@ export default function ObjectsLayer({
   fogRects,
   rectPreview,
 }: Props) {
+  const walls = map?.walls;
+  const playerWalls = useMemo(
+    () => (isDm || !visibleCells || !walls?.length ? [] : visibleWallPieces(walls, visibleCells, hiddenCells, grid)),
+    [isDm, walls, visibleCells, hiddenCells, grid]
+  );
   return (
     <Group listening={false}>
       {isDm &&
@@ -101,6 +119,30 @@ export default function ObjectsLayer({
           />
         );
       })}
+      {!isDm &&
+        playerWalls.map((w) => (
+          <Line
+            key={`pw-edge-${w.id}`}
+            points={[w.x1, w.y1, w.x2, w.y2]}
+            stroke={PLAYER_WALL_EDGE}
+            strokeWidth={7 / viewScale}
+            lineCap="round"
+            opacity={0.85}
+            listening={false}
+          />
+        ))}
+      {!isDm &&
+        playerWalls.map((w) => (
+          <Line
+            key={`pw-core-${w.id}`}
+            points={[w.x1, w.y1, w.x2, w.y2]}
+            stroke={w.kind === 'window' ? WALL_COLORS.window : PLAYER_WALL_CORE}
+            strokeWidth={3 / viewScale}
+            lineCap="round"
+            opacity={0.95}
+            listening={false}
+          />
+        ))}
       {isDm &&
         wallCandidates?.map((w) => (
           <Line

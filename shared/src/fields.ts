@@ -19,6 +19,14 @@ interface NormalizeOpts {
   nameLimit: number;
 }
 
+/** Что разрешено менять в patch-обновлении (права проверяет сервер). */
+export interface TokenPatchOpts {
+  /** DM-поля: owner/showStats/canInteract/statblock. */
+  includeDm: boolean;
+  /** Пометка «токен игрока» доступна и автору предмета библиотеки. */
+  includePlayerToken: boolean;
+}
+
 interface FieldSpec {
   /** Полная нормализация значения (создание/гидратация). */
   full: (raw: Partial<TokenFields>, opts: NormalizeOpts) => FieldValue;
@@ -26,7 +34,7 @@ interface FieldSpec {
   patch: (
     raw: Partial<TokenFields>,
     prev: Pick<TokenFields, 'ac' | 'hpMax'>,
-    includeDm: boolean
+    opts: TokenPatchOpts
   ) => FieldValue | undefined;
   /** Заглушки для скрытия от игроков (AC/HP/атаки/защиты); нет — поле видно всегда. */
   hidden?: { token?: FieldValue; library?: FieldValue };
@@ -61,12 +69,14 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
   },
   isPlayerToken: {
     full: (raw) => raw.isPlayerToken === true,
-    patch: (raw, _prev, includeDm) =>
-      includeDm && typeof raw.isPlayerToken === 'boolean' ? raw.isPlayerToken : undefined,
+    patch: (raw, _prev, opts) =>
+      (opts.includeDm || opts.includePlayerToken) && typeof raw.isPlayerToken === 'boolean'
+        ? raw.isPlayerToken
+        : undefined,
   },
   owner: {
     full: (raw) => trim(raw.owner, 40),
-    patch: (raw, _prev, includeDm) => (includeDm && typeof raw.owner === 'string' ? raw.owner.slice(0, 40) : undefined),
+    patch: (raw, _prev, opts) => (opts.includeDm && typeof raw.owner === 'string' ? raw.owner.slice(0, 40) : undefined),
   },
   attacks: {
     full: (raw) => normalizeAttacks(raw.attacks),
@@ -102,13 +112,13 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
   },
   showStats: {
     full: (raw) => raw.showStats === true,
-    patch: (raw, _prev, includeDm) => (includeDm && typeof raw.showStats === 'boolean' ? raw.showStats : undefined),
+    patch: (raw, _prev, opts) => (opts.includeDm && typeof raw.showStats === 'boolean' ? raw.showStats : undefined),
   },
   canInteract: {
     full: (raw) => raw.canInteract === true,
     // Взаимодействие с объектами — настройка DM (как showStats).
-    patch: (raw, _prev, includeDm) =>
-      includeDm && typeof raw.canInteract === 'boolean' ? raw.canInteract : undefined,
+    patch: (raw, _prev, opts) =>
+      opts.includeDm && typeof raw.canInteract === 'boolean' ? raw.canInteract : undefined,
   },
   damageDefenses: {
     full: (raw) => normalizeDamageDefenses(raw.damageDefenses),
@@ -118,8 +128,8 @@ export const TOKEN_FIELD_SPECS: Record<keyof TokenFields, FieldSpec> = {
   statblock: {
     full: (raw) => normalizeStatblock(raw.statblock),
     // Патч статблока — только DM (у токенов DM-ветка обрабатывает его отдельно).
-    patch: (raw, _prev, includeDm) =>
-      includeDm && raw.statblock !== undefined ? normalizeStatblock(raw.statblock) : undefined,
+    patch: (raw, _prev, opts) =>
+      opts.includeDm && raw.statblock !== undefined ? normalizeStatblock(raw.statblock) : undefined,
     // Статблок — данные DM: игрокам ни у токена, ни в библиотеке.
     hidden: { token: undefined, library: undefined },
   },
@@ -183,11 +193,15 @@ export function normalizeTokenFields(raw: Partial<TokenFields>, nameLimit = 40):
 export function normalizeTokenFieldsPatch(
   raw: Partial<TokenFields>,
   prev: Pick<TokenFields, 'ac' | 'hpMax'>,
-  opts: { includeDm?: boolean } = {}
+  opts: { includeDm?: boolean; includePlayerToken?: boolean } = {}
 ): Partial<TokenFields> {
+  const patchOpts: TokenPatchOpts = {
+    includeDm: opts.includeDm === true,
+    includePlayerToken: opts.includePlayerToken === true,
+  };
   const out: Partial<TokenFields> = {};
   for (const key of Object.keys(TOKEN_FIELD_SPECS) as (keyof TokenFields)[]) {
-    const value = TOKEN_FIELD_SPECS[key].patch(raw, prev, opts.includeDm === true);
+    const value = TOKEN_FIELD_SPECS[key].patch(raw, prev, patchOpts);
     if (value !== undefined) (out as unknown as Record<string, unknown>)[key] = value;
   }
   return out;

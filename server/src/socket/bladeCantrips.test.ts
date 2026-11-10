@@ -317,6 +317,70 @@ describe('Booming Blade, True Strike и Zephyr Strike', () => {
     expect(primary.hpCurrent).toBe(27); // атака состоялась и нанёсся урон
   });
 
+  it('Booming Blade: Vex работает — мастерство за попадание и преимущество следующему касту', () => {
+    const rapier: AttackEntry = { ...SWORD, name: 'Rapier', damage: '1d8+3', weaponKey: 'XPHB:Rapier' };
+    const { attacker, room, f, input } = setupSpell('TCE:Booming Blade', {
+      attacks: [rapier],
+      hands: { right: 'sword' },
+    });
+    room.sheets.p1!.classes = [{ className: 'rogue', level: 5 }];
+
+    withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+    const firstVex = attacker.effects.find((e) => e.sourceKey === 'mastery:Vex');
+    expect(firstVex).toBeTruthy();
+
+    const before = f.emitted.length;
+    withRandom(0.5, () => resolveSpellCast(f.ctx, input));
+    const rolls = f.emitted
+      .slice(before)
+      .filter((e) => e.event === 'chat:message')
+      .map((e) => e.payload as { kind?: string; rollKind?: string; roll?: { expression?: string } })
+      .filter((m) => m.kind === 'roll' && m.rollKind === 'attack');
+    expect(rolls.at(-1)?.roll?.expression).toContain('d20a');
+    // Старая метка сгорела на броске, попадание поставило новую.
+    const nextVex = attacker.effects.find((e) => e.sourceKey === 'mastery:Vex');
+    expect(nextVex?.id).not.toBe(firstVex?.id);
+  });
+
+  it('True Strike: дальнее оружие бьёт на его дистанцию', () => {
+    const { primary, room, f, input } = setupSpell('XPHB:True Strike', {
+      attacks: [BOW],
+      hands: { right: 'bow' },
+      targetAc: '12',
+    });
+    primary.x = 300; // 25 фт — в пределах 80/320 у короткого лука
+    expect(validateSpellCast(room, input)).toBeUndefined();
+    withRandom(0.5, () => resolveSpellCast(f.ctx, { ...input, variant: 'radiant' }));
+    expect(primary.hpCurrent).toBe(29); // d20 11 + Инт 6 ≥ 12; (1d6+3 = 7) + (1d6 = 4)
+  });
+
+  it('True Strike: метательное в руке бьёт броском на дальнюю дистанцию', () => {
+    const melee: AttackEntry = {
+      ...SWORD,
+      id: 'jav',
+      name: 'Javelin',
+      damage: '1d6+3',
+      weaponKey: 'XPHB:Javelin',
+    };
+    const ranged: AttackEntry = {
+      ...melee,
+      id: 'jav-r',
+      name: 'Javelin (ranged)',
+      rangeType: 'ranged',
+      rangeNormal: 30,
+      rangeLong: 120,
+    };
+    const { primary, room, f, input } = setupSpell('XPHB:True Strike', {
+      attacks: [melee, ranged],
+      hands: { right: 'jav' },
+      targetAc: '12',
+    });
+    primary.x = 300; // 25 фт — ближняя запись не достаёт, бросок достаёт
+    expect(validateSpellCast(room, input)).toBeUndefined();
+    withRandom(0.5, () => resolveSpellCast(f.ctx, { ...input, variant: 'radiant' }));
+    expect(primary.hpCurrent).toBe(29);
+  });
+
   it('Zephyr Strike: расход на атаку — преимущество, 1d8 силовым и скорость +30', () => {
     const { attacker, primary, f, input } = setupSpell('XGE:Zephyr Strike');
     withRandom(0.5, () => resolveSpellCast(f.ctx, input));

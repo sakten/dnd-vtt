@@ -479,6 +479,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.tokenFields.senses': 'Senses',
   'ui.tokenFields.senseRange': '{sense} {range} ft',
   'ui.tokenFields.isPlayerToken': 'This is a player token',
+  'ui.tokenFields.playerTokenAuthorOnly': "Only the item's author or the DM can mark this",
   'ui.tokenFields.owner': 'Owner (character name; empty — the character itself)',
   'ui.tokenFields.ownerPlaceholder': 'For example: Gandalf',
   'ui.tokenFields.showStats': 'Show stats to players',

@@ -1,5 +1,6 @@
 import {
   gridOfMap,
+  gridDistanceFeet,
   gripAdjustedDamage,
   handOf,
   hostileTokens,
@@ -8,6 +9,7 @@ import {
   rightGrip,
   rollDice,
   seesInvisible,
+  spellWeaponEntry,
   tokenVisibleFrom,
   tokensNearFeet,
   wallsWithZones,
@@ -49,7 +51,13 @@ export function runBladeCantrip(ctx: ConnCtx, room: Room, input: SpellCastInput,
     effects: input.caster.effects,
     ...weaponContextOf(sheet),
   });
-  const held = sheet ? handOf(loadout, 'right') : undefined;
+  const map = ctx.manager.findMap(room, input.mapId);
+  const targetFeet = map ? gridDistanceFeet(input.caster, target, gridOfMap(map, room.scene.grid).size) : 0;
+  const held = sheet
+    ? spec.anyWeapon
+      ? spellWeaponEntry(loadout, targetFeet)
+      : handOf(loadout, 'right')
+    : undefined;
   if (!held || (!spec.anyWeapon && held.rangeType !== 'melee')) {
     fail(ctx, 'noHeldWeapon');
     return;

@@ -18,6 +18,14 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M11 14v5h2v-5" />
     </>
   ),
+  // Маленькая стрела (бейдж дальней/метательной атаки)
+  arrow: (
+    <>
+      <path d="M12 3v16" />
+      <path d="M8.5 6.5 12 3l3.5 3.5" />
+      <path d="M9.5 18l2.5-3 2.5 3" />
+    </>
+  ),
   // Рывок — двойная стрелка
   dash: (
     <>
@@ -175,6 +183,7 @@ export default function ActionIcon({ id, className }: { id: string; className?: 
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      data-icon={id}
     >
       {ICONS[id] ?? <circle cx="12" cy="12" r="8" />}
     </svg>

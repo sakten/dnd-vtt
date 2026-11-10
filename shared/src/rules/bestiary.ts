@@ -660,16 +660,39 @@ export function bestiaryEntryFromRaw(raw: RawBestiaryMonster, knownSpells: Set<s
       continue;
     }
     if (attack) {
-      const melee = attack.melee && !attack.rangeNormal;
-      attacks.push({
-        name: entry.name,
-        hit: attack.hit,
-        damage: attack.damage,
-        rangeType: melee ? 'melee' : attack.ranged || attack.rangeNormal ? 'ranged' : 'melee',
-        rangeNormal: melee ? Math.max(5, attack.reach) : attack.rangeNormal || Math.max(5, attack.reach),
-        rangeLong: attack.rangeLong,
-        ...(attack.damageType ? { damageType: attack.damageType } : {}),
-      });
+      const reach = Math.max(5, attack.reach);
+      // «Melee or Ranged Attack Roll» (дротик, копьё): обе формы — в ближнем 5+ фт и броском.
+      if (attack.melee && (attack.ranged || attack.rangeNormal > 0)) {
+        attacks.push({
+          name: entry.name,
+          hit: attack.hit,
+          damage: attack.damage,
+          rangeType: 'melee',
+          rangeNormal: reach,
+          rangeLong: 0,
+          ...(attack.damageType ? { damageType: attack.damageType } : {}),
+        });
+        attacks.push({
+          name: `${entry.name} (ranged)`,
+          hit: attack.hit,
+          damage: attack.damage,
+          rangeType: 'ranged',
+          rangeNormal: attack.rangeNormal || reach,
+          rangeLong: attack.rangeLong,
+          ...(attack.damageType ? { damageType: attack.damageType } : {}),
+        });
+      } else {
+        const melee = attack.melee && !attack.rangeNormal;
+        attacks.push({
+          name: entry.name,
+          hit: attack.hit,
+          damage: attack.damage,
+          rangeType: melee ? 'melee' : attack.ranged || attack.rangeNormal ? 'ranged' : 'melee',
+          rangeNormal: melee ? reach : attack.rangeNormal || reach,
+          rangeLong: attack.rangeLong,
+          ...(attack.damageType ? { damageType: attack.damageType } : {}),
+        });
+      }
       if (attack.damage.split('+').length > 2 || /\bplus\b/i.test(entry.text)) {
         manual.push(`**${entry.name}.** ${entry.text}`);
       }

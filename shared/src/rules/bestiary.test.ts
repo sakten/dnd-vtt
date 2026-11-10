@@ -194,6 +194,26 @@ describe('бестиарий: разбор атак', () => {
     expect(entry.cells).toBe(1);
   });
 
+  it('«Melee or Ranged» даёт и ближнюю атаку, и метание', () => {
+    const monster: RawBestiaryMonster = {
+      ...WOLF,
+      name: 'Javelin Thrower',
+      action: [
+        {
+          name: 'Javelin',
+          entries: [
+            '{@atkr m,r} {@hit 5}, reach 5 ft. or range 30/120 ft. {@h}5 ({@damage 1d6 + 3}) Piercing damage.',
+          ],
+        },
+      ],
+    };
+    const entry = bestiaryEntryFromRaw(monster, known)!;
+    expect(entry.attacks).toEqual([
+      expect.objectContaining({ name: 'Javelin', rangeType: 'melee', rangeNormal: 5, rangeLong: 0 }),
+      expect.objectContaining({ name: 'Javelin (ranged)', rangeType: 'ranged', rangeNormal: 30, rangeLong: 120 }),
+    ]);
+  });
+
   it('мультиатака числом слов', () => {
     expect(parseMultiattack('The dragon makes three Rend attacks.')).toBe(3);
     expect(parseMultiattack("The spirit makes a number of Rend attacks equal to half this spell's level")).toBeUndefined();

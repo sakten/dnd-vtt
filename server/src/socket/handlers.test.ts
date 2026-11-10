@@ -7598,6 +7598,131 @@ describe('библиотека и статблок', () => {
     expect(item.statblock?.abilities.str).toBe(20);
   });
 
+  it('игрок сам помечает созданный им предмет токеном игрока', () => {
+    const room = makeRoom([], {});
+    const player = makeCtx(room, { playerId: 'p1' });
+    registerLibraryHandlers(player.ctx);
+    player.invoke('library:add', {
+      name: 'Мой герой',
+      description: '',
+      imageUrl: '/uploads/hero.png',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '',
+      hpMax: '',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+    expect(item.createdBy).toBe('p1');
+
+    player.invoke('library:update', {
+      id: item.id,
+      patch: { isPlayerToken: true, owner: 'p1', showStats: true },
+    });
+
+    expect(item.isPlayerToken).toBe(true);
+    expect(item.owner).toBe('');
+    expect(item.showStats).toBe(false);
+  });
+
+  it('игрок не помечает чужой предмет библиотеки токеном игрока', () => {
+    const room = makeRoom([], {});
+    const author = makeCtx(room, { playerId: 'p1' });
+    const other = makeCtx(room, { playerId: 'p2' });
+    registerLibraryHandlers(author.ctx);
+    registerLibraryHandlers(other.ctx);
+    author.invoke('library:add', {
+      name: 'Герой',
+      description: '',
+      imageUrl: '',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '',
+      hpMax: '',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+
+    other.invoke('library:update', { id: item.id, patch: { isPlayerToken: true } });
+
+    expect(item.isPlayerToken).toBe(false);
+  });
+
+  it('старый предмет без автора игрок может пометить, если тот свободен', () => {
+    const room = makeRoom([], {});
+    const dm = makeCtx(room, { dm: true });
+    const player = makeCtx(room, { playerId: 'p1' });
+    registerLibraryHandlers(dm.ctx);
+    registerLibraryHandlers(player.ctx);
+    dm.invoke('library:add', {
+      name: 'Старый герой',
+      description: '',
+      imageUrl: '/uploads/hero.png',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '',
+      hpMax: '',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+    delete item.createdBy;
+
+    player.invoke('library:update', { id: item.id, patch: { isPlayerToken: true } });
+
+    expect(item.isPlayerToken).toBe(true);
+    expect(item.createdBy).toBe('p1');
+  });
+
+  it('старый предмет без автора, уже выставленный на карту, игрок не помечает', () => {
+    const room = makeRoom([], {});
+    const dm = makeCtx(room, { dm: true });
+    const player = makeCtx(room, { playerId: 'p1' });
+    registerLibraryHandlers(dm.ctx);
+    registerLibraryHandlers(player.ctx);
+    registerTokenHandlers(dm.ctx);
+    dm.invoke('library:add', {
+      name: 'Старый монстр',
+      description: '',
+      imageUrl: '',
+      cells: 1,
+      round: false,
+      initiativeBonus: '',
+      isPlayerToken: false,
+      owner: '',
+      attacks: [],
+      ac: '',
+      hpMax: '',
+      showStats: false,
+      canInteract: false,
+      damageDefenses: [],
+    });
+    const item = room.library[0]!;
+    delete item.createdBy;
+    dm.invoke('token:add', { mapId: 'm1', libraryItemId: item.id, x: 100, y: 100 });
+
+    player.invoke('library:update', { id: item.id, patch: { isPlayerToken: true } });
+
+    expect(item.isPlayerToken).toBe(false);
+  });
+
   it('токен персонажа получает HP из ресурсов игрока', () => {
     const room = makeRoom([], {});
     const f = makeCtx(room, { dm: true });

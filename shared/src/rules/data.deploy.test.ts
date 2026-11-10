@@ -34,7 +34,7 @@ const HASHES = {
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
   feats: 'f8d310ec0a56a339',
-  bestiary: '7fdfd3ee29eac748',
+  bestiary: 'b1692a1f409a3026',
   invocations: '7efff7e520cc92ad',
 };
 

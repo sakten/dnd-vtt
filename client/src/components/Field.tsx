@@ -21,13 +21,20 @@ interface CheckboxRowProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   className?: string;
+  disabled?: boolean;
+  title?: string;
   children: ReactNode;
 }
 
-export function CheckboxRow({ checked, onChange, className, children }: CheckboxRowProps) {
+export function CheckboxRow({ checked, onChange, className, disabled, title, children }: CheckboxRowProps) {
   return (
-    <label className={`checkbox-row${className ? ` ${className}` : ''}`}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={`checkbox-row${className ? ` ${className}` : ''}`} title={title}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
       {children}
     </label>
   );

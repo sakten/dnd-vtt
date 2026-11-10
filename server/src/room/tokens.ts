@@ -68,8 +68,17 @@ export function renameMap(m: TokenDeps, room: Room, id: string, name: string) {
   m.saveSoon(room);
 }
 
-export function addLibraryItem(m: TokenDeps, room: Room, input: TokenFields): LibraryItem {
-  const item: LibraryItem = { ...normalizeTokenFields(input, 60), id: randomUUID() };
+export function addLibraryItem(
+  m: TokenDeps,
+  room: Room,
+  input: TokenFields,
+  createdBy = ''
+): LibraryItem {
+  const item: LibraryItem = {
+    ...normalizeTokenFields(input, 60),
+    id: randomUUID(),
+    ...(createdBy ? { createdBy } : {}),
+  };
   room.library.push(item);
   m.saveSoon(room);
   return item;
@@ -80,11 +89,12 @@ export function updateLibraryItem(
   room: Room,
   id: string,
   patch: Partial<LibraryItem>,
-  includeDm: boolean
+  includeDm: boolean,
+  includePlayerToken = false
 ) {
   const item = room.library.find((i) => i.id === id);
   if (!item) return;
-  Object.assign(item, normalizeTokenFieldsPatch(patch, item, { includeDm }));
+  Object.assign(item, normalizeTokenFieldsPatch(patch, item, { includeDm, includePlayerToken }));
   m.saveSoon(room);
 }
 

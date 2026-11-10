@@ -94,14 +94,18 @@ interface PlayerProps {
   value: TokenFields;
   onChange: Change;
   isDm: boolean;
+  /** Может ли текущий игрок менять пометку «токен игрока» (автор предмета или DM). */
+  canMark?: boolean;
 }
 
 /** Признак токена игрока, владелец и видимость статов. */
-export function TokenPlayerFields({ value, onChange, isDm }: PlayerProps) {
+export function TokenPlayerFields({ value, onChange, isDm, canMark = true }: PlayerProps) {
   return (
     <>
       <CheckboxRow
         checked={value.isPlayerToken}
+        disabled={!canMark}
+        title={!canMark ? t('ui.tokenFields.playerTokenAuthorOnly') : undefined}
         onChange={(isPlayerToken) =>
           onChange({ isPlayerToken, ...(isPlayerToken ? {} : { owner: '' }) })
         }
@@ -260,10 +264,18 @@ interface Props {
   onChange: Change;
   hpCurrent?: number;
   onHpCurrentChange?: (value: number) => void;
+  /** Может ли текущий игрок пометить предмет «токеном игрока» (автор или DM). */
+  canMarkPlayerToken?: boolean;
 }
 
 /** Редактор полей токена/предмета библиотеки (используется в панели библиотеки). */
-export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurrentChange }: Props) {
+export default function TokenFieldsForm({
+  value,
+  onChange,
+  hpCurrent,
+  onHpCurrentChange,
+  canMarkPlayerToken = true,
+}: Props) {
   const isDm = useIsDm();
   const attacks = value.attacks ?? emptyAttacks();
 
@@ -271,7 +283,7 @@ export default function TokenFieldsForm({ value, onChange, hpCurrent, onHpCurren
     <>
       <TokenPassportFields value={value} onChange={onChange} />
       <DescriptionField value={value} onChange={onChange} />
-      <TokenPlayerFields value={value} onChange={onChange} isDm={isDm} />
+      <TokenPlayerFields value={value} onChange={onChange} isDm={isDm} canMark={canMarkPlayerToken} />
       <TokenHealthFields value={value} onChange={onChange} current={hpCurrent ?? 0} onCurrentChange={onHpCurrentChange} />
       <AttacksForm attacks={attacks} onChange={(list) => onChange({ attacks: list })} />
       <DamageDefensesForm

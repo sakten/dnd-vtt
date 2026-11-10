@@ -19,6 +19,7 @@ import {
   sizeAtMost,
   spellCastArea,
   spellIsSelf,
+  spellWeaponEntry,
   tokenVisibleFrom,
   wallPathIssue,
   wallsWithZones,
@@ -143,17 +144,19 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     });
     const held = sheet ? handOf(loadout, 'right') : undefined;
     if (!held) return { code: 'noHeldWeapon' };
-    // True Strike бьёт и дальним оружием; остальные клинки — только ближним.
-    if (!def.weaponAttack.anyWeapon && held.rangeType !== 'melee') return { code: 'noHeldWeapon' };
-    // Пустые формулы оружия: атака не состоится — отказ до списания действия.
-    if (!held.hit.trim() && !held.damage.trim()) return { code: 'weaponUnusable' };
     if (!targets[0]) return { code: 'spellNoTarget' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
     const feet = gridDistanceFeet(caster, targets[0], grid.size);
+    // True Strike: на дальней дистанции — дальняя (метательная) запись того же оружия.
+    const used = def.weaponAttack.anyWeapon ? spellWeaponEntry(loadout, feet) ?? held : held;
+    // True Strike бьёт и дальним оружием; остальные клинки — только ближним.
+    if (!def.weaponAttack.anyWeapon && used.rangeType !== 'melee') return { code: 'noHeldWeapon' };
+    // Пустые формулы оружия: атака не состоится — отказ до списания действия.
+    if (!used.hit.trim() && !used.damage.trim()) return { code: 'weaponUnusable' };
     const maxFeet = def.weaponAttack.anyWeapon
-      ? held.rangeLong || held.rangeNormal || 5
-      : held.rangeNormal || 5;
+      ? used.rangeLong || used.rangeNormal || 5
+      : used.rangeNormal || 5;
     if (feet > maxFeet) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
     if (map && targets[0].id !== caster.id && !tokenVisibleFrom(caster, targets[0], wallsWithZones(map.walls, map.zones, grid), grid)) {
       return { code: 'noClearPath' };

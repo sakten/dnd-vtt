@@ -53,5 +53,6 @@ export function normalizeLibraryItem(raw: unknown): LibraryItem {
     ...(source as unknown as LibraryItem),
     ...fields,
     id: typeof source.id === 'string' ? source.id : '',
+    createdBy: typeof source.createdBy === 'string' ? source.createdBy.slice(0, 64) : '',
   };
 }

@@ -110,7 +110,11 @@ export default function ActionPanel() {
   const [shapeOpen, setShapeOpen] = useState(false);
   const [sharpen, setSharpen] = useState<ActionDef | null>(null);
   /** Черта с выбором варианта при использовании (Обольщающая магия: Очарован/Испуган). */
-  const [choicePrompt, setChoicePrompt] = useState<{ action: ActionDef; options: readonly string[] } | null>(null);
+  const [choicePrompt, setChoicePrompt] = useState<{
+    action: ActionDef;
+    options: readonly string[];
+    feature?: boolean;
+  } | null>(null);
   const shapeToken = useGameStore((s) => s.shapeToken);
   const revertShape = useGameStore((s) => s.revertShape);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-action-panel') === 'collapsed');
@@ -380,6 +384,120 @@ export default function ActionPanel() {
     );
   };
 
+  /** Запуск активной черты из панели; `variant` — выбранный эффект (Обольщающая магия). */
+  const activateFeature = (f: ActionDef, variant?: string) => {
+    // Sharpen the Blade: количество ки (1–3) игрок выбирает в мини-окне.
+    if (f.id === 'class:monk.kensei:sharpenTheBlade') {
+      setSharpen(f);
+      return;
+    }
+    // «Дикий облик»: открываем выбор известной формы (принятие — сервер).
+    if (f.id === 'class:druid:wildShape') {
+      if (isCharacter && sheet && !token.shape) setShapeOpen(true);
+      return;
+    }
+    const slot = featureSlot(f, turnCtx);
+    const featureKey = f.id.startsWith('class:') ? f.id.slice('class:'.length) : undefined;
+    const base = featureDisplayName(featureKey, f.name);
+    // Телекинез: цель + точка назначения (как Scatter), уходит командой action:use.
+    if (f.utilityKind === 'telekinesis' && f.targeting?.kind === 'creature') {
+      startScatter({
+        tokenId: token.id,
+        actionId: f.id,
+        slot,
+        maxTargets: 1,
+        kind: 'telekinesis',
+        destFeet: f.utilityAmount ?? 30,
+      });
+      return;
+    }
+    const auto = sheet ? featureActionAutomation(f.id, sheet.classes, variant) : undefined;
+    const maxTargets = auto?.targetsAbility
+      ? Math.max(1, abilityMod(sheet?.abilities[auto.targetsAbility] ?? 10))
+      : auto?.targets ?? 1;
+    // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
+    const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
+    const advantage = isCheck ? rollMode ?? undefined : undefined;
+    // Удар силы (Spiritual Weapon): цель в 5 фт от центра зоны; удар заряжает бонусное действие.
+    if (f.zoneId && f.targeting?.kind === 'creature' && f.targeting.from === 'origin') {
+      const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
+      if (zone) {
+        startTargeting({
+          kind: 'action',
+          tokenId: token.id,
+          actionId: f.id,
+          slot,
+          advantage,
+          label: base,
+          origin: zone.origin,
+          nearFeet: f.targeting.range ?? 5,
+          ...(variant ? { variant } : {}),
+        });
+        return;
+      }
+    }
+    // Действие зоны (перемещение/удар): прицел с якорем от текущего центра зоны.
+    if (f.zoneId && (f.targeting?.kind === 'point' || f.targeting?.kind === 'area')) {
+      const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
+      const targeting = f.targeting;
+      if (zone && targeting) {
+        startAim({
+          tokenId: token.id,
+          actionId: f.id,
+          slot: featureSlot(f, turnCtx),
+          spec: targeting.kind === 'area' ? targeting.area! : zone.area,
+          originKind: 'point',
+          rangeFeet: targeting.range ?? null,
+          anchor: zone.origin,
+          ...(variant ? { variant } : {}),
+        });
+        return;
+      }
+    }
+    // Действие-область из эффекта (Dragon's Breath): прицел от носителя эффекта.
+    if (f.targeting?.kind === 'area' && f.targeting.area) {
+      startAim({
+        tokenId: token.id,
+        actionId: f.id,
+        slot: featureSlot(f, turnCtx),
+        spec: f.targeting.area,
+        originKind: 'self',
+        rangeFeet: f.targeting.range ?? null,
+        ...(variant ? { variant } : {}),
+      });
+      return;
+    }
+    // Выданный телепорт (Far Step): прицел точки назначения в пределах дальности.
+    if (f.source === 'spell' && !f.zoneId && f.targeting?.kind === 'point') {
+      startAim({
+        tokenId: token.id,
+        actionId: f.id,
+        slot: featureSlot(f, turnCtx),
+        spec: { shape: 'sphere', size: 0 },
+        originKind: 'point',
+        rangeFeet: f.targeting.range ?? null,
+        ...(variant ? { variant } : {}),
+      });
+      return;
+    }
+    if (f.targeting?.kind === 'creature' && maxTargets > 1) {
+      startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
+    } else if (f.targeting?.kind === 'creature') {
+      startTargeting({
+        kind: 'action',
+        tokenId: token.id,
+        actionId: f.id,
+        slot,
+        advantage,
+        label: base,
+        ...(variant ? { variant } : {}),
+      });
+    } else {
+      runAction(token.id, f.id, { slot, advantage, ...(variant ? { variant } : {}) });
+    }
+    if (advantage) setRollMode(null);
+  };
+
   const featureButton = (f: ActionDef) => {
     const left = resourceLeft(f);
     // Имя — конкретной черты (Божественная искра / Изгнание нежити), а не ресурса-пула:
@@ -395,102 +513,13 @@ export default function ActionPanel() {
         aria-label={label}
         disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
         onClick={() => {
-          // Sharpen the Blade: количество ки (1–3) игрок выбирает в мини-окне.
-          if (f.id === 'class:monk.kensei:sharpenTheBlade') {
-            setSharpen(f);
+          // Выбор эффекта (Обольщающая магия: Очарован/Испуган) — до прицела.
+          const options = featureChoiceOptions(f.id);
+          if (options && options.length > 1) {
+            setChoicePrompt({ action: f, options, feature: true });
             return;
           }
-          // «Дикий облик»: открываем выбор известной формы (принятие — сервер).
-          if (f.id === 'class:druid:wildShape') {
-            if (isCharacter && sheet && !token.shape) setShapeOpen(true);
-            return;
-          }
-          const slot = featureSlot(f, turnCtx);
-          // Телекинез: цель + точка назначения (как Scatter), уходит командой action:use.
-          if (f.utilityKind === 'telekinesis' && f.targeting?.kind === 'creature') {
-            startScatter({
-              tokenId: token.id,
-              actionId: f.id,
-              slot,
-              maxTargets: 1,
-              kind: 'telekinesis',
-              destFeet: f.utilityAmount ?? 30,
-            });
-            return;
-          }
-          const auto = sheet ? featureActionAutomation(f.id, sheet.classes) : undefined;
-          const maxTargets = auto?.targetsAbility
-            ? Math.max(1, abilityMod(sheet?.abilities[auto.targetsAbility] ?? 10))
-            : auto?.targets ?? 1;
-          // Галка Adv/Dis над ROLL даёт преимущество на чеки-черты (в т.ч. «Выпутаться»).
-          const isCheck = f.id.startsWith('escape:') || auto?.utility?.kind === 'check';
-          const advantage = isCheck ? rollMode ?? undefined : undefined;
-          // Удар силы (Spiritual Weapon): цель в 5 фт от центра зоны; удар заряжает бонусное действие.
-          if (f.zoneId && f.targeting?.kind === 'creature' && f.targeting.from === 'origin') {
-            const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
-            if (zone) {
-              startTargeting({
-                kind: 'action',
-                tokenId: token.id,
-                actionId: f.id,
-                slot,
-                advantage,
-                label: base,
-                origin: zone.origin,
-                nearFeet: f.targeting.range ?? 5,
-              });
-              return;
-            }
-          }
-          // Действие зоны (перемещение/удар): прицел с якорем от текущего центра зоны.
-          if (f.zoneId && (f.targeting?.kind === 'point' || f.targeting?.kind === 'area')) {
-            const zone = (activeMap?.zones ?? []).find((z) => z.id === f.zoneId);
-            const targeting = f.targeting;
-            if (zone && targeting) {
-              startAim({
-                tokenId: token.id,
-                actionId: f.id,
-                slot: featureSlot(f, turnCtx),
-                spec: targeting.kind === 'area' ? targeting.area! : zone.area,
-                originKind: 'point',
-                rangeFeet: targeting.range ?? null,
-                anchor: zone.origin,
-              });
-              return;
-            }
-          }
-          // Действие-область из эффекта (Dragon's Breath): прицел от носителя эффекта.
-          if (f.targeting?.kind === 'area' && f.targeting.area) {
-            startAim({
-              tokenId: token.id,
-              actionId: f.id,
-              slot: featureSlot(f, turnCtx),
-              spec: f.targeting.area,
-              originKind: 'self',
-              rangeFeet: f.targeting.range ?? null,
-            });
-            return;
-          }
-          // Выданный телепорт (Far Step): прицел точки назначения в пределах дальности.
-          if (f.source === 'spell' && !f.zoneId && f.targeting?.kind === 'point') {
-            startAim({
-              tokenId: token.id,
-              actionId: f.id,
-              slot: featureSlot(f, turnCtx),
-              spec: { shape: 'sphere', size: 0 },
-              originKind: 'point',
-              rangeFeet: f.targeting.range ?? null,
-            });
-            return;
-          }
-          if (f.targeting?.kind === 'creature' && maxTargets > 1) {
-            startMultiTarget({ tokenId: token.id, actionId: f.id, slot, count: maxTargets, distinct: true });
-          } else if (f.targeting?.kind === 'creature') {
-            startTargeting({ kind: 'action', tokenId: token.id, actionId: f.id, slot, advantage, label: base });
-          } else {
-            runAction(token.id, f.id, { slot, advantage });
-          }
-          if (advantage) setRollMode(null);
+          activateFeature(f);
         }}
       >
         {hasActionIcon(f.iconKey) ? (
@@ -701,7 +730,7 @@ export default function ActionPanel() {
             >
               <WeaponIcon name={entry.name} className="ap-icon" />
               <span className="ap-attack-badge">
-                <ActionIcon id="sword" className="ap-badge-icon" />
+                <ActionIcon id={entry.rangeType === 'ranged' ? 'arrow' : 'sword'} className="ap-badge-icon" />
               </span>
             </button>
           );
@@ -992,9 +1021,10 @@ export default function ActionPanel() {
                 type="button"
                 className="ap-chip"
                 onClick={() => {
-                  const action = choicePrompt.action;
+                  const { action, feature } = choicePrompt;
                   setChoicePrompt(null);
-                  beginAbility(action, option);
+                  if (feature) activateFeature(action, option);
+                  else beginAbility(action, option);
                 }}
               >
                 {conditionLabel(option)}

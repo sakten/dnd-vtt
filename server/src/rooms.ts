@@ -143,12 +143,18 @@ export class RoomManager {
     Tokens.renameMap(this, room, id, name);
   }
 
-  addLibraryItem(room: Room, input: TokenFields): LibraryItem {
-    return Tokens.addLibraryItem(this, room, input);
+  addLibraryItem(room: Room, input: TokenFields, createdBy?: string): LibraryItem {
+    return Tokens.addLibraryItem(this, room, input, createdBy);
   }
 
-  updateLibraryItem(room: Room, id: string, patch: Partial<LibraryItem>, includeDm: boolean) {
-    Tokens.updateLibraryItem(this, room, id, patch, includeDm);
+  updateLibraryItem(
+    room: Room,
+    id: string,
+    patch: Partial<LibraryItem>,
+    includeDm: boolean,
+    includePlayerToken = false
+  ) {
+    Tokens.updateLibraryItem(this, room, id, patch, includeDm, includePlayerToken);
   }
 
   removeLibraryItem(room: Room, id: string) {

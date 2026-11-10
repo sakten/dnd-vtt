@@ -99,14 +99,21 @@ describe('мастерства оружия: Sap/Vex/Slow', () => {
   });
 
   it('Vex: урон даёт преимущество по цели, эффект сгорает после следующей атаки', () => {
-    const { attacker, target, strike } = setup('vex');
+    const { attacker, target, strike, f } = setup('vex');
     withRandom(0.99, () => strike());
     const vex = attacker.effects.find((e) => e.sourceKey === 'mastery:Vex');
     expect(vex?.modifiers[0]?.filter).toMatchObject({ targetId: 't2', direction: 'self', weapon: true });
     expect(vex?.consumeOnAttackRoll).toBe(true);
-    // Следующая атака (промах) сжигает метку и не накладывает заново.
+    // Следующая атака (промах) идёт с преимуществом и сжигает метку, не накладывая заново.
     target.ac = '30';
+    const before = f.emitted.length;
     withRandom(0.5, () => strike());
+    const rolls = f.emitted
+      .slice(before)
+      .filter((e) => e.event === 'chat:message')
+      .map((e) => e.payload as { kind?: string; rollKind?: string; roll?: { expression?: string } })
+      .filter((m) => m.kind === 'roll' && m.rollKind === 'attack');
+    expect(rolls.at(-1)?.roll?.expression).toContain('d20a');
     expect(attacker.effects.some((e) => e.sourceKey === 'mastery:Vex')).toBe(false);
   });
 
