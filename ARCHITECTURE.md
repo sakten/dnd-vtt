@@ -55,7 +55,7 @@
 
 ### server
 
-- `src/index.ts` — Express + Socket.IO, статика `client/dist`, `/api/upload` (проверка magic bytes, лимит файла 50 МБ, подпапка комнаты `uploads/<code>/`, квота комнаты), health, error-middleware, graceful shutdown (flush комнат).
+- `src/index.ts` — Express + Socket.IO, статика `client/dist`, `/api/upload` (проверка magic bytes, лимит файла 50 МБ, подпапка комнаты `uploads/<code>/`, квота комнаты, webp-производные: thumb/token, картам — ещё `screen` до 4K для стола), health, error-middleware, graceful shutdown (flush комнат).
 - `src/config.ts` — конфиг из env: `ROOM_QUOTA_MB` (`VTT_ROOM_QUOTA_MB`, дефолт 500), `SAVE_DEBOUNCE_MS` (`VTT_SAVE_DEBOUNCE_MS`, дефолт 120000), `CHAT_SAVE_DEBOUNCE_MS` (`VTT_CHAT_SAVE_DEBOUNCE_MS`, дефолт 120000).
 - `src/store.ts` — персистентность комнат: `data/rooms/<code>.json` (чат — отдельный `<code>.chat.json`, пишется только при изменении), атомарная запись (tmp+rename), debounce из env, `flushSaves`; uploads: `roomUploadDir`/`removeRoomUploadDir`/`dirSize`.
 - `src/rooms.ts` — `RoomManager`: in-memory комнаты, сцена/библиотека/ресурсы/бой, контроллеры, `saveSoon`; `tokenById`/`locateToken`, `controllerOfToken`, `rollSave` (спасбросок с adv/dis и авто-провалом); чистые `controllerIdOfToken`/`controllerIdOfItem`/`hasResourceFor` экспортируются для резолверов.

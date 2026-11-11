@@ -46,7 +46,7 @@ import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
 import type { TargetingState } from '../domain/interaction';
 import { useImage } from '../lib/useImage';
-import { thumbUrl } from '../lib/imageVariants';
+import { thumbUrl, screenUrl } from '../lib/imageVariants';
 import { visibleCells } from '../lib/los';
 import { useVisionViewers } from '../lib/useVision';
 import { canControlWith, useIsDm } from '../lib/control';
@@ -77,11 +77,14 @@ import { buildFxMask, type FxMask } from './spellFx/mask';
 const SpellFxOverlay = lazy(() => import('./spellFx/SpellFxOverlay'));
 
 function MapSprite({ map }: { map: MapInfo }) {
-  // Пока полный файл грузится, показываем миниатюру (она уже в кэше панели карт),
-  // а не растянутую предыдущую карту.
-  const image = useImage(map.url);
+  // Оригинал грузится фоном с повторами; пока он идёт, показываем лёгкое
+  // webp-превью до 4K, а до него — миниатюру из кэша панели карт (не растянутую
+  // предыдущую карту).
+  const image = useImage(map.url, undefined, { retries: 4 });
+  const screenSource = screenUrl(map.url);
+  const screen = useImage(screenSource === map.url ? undefined : screenSource, undefined, { retries: 2 });
   const preview = useImage(thumbUrl(map.url));
-  const shown = image ?? preview;
+  const shown = image ?? screen ?? preview;
   if (!shown) return null;
   return <KonvaImage image={shown} width={map.width} height={map.height} listening={false} />;
 }

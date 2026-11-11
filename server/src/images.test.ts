@@ -3,7 +3,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
-import { THUMB_SIZE, TOKEN_SIZE, ensureDerivative, writeImageDerivatives } from './images';
+import { SCREEN_SIZE, THUMB_SIZE, TOKEN_SIZE, ensureDerivative, writeImageDerivatives } from './images';
 
 let dir: string;
 let file: string;
@@ -55,15 +55,31 @@ describe('производные загруженных картинок', () =>
     expect(after).toBe(before);
   });
 
-  it('карте создаёт миниатюру, но не токенную копию', async () => {
+  it('карте создаёт миниатюру и превью, но не токенную копию', async () => {
     const map = path.join(dir, 'map.png');
     await sharp({ create: { width: 1200, height: 900, channels: 4, background: { r: 10, g: 90, b: 40, alpha: 1 } } })
       .png()
       .toFile(map);
-    await writeImageDerivatives(map, { token: false });
+    await writeImageDerivatives(map, { token: false, screen: true });
     const thumb = await sharp(`${map}.thumb.webp`).metadata();
     expect(thumb.width).toBe(THUMB_SIZE);
+    // Меньше 4K — без увеличения, просто webp.
+    const screen = await sharp(`${map}.screen.webp`).metadata();
+    expect(screen.format).toBe('webp');
+    expect(screen.width).toBe(1200);
+    expect(screen.height).toBe(900);
     await expect(fsp.access(`${map}.token.webp`)).rejects.toBeTruthy();
+  });
+
+  it('превью карты ужимает длинную сторону до 4K', async () => {
+    const big = path.join(dir, 'big-map.png');
+    await sharp({ create: { width: 6000, height: 3000, channels: 3, background: { r: 40, g: 40, b: 40 } } })
+      .png()
+      .toFile(big);
+    await writeImageDerivatives(big, { token: false, screen: true });
+    const screen = await sharp(`${big}.screen.webp`).metadata();
+    expect(screen.width).toBe(SCREEN_SIZE);
+    expect(screen.height).toBe(2048);
   });
 
   it('ensureDerivative досоздаёт старую загрузку при первом запросе', async () => {
@@ -76,5 +92,8 @@ describe('производные загруженных картинок', () =>
     const meta = await sharp(dest).metadata();
     expect(meta.format).toBe('webp');
     expect(meta.width).toBe(TOKEN_SIZE);
+    const screen = await ensureDerivative(old, 'screen');
+    expect(screen).toBe(`${old}.screen.webp`);
+    expect((await sharp(screen).metadata()).width).toBe(500);
   });
 });

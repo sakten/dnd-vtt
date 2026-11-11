@@ -147,9 +147,10 @@ app.post(
       res.status(413).json({ error: `Превышен лимит загрузок комнаты (${ROOM_QUOTA_MB} МБ)` });
       return;
     }
-    // Токенам/портретам — лёгкие webp-производные; картам (kind=map) — только
-    // миниатюра для списка, сам файл карты для стола не сжимаем.
-    await writeImageDerivatives(req.file.path, { token: req.query.kind !== 'map' }).catch(() => void 0);
+    // Токенам/портретам — лёгкие webp-производные; картам (kind=map) — миниатюра
+    // для списка и webp-превью до 4K для стола (оригинал при этом не трогаем).
+    const isMap = req.query.kind === 'map';
+    await writeImageDerivatives(req.file.path, { token: !isMap, screen: isMap }).catch(() => void 0);
     res.json({ url: `/uploads/${roomCode}/${req.file.filename}` });
   }
 );
@@ -162,15 +163,15 @@ app.use(
     res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
     next();
   },
-  // Производные (thumb/token webp) досоздаются при первом запросе: у старых
-  // загрузок их нет, карты получают миниатюру для панели. Имена файлов —
+  // Производные (thumb/token/screen webp) досоздаются при первом запросе: у старых
+  // загрузок их нет, карты получают миниатюру и превью для стола. Имена файлов —
   // UUID, поэтому кэшируем надолго.
   async (req, res, next) => {
     const rel = req.path.replace(/^\/+/, '');
-    const match = /^(.+\.(?:png|jpe?g|webp|gif))\.(thumb|token)\.webp$/i.exec(rel);
+    const match = /^(.+\.(?:png|jpe?g|webp|gif))\.(thumb|token|screen)\.webp$/i.exec(rel);
     if (!match || match[1]!.includes('..')) return next();
     const original = path.join(UPLOADS_DIR, match[1]!);
-    const suffix: DerivativeKind = match[2]!.toLowerCase() === 'thumb' ? 'thumb' : 'token';
+    const suffix = match[2]!.toLowerCase() as DerivativeKind;
     try {
       await fsp.access(original);
     } catch {

@@ -1,18 +1,22 @@
 import fsp from 'node:fs/promises';
 import sharp from 'sharp';
 
-/** Размеры производных: миниатюра для списков/панелей и «токенная» для стола. */
+/** Размеры производных: миниатюра для списков/панелей, «токенная» для стола и превью карты. */
 export const THUMB_SIZE = 128;
 export const TOKEN_SIZE = 256;
+/** Превью карты для стола: длинная сторона до 4096 — чётко, но в разы легче оригинала. */
+export const SCREEN_SIZE = 4096;
 const WEBP_QUALITY = 78;
+const SCREEN_QUALITY = 85;
 /** Больше двух одновременных перекодирований на слабом VPS дают пик памяти. */
 const MAX_PARALLEL = 2;
 
-export type DerivativeKind = 'thumb' | 'token';
+export type DerivativeKind = 'thumb' | 'token' | 'screen';
 
-const DERIVATIVES: { suffix: DerivativeKind; size: number }[] = [
-  { suffix: 'thumb', size: THUMB_SIZE },
-  { suffix: 'token', size: TOKEN_SIZE },
+const DERIVATIVES: { suffix: DerivativeKind; size: number; quality: number }[] = [
+  { suffix: 'thumb', size: THUMB_SIZE, quality: WEBP_QUALITY },
+  { suffix: 'token', size: TOKEN_SIZE, quality: WEBP_QUALITY },
+  { suffix: 'screen', size: SCREEN_SIZE, quality: SCREEN_QUALITY },
 ];
 
 export function derivativePath(filePath: string, suffix: DerivativeKind): string {
@@ -50,14 +54,14 @@ function release(): void {
 const inflight = new Map<string, Promise<void>>();
 
 /**
- * Досоздаёт отсутствующую производную (thumb/token) и возвращает её путь.
+ * Досоздаёт отсутствующую производную (thumb/token/screen) и возвращает её путь.
  * Старые загрузки (до появления производных) и карты получают webp при первом
  * запросе; параллельные запросы ждут одно перекодирование.
  */
 export async function ensureDerivative(filePath: string, suffix: DerivativeKind): Promise<string> {
   const dest = derivativePath(filePath, suffix);
   if (await exists(dest)) return dest;
-  const size = suffix === 'thumb' ? THUMB_SIZE : TOKEN_SIZE;
+  const spec = DERIVATIVES.find((d) => d.suffix === suffix)!;
   let task = inflight.get(dest);
   if (!task) {
     task = (async () => {
@@ -66,8 +70,8 @@ export async function ensureDerivative(filePath: string, suffix: DerivativeKind)
         if (!(await exists(dest))) {
           await sharp(filePath)
             .rotate()
-            .resize(size, size, { fit: 'inside', withoutEnlargement: true })
-            .webp({ quality: WEBP_QUALITY })
+            .resize(spec.size, spec.size, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: spec.quality })
             .toFile(dest);
         }
       } finally {
@@ -83,12 +87,13 @@ export async function ensureDerivative(filePath: string, suffix: DerivativeKind)
 
 /**
  * Генерирует недостающие webp-производные рядом с оригиналом (без увеличения).
- * Оригинал не трогаем. Карты (kind=map) получают только миниатюру — сам файл
- * карты для стола остаётся исходным (решение владельца — карты не сжимаем).
+ * Оригинал не трогаем. Картам (`screen: true`) кроме миниатюры нужна лёгкая
+ * копия до 4K для стола — её показываем, пока грузится исходный файл.
  */
-export async function writeImageDerivatives(filePath: string, opts: { token?: boolean } = {}): Promise<void> {
+export async function writeImageDerivatives(filePath: string, opts: { token?: boolean; screen?: boolean } = {}): Promise<void> {
   for (const { suffix } of DERIVATIVES) {
     if (suffix === 'token' && opts.token === false) continue;
+    if (suffix === 'screen' && opts.screen !== true) continue;
     await ensureDerivative(filePath, suffix);
   }
 }
