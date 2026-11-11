@@ -83,7 +83,13 @@ describe('бейдж атаки: меч или стрела', () => {
       screen.getByRole('button', { name: 'Атака: Shortbow' }).querySelector('.ap-badge-icon')?.getAttribute('data-icon')
     ).toBe('arrow');
     expect(
+      screen.getByRole('button', { name: 'Атака: Shortbow' }).querySelector('.ap-attack-badge')?.classList.contains('ranged')
+    ).toBe(true);
+    expect(
       screen.getByRole('button', { name: 'Атака: Longsword' }).querySelector('.ap-badge-icon')?.getAttribute('data-icon')
     ).toBe('sword');
+    expect(
+      screen.getByRole('button', { name: 'Атака: Longsword' }).querySelector('.ap-attack-badge')?.classList.contains('ranged')
+    ).toBe(false);
   });
 });

@@ -729,7 +729,7 @@ export default function ActionPanel() {
               onClick={() => fire('attack', slot, index, t('ui.action.attackLabel', { name: label }))}
             >
               <WeaponIcon name={entry.name} className="ap-icon" />
-              <span className="ap-attack-badge">
+              <span className={`ap-attack-badge${entry.rangeType === 'ranged' ? ' ranged' : ''}`}>
                 <ActionIcon id={entry.rangeType === 'ranged' ? 'arrow' : 'sword'} className="ap-badge-icon" />
               </span>
             </button>

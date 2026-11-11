@@ -110,8 +110,17 @@ function conditionText(spell: Spell): string {
   return labels.join(', ');
 }
 
-/** Строки механики: действие/дистанция/область/длительность/атака/спасбросок/урон/состояние/компоненты. */
+/** Строки механики: битая автоматизация кастома не должна ронять списки/тултипы. */
 export function spellMechanics(spell: Spell): string[] {
+  try {
+    return spellMechanicsUnsafe(spell);
+  } catch {
+    return [t('ui.spellMech.broken')];
+  }
+}
+
+/** Строки механики: действие/дистанция/область/длительность/атака/спасбросок/урон/состояние/компоненты. */
+function spellMechanicsUnsafe(spell: Spell): string[] {
   const raw = spell.description.join(' ');
   const lines: string[] = [];
   lines.push(`${t('ui.spellMech.action')}: ${timeText(spell)}`);

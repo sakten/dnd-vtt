@@ -10,6 +10,31 @@ const shillelagh = spellsData.spells.find((s) => s.key === 'XPHB:Shillelagh') as
 const healingWord = spellsData.spells.find((s) => s.key === 'XPHB:Healing Word') as Spell;
 
 describe('spellText', () => {
+  it('битая автоматизация кастома — подсказка вместо падения', () => {
+    setLocale('ru');
+    const broken = {
+      ...fireball,
+      key: 'CUSTOM:Broken',
+      name: 'Broken',
+      automation: {
+        primary: 'save',
+        save: { ability: 'dex' },
+        effects: [
+          {
+            id: 'e',
+            name: 'Broken',
+            duration: { type: 'permanent' },
+            to: 'targets',
+            modifiers: [{ target: 'ac', mode: 'immunity', value: -2 }],
+            conditions: [],
+          },
+        ],
+      },
+    } as unknown as Spell;
+    expect(() => spellMechanics(broken)).not.toThrow();
+    expect(spellMechanics(broken).join(' ')).toContain('повреждена');
+  });
+
   it('RU: сводка локализована, нотация «к», школа и круг по-русски', () => {
     setLocale('ru');
     const lines = spellMechanics(fireball).join(' | ');

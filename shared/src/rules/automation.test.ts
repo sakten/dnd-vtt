@@ -6,6 +6,7 @@ import {
   AUTOMATION_SPECS,
   automationForAction,
   automationForSpell,
+  automationOk,
   materializeSpell,
   spellAutomated as spellAutomatedRecord,
   spellByDesign as spellByDesignRecord,
@@ -96,6 +97,31 @@ describe('automationForSpell', () => {
     expect(def.save).toEqual({ ability: 'dex', half: true });
     expect(def.damage).toEqual({ dice: '8d6 + 1d6', types: ['fire'] });
     expect(def.heal).toBeUndefined();
+  });
+
+  it('automationOk: битая пара цель×режим не компилируется', () => {
+    const good = makeSpell({ level: 1, damage: { dice: ['1d6'], types: ['fire'] }, save: ['dex'] });
+    expect(automationOk(good)).toBe(true);
+
+    const bad = {
+      ...good,
+      key: 'CUSTOM:AcidBall',
+      name: 'AcidBall',
+      automation: {
+        ...good.automation,
+        effects: [
+          {
+            id: 'bad',
+            name: 'Bad',
+            duration: { type: 'permanent' },
+            to: 'targets',
+            modifiers: [{ target: 'ac', mode: 'immunity', value: -2 }],
+            conditions: [],
+          },
+        ],
+      },
+    } as unknown as SpellDef;
+    expect(automationOk(bad)).toBe(false);
   });
 
   it('spell-атака: тип и число атак из текста/апкаста', () => {

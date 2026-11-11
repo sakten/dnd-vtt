@@ -2,7 +2,7 @@ export { AUTOMATION_ACTIONS } from './header';
 export type { AutomationOptions, SpellVariantDef } from './variants';
 export { spellVariantDef } from './variants';
 export { shadowBladeReturnAction } from './helpers';
-export { automationForSpell, automationForAction, spellTempHp, spellDamageParts, spellAutomated, spellByDesign, spellWeaponOverride } from './derive';
+export { automationForSpell, automationForAction, automationOk, spellTempHp, spellDamageParts, spellAutomated, spellByDesign, spellWeaponOverride } from './derive';
 export type { ActionAutomationOptions } from './derive';
 export { AUTOMATION_SPECS } from './specs';
 export { compileSpec, formatSpecIssues, resolveSpec, validateSpec } from './compile';

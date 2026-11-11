@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Spell } from 'shared';
+import { automationOk, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { loadSpells } from './spells';
 
@@ -23,7 +23,9 @@ export function useSpells(): Spell[] | null {
     if (!spells) return null;
     if (!customSpecs.length) return spells;
     const known = new Set(spells.map((s) => s.key));
-    const extra = customSpecs.filter((s) => !known.has(s.key));
+    // Битый кастом (старая запись/ручной JSON) компилятор роняет целиком —
+    // не показываем его в списках; в настройках комнаты он остаётся для правки.
+    const extra = customSpecs.filter((s) => !known.has(s.key) && automationOk(s));
     return extra.length ? [...spells, ...extra] : spells;
   }, [spells, customSpecs]);
 }

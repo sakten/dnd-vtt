@@ -21,6 +21,17 @@ export function automationForSpell(spell: SpellAuto, opts: AutomationOptions = {
   return withInvocationPatches(spell.key, compileSpec(spec, { spell, opts }), opts.invocations);
 }
 
+/** Компилируется ли автоматизация без ошибок: битые кастомы комнаты не должны ронять списки. */
+export function automationOk(spell: SpellAuto): boolean {
+  if (!spell.automation) return true;
+  try {
+    automationForSpell(spell);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Патчи инвокаций поверх дефа: пути `automation.*` (`damage.abilityMod`, `force`, …). */
 function withInvocationPatches(spellKey: string, def: AutomationDef, invocations?: string[]): AutomationDef {
   const patches = invocationPatches(spellKey, invocations).filter((p) => p.automation);

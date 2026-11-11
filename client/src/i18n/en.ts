@@ -926,6 +926,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.spellMech.melee': 'melee spell',
   'ui.spellMech.ranged': 'ranged spell',
   'ui.spellMech.save': 'Save',
+  'ui.spellMech.broken': 'Automation is broken — open the spell constructor',
   'ui.spellMech.damage': 'Damage',
   'ui.spellMech.healing': 'Healing',
   'ui.spellMech.lifeTransfer': '×{factor} of the damage the caster took',

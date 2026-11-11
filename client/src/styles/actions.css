@@ -370,6 +370,11 @@
   pointer-events: none;
 }
 
+/* Дальняя/метательная атака: голубая стрела, чтобы не путать с янтарным мечом. */
+.ap-attack-badge.ranged {
+  color: #5ab0ff;
+}
+
 .ap-legendary-badge {
   position: absolute;
   top: 0;

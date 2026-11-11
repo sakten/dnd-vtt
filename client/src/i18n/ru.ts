@@ -923,6 +923,7 @@ export const ru = {
   'ui.spellMech.melee': 'ближняя заклинанием',
   'ui.spellMech.ranged': 'дальняя заклинанием',
   'ui.spellMech.save': 'Спасбросок',
+  'ui.spellMech.broken': 'Автоматизация повреждена — откройте конструктор заклинания',
   'ui.spellMech.damage': 'Урон',
   'ui.spellMech.healing': 'Лечение',
   'ui.spellMech.lifeTransfer': '×{factor} урона, полученного кастером',
