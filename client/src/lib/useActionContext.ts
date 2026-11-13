@@ -13,6 +13,7 @@ import {
   isIncapacitated,
   isTriggeredAbility,
   loadoutOf,
+  raceActions,
   weaponContextOf,
   type ActionCost,
   type ActionDef,
@@ -207,6 +208,7 @@ export function useActionContext(): ActionContext | null {
       : [];
     const features = [
       ...(isCharacter && sheet ? classFeatures(sheet.classes) : []),
+      ...(isCharacter && sheet ? raceActions(sheet.race, sheet.classes) : []),
       ...escapeActions,
       ...grantedActions,
       ...zoneActions,

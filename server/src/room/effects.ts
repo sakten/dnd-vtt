@@ -218,9 +218,17 @@ export function savePartsForToken(
   token: Token,
   ability: AbilityKey,
   condition?: ConditionKey,
-  magical?: boolean
+  magical?: boolean,
+  concentration?: boolean
 ): RollParts {
-  const parts = saveRollParts(token.effects, ability, abilitiesForToken(room, token), condition, magical);
+  const parts = saveRollParts(
+    token.effects,
+    ability,
+    abilitiesForToken(room, token),
+    condition,
+    magical,
+    concentration
+  );
   parts.flat += saveBonusForToken(room, token, ability) + exhaustionRollPenalty(token.conditions);
   return parts;
 }
@@ -234,9 +242,15 @@ export function rollSave(
   token: Token,
   ability: AbilityKey,
   dc: number,
-  opts: { conditionsAutoFail?: boolean; advantage?: boolean; condition?: ConditionKey; magical?: boolean } = {}
+  opts: {
+    conditionsAutoFail?: boolean;
+    advantage?: boolean;
+    condition?: ConditionKey;
+    magical?: boolean;
+    concentration?: boolean;
+  } = {}
 ): { roll: DiceRollResult; success: boolean } {
-  const parts = savePartsForToken(room, token, ability, opts.condition, opts.magical);
+  const parts = savePartsForToken(room, token, ability, opts.condition, opts.magical, opts.concentration);
   const mode = opts.advantage ? (parts.mode === 'd' ? undefined : 'a') : parts.mode;
   const roll = rollDice(withAdvantage(withRollParts('d20', parts), mode));
   // Одноразовые штрафы к спасброску (Mind Sliver): сгорают после этого броска.
@@ -314,6 +328,7 @@ export function applyEffect(m: EffectsDeps, room: Room, token: Token, effect: Ef
       });
     }
   }
+  endEffectsOnConditions(m, room, token);
   m.saveSoon(room);
 }
 
@@ -382,6 +397,23 @@ export function removeEffect(
   finalizeRemovedEffects(m, room, token, [effect], { triggerEnd: opts.triggerEnd });
   m.saveSoon(room);
   return true;
+}
+
+/**
+ * Снимает эффекты, которые оканчиваются при получении носителем состояний
+ * (`endsOnConditions`, например Bladesong при недееспособности). Возвращает
+ * снятые эффекты — вызывающий сам решает, что ещё обновить/разослать.
+ */
+export function endEffectsOnConditions(
+  m: EffectsDeps,
+  room: Room,
+  token: Token,
+  conditions: readonly ConditionKey[] = token.conditions.map((c) => c.key)
+): EffectInstance[] {
+  const keys = new Set(conditions);
+  const ending = token.effects.filter((e) => e.endsOnConditions?.some((key) => keys.has(key)));
+  for (const effect of ending) removeEffect(m, room, token, effect.id);
+  return ending;
 }
 
 /** Dominate: снятие эффекта возвращает цели прежнюю фракцию. */
@@ -732,18 +764,19 @@ export function concentrationCheck(
   // Eldritch Mind: преимущество на спасброски концентрации.
   const controllerId = controllerIdOfToken(room, token);
   const advantage = !!controllerId && hasConcentrationAdvantage(room.sheets[controllerId] ?? {});
-  const { roll, success } = rollSave(room, token, 'con', dc, { advantage });
+  const { roll, success } = rollSave(room, token, 'con', dc, { advantage, concentration: true });
   const names = [...new Set(active.map((e) => e.name))];
   const changed = success ? [] : clearConcentration(m, room, token.id);
   return { dc, roll, success, names, changed };
 }
 
 /** Навешивает «Без сознания»/«Мёртв»/ничего по состоянию HP (прочие состояния сохраняются). */
-function applyDownState(token: Token, downed: boolean, dead: boolean) {
+function applyDownState(m: EffectsDeps, room: Room, token: Token, downed: boolean, dead: boolean) {
   const rest = token.conditions.filter((c) => c.key !== 'unconscious' && c.key !== 'dead');
   if (dead) rest.push({ key: 'dead', name: conditionName('dead'), rounds: null });
   else if (downed) rest.push({ key: 'unconscious', name: conditionName('unconscious'), rounds: null });
   token.conditions = rest;
+  if (downed || dead) endEffectsOnConditions(m, room, token);
 }
 
 /** Помечает все токены персонажа мёртвыми/живыми (по итогу death-сейвов). */
@@ -759,7 +792,7 @@ export function markControlledTokensDead(
   for (const map of room.scene.maps) {
     for (const token of map.tokens) {
       if (token.libraryItemId !== libId) continue;
-      applyDownState(token, !dead, dead);
+      applyDownState(m, room, token, !dead, dead);
       changed.push({ mapId: map.id, token });
     }
   }
@@ -850,7 +883,7 @@ export function adjustTokenHp(
     m.saveSoon(room);
     const changed = m.characterTokens(room, controllerId);
     for (const c of changed) {
-      applyDownState(c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, res.hp.deathFailures >= 3);
+      applyDownState(m, room, c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, res.hp.deathFailures >= 3);
     }
     return mergeChanges(changed, woken);
   }
@@ -866,7 +899,7 @@ export function adjustTokenHp(
   const wasDead = token.conditions.some((c) => c.key === 'dead');
   token.hpCurrent = next;
   // Монстр мёртв при HP ≤ 0; лечение не оживляет (оживляет Revivify или снятие «Мёртв» ДМом).
-  applyDownState(token, !wasDead && next <= 0, wasDead || next <= 0);
+  applyDownState(m, room, token, !wasDead && next <= 0, wasDead || next <= 0);
   m.saveSoon(room);
   return mergeChanges([{ mapId, token }], woken);
 }
@@ -887,12 +920,12 @@ export function reviveToken(
     delete res.hp.stable;
     m.saveSoon(room);
     const changed = m.characterTokens(room, controllerId);
-    for (const c of changed) applyDownState(c.token, false, false);
+    for (const c of changed) applyDownState(m, room, c.token, false, false);
     return changed;
   }
   const max = statNumber(token.hpMax);
   token.hpCurrent = max > 0 ? Math.min(max, 1) : 1;
-  applyDownState(token, false, false);
+  applyDownState(m, room, token, false, false);
   m.saveSoon(room);
   return [{ mapId, token }];
 }
@@ -917,7 +950,7 @@ export function clearDeadState(m: EffectsDeps, room: Room, playerId: string): { 
   delete res.hp.stable;
   m.saveSoon(room);
   const changed = m.characterTokens(room, playerId);
-  for (const c of changed) applyDownState(c.token, res.hp.current <= 0, false);
+  for (const c of changed) applyDownState(m, room, c.token, res.hp.current <= 0, false);
   return changed;
 }
 

@@ -8,6 +8,7 @@ import {
   triggersOn,
   type AttackEntry,
   type DiceRollResult,
+  type ReactionFeatureDef,
   type ReactionOption,
   type Token,
 } from 'shared';
@@ -23,10 +24,12 @@ import {
   availableFeatureReactions,
   featureOffer,
   featureOption,
+  findFeatureReaction,
   reactionDieExpr,
   rollBonusOffers,
   spendFeatureCost,
 } from './features';
+import { applyDamage } from '../damage';
 import {
   audienceOf,
   classLevelOf,
@@ -93,7 +96,7 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
       continue;
     }
     if (def.kind === 'acBonus') {
-      const die = superiorityDie(classLevelOf(room, reactor, def.className) || 1);
+      const die = superiorityDie(classLevelOf(room, reactor, def.className ?? '') || 1);
       const roll = rollDice(`1d${die}`);
       mods.extraAc = (mods.extraAc ?? 0) + roll.total;
       pushRollMessage(ctx, room, {
@@ -141,6 +144,31 @@ function attackWindowMods(ctx: ConnCtx, room: Room, mapId: string, choices: Reac
   return mods;
 }
 
+/** Ответная реакция вида (Гром бури): 1d8 грома по нанёсшему урон. */
+function applyDamageBackReaction(
+  ctx: ConnCtx,
+  room: Room,
+  choice: ReactionChoice,
+  source: Token,
+  def: ReactionFeatureDef
+): void {
+  const reactor = ctx.manager.findToken(room, choice.mapId, choice.tokenId);
+  if (!reactor) return;
+  if (!spendFeatureCost(ctx, room, reactor, choice.mapId, def)) return;
+  const roll = rollDice(def.dice ?? '1d8');
+  const damageType = def.damageType ?? 'thunder';
+  applyDamage(ctx, {
+    target: source,
+    mapId: choice.mapId,
+    amount: roll.total,
+    damageType,
+    roll,
+    author: reactor.name,
+    kind: 'damage',
+    params: { subject: `${def.name} · ${source.name}`, damageType },
+  });
+}
+
 /** Окно «получен урон»: Hellish Rebuke, Возмездие и Primordial Ward (иммунитет реакцией). */
 export function offerDamageReactions(
   ctx: ConnCtx,
@@ -153,7 +181,7 @@ export function offerDamageReactions(
   if (isIncapacitated(target.conditions)) return;
   if (!reactionSlotFree(ctx.manager, room, mapId, target)) return;
   const features = availableFeatureReactions(room, target, 'damage').filter((def) => {
-    if (def.kind !== 'counterAttack') return false;
+    if (def.kind !== 'counterAttack' && def.kind !== 'damageBack') return false;
     if (def.rangeFeet && !withinFeet(room, target, source, def.rangeFeet)) return false;
     return true;
   });
@@ -209,8 +237,12 @@ export function offerDamageReactions(
         apply: (choice: ReactionChoice): boolean => {
           const currentRoom = ctx.getRoom();
           if (!choice.optionId || !currentRoom) return true;
-          if (choice.optionId.startsWith('feature:')) applyCounterAttack(ctx, currentRoom, choice, source);
-          else if (choice.optionId.startsWith('ward:')) applyWardReaction(ctx, currentRoom, choice, damage);
+          if (choice.optionId.startsWith('feature:')) {
+            const id = choice.optionId.slice('feature:'.length);
+            const def = findFeatureReaction(currentRoom, target, ['damage'], id);
+            if (def?.kind === 'damageBack') applyDamageBackReaction(ctx, currentRoom, choice, source, def);
+            else applyCounterAttack(ctx, currentRoom, choice, source);
+          } else if (choice.optionId.startsWith('ward:')) applyWardReaction(ctx, currentRoom, choice, damage);
           else if (choice.optionId.startsWith('fount:')) applyFountReaction(ctx, currentRoom, choice, source);
           else applyReactionChoice(ctx, currentRoom, choice, [source]);
           return true;
@@ -324,7 +356,7 @@ export function openAttackHitWindows(
     }
     if (def.kind === 'acBonus') {
       if (!melee) return false;
-      return total < ac + superiorityDie(classLevelOf(room, target, def.className) || 1);
+      return total < ac + superiorityDie(classLevelOf(room, target, def.className ?? '') || 1);
     }
     // Режущие слова носителя (Знание): −кость к атаке врага или к урону.
     if (def.kind === 'rollPenalty' || def.kind === 'damagePenalty') {

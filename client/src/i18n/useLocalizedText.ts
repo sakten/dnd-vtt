@@ -3,9 +3,11 @@ import {
   featureClassOf,
   isFeatureTextLoaded,
   isFeatTextLoaded,
+  isRaceTextLoaded,
   isSpellTextLoaded,
   loadFeatureText,
   loadFeatText,
+  loadRaceText,
   loadSpellText,
   subscribeLocalizedText,
 } from 'shared';
@@ -26,6 +28,15 @@ export function useFeatText(): void {
   const loaded = useSyncExternalStore(subscribeLocalizedText, () => isFeatTextLoaded(lang));
   useEffect(() => {
     if (!loaded) void loadFeatText(lang);
+  }, [lang, loaded]);
+}
+
+/** Лениво догружает описания черт вида. */
+export function useRaceText(): void {
+  const lang = getLocale();
+  const loaded = useSyncExternalStore(subscribeLocalizedText, () => isRaceTextLoaded(lang));
+  useEffect(() => {
+    if (!loaded) void loadRaceText(lang);
   }, [lang, loaded]);
 }
 

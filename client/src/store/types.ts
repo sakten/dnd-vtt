@@ -183,6 +183,8 @@ export interface GameState {
   updateResources: (resources: PlayerResources) => void;
   /** Отдых: восстановление и (для долгого) чистку эффектов считает сервер. */
   rest: (type: 'short' | 'long') => void;
+  /** Магическое восстановление: сервер проверяет бюджет и возвращает ячейки. */
+  arcaneRecovery: (slots: { level: number; count: number }[]) => void;
   setCurrentCharacter: (libraryItemId: string | null) => void;
   rollHitDie: (die: number) => void;
   rollDeathSave: (expression: string) => void;

@@ -117,7 +117,7 @@ export function registerLibraryHandlers(ctx: ConnCtx) {
       const sheet = room.sheets[ctx.playerId];
       if (sheet) {
         const owned = manager.characterTokens(room, ctx.playerId);
-        for (const c of owned) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
+        for (const c of owned) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices, sheet.race);
         ctx.emitChanged(room, owned);
       }
       cb({ ok: true });

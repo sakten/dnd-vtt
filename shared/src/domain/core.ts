@@ -17,6 +17,8 @@ export const MAX_INVOCATIONS = 20;
 export const MAX_SHAPE_FORMS = 8;
 /** Верхняя граница числа выборов способностей (фиты/манёвры/метамагия). */
 export const MAX_FEATURE_CHOICES = 100;
+/** Верхняя граница выборов внутри вида (линия, наследие, навык, размер). */
+export const MAX_RACE_CHOICES = 12;
 export const MAX_CONDITIONS = 20;
 export const MAX_EFFECTS = 20;
 export const MAX_MODIFIERS = 20;

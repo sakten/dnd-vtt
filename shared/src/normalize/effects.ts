@@ -216,6 +216,7 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   );
   if (conditions.length) out.conditions = [...new Set(conditions)];
   if (typeof f.magical === 'boolean') out.magical = f.magical;
+  if (typeof f.concentration === 'boolean') out.concentration = f.concentration;
   if (typeof f.kenseiWeapon === 'boolean') out.kenseiWeapon = f.kenseiWeapon;
   if (Array.isArray(f.creatureTypes)) {
     const types = f.creatureTypes.filter(
@@ -489,6 +490,12 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (Array.isArray(e.conditions)) {
       const conditions = e.conditions.filter((c): c is ConditionKey => typeof c === 'string');
       if (conditions.length) effect.conditions = conditions.slice(0, MAX_CONDITIONS);
+    }
+    if (Array.isArray(e.endsOnConditions)) {
+      const ends = e.endsOnConditions.filter(
+        (c): c is ConditionKey => typeof c === 'string' && (CONDITION_KEYS as string[]).includes(c)
+      );
+      if (ends.length) effect.endsOnConditions = [...new Set(ends)].slice(0, MAX_CONDITIONS);
     }
     if (Array.isArray(e.senses)) {
       const senses = normalizeSenses(e.senses);

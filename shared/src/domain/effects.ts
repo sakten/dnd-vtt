@@ -11,6 +11,7 @@ export type ConditionKey =
   | 'charmed'
   | 'deafened'
   | 'exhaustion'
+  | 'flying'
   | 'frightened'
   | 'grappled'
   | 'hidden'
@@ -104,6 +105,8 @@ export interface ModifierFilter {
   conditions?: ConditionKey[];
   /** Только спасброски против заклинаний и магических эффектов (Circle of Power). */
   magical?: boolean;
+  /** Только спасброски концентрации (Bladesong: INT к CON только на концентрацию). */
+  concentration?: boolean;
   /** Только атаки кэнсэй-оружием основной руки (XGE, Kensei). */
   kenseiWeapon?: boolean;
   /** Тип существа атакующего (Protection from Evil and Good: помеха от шести типов). */
@@ -270,6 +273,8 @@ export interface EffectInstance {
   modifiers: Modifier[];
   /** Ключи накладываемых состояний. */
   conditions?: ConditionKey[];
+  /** Эффект досрочно оканчивается, когда носитель получает любое из состояний (Bladesong). */
+  endsOnConditions?: ConditionKey[];
   /** При провале повторного спасброска состояние меняется (Sleep). */
   escalate?: EffectEscalation;
   /** Урон снимает эффект (Sleep, Hypnotic Pattern). */

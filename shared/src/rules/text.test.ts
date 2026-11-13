@@ -4,6 +4,7 @@ import spellsData from '../data/spells.json';
 import featsData from '../data/feats.json';
 import featuresData from '../data/features.json';
 import weaponsData from '../data/weapons.json';
+import racesData from '../data/races.json';
 import textNames from '../data/text.ru/names.json';
 import spellText from '../data/text.ru/spells.json';
 import featText from '../data/text.ru/feats.json';
@@ -20,7 +21,9 @@ import {
   loadFeatText,
   loadFeatureText,
   loadNames,
+  loadRaceText,
   loadSpellText,
+  raceTraitTexts,
   spellDescription,
   spellHigherLevel,
   spellName,
@@ -262,5 +265,23 @@ describe('featDescription / featPrereq', () => {
     const missing = withPrereq.filter((f) => !featPrereq(f.key, LANG)?.trim()).map((f) => f.key);
     expect(missing).toEqual([]);
     expect(featPrereq('unknown', LANG)).toBeUndefined();
+  });
+});
+
+describe('raceTraitTexts (виды)', () => {
+  it('полное покрытие черт видов и валидный текст', async () => {
+    await loadRaceText(LANG);
+    const bad = racesData.races
+      .filter((race) => {
+        const traits = raceTraitTexts(race.key, LANG);
+        return (
+          !traits ||
+          traits.length !== race.traits.length ||
+          traits.some((trait) => !trait.name.trim() || !trait.description.trim())
+        );
+      })
+      .map((race) => race.key);
+    expect(bad).toEqual([]);
+    expect(raceTraitTexts('unknown', LANG)).toBeUndefined();
   });
 });

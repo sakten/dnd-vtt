@@ -1,4 +1,4 @@
-﻿import {
+import {
   actionSlotAvailable,
   actionTargeting,
   applyWeaponOverrides,
@@ -25,6 +25,9 @@
   monsterStats,
   parseZoneTargetId,
   pointCell,
+  raceActionAutomation,
+  raceActionStats,
+  raceActions,
   restrictionsFor,
   rightGrip,
   rollDice,
@@ -694,8 +697,12 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       const sheet = character?.sheet;
       const classAction = sheet ? classFeatures(sheet.classes).find((a) => a.id === actionId) : undefined;
+      const raceAction = sheet ? raceActions(sheet.race, sheet.classes).find((a) => a.id === actionId) : undefined;
       const action: ActionDef | undefined =
-        shapeStatblock(token)?.actions?.find((a) => a.id === actionId) ?? findBaseAction(actionId) ?? classAction;
+        shapeStatblock(token)?.actions?.find((a) => a.id === actionId) ??
+        findBaseAction(actionId) ??
+        classAction ??
+        raceAction;
       if (!action) return;
 
       const combat = manager.combatOf(room, mapId);
@@ -1107,7 +1114,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
       // Автоматизированные действия (базовые/классовые) — через общий executor.
       const def =
         automationForAction(action, { classes: sheet?.classes }) ??
-        featureActionAutomation(action.id, sheet?.classes, variant);
+        featureActionAutomation(action.id, sheet?.classes, variant) ??
+        raceActionAutomation(action.id, sheet?.race, sheet?.classes ?? [], variant);
       if (def) {
         const targets = actionTargets(ctx, room, mapId, token, {
           area: abilityArea,
@@ -1122,7 +1130,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
           ? monsterStats(shapeStatblock(token), action.ability)
           : sheet && classKey
             ? casterStats(sheet, classKey)
-            : null;
+            : sheet && action.id.startsWith('race:')
+              ? raceActionStats(action.id, sheet)
+              : null;
       executeAutomation(ctx, {
         caster: token,
         mapId,

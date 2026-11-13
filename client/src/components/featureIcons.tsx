@@ -252,6 +252,18 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
       <path d="M18 14v6M15 17h6" />
     </>
   ),
+
+  // Волшебник
+  'class:wizard.bladesinging:bladesong': (
+    <>
+      <path d="M5 19L17 7" />
+      <path d="M14 6l4 4" />
+      <path d="M3 21l3-1-2-2z" />
+      <path d="M18 3l1 1" />
+      <path d="M4 8c2 0 3 1 3 3" />
+      <path d="M2 4c3 0 5 2 5 5" />
+    </>
+  ),
 };
 
 export function hasFeatureIcon(id: string): boolean {

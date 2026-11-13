@@ -34,6 +34,8 @@ export interface ModifierContext {
   condition?: ConditionKey;
   /** Спасбросок против заклинаний/магических эффектов (Circle of Power). */
   magical?: boolean;
+  /** Спасбросок концентрации (Bladesong: INT к CON только на концентрацию). */
+  concentration?: boolean;
   /** Тип существа атакующего (Protection from Evil and Good). */
   attackerType?: string;
   /** Атака кэнсэй-оружием основной руки (XGE, Kensei). */
@@ -96,6 +98,7 @@ export function modifierMatches(mod: Modifier, ctx: ModifierContext = {}): boole
   if (f.unarmed !== undefined && f.unarmed !== ctx.unarmed) return false;
   if (f.conditions && (!ctx.condition || !f.conditions.includes(ctx.condition))) return false;
   if (f.magical !== undefined && f.magical !== ctx.magical) return false;
+  if (f.concentration !== undefined && f.concentration !== ctx.concentration) return false;
   if (f.kenseiWeapon !== undefined && f.kenseiWeapon !== ctx.kenseiWeapon) return false;
   if (f.creatureTypes && (!ctx.attackerType || !f.creatureTypes.includes(ctx.attackerType))) return false;
   return true;
@@ -249,9 +252,10 @@ export function saveRollParts(
   ability: AbilityKey,
   abilities?: Partial<Record<AbilityKey, number>>,
   condition?: ConditionKey,
-  magical?: boolean
+  magical?: boolean,
+  concentration?: boolean
 ): RollParts {
-  return rollParts(collectModifiers(effects, 'save', { ability, condition, magical }), abilities);
+  return rollParts(collectModifiers(effects, 'save', { ability, condition, magical, concentration }), abilities);
 }
 
 /** Слагаемые, кости и режим проверки характеристики/навыка от эффектов (Enhance Ability). */
@@ -652,7 +656,9 @@ export function effectSummaryParts(effect: EffectInstance): EffectTextPart[] {
                 ? 'addDamageMark'
                 : 'addDamage'
               : mod.target === 'save'
-                ? 'addSave'
+                ? mod.filter?.concentration
+                  ? 'addConcentrationSave'
+                  : 'addSave'
                 : mod.target === 'check'
                   ? 'addCheck'
                   : mod.target === 'ac'

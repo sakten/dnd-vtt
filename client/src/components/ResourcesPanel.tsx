@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { type PlayerResources, type ResourceItem } from 'shared';
+import {
+  ARCANE_RECOVERY_MAX_SLOT_LEVEL,
+  arcaneRecoveryBudget,
+  type PlayerResources,
+  type ResourceItem,
+} from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { resourceLabel } from '../i18n/domain';
@@ -101,11 +106,14 @@ export default function ResourcesPanel() {
   const sheet = useGameStore((s) => s.sheet);
   const updateResources = useGameStore((s) => s.updateResources);
   const rest = useGameStore((s) => s.rest);
+  const arcaneRecovery = useGameStore((s) => s.arcaneRecovery);
   const rollHitDie = useGameStore((s) => s.rollHitDie);
   const currentCharacterId = useGameStore((s) => s.currentCharacterId);
   const maps = useGameStore((s) => s.scene.maps);
   const endConcentration = useGameStore((s) => s.endConcentration);
   const [open, setOpen] = useState(false);
+  const [arcaneOpen, setArcaneOpen] = useState(false);
+  const [arcanePicks, setArcanePicks] = useState<Record<number, number>>({});
   const [newName, setNewName] = useState('');
   const [newMax, setNewMax] = useState('1');
   const [newReset, setNewReset] = useState<ResourceItem['reset']>('long');
@@ -142,6 +150,22 @@ export default function ResourcesPanel() {
   );
   const panelTitle = sheet?.name?.trim() ? sheet.name.trim().slice(0, 40) : t('ui.resources.title');
   const change = (fn: (res: PlayerResources) => PlayerResources) => updateResources(fn(r));
+  const wizardLevel = sheet?.classes.find((c) => c.className === 'wizard')?.level ?? 0;
+  const arcaneItem = r.resources.find((item) => item.key === 'wizard:arcaneRecovery');
+  const arcaneBudget = wizardLevel > 0 ? arcaneRecoveryBudget(wizardLevel) : 0;
+  const arcaneSpent = Object.entries(arcanePicks).reduce((sum, [level, count]) => sum + Number(level) * count, 0);
+  const arcaneRemaining = arcaneBudget - arcaneSpent;
+  const arcaneCandidates = r.spellSlots.filter(
+    (slot) => slot.level <= ARCANE_RECOVERY_MAX_SLOT_LEVEL && slot.current < slot.max
+  );
+  const arcaneRecover = () => {
+    const slots = Object.entries(arcanePicks)
+      .map(([level, count]) => ({ level: Number(level), count }))
+      .filter((pick) => pick.count > 0);
+    arcaneRecovery(slots);
+    setArcaneOpen(false);
+    setArcanePicks({});
+  };
 
   const setHp = (patch: Partial<PlayerResources['hp']>) =>
     change((res) => {
@@ -313,6 +337,83 @@ export default function ResourcesPanel() {
             </div>
           )}
 
+          {wizardLevel > 0 && arcaneItem && (
+            <div className="resources-section">
+              <div className="resources-subtitle">{t('ui.resources.arcaneRecovery')}</div>
+              <div className="resource-row">
+                <span className="resource-name">{t('ui.resources.arcaneRecovery')}</span>
+                <span className="resource-count">
+                  <span className={arcaneItem.current > 0 ? '' : 'dim'}>{arcaneItem.current}</span>
+                  <span className="dim">/{arcaneItem.max}</span>
+                </span>
+                <button
+                  className="hit-die-btn"
+                  disabled={arcaneItem.current <= 0 || arcaneCandidates.length === 0}
+                  title={t('ui.resources.arcaneRecoveryHint', { budget: arcaneBudget })}
+                  onClick={() => {
+                    setArcanePicks({});
+                    setArcaneOpen((value) => !value);
+                  }}
+                >
+                  {t('ui.resources.arcaneRecover')}
+                </button>
+              </div>
+              {arcaneOpen && (
+                <div className="arcane-recovery">
+                  <div className="arcane-recovery-budget">
+                    {t('ui.resources.arcaneRecoveryLeft', { left: arcaneRemaining })}
+                  </div>
+                  {arcaneCandidates.length === 0 ? (
+                    <div className="dim">{t('ui.resources.arcaneRecoveryEmpty')}</div>
+                  ) : (
+                    arcaneCandidates.map((slot) => {
+                      const picked = arcanePicks[slot.level] ?? 0;
+                      const maxPick = slot.max - slot.current;
+                      return (
+                        <div className="resource-row" key={slot.level}>
+                          <span className="resource-name">{t('ui.resources.slotLevel', { n: slot.level })}</span>
+                          <span className="dim">
+                            {slot.current}/{slot.max}
+                          </span>
+                          <button
+                            className="step"
+                            disabled={picked <= 0}
+                            onClick={() =>
+                              setArcanePicks((prev) => ({ ...prev, [slot.level]: Math.max(0, picked - 1) }))
+                            }
+                          >
+                            −
+                          </button>
+                          <span className="resource-count">{picked}</span>
+                          <button
+                            className="step"
+                            disabled={picked >= maxPick || arcaneRemaining < slot.level}
+                            onClick={() => setArcanePicks((prev) => ({ ...prev, [slot.level]: picked + 1 }))}
+                          >
+                            +
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div className="arcane-recovery-actions">
+                    <button disabled={arcaneSpent <= 0} onClick={arcaneRecover}>
+                      {t('ui.resources.arcaneRecover')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setArcaneOpen(false);
+                        setArcanePicks({});
+                      }}
+                    >
+                      {t('ui.common.cancel')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {r.pact.max > 0 && (
             <div className="resources-section">
               <div className="resources-subtitle">{t('ui.resources.pactSlots', { level: r.pact.level })}</div>
@@ -330,7 +431,7 @@ export default function ResourcesPanel() {
           <div className="resources-section">
             <div className="resources-subtitle">{t('ui.resources.other')}</div>
             {r.resources
-              .filter((item) => !item.auto || item.max > 0)
+              .filter((item) => item.key !== 'wizard:arcaneRecovery' && (!item.auto || item.max > 0))
               .map((item) => {
               const label = resourceLabel(item.key, item.name);
               const maxControl = item.auto ? (

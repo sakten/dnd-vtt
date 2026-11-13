@@ -1,6 +1,7 @@
-import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_INVOCATIONS, MAX_SHEET_SPELLS, MAX_SHAPE_FORMS, type AbilityKey } from '../domain/core';
+import { DEFAULT_ABILITIES, DEFAULT_SPEED, MAX_CLASSES, MAX_FEATURE_CHOICES, MAX_INVOCATIONS, MAX_RACE_CHOICES, MAX_SHEET_SPELLS, MAX_SHAPE_FORMS, type AbilityKey } from '../domain/core';
 import { normalizeSenses } from './sense';
 import type { FeatureChoice, FeatureChoiceKind } from '../domain/feature';
+import type { RaceSelection } from '../domain/race';
 import type { CharacterSheet, ClassLevel, SheetSpell } from '../domain/sheet';
 import { normalizeAttacks, normalizeDamageDefenses } from './attacks';
 import { normalizeHands } from '../rules/hands';
@@ -106,6 +107,24 @@ export function normalizeSheetChoices(raw: unknown): FeatureChoice[] {
   return out;
 }
 
+/** Чистит выбранный вид: ключ `XPHB:<имя>` и ограниченный набор выборов. */
+export function normalizeRace(raw: unknown): RaceSelection | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const item = raw as { key?: unknown; choices?: unknown };
+  const key = typeof item.key === 'string' ? item.key.trim().slice(0, 80) : '';
+  if (!key) return undefined;
+  const choices: Record<string, string> = {};
+  if (item.choices && typeof item.choices === 'object') {
+    for (const [choice, value] of Object.entries(item.choices).slice(0, MAX_RACE_CHOICES)) {
+      if (typeof value !== 'string' || !value.trim()) continue;
+      const id = choice.trim().slice(0, 40);
+      if (!id) continue;
+      choices[id] = value.trim().slice(0, 40);
+    }
+  }
+  return { key, ...(Object.keys(choices).length ? { choices } : {}) };
+}
+
 export function normalizeWildShape(raw: unknown): { known?: string[] } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const source = (raw as { known?: unknown }).known;
@@ -130,6 +149,7 @@ export function normalizeSheet(raw: Partial<CharacterSheet>): CharacterSheet {
       if (Number.isFinite(n)) abilities[key] = Math.min(30, Math.max(0, Math.round(n)));
     }
   }
+  const race = normalizeRace((raw as { race?: unknown }).race);
   const invocations = normalizeInvocations((raw as { invocations?: unknown }).invocations);
   const wildShape = normalizeWildShape((raw as { wildShape?: unknown }).wildShape);
   const attacks = normalizeAttacks(raw.attacks);
@@ -143,6 +163,7 @@ export function normalizeSheet(raw: Partial<CharacterSheet>): CharacterSheet {
     attacks,
     ...(hands ? { hands } : {}),
     classes: normalizeClasses(raw.classes),
+    ...(race ? { race } : {}),
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
     choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
     ...(invocations.length ? { invocations } : {}),

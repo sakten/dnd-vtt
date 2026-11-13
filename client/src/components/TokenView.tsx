@@ -5,6 +5,7 @@ import { hpBarHeight, hpBarLayout } from '../lib/hpBars';
 import {
   canSee,
   cellCenter,
+  hasCondition,
   ignoresDifficultTerrain,
   isBanished,
   movementBlocked,
@@ -118,8 +119,10 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       zones: map.zones,
       visibleAt,
       blind,
-      // Freedom of Movement: маршрут не удваивает сложную местность и клетки союзников.
-      ignoreDifficult: ignoresDifficultTerrain(token.effects),
+      // Freedom of Movement и полёт: маршрут не удваивает сложную местность;
+      // полёт дополнительно позволяет проходить сквозь существ.
+      ignoreDifficult: hasCondition(token.conditions, 'flying') || ignoresDifficultTerrain(token.effects),
+      passThroughUnits: hasCondition(token.conditions, 'flying'),
       diagonalsBefore: turn?.diagonalsUsed ?? 0,
     });
   };

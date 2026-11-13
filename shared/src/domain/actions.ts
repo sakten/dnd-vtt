@@ -69,7 +69,7 @@ export interface MonsterAbilityDef {
 export interface ActionDef {
   id: string;
   name: string;
-  source: 'basic' | 'class' | 'subclass' | 'spell' | 'monster';
+  source: 'basic' | 'class' | 'subclass' | 'race' | 'spell' | 'monster';
   /** Допустимые слоты (по приоритету): действие, бонусное и т.д. */
   costs: ActionCost[];
   /** Минимальный уровень/CR для появления в панели. */

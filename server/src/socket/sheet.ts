@@ -1,5 +1,5 @@
 import {
-  effectiveMaxHp,
+  effectiveCharacterMaxHp,
   emptyResources,
   isRecord,
   normalizeSheet,
@@ -35,9 +35,10 @@ export function registerSheetHandlers(ctx: ConnCtx) {
         normalized.classes,
         sheetMods(normalized.abilities),
         mode,
-        normalized.choices
+        normalized.choices,
+        normalized.race
       );
-      const hpMax = effectiveMaxHp(normalized);
+      const hpMax = effectiveCharacterMaxHp(normalized);
       synced.hp = {
         ...synced.hp,
         max: hpMax,
@@ -45,7 +46,9 @@ export function registerSheetHandlers(ctx: ConnCtx) {
       };
       room.resources[playerId] = synced;
       const changed = manager.characterTokens(room, playerId);
-      for (const c of changed) syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes, normalized.choices);
+      for (const c of changed) {
+        syncFeatureEffects(ctx, room, c.mapId, c.token, normalized.classes, normalized.choices, normalized.race);
+      }
       socket.emit('sheet:update', { sheet: normalized });
       ctx.emitResources(room, playerId);
       emitChanged(room, changed);

@@ -14,7 +14,7 @@ import type { ConnCtx } from './context';
 import { fail } from './errors';
 import { playerScope, rejectIfReaction, scopedToken } from './guards';
 import { actorStats } from '../room/actor';
-import { finalizeRemovedEffects, tokenConditionImmunities } from '../room/effects';
+import { endEffectsOnConditions, finalizeRemovedEffects, tokenConditionImmunities } from '../room/effects';
 import { endShapeToken } from './forms';
 import { endConcentrationOf } from './effects';
 import { handleMovementZones } from './zones';
@@ -237,6 +237,13 @@ export function registerTokenHandlers(ctx: ConnCtx) {
           if (pruned) syncCombat(room, mapId);
         }
       }
+      let endedConcentration = false;
+      for (const effect of endEffectsOnConditions(manager, room, token)) {
+        if (!effect.concentration || !effect.sourceId || !effect.sourceKey) continue;
+        emitChanged(room, manager.pruneConcentration(room, effect.sourceId, effect.sourceKey));
+        endedConcentration = true;
+      }
+      if (endedConcentration) syncCombat(room, mapId);
       if (isDm()) {
         if (typeof patch.isPlayerToken === 'boolean') token.isPlayerToken = patch.isPlayerToken;
         if (typeof patch.canInteract === 'boolean') token.canInteract = patch.canInteract;

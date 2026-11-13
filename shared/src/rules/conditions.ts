@@ -12,6 +12,7 @@ export const CONDITION_NAMES: Record<ConditionKey, string> = {
   charmed: 'Очарован',
   deafened: 'Оглох',
   exhaustion: 'Истощение',
+  flying: 'Полёт',
   frightened: 'Испуган',
   grappled: 'Схвачен',
   hidden: 'Скрытый',
@@ -33,7 +34,7 @@ export const CONDITION_KEYS = Object.keys(CONDITION_NAMES) as ConditionKey[];
 
 /** Состояния, к которым бывает иммунитет (без служебных custom/surrounded/dead). */
 export const IMMUNITY_CONDITION_KEYS = CONDITION_KEYS.filter(
-  (k) => k !== 'custom' && k !== 'surrounded' && k !== 'dead'
+  (k) => k !== 'custom' && k !== 'surrounded' && k !== 'dead' && k !== 'flying'
 );
 
 export const CONDITION_DESCRIPTIONS: Record<ConditionKey, string> = {
@@ -41,6 +42,7 @@ export const CONDITION_DESCRIPTIONS: Record<ConditionKey, string> = {
   charmed: 'Не может атаковать очаровавшего; тот имеет преимущество на социальные проверки.',
   deafened: 'Не слышит; провал проверок, требующих слуха.',
   exhaustion: '−2 к броскам d20 и −5 фт скорости за каждый уровень; 6 — смерть.',
+  flying: 'Не замедляется сложной местностью и может проходить через существ.',
   frightened: 'Помеха на атаки и проверки, пока источник в поле зрения; не может приближаться.',
   grappled: 'Скорость 0; помеха на атаки; по нему — преимущество.',
   hidden: 'Скрыт: видно только с соседних клеток или истинным зрением; атаки с преимуществом; по нему — с помехой.',
@@ -161,9 +163,12 @@ export function movementBlocked(conditions: ConditionInstance[] | undefined): bo
   return has(conditions, 'grappled', 'restrained', 'paralyzed', 'stunned', 'unconscious', 'petrified');
 }
 
+/** Состояния, при которых существо недееспособно (для авто-окончания эффектов). */
+export const INCAPACITATING_CONDITIONS = ['incapacitated', 'paralyzed', 'stunned', 'unconscious', 'petrified'] as const;
+
 /** Не может совершать действия/бонусные/реакции. */
 export function isIncapacitated(conditions: ConditionInstance[] | undefined): boolean {
-  return has(conditions, 'incapacitated', 'paralyzed', 'stunned', 'unconscious', 'petrified');
+  return has(conditions, ...INCAPACITATING_CONDITIONS);
 }
 
 /** Уровень истощения (0 — нет). */

@@ -1,5 +1,6 @@
 import type { AbilityKey } from '../domain/core';
-import type { ConditionKey } from '../domain/effects';
+import type { ConditionKey, EffectDuration, Modifier } from '../domain/effects';
+import type { RaceSelection } from '../domain/race';
 import type { ClassLevel } from '../domain/sheet';
 
 /**
@@ -11,8 +12,12 @@ export interface AttackRiderDef {
   /** Ключ черты (`класс[.подкласс]:имя`). */
   id: string;
   name: string;
-  className: string;
+  /** Классовая черта; у видов не задаётся. */
+  className?: string;
   subclass?: string;
+  /** Черта вида и выбранный вариант наследия. */
+  raceKey?: string;
+  raceChoice?: { id: string; key: string };
   levelReq: number;
   /** Нужна активная Ярость (эффект `class:barbarian:rage`). */
   requiresRage?: boolean;
@@ -39,6 +44,10 @@ export interface AttackRiderDef {
   abilityBonus?: AbilityKey;
   /** Тип урона добавки (не задан — как у атаки). */
   damageType?: string;
+  /** Состояние цели без спасброска (Кувырок холма: сбит с ног). */
+  conditionOnHit?: { condition: ConditionKey; duration?: EffectDuration };
+  /** Временный эффект на цель (Холод мороза: −10 фт скорости). */
+  targetEffect?: { name: string; duration: EffectDuration; modifiers: Omit<Modifier, 'id'>[]; conditions?: ConditionKey[] };
   /**
    * Спасбросок цели при срабатывании (Ошеломляющий удар): при провале — condition,
    * при успехе — скорость ×1/2. СЛ = 8 + бонус владения + мод Мудрости монаха.
@@ -103,12 +112,61 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     resourceAmount: 1,
     martialArtsDice: true,
   },
+  {
+    id: 'race:XPHB:Goliath:giantAncestry:fire',
+    name: 'Ожог огня',
+    raceKey: 'XPHB:Goliath',
+    raceChoice: { id: 'giant', key: 'fire' },
+    levelReq: 1,
+    choiceOnHit: true,
+    resourceKey: 'race:XPHB:Goliath:giantAncestry',
+    resourceAmount: 1,
+    dice: '1d10',
+    damageType: 'fire',
+  },
+  {
+    id: 'race:XPHB:Goliath:giantAncestry:frost',
+    name: 'Холод мороза',
+    raceKey: 'XPHB:Goliath',
+    raceChoice: { id: 'giant', key: 'frost' },
+    levelReq: 1,
+    choiceOnHit: true,
+    resourceKey: 'race:XPHB:Goliath:giantAncestry',
+    resourceAmount: 1,
+    dice: '1d6',
+    damageType: 'cold',
+    targetEffect: {
+      name: 'Холод мороза',
+      duration: { type: 'endOfTurn', of: 'source' },
+      modifiers: [{ target: 'speed', mode: 'add', value: -10 }],
+    },
+  },
+  {
+    id: 'race:XPHB:Goliath:giantAncestry:hill',
+    name: 'Кувырок холма',
+    raceKey: 'XPHB:Goliath',
+    raceChoice: { id: 'giant', key: 'hill' },
+    levelReq: 1,
+    choiceOnHit: true,
+    resourceKey: 'race:XPHB:Goliath:giantAncestry',
+    resourceAmount: 1,
+    conditionOnHit: { condition: 'prone', duration: { type: 'endOfTurn', of: 'target' } },
+  },
 ];
 
-/** Бонусные «наездники» персонажа по классам/подклассам и уровню. */
-export function attackRidersFor(classes: ClassLevel[]): AttackRiderDef[] {
+/** Бонусные «наездники» персонажа по классам/подклассам, виду и уровню. */
+export function attackRidersFor(classes: ClassLevel[], race?: RaceSelection): AttackRiderDef[] {
   const out: AttackRiderDef[] = [];
+  const total = classes.reduce((sum, entry) => sum + entry.level, 0);
   for (const def of ATTACK_RIDERS) {
+    if (def.raceKey) {
+      if (race?.key !== def.raceKey) continue;
+      if (def.raceChoice && race.choices?.[def.raceChoice.id] !== def.raceChoice.key) continue;
+      if (total < def.levelReq) continue;
+      out.push(def);
+      continue;
+    }
+    if (!def.className) continue;
     const entry = classes.find((c) => c.className === def.className);
     if (!entry) continue;
     if (def.subclass && entry.subclass !== def.subclass) continue;

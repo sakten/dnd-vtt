@@ -69,7 +69,7 @@ export function applyAttackRiders(
 
   const parts: string[] = [];
   const notes: string[] = [];
-  for (const rider of attackRidersFor(sheet.classes)) {
+  for (const rider of attackRidersFor(sheet.classes, sheet.race)) {
     if (rider.requiresRage && !hasEffect(RAGE_KEY)) continue;
     if (rider.requiresReckless && !hasEffect(RECKLESS_KEY)) continue;
     if (rider.requiresMarker && !hasEffect(rider.requiresMarker)) continue;
@@ -79,7 +79,7 @@ export function applyAttackRiders(
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
 
     const expr = riderExpression(rider, level, abilities);
-    if (!expr && !rider.save) continue;
+    if (!expr && !rider.save && !rider.conditionOnHit && !rider.targetEffect) continue;
     if (expr) {
       try {
         parseDiceExpression(expr);
@@ -98,8 +98,58 @@ export function applyAttackRiders(
     notes.push(expr ? `${attacker.name}: ${rider.name} (+${expr})` : `${attacker.name}: ${rider.name}`);
     markUsed(ctx, room, mapId, attacker, rider);
     if (rider.save && target) applyRiderSave(ctx, room, mapId, attacker, target, rider, saveDc);
+    if (rider.conditionOnHit && target) applyRiderCondition(ctx, room, mapId, attacker, target, rider);
+    if (rider.targetEffect && target) applyRiderTargetEffect(ctx, room, mapId, attacker, target, rider);
   }
   return { expr: parts.join('+'), notes };
+}
+
+/** Состояние цели без спасброска (Кувырок холма). */
+function applyRiderCondition(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  target: Token,
+  rider: AttackRiderDef
+): void {
+  const def = rider.conditionOnHit;
+  if (!def) return;
+  const id = randomUUID();
+  ctx.manager.applyEffect(room, target, {
+    id,
+    name: rider.name,
+    sourceKey: `rider:${rider.id}`,
+    sourceId: attacker.id,
+    duration: def.duration ?? { type: 'endOfTurn', of: 'target' },
+    modifiers: [],
+    conditions: [def.condition],
+  });
+  ctx.emitToken(room, 'token:update', mapId, target);
+}
+
+/** Временный эффект цели (Холод мороза: −10 фт скорости). */
+function applyRiderTargetEffect(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  attacker: Token,
+  target: Token,
+  rider: AttackRiderDef
+): void {
+  const def = rider.targetEffect;
+  if (!def) return;
+  const id = randomUUID();
+  ctx.manager.applyEffect(room, target, {
+    id,
+    name: def.name,
+    sourceKey: `rider:${rider.id}`,
+    sourceId: attacker.id,
+    duration: def.duration,
+    modifiers: def.modifiers.map((m, i) => ({ ...m, id: `${id}:m${i}` })),
+    ...(def.conditions?.length ? { conditions: def.conditions } : {}),
+  });
+  ctx.emitToken(room, 'token:update', mapId, target);
 }
 
 /** Выбранные в окне наездники атакующего (choiceOnHit) с оплачиваемым ресурсом. */
@@ -116,7 +166,7 @@ export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token,
   if (!cid || !sheet) return [];
   const out: ChoiceRider[] = [];
   const kensei = !!attack && isKenseiAttack({ attacks: sheet.attacks, hands: sheet.hands, classes: sheet.classes }, attack);
-  for (const rider of attackRidersFor(sheet.classes)) {
+  for (const rider of attackRidersFor(sheet.classes, sheet.race)) {
     if (!rider.choiceOnHit) continue;
     if (rider.kensei && !kensei) continue;
     if (attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;

@@ -42,6 +42,12 @@ describe('attacksPerAction', () => {
     expect(attacksPerAction([{ className: 'bard', level: 6, subclass: 'valor' }])).toBe(2);
     expect(attacksPerAction([{ className: 'bard', level: 6, subclass: 'lore' }])).toBe(1);
   });
+
+  it('волшебник-пение клинков: вторая атака с 6 уровня', () => {
+    expect(attacksPerAction([{ className: 'wizard', level: 5, subclass: 'bladesinging' }])).toBe(1);
+    expect(attacksPerAction([{ className: 'wizard', level: 6, subclass: 'bladesinging' }])).toBe(2);
+    expect(attacksPerAction([{ className: 'wizard', level: 6, subclass: 'evoker' }])).toBe(1);
+  });
 });
 
 describe('BASE_ACTIONS', () => {

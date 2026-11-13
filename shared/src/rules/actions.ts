@@ -121,6 +121,8 @@ export function attacksPerAction(classes: ClassLevel[]): number {
       else if (level >= 5) attacks = Math.max(attacks, 2);
     } else if (entry.className === 'bard') {
       if (entry.subclass === 'valor' && level >= 6) attacks = Math.max(attacks, 2);
+    } else if (entry.className === 'wizard') {
+      if (entry.subclass === 'bladesinging' && level >= 6) attacks = Math.max(attacks, 2);
     } else if (EXTRA_ATTACK_CLASSES.has(entry.className) && level >= 5) {
       attacks = Math.max(attacks, 2);
     }

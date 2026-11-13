@@ -350,6 +350,8 @@ export interface PlanWalkInput {
   blind?: boolean;
   /** Freedom of Movement: сложная местность и клетки союзников не удваивают стоимость. */
   ignoreDifficult?: boolean;
+  /** Полёт: можно проходить сквозь существ (конечная клетка всё равно должна быть свободной). */
+  passThroughUnits?: boolean;
   diagonalsBefore?: number;
 }
 
@@ -379,12 +381,14 @@ export function planWalk(input: PlanWalkInput): FoundPath | null {
   const difficult = new Set<string>();
   const costly = new Map<string, number>();
   const occupied = new Set<string>();
+  const passThroughUnits = input.passThroughUnits === true;
   for (const other of input.tokens) {
     if (other.id === input.moverId) continue;
     const friendly = other.faction === 'ally';
     for (const key of tokenCells(other, grid)) {
       if (own.has(key)) continue;
       occupied.add(key);
+      if (passThroughUnits) continue;
       if (friendly && !input.ignoreDifficult) difficult.add(key);
       else if (!friendly) blocked.add(key);
     }

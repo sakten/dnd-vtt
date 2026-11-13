@@ -117,7 +117,7 @@ export function hasPayableSpecial(manager: ConnCtx['manager'], room: Room, mapId
   // Реакционные черты (Рипост, Парирование, Невероятное уклонение…) — тоже варианты:
   // окно открываем, чтобы игрок мог отказаться от OA и сохранить реакцию.
   if (!cid || !sheet) return false;
-  return reactionFeatures(sheet.classes).some(
+  return reactionFeatures(sheet.classes, sheet.race).some(
     (def) => !def.resourceKey || hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)
   );
 }

@@ -1,6 +1,7 @@
 import type { AbilityKey, SkillLevel } from './core';
 import type { DamageDefense } from './damage';
 import type { FeatureChoice } from './feature';
+import type { RaceSelection } from './race';
 import type { Sense } from './sense';
 import type { AttackEntry } from './token';
 
@@ -55,6 +56,8 @@ export interface CharacterSheet {
   /** Оружие в руках: id атаки из `attacks` или `HANDS_SHIELD` (щит). Правая — основная. */
   hands?: SheetHands;
   classes: ClassLevel[];
+  /** Вид персонажа (PHB 2024) и выборы внутри него. */
+  race?: RaceSelection;
   /** Выбранные заклинания: ключ `источник:имя` и класс, из чьего списка взято. */
   spells: SheetSpell[];
   /** Выборы способностей (фиты, инвокации, манёвры, метамагия) — R8.8. */

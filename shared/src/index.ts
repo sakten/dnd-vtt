@@ -7,6 +7,7 @@ export * from './domain/automation';
 export * from './domain/bestiary';
 export * from './domain/invocation';
 export * from './domain/token';
+export * from './domain/race';
 export * from './domain/sheet';
 export * from './domain/sense';
 export * from './domain/combat';

@@ -43,7 +43,7 @@ export function availableFeatureReactions(
 ): ReactionFeatureDef[] {
   const { controllerId: cid, sheet } = sheetOfToken(room, token);
   if (!cid || !sheet) return [];
-  return reactionFeatures(sheet.classes).filter((def) => {
+  return reactionFeatures(sheet.classes, sheet.race).filter((def) => {
     if (def.trigger !== trigger) return false;
     if (!def.resourceKey) return true;
     return hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1);
@@ -163,7 +163,7 @@ export function applyCounterAttack(
   if (!source) return;
   const die =
     def.resourceKey === 'fighter.battleMaster:superiorityDice'
-      ? superiorityDie(classLevelOf(room, reactor, def.className) || 1)
+      ? superiorityDie(classLevelOf(room, reactor, def.className ?? '') || 1)
       : 0;
   const dieExpr = die ? `1d${die}` : '';
   ctx.systemMessage(

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ABILITIES,
   CLASS_LIST,
+  DEFAULT_SPEED,
   MAX_CLASSES,
   SKILLS,
   abilityMod,
@@ -9,10 +10,13 @@ import {
   computedMaxHp,
   conditionImmunities,
   normalizeSheet,
+  raceSkill,
+  raceSpeed,
   subclassList,
   type AbilityKey,
   type CharacterSheet,
   type ClassLevel,
+  type RaceSelection,
   type SkillLevel,
 } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -25,6 +29,7 @@ import SensesForm from './SensesForm';
 import AttacksForm from './AttacksForm';
 import DamageDefensesForm from './DamageDefensesForm';
 import FeatsForm from './FeatsForm';
+import RaceForm from './RaceForm';
 import InvocationsForm from './InvocationsForm';
 import WildShapeForm from './WildShapeForm';
 import Modal from './Modal';
@@ -75,6 +80,15 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
     const current: SkillLevel = draft.skills[key] ?? 0;
     const next: SkillLevel = ((current + 1) % 3) as SkillLevel;
     setDraft({ ...draft, skills: { ...draft.skills, [key]: next } });
+  };
+
+  const setRace = (next: RaceSelection | undefined) => {
+    const oldSkill = raceSkill(draft.race);
+    const newSkill = raceSkill(next);
+    const skills = { ...draft.skills };
+    if (oldSkill && oldSkill !== newSkill && (skills[oldSkill] ?? 0) === 1) skills[oldSkill] = 0;
+    if (newSkill && (skills[newSkill] ?? 0) === 0) skills[newSkill] = 1;
+    setDraft({ ...draft, race: next, skills, speed: raceSpeed(next) ?? DEFAULT_SPEED });
   };
 
   const setClassLevel = (index: number, patch: Partial<ClassLevel>) => {
@@ -130,6 +144,8 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </label>
+
+        <RaceForm value={draft.race} onChange={setRace} />
 
         <div className="sheet-section-title">{t('ui.sheet.classes', { max: MAX_CLASSES })}</div>
         {draft.classes.map((cl, i) => (

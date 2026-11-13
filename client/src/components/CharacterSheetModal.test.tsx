@@ -33,6 +33,19 @@ describe('CharacterSheetModal', () => {
     expect((update!.payload as CharacterSheet).abilities.str).toBe(18);
   });
 
+  it('выбор вида сохраняет race и выставляет скорость вида', () => {
+    render(<CharacterSheetModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Вид' }), { target: { value: 'XPHB:Goliath' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const update = emitted.find((e) => e.event === 'sheet:update');
+    expect(update).toBeTruthy();
+    const sheet = update!.payload as CharacterSheet;
+    expect(sheet.race).toEqual({ key: 'XPHB:Goliath' });
+    expect(sheet.speed).toBe(35);
+  });
+
   it('Escape закрывает окно, не применяя черновик', () => {
     const onClose = vi.fn();
     render(<CharacterSheetModal open onClose={onClose} />);

@@ -1,6 +1,7 @@
 import { abilityMod, type AbilityKey } from '../domain/core';
 import type { ClassLevel, PlayerResources, ResourceItem, RestType } from '../domain/sheet';
 import type { FeatureChoice } from '../domain/feature';
+import type { RaceSelection } from '../domain/race';
 import {
   CLASSES,
   clampLevel,
@@ -10,6 +11,7 @@ import {
   type ResourceDef,
 } from './classes';
 import { FEAT_CAST_PREFIX, featByKey } from './feats';
+import { raceResourceDefs } from './races';
 
 interface AutoDef {
   key: string;
@@ -21,7 +23,8 @@ interface AutoDef {
 export function autoResourceDefs(
   classes: ClassLevel[],
   mods: Record<AbilityKey, number>,
-  choices?: FeatureChoice[]
+  choices?: FeatureChoice[],
+  race?: RaceSelection
 ): AutoDef[] {
   const out: AutoDef[] = [];
   const totalLevel = classes.reduce((acc, c) => acc + clampLevel(c.level), 0);
@@ -46,6 +49,7 @@ export function autoResourceDefs(
       max: 1,
     });
   }
+  out.push(...raceResourceDefs(race, classes));
   return out;
 }
 
@@ -83,9 +87,10 @@ export function syncResources(
   classes: ClassLevel[],
   mods: Record<AbilityKey, number>,
   mode: 'soft' | 'full',
-  choices?: FeatureChoice[]
+  choices?: FeatureChoice[],
+  race?: RaceSelection
 ): PlayerResources {
-  const defs = autoResourceDefs(classes, mods, choices);
+  const defs = autoResourceDefs(classes, mods, choices, race);
   const prevByKey = new Map(prev.resources.filter((r) => r.auto).map((r) => [r.key ?? r.id, r]));
   const autoResources: ResourceItem[] = defs.map((d) => {
     const before = prevByKey.get(d.key);
@@ -139,9 +144,10 @@ export function sanitizeResources(
   classes: ClassLevel[],
   mods: Record<AbilityKey, number>,
   hpMaxOverride?: number,
-  choices?: FeatureChoice[]
+  choices?: FeatureChoice[],
+  race?: RaceSelection
 ): PlayerResources {
-  const defs = autoResourceDefs(classes, mods, choices);
+  const defs = autoResourceDefs(classes, mods, choices, race);
   const incomingByKey = new Map(
     (Array.isArray(input.resources) ? input.resources : []).filter((r) => r.auto).map((r) => [r.key, r])
   );
@@ -209,6 +215,14 @@ export function sanitizeResources(
     resources: [...autoResources, ...custom],
     notes: typeof input.notes === 'string' ? input.notes.slice(0, 4000) : '',
   };
+}
+
+/** Arcane Recovery: нельзя восстанавливать ячейки 6-го и выше. */
+export const ARCANE_RECOVERY_MAX_SLOT_LEVEL = 5;
+
+/** Arcane Recovery: суммарный уровень восстанавливаемых ячеек — половина уровня волшебника (вверх). */
+export function arcaneRecoveryBudget(wizardLevel: number): number {
+  return Math.ceil(clampLevel(wizardLevel) / 2);
 }
 
 /** Восстанавливает ресурсы по отдыху: короткий — 'short' + pact, долгий — всё, HP до max. */

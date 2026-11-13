@@ -219,6 +219,29 @@
   padding: 8px;
 }
 
+.arcane-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.arcane-recovery-budget {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.arcane-recovery-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.arcane-recovery-actions button {
+  flex: 1;
+  padding: 6px;
+}
+
 .resources-notes {
   width: 100%;
   min-height: 90px;
@@ -375,4 +398,39 @@
 .field-ro-text {
   color: var(--text-dim);
   font-size: 13px;
+}
+
+.race-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.race-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.race-passives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.race-traits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.race-trait p {
+  margin: 2px 0 0;
+  white-space: pre-line;
+  font-size: 13px;
+  color: var(--text-dim);
 }

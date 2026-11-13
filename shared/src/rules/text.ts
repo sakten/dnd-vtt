@@ -10,6 +10,7 @@ interface NamesData {
   features: Record<string, string>;
   feats: Record<string, string>;
   weapons: Record<string, string>;
+  races?: Record<string, string>;
 }
 
 interface SpellTextData {
@@ -26,10 +27,20 @@ interface FeatureTextData {
   featureDescriptions: Record<string, string>;
 }
 
+export interface RaceTraitText {
+  name: string;
+  description: string;
+}
+
+interface RaceTextData {
+  raceTraitDescriptions: Record<string, RaceTraitText[]>;
+}
+
 const namesByLang = new Map<string, NamesData>();
 const spellByLang = new Map<string, SpellTextData>();
 const featByLang = new Map<string, FeatTextData>();
 const featureByLang = new Map<string, Map<string, Record<string, string>>>();
+const raceByLang = new Map<string, RaceTextData>();
 /** Время последнего провала чанка: до истечения паузы повтор не начинаем. */
 const failedAt = new Map<string, number>();
 const pending = new Map<string, Promise<void>>();
@@ -153,6 +164,14 @@ export function loadFeatureText(lang: string, className: string): Promise<void> 
   });
 }
 
+/** Ленивые описания черт видов (PHB 2024). */
+export function loadRaceText(lang: string): Promise<void> {
+  if (!hasContentLang(lang) || raceByLang.has(lang)) return Promise.resolve();
+  return loadChunk(`races:${lang}`, () => import(`../data/text.${lang}/races.json`), (data) => {
+    raceByLang.set(lang, data as RaceTextData);
+  });
+}
+
 export function isNamesLoaded(lang: string): boolean {
   return namesByLang.has(lang);
 }
@@ -167,6 +186,10 @@ export function isFeatTextLoaded(lang: string): boolean {
 
 export function isFeatureTextLoaded(lang: string, className: string): boolean {
   return featureByLang.get(lang)?.has(className) ?? false;
+}
+
+export function isRaceTextLoaded(lang: string): boolean {
+  return raceByLang.has(lang);
 }
 
 /** RU/…-название заклинания по ключу. */
@@ -191,6 +214,12 @@ export function featName(key: string | undefined, lang: string): string | undefi
 export function weaponName(key: string | undefined, lang: string): string | undefined {
   if (!key) return undefined;
   return namesByLang.get(lang)?.weapons[key];
+}
+
+/** RU/…-название вида по ключу `XPHB:<имя>`. */
+export function raceName(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return namesByLang.get(lang)?.races?.[key];
 }
 
 /** Класс черты по ключу (`class.subclass:feature` / `class:feature`). */
@@ -231,4 +260,10 @@ export function featureDescription(key: string | undefined, lang: string): strin
   const cls = featureClassOf(key);
   if (!cls) return undefined;
   return featureByLang.get(lang)?.get(cls)?.[key];
+}
+
+/** Локализованные черты вида (undefined — оверлей не загружен или перевода нет). */
+export function raceTraitTexts(key: string | undefined, lang: string): RaceTraitText[] | undefined {
+  if (!key) return undefined;
+  return raceByLang.get(lang)?.raceTraitDescriptions[key];
 }

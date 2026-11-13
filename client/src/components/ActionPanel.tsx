@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
+
+/** Подпись варианта черты: состояния — из i18n, варианты вида — из ключей откровения. */
+const choiceLabel = (actionId: string, option: string): string => {
+  if (actionId !== CELESTIAL_REVELATION_ID) return conditionLabel(option);
+  if (option === 'wings') return t('ui.race.revelation.wings');
+  if (option === 'radiance') return t('ui.race.revelation.radiance');
+  return t('ui.race.revelation.shroud');
+};
 import { aimOriginKind } from '../domain/interaction';
 import { spellDisplayName } from '../i18n/names';
 import {
@@ -411,7 +419,10 @@ export default function ActionPanel() {
       });
       return;
     }
-    const auto = sheet ? featureActionAutomation(f.id, sheet.classes, variant) : undefined;
+    const auto = sheet
+      ? featureActionAutomation(f.id, sheet.classes, variant) ??
+        raceActionAutomation(f.id, sheet.race, sheet.classes, variant)
+      : undefined;
     const maxTargets = auto?.targetsAbility
       ? Math.max(1, abilityMod(sheet?.abilities[auto.targetsAbility] ?? 10))
       : auto?.targets ?? 1;
@@ -468,7 +479,7 @@ export default function ActionPanel() {
       return;
     }
     // Выданный телепорт (Far Step): прицел точки назначения в пределах дальности.
-    if (f.source === 'spell' && !f.zoneId && f.targeting?.kind === 'point') {
+    if ((f.source === 'spell' || f.source === 'race') && !f.zoneId && f.targeting?.kind === 'point') {
       startAim({
         tokenId: token.id,
         actionId: f.id,
@@ -514,7 +525,7 @@ export default function ActionPanel() {
         disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
         onClick={() => {
           // Выбор эффекта (Обольщающая магия: Очарован/Испуган) — до прицела.
-          const options = featureChoiceOptions(f.id);
+          const options = featureChoiceOptions(f.id) ?? raceActionChoiceOptions(f.id);
           if (options && options.length > 1) {
             setChoicePrompt({ action: f, options, feature: true });
             return;
@@ -565,7 +576,7 @@ export default function ActionPanel() {
 
   const activateAbility = (a: ActionDef) => {
     // Черта с выбором при использовании (Обольщающая магия): сначала спрашиваем вариант.
-    const options = featureChoiceOptions(a.id);
+    const options = featureChoiceOptions(a.id) ?? raceActionChoiceOptions(a.id);
     if (options && options.length > 1) {
       setChoicePrompt({ action: a, options });
       return;
@@ -1027,7 +1038,7 @@ export default function ActionPanel() {
                   else beginAbility(action, option);
                 }}
               >
-                {conditionLabel(option)}
+                {choiceLabel(choicePrompt.action.id, option)}
               </button>
             ))}
           </div>

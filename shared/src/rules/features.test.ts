@@ -326,4 +326,60 @@ describe('каталог черт (features.json)', () => {
     expect(at2.find((a) => a.id === 'class:monk:focus/patientDefense')?.name).toBe('Терпеливая оборона (Отход + Уклонение)');
     expect(at2.find((a) => a.id === 'class:monk:focus/stepOfTheWind')?.name).toBe('Шаг ветра (Отход + Рывок)');
   });
+
+  it('Пение клинка: бонусное действие, бонусы к AC/скорости/концентрации и окончание при недееспособности', () => {
+    const classes = [{ className: 'wizard', subclass: 'bladesinging', level: 6 }];
+    const def = featureActionAutomation('class:wizard.bladesinging:bladesong', classes);
+    const effect = def?.effects?.[0];
+    expect(def?.resolution).toBe('effect');
+    expect(def?.targeting).toEqual({ kind: 'self' });
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(effect?.modifiers).toEqual([
+      { target: 'ac', mode: 'add', value: 'int' },
+      { target: 'speed', mode: 'add', value: 10 },
+      { target: 'check', mode: 'advantage', filter: { ability: 'dex', skill: 'acrobatics' } },
+      { target: 'save', mode: 'add', value: 'int', filter: { ability: 'con', concentration: true } },
+    ]);
+    expect(effect?.endsOnConditions).toEqual([
+      'incapacitated',
+      'paralyzed',
+      'stunned',
+      'unconscious',
+      'petrified',
+      'dead',
+    ]);
+    const button = classFeatures([{ className: 'wizard', subclass: 'bladesinging', level: 2 }]).find(
+      (a) => a.id === 'class:wizard.bladesinging:bladesong'
+    );
+    expect(button?.costs).toEqual(['bonus']);
+    expect(button?.targeting).toEqual({ kind: 'self' });
+    expect(button?.resourceKey).toBe('wizard.bladesinging:bladesong');
+    expect(featureMechanics('wizard.bladesinging:extraAttack')?.native).toBe(true);
+  });
+});
+
+describe('активные варианты голиафа', () => {
+  it('Fire/Frost/Hill — наездники при попадании, Stone — реакция', () => {
+    const fire = attackRidersFor([{ className: 'fighter', level: 5 }], {
+      key: 'XPHB:Goliath',
+      choices: { giant: 'fire' },
+    });
+    expect(fire.map((r) => r.id)).toContain('race:XPHB:Goliath:giantAncestry:fire');
+    const cloud = attackRidersFor([{ className: 'fighter', level: 5 }], {
+      key: 'XPHB:Goliath',
+      choices: { giant: 'cloud' },
+    });
+    expect(cloud.map((r) => r.id)).not.toContain('race:XPHB:Goliath:giantAncestry:fire');
+    const stone = reactionFeatures([{ className: 'fighter', level: 5 }], {
+      key: 'XPHB:Goliath',
+      choices: { giant: 'stone' },
+    });
+    expect(stone.map((r) => r.id)).toContain('race:XPHB:Goliath:giantAncestry:stone');
+    const storm = reactionFeatures([{ className: 'fighter', level: 5 }], {
+      key: 'XPHB:Goliath',
+      choices: { giant: 'storm' },
+    });
+    expect(storm.map((r) => r.id)).toContain('race:XPHB:Goliath:giantAncestry:storm');
+    expect(storm.find((r) => r.id.endsWith(':storm'))?.kind).toBe('damageBack');
+  });
 });

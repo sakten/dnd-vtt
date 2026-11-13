@@ -73,6 +73,17 @@ describe('normalizeSheet', () => {
     expect(normalizeSheet({ ac: '18' }).ac).toBe('18');
     expect(normalizeSheet({ ac: 'x'.repeat(20) }).ac).toHaveLength(10);
   });
+
+  it('сохраняет вид и чистит его выборы', () => {
+    expect(normalizeSheet({ race: { key: 'XPHB:Elf', choices: { lineage: 'drow', skill: 'perception' } } }).race).toEqual({
+      key: 'XPHB:Elf',
+      choices: { lineage: 'drow', skill: 'perception' },
+    });
+    expect(normalizeSheet({ race: { key: '' } }).race).toBeUndefined();
+    expect(normalizeSheet({ race: { key: 'XPHB:Elf', choices: { lineage: 42, skill: '  ' } } } as unknown as Parameters<typeof normalizeSheet>[0]).race).toEqual({
+      key: 'XPHB:Elf',
+    });
+  });
 });
 
 describe('normalizeSheetSpells', () => {

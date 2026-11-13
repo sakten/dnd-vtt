@@ -1,5 +1,14 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { featName, featureName, isNamesLoaded, loadNames, spellName, subscribeLocalizedText, weaponName } from 'shared';
+import {
+  featName,
+  featureName,
+  isNamesLoaded,
+  loadNames,
+  raceName,
+  spellName,
+  subscribeLocalizedText,
+  weaponName,
+} from 'shared';
 import { getLocale } from './index';
 
 /** Отображаемое имя заклинания: оверлей текущего языка, иначе исходное (EN). */
@@ -20,6 +29,11 @@ export function featDisplayName(key: string | undefined, fallback: string): stri
 /** Отображаемое имя оружия по ключу. */
 export function weaponDisplayName(key: string | undefined, fallback: string): string {
   return weaponName(key, getLocale()) ?? fallback;
+}
+
+/** Отображаемое имя вида по ключу. */
+export function raceDisplayName(key: string | undefined, fallback: string): string {
+  return raceName(key, getLocale()) ?? fallback;
 }
 
 /** Гарантирует загрузку имён текущего языка; дерево перерисуется при готовности. */

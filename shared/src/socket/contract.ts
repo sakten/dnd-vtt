@@ -213,6 +213,8 @@ export interface ClientToServerEvents {
   'resources:deathSave': (payload?: { expression?: string }) => void;
   /** Отдых: сервер применяет восстановление; долгий снимает эффекты и концентрацию. */
   'resources:rest': (payload: { type: 'short' | 'long' }) => void;
+  /** Магическое восстановление волшебника: какие потраченные ячейки вернуть. */
+  'resources:arcaneRecovery': (payload: { slots: { level: number; count: number }[] }) => void;
   'admin:list': (
     payload: { adminToken: string },
     cb: (

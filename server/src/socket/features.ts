@@ -1,4 +1,4 @@
-import { featChoiceEffects, passiveFeatures, type ChoiceFeature, type ClassLevel, type FeatureChoice, type Token } from 'shared';
+import { featChoiceEffects, passiveFeatures, racePassiveEffects, type ChoiceFeature, type ClassLevel, type FeatureChoice, type RaceSelection, type Token } from 'shared';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { applyEffectTo } from './effectsApply';
@@ -6,9 +6,9 @@ import { tokensOfLibraryItem } from '../room/helpers';
 
 const FEATURE_PREFIX = 'feature:';
 
-/** Пассивные эффекты персонажа: черты классов + выбранные фиты. */
-function passiveSources(classes: ClassLevel[], choices?: FeatureChoice[]): ChoiceFeature[] {
-  return [...passiveFeatures(classes), ...featChoiceEffects(choices, classes)];
+/** Пассивные эффекты персонажа: черты классов, выбранные фиты и вид. */
+function passiveSources(classes: ClassLevel[], choices?: FeatureChoice[], race?: RaceSelection): ChoiceFeature[] {
+  return [...passiveFeatures(classes), ...featChoiceEffects(choices, classes), ...racePassiveEffects(race)];
 }
 
 /** Снимает с токена скрытые эффекты черт, которых больше нет у персонажа. */
@@ -17,10 +17,11 @@ function pruneFeatureEffects(
   room: Room,
   token: Token,
   classes: ClassLevel[],
-  choices?: FeatureChoice[]
+  choices?: FeatureChoice[],
+  race?: RaceSelection
 ): void {
   const desired = new Set<string>();
-  for (const feature of passiveSources(classes, choices)) {
+  for (const feature of passiveSources(classes, choices, race)) {
     feature.effects.forEach((_def, index) => desired.add(`${FEATURE_PREFIX}${feature.key}#${index}`));
   }
   for (const effect of [...token.effects]) {
@@ -38,10 +39,11 @@ export function syncFeatureEffects(
   mapId: string,
   token: Token,
   classes: ClassLevel[],
-  choices?: FeatureChoice[]
+  choices?: FeatureChoice[],
+  race?: RaceSelection
 ): void {
-  pruneFeatureEffects(ctx, room, token, classes, choices);
-  for (const feature of passiveSources(classes, choices)) {
+  pruneFeatureEffects(ctx, room, token, classes, choices, race);
+  for (const feature of passiveSources(classes, choices, race)) {
     feature.effects.forEach((def, index) => {
       const sourceKey = `${FEATURE_PREFIX}${feature.key}#${index}`;
       applyEffectTo(ctx, room, {
@@ -61,9 +63,10 @@ export function syncFeatureEffectsForItem(
   room: Room,
   libraryItemId: string,
   classes: ClassLevel[] | undefined,
-  choices?: FeatureChoice[]
+  choices?: FeatureChoice[],
+  race?: RaceSelection
 ): void {
   const tokens = tokensOfLibraryItem(room, libraryItemId);
-  for (const { mapId, token } of tokens) syncFeatureEffects(ctx, room, mapId, token, classes ?? [], choices);
+  for (const { mapId, token } of tokens) syncFeatureEffects(ctx, room, mapId, token, classes ?? [], choices, race);
   ctx.emitChanged(room, tokens);
 }

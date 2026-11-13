@@ -1,8 +1,10 @@
 import {
+  ARCANE_RECOVERY_MAX_SLOT_LEVEL,
   DEFAULT_ABILITIES,
   applyRest,
+  arcaneRecoveryBudget,
   deathSaveAdvantage,
-  effectiveMaxHp,
+  effectiveCharacterMaxHp,
   isRecord,
   rollDice,
   sanitizeResources,
@@ -30,8 +32,8 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       const sheet = room.sheets[playerId];
       const classes = sheet?.classes ?? [];
       const mods = sheet ? sheetMods(sheet.abilities) : sheetMods(DEFAULT_ABILITIES);
-      const hpMax = sheet ? effectiveMaxHp(sheet) : undefined;
-      room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax, sheet?.choices);
+      const hpMax = sheet ? effectiveCharacterMaxHp(sheet) : undefined;
+      room.resources[playerId] = sanitizeResources(payload as PlayerResources, classes, mods, hpMax, sheet?.choices, sheet?.race);
       const changed = manager.characterTokens(room, playerId);
       ctx.emitResources(room, playerId);
       emitChanged(room, changed);
@@ -95,6 +97,67 @@ export function registerResourceHandlers(ctx: ConnCtx) {
       }
       room.resources[playerId] = applyRest(res, type);
       emitChanged(room, manager.characterTokens(room, playerId));
+      ctx.emitResources(room, playerId);
+      ctx.notifyPlayers(room);
+    });
+
+    ctx.on('resources:arcaneRecovery', (payload) => {
+      const scope = playerScope(ctx);
+      if (!scope) return;
+      if (rejectIfReaction(ctx, true)) return;
+      const { room, playerId } = scope;
+      const sheet = room.sheets[playerId];
+      const res = room.resources[playerId];
+      if (!sheet || !res) return;
+      const wizard = sheet.classes.find((c) => c.className === 'wizard');
+      const item = res.resources.find((r) => r.key === 'wizard:arcaneRecovery');
+      if (!wizard || !item || item.current <= 0) {
+        fail(ctx, 'arcaneRecoveryUnavailable');
+        return;
+      }
+      const picks = new Map<number, number>();
+      for (const entry of Array.isArray(payload?.slots) ? payload.slots : []) {
+        const level = Math.round(Number(entry?.level));
+        const count = Math.round(Number(entry?.count));
+        if (
+          !Number.isInteger(level) ||
+          !Number.isInteger(count) ||
+          level < 1 ||
+          level > ARCANE_RECOVERY_MAX_SLOT_LEVEL ||
+          count <= 0
+        ) {
+          fail(ctx, 'arcaneRecoveryInvalid');
+          return;
+        }
+        picks.set(level, (picks.get(level) ?? 0) + count);
+      }
+      if (!picks.size) {
+        fail(ctx, 'arcaneRecoveryEmpty');
+        return;
+      }
+      const budget = arcaneRecoveryBudget(wizard.level);
+      let total = 0;
+      const recovery: { level: number; count: number }[] = [];
+      for (const [level, count] of picks) {
+        const slot = res.spellSlots.find((s) => s.level === level);
+        if (!slot || count > slot.max - slot.current) {
+          fail(ctx, 'arcaneRecoveryInvalid');
+          return;
+        }
+        total += level * count;
+        recovery.push({ level, count });
+      }
+      if (total > budget) {
+        fail(ctx, 'arcaneRecoveryBudget', { max: budget });
+        return;
+      }
+      for (const { level, count } of recovery) {
+        const slot = res.spellSlots.find((s) => s.level === level)!;
+        slot.current = Math.min(slot.max, slot.current + count);
+      }
+      item.current -= 1;
+      const author = room.players.find((p) => p.id === playerId)?.name ?? '?';
+      ctx.systemMessage(room, { code: 'resources.arcaneRecovery', params: { name: author, levels: total } });
       ctx.emitResources(room, playerId);
       ctx.notifyPlayers(room);
     });

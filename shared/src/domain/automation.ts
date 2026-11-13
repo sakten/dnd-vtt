@@ -114,6 +114,8 @@ export interface AutomationEffect {
   /** Модификаторы без id — id присваивает сервер при наложении. */
   modifiers: Omit<Modifier, 'id'>[];
   conditions?: ConditionKey[];
+  /** Эффект досрочно оканчивается, когда носитель получает любое из состояний (Bladesong). */
+  endsOnConditions?: ConditionKey[];
   /** При провале повторного спасброска состояние меняется (Sleep: incapacitated → unconscious). */
   escalate?: EffectEscalation;
   /** Временные HP, выдаваемые при наложении (Fighting Spirit и подобные). */
@@ -216,6 +218,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
   return {
     concentration: def.concentration,
     conditions: def.conditions ? [...def.conditions] : undefined,
+    endsOnConditions: def.endsOnConditions ? [...def.endsOnConditions] : undefined,
     escalate: def.escalate ? { ...def.escalate } : undefined,
     restrictions: def.restrictions ? { ...def.restrictions } : undefined,
     misdirect: def.misdirect ? { ...def.misdirect } : undefined,

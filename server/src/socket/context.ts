@@ -1,6 +1,6 @@
 import type { Server as SocketServer, Socket } from 'socket.io';
 import {
-  effectiveMaxHp,
+  effectiveCharacterMaxHp,
   emptyCombatState,
   emptyResources,
   hasTrigger,
@@ -298,17 +298,17 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
       const sheet = room.sheets[selfId];
       if (!room.resources[selfId]) {
         const created = sheet
-          ? syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full', sheet.choices)
+          ? syncResources(emptyResources(), sheet.classes, sheetMods(sheet.abilities), 'full', sheet.choices, sheet.race)
           : emptyResources();
         if (sheet) {
-          const hpMax = effectiveMaxHp(sheet);
+          const hpMax = effectiveCharacterMaxHp(sheet);
           created.hp = { ...created.hp, max: hpMax, current: hpMax };
         }
         room.resources[selfId] = created;
       }
       const owned = manager.characterTokens(room, selfId);
       if (sheet) {
-        for (const c of owned) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices);
+        for (const c of owned) syncFeatureEffects(ctx, room, c.mapId, c.token, sheet.classes, sheet.choices, sheet.race);
       }
       ctx.emitChanged(room, owned);
       const state = manager.toState(room);

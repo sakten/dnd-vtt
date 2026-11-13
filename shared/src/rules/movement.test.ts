@@ -233,6 +233,27 @@ describe('planWalk', () => {
     expect(planWalk({ ...args, ignoreDifficult: true })?.feet).toBe(10);
   });
 
+  it('полёт: проходит сквозь существ, но не встаёт на занятую клетку', () => {
+    const enemy = [{ id: 'e1', x: 75, y: 75, w: 50, h: 50, faction: 'enemy' }];
+    const around = planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: enemy });
+    expect(around?.cells.some((c) => c.cx === 1 && c.cy === 1)).toBe(false);
+    const through = planWalk({
+      ...base,
+      from: { x: 25, y: 75 },
+      to: { x: 125, y: 75 },
+      tokens: enemy,
+      passThroughUnits: true,
+    });
+    expect(through?.cells).toContainEqual({ cx: 1, cy: 1 });
+    expect(
+      planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 75, y: 75 }, tokens: enemy, passThroughUnits: true })
+    ).toBeNull();
+    const ally = [{ id: 'a1', x: 75, y: 75, w: 50, h: 50, faction: 'ally' }];
+    expect(
+      planWalk({ ...base, from: { x: 25, y: 75 }, to: { x: 125, y: 75 }, tokens: ally, passThroughUnits: true })?.feet
+    ).toBe(10);
+  });
+
   it('сложная местность «для врагов» не замедляет союзников (Conjure Minor Elementals)', () => {
     const caster = { id: 'c1', x: 25, y: 75, w: 50, h: 50, faction: 'ally' };
     const zone: ZoneInstance = {

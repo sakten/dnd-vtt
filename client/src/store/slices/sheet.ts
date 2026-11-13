@@ -4,7 +4,7 @@ import { emit } from '../helpers';
 import { beginOptimistic, settleOptimistic } from '../optimistic';
 import type { GameState, Slice } from '../types';
 
-export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResourcesUpdate' | 'onCharacterUpdate' | 'setSheet' | 'updateResources' | 'rest' | 'setCurrentCharacter' | 'rollHitDie' | 'rollDeathSave'>> = (set, get) => {
+export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResourcesUpdate' | 'onCharacterUpdate' | 'setSheet' | 'updateResources' | 'rest' | 'arcaneRecovery' | 'setCurrentCharacter' | 'rollHitDie' | 'rollDeathSave'>> = (set, get) => {
   return {
     onSheetUpdate: ({ sheet }) => set({ sheet }),
     onResourcesUpdate: (resources) => {
@@ -36,6 +36,10 @@ export const createSheetSlice: Slice<Pick<GameState, 'onSheetUpdate' | 'onResour
 
     rest: (type) => {
       emit(get, 'resources:rest', { type });
+    },
+
+    arcaneRecovery: (slots) => {
+      emit(get, 'resources:arcaneRecovery', { slots });
     },
 
     setCurrentCharacter: (libraryItemId) => {

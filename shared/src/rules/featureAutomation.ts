@@ -2,6 +2,7 @@ import { permanentEffect, type AutomationDef } from '../domain/automation';
 import type { FeatureMechanics } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import { bardicDie, clampLevel, proficiencyBonus } from './classes';
+import { INCAPACITATING_CONDITIONS } from './conditions';
 import { featuresFor } from './features';
 
 /**
@@ -471,6 +472,43 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
       effects: [permanentEffect('Всезнайка', [{ target: 'check', mode: 'add', value: half }])],
     };
   },
+
+  // Волшебник — ядро (до 8 уровня): заклинания, восстановление, экспертиза и
+  // замена подготовки — штатные возможности листа; отдельных механик не требуют.
+  'wizard:spellcasting': { trait: 'passive', native: true },
+  'wizard:arcaneRecovery': { trait: 'passive', native: true },
+  'wizard:ritualAdept': { trait: 'passive', native: true },
+  'wizard:scholar': { trait: 'passive', native: true },
+  'wizard:memorizeSpell': { trait: 'passive', native: true },
+
+  // Волшебник — Пение клинков (TCE)
+  'wizard.bladesinging:bladesong': {
+    trait: 'active',
+    name: 'Пение клинка',
+    costs: ['bonus'],
+    targeting: { kind: 'self' },
+    automation: {
+      key: 'class:wizard.bladesinging:bladesong',
+      name: 'Пение клинка',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      effects: [
+        {
+          name: 'Пение клинка',
+          duration: { type: 'rounds', rounds: 10 },
+          to: 'self',
+          endsOnConditions: [...INCAPACITATING_CONDITIONS, 'dead'],
+          modifiers: [
+            { target: 'ac', mode: 'add', value: 'int' },
+            { target: 'speed', mode: 'add', value: 10 },
+            { target: 'check', mode: 'advantage', filter: { ability: 'dex', skill: 'acrobatics' } },
+            { target: 'save', mode: 'add', value: 'int', filter: { ability: 'con', concentration: true } },
+          ],
+        },
+      ],
+    },
+  },
+  'wizard.bladesinging:extraAttack': { trait: 'passive', native: true },
 };
 
 function barbarianLevel(classes: ClassLevel[]): number {

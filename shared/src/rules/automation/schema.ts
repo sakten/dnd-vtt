@@ -440,6 +440,7 @@ const modifierFilterSpec: Record<string, unknown> = {
     unarmed: { type: 'boolean' },
     conditions: { type: 'array', items: enumOf(CONDITION_KEYS) },
     magical: { type: 'boolean' },
+    concentration: { type: 'boolean' },
     kenseiWeapon: { type: 'boolean' },
     creatureTypes: { type: 'array', items: { type: 'string' } },
   },
@@ -478,6 +479,7 @@ const modifierPlain: Record<string, unknown> = {
         unarmed: { type: 'boolean' },
         conditions: { type: 'array', items: enumOf(CONDITION_KEYS) },
         magical: { type: 'boolean' },
+        concentration: { type: 'boolean' },
         kenseiWeapon: { type: 'boolean' },
         creatureTypes: { type: 'array', items: { type: 'string' } },
       },
@@ -989,6 +991,7 @@ const effectSpec: Record<string, unknown> = {
     to: enumOf(['self', 'targets']),
     modifiers: { type: 'array', items: { $ref: '#/$defs/gatedModifier' } },
     conditions: { type: 'array', items: { $ref: '#/$defs/gatedValueExpr' } },
+    endsOnConditions: { type: 'array', items: enumOf(CONDITION_KEYS) },
     conditionImmunities: { type: 'array', items: { $ref: '#/$defs/gatedValueExpr' } },
     conditionImmunitiesFrom: {
       type: 'object',

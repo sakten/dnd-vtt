@@ -281,6 +281,14 @@ describe('проверки с эффектами (checkRollParts)', () => {
     const pp = effect({ modifiers: [mod({ target: 'save', mode: 'advantage', filter: { conditions: ['poisoned'] } })] });
     expect(saveRollParts([pp], 'con', undefined, 'poisoned').mode).toBe('a');
     expect(saveRollParts([pp], 'con', undefined, 'frightened').mode).toBeUndefined();
+    const bladesong = effect({
+      modifiers: [
+        mod({ target: 'save', mode: 'add', value: 'int', filter: { ability: 'con', concentration: true } }),
+      ],
+    });
+    expect(saveRollParts([bladesong], 'con', { int: 16 }, undefined, false, true).flat).toBe(3);
+    expect(saveRollParts([bladesong], 'con', { int: 16 }, undefined, false, false).flat).toBe(0);
+    expect(saveRollParts([bladesong], 'con', { int: 16 }).flat).toBe(0);
     const wb = effect({ sourceId: 't2', triggers: [{ on: 'damaged', redirect: 'linked' }] });
     expect(damageLinks([wb])).toEqual(['t2']);
     expect(effectSummaryParts(wb)).toEqual([{ key: 'domain.effect.damageLink' }]);
@@ -554,6 +562,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       concentration: true,
       modifiers: [],
       conditions: ['blinded'],
+      endsOnConditions: ['incapacitated', 'dead'],
       escalate: { condition: 'unconscious' },
       restrictions: { noActions: true, spellFailureChance: 25 },
       misdirect: { charges: 3, die: 'd6', threshold: 3 },
