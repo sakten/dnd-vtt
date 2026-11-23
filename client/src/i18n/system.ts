@@ -16,5 +16,15 @@ export function systemText(message: { system?: SystemText; text?: string }): str
     params.condition = conditionLabel(String(params.condition), fallback);
   }
   if (params.type !== undefined) params.type = damageLabel(String(params.type));
+  // Списки типов урона (Знай врага) — через запятую в params, локализуем каждый.
+  for (const key of ['immunities', 'resistances', 'vulnerabilities'] as const) {
+    if (params[key] === undefined) continue;
+    const list = String(params[key])
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => damageLabel(item));
+    params[key] = list.length ? list.join(', ') : '—';
+  }
   return t(`system.${system.code}` as MessageKey, params);
 }

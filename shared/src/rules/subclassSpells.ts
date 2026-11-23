@@ -17,6 +17,8 @@ export interface SpellGrant {
 interface RawGrant {
   key: string;
   level: number;
+  /** Уровень класса, с которого доступна выдача (Haste у Circle of the Symbiote — с 6-го). */
+  classLevel?: number;
 }
 
 interface GrantData {
@@ -24,7 +26,44 @@ interface GrantData {
   subclasses: Record<string, { granted: RawGrant[]; pool: RawGrant[] }>;
 }
 
-const DATA = raw as unknown as GrantData;
+/**
+ * Ручные выдачи third-party подклассов (CBT): круговые заклинания Circle of the
+ * Symbiote и Haste от Symbiotic Reflexes. Уровень в записи — круг заклинания;
+ * `collect` отсекает записи выше доступного классу круга.
+ */
+const CBT_GRANTS: GrantData = {
+  classes: {},
+  subclasses: {
+    'druid.symbiote': {
+      granted: [
+        { key: 'XPHB:Guidance', level: 0 },
+        { key: 'XPHB:Entangle', level: 1 },
+        { key: 'XPHB:Barkskin', level: 2 },
+        { key: 'XPHB:Plant Growth', level: 3 },
+        { key: 'XPHB:Hallucinatory Terrain', level: 4 },
+        { key: 'XPHB:Tree Stride', level: 5 },
+        { key: 'XPHB:Haste', level: 3, classLevel: 6 },
+      ],
+      pool: [],
+    },
+  },
+};
+function mergeGrants(base: GrantData, extra: GrantData): GrantData {
+  const classes: GrantData['classes'] = { ...base.classes };
+  for (const [key, list] of Object.entries(extra.classes)) {
+    classes[key] = [...(classes[key] ?? []), ...list];
+  }
+  const subclasses: GrantData['subclasses'] = { ...base.subclasses };
+  for (const [key, grants] of Object.entries(extra.subclasses)) {
+    const prev = subclasses[key];
+    subclasses[key] = {
+      granted: [...(prev?.granted ?? []), ...grants.granted],
+      pool: [...(prev?.pool ?? []), ...grants.pool],
+    };
+  }
+  return { classes, subclasses };
+}
+const DATA = mergeGrants(raw as unknown as GrantData, CBT_GRANTS);
 
 function collect(classes: ClassLevel[], pick: (className: string, subclass: string | undefined) => RawGrant[]): SpellGrant[] {
   const out: SpellGrant[] = [];
@@ -33,6 +72,7 @@ function collect(classes: ClassLevel[], pick: (className: string, subclass: stri
     const maxLevel = maxSpellLevel(entry.className, entry.level, entry.subclass);
     for (const grant of pick(entry.className, entry.subclass)) {
       if (grant.level > maxLevel) continue;
+      if (grant.classLevel !== undefined && grant.classLevel > entry.level) continue;
       const dedupe = `${entry.className}:${grant.key}`;
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);

@@ -1,0 +1,51 @@
+{
+  "attribution": "Circle of the Symbiote — Cthulhu by Torchlight (CBT). Short mechanical summaries.",
+  "count": 5,
+  "features": [
+    {
+      "key": "druid.symbiote:symbiote",
+      "name": "Circle of the Symbiote",
+      "className": "druid",
+      "subclass": "symbiote",
+      "level": 3,
+      "source": "CBT",
+      "description": "A circle of druids bonded with a plant symbiote that grows across their bodies."
+    },
+    {
+      "key": "druid.symbiote:circleSpells",
+      "name": "Circle of the Symbiote Spells",
+      "className": "druid",
+      "subclass": "symbiote",
+      "level": 3,
+      "source": "CBT",
+      "description": "The circle grants always-prepared spells at druid levels 3, 5, 7 and 9."
+    },
+    {
+      "key": "druid.symbiote:primalSymbiote",
+      "name": "Primal Symbiote",
+      "className": "druid",
+      "subclass": "symbiote",
+      "level": 3,
+      "source": "CBT",
+      "description": "Fortifying Presence: Advantage on Constitution saving throws made to maintain Concentration."
+    },
+    {
+      "key": "druid.symbiote:symbioticTransformation",
+      "name": "Symbiotic Transformation",
+      "className": "druid",
+      "subclass": "symbiote",
+      "level": 3,
+      "source": "CBT",
+      "description": "As a Bonus Action, expend a use of Wild Shape to gain +2 AC, Advantage on Dexterity (Stealth) checks and temporary hit points at the start of each of your turns for 1 minute."
+    },
+    {
+      "key": "druid.symbiote:symbioticReflexes",
+      "name": "Symbiotic Reflexes",
+      "className": "druid",
+      "subclass": "symbiote",
+      "level": 6,
+      "source": "CBT",
+      "description": "Haste is always prepared. While transformed, you can cast Haste on yourself without a spell slot or components (limited uses)."
+    }
+  ]
+}

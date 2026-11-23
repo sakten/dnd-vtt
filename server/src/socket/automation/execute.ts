@@ -35,6 +35,7 @@ import type { Room } from '../../roomTypes';
 import { gridSizeOfMap } from '../../rooms';
 import { creatureTypeOf } from '../../room/actor';
 import { applyDamage, singleDamageType } from '../damage';
+import { consumeIncomingAttackEffects } from '../masteries';
 import {
   attackDamageRoll,
   attackHitRoll,
@@ -178,6 +179,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       attackerType: creatureTypeOf(room, caster),
       // Эффекты с filter.targetId (Vex и подобные) — против конкретной цели.
       targetId: target.id,
+      // Отвлекающий удар: преимущество только от атак не-источника.
+      attackerId: caster.id,
     } as const;
     const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
@@ -256,6 +259,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
     });
     // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друга.
     if (rays === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);
+    // Отвлекающий удар: следующая чужая атака по цели потратила преимущество.
+    consumeIncomingAttackEffects(ctx, room, mapId, target, caster);
 
     const windowPlan = { attacker: caster, attackerMapId: mapId, target, targetMapId: mapId, damageType, rangeType };
     const nextRay = () => resolveRay(i + 1);

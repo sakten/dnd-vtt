@@ -4,6 +4,7 @@ import type { ClassLevel } from '../domain/sheet';
 import { bardicDie, clampLevel, proficiencyBonus } from './classes';
 import { INCAPACITATING_CONDITIONS } from './conditions';
 import { featuresFor } from './features';
+import { BAIT_AND_SWITCH_ACTION } from './maneuvers';
 
 /**
  * Ручной слой механик черт (R8.8). Наполняется партиями по классам:
@@ -22,6 +23,7 @@ const BEGUILING_CONDITIONS = ['charmed', 'frightened'] as const;
 
 /** Варианты применения активной черты (`action:use.variant`); undefined — выбора нет. */
 export function featureChoiceOptions(actionId: string): readonly string[] | undefined {
+  if (actionId === BAIT_AND_SWITCH_ACTION) return ['self', 'ally'];
   return actionId === BEGUILING_MAGIC_ID ? BEGUILING_CONDITIONS : undefined;
 }
 
@@ -509,6 +511,54 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     },
   },
   'wizard.bladesinging:extraAttack': { trait: 'passive', native: true },
+
+  // Друид — Круг симбиота (CBT)
+  'druid.symbiote:primalSymbiote': {
+    trait: 'passive',
+    effects: [
+      permanentEffect('Стойкость симбиота', [
+        { target: 'save', mode: 'advantage', filter: { concentration: true } },
+      ]),
+    ],
+  },
+  'druid.symbiote:symbioticTransformation': (classes) => {
+    const level = classes.find((c) => c.className === 'druid')?.level ?? 0;
+    const tempHp = 2 + Math.floor(level / 2);
+    return {
+      trait: 'active',
+      costs: ['bonus'],
+      targeting: { kind: 'self' },
+      resourceKey: 'druid:wildShape',
+      resourceAmount: 1,
+      automation: {
+        key: 'class:druid.symbiote:symbioticTransformation',
+        name: 'Симбиотическая трансформация',
+        resolution: 'effect',
+        targeting: { kind: 'self' },
+        effects: [
+          {
+            name: 'Симбиотическая трансформация',
+            duration: { type: 'rounds', rounds: 10 },
+            to: 'self',
+            modifiers: [
+              { target: 'ac', mode: 'add', value: 2 },
+              { target: 'check', mode: 'advantage', filter: { skill: 'stealth' } },
+            ],
+            triggers: [{ on: 'startOfTurn', turn: { tempHp } }],
+          },
+        ],
+      },
+    };
+  },
+  'druid.symbiote:symbioticReflexes': {
+    trait: 'active',
+    costs: ['action'],
+    targeting: { kind: 'self' },
+    resourceKey: 'druid.symbiote:symbioticReflexes',
+    resourceAmount: 1,
+    spellKey: 'XPHB:Haste',
+    requiresEffect: 'class:druid.symbiote:symbioticTransformation',
+  },
 };
 
 function barbarianLevel(classes: ClassLevel[]): number {

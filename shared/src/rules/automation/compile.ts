@@ -614,6 +614,8 @@ function compileEffect(ctx: CompileCtx, effect: EffectSpec): AutomationEffect {
     ...(effect.light ? { light: { ...effect.light } } : {}),
     ...(effect.markTarget ? { markTarget: true } : {}),
     ...(effect.mark ? { mark: true } : {}),
+    ...(effect.consumeOnIncomingAttack ? { consumeOnIncomingAttack: true } : {}),
+    ...(effect.consumeOnSourceAttack ? { consumeOnSourceAttack: true } : {}),
     ...(senses?.length ? { senses } : {}),
     ...(seesInvisible ? { seesInvisible: true } : {}),
 

@@ -5467,6 +5467,10 @@ describe('реакции (R1)', () => {
     room.sheets.p1 = {
       ...casterSheet(),
       classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      choices: [
+        { kind: 'maneuver', key: 'XPHB:Parry' },
+        { kind: 'maneuver', key: 'XPHB:Riposte' },
+      ],
       spells: [],
       attacks: [melee('Рапира')],
     };
@@ -5519,6 +5523,10 @@ describe('реакции (R1)', () => {
     room.sheets.p1 = {
       ...casterSheet(),
       classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      choices: [
+        { kind: 'maneuver', key: 'XPHB:Parry' },
+        { kind: 'maneuver', key: 'XPHB:Riposte' },
+      ],
       spells: [],
       attacks: [melee('Рапира')],
     };
@@ -5911,6 +5919,10 @@ describe('реакции (R1)', () => {
       ...casterSheet(),
       ac: '16',
       classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      choices: [
+        { kind: 'maneuver', key: 'XPHB:Parry' },
+        { kind: 'maneuver', key: 'XPHB:Riposte' },
+      ],
       spells: [],
     };
     room.resources.p1 = {
@@ -6721,6 +6733,10 @@ describe('реакции (R1)', () => {
       ...casterSheet(),
       ac: '16',
       classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      choices: [
+        { kind: 'maneuver', key: 'XPHB:Parry' },
+        { kind: 'maneuver', key: 'XPHB:Riposte' },
+      ],
       spells: [],
       attacks: [melee('Рапира')],
     };
@@ -6785,6 +6801,10 @@ describe('реакции (R1)', () => {
       ...casterSheet(),
       ac: '16',
       classes: [{ className: 'fighter', level: 5, subclass: 'battleMaster' }],
+      choices: [
+        { kind: 'maneuver', key: 'XPHB:Parry' },
+        { kind: 'maneuver', key: 'XPHB:Riposte' },
+      ],
       spells: [],
       attacks: [melee('Рапира')],
     };

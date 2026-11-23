@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   absorbTypesOf,
   automationForSpell,
+  CAT_SPRING_KEY,
   characterLevel,
   COUNTERSPELL,
   d20Expr,
@@ -23,6 +24,7 @@ import { controllerIdOfToken, sheetOfToken, withinFeet } from '../../rooms';
 import { fail } from '../errors';
 import { pushRollMessage, pushSaveMessage } from '../messages';
 import { casterStatsFor } from '../spellStats';
+import { resolveCatSpring } from '../catSpring';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import {
@@ -293,7 +295,9 @@ function applyCounterspell(ctx: ConnCtx, room: Room, choice: ReactionChoice, inp
 /** Каст с окном Counterspell (до резолва); экономика и проверки — на вызывающем. */
 export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInput): { error?: ErrorPayload } {
   const room = ctx.getRoom();
-  if (!room) return resolveSpellCast(ctx, input);
+  const resolve = () =>
+    input.spell.key === CAT_SPRING_KEY ? resolveCatSpring(ctx, input) : resolveSpellCast(ctx, input);
+  if (!room) return resolve();
   let countered = false;
   const offers = counterspellOffers(ctx, room, input).map((offer) => ({
     ...offer,
@@ -310,7 +314,7 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
       return false;
     },
   }));
-  if (!offers.length) return resolveSpellCast(ctx, input);
+  if (!offers.length) return resolve();
   const opened = openReactionWindow(ctx, room, {
     mapId: input.mapId,
     trigger: 'spellCast',
@@ -319,8 +323,8 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
     done: () => {
       if (countered) return;
       const currentRoom = ctx.getRoom();
-      if (currentRoom) resolveSpellCast(ctx, input);
+      if (currentRoom) resolve();
     },
   });
-  return opened ? {} : resolveSpellCast(ctx, input);
+  return opened ? {} : resolve();
 }

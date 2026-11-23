@@ -574,6 +574,8 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       variant: 'fire',
       mark: true,
       consumeOnAttackRoll: true,
+      consumeOnIncomingAttack: true,
+      consumeOnSourceAttack: true,
       consumeOnSave: true,
       light: { bright: 30, dim: 30 },
       conditionImmunities: ['charmed'],

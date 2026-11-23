@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:quiet": "vitest run --reporter=dot --bail=1",
+    "test:quiet": "node ../scripts/vitest-quiet.mjs",
     "test:deploy": "vitest run --config vitest.deploy.config.ts",
     "typecheck": "tsc --noEmit"
   },

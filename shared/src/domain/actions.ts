@@ -77,13 +77,15 @@ export interface ActionDef {
   /** Ключ ресурса в PlayerResources для списания. */
   resourceKey?: string;
   resourceAmount?: number;
+  /** Запасной ресурс оплаты, когда основной исчерпан (Знай врага: кость превосходства). */
+  fallbackResourceKey?: string;
   targeting?: ActionTargeting;
   description?: string;
   /** Стоимость в легендарных действиях (1–3); пусто — не легендарная. */
   legendaryCost?: number;
   /** Перезарядка в ходах монстра; пусто/0 — без. */
   recharge?: number;
-  /** Заклинание-способность (ключ каталога): только с легендарной стоимостью, без ячейки. */
+  /** Заклинание-способность (ключ каталога): каст через `action:use` без ячейки. */
   spellKey?: string;
   /** Механика способности монстра. */
   ability?: MonsterAbilityDef;
@@ -99,6 +101,8 @@ export interface ActionDef {
   utilityAmount?: number;
   /** Ключ иконки действия (`<ключ заклинания-источника>:<id действия>`); пусто — общий глиф. */
   iconKey?: string;
+  /** Активная черта доступна только при активном эффекте с этим sourceKey. */
+  requiresEffect?: string;
 }
 
 /** Триггер, на который можно потратить реакцию. */

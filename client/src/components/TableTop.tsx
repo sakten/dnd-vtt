@@ -450,6 +450,8 @@ export default function TableTop() {
         weapon: !!attack,
         // Эффекты «против этой цели» (Vex): преимущество следующей атаки.
         targetId: to.id,
+        // Отвлекающий удар: преимущество только от атак не-источника.
+        attackerId: from.id,
       },
       abilities,
     });
@@ -613,6 +615,18 @@ export default function TableTop() {
       const target = currentId ? tokenById(activeMap, currentId) : null;
       if (target) {
         keys = teleportCellsNearTargets([target], activeMap.tokens, g, activeMap.walls, scatter.destFeet, target.id);
+      }
+    } else if (scatter?.kind === 'catSpring' && scatter.phase === 'places') {
+      const caster = tokenById(activeMap, scatter.tokenId);
+      if (caster) {
+        keys = teleportCellsNearTargets(
+          [caster],
+          activeMap.tokens,
+          g,
+          activeMap.walls,
+          scatter.destFeet ?? 10,
+          caster.id
+        );
       }
     }
     if (!keys) return [];

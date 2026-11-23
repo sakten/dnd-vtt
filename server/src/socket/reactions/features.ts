@@ -2,12 +2,14 @@ import {
   abilityMod,
   bardicDie,
   characterLevel,
+  hasManeuver,
   isIncapacitated,
   martialArtsDie,
   monsterAbilityAutomation,
   monsterStats,
   proficiencyBonus,
   reactionFeatures,
+  rollDice,
   sideMatches,
   superiorityDie,
   type AttackEntry,
@@ -23,6 +25,7 @@ import { controllerIdOfToken, hasResourceFor, sheetOfToken, withinFeet } from '.
 import { shapeStatblock } from '../../room/shape';
 import { executeAutomation } from '../automation';
 import type { WeaponAttackPrep } from '../attackResolve';
+import { pushRollMessage } from '../messages';
 import { resolveWeaponAttackWithReactions } from './attack';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import {
@@ -45,6 +48,7 @@ export function availableFeatureReactions(
   if (!cid || !sheet) return [];
   return reactionFeatures(sheet.classes, sheet.race).filter((def) => {
     if (def.trigger !== trigger) return false;
+    if (def.requiresManeuver && !hasManeuver(sheet.choices, def.requiresManeuver)) return false;
     if (!def.resourceKey) return true;
     return hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1);
   });
@@ -99,6 +103,9 @@ export function featureOffer(
 /** Кость реакционной черты: фиксированная или по уровню класса (Режущие слова — бардовская). */
 export function reactionDieExpr(def: ReactionFeatureDef, room: Room, token: Token): string | undefined {
   if (def.diceFrom === 'bard') return `1d${bardicDie(classLevelOf(room, token, 'bard') || 1)}`;
+  if (def.diceFrom === 'superiority') {
+    return `1d${superiorityDie(classLevelOf(room, token, def.className ?? 'fighter') || 1)}`;
+  }
   return def.dice;
 }
 
@@ -345,6 +352,8 @@ export function rollBonusOffers(
     }
     const defs = availableFeatureReactions(room, helper, 'attackMiss').filter((def) => {
       if (def.kind !== 'rollBonus') return false;
+      // Бонус «только себе» (Точный удар) не предлагается союзникам.
+      if (!self && def.selfOnly) return false;
       if (!self && def.rangeFeet && !withinFeet(room, helper, attacker, def.rangeFeet)) return false;
       return true;
     });
@@ -382,6 +391,18 @@ export function applyRollBonusChoices(ctx: ConnCtx, room: Room, choices: Reactio
         ctx.emitResources(room, cid);
       }
     } else if (!spendFeatureCost(ctx, room, owner, choice.mapId, def)) continue;
+    const die = def.diceFrom ? reactionDieExpr(def, room, owner) : undefined;
+    if (die) {
+      const roll = rollDice(die);
+      bonus += roll.total;
+      pushRollMessage(ctx, room, {
+        author: owner.name,
+        roll,
+        kind: 'plain',
+        params: { subject: `${def.name} (+${roll.total} к атаке)` },
+      });
+      continue;
+    }
     bonus += def.amount ?? 0;
     ctx.systemMessage(room, {
       code: 'reactions.rollBonus',

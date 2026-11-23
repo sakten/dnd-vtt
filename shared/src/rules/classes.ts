@@ -353,6 +353,19 @@ export const CLASSES: Record<string, ClassDef> = {
           { key: 'blazingRevival', name: 'Пламенное возрождение', reset: always, max: unlockAt(14) },
         ],
       },
+      symbiote: {
+        name: 'Круг симбиота',
+        source: 'CBT',
+        resources: [
+          {
+            key: 'symbioticReflexes',
+            name: 'Симбиотические рефлексы',
+            reset: always,
+            max: (level, _mods, totalLevel) =>
+              clampLevel(level) >= 6 ? proficiencyBonus(totalLevel) : 0,
+          },
+        ],
+      },
     },
   },
   fighter: {
@@ -370,7 +383,7 @@ export const CLASSES: Record<string, ClassDef> = {
         source: 'PHB',
         resources: [
           { key: 'superiorityDice', name: 'Кости превосходства', reset: shortRest, max: perLevel([0, 0, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6]) },
-          { key: 'knowYourEnemy', name: 'Знай врага', reset: always, max: unlockAt(7) },
+          { key: 'knowYourEnemy', name: 'Знай врага', reset: shortRest, max: unlockAt(7) },
         ],
       },
       champion: { name: 'Чемпион', source: 'PHB' },

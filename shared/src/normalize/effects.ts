@@ -204,6 +204,8 @@ function normalizeModifierFilter(raw: unknown): ModifierFilter | undefined {
   if (f.rangeType === 'melee' || f.rangeType === 'ranged' || f.rangeType === 'none') out.rangeType = f.rangeType;
   if (typeof f.targetId === 'string' && f.targetId) out.targetId = f.targetId.slice(0, 80);
   if (f.direction === 'self' || f.direction === 'against') out.direction = f.direction;
+  if (typeof f.otherThanSource === 'boolean') out.otherThanSource = f.otherThanSource;
+  if (typeof f.sourceOnly === 'boolean') out.sourceOnly = f.sourceOnly;
   if (typeof f.weapon === 'boolean') out.weapon = f.weapon;
   if (typeof f.unarmed === 'boolean') out.unarmed = f.unarmed;
   // Легаси `condition` (одиночный) приводим к `conditions`: оба — «совпадение с любым».
@@ -370,6 +372,8 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     }
     if (e.hidden === true) effect.hidden = true;
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
+    if (e.consumeOnIncomingAttack === true) effect.consumeOnIncomingAttack = true;
+    if (e.consumeOnSourceAttack === true) effect.consumeOnSourceAttack = true;
     if (e.consumeOnSave === true) effect.consumeOnSave = true;
     if (e.magicWeapon === true) effect.magicWeapon = true;
     if (e.weaponOverride && typeof e.weaponOverride === 'object') {

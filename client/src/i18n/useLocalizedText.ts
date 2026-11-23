@@ -3,10 +3,12 @@ import {
   featureClassOf,
   isFeatureTextLoaded,
   isFeatTextLoaded,
+  isManeuverTextLoaded,
   isRaceTextLoaded,
   isSpellTextLoaded,
   loadFeatureText,
   loadFeatText,
+  loadManeuverText,
   loadRaceText,
   loadSpellText,
   subscribeLocalizedText,
@@ -37,6 +39,15 @@ export function useRaceText(): void {
   const loaded = useSyncExternalStore(subscribeLocalizedText, () => isRaceTextLoaded(lang));
   useEffect(() => {
     if (!loaded) void loadRaceText(lang);
+  }, [lang, loaded]);
+}
+
+/** Лениво догружает описания манёвров боевого мастера. */
+export function useManeuverText(): void {
+  const lang = getLocale();
+  const loaded = useSyncExternalStore(subscribeLocalizedText, () => isManeuverTextLoaded(lang));
+  useEffect(() => {
+    if (!loaded) void loadManeuverText(lang);
   }, [lang, loaded]);
 }
 

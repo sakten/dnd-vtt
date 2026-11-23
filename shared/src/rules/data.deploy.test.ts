@@ -9,14 +9,20 @@ import weaponsRaw from '../data/weapons.json';
 import featsRaw from '../data/feats.json';
 import bestiaryRaw from '../data/bestiary.json';
 import invocationsRaw from '../data/invocations.json';
+import maneuversRaw from '../data/maneuvers.json';
+import cbtFeaturesRaw from '../data/cbt/features.json';
+import cbtSpellsRaw from '../data/cbt/spells.json';
 import type { BestiaryEntry } from '../domain/bestiary';
+import type { FeatureDef } from '../domain/feature';
 import type { InvocationsData } from '../domain/invocation';
+import type { ManeuversData } from '../domain/maneuver';
 import { parseDiceExpression } from '../dice';
 import { ATTACK_RIDERS } from './attackRiders';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
 import { AUTOMATION_SPECS, type SpellDef } from './automation';
 import { INVOCATION_MECHANICS } from './invocations';
+import { MANEUVERS_META } from './maneuvers';
 import { ABSORB_SPELL_TYPES, REACTION_SPELL_TRIGGERS } from './reactions';
 import { spellAttackCount, spellDamageExpression } from './spellCast';
 import type { Spell } from './spells';
@@ -36,6 +42,9 @@ const HASHES = {
   feats: 'f8d310ec0a56a339',
   bestiary: 'b1692a1f409a3026',
   invocations: '7efff7e520cc92ad',
+  maneuvers: '98e5b88e86c01a3a',
+  cbtFeatures: 'b0e88c690dd3a755',
+  cbtSpells: '96d57dc5ff0cccfc',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -57,7 +66,7 @@ const GRANTS = subclassRaw as unknown as {
 };
 
 /** Источники записей: заклинания — 5e24 + переизданные XGE/TCE, фичи — XPHB/EFA/RHW и подклассы XGE/TCE. */
-const SOURCES = new Set(['XPHB', 'XGE', 'TCE', 'EFA', 'RHW']);
+const SOURCES = new Set(['XPHB', 'XGE', 'TCE', 'EFA', 'RHW', 'CBT', 'GHLoE']);
 const SCHOOLS = new Set([
   'Abjuration',
   'Conjuration',
@@ -103,7 +112,51 @@ describe('снимок данных', () => {
       feats: hash(featsRaw),
       bestiary: hash(bestiaryRaw),
       invocations: hash(invocationsRaw),
+      maneuvers: hash(maneuversRaw),
+      cbtFeatures: hash(cbtFeaturesRaw),
+      cbtSpells: hash(cbtSpellsRaw),
     }).toEqual(HASHES);
+  });
+
+  it('cbt: подкласс друида и заклинания third-party', () => {
+    const features = (cbtFeaturesRaw as unknown as { features: FeatureDef[] }).features;
+    expect(features).toHaveLength(5);
+    expect(
+      features.every((f) => f.source === 'CBT' && f.className === 'druid' && f.subclass === 'symbiote')
+    ).toBe(true);
+    const spells = (cbtSpellsRaw as unknown as { spells: SpellDef[] }).spells;
+    expect(spells.map((s) => [s.key, s.source])).toEqual([
+      ["CBT:Cat's Spring", 'CBT'],
+      ['GHLoE:Hunter Sense', 'GHLoE'],
+    ]);
+    const cat = spells[0]!;
+    expect(cat.automation?.primary).toBe('attack');
+    expect(cat.automation?.choices?.[0]?.options).toEqual(['slashing', 'force']);
+    expect(cat.automation?.effects?.[0]?.consumeOnSourceAttack).toBe(true);
+    expect(cat.cantrip?.map((t) => t.dice)).toEqual(['2d8', '3d8', '4d8']);
+    const hunter = spells[1]!;
+    expect(hunter.automation?.primary).toBe('effect');
+    expect(hunter.automation?.concentration).toBe(true);
+    expect(hunter.classes).toEqual(['druid']);
+  });
+
+  it('maneuvers.json: контракт записей', () => {
+    const data = maneuversRaw as unknown as ManeuversData;
+    expect(data.maneuvers.length).toBe(data.count);
+    expect(data.count).toBe(20);
+    const bad: string[] = [];
+    const keys = new Set<string>();
+    for (const m of data.maneuvers) {
+      if (!m.key.startsWith('XPHB:')) bad.push(`${m.key}: источник`);
+      if (!m.name || !m.description) bad.push(`${m.key}: имя/описание`);
+      if (m.source !== 'XPHB') bad.push(`${m.key}: source ${m.source}`);
+      if (keys.has(m.key)) bad.push(`${m.key}: дубль`);
+      keys.add(m.key);
+    }
+    expect(bad).toEqual([]);
+    // Мета движка ссылается только на существующие манёвры, и у каждого есть мета.
+    expect(MANEUVERS_META.filter((meta) => !keys.has(meta.key))).toEqual([]);
+    expect([...keys].filter((key) => !MANEUVERS_META.some((meta) => meta.key === key))).toEqual([]);
   });
 
   it('invocations.json: контракт записей', () => {

@@ -64,6 +64,7 @@ import { creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone, shrinkZone } from './zones';
 import { toggleFamiliarSenses } from './summons';
+import { isManeuverAction, rollManualManeuver, specialManeuver } from './maneuvers';
 import { resolveZoneSectionAttack } from './zoneAttacks';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -696,7 +697,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       const sheet = character?.sheet;
-      const classAction = sheet ? classFeatures(sheet.classes).find((a) => a.id === actionId) : undefined;
+      const classAction = sheet ? classFeatures(sheet.classes, sheet.choices).find((a) => a.id === actionId) : undefined;
       const raceAction = sheet ? raceActions(sheet.race, sheet.classes).find((a) => a.id === actionId) : undefined;
       const action: ActionDef | undefined =
         shapeStatblock(token)?.actions?.find((a) => a.id === actionId) ??
@@ -704,6 +705,21 @@ export function registerActionHandlers(ctx: ConnCtx) {
         classAction ??
         raceAction;
       if (!action) return;
+
+      if (action.requiresEffect && !token.effects.some((e) => e.sourceKey === action.requiresEffect)) {
+        fail(ctx, 'featureInactive');
+        return;
+      }
+
+      const special = specialManeuver(action.id);
+      // Манёвры с серверной логикой валидируем до траты слота/кости.
+      if (special) {
+        const issue = special.issue(ctx, room, mapId, token, requested[0]);
+        if (issue) {
+          fail(ctx, issue.code, issue.params);
+          return;
+        }
+      }
 
       const combat = manager.combatOf(room, mapId);
       const isActive = !combat?.active || manager.isActiveToken(room, mapId, token.id);
@@ -1013,8 +1029,18 @@ export function registerActionHandlers(ctx: ConnCtx) {
 
       if (action.spellKey) {
         if (rejectIfSpellsBlocked(ctx, token)) return;
-          const spell = findSpell(action.spellKey, room);
+        const spell = findSpell(action.spellKey, room);
         if (!spell) return;
+        const spellResourceAmount = action.resourceKey
+          ? Math.max(1, action.resourceAmount ?? 1)
+          : 0;
+        if (
+          spellResourceAmount &&
+          !manager.hasResource(room, ctx.playerId, action.resourceKey!, spellResourceAmount)
+        ) {
+          fail(ctx, 'noResource', { key: action.resourceKey!, name: action.name });
+          return;
+        }
         const stats = spellStatsFor(room, token) ?? monsterStats(shapeStatblock(token), undefined);
         const input = collectSpellCast(ctx, {
           mapId,
@@ -1023,7 +1049,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
           castLevel: spell.level,
           characterLevel: 1,
           stats,
-          targetIds,
+          // Классовая способность с self-таргетингом всегда бьёт только себя.
+          targetIds: action.targeting?.kind === 'self' ? [token.id] : targetIds,
           advantage,
           origin,
           direction,
@@ -1053,6 +1080,10 @@ export function registerActionHandlers(ctx: ConnCtx) {
             return;
           }
         }
+        if (spellResourceAmount) {
+          manager.spendResource(room, ctx.playerId, action.resourceKey!, spellResourceAmount);
+          ctx.emitResources(room, ctx.playerId);
+        }
         if (action.recharge) manager.startAbilityCooldown(room, mapId, token, action.id, action.recharge);
         syncCombat(room, mapId);
         const result = resolveSpellCastWithReactions(ctx, input);
@@ -1080,8 +1111,18 @@ export function registerActionHandlers(ctx: ConnCtx) {
           : action.resourceKey
             ? Math.max(1, action.resourceAmount ?? 1)
             : 0;
-      if (resourceAmount && !manager.hasResource(room, ctx.playerId, action.resourceKey!, resourceAmount)) {
-        fail(ctx, 'noResource', action.resourceKey ? { key: action.resourceKey, name: action.name } : { name: action.name });
+      // Оплата ресурса: основной, иначе запасной (Знай врага — кость превосходства).
+      const resourceCost = Math.max(1, resourceAmount);
+      const payKey = action.resourceKey
+        ? manager.hasResource(room, ctx.playerId, action.resourceKey, resourceCost)
+          ? action.resourceKey
+          : action.fallbackResourceKey &&
+              manager.hasResource(room, ctx.playerId, action.fallbackResourceKey, resourceCost)
+            ? action.fallbackResourceKey
+            : undefined
+        : undefined;
+      if (action.resourceKey && !payKey) {
+        fail(ctx, 'noResource', { key: action.resourceKey, name: action.name });
         return;
       }
 
@@ -1106,9 +1147,15 @@ export function registerActionHandlers(ctx: ConnCtx) {
       syncCombat(room, mapId);
       if (action.recharge) manager.startAbilityCooldown(room, mapId, token, action.id, action.recharge);
 
-      if (resourceAmount) {
-        manager.spendResource(room, ctx.playerId, action.resourceKey!, resourceAmount);
+      if (payKey && resourceCost) {
+        manager.spendResource(room, ctx.playerId, payKey, resourceCost);
         ctx.emitResources(room, ctx.playerId);
+      }
+
+      // Манёвры со своей серверной логикой (обмен, раскрытие защит).
+      if (special) {
+        special.apply(ctx, room, mapId, token, sheet, requested[0], variant);
+        return;
       }
 
       // Автоматизированные действия (базовые/классовые) — через общий executor.
@@ -1151,6 +1198,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
       }
 
       // Заглушки: Help/Ready/Grapple/Shove/UseObject и черты без механики.
+      // Манёвр без автоматизации: кость превосходства бросается в чат, эффект — по описанию.
+      if (isManeuverAction(action.id) && sheet) rollManualManeuver(ctx, room, token, sheet, action.name);
       const summary = action.description ? firstSentence(action.description) : '';
       systemMessage(
         room,

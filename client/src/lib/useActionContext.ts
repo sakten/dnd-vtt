@@ -207,7 +207,7 @@ export function useActionContext(): ActionContext | null {
         ]
       : [];
     const features = [
-      ...(isCharacter && sheet ? classFeatures(sheet.classes) : []),
+      ...(isCharacter && sheet ? classFeatures(sheet.classes, sheet.choices) : []),
       ...(isCharacter && sheet ? raceActions(sheet.race, sheet.classes) : []),
       ...escapeActions,
       ...grantedActions,

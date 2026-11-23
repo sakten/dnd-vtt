@@ -50,10 +50,14 @@ export interface FeatureMechanics {
   targeting?: ActionTargeting;
   resourceKey?: string;
   resourceAmount?: number;
+  /** Активные: кастовать это заклинание вместо отдельной automation-копии (без ячейки). */
+  spellKey?: string;
   /** Пассивные: постоянные эффекты на носителя (накладываются скрытыми). */
   effects?: AutomationEffect[];
   /** Активные: автоматизация, если для неё нет строки в `AUTOMATION_ACTIONS`. */
   automation?: AutomationDef;
   /** Пассивка уже реализована ядром (Extra Attack и т.п.) — эффекты не нужны. */
   native?: boolean;
+  /** Активные: способность доступна только при активном эффекте с этим sourceKey. */
+  requiresEffect?: string;
 }

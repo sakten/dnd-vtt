@@ -1,5 +1,6 @@
 import type { AbilityKey } from '../domain/core';
 import type { ConditionKey, EffectDuration, Modifier } from '../domain/effects';
+import type { FeatureChoice } from '../domain/feature';
 import type { RaceSelection } from '../domain/race';
 import type { ClassLevel } from '../domain/sheet';
 
@@ -29,6 +30,12 @@ export interface AttackRiderDef {
   kensei?: boolean;
   /** Не автоматический: предлагается окном после попадания (Ошеломляющий удар). */
   choiceOnHit?: boolean;
+  /** Манёвр боевого мастера: доступен только при выбранном приёме (`choices`, kind 'maneuver'). */
+  requiresManeuver?: string;
+  /** Добавка = кость превосходства воина (Отвлекающий удар). */
+  superiorityDice?: boolean;
+  /** Можно применять на каждой атаке хода (манёвры), а не один раз за ход. */
+  noTurnLimit?: boolean;
   /** Расход ресурса при срабатывании. */
   resourceKey?: string;
   resourceAmount?: number;
@@ -47,7 +54,14 @@ export interface AttackRiderDef {
   /** Состояние цели без спасброска (Кувырок холма: сбит с ног). */
   conditionOnHit?: { condition: ConditionKey; duration?: EffectDuration };
   /** Временный эффект на цель (Холод мороза: −10 фт скорости). */
-  targetEffect?: { name: string; duration: EffectDuration; modifiers: Omit<Modifier, 'id'>[]; conditions?: ConditionKey[] };
+  targetEffect?: {
+    name: string;
+    duration: EffectDuration;
+    modifiers: Omit<Modifier, 'id'>[];
+    conditions?: ConditionKey[];
+    /** Одноразовый эффект: сгорает после броска атаки другого существа по носителю. */
+    consumeOnIncomingAttack?: boolean;
+  };
   /**
    * Спасбросок цели при срабатывании (Ошеломляющий удар): при провале — condition,
    * при успехе — скорость ×1/2. СЛ = 8 + бонус владения + мод Мудрости монаха.
@@ -89,6 +103,25 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     dice: '1d6',
     abilityBonus: 'int',
     damageType: 'force',
+  },
+  {
+    id: 'fighter.battleMaster:distractingStrike',
+    name: 'Отвлекающий удар',
+    className: 'fighter',
+    subclass: 'battleMaster',
+    levelReq: 3,
+    choiceOnHit: true,
+    requiresManeuver: 'XPHB:Distracting Strike',
+    noTurnLimit: true,
+    resourceKey: 'fighter.battleMaster:superiorityDice',
+    resourceAmount: 1,
+    superiorityDice: true,
+    targetEffect: {
+      name: 'Отвлекающий удар',
+      duration: { type: 'endOfTurn', of: 'source' },
+      modifiers: [{ target: 'attack', mode: 'advantage', filter: { direction: 'against', otherThanSource: true } }],
+      consumeOnIncomingAttack: true,
+    },
   },
   {
     id: 'monk:stunningStrike',
@@ -155,10 +188,16 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
 ];
 
 /** Бонусные «наездники» персонажа по классам/подклассам, виду и уровню. */
-export function attackRidersFor(classes: ClassLevel[], race?: RaceSelection): AttackRiderDef[] {
+export function attackRidersFor(
+  classes: ClassLevel[],
+  race?: RaceSelection,
+  choices?: readonly FeatureChoice[]
+): AttackRiderDef[] {
   const out: AttackRiderDef[] = [];
   const total = classes.reduce((sum, entry) => sum + entry.level, 0);
+  const chosen = new Set((choices ?? []).filter((c) => c.kind === 'maneuver').map((c) => c.key));
   for (const def of ATTACK_RIDERS) {
+    if (def.requiresManeuver && !chosen.has(def.requiresManeuver)) continue;
     if (def.raceKey) {
       if (race?.key !== def.raceKey) continue;
       if (def.raceChoice && race.choices?.[def.raceChoice.id] !== def.raceChoice.key) continue;

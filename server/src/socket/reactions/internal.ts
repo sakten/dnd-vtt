@@ -3,6 +3,7 @@ import {
   featSpellGrants,
   grantedSpells,
   hasCondition,
+  hasManeuver,
   maxCastableLevel,
   reactionFeatures,
   reactionSpellTrigger,
@@ -118,7 +119,10 @@ export function hasPayableSpecial(manager: ConnCtx['manager'], room: Room, mapId
   // окно открываем, чтобы игрок мог отказаться от OA и сохранить реакцию.
   if (!cid || !sheet) return false;
   return reactionFeatures(sheet.classes, sheet.race).some(
-    (def) => !def.resourceKey || hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1)
+    (def) =>
+      !def.selfOnly &&
+      (!def.requiresManeuver || hasManeuver(sheet.choices, def.requiresManeuver)) &&
+      (!def.resourceKey || hasResourceFor(room, cid, def.resourceKey, def.resourceAmount ?? 1))
   );
 }
 

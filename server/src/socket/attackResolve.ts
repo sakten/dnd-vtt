@@ -62,7 +62,7 @@ import { applyAttackRiders } from './attackRiders';
 import { applyDamage } from './damage';
 import { removeBrokenEffects } from './effectsApply';
 import { fail } from './errors';
-import { applyDamageMastery, applyHitMastery, consumeAttackRollEffects, grazeDamage, spendAttackCharges } from './masteries';
+import { applyDamageMastery, applyHitMastery, consumeAttackRollEffects, consumeIncomingAttackEffects, grazeDamage, spendAttackCharges } from './masteries';
 import { pushRollMessage } from './messages';
 import { misdirectCheck } from './misdirect';
 import { maybeRollAnim } from './rollAnim';
@@ -350,6 +350,8 @@ export function prepareWeaponAttack(
     attackerType: creatureTypeOf(room, attacker),
     // Vex и подобные эффекты «против этой цели» (filter.targetId).
     targetId: target?.id,
+    // Отвлекающий удар: преимущество только от атак не-источника.
+    attackerId: attacker?.id,
   } as const;
   const effectParts = attackRollParts(attacker?.effects, target?.effects, effectCtx, abilities);
   // Источники adv/dis — единый сборщик (тот же, что у клиентского предпросмотра).
@@ -481,6 +483,8 @@ export function rollPreparedAttack(
         }
         spendAttackCharges(ctx, room, attackerMapId, attacker, attack);
       }
+      // Отвлекающий удар: следующая чужая атака по цели потратила преимущество.
+      if (target && targetMapId) consumeIncomingAttackEffects(ctx, room, targetMapId, target, attacker ?? null);
       // Invisibility: бросок атаки досрочно обрывает эффект (даже промах).
       if (attacker && attackerMapId) removeBrokenEffects(ctx, room, attackerMapId, attacker, 'ownAttackRoll');
       result.hitRoll = hit.hitRoll;

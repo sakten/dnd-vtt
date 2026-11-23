@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readdirSync } from 'node:fs';
-import spellsData from '../data/spells.json';
+import spellsData from '../spellsData';
 import featsData from '../data/feats.json';
-import featuresData from '../data/features.json';
 import weaponsData from '../data/weapons.json';
 import racesData from '../data/races.json';
 import textNames from '../data/text.ru/names.json';
 import spellText from '../data/text.ru/spells.json';
 import featText from '../data/text.ru/feats.json';
+import { FEATURES } from './features';
 import {
   CONTENT_LANGS,
   featDescription,
@@ -149,7 +149,7 @@ describe('spellName / имена контента', () => {
   it('число переводов совпадает с числом записей каталогов', async () => {
     await loadNames(LANG);
     expect(Object.keys(textNames.spells)).toHaveLength(catalog.length);
-    expect(Object.keys(textNames.features)).toHaveLength(featuresData.features.length);
+    expect(Object.keys(textNames.features)).toHaveLength(FEATURES.length);
     expect(Object.keys(textNames.feats)).toHaveLength(featsData.feats.length);
     expect(Object.keys(textNames.weapons)).toHaveLength(weaponsData.weapons.length);
   });
@@ -157,7 +157,7 @@ describe('spellName / имена контента', () => {
   it('все ключи переводов есть в каталогах', async () => {
     await loadNames(LANG);
     const spellKeys = new Set(catalog.map((s) => s.key));
-    const featureKeys = new Set(featuresData.features.map((f) => f.key));
+    const featureKeys = new Set(FEATURES.map((f) => f.key));
     const featKeys = new Set(featsData.feats.map((f) => f.key));
     const weaponKeys = new Set(weaponsData.weapons.map((w) => w.key));
     expect(Object.keys(textNames.spells).filter((k) => !spellKeys.has(k))).toEqual([]);
@@ -229,9 +229,9 @@ describe('spellDescription (ленивый чанк)', () => {
 
 describe('featureDescription (по классам)', () => {
   it('валидность и полное покрытие после загрузки всех классов', async () => {
-    const classes = [...new Set(featuresData.features.map((f) => f.className))];
+    const classes = [...new Set(FEATURES.map((f) => f.className))];
     await Promise.all(classes.map((c) => loadFeatureText(LANG, c)));
-    const bad = featuresData.features
+    const bad = FEATURES
       .filter((f) => {
         const d = featureDescription(f.key, LANG);
         return !d?.trim() || /<[a-z/][^>]*>|&(amp|quot|laquo|nbsp|#\d+);/.test(d);

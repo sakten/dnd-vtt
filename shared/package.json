@@ -21,6 +21,10 @@
       "types": "./src/invocationsData.ts",
       "import": "./src/invocationsData.ts"
     },
+    "./maneuversData": {
+      "types": "./src/maneuversData.ts",
+      "import": "./src/maneuversData.ts"
+    },
     "./automationSchema": {
       "types": "./src/rules/automation/schema.ts",
       "import": "./src/rules/automation/schema.ts"
@@ -28,7 +32,7 @@
   },
   "scripts": {
     "test": "vitest run",
-    "test:quiet": "vitest run --reporter=dot --bail=1",
+    "test:quiet": "node ../scripts/vitest-quiet.mjs",
     "test:deploy": "vitest run --config vitest.deploy.config.ts",
     "typecheck": "tsc --noEmit"
   },

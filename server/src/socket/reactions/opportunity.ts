@@ -138,15 +138,33 @@ export function triggerOpportunityAttacks(
   room: Room,
   mapId: string,
   mover: Token,
-  path: { x: number; y: number }[]
+  path: { x: number; y: number }[],
+  onDone?: () => void
 ): void {
-  if (isReactionPending(room.code)) return;
+  const finish = () => {
+    const currentRoom = ctx.getRoom();
+    if (currentRoom) ctx.syncCombat(currentRoom, mapId);
+    onDone?.();
+  };
+  if (isReactionPending(room.code)) {
+    onDone?.();
+    return;
+  }
   const map = ctx.manager.findMap(room, mapId);
-  if (!map || path.length < 2) return;
+  if (!map || path.length < 2) {
+    onDone?.();
+    return;
+  }
   // «Отход»: движение в этом ходу не провоцирует атаки по возможности.
-  if (ctx.manager.turnForToken(room, mapId, mover)?.disengaged) return;
+  if (ctx.manager.turnForToken(room, mapId, mover)?.disengaged) {
+    onDone?.();
+    return;
+  }
   // Эффекты движения без провокации (Мантия вдохновения).
-  if (restrictionsFor(mover.conditions, mover.effects).ignoresOpportunityAttacks) return;
+  if (restrictionsFor(mover.conditions, mover.effects).ignoresOpportunityAttacks) {
+    onDone?.();
+    return;
+  }
   const size = gridSizeOfMap(map);
 
   const offers: ReactionOfferInput[] = [];
@@ -181,7 +199,10 @@ export function triggerOpportunityAttacks(
     ];
     offers.push({ token: reactor, audience: audienceOf(ctx, room, mapId, reactor), options });
   }
-  if (!offers.length) return;
+  if (!offers.length) {
+    onDone?.();
+    return;
+  }
 
   openReactionWindow(ctx, room, {
     mapId,
@@ -218,9 +239,6 @@ export function triggerOpportunityAttacks(
       const hp = cid ? currentRoom.resources[cid]?.hp.current : target.hpCurrent;
       return hp !== undefined && hp <= 0;
     },
-    done: () => {
-      const currentRoom = ctx.getRoom();
-      if (currentRoom) ctx.syncCombat(currentRoom, mapId);
-    },
+    done: finish,
   });
 }

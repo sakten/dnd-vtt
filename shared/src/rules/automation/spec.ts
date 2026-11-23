@@ -346,6 +346,9 @@ export interface EffectSpec {
   escalate?: { condition: ValueExpr; duration?: EffectDuration };
   /** Эффект при снятии носителя (Haste: «вялость»); накладывается на него же. */
   onEnd?: EffectSpec;
+  /** Одноразовые эффекты по цели: сгорают после броска атаки другого/источника. */
+  consumeOnIncomingAttack?: boolean;
+  consumeOnSourceAttack?: boolean;
   /** Banishing Smite: провал спасброска изгоняет существо (конец каста — возврат). */
   banish?: boolean;
   light?: LightSource;

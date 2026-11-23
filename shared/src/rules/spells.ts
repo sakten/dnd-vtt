@@ -9,7 +9,7 @@ import { conditionKeyOf } from './conditions';
  * чтобы их можно было покрыть тестами; скачивание и запись JSON — в `scripts/build-spells.ts`.
  */
 
-export type SpellSource = 'XPHB' | 'XGE' | 'TCE' | 'CUSTOM';
+export type SpellSource = 'XPHB' | 'XGE' | 'TCE' | 'CBT' | 'GHLoE' | 'CUSTOM';
 
 /** Префикс ключей кастомных заклинаний комнаты (R16 срез 5): записи `room.customSpecs`. */
 export const CUSTOM_SPELL_PREFIX = 'CUSTOM:';

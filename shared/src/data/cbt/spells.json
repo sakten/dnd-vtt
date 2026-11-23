@@ -1,0 +1,84 @@
+{
+  "attribution": "Cat's Spring — Cthulhu by Torchlight (CBT); Hunter Sense — Grim Hollow (GHLoE). Short mechanical summaries.",
+  "count": 2,
+  "spells": [
+    {
+      "key": "CBT:Cat's Spring",
+      "name": "Cat's Spring",
+      "source": "CBT",
+      "level": 0,
+      "school": "Conjuration",
+      "time": [{ "number": 1, "unit": "action" }],
+      "range": { "type": "self" },
+      "components": { "v": true, "s": true },
+      "duration": [{ "type": "instant" }],
+      "classes": ["bard", "druid", "sorcerer", "warlock", "wizard"],
+      "damage": {
+        "dice": ["1d8", "2d8", "3d8", "4d8"],
+        "types": ["slashing", "force"]
+      },
+      "spellAttack": "melee",
+      "description": [
+        "You leap up to 10 feet to a visible unoccupied space, then make a melee spell attack. On a hit, the target takes 1d8 Slashing or Force damage (your choice), and your next attack roll against it before the end of your next turn has Advantage."
+      ],
+      "cantrip": [
+        { "level": 5, "dice": "2d8" },
+        { "level": 11, "dice": "3d8" },
+        { "level": 17, "dice": "4d8" }
+      ],
+      "automation": {
+        "primary": "attack",
+        "attack": { "rangeType": "melee" },
+        "targeting": { "kind": "creature", "range": 5 },
+        "choices": [{ "id": "damageType", "param": "damageType", "options": ["slashing", "force"] }],
+        "damage": {
+          "dice": { "ref": "spellDamage", "fallback": "1d8" },
+          "types": [{ "ref": "choice", "choice": "damageType", "fallback": "force" }]
+        },
+        "effects": [
+          {
+            "id": "catSpring",
+            "name": "Cat's Spring",
+            "duration": { "type": "rounds", "rounds": 2 },
+            "to": "targets",
+            "modifiers": [
+              { "target": "attack", "mode": "advantage", "filter": { "direction": "against", "sourceOnly": true } }
+            ],
+            "consumeOnSourceAttack": true
+          }
+        ]
+      }
+    },
+    {
+      "key": "GHLoE:Hunter Sense",
+      "name": "Hunter Sense",
+      "source": "GHLoE",
+      "level": 0,
+      "school": "Divination",
+      "time": [{ "number": 1, "unit": "action" }],
+      "range": { "type": "point", "distance": { "type": "touch" } },
+      "components": { "v": true, "s": true },
+      "duration": [{ "type": "timed", "concentration": true, "duration": { "type": "minute", "amount": 1 } }],
+      "concentration": true,
+      "classes": ["druid"],
+      "description": [
+        "You touch a willing creature. While the spell lasts, if the target rolls 9 or lower on the d20 for a Wisdom (Perception) check, it treats the roll as a 10."
+      ],
+      "automation": {
+        "primary": "effect",
+        "concentration": true,
+        "targeting": { "kind": "creature", "range": 5 },
+        "effects": [
+          {
+            "id": "hunterSense",
+            "name": "Hunter Sense",
+            "duration": { "type": "concentration" },
+            "concentration": true,
+            "to": "targets",
+            "modifiers": []
+          }
+        ]
+      }
+    }
+  ]
+}

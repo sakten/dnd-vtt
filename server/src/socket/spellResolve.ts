@@ -1,5 +1,6 @@
 import {
   automationForSpell,
+  CAT_SPRING_KEY,
   cellNearTargetFeet,
   creatureTargetIssue,
   crossesWalls,
@@ -34,6 +35,7 @@ import { actorStats, creatureTypeOf } from '../room/actor';
 import { sheetOfToken } from '../room/helpers';
 import type { ConnCtx } from './context';
 import { executeAutomation } from './automation';
+import { catSpringIssue } from './catSpringIssue';
 import { runBladeCantrip } from './bladeCantrips';
 import { summonEntry, summonFormIssue, hasFreeSummonSpot } from './summons';
 import { polymorphMaxCr, shapePlacementIssue } from './forms';
@@ -77,6 +79,8 @@ export interface SpellCastInput {
 /** Проверка возможности накладывания (до списания ячейки/слота). */
 export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPayload | undefined {
   const { caster, spell } = input;
+  // Cat's Spring: цель проверяется от точки прыжка, а не от текущей позиции.
+  if (spell.key === CAT_SPRING_KEY) return catSpringIssue(room, input);
   const invocations = sheetOfToken(room, caster).sheet?.invocations;
   const def = automationForSpell(spell, {
     castLevel: input.castLevel,

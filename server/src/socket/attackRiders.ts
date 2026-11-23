@@ -7,6 +7,7 @@ import {
   martialArtsDie,
   parseDiceExpression,
   proficiencyBonus,
+  superiorityDie,
   type AbilityKey,
   type AttackEntry,
   type AttackRiderDef,
@@ -69,13 +70,13 @@ export function applyAttackRiders(
 
   const parts: string[] = [];
   const notes: string[] = [];
-  for (const rider of attackRidersFor(sheet.classes, sheet.race)) {
+  for (const rider of attackRidersFor(sheet.classes, sheet.race, sheet.choices)) {
     if (rider.requiresRage && !hasEffect(RAGE_KEY)) continue;
     if (rider.requiresReckless && !hasEffect(RECKLESS_KEY)) continue;
     if (rider.requiresMarker && !hasEffect(rider.requiresMarker)) continue;
     if (rider.kensei && !kensei) continue;
     if (rider.choiceOnHit && !activated?.includes(rider.id)) continue;
-    if (hasEffect(`${USED_PREFIX}${rider.id}`)) continue;
+    if (!rider.noTurnLimit && hasEffect(`${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
 
     const expr = riderExpression(rider, level, abilities);
@@ -96,7 +97,7 @@ export function applyAttackRiders(
     }
     if (expr) parts.push(expr);
     notes.push(expr ? `${attacker.name}: ${rider.name} (+${expr})` : `${attacker.name}: ${rider.name}`);
-    markUsed(ctx, room, mapId, attacker, rider);
+    if (!rider.noTurnLimit) markUsed(ctx, room, mapId, attacker, rider);
     if (rider.save && target) applyRiderSave(ctx, room, mapId, attacker, target, rider, saveDc);
     if (rider.conditionOnHit && target) applyRiderCondition(ctx, room, mapId, attacker, target, rider);
     if (rider.targetEffect && target) applyRiderTargetEffect(ctx, room, mapId, attacker, target, rider);
@@ -148,6 +149,7 @@ function applyRiderTargetEffect(
     duration: def.duration,
     modifiers: def.modifiers.map((m, i) => ({ ...m, id: `${id}:m${i}` })),
     ...(def.conditions?.length ? { conditions: def.conditions } : {}),
+    ...(def.consumeOnIncomingAttack ? { consumeOnIncomingAttack: true } : {}),
   });
   ctx.emitToken(room, 'token:update', mapId, target);
 }
@@ -166,10 +168,10 @@ export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token,
   if (!cid || !sheet) return [];
   const out: ChoiceRider[] = [];
   const kensei = !!attack && isKenseiAttack({ attacks: sheet.attacks, hands: sheet.hands, classes: sheet.classes }, attack);
-  for (const rider of attackRidersFor(sheet.classes, sheet.race)) {
+  for (const rider of attackRidersFor(sheet.classes, sheet.race, sheet.choices)) {
     if (!rider.choiceOnHit) continue;
     if (rider.kensei && !kensei) continue;
-    if (attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;
+    if (!rider.noTurnLimit && attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
     out.push({ id: rider.id, name: rider.name, resourceKey: rider.resourceKey, resourceAmount: rider.resourceAmount });
   }
@@ -191,6 +193,7 @@ function riderExpression(
   const parts: string[] = [];
   if (rider.rageDamageDice) parts.push(level('barbarian') >= 9 ? '3d6' : '2d6');
   if (rider.dice) parts.push(rider.dice);
+  if (rider.superiorityDice) parts.push(`1d${superiorityDie(level('fighter'))}`);
   if (rider.martialArtsDice) parts.push(`1d${martialArtsDie(level('monk'))}`);
   if (rider.halfLevelBonus) {
     const flat = Math.ceil(level(rider.halfLevelBonus) / 2);

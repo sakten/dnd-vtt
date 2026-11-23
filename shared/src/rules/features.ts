@@ -1,4 +1,5 @@
 import raw from '../data/features.json';
+import cbtRaw from '../data/cbt/features.json';
 import type { FeatureDef } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import { clampLevel } from './classes';
@@ -7,6 +8,7 @@ import { clampLevel } from './classes';
  * Каталог черт классов/подклассов, сгенерированный из 5e.tools (`npm run features`).
  * Ключи совпадают с ключами ресурсов `CLASSES`, поэтому ресурсы и каталог сходятся
  * без маппинга; ручной слой механик — в `featureAutomation.ts`.
+ * Ручной third-party каталог (`data/cbt/features.json`) добавляется поверх снимка.
  */
 
 interface FeatureData {
@@ -16,8 +18,9 @@ interface FeatureData {
 }
 
 const data = raw as unknown as FeatureData;
+const cbt = cbtRaw as unknown as FeatureData;
 
-export const FEATURES: FeatureDef[] = data.features;
+export const FEATURES: FeatureDef[] = [...data.features, ...cbt.features];
 
 const byKey = new Map(FEATURES.map((f) => [f.key, f]));
 

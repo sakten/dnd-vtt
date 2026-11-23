@@ -11,6 +11,7 @@ interface NamesData {
   feats: Record<string, string>;
   weapons: Record<string, string>;
   races?: Record<string, string>;
+  maneuvers?: Record<string, string>;
 }
 
 interface SpellTextData {
@@ -36,11 +37,16 @@ interface RaceTextData {
   raceTraitDescriptions: Record<string, RaceTraitText[]>;
 }
 
+interface ManeuverTextData {
+  maneuverDescriptions: Record<string, string>;
+}
+
 const namesByLang = new Map<string, NamesData>();
 const spellByLang = new Map<string, SpellTextData>();
 const featByLang = new Map<string, FeatTextData>();
 const featureByLang = new Map<string, Map<string, Record<string, string>>>();
 const raceByLang = new Map<string, RaceTextData>();
+const maneuverByLang = new Map<string, ManeuverTextData>();
 /** Время последнего провала чанка: до истечения паузы повтор не начинаем. */
 const failedAt = new Map<string, number>();
 const pending = new Map<string, Promise<void>>();
@@ -172,6 +178,14 @@ export function loadRaceText(lang: string): Promise<void> {
   });
 }
 
+/** Ленивые описания манёвров боевого мастера. */
+export function loadManeuverText(lang: string): Promise<void> {
+  if (!hasContentLang(lang) || maneuverByLang.has(lang)) return Promise.resolve();
+  return loadChunk(`maneuvers:${lang}`, () => import(`../data/text.${lang}/maneuvers.json`), (data) => {
+    maneuverByLang.set(lang, data as ManeuverTextData);
+  });
+}
+
 export function isNamesLoaded(lang: string): boolean {
   return namesByLang.has(lang);
 }
@@ -190,6 +204,10 @@ export function isFeatureTextLoaded(lang: string, className: string): boolean {
 
 export function isRaceTextLoaded(lang: string): boolean {
   return raceByLang.has(lang);
+}
+
+export function isManeuverTextLoaded(lang: string): boolean {
+  return maneuverByLang.has(lang);
 }
 
 /** RU/…-название заклинания по ключу. */
@@ -220,6 +238,12 @@ export function weaponName(key: string | undefined, lang: string): string | unde
 export function raceName(key: string | undefined, lang: string): string | undefined {
   if (!key) return undefined;
   return namesByLang.get(lang)?.races?.[key];
+}
+
+/** RU/…-название манёвра боевого мастера по ключу `XPHB:<имя>`. */
+export function maneuverName(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return namesByLang.get(lang)?.maneuvers?.[key];
 }
 
 /** Класс черты по ключу (`class.subclass:feature` / `class:feature`). */
@@ -266,4 +290,10 @@ export function featureDescription(key: string | undefined, lang: string): strin
 export function raceTraitTexts(key: string | undefined, lang: string): RaceTraitText[] | undefined {
   if (!key) return undefined;
   return raceByLang.get(lang)?.raceTraitDescriptions[key];
+}
+
+/** Описание манёвра боевого мастера (undefined — оверлей не загружен или перевода нет). */
+export function maneuverDescription(key: string | undefined, lang: string): string | undefined {
+  if (!key) return undefined;
+  return maneuverByLang.get(lang)?.maneuverDescriptions[key];
 }

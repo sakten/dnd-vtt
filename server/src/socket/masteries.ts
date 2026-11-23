@@ -225,6 +225,30 @@ export function consumeAttackRollEffects(
 }
 
 /**
+ * Отвлекающий удар: одноразовый эффект «следующая атака по носителю» сгорает
+ * после броска атаки существа, отличного от источника эффекта.
+ */
+export function consumeIncomingAttackEffects(
+  ctx: ConnCtx,
+  room: Room,
+  mapId: string,
+  target: Token,
+  attacker: Token | null
+): void {
+  const stale = target.effects.filter(
+    (effect) =>
+      (effect.consumeOnIncomingAttack && (!attacker || effect.sourceId !== attacker.id)) ||
+      (effect.consumeOnSourceAttack && !!attacker && effect.sourceId === attacker.id)
+  );
+  if (!stale.length) return;
+  let changed = false;
+  for (const effect of stale) {
+    if (ctx.manager.removeEffect(room, target, effect.id)) changed = true;
+  }
+  if (changed) ctx.emitToken(room, 'token:update', mapId, target);
+}
+
+/**
  * Расходует заряды эффектов на броске атаки (Flame Arrows: 1 боеприпас за
  * дальнобойную оружейную атаку). На нуле эффект гаснет с системкой в чат.
  */

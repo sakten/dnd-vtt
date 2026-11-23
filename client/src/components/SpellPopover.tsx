@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   automationForSpell,
+  CAT_SPRING_KEY,
   CONDITION_KEYS,
   crValue,
   familiarFormAvailable,
@@ -159,6 +160,20 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
       : { spellKey: spell.key, slotLevel: info.slotLevel };
     // Тонкая стена цепочкой (Wall of Ice, вариант «wall»): пошаговая постановка секций.
     const chainWall = isThinWallSpell(spell.key) && variant !== 'ring';
+    // Cat's Spring (CBT): сначала цель, затем клетка прыжка; точка и цель — в placements.
+    if (spell.key === CAT_SPRING_KEY && !abilityAction) {
+      startScatter({
+        tokenId,
+        spellKey: spell.key,
+        slotLevel: info.slotLevel,
+        advantage: mode,
+        maxTargets: 1,
+        kind: 'catSpring',
+        destFeet: 10,
+        ...(variant ? { variant } : {}),
+      });
+      return;
+    }
     if (info.area && castArea) {
       startAim({
         tokenId,

@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
 
 /** Подпись варианта черты: состояния — из i18n, варианты вида — из ключей откровения. */
 const choiceLabel = (actionId: string, option: string): string => {
+  if (actionId === BAIT_AND_SWITCH_ACTION) {
+    return option === 'self' ? t('ui.maneuvers.toSelf') : t('ui.maneuvers.toAlly');
+  }
   if (actionId !== CELESTIAL_REVELATION_ID) return conditionLabel(option);
   if (option === 'wings') return t('ui.race.revelation.wings');
   if (option === 'radiance') return t('ui.race.revelation.radiance');
@@ -286,7 +289,12 @@ export default function ActionPanel() {
 
   const resourceLeft = (f: ActionDef): number | null => {
     if (!f.resourceKey) return null;
-    return resources?.resources.find((r) => r.key === f.resourceKey)?.current ?? 0;
+    const left = resources?.resources.find((r) => r.key === f.resourceKey)?.current ?? 0;
+    // Запасной ресурс (Знай врага: потраченное использование восстанавливается костью).
+    if (left <= 0 && f.fallbackResourceKey) {
+      return resources?.resources.find((r) => r.key === f.fallbackResourceKey)?.current ?? 0;
+    }
+    return left;
   };
 
   const actionTotal = turn ? 1 + turn.extraActions : 0;
@@ -516,13 +524,15 @@ export default function ActionPanel() {
     const featureKey = f.id.startsWith('class:') ? f.id.slice('class:'.length) : undefined;
     const base = featureDisplayName(featureKey, f.name);
     const label = left !== null ? `${base} (${left})` : base;
+    const inactive =
+      !!f.requiresEffect && !token.effects.some((e) => e.sourceKey === f.requiresEffect);
     return (
       <button
         key={f.id}
         className="ap-icon-btn"
         data-tip={label}
         aria-label={label}
-        disabled={!canUseFeature(f, turnCtx, resourceLeft(f))}
+        disabled={!canUseFeature(f, turnCtx, resourceLeft(f)) || inactive}
         onClick={() => {
           // Выбор эффекта (Обольщающая магия: Очарован/Испуган) — до прицела.
           const options = featureChoiceOptions(f.id) ?? raceActionChoiceOptions(f.id);
@@ -587,6 +597,11 @@ export default function ActionPanel() {
   const beginAbility = (a: ActionDef, variant?: string) => {
     const slot = abilitySlot(a);
     if (a.spellKey) {
+      // Self-способность-заклинание (Symbiotic Reflexes): каст сразу, без выбора цели.
+      if (a.targeting?.kind === 'self') {
+        runAction(token.id, a.id, { slot, ...(variant ? { variant } : {}) });
+        return;
+      }
       const spell = spellByKey.get(a.spellKey);
       if (spell) setCasting({ spell, ability: a });
       return;
@@ -1024,7 +1039,13 @@ export default function ActionPanel() {
       )}
       {choicePrompt && (
         <Modal onClose={() => setChoicePrompt(null)} title={choicePrompt.action.name} testId="feature-choice">
-          <div className="sheet-section-title">{t('ui.action.chooseCondition')}</div>
+          <div className="sheet-section-title">
+            {t(
+              choicePrompt.action.id === BAIT_AND_SWITCH_ACTION
+                ? 'ui.maneuvers.chooseRecipient'
+                : 'ui.action.chooseCondition'
+            )}
+          </div>
           <div className="ap-icons">
             {choicePrompt.options.map((option) => (
               <button

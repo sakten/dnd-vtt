@@ -97,6 +97,10 @@ export interface ModifierFilter {
    * `against` — атаки по носителю. Без значения — как раньше (обе стороны).
    */
   direction?: 'self' | 'against';
+  /** Только атаки НЕ от источника эффекта (Отвлекающий удар: союзники бьют с преимуществом). */
+  otherThanSource?: boolean;
+  /** Только атаки источника эффекта (Cat's Spring: преимущество следующей атаки кастера). */
+  sourceOnly?: boolean;
   /** Только броски атак оружием (не заклинаниями). */
   weapon?: boolean;
   /** Безоружный удар (Divine Favor/Magic Weapon: `false` — только оружие в руках). */
@@ -318,6 +322,10 @@ export interface EffectInstance {
   mark?: boolean;
   /** Одноразовое мастерство (Sap/Vex): сгорает после ближайшего броска атаки носителя. */
   consumeOnAttackRoll?: boolean;
+  /** Одноразовое «следующая атака по носителю» (Отвлекающий удар) — сгорает после броска атаки другого. */
+  consumeOnIncomingAttack?: boolean;
+  /** Одноразовое «следующая атака источника по носителю» (Cat's Spring) — сгорает после его броска. */
+  consumeOnSourceAttack?: boolean;
   /** Одноразовый штраф: сгорает после ближайшего спасброска носителя (Mind Sliver). */
   consumeOnSave?: boolean;
   /** Свет, исходящий от эффекта (Light, Flame Blade, Sunbeam-огонёк). */

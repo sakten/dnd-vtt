@@ -63,6 +63,8 @@ export interface ReactionFeatureDef {
     | 'damagePenalty';
   resourceKey?: string;
   resourceAmount?: number;
+  /** Манёвр боевого мастера: доступна только при выбранном приёме (`choices`, kind 'maneuver'). */
+  requiresManeuver?: string;
   /** Максимальная дистанция до защищаемого союзника, футы. */
   rangeFeet?: number;
   /** Кого защищает черта (reduceDamage): себя или существо в пределах `rangeFeet`. */
@@ -73,8 +75,10 @@ export interface ReactionFeatureDef {
   amount?: number;
   /** Кости эффекта (reduceDamage/acBonusAlly). */
   dice?: string;
-  /** Кость по уровню класса (Режущие слова: бардовская). */
-  diceFrom?: string;
+  /** Кость по уровню класса (Режущие слова: бардовская; Точный удар: превосходства). */
+  diceFrom?: 'bard' | 'superiority';
+  /** Бонус только себе и без траты реакции (Точный удар боевого мастера). */
+  selfOnly?: boolean;
   /** Плюс модификатор способности к снижению (Отражение атак, +Ловкость). */
   abilityBonus?: AbilityKey;
   /** Плюс уровень класса к снижению (Отражение атак, +уровень монаха). */
@@ -113,6 +117,7 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     kind: 'acBonus',
     resourceKey: 'fighter.battleMaster:superiorityDice',
     resourceAmount: 1,
+    requiresManeuver: 'XPHB:Parry',
   },
   {
     id: 'fighter.battleMaster:riposte',
@@ -124,6 +129,21 @@ const REACTION_FEATURES: ReactionFeatureDef[] = [
     kind: 'counterAttack',
     resourceKey: 'fighter.battleMaster:superiorityDice',
     resourceAmount: 1,
+    requiresManeuver: 'XPHB:Riposte',
+  },
+  {
+    id: 'fighter.battleMaster:precisionAttack',
+    name: 'Точный удар',
+    className: 'fighter',
+    subclass: 'battleMaster',
+    levelReq: 3,
+    trigger: 'attackMiss',
+    kind: 'rollBonus',
+    resourceKey: 'fighter.battleMaster:superiorityDice',
+    resourceAmount: 1,
+    requiresManeuver: 'XPHB:Precision Attack',
+    selfOnly: true,
+    diceFrom: 'superiority',
   },
   {
     id: 'barbarian.ancestralGuardian:spiritShield',

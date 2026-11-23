@@ -38,6 +38,8 @@ export interface ModifierContext {
   concentration?: boolean;
   /** Тип существа атакующего (Protection from Evil and Good). */
   attackerType?: string;
+  /** id атакующего (для `filter.otherThanSource` — преимущество от чужих атак). */
+  attackerId?: string;
   /** Атака кэнсэй-оружием основной руки (XGE, Kensei). */
   kenseiWeapon?: boolean;
 }
@@ -122,6 +124,8 @@ export function collectModifiers(
   for (const effect of effects ?? []) {
     for (const mod of effect.modifiers) {
       if (mod.target !== target) continue;
+      if (mod.filter?.otherThanSource && effect.sourceId && effect.sourceId === ctx.attackerId) continue;
+      if (mod.filter?.sourceOnly && effect.sourceId && effect.sourceId !== ctx.attackerId) continue;
       if (!modifierMatches(mod, ctx)) continue;
       out.push(mod);
     }

@@ -103,6 +103,9 @@ export function spellDamageExpression(spell: Spell, castLevel: number, character
   return base;
 }
 
+/** Заклинание-прыжок: цель выбирается после телепорта (см. `spellTargetKind`). */
+export const CAT_SPRING_KEY = "CBT:Cat's Spring";
+
 /** Заклинание накладывается на себя (5e.tools: `type:'self'` либо `distance.type:'self'`). */
 export function spellIsSelf(spell: Spell): boolean {
   return spell.range.type === 'self' || spell.range.distance?.type === 'self';
@@ -176,6 +179,8 @@ export function spellMaxRounds(spell: Spell): number | undefined {
 export function spellTargetKind(spell: Spell): 'self' | 'creature' {
   // True Strike (XPHB): в данных range self, но каст бьёт по выбранной цели — клик по существу.
   if (spell.key === 'XPHB:True Strike') return 'creature';
+  // Cat's Spring (CBT): прыжок + рукопашная атака по выбранной цели.
+  if (spell.key === CAT_SPRING_KEY) return 'creature';
   // Magic Stone (XGE): каст на себя (камни в руке), бросок — грантованым действием.
   if (spell.key === 'XGE:Magic Stone') return 'self';
   return spellIsSelf(spell) || spell.range.type === 'emanation' ? 'self' : 'creature';

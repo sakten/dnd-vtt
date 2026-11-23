@@ -77,8 +77,10 @@ export interface ScatterState {
   slotLevel?: number;
   advantage?: 'a' | 'd';
   maxTargets: number;
-  /** Вид машины: Scatter (каст) или Telekinesis (подсветка точек переноса). */
-  kind?: 'scatter' | 'telekinesis';
+  /** Вид машины: Scatter (каст), Telekinesis (подсветка точек переноса) или Cat's Spring (прыжок + атака). */
+  kind?: 'scatter' | 'telekinesis' | 'catSpring';
+  /** Выбор типа урона при касте (Cat's Spring). */
+  variant?: string;
   /** Предел переноса цели, футы (Telekinesis: 30) — для подсветки клеток. */
   destFeet?: number;
   /** `targets` — набор целей, `places` — по очереди ставим точки назначения. */
@@ -546,7 +548,9 @@ function scatterCommand(
   placements: { targetId: string; x: number; y: number }[]
 ): InteractionCommand {
   // Telekinesis: цель уходит и в targetIds — сервер вешает restrained через `def.effects`.
-  const targetIds = s.kind === 'telekinesis' ? s.targets : undefined;
+  // Cat's Spring: цель атаки тоже в targetIds; точка — клетка прыжка.
+  const targetIds =
+    s.kind === 'telekinesis' || s.kind === 'catSpring' ? s.targets : undefined;
   // Выданное действие вместо каста — команда action:use с точкой.
   if (s.actionId) {
     return {
@@ -565,6 +569,7 @@ function scatterCommand(
       advantage: s.advantage,
       placements,
       ...(targetIds?.length ? { targetIds } : {}),
+      ...(s.variant ? { variant: s.variant } : {}),
     },
   };
 }

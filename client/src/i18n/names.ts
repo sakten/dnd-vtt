@@ -4,6 +4,7 @@ import {
   featureName,
   isNamesLoaded,
   loadNames,
+  maneuverName,
   raceName,
   spellName,
   subscribeLocalizedText,
@@ -34,6 +35,11 @@ export function weaponDisplayName(key: string | undefined, fallback: string): st
 /** Отображаемое имя вида по ключу. */
 export function raceDisplayName(key: string | undefined, fallback: string): string {
   return raceName(key, getLocale()) ?? fallback;
+}
+
+/** Отображаемое имя манёвра боевого мастера по ключу. */
+export function maneuverDisplayName(key: string | undefined, fallback: string): string {
+  return maneuverName(key, getLocale()) ?? fallback;
 }
 
 /** Гарантирует загрузку имён текущего языка; дерево перерисуется при готовности. */

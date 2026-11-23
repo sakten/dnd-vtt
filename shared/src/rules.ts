@@ -25,6 +25,7 @@ export * from './rules/reactions';
 export * from './rules/hands';
 export * from './rules/kensei';
 export * from './rules/loadout';
+export * from './rules/maneuvers';
 export * from './rules/resources';
 export * from './rules/sheet';
 export * from './rules/silence';

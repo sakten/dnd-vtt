@@ -4174,4 +4174,27 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#fff"><circle cx="18" cy="14" r="1.4"/><circle cx="48" cy="12" r="1.2"/><circle cx="50" cy="26" r="1"/></g>
     </>
   ),
+  "cat's spring": (
+    <>
+      <defs><radialGradient id="g-cs-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#d8fff3" stopOpacity=".9"/><stop offset="100%" stopColor="#3fd6a8" stopOpacity="0"/></radialGradient><linearGradient id="g-cs-claw" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f6fff8"/><stop offset="100%" stopColor="#7de8c0"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="27" fill="url(#g-cs-glow)"/>
+      <path d="M14 46c8-4 10-12 18-14s10-8 18-8" fill="none" stroke="#59d9ae" strokeWidth="2" opacity=".7"/>
+      <g fill="url(#g-cs-claw)" stroke="#2f9c78" strokeWidth="1">
+        <path d="M20 12c3 6 3 12 1 18l-4-1c-1-6 0-12 3-17z"/>
+        <path d="M31 8c3 7 3 13 1 20l-4-1c-1-7 0-13 3-19z"/>
+        <path d="M42 12c3 6 3 12 1 18l-4-1c-1-6 0-12 3-17z"/>
+      </g>
+      <path d="M18 30c8 2 20 2 28 0" fill="none" stroke="#eafff7" strokeWidth="1.4" opacity=".7"/>
+      <g fill="#eafff7"><circle cx="22" cy="56" r="1.1"/><circle cx="32" cy="59" r=".9"/><circle cx="42" cy="56" r="1.1"/></g>
+    </>
+  ),
+  'hunter sense': (
+    <>
+      <defs><radialGradient id="g-hs-eye" cx="50%" cy="45%" r="55%"><stop offset="0%" stopColor="#fff8d8"/><stop offset="55%" stopColor="#f4c95d"/><stop offset="100%" stopColor="#8d5a12"/></radialGradient></defs>
+      <path d="M4 32s9-14 28-14 28 14 28 14-9 14-28 14S4 32 4 32z" fill="none" stroke="#d9a935" strokeWidth="2"/>
+      <circle cx="32" cy="32" r="9" fill="url(#g-hs-eye)" stroke="#7a4b0d" strokeWidth="1.2"/>
+      <circle cx="32" cy="32" r="3.4" fill="#241505"/>
+      <path d="M32 4v6M32 54v6M12 10l4 4M52 10l-4 4" stroke="#f6d77a" strokeWidth="1.6" strokeLinecap="round"/>
+    </>
+  ),
 };

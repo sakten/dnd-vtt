@@ -1,9 +1,11 @@
 import type { ActionCost, ActionDef, ActionTargeting } from '../domain/actions';
 import type { AbilityKey } from '../domain/core';
+import type { FeatureChoice } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import { CLASSES, clampLevel } from './classes';
 import { featureMechanics } from './featureAutomation';
 import { featureByKey, featuresFor } from './features';
+import { battleMasterLevel, maneuverActions, maneuverChoices, SUPERIORITY_RESOURCE } from './maneuvers';
 
 /**
  * Классовые/подклассовые способности (Ф4). Каталог строится из ресурсов `CLASSES`:
@@ -20,6 +22,7 @@ const featureId = (key: string) => `class:${key}`;
 const POOL_KEYS = new Set<string>([
   'monk:focus',
   'sorcerer:sorceryPoints',
+  'druid.symbiote:symbioticReflexes',
   'fighter.battleMaster:superiorityDice',
   'fighter.psiWarrior:psionicEnergyDice',
   'rogue.soulknife:psionicEnergyDice',
@@ -50,6 +53,7 @@ interface FeatureMeta {
   costs?: ActionCost[];
   targeting?: ActionTargeting;
   amount?: number;
+  fallbackResourceKey?: string;
 }
 
 /** Точные стоимость/таргетинг известных черт. Ключ — полный ключ ресурса. */
@@ -106,7 +110,11 @@ const FEATURE_META: Record<string, FeatureMeta> = {
   'fighter:secondWind': { costs: ['bonus'] },
   'fighter:actionSurge': { costs: ['free'] },
   'fighter:indomitable': {},
-  'fighter.battleMaster:knowYourEnemy': { targeting: { kind: 'creature', range: 30 } },
+  'fighter.battleMaster:knowYourEnemy': {
+    costs: ['bonus'],
+    targeting: { kind: 'creature', range: 30 },
+    fallbackResourceKey: SUPERIORITY_RESOURCE,
+  },
   'fighter.psiWarrior:psiPoweredLeap': { costs: ['bonus'] },
   'fighter.psiWarrior:bulwarkOfForce': { costs: ['bonus'] },
   'fighter.psiWarrior:telekineticMaster': { costs: ['action'] },
@@ -218,8 +226,9 @@ const NAMED_FEATURES: NamedFeature[] = [
 /**
  * Черты, доступные персонажу: из ресурсов его классов/подклассов (уровень учтён)
  * плюс именованные черты пулов. Ключ ресурса — полный (`класс:ресурс` или `класс.подкласс:ресурс`).
+ * Выбранные манёвры боевого мастера заменяют кнопку-заглушку «Манёвр».
  */
-export function classFeatures(classes: ClassLevel[]): ActionDef[] {
+export function classFeatures(classes: ClassLevel[], choices?: FeatureChoice[]): ActionDef[] {
   const out: ActionDef[] = [];
   const seen = new Set<string>();
   const totalLevel = classes.reduce((acc, c) => acc + clampLevel(c.level), 0);
@@ -249,6 +258,9 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
           targeting: mech?.targeting ?? meta.targeting,
           resourceKey: key,
           resourceAmount: mech?.resourceAmount ?? meta.amount ?? 1,
+          fallbackResourceKey: meta.fallbackResourceKey,
+          spellKey: mech?.spellKey,
+          requiresEffect: mech?.requiresEffect,
           description: catalog?.description,
           levelReq: catalog?.level,
         });
@@ -258,7 +270,11 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
     if (entry.subclass) push(`${def.key}.${entry.subclass}`, 'subclass', def.subclasses[entry.subclass]?.resources);
   }
 
+  const maneuverButtons = maneuverActions(classes, choices);
+  const maneuverPicked = maneuverChoices(choices).length > 0 && battleMasterLevel(classes) >= 3;
+
   for (const f of NAMED_FEATURES) {
+    if (f.id === 'class:fighter.battleMaster:superiorityDice/maneuver' && maneuverPicked) continue;
     const entry = classes.find((c) => c.className === f.className);
     if (!entry) continue;
     if (f.subclass && entry.subclass !== f.subclass) continue;
@@ -292,9 +308,18 @@ export function classFeatures(classes: ClassLevel[]): ActionDef[] {
       targeting: mech.targeting,
       resourceKey: mech.resourceKey,
       resourceAmount: mech.resourceAmount ?? 1,
+      spellKey: mech.spellKey,
       description: feature.description,
       levelReq: feature.level,
+      requiresEffect: mech.requiresEffect,
     });
+  }
+
+  // Выбранные манёвры боевого мастера — отдельные кнопки (вместо заглушки).
+  for (const action of maneuverButtons) {
+    if (seen.has(action.id)) continue;
+    seen.add(action.id);
+    out.push(action);
   }
 
   return out;
