@@ -353,6 +353,177 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
       <path d="M13 17l3 3 3-3" />
     </>
   ),
+
+  // Воин — пси-воин и самурай (13–20 ур.)
+
+  // Жрец — домены (недостающие)
+  'class:cleric.forge:blessingOfTheForge': (
+    <>
+      <path d="M4 18h16M6 18v3h12v-3" />
+      <path d="M8 8h8l-1 6H9z" />
+      <path d="M17 3l3 3-2 2-3-3z" />
+    </>
+  ),
+  'class:cleric.grave:sentinelAtDeathsDoor': (
+    <>
+      <path d="M8 4h8v3l-2 2v3h-4V9L8 7z" />
+      <circle cx="10" cy="6" r="1" />
+      <circle cx="14" cy="6" r="1" />
+      <path d="M9 16h6M10 19h4M11 22h2" />
+    </>
+  ),
+  'class:cleric.order:embodimentOfTheLaw': (
+    <>
+      <path d="M12 3v18M6 6h12M7 6l-3 7h6zM17 6l-3 7h6z" />
+    </>
+  ),
+  'class:cleric.peace:emboldeningBond': (
+    <>
+      <circle cx="8" cy="12" r="4" />
+      <circle cx="16" cy="12" r="4" />
+      <path d="M11 8l2 2M11 16l2-2" />
+    </>
+  ),
+  'class:cleric.twilight:eyesOfNight': (
+    <>
+      <path d="M20 14a8 8 0 1 1-9-11 6 6 0 0 0 9 11z" />
+      <circle cx="10" cy="10" r="1.5" />
+    </>
+  ),
+  'class:cleric.twilight:stepsOfNight': (
+    <>
+      <path d="M20 12a7 7 0 0 1-7 7 6 6 0 0 0 0-12 7 7 0 0 1 7 5z" />
+      <path d="M3 20h4v-3h4v-3h3" />
+    </>
+  ),
+
+  // Волшебник — подклассы (недостающие до 20 ур.)
+  'class:wizard.abjurer:arcaneWard': (
+    <>
+      <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+      <path d="M9 11l3 3 3-3M12 8v6" />
+    </>
+  ),
+  'class:wizard.diviner:portent': (
+    <>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M18 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+    </>
+  ),
+  'class:wizard.diviner:thirdEye': (
+    <>
+      <path d="M12 3v2" />
+      <path d="M5 10s3-4 7-4 7 4 7 4-3 4-7 4-7-4-7-4z" />
+      <circle cx="12" cy="10" r="2" />
+      <path d="M12 17v4M8 21h8" />
+    </>
+  ),
+  'class:wizard.illusionist:illusorySelf': (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20a6 6 0 0 1 12 0" />
+      <path d="M16 4c1.5 1.2 2.5 3 2.5 5M19 12c1 1.5 2 3.5 2 6" />
+    </>
+  ),
+  'class:wizard.scribes:manifestMind': (
+    <>
+      <path d="M4 6c3-1 5-1 8 0v13c-3-1-5-1-8 0z" />
+      <path d="M12 6c3-1 5-1 8 0v13c-3-1-5-1-8 0z" />
+      <circle cx="12" cy="11" r="1.5" />
+    </>
+  ),
+  'class:wizard.scribes:manifestMindConjure': (
+    <>
+      <path d="M4 6c2-1 4-1 6 0v12c-2-1-4-1-6 0z" />
+      <path d="M10 6c2-1 4-1 6 0v12c-2-1-4-1-6 0z" />
+      <path d="M18 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+    </>
+  ),
+  'class:wizard.warMagic:powerSurge': (
+    <>
+      <path d="M12 2l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
+      <path d="M19 17l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+    </>
+  ),
+
+  // Друид — недостающие подклассы и Дикий облик
+  'class:druid:wildShape': (
+    <>
+      <path d="M5 19c3-3 5-8 6-14M10 19c2-3 3-7 4-13M15 19c1-3 2-6 3-10" />
+    </>
+  ),
+  'class:druid.dreams:balmOfTheSummerCourt': (
+    <>
+      <path d="M12 21c0-5 2-8 7-9-1 6-3 8-7 9z" />
+      <path d="M12 21c0-5-2-8-7-9 1 6 3 8 7 9z" />
+      <path d="M12 21V12" />
+      <path d="M9 6c0-2 1-3 3-3s3 1 3 3-1 3-3 3-3-1-3-3z" />
+    </>
+  ),
+  'class:druid.dreams:hiddenPaths': (
+    <>
+      <path d="M4 20c3-2 4-5 4-8s1-5 4-6" />
+      <path d="M16 3l4 4-4 4" />
+      <path d="M14 7h6" />
+    </>
+  ),
+  'class:druid.moon:moonlightStep': (
+    <>
+      <path d="M20 12a7 7 0 0 1-7 7 6 6 0 0 0 0-12 7 7 0 0 1 7 5z" />
+      <path d="M3 20h4v-3h4v-3h3" />
+    </>
+  ),
+  'class:druid.shepherd:spiritTotem': (
+    <>
+      <path d="M12 3v18" />
+      <path d="M8 7l4-4 4 4M8 12l4-4 4 4M8 17l4-4 4 4" />
+    </>
+  ),
+  'class:druid.spores:fungalInfestation': (
+    <>
+      <path d="M6 12h12a6 6 0 0 0-12 0z" />
+      <path d="M10 12v7M14 12v7M9 19h6" />
+      <circle cx="6" cy="6" r="1" />
+      <circle cx="18" cy="7" r="1" />
+      <circle cx="12" cy="4" r="1" />
+    </>
+  ),
+  'class:druid.stars:starMap': (
+    <>
+      <circle cx="5" cy="7" r="1.5" />
+      <circle cx="12" cy="5" r="1.5" />
+      <circle cx="19" cy="9" r="1.5" />
+      <circle cx="10" cy="14" r="1.5" />
+      <circle cx="16" cy="18" r="1.5" />
+      <path d="M6 8l5-2 6 3-7 4 5 4" />
+    </>
+  ),
+  'class:druid.stars:cosmicOmen': (
+    <>
+      <path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
+      <circle cx="12" cy="11" r="1.5" />
+    </>
+  ),
+  'class:druid.symbiote:symbioticReflexes': (
+    <>
+      <path d="M8 4a8 8 0 1 0 8 16" />
+      <path d="M16 4a8 8 0 0 0-8 16" />
+      <path d="M10 9l2 2-2 2M14 11l-2 2 2 2" />
+    </>
+  ),
+  'class:druid.symbiote:symbioticTransformation': (
+    <>
+      <path d="M4 6l8-3 8 3v6c0 5-4 8-8 10-4-2-8-5-8-10z" />
+      <path d="M9 10l2 2M15 10l-2 2M10 16h4" />
+    </>
+  ),
+  'class:druid.wildfire:cauterizingFlames': (
+    <>
+      <path d="M12 3c1 3 4 4 4 8a4 4 0 0 1-8 0c0-1.5.6-2.6 1.4-3.6.3 1 .9 1.6 1.6 2C11 7.5 12 5.5 12 3z" />
+      <path d="M18 16v4M16 18h4" />
+    </>
+  ),
 };
 
 export function hasFeatureIcon(id: string): boolean {

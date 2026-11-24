@@ -11,8 +11,8 @@ import {
 } from 'shared';
 import { FEATURE_ICONS } from './featureIcons';
 
-/** Классы, у которых уникальные иконки уже нарисованы (партии R8.8). */
-const PROCESSED = new Set(['barbarian', 'fighter', 'monk']);
+/** Классы с уникальными иконками до 12 ур. (R8.8). */
+const COVERED = new Set(['barbarian', 'fighter', 'monk', 'cleric', 'wizard', 'druid']);
 
 /** Id всех активных кнопок класса на уровне (сам класс + каждый подкласс). */
 function featureIds(classKey: string, level: number): Set<string> {
@@ -44,7 +44,7 @@ function raceIds(): Set<string> {
 describe('иконки способностей (R8.8)', () => {
   it('каждая активная кнопка обработанных классов имеет уникальную иконку', () => {
     const missing: string[] = [];
-    for (const classKey of PROCESSED) {
+    for (const classKey of COVERED) {
       for (const id of featureIds(classKey, 12)) if (!(id in FEATURE_ICONS)) missing.push(id);
     }
     expect(missing).toEqual([]);
