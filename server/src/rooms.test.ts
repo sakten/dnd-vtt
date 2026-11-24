@@ -48,6 +48,31 @@ describe('RoomManager ход', () => {
     expect(combat.turns[active.id]!.movementMax).toBe(active.tokenId === 't1' ? 40 : DEFAULT_SPEED);
   });
 
+  it('бафф скорости пересчитывает движение текущего хода', () => {
+    const manager = setup();
+    const room = makeRoom();
+    const map = room.scene.maps[0]!;
+    map.tokens = [token('t1', { speed: 30 })];
+    manager.startCombat(room, 'm1');
+    const turn = map.combat.turns[map.combat.entries[0]!.id]!;
+    turn.movementUsed = 10;
+
+    manager.applyEffect(room, map.tokens[0]!, {
+      id: 'fly',
+      name: 'Fly',
+      duration: { type: 'concentration' },
+      concentration: true,
+      conditions: ['flying'],
+      modifiers: [{ id: 'fly:m', target: 'speed', mode: 'set', value: 60 }],
+    });
+    expect(turn.movementMax).toBe(60);
+    expect(turn.movementUsed).toBe(10);
+
+    manager.removeEffect(room, map.tokens[0]!, 'fly');
+    expect(turn.movementMax).toBe(30);
+    expect(turn.movementUsed).toBe(10);
+  });
+
   it('endTurn переходит по кругу и увеличивает раунд на обороте', () => {
     const manager = setup();
     const room = makeRoom();

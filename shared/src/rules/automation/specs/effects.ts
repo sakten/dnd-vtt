@@ -82,6 +82,24 @@ export const EFFECTS_SPECS: Record<string, AutomationSpec> = {
     ],
   },
 
+  'XPHB:Fly': {
+    key: 'XPHB:Fly',
+    name: 'Fly',
+    primary: 'effect',
+    concentration: true,
+    effects: [
+      {
+        id: 'fly',
+        name: 'Fly',
+        duration: CONCENTRATION,
+        concentration: true,
+        to: 'targets',
+        conditions: ['flying'],
+        modifiers: [{ target: 'speed', mode: 'set', value: 60 }],
+      },
+    ],
+  },
+
   'XPHB:Blur': {
     key: 'XPHB:Blur',
     name: 'Blur',

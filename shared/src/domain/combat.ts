@@ -24,6 +24,8 @@ export interface TurnState {
   diagonalsUsed: number;
   /** Доступно передвижения в этом ходу, футы. */
   movementMax: number;
+  /** Последняя учтённая скорость (для пересчёта движения при баффах/дебаффах). */
+  speed?: number;
   /** Доп. действия/бонусные от эффектов (например, Haste). */
   extraActions: number;
   extraBonusActions: number;

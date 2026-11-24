@@ -189,13 +189,36 @@ function turnResources(
   const token = entry.tokenId ? findTokenById(room, entry.tokenId) : null;
   if (!token) return { speed: DEFAULT_SPEED, legendaryMax: 0, extraActions: 0, extraBonusActions: 0 };
   const stats = actorStats(room, token);
-  const afterExhaustion = Math.max(0, stats.speed + exhaustionSpeedPenalty(token.conditions));
   return {
-    speed: Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, stats.abilities)),
+    speed: effectiveSpeed(room, token),
     legendaryMax: shapeStatblock(token)?.legendary?.max ?? 0,
     extraActions: Math.max(0, modifiedValue(0, token.effects, 'extraActions', {}, stats.abilities)),
     extraBonusActions: Math.max(0, modifiedValue(0, token.effects, 'extraBonusActions', {}, stats.abilities)),
   };
+}
+
+/** Скорость токена с учётом истощения и эффектов (`set` — не ниже текущей). */
+export function effectiveSpeed(room: Room, token: Token): number {
+  const stats = actorStats(room, token);
+  const afterExhaustion = Math.max(0, stats.speed + exhaustionSpeedPenalty(token.conditions));
+  return Math.max(0, modifiedValue(afterExhaustion, token.effects, 'speed', {}, stats.abilities));
+}
+
+/**
+ * Пересчёт движения активного хода после изменения скорости (Fly/Haste/Slow):
+ * к `movementMax` добавляется разница скоростей, израсходованное не трогаем.
+ */
+export function syncTurnSpeed(m: CombatDeps, room: Room, token: Token): void {
+  const map = room.scene.maps.find((candidate) => candidate.tokens.some((t) => t.id === token.id));
+  if (!map) return;
+  const turn = turnForToken(room, map.id, token);
+  if (!turn) return;
+  const speed = effectiveSpeed(room, token);
+  const prev = turn.speed ?? speed;
+  if (speed === prev) return;
+  turn.movementMax = Math.max(turn.movementUsed, turn.movementMax + speed - prev);
+  turn.speed = speed;
+  m.saveSoon(room);
 }
 
 /** Начинает/сбрасывает ход записи, сохраняя концентрацию заклинателя. */
@@ -213,6 +236,7 @@ export function beginTurn(room: Room, mapId: string, entryId: string) {
   }
   combat.turns[entry.id] = {
     ...emptyTurnState(speed),
+    speed,
     extraActions,
     extraBonusActions,
     legendaryRemaining: legendaryMax,

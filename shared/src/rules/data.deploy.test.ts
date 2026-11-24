@@ -34,7 +34,7 @@ import type { Spell } from './spells';
  */
 const HASHES = {
   spells: '2133927495d56bbf',
-  catalog: 'd93bd6ae16aeece1',
+  catalog: '7cbe868035c726d4',
   spellcasting: '142392258946ec63',
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',

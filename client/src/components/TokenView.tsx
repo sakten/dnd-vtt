@@ -28,6 +28,7 @@ import { useMapLight } from '../lib/light';
 import { startWalkSession, walkAlreadyDone, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
+import TokenWings from './TokenWings';
 
 function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) {
   const image = useImage(tokenImageUrl(token.imageUrl), token.imageUrl);
@@ -322,6 +323,7 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
     >
+      {token.round && hasCondition(token.conditions, 'flying') && <TokenWings token={token} />}
       <Group clipFunc={token.round ? circleClip : undefined}>
         {image ? (
           <KonvaImage

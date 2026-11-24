@@ -38,7 +38,7 @@
 } from 'shared';
 import type { Room } from '../roomTypes';
 import { actorStats, creatureTypeOf } from './actor';
-import { abilitiesForToken, turnStateFor } from './combat';
+import { abilitiesForToken, syncTurnSpeed, turnStateFor } from './combat';
 import { controllerIdOfToken } from './helpers';
 import { revertShape, shapeGrid } from './shape';
 
@@ -329,6 +329,7 @@ export function applyEffect(m: EffectsDeps, room: Room, token: Token, effect: Ef
     }
   }
   endEffectsOnConditions(m, room, token);
+  syncTurnSpeed(m, room, token);
   m.saveSoon(room);
 }
 
@@ -380,6 +381,7 @@ export function finalizeRemovedEffects(
   const ids = new Set(effects.map((e) => e.id));
   if (ids.size) token.conditions = token.conditions.filter((c) => !(c.effectId && ids.has(c.effectId)));
   if (opts.triggerEnd !== false) applyEndEffects(m, room, token, effects);
+  syncTurnSpeed(m, room, token);
   return ended;
 }
 

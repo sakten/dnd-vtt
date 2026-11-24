@@ -3026,3 +3026,14 @@ describe('SPELL_BASES: реестр констант класса C', () => {
     expect(bless.effects?.[0]?.modifiers.find((m) => m.target === 'attack')?.value).toBe(SPELL_BASES.d4Bonus);
   });
 });
+
+describe('Fly', () => {
+  it('полёт 60 футов и состояние flying до конца концентрации', () => {
+    const def = automationForSpell(makeSpell({ key: 'XPHB:Fly', name: 'Fly', level: 3, concentration: true }));
+    expect(def.resolution).toBe('effect');
+    expect(def.concentration).toBe(true);
+    const effect = def.effects?.[0];
+    expect(effect?.conditions).toEqual(['flying']);
+    expect(effect?.modifiers).toContainEqual(expect.objectContaining({ target: 'speed', mode: 'set', value: 60 }));
+  });
+});
