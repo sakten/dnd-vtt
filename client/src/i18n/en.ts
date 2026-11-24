@@ -223,6 +223,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'error.restoreNoCondition': 'The target has no condition this spell can end',
   'error.nothingToWake': 'This target does not need waking',
   'error.helpHostile': 'You can only help an ally or a neutral creature',
+  'error.targetUnwilling': 'The target must be willing to swap places',
   'error.targetSaved': 'This target already succeeded on a save against this casting',
   'error.restoreNoChoice': 'The target has several eligible conditions — choose which to end',
   'error.smiteOnHitOnly': 'A smite is applied after a weapon hit (as a bonus action)',

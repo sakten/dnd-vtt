@@ -374,6 +374,36 @@ describe('Приманка и подмена', () => {
     expect(room.scene.maps[0]!.combat.turns.e1!.bonusActionUsed).toBe(false);
     expect(room.scene.maps[0]!.combat.turns.e1!.movementUsed).toBe(0);
   });
+
+  it('враждебная цель не соглашается — отказ без траты', () => {
+    const fighter = makeToken('t1', { libraryItemId: 'lib1', x: 50, y: 100, faction: 'ally' });
+    const enemy = makeToken('t2', { x: 100, y: 100, faction: 'enemy' });
+    const room = makeCombatRoom([fighter, enemy], { p1: 'lib1' });
+    room.sheets.p1 = sheet(5, [{ kind: 'maneuver', key: 'XPHB:Bait and Switch' }]);
+    room.resources.p1 = makeResources({
+      hp: { current: 30, max: 30, temp: 0, deathSuccesses: 0, deathFailures: 0 },
+      resources: dice().resources,
+    });
+    const f = makeConnCtx(room, { playerId: 'p1' });
+    registerActionHandlers(f.ctx);
+    withRandom(0.9, () =>
+      f.invoke('action:use', {
+        mapId: 'm1',
+        tokenId: 't1',
+        actionId: BAIT_AND_SWITCH_ACTION,
+        targetIds: ['t2'],
+        slot: 'bonus',
+        variant: 'ally',
+      })
+    );
+    const error = f.emitted.find((e) => e.event === 'chat:error')?.payload as { code?: string } | undefined;
+    expect(error?.code).toBe('targetUnwilling');
+    expect(room.resources.p1!.resources[0]!.current).toBe(4);
+    expect(room.scene.maps[0]!.combat.turns.e1!.bonusActionUsed).toBe(false);
+    expect(room.scene.maps[0]!.combat.turns.e1!.movementUsed).toBe(0);
+    expect(fighter.x).toBe(50);
+    expect(enemy.x).toBe(100);
+  });
 });
 
 describe('Знай врага', () => {

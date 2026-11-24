@@ -4,6 +4,7 @@ import {
   fighterLevelOf,
   gridDistanceFeet,
   gridOfMap,
+  hostileTokens,
   isIncapacitated,
   MANEUVER_ACTION_PREFIX,
   rollDice,
@@ -58,6 +59,8 @@ export function baitAndSwitchIssue(
   if (!map || !target || target.id === token.id || isIncapacitated(target.conditions)) {
     return { code: 'spellNoTarget' };
   }
+  // Обмен — только с согласной целью: враждебное существо не соглашается (XPHB).
+  if (hostileTokens(token, target)) return { code: 'targetUnwilling' };
   const grid = gridOfMap(map, room.scene.grid);
   const feet = gridDistanceFeet(token, target, grid.size);
   if (feet > 5) return { code: 'outOfRange', params: { feet: Math.round(feet) } };

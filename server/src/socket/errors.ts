@@ -70,6 +70,7 @@ export type ErrorCode =
   | 'markTargetAlive'
   | 'nothingToWake'
   | 'helpHostile'
+  | 'targetUnwilling'
   | 'targetSaved'
   | 'reviveNotDead'
   | 'stabilizeNotDying'
