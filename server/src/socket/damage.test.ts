@@ -38,6 +38,32 @@ describe('applyDamage: составной урон', () => {
     expect(target.hpCurrent).toBe(37);
   });
 
+  it('Searing Spellfire: излучение игнорирует сопротивление', () => {
+    const target = makeToken('t1', {
+      hpMax: '50',
+      hpCurrent: 50,
+      damageDefenses: [{ id: 'd1', type: 'resistance', damageType: 'radiant' }],
+    });
+    const attacker = makeToken('t2', {
+      effects: [
+        {
+          id: 'sf',
+          name: 'Searing Spellfire',
+          duration: { type: 'permanent' },
+          modifiers: [],
+          ignoreResistances: ['radiant'],
+        },
+      ],
+    });
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens.push(target, attacker);
+    const f = makeConnCtx(room, { dm: true });
+
+    const result = applyDamage(f.ctx, { target, mapId: 'm1', amount: 10, damageType: 'radiant', attacker });
+    expect(result.amount).toBe(10);
+    expect(target.hpCurrent).toBe(40);
+  });
+
   it('части без типа наследуют основной тип атаки', () => {
     const { target, ctx } = setup([{ id: 'd1', type: 'resistance', damageType: 'slashing' }]);
     const result = applyDamage(ctx, {

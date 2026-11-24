@@ -14,6 +14,25 @@ const BASE = 'https://raw.githubusercontent.com/5etools-mirror-3/5etools-src/mai
 
 type FeatCategory = 'origin' | 'general' | 'fightingStyle';
 
+/** Дополнительные источники: точечный allowlist (FRHoF и т.п.). */
+const EXTRA_SOURCES: Record<string, Set<string>> = {
+  FRHoF: new Set(['Spellfire Adept']),
+};
+
+/** Ручные требования для дополнительных источников (парсер XPHB не трогаем). */
+const EXTRA_PREREQS: Record<string, { levelReq?: number; prereq?: string }> = {
+  'FRHoF:Spellfire Adept': {
+    levelReq: 4,
+    prereq: 'Level 4+, Spellfire Spark or Spellcasting/Pact Magic',
+  },
+};
+
+/** Текст, которого нет в базовых entries (ASI у FRHoF-фитов). */
+const EXTRA_TEXT: Record<string, string> = {
+  'FRHoF:Spellfire Adept':
+    'Ability Score Increase: Increase your Intelligence, Wisdom, or Charisma by 1, to a maximum of 20.',
+};
+
 const CATEGORIES: Record<string, FeatCategory> = {
   O: 'origin',
   G: 'general',
@@ -171,19 +190,24 @@ async function main() {
   const file = await fetchJson<{ feat?: RawFeat[] }>('feats.json');
   const feats: CatalogFeat[] = [];
   for (const raw of file.feat ?? []) {
-    if (raw.source !== 'XPHB') continue;
+    const source = raw.source;
+    if (!source) continue;
+    const name = String(raw.name ?? '').split('|')[0]!.trim();
+    if (!name) continue;
+    const allowed = source === 'XPHB' || EXTRA_SOURCES[source]?.has(name);
+    if (!allowed) continue;
     const category = CATEGORIES[raw.category ?? ''];
-    if (!category || !raw.name) continue;
-    const name = String(raw.name).split('|')[0]!.trim();
+    if (!category) continue;
+    const extraPrereq = EXTRA_PREREQS[`${source}:${name}`];
     feats.push({
-      key: `XPHB:${camel(name)}`,
+      key: `${source}:${camel(name)}`,
       name,
       category,
-      ...prerequisiteOf(raw),
+      ...(extraPrereq ?? prerequisiteOf(raw)),
       ...(raw.repeatable ? { repeatable: true } : {}),
       ...(abilityChooseOf(raw) ? { abilityChoose: abilityChooseOf(raw) } : {}),
       ...(spellListsOf(raw) ? { spellLists: spellListsOf(raw) } : {}),
-      description: descriptionOf(raw),
+      description: [EXTRA_TEXT[`${source}:${name}`], descriptionOf(raw)].filter(Boolean).join('\n\n'),
     });
   }
   feats.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));

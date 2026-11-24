@@ -26,6 +26,7 @@ import { pushRollMessage, pushSaveMessage } from '../messages';
 import { casterStatsFor } from '../spellStats';
 import { resolveCatSpring } from '../catSpring';
 import { resolveSpellCast, validateSpellCast, type SpellCastInput } from '../spellResolve';
+import { applySpellfire, spellfireOptions } from '../spellfire';
 import { openReactionWindow, type ReactionOfferInput } from './queue';
 import {
   audienceOf,
@@ -297,7 +298,52 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
   const room = ctx.getRoom();
   const resolve = () =>
     input.spell.key === CAT_SPRING_KEY ? resolveCatSpring(ctx, input) : resolveSpellCast(ctx, input);
-  if (!room) return resolve();
+  // Fueled Spellfire: типизированный хук урона — окно выбора 1–2 костей хитов до резолва.
+  const resolveWithSpellfire = (): { error?: ErrorPayload } => {
+    const currentRoom = ctx.getRoom();
+    if (!currentRoom) return resolve();
+    if (input.spell.key === CAT_SPRING_KEY) return resolve();
+    const def = automationForSpell(input.spell, {
+      castLevel: input.castLevel,
+      characterLevel: input.characterLevel,
+      spellMod: input.stats?.mod,
+      invocations: sheetOfToken(currentRoom, input.caster).sheet?.invocations,
+      variant: input.variant,
+    });
+    const options = spellfireOptions(currentRoom, input.mapId, input.caster, def);
+    if (!options) return resolve();
+    const opened = openReactionWindow(ctx, currentRoom, {
+      mapId: input.mapId,
+      trigger: 'spellCast',
+      sourceName: `${input.caster.name}: Питаемое пламя`,
+      offers: [
+        {
+          token: input.caster,
+          audience: audienceOf(ctx, currentRoom, input.mapId, input.caster),
+          options: options.map((count) => ({
+            id: `spellfire:${count}`,
+            name: `Питаемое пламя (${count} к.х.)`,
+            kind: 'feature' as const,
+          })),
+          apply: (choice: ReactionChoice): boolean => {
+            const after = ctx.getRoom();
+            if (!after || !choice.optionId) return true;
+            const count = Number(choice.optionId.slice('spellfire:'.length));
+            if (count === 1 || count === 2) {
+              const bonus = applySpellfire(ctx, after, input.mapId, input.caster, count);
+              if (bonus !== null) input.fueledBonus = bonus;
+            }
+            return false;
+          },
+        },
+      ],
+      done: () => {
+        if (ctx.getRoom()) resolve();
+      },
+    });
+    return opened ? {} : resolve();
+  };
+  if (!room) return resolveWithSpellfire();
   let countered = false;
   const offers = counterspellOffers(ctx, room, input).map((offer) => ({
     ...offer,
@@ -314,7 +360,7 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
       return false;
     },
   }));
-  if (!offers.length) return resolve();
+  if (!offers.length) return resolveWithSpellfire();
   const opened = openReactionWindow(ctx, room, {
     mapId: input.mapId,
     trigger: 'spellCast',
@@ -323,8 +369,8 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
     done: () => {
       if (countered) return;
       const currentRoom = ctx.getRoom();
-      if (currentRoom) resolve();
+      if (currentRoom) resolveWithSpellfire();
     },
   });
-  return opened ? {} : resolve();
+  return opened ? {} : resolveWithSpellfire();
 }

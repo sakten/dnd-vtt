@@ -1,6 +1,7 @@
 import {
   applyDamageToParts,
   healBlocked,
+  ignoredResistanceTypes,
   retaliationOf,
   rollDice,
   statNumber,
@@ -51,6 +52,8 @@ export interface ApplyDamageInput {
   melee?: boolean;
   /** Урон нельзя уменьшить: защиты, Resistance и перенос Warding Bond пропускаются. */
   unreducible?: boolean;
+  /** Типы урона, чьё сопротивление игнорируется (Searing Spellfire). */
+  ignoreResistances?: string[];
 }
 
 /** Есть ли у токена учёт HP: свои max HP или ресурсы персонажа-контролёра. */
@@ -69,7 +72,15 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
   const { target, mapId, damageType } = input;
   const kind = input.kind ?? 'damage';
 
-  const defenses = target ? ctx.manager.damageDefensesForToken(room, target) : [];
+  const ignored = new Set([
+    ...(input.ignoreResistances ?? []),
+    ...ignoredResistanceTypes(input.attacker?.effects),
+  ]);
+  const defenses = target
+    ? ctx.manager
+        .damageDefensesForToken(room, target)
+        .filter((defense) => !(defense.type === 'resistance' && ignored.has(defense.damageType)))
+    : [];
   const groups =
     kind === 'heal' || !input.parts?.length
       ? [{ amount: input.amount, ...(damageType ? { damageType } : {}) }]

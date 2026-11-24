@@ -26,6 +26,8 @@ export interface TurnState {
   movementMax: number;
   /** Последняя учтённая скорость (для пересчёта движения при баффах/дебаффах). */
   speed?: number;
+  /** Fueled Spellfire: хук урона излучением уже использован в этом ходу. */
+  spellfireUsed?: boolean;
   /** Доп. действия/бонусные от эффектов (например, Haste). */
   extraActions: number;
   extraBonusActions: number;

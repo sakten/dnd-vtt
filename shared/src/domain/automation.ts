@@ -178,6 +178,8 @@ export interface AutomationEffect {
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */
   ignoresDifficultTerrain?: boolean;
+  /** Типы урона, сопротивление к которым игнорируется (Searing Spellfire). */
+  ignoreResistances?: string[];
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
   /**
@@ -248,8 +250,9 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
       : undefined,
     shadowBlade: def.shadowBlade ? { ...def.shadowBlade } : undefined,
     immuneToSpeedReduction: def.immuneToSpeedReduction,
-    ignoresDifficultTerrain: def.ignoresDifficultTerrain,
-    seesInvisible: def.seesInvisible,
+  ignoresDifficultTerrain: def.ignoresDifficultTerrain,
+  ignoreResistances: def.ignoreResistances ? [...def.ignoreResistances] : undefined,
+  seesInvisible: def.seesInvisible,
     dominates: def.dominates,
     charges: def.charges ? { remaining: def.charges.count, on: def.charges.on } : undefined,
     zephyrStrike: def.zephyrStrike ? { ...def.zephyrStrike } : undefined,

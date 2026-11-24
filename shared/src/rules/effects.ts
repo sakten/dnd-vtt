@@ -364,6 +364,15 @@ export function conditionImmunities(effects: EffectInstance[] | undefined): Set<
   return out;
 }
 
+/** Типы урона, сопротивление к которым игнорируется уроном носителя (Searing Spellfire). */
+export function ignoredResistanceTypes(effects: EffectInstance[] | undefined): string[] {
+  const out = new Set<string>();
+  for (const effect of effects ?? []) {
+    for (const type of effect.ignoreResistances ?? []) out.add(type);
+  }
+  return [...out];
+}
+
 /** Иммунитет к состоянию только от существа указанного типа (Protection from Evil and Good). */
 export function immuneFromSource(
   effects: EffectInstance[] | undefined,

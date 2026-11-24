@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { FEATS, featByKey, featChoiceEffects, featMechanicsImplemented, featSpellGrants, featsByCategory } from './feats';
+import { automationDamageTypes, damageTypeHooksFor } from './damageHooks';
 import { casterStats } from './spellCast';
+import type { AutomationDef } from '../domain/automation';
 
 describe('каталог фитов PHB24 (feats.json)', () => {
   it('Magic Initiate: три списка и выбор способности', () => {
@@ -23,6 +25,26 @@ describe('каталог фитов PHB24 (feats.json)', () => {
     expect(featMechanicsImplemented('XPHB:alert')).toBe(true);
     expect(featMechanicsImplemented('XPHB:magicInitiate')).toBe(true);
     expect(featMechanicsImplemented('XPHB:actor')).toBe(false);
+  });
+
+  it('Spellfire Adept: FRHoF, Searing и типизированный хук излучением', () => {
+    const feat = featByKey('FRHoF:spellfireAdept');
+    expect(feat).toMatchObject({ category: 'general', levelReq: 4 });
+    expect(feat?.description).toContain('Fueled Spellfire');
+    expect(featMechanicsImplemented('FRHoF:spellfireAdept')).toBe(true);
+    const effects = featChoiceEffects([{ kind: 'feat', key: 'FRHoF:spellfireAdept' }], []);
+    expect(effects[0]?.effects[0]?.ignoreResistances).toEqual(['radiant']);
+
+    const def: AutomationDef = {
+      key: 'XPHB:Sacred Flame',
+      name: 'Sacred Flame',
+      resolution: 'save',
+      damage: { dice: '1d8', types: ['radiant'] },
+    };
+    expect(automationDamageTypes(def)).toContain('radiant');
+    expect(
+      damageTypeHooksFor([{ kind: 'feat', key: 'FRHoF:spellfireAdept' }], ['radiant']).map((h) => h.key)
+    ).toEqual(['FRHoF:spellfireAdept']);
   });
 });
 

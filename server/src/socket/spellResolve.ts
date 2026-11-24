@@ -57,6 +57,8 @@ export interface SpellCastInput {
   /** Точка/направление каста (для создания зон). */
   origin?: { x: number; y: number } | null;
   direction?: { x: number; y: number } | null;
+  /** Fueled Spellfire: сумма костей хитов, добавленная к одному броску урона. */
+  fueledBonus?: number;
   /** Тонкая стена цепочкой панелей (Wall of Ice): узлы пути. */
   path?: { x: number; y: number }[];
   /** Тонкая стена: сторона выталкивания разрезанных существ. */
@@ -425,6 +427,11 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     invocations: sheetOfToken(room, input.caster).sheet?.invocations,
     variant: input.variant,
   });
+  const damage =
+    input.fueledBonus && def.damage?.dice
+      ? { ...def.damage, dice: `${def.damage.dice} + ${input.fueledBonus}` }
+      : undefined;
+  const resolvedDef = damage ? { ...def, damage } : def;
   // Клинки-кантрипы: атака оружием правой руки, а не заклинательный резолв.
   if (def.weaponAttack) {
     runBladeCantrip(ctx, room, input, def);
@@ -433,7 +440,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
   executeAutomation(ctx, {
     caster: input.caster,
     mapId: input.mapId,
-    def,
+    def: resolvedDef,
     targets: input.targets.filter((t) => !!t),
     stats: input.stats,
     author: input.author,

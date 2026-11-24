@@ -401,6 +401,14 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
     if (triggers) effect.triggers = triggers;
     if (e.immuneToSpeedReduction === true) effect.immuneToSpeedReduction = true;
     if (e.ignoresDifficultTerrain === true) effect.ignoresDifficultTerrain = true;
+    if (Array.isArray(e.ignoreResistances)) {
+      const types = [
+        ...new Set(
+          e.ignoreResistances.filter((type): type is string => typeof type === 'string' && DAMAGE_KEYS.has(type))
+        ),
+      ].slice(0, 4);
+      if (types.length) effect.ignoreResistances = types;
+    }
     if (e.seesInvisible === true) effect.seesInvisible = true;
     if (typeof e.viewFrom === 'string' && e.viewFrom) effect.viewFrom = e.viewFrom.slice(0, 80);
     if (e.banish && typeof e.banish === 'object') {

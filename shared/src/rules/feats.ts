@@ -63,6 +63,19 @@ const FEAT_MECHANICS: Record<string, FeatMechanicsSource> = {
       permanentEffect('Бдительный', [{ target: 'initiative', mode: 'add', value: proficiencyBonus(totalLevel(classes)) }]),
     ],
   }),
+  // Адепт чародейского пламени: урон излучением игнорирует сопротивление (Searing Spellfire).
+  'FRHoF:spellfireAdept': () => ({
+    key: 'FRHoF:spellfireAdept',
+    name: 'Адепт чародейского пламени',
+    effects: [
+      {
+        name: 'Обжигающее пламя заклинаний',
+        duration: { type: 'permanent' },
+        modifiers: [],
+        ignoreResistances: ['radiant'],
+      },
+    ],
+  }),
 };
 
 /** Пассивные эффекты фитов персонажа (Tough, Alert и подобные). */

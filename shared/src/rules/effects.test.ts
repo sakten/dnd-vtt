@@ -605,6 +605,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       shadowBlade: { dice: '3d8', inHand: false },
       immuneToSpeedReduction: true,
       ignoresDifficultTerrain: true,
+      ignoreResistances: ['radiant'],
       seesInvisible: true,
       dominates: true,
       charges: { count: 12, on: 'rangedWeaponAttack' },

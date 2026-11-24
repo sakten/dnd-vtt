@@ -4,6 +4,7 @@ import {
   bestiaryTokenFields,
   characterLevel,
   gridDistanceFeet,
+  ignoredResistanceTypes,
   isBanished,
   maximizeHealing,
   maximizedRollTotal,
@@ -281,6 +282,7 @@ export function applyResult(
     ...(run.healing ? {} : { parts }),
     ...(opts.silent ? {} : { roll, author: run.author, params: { subject: opts.subject ?? run.subject, damageType: run.damageType } }),
     kind: opts.kind ?? (run.healing ? 'heal' : 'damage'),
+    ignoreResistances: ignoredResistanceTypes(run.caster.effects),
     ...(opts.halve !== undefined ? { halve: opts.halve } : mods?.halveDamage ? { halve: true } : {}),
     ...(opts.crit !== undefined && { crit: opts.crit }),
     // Ближние заклинательные атаки (Shocking Grasp/Vampiric Touch) — триггер ответок цели.

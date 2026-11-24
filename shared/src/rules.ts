@@ -8,6 +8,7 @@ export * from './rules/bestiaryIcon';
 export * from './rules/creatureArt';
 export * from './rules/classActions';
 export * from './rules/conditions';
+export * from './rules/damageHooks';
 export * from './rules/feats';
 export * from './rules/classes';
 export * from './rules/combat';

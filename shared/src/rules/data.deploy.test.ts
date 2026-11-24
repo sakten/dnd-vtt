@@ -39,7 +39,7 @@ const HASHES = {
   subclassSpells: '0538db9846fc0bec',
   features: 'd78e880ad9f8c0c4',
   weapons: '7910a91430bd729f',
-  feats: 'f8d310ec0a56a339',
+  feats: 'd9508d12f40455c9',
   bestiary: 'b1692a1f409a3026',
   invocations: '7efff7e520cc92ad',
   maneuvers: '98e5b88e86c01a3a',
@@ -194,10 +194,12 @@ describe('снимок данных', () => {
     };
     expect(data.feats.length).toBe(data.count);
     const cats = new Set(['origin', 'general', 'fightingStyle']);
+    // Точечные дополнительные источники (Feats вне PHB'24).
+    const extraSources = new Set(['FRHoF:spellfireAdept']);
     const bad: string[] = [];
     const seen = new Set<string>();
     for (const f of data.feats) {
-      if (!f.key.startsWith('XPHB:')) bad.push(`${f.key}: источник`);
+      if (!f.key.startsWith('XPHB:') && !extraSources.has(f.key)) bad.push(`${f.key}: источник`);
       if (seen.has(f.key)) bad.push(`${f.key}: дубль`);
       seen.add(f.key);
       if (!f.name || !f.description) bad.push(`${f.key}: имя/описание`);

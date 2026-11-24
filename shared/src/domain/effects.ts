@@ -351,6 +351,8 @@ export interface EffectInstance {
   immuneToSpeedReduction?: boolean;
   /** Сложная местность (и союзники) не замедляют (Freedom of Movement). */
   ignoresDifficultTerrain?: boolean;
+  /** Типы урона, сопротивление к которым игнорируется уроном носителя (Searing Spellfire). */
+  ignoreResistances?: string[];
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
   /**
