@@ -1043,7 +1043,9 @@ export default function ActionPanel() {
             {t(
               choicePrompt.action.id === BAIT_AND_SWITCH_ACTION
                 ? 'ui.maneuvers.chooseRecipient'
-                : 'ui.action.chooseCondition'
+                : choicePrompt.action.id === CELESTIAL_REVELATION_ID
+                  ? 'ui.race.chooseRevelation'
+                  : 'ui.action.chooseCondition'
             )}
           </div>
           <div className="ap-icons">

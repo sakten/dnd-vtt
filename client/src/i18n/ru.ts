@@ -543,6 +543,7 @@ export const ru = {
   'ui.race.revelation.wings': 'Небесные крылья',
   'ui.race.revelation.radiance': 'Внутреннее сияние',
   'ui.race.revelation.shroud': 'Некротический саван',
+  'ui.race.chooseRevelation': 'Выберите облик',
   'ui.sheet.namePlaceholder': 'Необязательно',
   'ui.sheet.classes': 'Классы (до {max})',
   'ui.sheet.class': 'Класс',

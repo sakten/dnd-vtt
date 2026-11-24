@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Circle, Group, Line } from 'react-konva';
 import type { Token } from 'shared';
 
@@ -12,7 +13,7 @@ function wingStyleOf(token: Token): WingStyle {
 }
 
 /** Статические крылья позади круглого токена (без анимации). */
-export default function TokenWings({ token }: { token: Token }) {
+export default memo(function TokenWings({ token }: { token: Token }) {
   if (!token.round) return null;
   const R = token.w / 2;
   const style = wingStyleOf(token);
@@ -44,9 +45,6 @@ export default function TokenWings({ token }: { token: Token }) {
               stroke="#94a9cf"
               strokeWidth={1.4}
               opacity={feather.opacity}
-              shadowColor="#9fc2ff"
-              shadowBlur={8}
-              shadowOpacity={0.55}
             />
           ))
         )}
@@ -73,9 +71,6 @@ export default function TokenWings({ token }: { token: Token }) {
               stroke="#b78cff"
               strokeWidth={2}
               opacity={0.88}
-              shadowColor="#8f5cff"
-              shadowBlur={8}
-              shadowOpacity={0.45}
             />
             <Line
               points={[
@@ -125,9 +120,6 @@ export default function TokenWings({ token }: { token: Token }) {
             opacity={0.2}
             stroke="#9fe8ff"
             strokeWidth={2}
-            shadowColor="#66d9ff"
-            shadowBlur={12}
-            shadowOpacity={0.8}
           />
           <Line
             closed
@@ -154,4 +146,4 @@ export default function TokenWings({ token }: { token: Token }) {
       ))}
     </Group>
   );
-}
+});
