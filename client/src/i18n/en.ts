@@ -1149,6 +1149,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.constructor.usage.endOfTurn': 'end of turn',
   'ui.constructor.usage.enter': 'enter the zone',
   'ui.constructor.usage.exit': 'exit the zone',
+  'ui.constructor.usage.move': 'first move in the zone',
   'ui.constructor.usage.onCreate': 'on creation',
   'ui.constructor.usage.aura': 'aura',
   'ui.constructor.usage.heal': 'healing',

@@ -26,7 +26,7 @@ negative-прогон) — `AGENTS.md`, «FX-эффекты»
 
 ## Зоны (Web, HoH, Spirit Guardians)
 
-сервер `socket/zones.ts` (`createZoneFromDef`/`tickZones`/`handleMovementZones`/`removeZonesOfSource`; `enterOncePerTurn` — «раз за ход» и для endOfTurn; payload с `parts`; заряды `charges` — Cordon/Healing Spirit,
+сервер `socket/zones.ts` (`createZoneFromDef`/`tickZones`/`handleMovementZones`/`removeZonesOfSource`; `enterOncePerTurn` — «раз за ход» и для endOfTurn; триггер `move` — первый за свой ход шаг, начавшийся/закончившийся в зоне (не пуш); payload с `parts`; заряды `charges` — Cordon/Healing Spirit,
 разовый `onCreate` при появлении — Storm Sphere, `excludeCreatureTypes`; аура/триггеры фильтруются `side`/`excludeSource`), `socket/effectsApply.ts` (`applyEffectTo`/`removeZoneEffects`), оси тонкой стены — независимы:
 `zone.wall.blocksMovement`/`blocksLineOfSight`/`blocksActions` (`zoneWalls.ts` → `Wall.blocksMovement`/`kind`/`blocksActions`, `rules/walls.ts blocks()`), геометрия `shared/src/rules/areas.ts`
 (`areaCells`/`tokensInArea`/`tokenFullyInArea`; `ring` — кольцо с безопасной серединой), флаги `movementCost` (×4, Wall of Thorns) и `obscured: heavy` (мгла) — `rules/movement.ts`/`rules/vision.ts`, клиент
@@ -40,6 +40,7 @@ negative-прогон) — `AGENTS.md`, «FX-эффекты»
 ## Данные заклинаний
 
 `shared/src/data/spells.json` (мета-снимок 5e.tools, `npm run spells`) + `shared/src/data/catalog.json` (канонические записи `SpellDef = meta + автоматизация`, `npm run catalog`, источник `spellsData`) +
+`shared/src/data/homebrew/spells.json` (ручные homebrew-записи `HB:*`, вливаются в `spellsData` вместе с `cbt/spells.json`) +
 `rules/spells.ts`/`spellsData.ts`; замок — `rules/data.deploy.test.ts` (`npm run test:deploy`), не перегенерировать без нужды (после `npm run spells` — `npm run catalog`)
 
 ## Призывы (Summon-*, Find Familiar)

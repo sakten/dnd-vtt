@@ -42,14 +42,18 @@ export interface AutomationSave {
  * цель заклинания (независимо от исхода её сейва).
  */
 export interface AttackBurst {
-  /** Радиус от центра, футы. */
+  /** Радиус от цели, футы. */
   rangeFeet: number;
-  /** Кости урона (со скейлом); нет — без урона. */
+  /** Кости урона (в спеке); нет — без урона. */
   dice?: string;
   damageType: string;
   save?: { ability: AbilityKey; half?: boolean };
-  /** Радиус бьёт и по основной цели (Ice Knife: «цель и существа вокруг»). */
+  /** Включать саму цель в её вспышку (Ice Knife: «цель и существа рядом»). */
   includePrimary?: boolean;
+  /** Вспышка — доля чистого броска урона цели (Conjure Cannonball: 0.5). */
+  shareOfPrimary?: number;
+  /** Вспышка только после попадания (промах не взрывает). */
+  onHitOnly?: boolean;
 }
 
 export interface AutomationDice {
@@ -369,6 +373,7 @@ export interface ZoneDef {
   triggers?: {
     enter?: AutomationPayload;
     exit?: AutomationPayload;
+    move?: AutomationPayload;
     startOfTurn?: AutomationPayload;
     endOfTurn?: AutomationPayload;
   };
@@ -437,6 +442,7 @@ export interface ZoneInstance {
   triggers?: {
     enter?: AutomationPayload;
     exit?: AutomationPayload;
+    move?: AutomationPayload;
     startOfTurn?: AutomationPayload;
     endOfTurn?: AutomationPayload;
   };
@@ -453,6 +459,7 @@ export interface ZoneInstance {
   occupants?: string[];
   /** Ключ хода, на котором токен уже входил (для `enterOncePerTurn`). */
   enteredThisTurn?: Record<string, string>;
+  movedThisTurn?: Record<string, string>;
 }
 
 export interface SummonDef {

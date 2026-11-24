@@ -95,7 +95,8 @@ export function runBurst(
   source: { key: string; name: string },
   burst: AttackBurst,
   stats: SpellStats | null,
-  author: string
+  author: string,
+  primaryDamage?: number
 ): void {
   const save = burst.save;
   if (!save) return;
@@ -106,12 +107,18 @@ export function runBurst(
     (t) => (burst.includePrimary === true || t.id !== center.id) && !isBanished(t)
   );
   if (!targets.length) return;
+  const shareDamage =
+    burst.shareOfPrimary !== undefined
+      ? Math.max(0, Math.floor((primaryDamage ?? 0) * burst.shareOfPrimary))
+      : undefined;
+  if (shareDamage !== undefined && shareDamage <= 0) return;
+  const dice = shareDamage !== undefined ? String(shareDamage) : burst.dice;
   const def: AutomationDef = {
     key: source.key,
     name: source.name,
     resolution: 'save',
     save: { ability: save.ability, half: save.half !== false },
-    ...(burst.dice ? { damage: { dice: burst.dice, types: [burst.damageType] } } : {}),
+    ...(dice ? { damage: { dice, types: [burst.damageType] } } : {}),
   };
   executeAutomation(ctx, { caster: attacker, mapId, def, targets, stats, author });
 }
@@ -266,20 +273,23 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
     const windowPlan = { attacker: caster, attackerMapId: mapId, target, targetMapId: mapId, damageType, rangeType };
     const nextRay = () => resolveRay(i + 1);
     /** После броска луча: взрыв осколка (Ice Knife) — и следующий луч. */
-    const afterRay = () => {
-      if (def.burst) runBurst(ctx, room, mapId, caster, target, def, def.burst, stats, author);
+    const afterRay = (hit: boolean, primaryDamage?: number) => {
+      if (def.burst && (!def.burst.onHitOnly || hit)) {
+        runBurst(ctx, room, mapId, caster, target, def, def.burst, stats, author, primaryDamage);
+      }
       nextRay();
     };
+    const afterHit = (primaryDamage?: number) => afterRay(true, primaryDamage);
     /** Промах: Melf's Acid Arrow брызжет половиной первичного урона. */
     const afterMiss = () => {
       if (def.halfOnMiss && expression) {
         applyResult(run, target, rollDice(expression), { halve: true, subject: label });
       }
-      afterRay();
+      afterRay(false);
     };
 
     /** Урон и эффекты луча; выполняется после окон (промах мог стать попаданием). */
-    const applyRayHit = (mods: WeaponDamageMods, done: () => void) => {
+    const applyRayHit = (mods: WeaponDamageMods, done: (primaryDamage?: number) => void) => {
       // Mirror Image: попадание может принять образ вместо цели.
       if (misdirectCheck(ctx, room, mapId, target, caster)) return done();
       let damageRoll: DiceRollResult | undefined;
@@ -315,7 +325,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       }
       applyTargetEffects(run, target, stats);
       if (def.force) applyForcedMovement(ctx, room, mapId, caster, target, def.force);
-      done();
+      done(damageRoll?.total);
     };
 
     /**
@@ -350,7 +360,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
           total,
           (ok, mods) => {
             if (ok) {
-              applyRayHit(mods ?? {}, afterRay);
+              applyRayHit(mods ?? {}, afterHit);
               return;
             }
             // Ещё одна защитная реакция подняла AC — снова окно промаха.
@@ -371,12 +381,12 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
     // Попадание: окно защитных реакций цели и защитников-союзников.
     withHitWindows(hit.hitRoll.total + penalty, (ok, mods) => {
       if (ok) {
-        applyRayHit(mods ?? {}, afterRay);
+        applyRayHit(mods ?? {}, afterHit);
         return;
       }
       // Shield превратил попадание в промах — окно промаха, иначе половина урона (Melf).
       const acNow = ctx.manager.acForToken(room, target) + (mods?.extraAc ?? 0);
-      if (!openMissWindows(hit.hitRoll.total + penalty, acNow, mods ?? {})) afterRay();
+      if (!openMissWindows(hit.hitRoll.total + penalty, acNow, mods ?? {})) afterRay(false);
     });
   };
 

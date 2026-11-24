@@ -126,7 +126,7 @@ export function copyRecord(base: SpellDef, suffix: string): SpellDef {
 
 /** I18n-ключ слота срабатывания части урона по пути ссылки `{ref:'part'}` в автоматизации. */
 function partUsageKey(path: string[]): string | undefined {
-  const TRIGGER_SLOTS = new Set(['startOfTurn', 'endOfTurn', 'enter', 'exit']);
+  const TRIGGER_SLOTS = new Set(['startOfTurn', 'endOfTurn', 'enter', 'exit', 'move']);
   const trigger = path.indexOf('triggers');
   if (trigger >= 0) {
     const slot = path[trigger + 1];
@@ -282,7 +282,7 @@ export function patchZone(record: SpellDef, patch: Partial<ZoneSpec> | null): Sp
   return { ...record, automation };
 }
 
-export const ZONE_SLOTS = ['enter', 'exit', 'startOfTurn', 'endOfTurn'] as const;
+export const ZONE_SLOTS = ['enter', 'exit', 'move', 'startOfTurn', 'endOfTurn'] as const;
 export type ZoneSlot = (typeof ZONE_SLOTS)[number];
 
 /** Включение/выключение слота триггера зоны (по умолчанию — `containment: anyCell`). */

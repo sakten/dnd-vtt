@@ -1,0 +1,101 @@
+{
+  "attribution": "Mireball and Conjure Cannonball — homebrew (HB). Short mechanical summaries added by the table owner.",
+  "count": 2,
+  "spells": [
+    {
+      "key": "HB:Mireball",
+      "name": "Mireball",
+      "source": "HB",
+      "level": 3,
+      "school": "Conjuration",
+      "time": [{ "number": 1, "unit": "action" }],
+      "range": { "type": "point", "distance": { "type": "feet", "amount": 150 } },
+      "components": { "v": true, "s": true, "m": "a tiny ball of guano and mud" },
+      "duration": [{ "type": "timed", "duration": { "type": "minute", "amount": 1 } }],
+      "classes": ["bard", "druid", "sorcerer", "warlock"],
+      "area": ["S"],
+      "areaSpec": { "shape": "sphere", "size": 15 },
+      "damage": { "dice": ["3d10"], "types": ["bludgeoning"] },
+      "save": ["str"],
+      "saveHalf": true,
+      "upcast": { "above": 3, "dice": "1d10" },
+      "description": [
+        "A blob of gloopy mud splunks from your pointed finger to a point you choose within range, where it splooges with a wet burp into an explosion of sludge. Each creature in a 15-foot-radius sphere centred on that point must make a Strength saving throw. On a failed save, a target takes 3d10 bludgeoning damage and is knocked prone. On a successful one, it takes half as much damage and is not knocked prone.",
+        "In addition, all surfaces within the area become covered in unpredictably slick and sticky patches of mud for the duration. The first time a creature moves through the muddy area on its turn, it must succeed on a Dexterity saving throw against your spell save DC or fall prone. A creature moving through the area at half speed doesn't need to make the saving throw."
+      ],
+      "higherLevel": [
+        "When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d10 for each slot level above 3rd."
+      ],
+      "automation": {
+        "primary": "effect",
+        "zone": {
+          "area": { "shape": "sphere", "size": 15 },
+          "origin": "point",
+          "duration": { "type": "rounds", "rounds": 10 },
+          "onCreate": {
+            "save": { "ability": "str", "half": true },
+            "damage": { "dice": { "ref": "spellDamage" }, "types": ["bludgeoning"] },
+            "effects": [
+              {
+                "id": "mireballBlast",
+                "name": "Mireball",
+                "duration": { "type": "permanent" },
+                "to": "targets",
+                "modifiers": [],
+                "conditions": ["prone"]
+              }
+            ]
+          },
+          "triggers": {
+            "move": {
+              "save": { "ability": "dex" },
+              "effects": [
+                {
+                  "id": "mireballMud",
+                  "name": "Mireball",
+                  "duration": { "type": "permanent" },
+                  "to": "targets",
+                  "modifiers": [],
+                  "conditions": ["prone"]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "HB:Conjure Cannonball",
+      "name": "Conjure Cannonball",
+      "source": "HB",
+      "level": 3,
+      "school": "Conjuration",
+      "time": [{ "number": 1, "unit": "action" }],
+      "range": { "type": "point", "distance": { "type": "feet", "amount": 600 } },
+      "components": { "v": true, "s": true, "m": "a small replica cannon" },
+      "duration": [{ "type": "instant" }],
+      "classes": ["sorcerer", "wizard"],
+      "damage": { "dice": ["5d10"], "types": ["bludgeoning"] },
+      "spellAttack": "ranged",
+      "upcast": { "above": 3, "dice": "1d10" },
+      "description": [
+        "You summon a cannonball, mid-flight and at full velocity, which explodes on impact. Make a ranged spell attack roll against a target you can see within range. On a hit, the target takes 5d10 bludgeoning damage and an explosion extends from it in a 5-foot Emanation. Each creature other than the target within the Emanation makes a Dexterity saving throw, taking half as much damage as the target on a failed save."
+      ],
+      "higherLevel": [
+        "When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d10 for each slot level above 3rd."
+      ],
+      "automation": {
+        "primary": "attack",
+        "attack": { "rangeType": "ranged" },
+        "damage": { "dice": { "ref": "spellDamage" }, "types": ["bludgeoning"] },
+        "burst": {
+          "rangeFeet": 5,
+          "damageType": "bludgeoning",
+          "shareOfPrimary": 0.5,
+          "save": { "ability": "dex", "half": false },
+          "onHitOnly": true
+        }
+      }
+    }
+  ]
+}

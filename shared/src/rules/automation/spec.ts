@@ -205,6 +205,7 @@ export interface ZoneSpec
   triggers?: {
     enter?: PayloadSpec;
     exit?: PayloadSpec;
+    move?: PayloadSpec;
     startOfTurn?: PayloadSpec;
     endOfTurn?: PayloadSpec;
   };
@@ -483,6 +484,8 @@ export interface AutomationSpec {
     damageType: ValueExpr;
     save?: AutomationSave;
     includePrimary?: boolean;
+    shareOfPrimary?: number;
+    onHitOnly?: boolean;
   };
   targeting?: ActionTargeting;
   /** Утилита спека (телепорт, scatter, tempHp): кости провала/вспышки — ссылки. */

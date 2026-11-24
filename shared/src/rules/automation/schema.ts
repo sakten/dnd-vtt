@@ -1106,6 +1106,7 @@ const zoneSpec: Record<string, unknown> = {
       properties: {
         enter: { $ref: '#/$defs/payloadSpec' },
         exit: { $ref: '#/$defs/payloadSpec' },
+        move: { $ref: '#/$defs/payloadSpec' },
         startOfTurn: { $ref: '#/$defs/payloadSpec' },
         endOfTurn: { $ref: '#/$defs/payloadSpec' },
       },
@@ -1280,6 +1281,8 @@ const automation: Record<string, unknown> = {
         damageType: { $ref: '#/$defs/valueExpr' },
         save: { $ref: '#/$defs/save' },
         includePrimary: { type: 'boolean' },
+        shareOfPrimary: { type: 'number', minimum: 0, maximum: 1 },
+        onHitOnly: { type: 'boolean' },
       },
       required: ['rangeFeet', 'damageType'],
       additionalProperties: false,

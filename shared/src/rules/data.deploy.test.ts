@@ -12,6 +12,7 @@ import invocationsRaw from '../data/invocations.json';
 import maneuversRaw from '../data/maneuvers.json';
 import cbtFeaturesRaw from '../data/cbt/features.json';
 import cbtSpellsRaw from '../data/cbt/spells.json';
+import homebrewSpellsRaw from '../data/homebrew/spells.json';
 import type { BestiaryEntry } from '../domain/bestiary';
 import type { FeatureDef } from '../domain/feature';
 import type { InvocationsData } from '../domain/invocation';
@@ -20,7 +21,7 @@ import { parseDiceExpression } from '../dice';
 import { ATTACK_RIDERS } from './attackRiders';
 import { CLASSES } from './classes';
 import { CONDITION_KEYS } from './conditions';
-import { AUTOMATION_SPECS, type SpellDef } from './automation';
+import { AUTOMATION_SPECS, automationForSpell, type SpellDef } from './automation';
 import { INVOCATION_MECHANICS } from './invocations';
 import { MANEUVERS_META } from './maneuvers';
 import { ABSORB_SPELL_TYPES, REACTION_SPELL_TRIGGERS } from './reactions';
@@ -45,6 +46,7 @@ const HASHES = {
   maneuvers: '98e5b88e86c01a3a',
   cbtFeatures: 'b0e88c690dd3a755',
   cbtSpells: '96d57dc5ff0cccfc',
+  homebrewSpells: '72e94013664cf25a',
 };
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
@@ -115,6 +117,7 @@ describe('снимок данных', () => {
       maneuvers: hash(maneuversRaw),
       cbtFeatures: hash(cbtFeaturesRaw),
       cbtSpells: hash(cbtSpellsRaw),
+      homebrewSpells: hash(homebrewSpellsRaw),
     }).toEqual(HASHES);
   });
 
@@ -138,6 +141,47 @@ describe('снимок данных', () => {
     expect(hunter.automation?.primary).toBe('effect');
     expect(hunter.automation?.concentration).toBe(true);
     expect(hunter.classes).toEqual(['druid']);
+  });
+
+  it('homebrew: ручные записи HB целы и компилируются', () => {
+    const data = homebrewSpellsRaw as unknown as { attribution: string; count: number; spells: SpellDef[] };
+    expect(data.count).toBe(data.spells.length);
+    expect(new Set(data.spells.map((s) => s.key)).size).toBe(data.spells.length);
+    const bad: string[] = [];
+    for (const spell of data.spells) {
+      if (spell.source !== 'HB' || !spell.key.startsWith('HB:')) bad.push(`${spell.key}: источник`);
+      if (!Number.isInteger(spell.level) || spell.level < 0 || spell.level > 6) bad.push(`${spell.key}: уровень`);
+      if (!SCHOOLS.has(spell.school)) bad.push(`${spell.key}: школа ${spell.school}`);
+      if (spell.areaSpec && (!AREA_SHAPES.has(spell.areaSpec.shape) || !(spell.areaSpec.size > 0))) {
+        bad.push(`${spell.key}: areaSpec`);
+      }
+      for (const className of spell.classes) {
+        if (!(className in CLASSES)) bad.push(`${spell.key}: класс ${className}`);
+      }
+      if (!spell.description.length || spell.description.some((p) => !p)) bad.push(`${spell.key}: описание`);
+      try {
+        automationForSpell(spell, { castLevel: spell.level });
+      } catch (error) {
+        bad.push(`${spell.key}: ${(error as Error).message}`);
+      }
+    }
+    expect(bad).toEqual([]);
+    const mireball = data.spells.find((s) => s.key === 'HB:Mireball')!;
+    expect(mireball.automation.zone?.onCreate?.save).toEqual({ ability: 'str', half: true });
+    expect(mireball.automation.zone?.triggers?.move?.save).toEqual({ ability: 'dex' });
+    expect(mireball.automation.zone?.duration).toEqual({ type: 'rounds', rounds: 10 });
+
+    const cannon = data.spells.find((s) => s.key === 'HB:Conjure Cannonball')!;
+    const cannonDef = automationForSpell(cannon, { castLevel: 3, characterLevel: 5 });
+    expect(cannonDef.burst).toMatchObject({
+      rangeFeet: 5,
+      damageType: 'bludgeoning',
+      shareOfPrimary: 0.5,
+      onHitOnly: true,
+      save: { ability: 'dex', half: false },
+    });
+    const cannonUp = automationForSpell(cannon, { castLevel: 4, characterLevel: 5 });
+    expect(cannonUp.damage).toMatchObject({ dice: '5d10 + 1d10', types: ['bludgeoning'] });
   });
 
   it('maneuvers.json: контракт записей', () => {

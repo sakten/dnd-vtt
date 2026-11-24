@@ -1,6 +1,7 @@
 import type { SpellDef } from './rules/automation/materialize';
 import raw from './data/catalog.json';
 import cbtRaw from './data/cbt/spells.json';
+import homebrewRaw from './data/homebrew/spells.json';
 
 export interface SpellData {
   attribution: string;
@@ -15,10 +16,11 @@ export interface SpellData {
  */
 const catalog = raw as unknown as SpellData;
 const cbt = cbtRaw as unknown as SpellData;
+const homebrew = homebrewRaw as unknown as SpellData;
 const spellData: SpellData = {
   ...catalog,
-  count: catalog.spells.length + cbt.spells.length,
-  spells: [...catalog.spells, ...cbt.spells],
+  count: catalog.spells.length + cbt.spells.length + homebrew.spells.length,
+  spells: [...catalog.spells, ...cbt.spells, ...homebrew.spells],
 };
 
 export default spellData;

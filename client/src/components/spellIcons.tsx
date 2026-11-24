@@ -2940,6 +2940,37 @@ export const SPELL_ICONS: Record<string, ReactNode> = {
       <g fill="#eafaff"><circle cx="20" cy="48" r="2.4"/><circle cx="32" cy="52" r="2.4"/><circle cx="44" cy="48" r="2.4"/></g>
     </>
   ),
+  mireball: (
+    <>
+      <defs>
+        <radialGradient id="g-mb-ball" cx="42%" cy="36%" r="62%"><stop offset="0%" stopColor="#d2ab72"/><stop offset="55%" stopColor="#8a5a2e"/><stop offset="100%" stopColor="#452a12"/></radialGradient>
+        <radialGradient id="g-mb-glow" cx="50%" cy="55%" r="55%"><stop offset="0%" stopColor="#c9a06a" stopOpacity=".55"/><stop offset="100%" stopColor="#6b4423" stopOpacity="0"/></radialGradient>
+        <linearGradient id="g-mb-puddle" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7a5230"/><stop offset="100%" stopColor="#3a2412"/></linearGradient>
+      </defs>
+      <ellipse cx="32" cy="33" rx="27" ry="25" fill="url(#g-mb-glow)"/>
+      <path d="M8 50c6-6 14-8 24-8s18 2 24 8c-5 5-14 7-24 7s-19-2-24-7z" fill="url(#g-mb-puddle)" opacity=".9"/>
+      <circle cx="32" cy="29" r="15" fill="url(#g-mb-ball)"/>
+      <circle cx="26" cy="23" r="4.2" fill="#e7c894" opacity=".75"/>
+      <path d="M17 18c3-4 8-6 13-6" stroke="#f0d9ac" strokeWidth="1.4" fill="none" opacity=".5"/>
+      <g fill="url(#g-mb-ball)"><circle cx="14" cy="20" r="3"/><circle cx="50" cy="18" r="2.6"/><circle cx="48" cy="42" r="2.2"/><circle cx="16" cy="42" r="2.4"/></g>
+      <g fill="#d9b57d" opacity=".8"><circle cx="20" cy="13" r="1.1"/><circle cx="45" cy="10" r="1.2"/><circle cx="54" cy="31" r="1"/><circle cx="10" cy="34" r="1.1"/></g>
+    </>
+  ),
+  'conjure cannonball': (
+    <>
+      <defs>
+        <radialGradient id="g-ccb-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#ffb347" stopOpacity=".75"/><stop offset="60%" stopColor="#ff6a00" stopOpacity=".25"/><stop offset="100%" stopColor="#ff3d00" stopOpacity="0"/></radialGradient>
+        <radialGradient id="g-ccb-ball" cx="38%" cy="34%" r="68%"><stop offset="0%" stopColor="#7d8794"/><stop offset="45%" stopColor="#3a4250"/><stop offset="100%" stopColor="#12161c"/></radialGradient>
+      </defs>
+      <circle cx="32" cy="32" r="27" fill="url(#g-ccb-glow)"/>
+      <g fill="#ff9d2e" opacity=".8"><path d="M32 4l4 9-4-3-4 3z"/><path d="M60 32l-9 4 3-4-3-4z"/><path d="M4 32l9 4-3-4 3-4z"/></g>
+      <g stroke="#ffd166" strokeWidth="2" strokeLinecap="round" opacity=".6"><path d="M12 48l8-8"/><path d="M50 12l-6 6"/><path d="M46 52l6-6"/></g>
+      <circle cx="32" cy="33" r="14" fill="url(#g-ccb-ball)"/>
+      <circle cx="27" cy="28" r="4.2" fill="#c7d0da" opacity=".75"/>
+      <circle cx="37" cy="39" r="1.6" fill="#8c98a6" opacity=".8"/>
+      <g fill="#c9d3df" opacity=".7"><circle cx="18" cy="18" r="1.1"/><circle cx="47" cy="20" r="1"/><circle cx="44" cy="47" r="1.2"/><circle cx="17" cy="44" r="1"/></g>
+    </>
+  ),
   "secret chest": (
     <>
       <defs><linearGradient id="g-lsc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#a97a3a"/><stop offset="100%" stopColor="#5a3a18"/></linearGradient><radialGradient id="g-lsc-glow" cx="50%" cy="50%" r="55%"><stop offset="0%" stopColor="#c8b0ff" stopOpacity=".6"/><stop offset="100%" stopColor="#4a2a8a" stopOpacity="0"/></radialGradient></defs>

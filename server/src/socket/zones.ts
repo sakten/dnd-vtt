@@ -36,7 +36,7 @@ import { syncSurrounded } from './surrounded';
 
 /**
  * Зоны на карте (R8.1, движок областей): создание при касте, аура внутри,
- * триггеры enter/exit/startOfTurn/endOfTurn, снятие по концентрации.
+ * триггеры enter/exit/move/startOfTurn/endOfTurn, снятие по концентрации.
  * Клиенту зоны приезжают в `maps:update` (поле `zones` карты).
  */
 
@@ -46,6 +46,15 @@ function turnKey(map: MapInfo): string | null {
   if (!combat?.active || combat.currentIndex < 0) return null;
   const entry = combat.entries[combat.currentIndex];
   return entry ? `${combat.round}:${entry.id}` : null;
+}
+
+/** Ключ триггера `move`: свой ход в бою, вне боя — один раз на токен за зону. */
+function moveTriggerKey(map: MapInfo, tokenId: string): string | null {
+  const combat = map.combat;
+  if (!combat?.active || combat.currentIndex < 0) return 'out';
+  const entry = combat.entries[combat.currentIndex];
+  if (!entry || entry.tokenId !== tokenId) return null;
+  return `${combat.round}:${entry.id}`;
 }
 
 /** Точка привязки зоны: 'dead' — источник исчез, 'moved' — сдвинулась за источником. */
@@ -505,6 +514,8 @@ export interface MovedStep {
   token: Token;
   from: { x: number; y: number };
   to: { x: number; y: number };
+  /** Принудительное перемещение (выталкивание стеной): `move`-триггеры не срабатывают. */
+  forced?: boolean;
 }
 
 /** Проход сквозь пробитую секцию стены: payload `breach` («лист холода»), раз за ход на секцию. */
@@ -556,8 +567,18 @@ export function handleMovementZones(ctx: ConnCtx, room: Room, mapId: string, mov
       continue;
     }
     if (origin === 'moved') changed = true;
+    const wasInside = moved ? (zone.occupants?.includes(moved.token.id) ?? false) : false;
     if (syncZone(ctx, room, mapId, zone, { aura: true, enterExit: true })) changed = true;
     if (!map.zones.some((z) => z.id === zone.id)) changed = true;
+    if (moved && !moved.forced && zone.triggers?.move) {
+      const isInside = zone.occupants?.includes(moved.token.id) ?? false;
+      const key = moveTriggerKey(map, moved.token.id);
+      if (key !== null && (wasInside || isInside) && zone.movedThisTurn?.[moved.token.id] !== key) {
+        zone.movedThisTurn = { ...(zone.movedThisTurn ?? {}), [moved.token.id]: key };
+        if (applyZonePayload(ctx, room, mapId, zone, zone.triggers.move, [moved.token])) changed = true;
+        if (!map.zones.some((z) => z.id === zone.id)) changed = true;
+      }
+    }
   }
   if (changed) ctx.broadcastZones(room, mapId);
   if (moved) applySheetCrossings(ctx, room, mapId, moved);
@@ -610,7 +631,7 @@ export function applyWallPush(
     token.x = move.x;
     token.y = move.y;
     ctx.emitToken(room, 'token:update', mapId, token);
-    handleMovementZones(ctx, room, mapId, { token, from, to: { x: move.x, y: move.y } });
+    handleMovementZones(ctx, room, mapId, { token, from, to: { x: move.x, y: move.y }, forced: true });
     syncSurrounded(ctx, room, mapId);
   }
 }

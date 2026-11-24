@@ -28,6 +28,63 @@ const FIREBOLT_COPY = JSON.stringify({
   patch: { 'damage.types': ['cold'] },
 });
 
+const MIREBALL = JSON.stringify({
+  key: 'CUSTOM:Mireball',
+  name: 'Mireball',
+  source: 'CUSTOM',
+  level: 3,
+  school: 'Conjuration',
+  time: [{ number: 1, unit: 'action' }],
+  range: { type: 'point', distance: { type: 'feet', amount: 150 } },
+  components: { v: true, s: true, m: 'a tiny ball of guano and mud' },
+  duration: [{ type: 'timed', duration: { type: 'minute', amount: 1 } }],
+  classes: ['bard', 'druid', 'sorcerer', 'warlock'],
+  area: ['S'],
+  areaSpec: { shape: 'sphere', size: 15 },
+  damage: { dice: ['3d10'], types: ['bludgeoning'] },
+  save: ['str'],
+  saveHalf: true,
+  upcast: { above: 3, dice: '1d10' },
+  description: ['Mud explosion and slick mud.'],
+  automation: {
+    primary: 'effect',
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      duration: { type: 'rounds', rounds: 10 },
+      onCreate: {
+        save: { ability: 'str', half: true },
+        damage: { dice: { ref: 'spellDamage' }, types: ['bludgeoning'] },
+        effects: [
+          {
+            id: 'mireballBlast',
+            name: 'Mireball',
+            duration: { type: 'permanent' },
+            to: 'targets',
+            modifiers: [],
+            conditions: ['prone'],
+          },
+        ],
+      },
+      triggers: {
+        move: {
+          save: { ability: 'dex' },
+          effects: [
+            {
+              id: 'mireballMud',
+              name: 'Mireball',
+              duration: { type: 'permanent' },
+              to: 'targets',
+              modifiers: [],
+              conditions: ['prone'],
+            },
+          ],
+        },
+      },
+    },
+  },
+});
+
 function dmSetup() {
   const room = makeRoom();
   const f = makeConnCtx(room, { dm: true });
@@ -112,6 +169,21 @@ describe('кастомные заклинания комнаты (R16 срез 5
     expect(def.summon?.profile).toMatchObject({ baseLevel: 3, hpPerLevel: 100 });
     // …и цель/инициатива призыва не потерялись при копировании.
     expect(def.summon).toMatchObject({ creature: 'XPHB:Fey Spirit', initiative: 'afterCaster' });
+  });
+
+  it('Mireball: полная запись с зоной и триггером move импортируется', () => {
+    const { room, f } = dmSetup();
+    f.invoke('custom:import', { json: MIREBALL });
+
+    expect(room.customSpecs).toHaveLength(1);
+    const def = automationForSpell(room.customSpecs[0]!, { castLevel: 3, characterLevel: 5 });
+    expect(def.zone?.onCreate?.save).toEqual({ ability: 'str', half: true });
+    expect(def.zone?.onCreate?.effects?.[0]?.conditions).toEqual(['prone']);
+    expect(def.zone?.triggers?.move?.save).toEqual({ ability: 'dex' });
+    expect(def.zone?.triggers?.move?.effects?.[0]?.conditions).toEqual(['prone']);
+    expect(def.zone?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    const upcast = automationForSpell(room.customSpecs[0]!, { castLevel: 4, characterLevel: 5 });
+    expect(upcast.zone?.onCreate?.damage).toMatchObject({ dice: '3d10 + 1d10', types: ['bludgeoning'] });
   });
 
   it('импорт без прав DM игнорируется', () => {

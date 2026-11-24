@@ -1146,6 +1146,7 @@ export const ru = {
   'ui.constructor.usage.endOfTurn': 'конец хода',
   'ui.constructor.usage.enter': 'вход в зону',
   'ui.constructor.usage.exit': 'выход из зоны',
+  'ui.constructor.usage.move': 'первое движение в зоне',
   'ui.constructor.usage.onCreate': 'при создании',
   'ui.constructor.usage.aura': 'аура',
   'ui.constructor.usage.heal': 'лечение',

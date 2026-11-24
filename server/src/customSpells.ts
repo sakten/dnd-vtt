@@ -57,7 +57,7 @@ const META_FIELDS = [
 ] as const;
 
 const REQUIRED_META = ['level', 'school', 'time', 'range', 'components', 'duration', 'classes', 'description'] as const;
-  const SOURCES = new Set<Spell['source']>(['XPHB', 'XGE', 'TCE', 'CBT', 'GHLoE', 'CUSTOM']);
+  const SOURCES = new Set<Spell['source']>(['XPHB', 'XGE', 'TCE', 'CBT', 'GHLoE', 'HB', 'CUSTOM']);
 
 function bad(what: string): never {
   throw new Error(`Кастомное заклинание: ${what}`);

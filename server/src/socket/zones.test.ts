@@ -1082,3 +1082,111 @@ describe('стена льда (Wall of Ice)', () => {
     expect(map.zones.some((z) => z.sourceKey === 'XGE:Wall of Light')).toBe(true);
   });
 });
+
+describe('триггер движения в зоне (move)', () => {
+  const mireDef: AutomationDef = {
+    key: 'CUSTOM:Mireball',
+    name: 'Mireball',
+    resolution: 'auto',
+    zone: {
+      area: { shape: 'sphere', size: 15 },
+      origin: 'point',
+      duration: { type: 'rounds', rounds: 10 },
+      triggers: {
+        move: {
+          save: { ability: 'dex' },
+          effects: [
+            {
+              name: 'Mireball',
+              duration: { type: 'permanent' },
+              to: 'targets',
+              modifiers: [],
+              conditions: ['prone'],
+            },
+          ],
+        },
+      },
+    },
+  };
+  const stats = { ability: 'wis', mod: 3, dc: 14, attack: 5 } as const;
+
+  function setupMove(origin = { x: 300, y: 100 }) {
+    const room = makeCombatRoom(
+      [
+        makeToken('t1', { libraryItemId: 'lib1', x: 100, y: 100, hpMax: '30', hpCurrent: 30 }),
+        makeToken('t2', { x: 500, y: 100, hpMax: '30', hpCurrent: 30 }),
+      ],
+      { p1: 'lib1' }
+    );
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const zone = createZoneFromDef(f.ctx, { caster, mapId: 'm1', def: mireDef, stats, origin })!;
+    const saves = () =>
+      f.emitted.filter((e) => e.event === 'chat:message' && (e.payload as { rollKind?: string }).rollKind === 'save').length;
+    const step = (token: typeof caster, x: number, y: number, forced?: boolean) => {
+      const from = { x: token.x, y: token.y };
+      token.x = x;
+      token.y = y;
+      handleMovementZones(f.ctx, room, 'm1', { token, from, to: { x, y }, ...(forced ? { forced: true } : {}) });
+    };
+    return { room, f, map, caster, zone, saves, step };
+  }
+
+  it('первый шаг в зону — сейв; повторный шаг в том же ходу — нет', () => {
+    const { caster, saves, step } = setupMove();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    step(caster, 300, 100);
+    expect(saves()).toBe(1);
+    expect(caster.effects.some((e) => e.conditions?.includes('prone'))).toBe(true);
+    step(caster, 200, 100);
+    expect(saves()).toBe(1);
+    rand.mockRestore();
+  });
+
+  it('следующий ход — сейв снова', () => {
+    const { map, caster, saves, step } = setupMove();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    step(caster, 300, 100);
+    map.combat.round = 2;
+    step(caster, 200, 100);
+    expect(saves()).toBe(2);
+    rand.mockRestore();
+  });
+
+  it('начал ход внутри и первым шагом вышел — сейв', () => {
+    const { caster, saves, step } = setupMove({ x: 100, y: 100 });
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    step(caster, 400, 100);
+    expect(saves()).toBe(1);
+    rand.mockRestore();
+  });
+
+  it('не свой ход — без сейва', () => {
+    const { room, saves, step } = setupMove();
+    const other = room.scene.maps[0]!.tokens[1]!;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    step(other, 300, 100);
+    expect(saves()).toBe(0);
+    rand.mockRestore();
+  });
+
+  it('принудительное перемещение — без сейва', () => {
+    const { caster, saves, step } = setupMove();
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    step(caster, 300, 100, true);
+    expect(saves()).toBe(0);
+    rand.mockRestore();
+  });
+
+  it('вне боя — один раз на токен за зону', () => {
+    const { map, caster, saves, step } = setupMove();
+    map.combat.active = false;
+    const rand = vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    step(caster, 300, 100);
+    expect(saves()).toBe(1);
+    step(caster, 200, 100);
+    expect(saves()).toBe(1);
+    rand.mockRestore();
+  });
+});

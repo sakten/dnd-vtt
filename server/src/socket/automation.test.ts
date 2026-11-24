@@ -1695,6 +1695,69 @@ describe('Ice Knife (D)', () => {
   });
 });
 
+describe('Conjure Cannonball (HB)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const cast = (rolls: number | number[], resistance = false, neighborSaves = false) => {
+    const { room, f } = setup();
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const target = map.tokens[1]!;
+    target.hpMax = '100';
+    target.hpCurrent = 100;
+    if (resistance) target.damageDefenses = [{ id: 'd1', type: 'resistance', damageType: 'bludgeoning' }];
+    const neighbor = makeToken('t3', {
+      x: 150,
+      y: 150,
+      hpMax: '100',
+      hpCurrent: 100,
+      ...(neighborSaves
+        ? { statblock: { abilities: { str: 10, dex: 20, con: 10, int: 10, wis: 10, cha: 10 } } }
+        : {}),
+    });
+    map.tokens.push(neighbor);
+    if (Array.isArray(rolls)) {
+      const seq = [...rolls];
+      vi.spyOn(Math, 'random').mockImplementation(() => seq.shift() ?? 0.5);
+    } else {
+      vi.spyOn(Math, 'random').mockReturnValue(rolls);
+    }
+    executeAutomation(f.ctx, {
+      caster,
+      mapId: 'm1',
+      def: automationForSpell(findSpell('HB:Conjure Cannonball')!, { castLevel: 3, characterLevel: 5 }),
+      targets: [target],
+      stats,
+      author: 'DM',
+    });
+    return { target, neighbor };
+  };
+
+  it('попадание: цель 5к10, сосед — половина при провале DEX-спаса', () => {
+    const { target, neighbor } = cast(0.5); // d20 11+5 — попадание; 5к10 = 30; спас 11 — провал
+    expect(target.hpCurrent).toBe(70);
+    expect(neighbor.hpCurrent).toBe(85);
+  });
+
+  it('успешный спас соседа — урона нет', () => {
+    const { target, neighbor } = cast(0.5, false, true); // спас DEX +5 — успех
+    expect(target.hpCurrent).toBe(70);
+    expect(neighbor.hpCurrent).toBe(100);
+  });
+
+  it('промах — взрыва нет', () => {
+    const { target, neighbor } = cast(0); // d20 1+5 — промах
+    expect(target.hpCurrent).toBe(100);
+    expect(neighbor.hpCurrent).toBe(100);
+  });
+
+  it('вспышка — половина чистого броска, защиты цели не влияют', () => {
+    const { target, neighbor } = cast(0.5, true); // сопротивление цели: цель 15, сосед 15 (от броска 30)
+    expect(target.hpCurrent).toBe(85);
+    expect(neighbor.hpCurrent).toBe(85);
+  });
+});
+
 describe('Burst в ветке спасброска (D)', () => {
   afterEach(() => vi.restoreAllMocks());
 

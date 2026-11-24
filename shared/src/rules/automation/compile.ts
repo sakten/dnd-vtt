@@ -218,6 +218,8 @@ function compileBurst(
     ...(dice !== undefined ? { dice: String(dice) } : {}),
     ...(burst.save ? { save: { ...burst.save } } : {}),
     ...(burst.includePrimary ? { includePrimary: true } : {}),
+    ...(burst.shareOfPrimary !== undefined ? { shareOfPrimary: burst.shareOfPrimary } : {}),
+    ...(burst.onHitOnly ? { onHitOnly: true } : {}),
   };
 }
 
