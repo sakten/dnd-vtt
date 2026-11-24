@@ -154,6 +154,11 @@ export function normalizeSheet(raw: Partial<CharacterSheet>): CharacterSheet {
   const wildShape = normalizeWildShape((raw as { wildShape?: unknown }).wildShape);
   const attacks = normalizeAttacks(raw.attacks);
   const hands = normalizeHands((raw as { hands?: unknown }).hands, attacks);
+  const spellAbilityRaw = (raw as { spellAbility?: unknown }).spellAbility;
+  const spellAbility =
+    spellAbilityRaw === 'int' || spellAbilityRaw === 'wis' || spellAbilityRaw === 'cha'
+      ? spellAbilityRaw
+      : undefined;
   return {
     name: typeof raw.name === 'string' ? raw.name.slice(0, 40) : '',
     abilities,
@@ -165,6 +170,7 @@ export function normalizeSheet(raw: Partial<CharacterSheet>): CharacterSheet {
     classes: normalizeClasses(raw.classes),
     ...(race ? { race } : {}),
     spells: normalizeSheetSpells((raw as { spells?: unknown }).spells),
+    ...(spellAbility ? { spellAbility } : {}),
     choices: normalizeSheetChoices((raw as { choices?: unknown }).choices),
     ...(invocations.length ? { invocations } : {}),
     ...(wildShape ? { wildShape } : {}),

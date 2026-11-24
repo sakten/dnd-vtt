@@ -551,6 +551,8 @@ export const ru = {
   'ui.sheet.addClass': '+ Добавить класс',
   'ui.sheet.hpMaxHint': 'Макс. хиты (пусто — авто: класс + Телосложение)',
   'ui.sheet.proficiency': 'Профишенси бонус (число или куб)',
+  'ui.sheet.spellAbility': 'Характеристика заклинаний (для всех кастов)',
+  'ui.sheet.spellAbilityAuto': 'Как у класса',
   'ui.sheet.saves': 'Спасброски (по основному классу — можно менять)',
   'ui.sheet.skills': 'Навыки (клик: нет → профишенси → экспертиза)',
   'ui.sheet.skillTitle': 'Клик — изменить уровень владения',

@@ -266,6 +266,21 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
         </div>
 
         <label className="field">
+          <span>{t('ui.sheet.spellAbility')}</span>
+          <select
+            value={draft.spellAbility ?? ''}
+            onChange={(e) =>
+              setDraft({ ...draft, spellAbility: (e.target.value || undefined) as AbilityKey | undefined })
+            }
+          >
+            <option value="">{t('ui.sheet.spellAbilityAuto')}</option>
+            <option value="int">{abilityName('int')}</option>
+            <option value="wis">{abilityName('wis')}</option>
+            <option value="cha">{abilityName('cha')}</option>
+          </select>
+        </label>
+
+        <label className="field">
           <span>{t('ui.sheet.proficiency')}</span>
           <input
             type="text"

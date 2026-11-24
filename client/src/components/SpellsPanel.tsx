@@ -89,7 +89,7 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
       {casters.map((entry) => {
         const className = entry.className;
         const isRace = className.startsWith(RACE_CAST_PREFIX);
-        const ability = isRace ? raceCantripAbility(sheet.race) : spellcastingAbility(className, entry.subclass);
+        const ability = sheet.spellAbility ?? (isRace ? raceCantripAbility(sheet.race) : spellcastingAbility(className, entry.subclass));
         const mod = ability ? abilityMod(sheet.abilities[ability]) : 0;
         const dc = spellSaveDc(prof, mod);
         const atk = spellAttackBonus(prof, mod);

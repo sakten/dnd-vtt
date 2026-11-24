@@ -554,6 +554,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.sheet.addClass': '+ Add class',
   'ui.sheet.hpMaxHint': 'Max Hit Points (empty — auto: class + Constitution)',
   'ui.sheet.proficiency': 'Proficiency Bonus (number or die)',
+  'ui.sheet.spellAbility': 'Spellcasting Ability (all casts)',
+  'ui.sheet.spellAbilityAuto': 'As class',
   'ui.sheet.saves': 'Saving Throws (from the primary class — editable)',
   'ui.sheet.skills': 'Skills (click: none → proficiency → expertise)',
   'ui.sheet.skillTitle': 'Click to change proficiency level',

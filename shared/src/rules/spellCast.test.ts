@@ -423,6 +423,16 @@ describe('casterStats', () => {
     expect(casterStats(sheet, 'wizard')).toEqual({ ability: 'int', mod: 4, dc: 15, attack: 7 });
     expect(casterStats(sheet, 'barbarian')).toBeNull();
   });
+
+  it('переопределение из карточки действует на все касты', () => {
+    const sheet = normalizeSheet({
+      abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 14, cha: 8 },
+      proficiencyBonus: '3',
+      classes: [{ className: 'wizard', level: 5 }],
+      spellAbility: 'wis',
+    });
+    expect(casterStats(sheet, 'wizard')).toEqual({ ability: 'wis', mod: 2, dc: 13, attack: 5 });
+  });
 });
 
 describe('цепочка панелей тонкой стены (Wall of Ice)', () => {

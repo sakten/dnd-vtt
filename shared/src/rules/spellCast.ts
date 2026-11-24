@@ -512,7 +512,10 @@ export function casterStats(sheet: CharacterSheet, className: string): SpellStat
   const featKey = className.startsWith(FEAT_CAST_PREFIX) ? className.slice(FEAT_CAST_PREFIX.length) : null;
   const feat = featKey ? sheet.choices?.find((c) => c.kind === 'feat' && c.key === featKey) : undefined;
   const raceAbility = className.startsWith(RACE_CAST_PREFIX) ? raceCantripAbility(sheet.race) : undefined;
-  const ability = raceAbility ?? (feat ? (feat.ability ?? 'int') : spellcastingAbility(className, entry?.subclass));
+  const ability =
+    sheet.spellAbility ??
+    raceAbility ??
+    (feat ? (feat.ability ?? 'int') : spellcastingAbility(className, entry?.subclass));
   if (!ability) return null;
   const proficiency = sheetProficiencyBonus(sheet);
   const mod = abilityMod(sheet.abilities[ability] ?? 10);

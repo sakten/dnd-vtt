@@ -46,6 +46,19 @@ describe('CharacterSheetModal', () => {
     expect(sheet.speed).toBe(35);
   });
 
+  it('характеристика заклинаний сохраняется в лист', () => {
+    render(<CharacterSheetModal open onClose={vi.fn()} />);
+
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Характеристика заклинаний (для всех кастов)' }),
+      { target: { value: 'wis' } }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+
+    const update = emitted.find((e) => e.event === 'sheet:update');
+    expect((update!.payload as CharacterSheet).spellAbility).toBe('wis');
+  });
+
   it('Escape закрывает окно, не применяя черновик', () => {
     const onClose = vi.fn();
     render(<CharacterSheetModal open onClose={onClose} />);
