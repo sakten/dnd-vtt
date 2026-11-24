@@ -431,10 +431,23 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     input.fueledBonus && def.damage?.dice
       ? { ...def.damage, dice: `${def.damage.dice} + ${input.fueledBonus}` }
       : undefined;
-  const resolvedDef = damage ? { ...def, damage } : def;
+  const weaponAttack =
+    input.fueledBonus && def.weaponAttack
+      ? {
+          ...def.weaponAttack,
+          riderDice: def.weaponAttack.riderDice
+            ? `${def.weaponAttack.riderDice} + ${input.fueledBonus}radiant`
+            : `${input.fueledBonus}radiant`,
+        }
+      : undefined;
+  const resolvedDef = {
+    ...def,
+    ...(damage ? { damage } : {}),
+    ...(weaponAttack ? { weaponAttack } : {}),
+  };
   // Клинки-кантрипы: атака оружием правой руки, а не заклинательный резолв.
   if (def.weaponAttack) {
-    runBladeCantrip(ctx, room, input, def);
+    runBladeCantrip(ctx, room, input, resolvedDef);
     return {};
   }
   executeAutomation(ctx, {

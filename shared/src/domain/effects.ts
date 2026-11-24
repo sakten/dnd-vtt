@@ -353,6 +353,8 @@ export interface EffectInstance {
   ignoresDifficultTerrain?: boolean;
   /** Типы урона, сопротивление к которым игнорируется уроном носителя (Searing Spellfire). */
   ignoreResistances?: string[];
+  /** Доп. урон носителя при нанесении урона (Celestial Revelation): тип и сумма, раз в ход. */
+  extraDamageDealt?: { amount: number; damageType: string; oncePerTurn?: boolean };
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
   /**

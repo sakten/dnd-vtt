@@ -409,6 +409,17 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       ].slice(0, 4);
       if (types.length) effect.ignoreResistances = types;
     }
+    if (e.extraDamageDealt && typeof e.extraDamageDealt === 'object') {
+      const extra = e.extraDamageDealt as { amount?: unknown; damageType?: unknown; oncePerTurn?: unknown };
+      const amount = clampInt(extra.amount, 0, 100, 0);
+      if (amount > 0 && typeof extra.damageType === 'string' && DAMAGE_KEYS.has(extra.damageType)) {
+        effect.extraDamageDealt = {
+          amount,
+          damageType: extra.damageType,
+          ...(extra.oncePerTurn === true ? { oncePerTurn: true } : {}),
+        };
+      }
+    }
     if (e.seesInvisible === true) effect.seesInvisible = true;
     if (typeof e.viewFrom === 'string' && e.viewFrom) effect.viewFrom = e.viewFrom.slice(0, 80);
     if (e.banish && typeof e.banish === 'object') {

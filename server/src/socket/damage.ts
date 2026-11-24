@@ -14,6 +14,7 @@ import { controllerIdOfToken } from '../rooms';
 import type { Room } from '../roomTypes';
 import type { ConnCtx } from './context';
 import { actorStats } from '../room/actor';
+import { turnForToken } from '../room/combat';
 import { afterDamage, beforeDamage, type DamageEvent } from './triggers';
 import { pushRollMessage } from './messages';
 import { checkSummonDeath } from './summons';
@@ -61,6 +62,20 @@ export function hasHpTracking(room: Room, token: Token): boolean {
   return statNumber(token.hpMax) > 0 || controllerIdOfToken(room, token) !== undefined;
 }
 
+/** Доп. урон фичи «раз в ход» при нанесении урона носителем (Celestial Revelation). */
+function extraDamageDealt(room: Room, mapId: string | null, attacker: Token): { amount: number; damageType: string } | null {
+  const turn = mapId ? turnForToken(room, mapId, attacker) : null;
+  for (const effect of attacker.effects) {
+    const extra = effect.extraDamageDealt;
+    if (!extra) continue;
+    const key = effect.sourceKey ?? effect.id;
+    if (extra.oncePerTurn && turn?.damageOnce?.includes(key)) continue;
+    if (extra.oncePerTurn && turn) turn.damageOnce = [...(turn.damageOnce ?? []), key];
+    return { amount: extra.amount, damageType: extra.damageType };
+  }
+  return null;
+}
+
 /**
  * Единая точка урона/лечения: защиты → половина → карточка → триггеры (`damaged`:
  * снижение/бейн до HP, перенос/обрыв после) → HP по гейту учёта. Ручные правки HP
@@ -88,6 +103,11 @@ export function applyDamage(ctx: ConnCtx, input: ApplyDamageInput): DamageApplic
           amount: part.amount,
           ...(part.damageType ?? damageType ? { damageType: part.damageType ?? damageType } : {}),
         }));
+  const extra = kind === 'damage' && input.attacker ? extraDamageDealt(room, mapId, input.attacker) : null;
+  if (extra) {
+    groups.push({ amount: extra.amount, damageType: extra.damageType });
+    ctx.manager.saveSoon(room);
+  }
   const adjusted = input.unreducible
     ? { amount: groups.reduce((sum, g) => sum + g.amount, 0), note: undefined }
     : applyDamageToParts(groups, defenses);

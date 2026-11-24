@@ -561,6 +561,13 @@ export function raceActionAutomation(
             conditions: ['frightened'],
             modifiers: [],
           },
+          {
+            name: 'Некротический саван',
+            duration: { type: 'rounds', rounds: 10 },
+            to: 'self',
+            modifiers: [],
+            extraDamageDealt: { amount: pb, damageType: 'necrotic', oncePerTurn: true },
+          },
         ],
       };
     }
@@ -577,6 +584,7 @@ export function raceActionAutomation(
             to: 'self',
             light: { bright: 10, dim: 10 },
             modifiers: [],
+            extraDamageDealt: { amount: pb, damageType: 'radiant', oncePerTurn: true },
           },
         ],
       };
@@ -593,6 +601,7 @@ export function raceActionAutomation(
           to: 'self',
           conditions: ['flying'],
           modifiers: [],
+          extraDamageDealt: { amount: pb, damageType: 'radiant', oncePerTurn: true },
         },
       ],
     };

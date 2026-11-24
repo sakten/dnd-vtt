@@ -69,4 +69,20 @@ describe('Fueled Spellfire', () => {
     responder.invoke('reaction:respond', { id: offer!.id, optionId: 'spellfire:1' });
     expect(room.resources.p1!.hitDice[0]!.current).toBe(1);
   });
+
+  it('True Strike и доп. урон Celestial Revelation считаются излучением', () => {
+    const { room, caster } = setup();
+    const trueStrike = automationForSpell(findSpell('XPHB:True Strike')!, { characterLevel: 5 });
+    expect(spellfireOptions(room, 'm1', caster, trueStrike)).toEqual([1, 2]);
+
+    caster.effects.push({
+      id: 'rev',
+      name: 'Небесные крылья',
+      duration: { type: 'rounds', rounds: 10 },
+      modifiers: [],
+      extraDamageDealt: { amount: 3, damageType: 'radiant', oncePerTurn: true },
+    });
+    const fireball = automationForSpell(findSpell('XPHB:Fireball')!);
+    expect(spellfireOptions(room, 'm1', caster, fireball)).toEqual([1, 2]);
+  });
 });

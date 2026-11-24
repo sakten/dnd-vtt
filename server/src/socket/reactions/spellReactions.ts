@@ -310,7 +310,7 @@ export function resolveSpellCastWithReactions(ctx: ConnCtx, input: SpellCastInpu
       invocations: sheetOfToken(currentRoom, input.caster).sheet?.invocations,
       variant: input.variant,
     });
-    const options = spellfireOptions(currentRoom, input.mapId, input.caster, def);
+    const options = spellfireOptions(currentRoom, input.mapId, input.caster, def, input.variant);
     if (!options) return resolve();
     const opened = openReactionWindow(ctx, currentRoom, {
       mapId: input.mapId,

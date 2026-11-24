@@ -28,6 +28,8 @@ export interface TurnState {
   speed?: number;
   /** Fueled Spellfire: хук урона излучением уже использован в этом ходу. */
   spellfireUsed?: boolean;
+  /** Доп. урон фич «раз в ход» уже применён: ключи эффектов (Celestial Revelation). */
+  damageOnce?: string[];
   /** Доп. действия/бонусные от эффектов (например, Haste). */
   extraActions: number;
   extraBonusActions: number;

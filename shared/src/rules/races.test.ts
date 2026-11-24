@@ -140,6 +140,10 @@ describe('активные черты видов', () => {
     );
     expect(shroud?.save).toEqual({ ability: 'cha' });
     expect(shroud?.effects?.[0]?.conditions).toEqual(['frightened']);
+    expect(shroud?.effects?.some((e) => e.extraDamageDealt?.damageType === 'necrotic')).toBe(true);
+
+    const wings = raceActionAutomation('race:XPHB:Aasimar:celestialRevelation', { key: 'XPHB:Aasimar' }, classes);
+    expect(wings?.effects?.[0]?.extraDamageDealt).toMatchObject({ amount: 3, damageType: 'radiant' });
   });
 
   it('СЛ дыхания — Телосложение + ПБ', () => {

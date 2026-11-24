@@ -1,5 +1,8 @@
 import type { AutomationDef } from '../domain/automation';
 import type { FeatureChoice } from '../domain/feature';
+import { DAMAGE_TYPES } from '../labels';
+
+const DAMAGE_KEYS = new Set(DAMAGE_TYPES.map((type) => type.key));
 
 /** Типизированный хук урона: фича реагирует на урон указанного типа. */
 export interface DamageTypeHook {
@@ -30,7 +33,13 @@ export function damageTypeHooksFor(
 export function automationDamageTypes(def: AutomationDef): string[] {
   const out = new Set<string>();
   const walk = (value: unknown, depth: number): void => {
-    if (depth > 6 || !value || typeof value !== 'object') return;
+    if (depth > 6) return;
+    if (typeof value === 'string') {
+      const match = /([a-z]+)$/i.exec(value.trim());
+      if (match && DAMAGE_KEYS.has(match[1]!.toLowerCase())) out.add(match[1]!.toLowerCase());
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
     if (Array.isArray(value)) {
       for (const item of value) walk(item, depth + 1);
       return;

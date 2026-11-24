@@ -64,6 +64,29 @@ describe('applyDamage: составной урон', () => {
     expect(target.hpCurrent).toBe(40);
   });
 
+  it('Celestial Revelation: доп. урон PB раз в ход', () => {
+    const attacker = makeToken('t1', {
+      effects: [
+        {
+          id: 'rev',
+          name: 'Небесные крылья',
+          sourceKey: 'race:XPHB:Aasimar:celestialRevelation',
+          duration: { type: 'rounds', rounds: 10 },
+          modifiers: [],
+          extraDamageDealt: { amount: 3, damageType: 'radiant', oncePerTurn: true },
+        },
+      ],
+    });
+    const target = makeToken('t2', { hpMax: '50', hpCurrent: 50 });
+    const room = makeCombatRoom([attacker, target]);
+    const f = makeConnCtx(room, { dm: true });
+
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 5, damageType: 'slashing', attacker });
+    expect(target.hpCurrent).toBe(42);
+    applyDamage(f.ctx, { target, mapId: 'm1', amount: 5, damageType: 'slashing', attacker });
+    expect(target.hpCurrent).toBe(37);
+  });
+
   it('части без типа наследуют основной тип атаки', () => {
     const { target, ctx } = setup([{ id: 'd1', type: 'resistance', damageType: 'slashing' }]);
     const result = applyDamage(ctx, {

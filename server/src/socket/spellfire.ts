@@ -19,15 +19,25 @@ export function spellfireOptions(
   room: Room,
   mapId: string,
   token: Token,
-  def: AutomationDef
+  def: AutomationDef,
+  variant?: string
 ): number[] | null {
   const { controllerId, sheet } = sheetOfToken(room, token);
   if (!controllerId || !sheet) return null;
-  if (!damageTypeHooksFor(sheet.choices, automationDamageTypes(def)).some((h) => h.key === SPELLFIRE_FEAT)) {
+  const damageTypes = automationDamageTypes(def);
+  if (variant === 'radiant') damageTypes.push('radiant');
+  for (const effect of token.effects) {
+    if (effect.extraDamageDealt?.damageType) damageTypes.push(effect.extraDamageDealt.damageType);
+  }
+  if (!damageTypeHooksFor(sheet.choices, damageTypes).some((h) => h.key === SPELLFIRE_FEAT)) {
     return null;
   }
   // Бонус добавляется к одному броску урона; составные/многолучевые пока не трогаем.
-  if (typeof def.damage?.dice !== 'string' || (def.count ?? 1) > 1) return null;
+  const singleRoll =
+    typeof def.damage?.dice === 'string' ||
+    typeof def.weaponAttack?.riderDice === 'string' ||
+    (!!def.weaponAttack && variant === 'radiant');
+  if (!singleRoll || (def.count ?? 1) > 1) return null;
   if (turnForToken(room, mapId, token)?.spellfireUsed) return null;
   const available = (room.resources[controllerId]?.hitDice ?? []).reduce(
     (sum, die) => sum + Math.max(0, die.current),

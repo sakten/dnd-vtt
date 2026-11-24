@@ -606,6 +606,7 @@ describe('effectFieldsFromDef ↔ normalizeEffects (замок от потери
       immuneToSpeedReduction: true,
       ignoresDifficultTerrain: true,
       ignoreResistances: ['radiant'],
+      extraDamageDealt: { amount: 3, damageType: 'radiant', oncePerTurn: true },
       seesInvisible: true,
       dominates: true,
       charges: { count: 12, on: 'rangedWeaponAttack' },

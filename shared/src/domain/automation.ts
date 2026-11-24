@@ -180,6 +180,8 @@ export interface AutomationEffect {
   ignoresDifficultTerrain?: boolean;
   /** Типы урона, сопротивление к которым игнорируется (Searing Spellfire). */
   ignoreResistances?: string[];
+  /** Доп. урон носителя при нанесении урона (Celestial Revelation): тип и сумма, раз в ход. */
+  extraDamageDealt?: { amount: number; damageType: string; oncePerTurn?: boolean };
   /** Носитель видит невидимых (See Invisibility). */
   seesInvisible?: boolean;
   /**
@@ -252,6 +254,7 @@ export function effectFieldsFromDef(def: AutomationEffect): Partial<EffectInstan
     immuneToSpeedReduction: def.immuneToSpeedReduction,
   ignoresDifficultTerrain: def.ignoresDifficultTerrain,
   ignoreResistances: def.ignoreResistances ? [...def.ignoreResistances] : undefined,
+  extraDamageDealt: def.extraDamageDealt ? { ...def.extraDamageDealt } : undefined,
   seesInvisible: def.seesInvisible,
     dominates: def.dominates,
     charges: def.charges ? { remaining: def.charges.count, on: def.charges.on } : undefined,
