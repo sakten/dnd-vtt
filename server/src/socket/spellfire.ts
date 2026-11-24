@@ -37,7 +37,7 @@ export function spellfireOptions(
     typeof def.damage?.dice === 'string' ||
     typeof def.weaponAttack?.riderDice === 'string' ||
     (!!def.weaponAttack && variant === 'radiant');
-  if (!singleRoll || (def.count ?? 1) > 1) return null;
+  if (!singleRoll) return null;
   if (turnForToken(room, mapId, token)?.spellfireUsed) return null;
   const available = (room.resources[controllerId]?.hitDice ?? []).reduce(
     (sum, die) => sum + Math.max(0, die.current),

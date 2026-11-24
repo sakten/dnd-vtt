@@ -427,12 +427,13 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     invocations: sheetOfToken(room, input.caster).sheet?.invocations,
     variant: input.variant,
   });
+  const multi = (def.count ?? 1) > 1;
   const damage =
-    input.fueledBonus && def.damage?.dice
+    input.fueledBonus && !multi && def.damage?.dice
       ? { ...def.damage, dice: `${def.damage.dice} + ${input.fueledBonus}` }
       : undefined;
   const weaponAttack =
-    input.fueledBonus && def.weaponAttack
+    input.fueledBonus && !multi && def.weaponAttack
       ? {
           ...def.weaponAttack,
           riderDice: def.weaponAttack.riderDice
@@ -440,6 +441,8 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
             : `${input.fueledBonus}radiant`,
         }
       : undefined;
+  const bonusDamage =
+    input.fueledBonus && multi ? { amount: input.fueledBonus, damageType: 'radiant' } : undefined;
   const resolvedDef = {
     ...def,
     ...(damage ? { damage } : {}),
@@ -468,6 +471,7 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     ...(input.placements ? { placements: input.placements } : {}),
     ...(input.dispelZoneId ? { dispelZoneId: input.dispelZoneId } : {}),
     ...(input.passengerId ? { passengerId: input.passengerId } : {}),
+    ...(bonusDamage ? { bonusDamage } : {}),
     manual: {
       description: input.spell.description,
       level: input.spell.level,

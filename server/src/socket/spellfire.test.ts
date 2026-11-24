@@ -85,4 +85,11 @@ describe('Fueled Spellfire', () => {
     const fireball = automationForSpell(findSpell('XPHB:Fireball')!);
     expect(spellfireOptions(room, 'm1', caster, fireball)).toEqual([1, 2]);
   });
+
+  it('многолучевой урон тоже предлагает Fueled (бонус — в первый луч)', () => {
+    const { room, caster } = setup();
+    const base = automationForSpell(findSpell('XPHB:Sacred Flame')!);
+    const multi = { ...base, count: 2 };
+    expect(spellfireOptions(room, 'm1', caster, multi)).toEqual([1, 2]);
+  });
 });

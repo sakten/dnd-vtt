@@ -63,6 +63,8 @@ export interface AutomationInput {
   choice?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
+  /** Единоразовый бонус к первому урону (Fueled Spellfire для многолучевых). */
+  bonusDamage?: { amount: number; damageType: string };
   /** Dispel Magic: id зоны-цели (магический эффект на карте). */
   dispelZoneId?: string;
   /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
@@ -182,6 +184,9 @@ export interface AutomationRun {
   count: number;
   /** Выбранная форма Polymorph (ключ каталога бестиария). */
   shapeForm?: string;
+  /** Единоразовый бонус к первому урону (Fueled Spellfire для многолучевых). */
+  bonusDamage?: { amount: number; damageType: string };
+  bonusUsed?: boolean;
   /** Steel Wind Strike: точка телепорта, выполняется после резолва всех атак. */
   teleportTo?: { x: number; y: number };
   /** Зона-источник действия: цель внутри неё → преимущество (Storm Sphere). */
@@ -268,6 +273,10 @@ export function applyResult(
   const mods = run.healing ? undefined : opts.mods;
   const aliveBefore = (target.hpCurrent ?? 0) > 0;
   const parts = roll.damageParts.map((part) => ({ ...part }));
+  if (!run.healing && run.bonusDamage && !run.bonusUsed) {
+    run.bonusUsed = true;
+    parts.push({ amount: run.bonusDamage.amount, damageType: run.bonusDamage.damageType });
+  }
   const bonus = (mods?.extraDamage ?? 0) - (mods?.flatReduction ?? 0);
   if (bonus && parts.length) {
     const main = parts.find((part) => (part.damageType ?? run.damageType) === run.damageType) ?? parts[0]!;

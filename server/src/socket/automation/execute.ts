@@ -742,6 +742,7 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): { attac
     damageType: singleDamageType(def.damage?.types),
     count: Math.max(1, def.count ?? 1),
     ...(input.summonKey ? { shapeForm: input.summonKey } : {}),
+    ...(input.bonusDamage ? { bonusDamage: input.bonusDamage } : {}),
     ...(input.zoneId ? { zoneId: input.zoneId } : {}),
     ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };
