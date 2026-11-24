@@ -6,9 +6,11 @@ import {
   findBaseAction,
   gridDistanceFeet,
   hasTrigger,
+  KOBOLD_DRACONIC_CRY_ID,
   monsterAbilityAutomation,
   monsterStats,
   normalizeSheet,
+  raceActionAutomation,
   savedAgainst,
   saveRollParts,
   triggerOn,
@@ -2735,5 +2737,38 @@ describe('conditionImmunities гасит активную невидимость
     expect(target!.conditions.some((c) => c.key === 'invisible')).toBe(false);
     expect(target!.effects.some((e) => e.sourceKey === 'XPHB:Invisibility')).toBe(false);
     expect(target!.effects.some((e) => e.sourceKey === 'XPHB:Shining Smite')).toBe(true);
+  });
+});
+
+describe('Драконий клич (кобольд MPMM)', () => {
+  it('преимущество по слышащим врагам в 10 фт; оглохшие и дальние — без эффекта', () => {
+    const room = makeCombatRoom([
+      makeToken('t1', { x: 100, y: 100, faction: 'ally' }),
+      makeToken('t2', { x: 150, y: 100, faction: 'enemy' }),
+      makeToken('t3', {
+        x: 100,
+        y: 150,
+        faction: 'enemy',
+        conditions: [{ key: 'deafened', name: 'Оглох', rounds: null }],
+      }),
+      makeToken('t4', { x: 300, y: 100, faction: 'enemy' }),
+    ]);
+    const f = makeConnCtx(room, { dm: true, all: true });
+    const map = room.scene.maps[0]!;
+    const caster = map.tokens[0]!;
+    const def = raceActionAutomation(KOBOLD_DRACONIC_CRY_ID, { key: 'MPMM:Kobold' }, [{ level: 5 }]);
+    expect(def).toBeTruthy();
+
+    executeAutomation(f.ctx, { caster, mapId: 'm1', def: def!, targets: [], stats: null, author: 'K' });
+
+    const effect = map.tokens[1]!.effects.find((e) => e.name === 'Драконий клич');
+    expect(effect?.modifiers[0]).toMatchObject({
+      target: 'attack',
+      mode: 'advantage',
+      filter: { direction: 'against' },
+    });
+    expect(map.tokens[2]!.effects.some((e) => e.name === 'Драконий клич')).toBe(false);
+    expect(map.tokens[3]!.effects.some((e) => e.name === 'Драконий клич')).toBe(false);
+    expect(caster.effects.some((e) => e.name === 'Драконий клич')).toBe(false);
   });
 });

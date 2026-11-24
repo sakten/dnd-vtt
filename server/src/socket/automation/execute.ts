@@ -9,6 +9,7 @@ import {
   exhaustionRollPenalty,
   gridDistanceFeet,
   gridOfMap,
+  hasCondition,
   hostileTokens,
   isBanished,
   isSurrounded,
@@ -604,10 +605,15 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): { attac
     : input.targets;
   // Фильтр по отношению к кастеру (Conjure Woodland Beings: только враги).
   const sided = def.side ? rawTargets.filter((t) => sideMatches(caster, t, def.side!)) : rawTargets;
+  // Состояния-исключения автоцелей (Драконий клич: оглохшие не слышат).
+  const excluded = def.autoTargets?.excludeConditions;
+  const audible = excluded?.length
+    ? sided.filter((t) => !excluded.some((condition) => hasCondition(t.conditions, condition)))
+    : sided;
   // Типы-исключения (Command: нежить) — такие цели пропускаются, каст может уйти впустую.
   const targets = def.excludeCreatureTypes?.length
-    ? sided.filter((t) => !def.excludeCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''))
-    : sided;
+    ? audible.filter((t) => !def.excludeCreatureTypes!.includes(creatureTypeOf(room, t) ?? ''))
+    : audible;
 
   const abilities = ctx.manager.abilitiesForToken(room, caster);
   const proficiency = proficiencyFor(ctx, room, caster);

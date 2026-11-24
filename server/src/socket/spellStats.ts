@@ -4,6 +4,7 @@ import {
   choiceSpellGrants,
   featSpellGrants,
   grantedSpells,
+  raceSpellGrants,
   type CharacterSheet,
   type SpellStats,
   type Token,
@@ -17,7 +18,8 @@ export function spellClassFor(sheet: CharacterSheet, spellKey: string): string |
     sheet.spells.find((s) => s.key === spellKey)?.className ??
     grantedSpells(sheet.classes).find((g) => g.key === spellKey)?.className ??
     choiceSpellGrants(sheet.choices).find((g) => g.key === spellKey)?.className ??
-    featSpellGrants(sheet.choices).find((g) => g.key === spellKey)?.className
+    featSpellGrants(sheet.choices).find((g) => g.key === spellKey)?.className ??
+    raceSpellGrants(sheet.race).find((g) => g.key === spellKey)?.className
   );
 }
 

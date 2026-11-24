@@ -5,6 +5,7 @@ import {
   hasCondition,
   hasManeuver,
   maxCastableLevel,
+  raceSpellGrants,
   reactionFeatures,
   reactionSpellTrigger,
   restrictionsFor,
@@ -72,6 +73,7 @@ export function knownSpellKeys(room: Room, token: Token): string[] {
     for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
     for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
     for (const g of choiceSpellGrants(sheet.choices)) keys.add(g.key);
+    for (const g of raceSpellGrants(sheet.race)) keys.add(g.key);
     return [...keys];
   }
   return token.statblock?.spellcasting?.spells ?? [];

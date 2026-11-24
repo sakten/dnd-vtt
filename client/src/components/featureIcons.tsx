@@ -264,6 +264,95 @@ export const FEATURE_ICONS: Record<string, ReactNode> = {
       <path d="M2 4c3 0 5 2 5 5" />
     </>
   ),
+
+  // Расы
+  'race:XPHB:Aasimar:healingHands': (
+    <>
+      <path d="M7 13V9a2 2 0 0 1 4 0v3" />
+      <path d="M11 12V6a2 2 0 0 1 4 0v6" />
+      <path d="M15 12a2 2 0 0 1 4 0v3a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6v-2a2 2 0 0 1 4 0" />
+      <path d="M19 3v2M18 4h2" />
+    </>
+  ),
+  'race:XPHB:Aasimar:celestialRevelation': (
+    <>
+      <circle cx="12" cy="9" r="3" />
+      <path d="M12 2v2M12 14v2M4 9H2M22 9h-2" />
+      <path d="M6 20c-2-2-3-5-3-8 3 0 5 1 6 3M18 20c2-2 3-5 3-8-3 0-5 1-6 3" />
+    </>
+  ),
+  'race:XPHB:Dragonborn:breathWeaponCone': (
+    <>
+      <path d="M3 5l18 7-18 7z" />
+      <path d="M8 9l3 3-3 3" />
+    </>
+  ),
+  'race:XPHB:Dragonborn:breathWeaponLine': (
+    <>
+      <path d="M2 12h20" />
+      <path d="M17 8l4 4-4 4" />
+      <path d="M5 8l-2 4 2 4" />
+    </>
+  ),
+  'race:XPHB:Dragonborn:draconicFlight': (
+    <>
+      <path d="M12 20V9" />
+      <path d="M12 9C9 9 6 6 3 6c1 4 3 7 6 8" />
+      <path d="M12 9c3 0 6-3 9-3-1 4-3 7-6 8" />
+    </>
+  ),
+  'race:XPHB:Dwarf:stonecunning': (
+    <>
+      <path d="M4 19h16" />
+      <path d="M6 19V9l6-5 6 5v10" />
+      <path d="M10 19v-5h4v5" />
+    </>
+  ),
+  'race:XPHB:Goliath:giantAncestry': (
+    <>
+      <path d="M6 16a3 3 0 0 1 0-6 4 4 0 0 1 7-2 4 4 0 0 1 5 4 3 3 0 0 1 0 4" />
+      <path d="M12 12v7M9 16l3 3 3-3" />
+    </>
+  ),
+  'race:XPHB:Goliath:largeForm': (
+    <>
+      <path d="M12 3v18M9 6l3-3 3 3M9 18l3 3 3-3" />
+      <path d="M6 8h3M15 8h3M6 16h3M15 16h3" />
+    </>
+  ),
+  'race:XPHB:Orc:adrenalineRush': (
+    <>
+      <path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5.5-7 10-7 10z" />
+      <path d="M5 12h3l1.5-3 2 6 2-4 1.5 1H19" />
+    </>
+  ),
+  'race:MPMM:Kobold:draconicCry': (
+    <>
+      <path d="M3 9v6l5-1 1-4z" />
+      <path d="M12 8c2 2 2 6 0 8M16 6c4 3 4 9 0 12" />
+    </>
+  ),
+  // Наездники (окно реакции)
+  'race:XPHB:Goliath:giantAncestry:fire': (
+    <>
+      <path d="M12 3c1 3 4 4 4 8a4 4 0 0 1-8 0c0-1.5.6-2.6 1.4-3.6.3 1 .9 1.6 1.6 2C11 7.5 12 5.5 12 3z" />
+      <path d="M12 21a6 6 0 0 0 6-6c0-1.5-.4-2.7-1-3.8" />
+      <path d="M6 11c-.6 1.1-1 2.3-1 3.8a7 7 0 0 0 7 7" />
+    </>
+  ),
+  'race:XPHB:Goliath:giantAncestry:frost': (
+    <>
+      <path d="M12 2v20M4 7l16 10M20 7L4 17" />
+      <path d="M9 4l3 3 3-3M9 20l3-3 3 3" />
+    </>
+  ),
+  'race:XPHB:Goliath:giantAncestry:hill': (
+    <>
+      <path d="M3 20c4-8 8-12 18-13" />
+      <circle cx="8" cy="14" r="3" />
+      <path d="M13 17l3 3 3-3" />
+    </>
+  ),
 };
 
 export function hasFeatureIcon(id: string): boolean {

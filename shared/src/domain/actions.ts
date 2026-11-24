@@ -119,6 +119,8 @@ export interface ReactionOption {
   actionId?: string;
   resourceKey?: string;
   resourceAmount?: number;
+  /** Ключ иконки варианта (FeatureIcon/ActionIcon); пусто — общий глиф. */
+  iconKey?: string;
 }
 
 /** Окно реакции: одному токену предлагается выбрать вариант или пропустить. */

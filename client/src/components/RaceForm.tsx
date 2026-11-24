@@ -1,7 +1,8 @@
 import { getLocale, t } from '../i18n';
 import { damageLabel, skillName } from '../i18n/domain';
-import { raceDisplayName, useNames } from '../i18n/names';
+import { raceDisplayName, spellDisplayName, useNames } from '../i18n/names';
 import { useRaceText } from '../i18n/useLocalizedText';
+import { useSpells } from '../lib/useSpells';
 import {
   RACES,
   raceByKey,
@@ -18,11 +19,29 @@ interface Props {
   onChange: (race: RaceSelection | undefined) => void;
 }
 
+/** Заговор Колдовства кобольда: список чародея грузится только для этого выбора. */
+function SorcerySpellSelect({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+  const spells = useSpells();
+  const options = (spells ?? [])
+    .filter((spell) => spell.level === 0 && spell.classes.includes('sorcerer'))
+    .map((spell) => ({ key: spell.key, label: spellDisplayName(spell) }));
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{t('ui.common.notChosen')}</option>
+      {options.map((option) => (
+        <option key={option.key} value={option.key}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function RaceForm({ value, onChange }: Props) {
   useNames();
   useRaceText();
   const race = raceByKey(value?.key);
-  const choices = raceChoiceDefs(value?.key);
+  const choices = raceChoiceDefs(value?.key, value?.choices);
   const traits = raceTraitTexts(value?.key, getLocale()) ?? race?.traits ?? [];
   const speed = raceSpeed(value);
   const darkvision = raceDarkvision(value);
@@ -69,19 +88,33 @@ export default function RaceForm({ value, onChange }: Props) {
 
       {race && choices.length > 0 && (
         <div className="race-choices">
-          {choices.map((choice) => (
-            <label className="field" key={choice.id}>
-              <span>{choice.label}</span>
-              <select value={value?.choices?.[choice.id] ?? ''} onChange={(e) => setChoice(choice.id, e.target.value)}>
-                <option value="">{t('ui.common.notChosen')}</option>
-                {choice.options.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {choice.kind === 'skill' ? skillName(option.key) : option.label ?? option.key}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
+          {choices.map((choice) => {
+            const select =
+              choice.kind === 'spell' ? (
+                <SorcerySpellSelect
+                  value={value?.choices?.[choice.id] ?? ''}
+                  onChange={(key) => setChoice(choice.id, key)}
+                />
+              ) : (
+                <select
+                  value={value?.choices?.[choice.id] ?? ''}
+                  onChange={(e) => setChoice(choice.id, e.target.value)}
+                >
+                  <option value="">{t('ui.common.notChosen')}</option>
+                  {choice.options.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {choice.kind === 'skill' ? skillName(option.key) : option.label ?? option.key}
+                    </option>
+                  ))}
+                </select>
+              );
+            return (
+              <label className="field" key={choice.id}>
+                <span>{choice.label}</span>
+                {select}
+              </label>
+            );
+          })}
         </div>
       )}
 

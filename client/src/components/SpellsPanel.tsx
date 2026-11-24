@@ -9,6 +9,9 @@ import {
   maxSpellLevel,
   pactMax,
   poolSpells,
+  RACE_CAST_PREFIX,
+  raceCantripAbility,
+  raceSpellGrants,
   spellAttackBonus,
   spellListClass,
   spellSaveDc,
@@ -45,13 +48,23 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
   const tip = useSpellTooltip();
 
   const byKey = useMemo(() => new Map((spells ?? []).map((s) => [s.key, s])), [spells]);
-  const casters = casterClasses(sheet.classes);
+  const raceGrants = useMemo(() => raceSpellGrants(sheet.race), [sheet.race]);
+  const casters = useMemo(() => {
+    const list = [...casterClasses(sheet.classes)];
+    for (const grant of raceGrants) {
+      if (!list.some((entry) => entry.className === grant.className)) {
+        list.push({ className: grant.className, level: 1 });
+      }
+    }
+    return list;
+  }, [sheet.classes, raceGrants]);
   const granted = useMemo(
     () => [
       ...grantedSpells(sheet.classes),
       ...choiceSpellGrants(sheet.choices).map((g) => ({ ...g, level: 0 })),
+      ...raceGrants.map((g) => ({ ...g, level: 0 })),
     ],
-    [sheet.classes, sheet.choices]
+    [sheet.classes, sheet.choices, raceGrants]
   );
   const prof = sheetProficiencyBonus(sheet);
 
@@ -75,13 +88,14 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
 
       {casters.map((entry) => {
         const className = entry.className;
-        const ability = spellcastingAbility(className, entry.subclass);
+        const isRace = className.startsWith(RACE_CAST_PREFIX);
+        const ability = isRace ? raceCantripAbility(sheet.race) : spellcastingAbility(className, entry.subclass);
         const mod = ability ? abilityMod(sheet.abilities[ability]) : 0;
         const dc = spellSaveDc(prof, mod);
         const atk = spellAttackBonus(prof, mod);
-        const preparedMax = spellsMax(className, entry.level, entry.subclass);
-        const cantripMax = cantripsMax(className, entry.level, entry.subclass);
-        const maxLvl = maxSpellLevel(className, entry.level, entry.subclass);
+        const preparedMax = isRace ? 0 : spellsMax(className, entry.level, entry.subclass);
+        const cantripMax = isRace ? 1 : cantripsMax(className, entry.level, entry.subclass);
+        const maxLvl = isRace ? 0 : maxSpellLevel(className, entry.level, entry.subclass);
         const grantedKeys = new Set(granted.filter((g) => g.className === className).map((g) => g.key));
         const chosen = (sheet.spells ?? [])
           .filter((s) => s.className === className && !grantedKeys.has(s.key))
@@ -93,12 +107,14 @@ export default function SpellsPanel({ sheet, onChange }: PanelProps) {
           .filter((s): s is Spell => !!s);
         const rows = [...grantedFor.map((spell) => ({ spell, granted: true })), ...chosen.map((spell) => ({ spell, granted: false }))];
         const leveled = chosen.filter((s) => s.level > 0).length;
-        const cantrips = chosen.filter((s) => s.level === 0).length;
+        const cantrips = isRace
+          ? grantedFor.filter((s) => s.level === 0).length
+          : chosen.filter((s) => s.level === 0).length;
 
         return (
           <section className="spell-class" key={`${className}:${entry.subclass ?? ''}`}>
             <div className="spell-class-head">
-              <span className="spell-class-name">{classLabel(className)}</span>
+              <span className="spell-class-name">{isRace ? t('ui.sheet.race') : classLabel(className)}</span>
               <span className="spell-class-meta">
                 {t('ui.spells.classMeta', {
                   ability: ability ? abilityName(ability) : '—',

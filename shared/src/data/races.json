@@ -1,6 +1,6 @@
 {
-  "attribution": "Species from the System Reference Document 5.2 / PHB 2024, via 5e.tools.",
-  "count": 10,
+  "attribution": "Species from SRD 5.2 / PHB 2024 and MPMM Kobold, via 5e.tools.",
+  "count": 11,
   "races": [
     {
       "key": "XPHB:Aasimar",
@@ -387,6 +387,49 @@
         {
           "name": "Versatile",
           "description": "You gain an Origin feat of your choice (see chapter 5). Skilled is recommended."
+        }
+      ]
+    },
+    {
+      "key": "MPMM:Kobold",
+      "name": "Kobold",
+      "source": "MPMM",
+      "speed": 30,
+      "sizes": [
+        "S"
+      ],
+      "darkvision": 60,
+      "traits": [
+        {
+          "name": "Darkvision",
+          "description": "You can see in dim light within 60 feet of you as if it were bright light, and in darkness as if it were in dim light. You discern colors in that darkness only as shades of gray."
+        },
+        {
+          "name": "Draconic Cry",
+          "description": "As a bonus action, you let out a cry at your enemies within 10 feet of you. Until the start of your next turn, you and your allies have advantage on attack rolls against any of those enemies who could hear you. You can use this trait a number of times equal to your proficiency bonus, and you regain all expended uses when you finish a long rest."
+        },
+        {
+          "name": "Kobold Legacy",
+          "description": "Kobold's connections to dragons can manifest in unpredictable ways in an individual kobold. Choose one of the following legacy options for your kobold.\n\nYou have proficiency in one of the following skills of your choice: Arcana, Investigation, Medicine, Sleight of Hand, or Survival.\n\nYou have advantage on saving throws to avoid or end the Frightened condition on yourself.\n\nYou know one cantrip of your choice from the sorcerer spell list. Intelligence, Wisdom, or Charisma is your spellcasting ability for that cantrip (choose when you select this race)."
+        }
+      ],
+      "additionalSpells": [
+        {
+          "ability": {
+            "choose": [
+              "int",
+              "wis",
+              "cha"
+            ]
+          },
+          "known": {
+            "_": [
+              {
+                "choose": "level=0|class=Sorcerer",
+                "count": 1
+              }
+            ]
+          }
         }
       ]
     },

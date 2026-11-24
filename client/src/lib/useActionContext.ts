@@ -14,6 +14,7 @@ import {
   isTriggeredAbility,
   loadoutOf,
   raceActions,
+  raceSpellGrants,
   weaponContextOf,
   type ActionCost,
   type ActionDef,
@@ -229,6 +230,7 @@ export function useActionContext(): ActionContext | null {
         for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
         for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
         for (const g of choiceSpellGrants(sheet.choices)) keys.add(g.key);
+        for (const g of raceSpellGrants(sheet.race)) keys.add(g.key);
         for (const key of invocationAtWillSpells(sheet)) keys.add(key);
         panelSpells = [...keys].map((k) => byKey.get(k)).filter((s): s is Spell => !!s);
       }

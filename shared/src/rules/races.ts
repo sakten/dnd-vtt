@@ -25,7 +25,7 @@ export function raceByKey(key: string | undefined): RaceDef | undefined {
   return key ? byKey.get(key) : undefined;
 }
 
-export type RaceChoiceKind = 'ancestry' | 'legacy' | 'lineage' | 'giant' | 'skill' | 'size';
+export type RaceChoiceKind = 'ancestry' | 'legacy' | 'lineage' | 'giant' | 'skill' | 'size' | 'ability' | 'spell';
 
 export interface RaceChoiceOption {
   key: string;
@@ -105,8 +105,31 @@ const SIZE_OPTIONS: RaceChoiceOption[] = [
 
 const SKILL_OPTIONS: RaceChoiceOption[] = SKILLS.map((skill) => ({ key: skill.key }));
 
+const KOBOLD_LEGACIES: RaceChoiceOption[] = [
+  { key: 'craftiness', label: 'Хитрость' },
+  { key: 'defense', label: 'Оборона' },
+  { key: 'sorcery', label: 'Колдовство' },
+];
+
+const KOBOLD_SKILLS: RaceChoiceOption[] = SKILLS.filter((skill) =>
+  ['arcana', 'investigation', 'medicine', 'sleightOfHand', 'survival'].includes(skill.key)
+).map((skill) => ({ key: skill.key }));
+
+const SORCERY_ABILITIES: RaceChoiceOption[] = [
+  { key: 'int', label: 'Интеллект' },
+  { key: 'wis', label: 'Мудрость' },
+  { key: 'cha', label: 'Харизма' },
+];
+
+/** Класс-«раса» для заговора кобольда (Колдовство): отдельная строка в панели заклинаний. */
+export const RACE_CAST_PREFIX = 'raceCast:';
+export const KOBOLD_DRACONIC_CRY_ID = 'race:MPMM:Kobold:draconicCry';
+
 /** Выборы, которые видны в карточке вида (порядок — порядок полей). */
-export function raceChoiceDefs(raceKey: string | undefined): RaceChoiceDef[] {
+export function raceChoiceDefs(
+  raceKey: string | undefined,
+  choices?: Record<string, string>
+): RaceChoiceDef[] {
   switch (raceKey) {
     case 'XPHB:Aasimar':
       return [{ id: 'size', kind: 'size', label: 'Размер', options: SIZE_OPTIONS }];
@@ -136,6 +159,21 @@ export function raceChoiceDefs(raceKey: string | undefined): RaceChoiceDef[] {
         { id: 'size', kind: 'size', label: 'Размер', options: SIZE_OPTIONS },
         { id: 'skill', kind: 'skill', label: 'Умелый', options: SKILL_OPTIONS },
       ];
+    case 'MPMM:Kobold': {
+      const out: RaceChoiceDef[] = [
+        { id: 'legacy', kind: 'legacy', label: 'Наследие кобольда', options: KOBOLD_LEGACIES },
+      ];
+      if (choices?.legacy === 'craftiness') {
+        out.push({ id: 'skill', kind: 'skill', label: 'Хитрость', options: KOBOLD_SKILLS });
+      }
+      if (choices?.legacy === 'sorcery') {
+        out.push(
+          { id: 'sorceryAbility', kind: 'ability', label: 'Характеристика заклинаний', options: SORCERY_ABILITIES },
+          { id: 'sorcerySpell', kind: 'spell', label: 'Заговор чародея', options: [] }
+        );
+      }
+      return out;
+    }
     default:
       return [];
   }
@@ -169,6 +207,7 @@ export function raceResourceDefs(
     add('largeForm', 'Большая форма', 1, 5);
   }
   if (def.key === 'XPHB:Orc') add('adrenalineRush', 'Прилив адреналина', pb);
+  if (def.key === 'MPMM:Kobold') add('draconicCry', 'Драконий клич', pb);
   return out;
 }
 
@@ -218,9 +257,9 @@ export function effectiveCharacterMaxHp(sheet: CharacterSheet): number {
   return effectiveMaxHp(sheet) + raceHpBonus(sheet.race, sheet.classes);
 }
 
-/** Выбранный навык вида (Elf Keen Senses / Human Skillful). */
+/** Выбранный навык вида (Elf Keen Senses / Human Skillful / Kobold Craftiness). */
 export function raceSkill(race: RaceSelection | undefined): string | undefined {
-  const defs = raceChoiceDefs(race?.key);
+  const defs = raceChoiceDefs(race?.key, race?.choices);
   const skillChoice = defs.find((choice) => choice.kind === 'skill');
   if (!skillChoice) return undefined;
   const key = race?.choices?.skill;
@@ -289,7 +328,40 @@ export function racePassiveEffects(race: RaceSelection | undefined): ChoiceFeatu
       })),
     });
   }
+  if (def.key === 'MPMM:Kobold' && race?.choices?.legacy === 'defense') {
+    effects.push({
+      name: 'Оборона кобольда',
+      duration: { type: 'permanent' },
+      modifiers: [{ target: 'save', mode: 'advantage', filter: { conditions: ['frightened'] } }],
+    });
+  }
   return effects.length ? [{ key: `race:${def.key}`, name: def.name, effects }] : [];
+}
+
+/** Заговор Колдовства кобольда: выбранный ключ и характеристика. */
+export function raceCantripAbility(race: RaceSelection | undefined): AbilityKey | undefined {
+  if (race?.key !== 'MPMM:Kobold' || race.choices?.legacy !== 'sorcery') return undefined;
+  const ability = race.choices?.sorceryAbility;
+  return ability === 'int' || ability === 'wis' || ability === 'cha' ? ability : undefined;
+}
+
+export function raceCantrip(
+  race: RaceSelection | undefined
+): { key: string; ability: AbilityKey; className: string } | undefined {
+  const ability = raceCantripAbility(race);
+  const key = race?.choices?.sorcerySpell;
+  if (!ability || !key) return undefined;
+  return { key, ability, className: `${RACE_CAST_PREFIX}${race.key}` };
+}
+
+/** Заклинания, выданные видом (сейчас — только заговор Колдовства кобольда). */
+export function raceSpellGrants(race: RaceSelection | undefined): {
+  key: string;
+  className: string;
+  ability: AbilityKey;
+}[] {
+  const cantrip = raceCantrip(race);
+  return cantrip ? [cantrip] : [];
 }
 
 export const CELESTIAL_REVELATION_ID = 'race:XPHB:Aasimar:celestialRevelation';
@@ -413,6 +485,18 @@ export function raceActions(race: RaceSelection | undefined, classes: { level: n
       targeting: { kind: 'self' },
       resourceKey: resource('adrenalineRush'),
       description: 'Рывок и временные хиты, равные бонусу мастерства.',
+    });
+  }
+
+  if (def.key === 'MPMM:Kobold') {
+    push({
+      id: KOBOLD_DRACONIC_CRY_ID,
+      name: 'Драконий клич',
+      source: 'race',
+      costs: ['bonus'],
+      targeting: { kind: 'self' },
+      resourceKey: resource('draconicCry'),
+      description: 'Враги в 10 фт, которые слышат вас: до начала вашего следующего хода атаки по ним с преимуществом.',
     });
   }
 
@@ -607,6 +691,24 @@ export function raceActionAutomation(
           hidden: true,
           tempHp: pb,
           modifiers: [],
+        },
+      ],
+    };
+  }
+
+  if (actionId === KOBOLD_DRACONIC_CRY_ID) {
+    return {
+      key: actionId,
+      name: 'Драконий клич',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      autoTargets: { feet: 10, side: 'hostile', excludeConditions: ['deafened'] },
+      effects: [
+        {
+          name: 'Драконий клич',
+          duration: { type: 'endOfTurn', of: 'source' },
+          to: 'targets',
+          modifiers: [{ target: 'attack', mode: 'advantage', filter: { direction: 'against' } }],
         },
       ],
     };

@@ -160,6 +160,7 @@ export interface ChoiceRider {
   name: string;
   resourceKey?: string;
   resourceAmount?: number;
+  iconKey?: string;
 }
 
 export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token, attack?: AttackEntry): ChoiceRider[] {
@@ -173,7 +174,13 @@ export function availableChoiceRiders(ctx: ConnCtx, room: Room, attacker: Token,
     if (rider.kensei && !kensei) continue;
     if (!rider.noTurnLimit && attacker.effects.some((e) => e.sourceKey === `${USED_PREFIX}${rider.id}`)) continue;
     if (rider.resourceKey && !hasResourceFor(room, cid, rider.resourceKey, rider.resourceAmount ?? 1)) continue;
-    out.push({ id: rider.id, name: rider.name, resourceKey: rider.resourceKey, resourceAmount: rider.resourceAmount });
+    out.push({
+      id: rider.id,
+      name: rider.name,
+      resourceKey: rider.resourceKey,
+      resourceAmount: rider.resourceAmount,
+      iconKey: rider.iconKey ?? rider.id,
+    });
   }
   // Мастерства Push/Topple: правило «you can» — выбор игрока, отдельный пункт окна.
   if (attack) {

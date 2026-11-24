@@ -6,9 +6,9 @@
 
 ## Виды (расы PHB 2024)
 
-`shared/src/data/races.json` (10 видов XPHB, `npm run races`), `domain/race.ts`, `rules/races.ts` (`raceChoiceDefs`/`racePassiveEffects`/`raceResourceDefs`/`raceActions`/`raceActionAutomation`/`effectiveCharacterMaxHp`),
+`shared/src/data/races.json` (10 видов XPHB + кобольд MPMM, `npm run races`), `domain/race.ts`, `rules/races.ts` (`raceChoiceDefs`/`racePassiveEffects`/`raceResourceDefs`/`raceActions`/`raceActionAutomation`/`raceSpellGrants`/`effectiveCharacterMaxHp`),
 `CharacterSheet.race`, скрытые эффекты вида через `syncFeatureEffects` (`server/src/socket/features.ts`), активные кнопки вида в `ActionPanel`/`action:use`, ресурсы вида в `autoResourceDefs`, клиент
-`components/RaceForm.tsx`, тексты `text.ru/races.json`; состояние «Полёт» — `rules/conditions.ts` + `PlanWalkInput.passThroughUnits` (`rules/movement.ts`, `TokenView.tsx`)
+`components/RaceForm.tsx`, тексты `text.ru/races.json`; кобольд: Draconic Cry через `autoTargets.excludeConditions` (оглохшие), Колдовство — заговор `raceCast:*` в панели заклинаний; состояние «Полёт» — `rules/conditions.ts` + `PlanWalkInput.passThroughUnits` (`rules/movement.ts`, `TokenView.tsx`)
 
 ## Способности монстров (конструктор, легендарные)
 

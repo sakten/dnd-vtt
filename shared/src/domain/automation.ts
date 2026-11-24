@@ -611,7 +611,13 @@ export interface AutomationDef extends AutomationPayload {
    */
   chain?: { jumps: number; feet: number };
   /** Автосбор целей в радиусе от кастера (черты без мультивыбора): сторона и дистанция. */
-  autoTargets?: { feet: number; side: 'hostile' | 'ally' | 'any'; includeSelf?: boolean };
+  autoTargets?: {
+    feet: number;
+    side: 'hostile' | 'ally' | 'any';
+    includeSelf?: boolean;
+    /** Не брать цели с этими состояниями (Драконий клич: оглохшие не слышат). */
+    excludeConditions?: ConditionKey[];
+  };
   /** Стоимость/цель черты (для классовых действий). */
   costs?: ActionCost[];
   targeting?: ActionTargeting;

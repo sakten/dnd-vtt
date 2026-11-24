@@ -6,6 +6,7 @@ import { useIsDm } from '../lib/control';
 import { useSpellByKey } from '../lib/useSpells';
 import { spellDisplayName } from '../i18n/names';
 import ActionIcon from './ActionIcon';
+import FeatureIcon, { hasFeatureIcon } from './featureIcons';
 import SpellIcon from './SpellIcon';
 
 const TRIGGER_RU: Partial<Record<string, MessageKey>> = {
@@ -70,7 +71,13 @@ export default function ReactionPrompt() {
               return (
                 <div key={option.id} className="rp-option-row">
                   <button className="rp-option" onClick={() => respond(offer.id, option.id)}>
-                    {spell ? (
+                    {option.iconKey ? (
+                      hasFeatureIcon(option.iconKey) ? (
+                        <FeatureIcon id={option.iconKey} className="rp-icon" />
+                      ) : (
+                        <ActionIcon id={option.iconKey} className="rp-icon" />
+                      )
+                    ) : spell ? (
                       <SpellIcon spell={spell} className="rp-icon" />
                     ) : (
                       <ActionIcon id="sword" className="rp-icon" />

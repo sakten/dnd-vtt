@@ -121,6 +121,7 @@ function continueAfterRoll(
               kind: 'feature' as const,
               resourceKey: rider.resourceKey,
               resourceAmount: rider.resourceAmount,
+              iconKey: rider.iconKey ?? rider.id,
             })),
             ...smiteReactionOptions(smites),
           ],

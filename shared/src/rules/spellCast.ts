@@ -5,6 +5,7 @@ import type { Spell } from './spells';
 import { FEET_PER_CELL } from './areas';
 import { clampLevel } from './classes';
 import { FEAT_CAST_PREFIX } from './feats';
+import { RACE_CAST_PREFIX, raceCantripAbility } from './races';
 import { sheetProficiencyBonus, spellcastingAbility } from './spellLimits';
 import { nearestPointOnSegment } from './walls';
 
@@ -510,7 +511,8 @@ export function casterStats(sheet: CharacterSheet, className: string): SpellStat
   const entry = sheet.classes.find((c) => c.className === className);
   const featKey = className.startsWith(FEAT_CAST_PREFIX) ? className.slice(FEAT_CAST_PREFIX.length) : null;
   const feat = featKey ? sheet.choices?.find((c) => c.kind === 'feat' && c.key === featKey) : undefined;
-  const ability = feat ? (feat.ability ?? 'int') : spellcastingAbility(className, entry?.subclass);
+  const raceAbility = className.startsWith(RACE_CAST_PREFIX) ? raceCantripAbility(sheet.race) : undefined;
+  const ability = raceAbility ?? (feat ? (feat.ability ?? 'int') : spellcastingAbility(className, entry?.subclass));
   if (!ability) return null;
   const proficiency = sheetProficiencyBonus(sheet);
   const mod = abilityMod(sheet.abilities[ability] ?? 10);

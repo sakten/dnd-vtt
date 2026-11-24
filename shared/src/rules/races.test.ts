@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RaceSelection } from '../domain/race';
 import {
+  KOBOLD_DRACONIC_CRY_ID,
   RACES,
+  RACE_CAST_PREFIX,
   raceActionAutomation,
   raceActionChoiceOptions,
   raceActionStats,
@@ -13,6 +15,7 @@ import {
   raceResistances,
   raceResourceDefs,
   raceSkill,
+  raceSpellGrants,
   raceSpeed,
 } from './races';
 
@@ -21,10 +24,11 @@ const effectsOf = (race: RaceSelection) => racePassiveEffects(race).flatMap((fea
 const hasResistance = (effects: ReturnType<typeof effectsOf>, type: string) =>
   effects.some((effect) => effect.modifiers.some((m) => m.mode === 'resistance' && m.filter?.damageType === type));
 
-describe('виды PHB 2024', () => {
-  it('каталог: 10 видов XPHB', () => {
-    expect(RACES).toHaveLength(10);
+describe('виды PHB 2024 и кобольд MPMM', () => {
+  it('каталог: 10 видов XPHB + кобольд MPMM', () => {
+    expect(RACES).toHaveLength(11);
     expect(RACES.map((race) => race.key)).toContain('XPHB:Aasimar');
+    expect(RACES.map((race) => race.key)).toContain('MPMM:Kobold');
     expect(raceByKey('XPHB:Elf')?.speed).toBe(30);
   });
 
@@ -146,5 +150,30 @@ describe('активные черты видов', () => {
     } as unknown as Parameters<typeof raceActionStats>[1];
     expect(raceActionStats('race:XPHB:Dragonborn:breathWeaponCone', sheet)?.dc).toBe(13);
     expect(raceActionStats('race:XPHB:Aasimar:healingHands', sheet)).toBeNull();
+  });
+
+  it('кобольд: клич, наследия и заговор Колдовства', () => {
+    const classes = [{ level: 5 }];
+    expect(raceResourceDefs({ key: 'MPMM:Kobold' }, classes).find((r) => r.key.endsWith(':draconicCry'))?.max).toBe(3);
+    expect(raceActions({ key: 'MPMM:Kobold' }, classes).map((a) => a.id)).toContain(KOBOLD_DRACONIC_CRY_ID);
+
+    const cry = raceActionAutomation(KOBOLD_DRACONIC_CRY_ID, { key: 'MPMM:Kobold' }, classes);
+    expect(cry?.autoTargets).toMatchObject({ feet: 10, side: 'hostile', excludeConditions: ['deafened'] });
+    expect(cry?.effects?.[0]?.modifiers[0]).toMatchObject({
+      target: 'attack',
+      mode: 'advantage',
+      filter: { direction: 'against' },
+    });
+
+    const defense = effectsOf({ key: 'MPMM:Kobold', choices: { legacy: 'defense' } });
+    expect(
+      defense.some((effect) =>
+        effect.modifiers.some((m) => m.target === 'save' && m.filter?.conditions?.includes('frightened'))
+      )
+    ).toBe(true);
+    expect(raceSkill({ key: 'MPMM:Kobold', choices: { legacy: 'craftiness', skill: 'arcana' } })).toBe('arcana');
+    expect(
+      raceSpellGrants({ key: 'MPMM:Kobold', choices: { legacy: 'sorcery', sorceryAbility: 'cha', sorcerySpell: 'XPHB:Ray of Frost' } })
+    ).toEqual([{ key: 'XPHB:Ray of Frost', className: `${RACE_CAST_PREFIX}MPMM:Kobold`, ability: 'cha' }]);
   });
 });

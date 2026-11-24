@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { stripTags } from 'shared';
 
 /**
- * Сборка `shared/src/data/races.json` из данных 5e.tools (PHB 2024, XPHB).
- * Ключ — `XPHB:<имя вида>`; подрасы 2014 не входят (редакция one).
+ * Сборка `shared/src/data/races.json` из данных 5e.tools: все виды PHB 2024 (XPHB)
+ * и кобольд MPMM (решение владельца, остальные MPMM не входят).
+ * Ключ — `<SOURCE>:<имя вида>`; подрасы 2014 не входят (редакция one).
  * Запуск: `npm run races`.
  */
 
@@ -15,6 +16,9 @@ const BASES = [
 ];
 
 const SOURCE = 'XPHB';
+const EXTRA_SOURCES: Record<string, Set<string>> = {
+  MPMM: new Set(['Kobold']),
+};
 
 interface RawRace {
   name?: string;
@@ -116,9 +120,11 @@ async function main() {
   const file = await fetchJson<RawRacesFile>('races.json');
   const races: CatalogRace[] = [];
   for (const raw of file.race ?? []) {
-    if (raw.source !== SOURCE) continue;
+    const source = raw.source;
     const name = raw.name?.trim();
-    if (!name) continue;
+    if (!source || !name) continue;
+    const allowed = source === SOURCE || EXTRA_SOURCES[source]?.has(name);
+    if (!allowed) continue;
     const traits: RaceTrait[] = [];
     for (const entry of Array.isArray(raw.entries) ? raw.entries : []) {
       if (!entry || typeof entry !== 'object') continue;
@@ -130,9 +136,9 @@ async function main() {
     }
     const resist = normalizeResist(raw.resist);
     races.push({
-      key: `${SOURCE}:${name}`,
+      key: `${source}:${name}`,
       name,
-      source: SOURCE,
+      source,
       speed: Number.isFinite(raw.speed) ? Math.max(0, Math.round(raw.speed!)) : 30,
       sizes: Array.isArray(raw.size) ? raw.size.filter((s): s is string => typeof s === 'string') : ['M'],
       ...(Number.isFinite(raw.darkvision) && raw.darkvision ? { darkvision: Math.round(raw.darkvision) } : {}),
@@ -147,7 +153,7 @@ async function main() {
     outPath,
     JSON.stringify(
       {
-        attribution: 'Species from the System Reference Document 5.2 / PHB 2024, via 5e.tools.',
+        attribution: 'Species from SRD 5.2 / PHB 2024 and MPMM Kobold, via 5e.tools.',
         count: races.length,
         races,
       },
@@ -156,7 +162,7 @@ async function main() {
     ) + '\n'
   );
   console.log(`races: ${races.length} → ${outPath}`);
-  if (races.length !== 10) console.warn(`Ожидалось 10 видов XPHB, получено ${races.length}`);
+  if (races.length !== 11) console.warn(`Ожидалось 11 видов (10 XPHB + MPMM Kobold), получено ${races.length}`);
 }
 
 await main();

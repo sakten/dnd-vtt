@@ -13,6 +13,8 @@ export interface AttackRiderDef {
   /** Ключ черты (`класс[.подкласс]:имя`). */
   id: string;
   name: string;
+  /** Ключ иконки варианта в окне наездника (FeatureIcon/ActionIcon); пусто — `id`. */
+  iconKey?: string;
   /** Классовая черта; у видов не задаётся. */
   className?: string;
   subclass?: string;
@@ -73,6 +75,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
   {
     id: 'barbarian.zealot:divineFury',
     name: 'Божественная ярость',
+    iconKey: 'rage',
     className: 'barbarian',
     subclass: 'zealot',
     levelReq: 3,
@@ -84,6 +87,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
   {
     id: 'barbarian.berserker:frenzy',
     name: 'Неистовство',
+    iconKey: 'rage',
     className: 'barbarian',
     subclass: 'berserker',
     levelReq: 3,
@@ -94,6 +98,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
   {
     id: 'fighter.psiWarrior:psionicStrike',
     name: 'Псионический удар',
+    iconKey: 'surge',
     className: 'fighter',
     subclass: 'psiWarrior',
     levelReq: 3,
@@ -107,6 +112,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
   {
     id: 'fighter.battleMaster:distractingStrike',
     name: 'Отвлекающий удар',
+    iconKey: 'eye',
     className: 'fighter',
     subclass: 'battleMaster',
     levelReq: 3,
@@ -126,6 +132,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
   {
     id: 'monk:stunningStrike',
     name: 'Ошеломляющий удар',
+    iconKey: 'flurry',
     className: 'monk',
     levelReq: 5,
     choiceOnHit: true,
@@ -136,6 +143,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
   {
     id: 'monk.kensei:deftStrike',
     name: 'Ловкий удар',
+    iconKey: 'dice',
     className: 'monk',
     subclass: 'kensei',
     levelReq: 6,
