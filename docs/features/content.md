@@ -41,4 +41,5 @@
 
 UI: `client/src/i18n/*` — `index.ts` (реестр `LANGS`, `t`, `plural` через `Intl.PluralRules`, фолбэк locale→EN→ключ), `ru.ts`/`en.ts`, `names.ts` (имена контента), `useLocalizedText.ts` (ленивые чанки),
 `domain.ts`/`rolls.ts`/`system.ts`; контент: `shared/src/rules/text.ts` — оверлеи `shared/src/data/text.<lang>/` (`names.json` грузится до рендера, `spells.json`/`feats.json`/`features/<класс>.json` — по требованию);
+**канон имён фич:** с ресурсом — `CLASSES` (`shared/src/rules/classes.ts`), `names.json` зеркалит его (замок `featureRegistry.test.ts`); без ресурса — `names.json`; пояснения пулов в скобках остаются в метке ресурса (Наложение рук (запас));
 **новый язык = `<lang>.ts` + папка `text.<lang>/`**, правки кода не нужны; сводка механики — `client/src/lib/spellText.ts`
