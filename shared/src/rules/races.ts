@@ -6,6 +6,7 @@ import type { RaceDef, RaceSelection } from '../domain/race';
 import type { CharacterSheet, RestType } from '../domain/sheet';
 import { SKILLS } from '../labels';
 import { clampLevel, effectiveMaxHp, proficiencyBonus } from './classes';
+import { draconicResilienceHpBonus } from './draconic';
 import { sheetProficiencyBonus } from './spellLimits';
 import type { ChoiceFeature } from './feats';
 
@@ -249,12 +250,12 @@ export function raceHpBonus(race: RaceSelection | undefined, classes: { level: n
   return classes.reduce((sum, c) => sum + clampLevel(c.level), 0);
 }
 
-/** Эффективный максимум HP с бонусом вида; ручное значение из карточки уже включает всё. */
+/** Эффективный максимум HP с бонусами вида и подкласса; ручное значение из карточки уже включает всё. */
 export function effectiveCharacterMaxHp(sheet: CharacterSheet): number {
   if (sheet.hpMax && Number.isFinite(Number(sheet.hpMax)) && Number(sheet.hpMax) > 0) {
     return effectiveMaxHp(sheet);
   }
-  return effectiveMaxHp(sheet) + raceHpBonus(sheet.race, sheet.classes);
+  return effectiveMaxHp(sheet) + raceHpBonus(sheet.race, sheet.classes) + draconicResilienceHpBonus(sheet.classes);
 }
 
 /** Выбранный навык вида (Elf Keen Senses / Human Skillful / Kobold Craftiness). */

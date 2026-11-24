@@ -626,6 +626,14 @@
   gap: 14px;
 }
 
+.sp-metamagic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow: auto;
+}
+
 .sp-actions {
   display: flex;
   justify-content: flex-end;

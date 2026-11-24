@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterSheet, ConditionKey } from 'shared';
+import { ELEMENTAL_AFFINITY_KEY, type CharacterSheet, type ConditionKey } from 'shared';
 import { makeCombatRoom, makeResources, makeRoom, makeToken } from '../test/fixtures';
 import { makeConnCtx } from '../test/ctx';
 import { registerActionHandlers } from './actions';
@@ -61,6 +61,33 @@ describe('syncFeatureEffectsForItem', () => {
 
     syncFeatureEffectsForItem(f.ctx, room, 'lib1', [{ className: 'wizard', level: 6 }]);
     expect(t1.effects.some((effect) => effect.sourceKey?.startsWith('feature:race:'))).toBe(false);
+  });
+
+  it('драконье происхождение: AC 10+dex+cha и сопротивление выбранной стихии', () => {
+    const t1 = makeToken('t1', { libraryItemId: 'lib1' });
+    const room = makeRoom();
+    room.scene.maps[0]!.tokens = [t1];
+    const f = makeConnCtx(room, { dm: true });
+
+    syncFeatureEffectsForItem(
+      f.ctx,
+      room,
+      'lib1',
+      [{ className: 'sorcerer', subclass: 'draconic', level: 6 }],
+      [{ kind: 'featureOption', key: ELEMENTAL_AFFINITY_KEY, list: 'fire' }]
+    );
+
+    const effects = t1.effects.filter((effect) => effect.sourceKey?.startsWith('feature:sorcerer.draconic'));
+    expect(
+      effects.some((effect) =>
+        effect.modifiers.some((m) => m.target === 'ac' && m.mode === 'set' && m.value === '10+dex+cha')
+      )
+    ).toBe(true);
+    expect(
+      effects.some((effect) =>
+        effect.modifiers.some((m) => m.mode === 'resistance' && m.filter?.damageType === 'fire')
+      )
+    ).toBe(true);
   });
 });
 

@@ -122,7 +122,10 @@ export function hydrateRoom(p: PersistedRoom): Room {
     customSpecs: Array.isArray(p.customSpecs) ? p.customSpecs.filter(isCustomSpellDef).map(syncChoiceDamage) : [],
     testMode: p.testMode === true,
     ...(p.test === true ? { test: true } : {}),
-    optionalRules: { surrounded: p.optionalRules?.surrounded === true },
+    optionalRules: {
+      surrounded: p.optionalRules?.surrounded === true,
+      fogSight: Math.max(0, Math.min(10, Math.round(Number(p.optionalRules?.fogSight) || 0))),
+    },
   };
   return room;
 }

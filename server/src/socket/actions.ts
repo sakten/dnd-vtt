@@ -1007,7 +1007,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
           fail(ctx, 'noResource', { key: action.resourceKey!, name: action.name });
           return;
         }
-        const stats = spellStatsFor(room, token) ?? monsterStats(shapeStatblock(token), undefined);
+        const stats = casterStatsFor(room, token, action.spellKey) ?? spellStatsFor(room, token) ?? monsterStats(shapeStatblock(token), undefined);
         const input = collectSpellCast(ctx, {
           mapId,
           caster: token,

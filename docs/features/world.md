@@ -24,3 +24,5 @@
 (невидимость → adv/dis RAW, у видящего невидимого снимается — `attackSources` с флагами `attackerSeesInvisible`/`targetSeesInvisible`); скрытие невидимых — клиентское `lib/visibility.ts` (`invisibilityViewFor`: чужим
 токен скрыт, контролёр/DM видят полупрозрачным, See Invisibility раскрывает; скрытые (`hidden`) — контролируемым токеном с соседней клетки, истинным зрением или See Invisibility; `TokenLayer`/`ConditionsOverlay`, «?» в
 `InitiativeBar` у несоюзных)
+
+Опция комнаты **«Видимость в мгле»** (`OptionalRules.fogSight`, 0–10): `client/src/lib/los.ts` раскрывает в тяжёлой мгле клетки по манхэттенскому радиусу (0 — только своя, 1 — четыре соседние, далее на клетку во все стороны). Это только отображение: помеха атакам по целям в мгле остаётся серверной (`attackUnseen`), без blindsight её не снимает.

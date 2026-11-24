@@ -1,15 +1,32 @@
 import {
+  abilityMod,
   actionSlotAvailable,
+  automationForSpell,
+  CAREFUL_SPELL_KEY,
   characterLevel,
+  DISTANT_SPELL_KEY,
+  EXTENDED_SPELL_KEY,
+  extendedSpellEligible,
   featSpellGrants,
+  HEIGHTENED_SPELL_KEY,
   invocationActionCast,
   invocationAtWillSelfOnly,
   invocationCoversSpell,
+  knownMetamagic,
+  metamagicDef,
+  QUICKENED_SPELL_KEY,
   restrictionsFor,
   rollDice,
+  SEEKING_SPELL_KEY,
   SMITE_SPELLS,
   spellActionCost,
+  spellRangeFeet,
+  SUBTLE_SPELL_KEY,
+  TRANSMUTABLE_DAMAGE_TYPES,
+  TRANSMUTED_SPELL_KEY,
   triggersOn,
+  TWINNED_SPELL_KEY,
+  twinnedSpellEligible,
 } from 'shared';
 import type { ConnCtx } from './context';
 import { fail } from './errors';
@@ -28,7 +45,7 @@ import { spellsInShapeAllowed } from './forms';
 export function registerSpellHandlers(ctx: ConnCtx) {
   const { socket, manager, isDm, syncCombat, emitToken } = ctx;
 
-  ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, origin, direction, path, pushSide, summonKey, variant, condition, passengerId, placements }) => {
+  ctx.on('spell:cast', ({ mapId, tokenId, spellKey, slotLevel, targetIds, advantage, metamagic, origin, direction, path, pushSide, summonKey, variant, condition, passengerId, placements }) => {
     if (!ctx.playerId || typeof spellKey !== 'string') return;
     if (rejectIfReaction(ctx)) return;
     const scope = scopedToken(ctx, mapId, tokenId);
@@ -82,6 +99,88 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       return;
     }
 
+    // Метамагия: только известная опция чародея, оплата ОЧ до каста.
+    let primaryMetamagic: ReturnType<typeof metamagicDef>;
+    let twinned = false;
+    if (metamagic) {
+      const known = isCharacter && sheet ? knownMetamagic(sheet.choices) : [];
+      const key = metamagic.key;
+      primaryMetamagic = key === SEEKING_SPELL_KEY ? undefined : metamagicDef(key);
+      const seeking = metamagic.seeking === true || key === SEEKING_SPELL_KEY;
+      const unknownPrimary = key !== SEEKING_SPELL_KEY && !primaryMetamagic;
+      if (unknownPrimary || !known.includes(key) || (seeking && !known.includes(SEEKING_SPELL_KEY))) {
+        fail(ctx, 'metamagicUnknown');
+        return;
+      }
+      if (primaryMetamagic?.key === QUICKENED_SPELL_KEY) {
+        if (cost !== 'action') {
+          fail(ctx, 'metamagicNotApplicable');
+          return;
+        }
+        cost = 'bonus';
+      }
+      if (primaryMetamagic?.key === TRANSMUTED_SPELL_KEY) {
+        const type = metamagic.damageType;
+        const spellTypes = spell.damage?.types ?? [];
+        if (
+          !type ||
+          !TRANSMUTABLE_DAMAGE_TYPES.includes(type as (typeof TRANSMUTABLE_DAMAGE_TYPES)[number]) ||
+          !spellTypes.some((t) => TRANSMUTABLE_DAMAGE_TYPES.includes(t as (typeof TRANSMUTABLE_DAMAGE_TYPES)[number]))
+        ) {
+          fail(ctx, 'metamagicNotApplicable');
+          return;
+        }
+      }
+      if (primaryMetamagic?.key === DISTANT_SPELL_KEY) {
+        const range = spellRangeFeet(spell);
+        if (range === null || range < 5) {
+          fail(ctx, 'metamagicNotApplicable');
+          return;
+        }
+      }
+      if (primaryMetamagic?.key === EXTENDED_SPELL_KEY && !extendedSpellEligible(spell)) {
+        fail(ctx, 'metamagicNotApplicable');
+        return;
+      }
+      if (primaryMetamagic?.key === HEIGHTENED_SPELL_KEY && !(spell.save?.length ?? 0)) {
+        fail(ctx, 'metamagicNotApplicable');
+        return;
+      }
+      if (primaryMetamagic?.key === CAREFUL_SPELL_KEY) {
+        if (!(spell.save?.length ?? 0)) {
+          fail(ctx, 'metamagicNotApplicable');
+          return;
+        }
+        const limit = Math.max(1, abilityMod(sheet?.abilities.cha ?? 10));
+        const protectedIds = [...new Set(metamagic.careful ?? [])].filter((id) => typeof id === 'string' && id);
+        if (protectedIds.length > limit) {
+          fail(ctx, 'metamagicNotApplicable');
+          return;
+        }
+        metamagic.careful = protectedIds;
+      }
+      if (primaryMetamagic?.key === TWINNED_SPELL_KEY) {
+        if (!twinnedSpellEligible(spell) || spell.level < 1) {
+          fail(ctx, 'metamagicNotApplicable');
+          return;
+        }
+        twinned = true;
+      }
+      if (seeking && !spell.spellAttack) {
+        fail(ctx, 'metamagicNotApplicable');
+        return;
+      }
+      if (seeking && automationForSpell(spell, { castLevel: spell.level }).weaponAttack) {
+        fail(ctx, 'metamagicNotApplicable');
+        return;
+      }
+      const reserve = (primaryMetamagic?.cost ?? 0) + (seeking ? 1 : 0);
+      if (!manager.hasResource(room, ctx.playerId, 'sorcerer:sorceryPoints', reserve)) {
+        fail(ctx, 'noResource', { key: 'sorcerer:sorceryPoints', name: primaryMetamagic?.name ?? 'Метамагия' });
+        return;
+      }
+    }
+
     // Боевые характеристики: лист персонажа (класс) или статблок монстра.
     const stats = casterStatsFor(room, token, spellKey);
 
@@ -104,12 +203,18 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       castLevel = Number.isFinite(requested) ? Math.max(spell.level, Math.min(9, requested)) : spell.level;
     }
     if (atWill) castLevel = spell.level;
+    if (twinned && castLevel >= 9) {
+      fail(ctx, 'metamagicNotApplicable');
+      return;
+    }
+    // Сдвоенное заклинание: эффективный уровень +1, ячейка тратится прежняя.
+    const effectiveCastLevel = twinned ? Math.min(9, castLevel + 1) : castLevel;
 
     const input = collectSpellCast(ctx, {
       mapId,
       caster: token,
       spell,
-      castLevel,
+      castLevel: effectiveCastLevel,
       characterLevel: sheet ? characterLevel(sheet.classes) : 1,
       stats,
       targetIds,
@@ -126,6 +231,7 @@ export function registerSpellHandlers(ctx: ConnCtx) {
       author: room.players.find((p) => p.id === ctx.playerId)?.name ?? '?',
     });
     if (!input) return;
+    if (metamagic) input.metamagic = metamagic;
 
     const invalid = validateSpellCast(room, input);
     if (invalid) {
@@ -174,10 +280,20 @@ export function registerSpellHandlers(ctx: ConnCtx) {
     }
     manager.spendSlot(room, mapId, token, cost);
     syncCombat(room, mapId);
+    if (primaryMetamagic) {
+      manager.spendResource(room, ctx.playerId, 'sorcerer:sorceryPoints', primaryMetamagic.cost);
+      ctx.emitResources(room, ctx.playerId);
+      if (!primaryMetamagic.automated) {
+        ctx.systemMessage(room, {
+          code: 'metamagic.manual',
+          params: { name: token.name, option: primaryMetamagic.name },
+        });
+      }
+    }
 
     // Замедление (и подобное): шанс провала заклинания с соматическим компонентом.
     const failureChance = restrictionsFor(token.conditions, token.effects).spellFailureChance;
-    if (failureChance && spell.components.s) {
+    if (failureChance && spell.components.s && metamagic?.key !== SUBTLE_SPELL_KEY) {
       const d100 = rollDice('d100');
       if (d100.total <= failureChance) {
         pushRollMessage(ctx, room, {

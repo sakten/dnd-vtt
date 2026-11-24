@@ -1,10 +1,16 @@
 import {
+  automationDamageTypes,
   automationForSpell,
+  CAREFUL_SPELL_KEY,
   CAT_SPRING_KEY,
   cellNearTargetFeet,
   creatureTargetIssue,
   crossesWalls,
-  effectiveSpellRangeFeet,
+  EXTENDED_SPELL_KEY,
+  extendAutomation,
+  metamagicRangeFeet,
+  elementalAffinityBonus,
+  HEIGHTENED_SPELL_KEY,
   gridDistanceFeet,
   gridOfMap,
   handOf,
@@ -16,16 +22,21 @@ import {
   passengerIssue,
   pointCell,
   polymorphFormIssue,
+  SEEKING_SPELL_KEY,
   silencedByZones,
   sizeAtMost,
   spellCastArea,
   spellIsSelf,
   spellWeaponEntry,
+  SUBTLE_SPELL_KEY,
+  TRANSMUTED_SPELL_KEY,
+  transmuteAutomation,
   tokenVisibleFrom,
   wallPathIssue,
   wallsWithZones,
   weaponContextOf,
   type ErrorPayload,
+  type MetamagicCast,
   type Spell,
   type SpellStats,
   type Token,
@@ -52,6 +63,8 @@ export interface SpellCastInput {
   stats: SpellStats | null;
   targets: Token[];
   advantage?: 'a' | 'd';
+  /** Выбранная метамагия при касте (эффекты Subtle/Distant/Transmuted уже учтены). */
+  metamagic?: MetamagicCast;
   /** Цели собраны из области (origin уже проверен вызывающим). */
   area?: boolean;
   /** Точка/направление каста (для создания зон). */
@@ -97,6 +110,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   const silenceMap = room.scene.maps.find((m) => m.id === input.mapId);
   if (
     silenceMap &&
+    input.metamagic?.key !== SUBTLE_SPELL_KEY &&
     silencedByZones(spell, caster, silenceMap.zones, gridOfMap(silenceMap, room.scene.grid), silenceMap.walls)
   ) {
     return { code: 'silenced' };
@@ -106,7 +120,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   if (isThinWallSpell(spell.key) && input.path?.length) {
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
-    const issue = wallPathIssue(input.path, spell.key, caster, grid, effectiveSpellRangeFeet(spell, invocations));
+    const issue = wallPathIssue(input.path, spell.key, caster, grid, metamagicRangeFeet(spell, invocations, input.metamagic?.key));
     if (issue?.code === 'outOfRange') return { code: 'outOfRange', params: { feet: issue.feet ?? 0 } };
     if (issue) return { code: 'wallPathBad' };
     return undefined;
@@ -117,7 +131,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
     const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / grid.size) * 5;
-    const range = effectiveSpellRangeFeet(spell, invocations);
+    const range = metamagicRangeFeet(spell, invocations, input.metamagic?.key);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
     if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'action')) return { code: 'noClearPath' };
   }
@@ -226,7 +240,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
     const feet = (Math.hypot(input.origin.x - caster.x, input.origin.y - caster.y) / grid.size) * 5;
-    const range = effectiveSpellRangeFeet(spell, invocations);
+    const range = metamagicRangeFeet(spell, invocations, input.metamagic?.key);
     if (range !== null && feet > range) return { code: 'outOfRange', params: { feet: Math.round(feet) } };
     if (map && crossesWalls(caster, input.origin, wallsWithZones(map.walls, map.zones, grid), 'action')) return { code: 'noClearPath' };
     if (!hasFreeSummonSpot(room, input.mapId, entry.cells, input.origin)) return { code: 'summonNoSpace' };
@@ -308,7 +322,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (!placements.length || placements.length > (def.utility.targets ?? 5)) return { code: 'spellNoTarget' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
-    const sourceFeet = effectiveSpellRangeFeet(spell, invocations) ?? 30;
+    const sourceFeet = metamagicRangeFeet(spell, invocations, input.metamagic?.key) ?? 30;
     const limit = def.utility.destinationFeet ?? 120;
     for (const placement of placements) {
       const target = map?.tokens.find((t) => t.id === placement.targetId);
@@ -330,7 +344,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     if (!placements.length) return { code: 'spellNoTarget' };
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
-    const rangeFeet = effectiveSpellRangeFeet(spell, invocations) ?? def.targeting?.range ?? 60;
+    const rangeFeet = metamagicRangeFeet(spell, invocations, input.metamagic?.key) ?? def.targeting?.range ?? 60;
     for (const placement of placements) {
       const target = map?.tokens.find((t) => t.id === placement.targetId);
       if (!target || !map) return { code: 'spellNoTarget' };
@@ -358,7 +372,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
   if (def.utility?.kind === 'dispel') {
     const map = room.scene.maps.find((m) => m.id === input.mapId);
     const grid = gridOfMap(map, room.scene.grid);
-    const range = effectiveSpellRangeFeet(spell, invocations) ?? 120;
+    const range = metamagicRangeFeet(spell, invocations, input.metamagic?.key) ?? 120;
     if (input.dispelZoneId) {
       const zone = map?.zones?.find((z) => z.id === input.dispelZoneId);
       if (!zone) return { code: 'spellNoTarget' };
@@ -400,7 +414,7 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
     }
     return undefined;
   }
-  const rangeFeet = effectiveSpellRangeFeet(spell, invocations);
+  const rangeFeet = metamagicRangeFeet(spell, invocations, input.metamagic?.key);
   if (rangeFeet === null || spellIsSelf(spell)) return undefined;
   const map = room.scene.maps.find((m) => m.id === input.mapId);
   const grid = gridOfMap(map, room.scene.grid);
@@ -420,29 +434,48 @@ export function validateSpellCast(room: Room, input: SpellCastInput): ErrorPaylo
 export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?: ErrorPayload } {
   const room = ctx.getRoom();
   if (!room) return {};
-  const def = automationForSpell(input.spell, {
+  let def = automationForSpell(input.spell, {
     castLevel: input.castLevel,
     characterLevel: input.characterLevel,
     spellMod: input.stats?.mod,
     invocations: sheetOfToken(room, input.caster).sheet?.invocations,
     variant: input.variant,
   });
+  if (input.metamagic?.key === TRANSMUTED_SPELL_KEY && input.metamagic.damageType) {
+    def = transmuteAutomation(def, input.metamagic.damageType);
+  }
+  if (input.metamagic?.key === EXTENDED_SPELL_KEY) {
+    def = extendAutomation(def);
+  }
   const multi = (def.count ?? 1) > 1;
+  const sheet = sheetOfToken(room, input.caster).sheet;
+  const affinity = sheet ? elementalAffinityBonus(sheet) : undefined;
+  const affinityOnDamage = !!affinity && !!def.damage?.types?.includes(affinity.damageType);
+  const affinityOnWeapon =
+    !!affinity && !!def.weaponAttack && automationDamageTypes(def).includes(affinity.damageType);
+  const damageFlat = [
+    ...(input.fueledBonus ? [String(input.fueledBonus)] : []),
+    ...(affinityOnDamage ? [String(affinity!.amount)] : []),
+  ];
   const damage =
-    input.fueledBonus && !multi && def.damage?.dice
-      ? { ...def.damage, dice: `${def.damage.dice} + ${input.fueledBonus}` }
+    damageFlat.length && !multi && def.damage?.dice
+      ? { ...def.damage, dice: `${def.damage.dice} + ${damageFlat.join(' + ')}` }
       : undefined;
+  const riderFlat = [
+    ...(input.fueledBonus ? [`${input.fueledBonus}radiant`] : []),
+    ...(affinityOnWeapon ? [`${affinity!.amount}${affinity!.damageType}`] : []),
+  ];
   const weaponAttack =
-    input.fueledBonus && !multi && def.weaponAttack
+    riderFlat.length && !multi && def.weaponAttack
       ? {
           ...def.weaponAttack,
-          riderDice: def.weaponAttack.riderDice
-            ? `${def.weaponAttack.riderDice} + ${input.fueledBonus}radiant`
-            : `${input.fueledBonus}radiant`,
+          riderDice: [def.weaponAttack.riderDice, ...riderFlat].filter(Boolean).join(' + '),
         }
       : undefined;
-  const bonusDamage =
-    input.fueledBonus && multi ? { amount: input.fueledBonus, damageType: 'radiant' } : undefined;
+  const bonusDamages = [
+    ...(input.fueledBonus && multi ? [{ amount: input.fueledBonus, damageType: 'radiant' }] : []),
+    ...(affinityOnDamage && multi ? [{ amount: affinity!.amount, damageType: affinity!.damageType }] : []),
+  ];
   const resolvedDef = {
     ...def,
     ...(damage ? { damage } : {}),
@@ -471,7 +504,12 @@ export function resolveSpellCast(ctx: ConnCtx, input: SpellCastInput): { error?:
     ...(input.placements ? { placements: input.placements } : {}),
     ...(input.dispelZoneId ? { dispelZoneId: input.dispelZoneId } : {}),
     ...(input.passengerId ? { passengerId: input.passengerId } : {}),
-    ...(bonusDamage ? { bonusDamage } : {}),
+    ...(bonusDamages.length ? { bonusDamages } : {}),
+    ...(input.metamagic?.seeking || input.metamagic?.key === SEEKING_SPELL_KEY ? { seeking: true } : {}),
+    ...(input.metamagic?.key === CAREFUL_SPELL_KEY && input.metamagic.careful?.length
+      ? { carefulIds: input.metamagic.careful }
+      : {}),
+    ...(input.metamagic?.key === HEIGHTENED_SPELL_KEY ? { heightened: true } : {}),
     manual: {
       description: input.spell.description,
       level: input.spell.level,

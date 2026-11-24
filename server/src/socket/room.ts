@@ -104,6 +104,14 @@ export function registerRoomHandlers(ctx: ConnCtx) {
         if (surrounded) syncSurrounded(ctx, room);
         else clearSurrounded(ctx, room);
       }
+      const fogSight = optionalRules?.fogSight;
+      if (typeof fogSight === 'number' && Number.isFinite(fogSight)) {
+        const next = Math.max(0, Math.min(10, Math.round(fogSight)));
+        if (next !== room.optionalRules.fogSight) {
+          room.optionalRules = { ...room.optionalRules, fogSight: next };
+          changed = true;
+        }
+      }
       if (!changed) return;
       broadcastAll('room:settings', { testMode: room.testMode, optionalRules: room.optionalRules });
     });

@@ -274,6 +274,8 @@ export interface EffectInstance {
    * (`spellMaxRounds`); длительности больше минуты не лимитируются.
    */
   maxRounds?: number;
+  /** Extended Spell: преимущество на спасброски концентрации этого каста. */
+  concentrationAdvantage?: boolean;
   modifiers: Modifier[];
   /** Ключи накладываемых состояний. */
   conditions?: ConditionKey[];

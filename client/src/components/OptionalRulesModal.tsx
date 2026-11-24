@@ -22,6 +22,19 @@ export default function OptionalRulesModal() {
         {t('ui.rules.surrounded')}
       </CheckboxRow>
       <p className="hint">{t('ui.rules.surroundedHint')}</p>
+      <label className="field">
+        <span>{t('ui.rules.fogSight')}</span>
+        <input
+          type="number"
+          min={0}
+          max={10}
+          value={draft.fogSight}
+          onChange={(e) =>
+            setDraft({ ...draft, fogSight: Math.max(0, Math.min(10, Math.round(Number(e.target.value) || 0))) })
+          }
+        />
+      </label>
+      <p className="hint">{t('ui.rules.fogSightHint')}</p>
       <div className="modal-actions">
         <button
           className="primary"

@@ -599,6 +599,7 @@ export const CLASSES: Record<string, ClassDef> = {
     name: 'Чародей',
     caster: 'full',
     resources: [
+      { key: 'innateSorcery', name: 'Врождённое чародейство', reset: always, max: () => 2 },
       { key: 'sorceryPoints', name: 'Очки чародейства', reset: always, max: (level) => clampLevel(level) },
     ],
     subclasses: {

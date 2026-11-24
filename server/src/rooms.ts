@@ -113,7 +113,7 @@ export class RoomManager {
       customSpecs: [],
       testMode: false,
       ...(opts.test ? { test: true } : {}),
-      optionalRules: { surrounded: false },
+      optionalRules: { surrounded: false, fogSight: 0 },
     };
     this.rooms.set(code, room);
     return room;

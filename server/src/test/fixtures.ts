@@ -83,7 +83,7 @@ function baseRoom(tokens: Token[], controllers: Record<string, string>, combat =
     controllers,
     customSpecs: [],
     testMode: false,
-    optionalRules: { surrounded: false },
+    optionalRules: { surrounded: false, fogSight: 0 },
   };
 }
 

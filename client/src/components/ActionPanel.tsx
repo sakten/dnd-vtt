@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, SHARPEN_THE_BLADE_ACTION, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, knownMetamagic, legendaryOnly, masteryAccessible, QUICKENED_SPELL_KEY, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, SHARPEN_THE_BLADE_ACTION, silencedByZones, SMITE_SPELLS, slotSpendable, SUBTLE_SPELL_KEY, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
 
@@ -351,16 +351,26 @@ export default function ActionPanel() {
     silencedByZones(spell, token, activeMap?.zones, grid, activeMap?.walls ?? []);
 
   const spellDisabled = (spell: Spell): boolean => {
+    const metamagic = isCharacter && sheet ? knownMetamagic(sheet.choices) : [];
+    const sorcery = resources?.resources.find((r) => r.key === 'sorcerer:sorceryPoints')?.current ?? 0;
     // Смайты применяются райдером после попадания оружием — из панели не кастуются.
     if (SMITE_SPELLS.has(spell.key)) return true;
-    // Зона молчания (Silence, Jallarzi): вербальный компонент недоступен.
-    if (silenced(spell)) return true;
+    // Зона молчания (Silence, Jallarzi): вербальный компонент недоступен (кроме Subtle Spell).
+    if (silenced(spell) && !(metamagic.includes(SUBTLE_SPELL_KEY) && sorcery >= 1)) return true;
     // Долгое накладывание (1 мин и больше) в бою недоступно.
     const castAsAction = invocationAction(spell.key);
     if (longCastInCombat(spell, combatActive, { actionCast: castAsAction })) return true;
     // Блокируем по экономике действий (действие/бонус/реакция уже потрачены).
     const slot = spellSlotOf(spell, { actionCast: castAsAction });
-    if (!canSpendSlot(turnCtx, slot === 'other' ? 'special' : slot, spell.key)) return true;
+    if (!canSpendSlot(turnCtx, slot === 'other' ? 'special' : slot, spell.key)) {
+      // Quickened Spell: действие можно превратить в бонусное.
+      const quickened =
+        slot === 'action' &&
+        metamagic.includes(QUICKENED_SPELL_KEY) &&
+        sorcery >= 2 &&
+        canSpendSlot(turnCtx, 'bonus', spell.key);
+      if (!quickened) return true;
+    }
     if (slot === 'reaction' && spell.level > 0) {
       const maxLevel = maxCastableForSpell(spell, {
         isCharacter,

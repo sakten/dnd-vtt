@@ -11,6 +11,7 @@ import {
   gridOfMap,
   hasCondition,
   hostileTokens,
+  INNATE_SORCERY_ID,
   isBanished,
   isSurrounded,
   resolveAttack,
@@ -33,7 +34,7 @@ import {
 } from 'shared';
 import type { ConnCtx } from '../context';
 import type { Room } from '../../roomTypes';
-import { gridSizeOfMap } from '../../rooms';
+import { gridSizeOfMap, sheetOfToken } from '../../rooms';
 import { creatureTypeOf } from '../../room/actor';
 import { applyDamage, singleDamageType } from '../damage';
 import { consumeIncomingAttackEffects } from '../masteries';
@@ -52,6 +53,7 @@ import { executeTeleport } from '../teleport';
 import { emitSpellFx } from '../fx';
 import { pushRollMessage } from '../messages';
 import { misdirectCheck } from '../misdirect';
+import { spellClassFor } from '../spellStats';
 import { openAttackHitWindows, openAttackMissWindows, offerDamageReactions } from '../reactions/windows';
 import { openRedirectWindow } from '../reactions/features';
 import { maybeRollAnim } from '../rollAnim';
@@ -165,6 +167,11 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
   let finished = false;
   /** Был ли хотя бы один бросок атаки (для действий, привязанных к выстрелу: луч Wall of Light). */
   let rolled = false;
+  const casterSheet = sheetOfToken(room, caster).sheet;
+  const sorcererSpell = !!casterSheet && spellClassFor(casterSheet, def.key) === 'sorcerer';
+  const attackerEffects = sorcererSpell
+    ? caster.effects
+    : caster.effects.filter((effect) => effect.sourceKey !== INNATE_SORCERY_ID);
   const finishSequence = () => {
     if (finished) return;
     finished = true;
@@ -189,6 +196,8 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       targetId: target.id,
       // Отвлекающий удар: преимущество только от атак не-источника.
       attackerId: caster.id,
+      // Заклинательные атаки — не оружие (Innate Sorcery: преимущество только им).
+      weapon: false,
     } as const;
     const effectParts = attackRollParts(caster.effects, target.effects, effectCtx, abilities);
     // Состояния/невидимость и авто-крит — как в оружейной атаке (общие ядра attackResolve).
@@ -221,7 +230,7 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
       forcedDisadvantage: rangeType === 'ranged' && adjacentEnemy,
       forcedDisadvantageCode: 'adjacent',
       effectMode: effectParts.mode,
-      attackerEffects: caster.effects,
+      attackerEffects,
       targetEffects: target.effects,
       effectContext: effectCtx,
       abilities,
@@ -244,15 +253,17 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
     }
     const { advantage, disadvantage } = sourcesCounts(sources);
     const ac = ctx.manager.acForToken(room, target);
-    const hit = attackHitRoll({
-      attackExpr: withRollParts(d20Expr(stats.attack), { flat: effectParts.flat, dice: effectParts.dice }),
-      advCount: advantage,
-      disCount: disadvantage,
-      penalty,
-      critMin: 20,
-      targetAc: ac,
-      autoCrit: autoCrit(target.conditions, distance, rangeType),
-    });
+    const rollHit = () =>
+      attackHitRoll({
+        attackExpr: withRollParts(d20Expr(stats.attack), { flat: effectParts.flat, dice: effectParts.dice }),
+        advCount: advantage,
+        disCount: disadvantage,
+        penalty,
+        critMin: 20,
+        targetAc: ac,
+        autoCrit: autoCrit(target.conditions, distance, rangeType),
+      });
+    let hit = rollHit();
     rolled = true;
     pushRollMessage(ctx, room, {
       author,
@@ -265,6 +276,27 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
         sources: sources.length ? sources : undefined,
       },
     });
+    // Seeking Spell: переброс промаха за 1 ОЧ (можно вместе с другой метамагией).
+    if (run.seeking && !run.seekingUsed && !hit.hitSuccess) {
+      const controllerId = ctx.manager.controllerOfToken(room, caster);
+      if (controllerId && ctx.manager.hasResource(room, controllerId, 'sorcerer:sorceryPoints', 1)) {
+        ctx.manager.spendResource(room, controllerId, 'sorcerer:sorceryPoints', 1);
+        ctx.emitResources(room, controllerId);
+        run.seekingUsed = true;
+        hit = rollHit();
+        pushRollMessage(ctx, room, {
+          author,
+          roll: hit.hitRoll,
+          kind: 'attack',
+          params: {
+            subject: `${label} · Наводящееся заклинание`,
+            hit: hit.hitSuccess ? 'hit' : 'miss',
+            penalty: penalty || undefined,
+            sources: sources.length ? sources : undefined,
+          },
+        });
+      }
+    }
     // Лучи/снаряды: анимируем d20 только для первого, иначе анимации перебивают друга.
     if (rays === 1 || i === 0) maybeRollAnim(ctx, hit.hitRoll);
     // Отвлекающий удар: следующая чужая атака по цели потратила преимущество.
@@ -320,7 +352,17 @@ function runWeaponAttacks(run: AutomationRun, stats: SpellStats): boolean {
         offerDamageReactions(ctx, room, mapId, target, caster, { amount: applied.amount, damageType });
       }
       if (def.save && def.effects?.length) {
-        const save = rollTargetSaveFor(ctx, room, def, author, target, stats, def.save.ability);
+        const save = rollTargetSaveFor(
+          ctx,
+          room,
+          def,
+          author,
+          target,
+          stats,
+          def.save.ability,
+          undefined,
+          run.heightened === true && target.id === targets[0]?.id
+        );
         if (save.success) return done();
       }
       applyTargetEffects(run, target, stats);
@@ -486,9 +528,22 @@ function runSave(run: AutomationRun, stats: SpellStats): void {
   const saves: TargetSave[] = [];
   const half = def.save.half;
   const combatAdvantage = !!def.saveAdvantageInCombat && ctx.manager.combatOf(room, run.mapId)?.active === true;
+  const careful = new Set(run.carefulIds ?? []);
   for (const target of targets) {
     if (undeadIds.has(target.id)) continue;
-    const save = rollTargetSaveFor(run.ctx, run.room, def, run.author, target, stats, def.save.ability, combatAdvantage);
+    // Careful Spell: защищённое существо автоматически проходит спасбросок и не получает урон.
+    if (careful.has(target.id)) continue;
+    const save = rollTargetSaveFor(
+      run.ctx,
+      run.room,
+      def,
+      run.author,
+      target,
+      stats,
+      def.save.ability,
+      combatAdvantage,
+      run.heightened === true && saves.length === 0
+    );
     saves.push(save);
   }
   const applyAll = () => {
@@ -752,7 +807,10 @@ export function executeAutomation(ctx: ConnCtx, input: AutomationInput): { attac
     damageType: singleDamageType(def.damage?.types),
     count: Math.max(1, def.count ?? 1),
     ...(input.summonKey ? { shapeForm: input.summonKey } : {}),
-    ...(input.bonusDamage ? { bonusDamage: input.bonusDamage } : {}),
+    ...(input.bonusDamages?.length ? { bonusDamages: input.bonusDamages } : {}),
+    ...(input.seeking ? { seeking: true } : {}),
+    ...(input.carefulIds?.length ? { carefulIds: [...input.carefulIds] } : {}),
+    ...(input.heightened ? { heightened: true } : {}),
     ...(input.zoneId ? { zoneId: input.zoneId } : {}),
     ...(def.teleportAfter && input.origin ? { teleportTo: input.origin } : {}),
   };

@@ -42,7 +42,7 @@ export const createRoomSlice: Slice<Pick<GameState, 'init' | 'disposeSocket' | '
         selfId,
         role: player?.role ?? 'player',
         testMode: room.testMode === true,
-        optionalRules: room.optionalRules ?? { surrounded: false },
+        optionalRules: room.optionalRules ?? { surrounded: false, fogSight: 0 },
         customSpecs: room.customSpecs ?? [],
         players: room.players,
         scene: room.scene,

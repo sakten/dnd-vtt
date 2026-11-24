@@ -609,6 +609,8 @@ export interface AutomationDef extends AutomationPayload {
   concentration?: boolean;
   /** Лимит длительности «1 минута» = 10 раундов; `null` — без лимита (апкаст Dominate). */
   maxRounds?: number | null;
+  /** Extended Spell: преимущество на спасброски концентрации этого каста. */
+  concentrationAdvantage?: boolean;
   attack?: AutomationAttack;
   /** Число атак/снарядов/повторов; скейл (апкаст/уровень персонажа) уже учтён. */
   count?: number;

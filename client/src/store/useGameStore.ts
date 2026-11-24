@@ -42,7 +42,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
     roomName: null,
     role: 'player',
     testMode: false,
-    optionalRules: { surrounded: false },
+    optionalRules: { surrounded: false, fogSight: 0 },
     customSpecs: [],
     players: [],
     scene: { maps: [], activeMapId: null, grid: { ...DEFAULT_GRID } },

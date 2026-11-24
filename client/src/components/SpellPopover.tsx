@@ -1,23 +1,32 @@
 import { useEffect, useState } from 'react';
 import {
+  abilityMod,
   automationForSpell,
+  CAREFUL_SPELL_KEY,
   CAT_SPRING_KEY,
   CONDITION_KEYS,
   crValue,
   familiarFormAvailable,
   hasInvocation,
+  HEIGHTENED_SPELL_KEY,
   INVOCATION_PACT_KEYS,
   invocationAtWillSelfOnly,
   invocationAtWillSpells,
   invocationActionCast,
   invocationCoversSpell,
+  knownMetamagic,
+  metamagicDef,
+  metamagicRangeFeet,
+  SEEKING_SPELL_KEY,
   spellActionCost,
   spellAreaOrigin,
   spellAutomated,
   spellByDesign,
   spellCastAreaOverride,
-  spellRangeFeet,
   spellVariantDef,
+  TRANSMUTABLE_DAMAGE_TYPES,
+  TRANSMUTED_SPELL_KEY,
+  TWINNED_SPELL_KEY,
   isThinWallSpell,
   wallArea,
   wallMaxPanels,
@@ -31,7 +40,7 @@ import { spellDisplayName } from '../i18n/names';
 import { abilityName, conditionLabel, damageLabel, skillName } from '../i18n/domain';
 import { tokenById } from '../store/selectors';
 import { actionCostText, castLevelsForSpell, featFreeCastKeys, spellCastInfo, type CasterInfo } from '../lib/actionRules';
-import { t, type MessageKey } from '../i18n';
+import { getLocale, t, type MessageKey } from '../i18n';
 import SpellIcon from './SpellIcon';
 
 interface Props {
@@ -56,6 +65,10 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   const startScatter = useGameStore((s) => s.startScatter);
   const [adv, setAdv] = useState(false);
   const [dis, setDis] = useState(false);
+  const [metamagicKey, setMetamagicKey] = useState('');
+  const [transmuteType, setTransmuteType] = useState('fire');
+  const [seeking, setSeeking] = useState(false);
+  const [carefulIds, setCarefulIds] = useState<string[]>([]);
 
   const castToken = tokenById(map, tokenId);
   const selectedTokenId = useGameStore((s) => s.selectedTokenId);
@@ -64,6 +77,25 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   // CR цели-монстра известен заранее: список Polymorph сразу ограничиваем её лимитом.
   const maxTargetCr = selectedTarget?.statblock?.cr ? crValue(selectedTarget.statblock.cr) : undefined;
   const sheetCaster = !!sheet && currentCharacterId !== null && castToken?.libraryItemId === currentCharacterId;
+  const knownMetamagicKeys = sheetCaster && sheet ? knownMetamagic(sheet.choices) : [];
+  const metamagicPayload =
+    metamagicKey || seeking
+      ? {
+          metamagic: {
+            key: metamagicKey || SEEKING_SPELL_KEY,
+            ...(metamagicKey === TRANSMUTED_SPELL_KEY ? { damageType: transmuteType } : {}),
+            ...(seeking ? { seeking: true } : {}),
+            ...(metamagicKey === CAREFUL_SPELL_KEY ? { careful: carefulIds } : {}),
+          },
+        }
+      : {};
+  const pickMetamagic = (key: string) => {
+    setMetamagicKey(key);
+    if (key === TRANSMUTED_SPELL_KEY) {
+      const current = spell.damage?.types ?? [];
+      setTransmuteType(TRANSMUTABLE_DAMAGE_TYPES.find((type) => !current.includes(type)) ?? 'fire');
+    }
+  };
   const casterInfo: CasterInfo = {
     isCharacter: sheetCaster,
     resources,
@@ -78,6 +110,14 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
   });
 
   const mode: 'a' | 'd' | undefined = adv && !dis ? 'a' : dis && !adv ? 'd' : undefined;
+  const carefulLimit = sheetCaster && sheet ? Math.max(1, abilityMod(sheet.abilities.cha ?? 10)) : 1;
+  const carefulCandidates = (map?.tokens ?? []).filter(
+    (token) => token.id !== tokenId && !!castToken && token.faction === castToken.faction
+  );
+  const twinnedExtra =
+    metamagicKey === TWINNED_SPELL_KEY && !!spell.upcast?.targets && spell.level > 0 ? 1 : 0;
+  const twinnedMulti = twinnedExtra > 0 && !info.area && info.effectTargetCount > 0;
+  const weaponCantrip = !!automationForSpell(spell, { castLevel: info.slotLevel ?? level }).weaponAttack;
 
   const summonDef = (() => {
     const def = automationForSpell(spell, { castLevel: info.slotLevel ?? level });
@@ -181,20 +221,22 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         spec: castArea,
         originKind: spellAreaOrigin(spell),
-        rangeFeet: spellRangeFeet(spell),
+        rangeFeet: metamagicRangeFeet(spell, undefined, metamagicKey || undefined),
         ...(variant ? { variant } : {}),
+        ...metamagicPayload,
         ...(chainWall
           ? { chain: true, wallMax: wallMaxPanels(spell.key) }
           : {}),
       });
-    } else if (info.multi) {
+    } else if (info.multi || twinnedMulti) {
       startMultiTarget({
         tokenId,
         ...common,
         advantage: mode,
-        count: info.multiCount,
-        distinct: info.multiKind === 'targets',
+        count: info.multiCount + twinnedExtra,
+        distinct: info.multiKind === 'targets' || twinnedMulti,
         ...(variant ? { variant } : {}),
+        ...metamagicPayload,
         ...(strikeTeleport
           ? { thenAim: { rangeFeet: null, feet: strikeTeleport.feet } }
           : {}),
@@ -207,6 +249,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         slotLevel: info.slotLevel,
         advantage: mode,
         ...(variant ? { variant } : {}),
+        ...metamagicPayload,
       });
     } else if (teleportDef) {
       startAim({
@@ -219,6 +262,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         summon: true,
         ...(teleportDef.passenger ? { passenger: teleportDef.passenger } : {}),
         ...(teleportDef.ignoreSight ? { ignoreSight: true } : {}),
+        ...metamagicPayload,
       });
     } else if (scatterDef) {
       const telekinesis = scatterDef.kind === 'telekinesis';
@@ -239,6 +283,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         label: spellDisplayName(spell),
         ...(variant ? { variant } : {}),
+        ...metamagicPayload,
       });
     } else if (info.self || selfOnlyAtWill) {
       if (abilityAction) runAction(tokenId, abilityAction.id, { slot: abilityAction.slot });
@@ -250,6 +295,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
           advantage: mode,
           ...(variant ? { variant } : {}),
           ...(selfOnlyAtWill && !info.self ? { targetIds: [tokenId] } : {}),
+          ...metamagicPayload,
         });
     } else if (summonDef) {
       if (needForm && !form) return;
@@ -259,9 +305,10 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         spec: { shape: 'sphere', size: 0 },
         originKind: 'point',
-        rangeFeet: spellRangeFeet(spell),
+        rangeFeet: metamagicRangeFeet(spell, undefined, metamagicKey || undefined),
         summon: true,
         ...(needForm && form ? { summonKey: form } : {}),
+        ...metamagicPayload,
       });
     } else if (zoneDef && zoneDef.origin === 'self') {
       // Зона «в своей клетке» без прицела (Cordon of Arrows): каст сразу.
@@ -271,6 +318,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         slotLevel: info.slotLevel,
         advantage: mode,
         ...(variant ? { variant } : {}),
+        ...metamagicPayload,
       });
     } else if (zoneDef && zoneDef.origin === 'point') {
       // Зона от точки без режима области (Faithful Hound): прицел от кастера, радиус — зона.
@@ -280,8 +328,9 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         spec: zoneDef.area,
         originKind: 'point',
-        rangeFeet: spellRangeFeet(spell),
+        rangeFeet: metamagicRangeFeet(spell, undefined, metamagicKey || undefined),
         ...(variant ? { variant } : {}),
+        ...metamagicPayload,
       });
     } else if (shapeDef) {
       if (needBeast && !form) return;
@@ -293,6 +342,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         advantage: mode,
         label: spellDisplayName(spell),
         ...(form ? { summonKey: form } : {}),
+        ...metamagicPayload,
       });
     } else if (abilityAction) {
       startTargeting({
@@ -313,6 +363,7 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
         ...(variant ? { variant } : {}),
         ...(endConditionDef ? { endConditionKeys: endConditionDef } : {}),
         ...(dispelDef ? { zones: true } : {}),
+        ...metamagicPayload,
       });
     }
     onClose();
@@ -435,6 +486,92 @@ export default function SpellPopover({ spell, tokenId, onClose, abilityAction }:
             </select>
           </div>
         )}
+
+        {!abilityAction && knownMetamagicKeys.length > 0 && (
+          <div className="sp-row">
+            <span className="sp-label">{t('ui.spellPopover.metamagic')}</span>
+            <select
+              className="sp-select"
+              value={metamagicKey}
+              onChange={(e) => pickMetamagic(e.target.value)}
+            >
+              <option value="">{t('ui.spellPopover.metamagicNone')}</option>
+              {knownMetamagicKeys
+                .filter((key) => key !== SEEKING_SPELL_KEY)
+                .map((key) => {
+                  const def = metamagicDef(key);
+                  if (!def) return null;
+                  const name = getLocale() === 'en' ? def.nameEn : def.name;
+                  return (
+                    <option key={key} value={key}>
+                      {name}
+                      {` · ${t('ui.metamagic.cost', { n: def.cost })}`}
+                      {!def.automated ? ` ${t('ui.spellPopover.metamagicManual')}` : ''}
+                    </option>
+                  );
+                })}
+            </select>
+          </div>
+        )}
+
+        {!abilityAction &&
+          knownMetamagicKeys.includes(SEEKING_SPELL_KEY) &&
+          !weaponCantrip &&
+          info.attacky &&
+          spell.spellAttack && (
+            <label className="adv-check">
+              <input type="checkbox" checked={seeking} onChange={(e) => setSeeking(e.target.checked)} />
+              {t('ui.spellPopover.seekingSpell')}
+            </label>
+          )}
+
+        {metamagicKey === TRANSMUTED_SPELL_KEY && (
+          <div className="sp-row">
+            <span className="sp-label">{t('ui.spellPopover.damageType')}</span>
+            <select
+              className="sp-select"
+              value={transmuteType}
+              onChange={(e) => setTransmuteType(e.target.value)}
+            >
+              {TRANSMUTABLE_DAMAGE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {damageLabel(type)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {metamagicKey === CAREFUL_SPELL_KEY && carefulCandidates.length > 0 && (
+          <div className="sp-row">
+            <span className="sp-label">{t('ui.spellPopover.carefulSpell')}</span>
+            <div className="sp-metamagic-list">
+              {carefulCandidates.map((token) => {
+                const checked = carefulIds.includes(token.id);
+                return (
+                  <label className="adv-check" key={token.id}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={!checked && carefulIds.length >= carefulLimit}
+                      onChange={(e) =>
+                        setCarefulIds((ids) =>
+                          e.target.checked ? [...ids, token.id] : ids.filter((id) => id !== token.id)
+                        )
+                      }
+                    />
+                    {token.name}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {metamagicKey === HEIGHTENED_SPELL_KEY && (
+          <div className="sp-note">{t('ui.spellPopover.heightenedHint')}</div>
+        )}
+        {twinnedMulti && <div className="sp-note">{t('ui.spellPopover.twinnedHint')}</div>}
 
         {(needForm || needBeast) && (
           <div className="sp-row">

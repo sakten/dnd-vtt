@@ -273,6 +273,24 @@ describe('visibleCells', () => {
     expect(devilsight?.has('3,1')).toBe(true);
   });
 
+  it('опциональная видимость в мгле: ромб по прямой, без диагоналей', () => {
+    const base = {
+      ...VISION_BASE,
+      areas: area('obscured', 100, 0, 150, 150),
+      viewers: [viewer(125, 75)],
+    };
+    const none = visibleCells(base);
+    expect(none?.has('2,1')).toBe(true);
+    expect(none?.has('1,1')).toBe(false);
+
+    const one = visibleCells({ ...base, fogSight: 1 });
+    for (const key of ['1,1', '3,1', '2,0', '2,2']) expect(one?.has(key), key).toBe(true);
+    for (const key of ['1,0', '3,0', '1,2', '3,2']) expect(one?.has(key), key).toBe(false);
+
+    const two = visibleCells({ ...base, fogSight: 2 });
+    expect(two?.has('1,0')).toBe(true);
+  });
+
   it('вижн-зона заклинания: магическая тьма (Darkness)', () => {
     const darkness: ZoneInstance = {
       id: 'z1',

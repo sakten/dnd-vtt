@@ -8,7 +8,7 @@ const FEATURE_PREFIX = 'feature:';
 
 /** Пассивные эффекты персонажа: черты классов, выбранные фиты и вид. */
 function passiveSources(classes: ClassLevel[], choices?: FeatureChoice[], race?: RaceSelection): ChoiceFeature[] {
-  return [...passiveFeatures(classes), ...featChoiceEffects(choices, classes), ...racePassiveEffects(race)];
+  return [...passiveFeatures(classes, choices), ...featChoiceEffects(choices, classes), ...racePassiveEffects(race)];
 }
 
 /** Снимает с токена скрытые эффекты черт, которых больше нет у персонажа. */

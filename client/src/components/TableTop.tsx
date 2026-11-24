@@ -17,6 +17,7 @@ import {
   isThinWallSpell,
   lightLevelAt,
   loadoutOf,
+  metamagicRangeFeet,
   modifiedValue,
   pointCell,
   reachableCells,
@@ -27,7 +28,6 @@ import {
   sightContextOf,
   snapToGrid,
   sourcesMode,
-  spellRangeFeet,
   spreadCells,
   teleportCellsNearTargets,
   tokenCells,
@@ -503,6 +503,7 @@ export default function TableTop() {
         height: veilHeight,
         bounds,
         viewers: viewers ?? [],
+        fogSight: optionalRules.fogSight,
         light: lightMap,
       });
     const base = compute(veilZones);
@@ -567,6 +568,7 @@ export default function TableTop() {
     cellBounds,
     grid,
     lightMap,
+    optionalRules.fogSight,
   ]);
 
   // Мульти-цель: подсветка существ, которых можно выбрать (дистанция, стены, туман, обзор).
@@ -574,7 +576,7 @@ export default function TableTop() {
     if (!multiTarget || !activeMap) return [];
     const caster = tokenById(activeMap, multiTarget.tokenId);
     const spell = multiTarget.spellKey ? spellByKey.get(multiTarget.spellKey) : undefined;
-    const rangeFeet = spell ? spellRangeFeet(spell) : null;
+    const rangeFeet = spell ? metamagicRangeFeet(spell, undefined, multiTarget.metamagic?.key) : null;
     if (!caster || rangeFeet === null) return [];
     const g = { size: grid.size || 50, offsetX: grid.offsetX, offsetY: grid.offsetY };
     return activeMap.tokens.filter((t) => {

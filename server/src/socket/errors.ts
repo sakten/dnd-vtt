@@ -52,6 +52,8 @@ export type ErrorCode =
   | 'outOfRange'
   | 'noSlot'
   | 'noResource'
+  | 'metamagicUnknown'
+  | 'metamagicNotApplicable'
   | 'checkFailed'
   | 'badRoll'
   | 'doorLockedInCombat'

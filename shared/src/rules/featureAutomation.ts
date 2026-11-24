@@ -1,8 +1,13 @@
 import { permanentEffect, type AutomationDef } from '../domain/automation';
-import type { FeatureMechanics } from '../domain/feature';
+import type { FeatureChoice, FeatureMechanics } from '../domain/feature';
 import type { ClassLevel } from '../domain/sheet';
 import { bardicDie, clampLevel, proficiencyBonus } from './classes';
 import { INCAPACITATING_CONDITIONS } from './conditions';
+import {
+  ELEMENTAL_AFFINITY_KEY,
+  elementalAffinityAvailable,
+  elementalAffinityType,
+} from './draconic';
 import { featuresFor } from './features';
 import { BAIT_AND_SWITCH_ACTION } from './maneuvers';
 
@@ -15,6 +20,9 @@ import { BAIT_AND_SWITCH_ACTION } from './maneuvers';
  */
 
 export type FeatureMechanicsSource = FeatureMechanics | ((classes: ClassLevel[]) => FeatureMechanics);
+
+/** Активный эффект Врождённого чародейства (сервер: СЛ+1 только для заклинаний чародея). */
+export const INNATE_SORCERY_ID = 'class:sorcerer:innateSorcery';
 
 /** id действия Обольщающей магии (`class:<ключ>`); состояние выбирается при использовании. */
 export const BEGUILING_MAGIC_ID = 'class:bard.glamour:beguilingMagic';
@@ -562,6 +570,61 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     spellKey: 'XPHB:Haste',
     requiresEffect: 'class:druid.symbiote:symbioticTransformation',
   },
+
+  // Чародей — ядро
+  'sorcerer:innateSorcery': {
+    trait: 'active',
+    costs: ['bonus'],
+    targeting: { kind: 'self' },
+    automation: {
+      key: INNATE_SORCERY_ID,
+      name: 'Врождённое чародейство',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      effects: [
+        {
+          name: 'Врождённое чародейство',
+          duration: { type: 'rounds', rounds: 10 },
+          to: 'self',
+          modifiers: [
+            { target: 'spellDc', mode: 'add', value: 1 },
+            { target: 'attack', mode: 'advantage', filter: { direction: 'self', weapon: false } },
+          ],
+        },
+      ],
+    },
+  },
+
+  // Чародей — Драконье происхождение
+  'sorcerer.draconic:draconicResilience': {
+    trait: 'passive',
+    effects: [permanentEffect('Драконья устойчивость', [{ target: 'ac', mode: 'set', value: '10+dex+cha' }])],
+  },
+  'sorcerer.draconic:dragonWings': {
+    trait: 'active',
+    costs: ['bonus'],
+    targeting: { kind: 'self' },
+    automation: {
+      key: 'class:sorcerer.draconic:dragonWings',
+      name: 'Драконьи крылья',
+      resolution: 'effect',
+      targeting: { kind: 'self' },
+      effects: [
+        {
+          name: 'Драконьи крылья',
+          duration: { type: 'rounds', rounds: 600 },
+          to: 'self',
+          conditions: ['flying'],
+          modifiers: [{ target: 'speed', mode: 'set', value: 60 }],
+        },
+      ],
+    },
+  },
+  'sorcerer.draconic:dragonCompanion': {
+    trait: 'active',
+    costs: ['action'],
+    spellKey: 'XPHB:Summon Dragon',
+  },
 };
 
 function barbarianLevel(classes: ClassLevel[]): number {
@@ -605,12 +668,24 @@ export interface PassiveFeature {
 }
 
 /** Пассивные черты персонажа с постоянными эффектами (для синка на токен). */
-export function passiveFeatures(classes: ClassLevel[]): PassiveFeature[] {
+export function passiveFeatures(classes: ClassLevel[], choices?: FeatureChoice[]): PassiveFeature[] {
   const out: PassiveFeature[] = [];
   for (const feature of featuresFor(classes)) {
     const mech = featureMechanics(feature.key, classes);
     if (!mech || mech.trait !== 'passive' || !mech.effects?.length) continue;
     out.push({ key: feature.key, name: feature.name, effects: mech.effects });
+  }
+  const affinity = elementalAffinityType(choices);
+  if (affinity && elementalAffinityAvailable(classes)) {
+    out.push({
+      key: ELEMENTAL_AFFINITY_KEY,
+      name: 'Родство со стихией',
+      effects: [
+        permanentEffect('Родство со стихией', [
+          { target: 'damage', mode: 'resistance', filter: { damageType: affinity } },
+        ]),
+      ],
+    });
   }
   return out;
 }

@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ELEMENTAL_AFFINITY_KEY,
+  ELEMENTAL_AFFINITY_TYPES,
   FEATS,
   MAGICAL_DISCOVERIES_KEY,
   MAGICAL_DISCOVERIES_LISTS,
+  elementalAffinityAvailable,
+  elementalAffinityType,
   featByKey,
   featDescription,
   featMechanicsImplemented,
@@ -20,7 +24,7 @@ import {
 import { loadSpells } from '../lib/spells';
 import { getLocale, t, type MessageKey } from '../i18n';
 import { spellDisplayName, featDisplayName } from '../i18n/names';
-import { abilityName } from '../i18n/domain';
+import { abilityName, damageLabel } from '../i18n/domain';
 import { useFeatText } from '../i18n/useLocalizedText';
 
 const CATEGORY_NAMES: Record<FeatCategory, MessageKey> = {
@@ -82,6 +86,14 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
     return spells.filter((s) => s.level <= maxLvl && s.classes.some((c) => lists.has(c)));
   }, [discovers, spells, classes]);
 
+  const affinityAvailable = elementalAffinityAvailable(classes);
+  const affinityType = elementalAffinityType(choices);
+  const setAffinity = (type: string) => {
+    const index = choices.findIndex((c) => c.kind === 'featureOption' && c.key === ELEMENTAL_AFFINITY_KEY);
+    if (index >= 0) patchAt(index, { list: type });
+    else onChange([...choices, { kind: 'featureOption', key: ELEMENTAL_AFFINITY_KEY, list: type }]);
+  };
+
   return (
     <div className="feats-form">
       <div className="sheet-section-title">{t('ui.feats.selected')}</div>
@@ -142,6 +154,28 @@ export default function FeatsForm({ choices, classes, onChange }: Props) {
               ))}
             </div>
           )}
+        </div>
+      )}
+      {affinityAvailable && (
+        <div className="feat-row">
+          <div className="feat-head">
+            <span className="feat-name">{t('ui.feats.draconicAffinity')}</span>
+            <span className="feat-cat">{t('ui.feats.draconicSorcery')}</span>
+          </div>
+          <div className="feat-hint">{t('ui.feats.draconicAffinityHint')}</div>
+          <label className="field">
+            <span>{t('ui.feats.damageType')}</span>
+            <select value={affinityType ?? ''} onChange={(e) => setAffinity(e.target.value)}>
+              <option value="" disabled>
+                {t('ui.common.notChosenN')}
+              </option>
+              {ELEMENTAL_AFFINITY_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {damageLabel(type)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
       {!picking && (

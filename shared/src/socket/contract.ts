@@ -4,6 +4,7 @@ import type { SpellFxPayload } from '../domain/fx';
 import type { CombatState } from '../domain/combat';
 import type { Player, RollAnimPayload, RoomState, OptionalRules } from '../domain/room';
 import type { SpellDef } from '../rules/automation/materialize';
+import type { MetamagicCast } from '../rules/metamagic';
 import type { FogState, GridSettings, LightArea, MapInfo, MapLight, VisionSettings, Wall, DrawStroke } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
@@ -69,7 +70,7 @@ export interface ClientToServerEvents {
     cb: (res: { ok: true } | { error: ErrorPayload }) => void
   ) => void;
   /** Смена настроек комнаты (режим тестов, опциональные правила); сервер проверяет реального DM. */
-  'room:settings': (payload: { testMode?: boolean; optionalRules?: OptionalRules }) => void;
+  'room:settings': (payload: { testMode?: boolean; optionalRules?: Partial<OptionalRules> }) => void;
   /** Импорт кастомного заклинания (только DM): JSON полной записи или копии `extends`+`patch`. */
   'custom:import': (payload: { json: string }) => void;
   /** Удаление кастомного заклинания комнаты (только DM). */
@@ -178,6 +179,8 @@ export interface ClientToServerEvents {
     slotLevel?: number;
     targetIds?: string[];
     advantage?: 'a' | 'd';
+    /** Выбранная метамагия (оплата ОЧ и эффект при касте). */
+    metamagic?: MetamagicCast;
     /** Точка привязки области (мировые координаты) для spellHasArea. */
     origin?: { x: number; y: number };
     /** Направление конуса/линии (мировая точка). */

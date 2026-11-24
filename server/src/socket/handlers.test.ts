@@ -7032,6 +7032,11 @@ describe('room:settings (режим тестов)', () => {
     dm.invoke('room:settings', { optionalRules: { surrounded: false } });
     expect(room.optionalRules.surrounded).toBe(false);
     expect(target.conditions.some((c) => c.sourceKey === 'rule:surrounded')).toBe(false);
+
+    dm.invoke('room:settings', { optionalRules: { fogSight: 3 } });
+    expect(room.optionalRules.fogSight).toBe(3);
+    dm.invoke('room:settings', { optionalRules: { fogSight: 99 } });
+    expect(room.optionalRules.fogSight).toBe(10);
   });
 });
 

@@ -34,7 +34,7 @@ describe('room slice: подключение и режим тестов', () => 
       controllers: {},
       customSpecs: [],
       testMode: true,
-      optionalRules: { surrounded: false },
+      optionalRules: { surrounded: false, fogSight: 0 },
     };
 
     useGameStore.getState().onRoomJoined({ room, selfId: 'p1', sheet: null, resources: null });

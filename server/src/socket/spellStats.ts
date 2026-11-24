@@ -4,7 +4,10 @@ import {
   choiceSpellGrants,
   featSpellGrants,
   grantedSpells,
+  INNATE_SORCERY_ID,
+  modifiedValue,
   raceSpellGrants,
+  sheetMods,
   type CharacterSheet,
   type SpellStats,
   type Token,
@@ -28,7 +31,19 @@ export function spellStatsFor(room: Room, token: Token, className?: string): Spe
   const { sheet } = sheetOfToken(room, token);
   if (sheet && className) {
     const stats = casterStats(sheet, className);
-    if (stats) return stats;
+    if (stats) {
+      // Врождённое чародейство: +1 к СЛ только для заклинаний чародея.
+      const effects =
+        className === 'sorcerer'
+          ? token.effects
+          : token.effects.filter((effect) => effect.sourceKey !== INNATE_SORCERY_ID);
+      const mods = sheetMods(sheet.abilities);
+      return {
+        ...stats,
+        dc: modifiedValue(stats.dc, effects, 'spellDc', {}, mods),
+        attack: modifiedValue(stats.attack, effects, 'spellAttack', {}, mods),
+      };
+    }
   }
   const sc = token.statblock?.spellcasting;
   if (sc) {

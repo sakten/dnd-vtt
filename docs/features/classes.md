@@ -29,3 +29,19 @@ run feats`), `rules/feats.ts` (`featChoiceEffects`), выборы заклина
 - Активные механики: `rules/featureAutomation.ts`; `FeatureMechanics.spellKey` кастует заклинание через общий `action:use` без ячейки.
 - Symbiotic Reflexes: `spellKey: 'XPHB:Haste'` + ресурс PB/long rest + требование активной Symbiotic Transformation; отдельной копии Haste нет.
 - Cat's Spring: `CBT:Cat's Spring`; прыжок/OA/телепорт — `server/src/socket/catSpring*.ts`; UI — scatter `catSpring` в `client/src/domain/interaction.ts`.
+
+## Draconic Sorcery (XPHB)
+
+- Данные: `shared/src/data/features.json`, круговые заклинания — `rules/subclassSpells.ts` (Chromatic Orb … Summon Dragon), механики — `rules/featureAutomation.ts`.
+- Draconic Resilience: пассивный `ac`-модификатор `10+dex+cha`; HP — `draconicResilienceHpBonus` в `rules/draconic.ts`, учитывается `effectiveCharacterMaxHp`.
+- Elemental Affinity: выбор стихии в «Талантах» (`FeatureChoice` kind `featureOption`, ключ `sorcerer.draconic:elementalAffinity`), сопротивление — пассивный эффект `passiveFeatures(classes, choices)`; +мод. Харизмы к одному броску урона заклинания — `spellResolve` (`elementalAffinityBonus`), раз за каст.
+- Dragon Wings: активная черта (бонусное действие, ресурс 1/долгий отдых), эффект `flying` + скорость 60 на 600 раундов; возврат за 3 очка чародейства — вручную.
+- Dragon Companion: действие кастует Summon Dragon без ячейки (`spellKey`), ресурс 1/долгий отдых; вариант без концентрации (1 минута) — вручную.
+- Проверки: `shared/src/rules/features.test.ts`, `server/src/socket/draconic.test.ts`.
+
+## Чародей — ядро (XPHB)
+
+- Врождённое чародейство: ресурс `sorcerer:innateSorcery` (2/долгий отдых), кнопка на бонусное действие; эффект `class:sorcerer:innateSorcery` на 10 раундов — `spellDc +1` и преимущество на заклинательные атаки; ограничение «только заклинания чародея» — `server/src/socket/spellStats.ts` и `automation/execute.ts`.
+- Очки чародейства — пул `sorcerer:sorceryPoints`; метамагия — выбор 2/4/6 опций в «Талантах» (`components/MetamagicForm.tsx`, `rules/metamagic.ts`), при касте — селектор в `SpellPopover` и оплата ОЧ (`socket/spells.ts`).
+- Автоматизированы: Subtle, Distant, Quickened, Transmuted, Seeking (переброс промаха за 1 ОЧ), Heightened (помеха спасброскам первой цели), Careful (защита союзников), Extended (длительность ×2 и преимущество на концентрацию) и Twinned 2024 (эффективный уровень +1 и доп. цель). Empowered — вручную (`system.metamagic.manual`).
+- Проверки: `server/src/socket/innateSorcery.test.ts`, `server/src/socket/metamagic.test.ts`.

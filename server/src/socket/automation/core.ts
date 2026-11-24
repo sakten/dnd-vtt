@@ -63,8 +63,14 @@ export interface AutomationInput {
   choice?: string;
   /** Scatter: точки назначения по целям. */
   placements?: { targetId: string; x: number; y: number }[];
-  /** Единоразовый бонус к первому урону (Fueled Spellfire для многолучевых). */
-  bonusDamage?: { amount: number; damageType: string };
+  /** Единоразовые бонусы к первому урону (Fueled Spellfire, Elemental Affinity). */
+  bonusDamages?: { amount: number; damageType: string }[];
+  /** Seeking Spell: перебросить первый промах заклинательной атаки (1 ОЧ по факту). */
+  seeking?: boolean;
+  /** Careful Spell: защищённые существа автоматически проходят спасбросок. */
+  carefulIds?: string[];
+  /** Heightened Spell: первая цель бросает спасброски с помехой. */
+  heightened?: boolean;
   /** Dispel Magic: id зоны-цели (магический эффект на карте). */
   dispelZoneId?: string;
   /** Телепорт с пассажиром (Dimension Door, Thunder Step). */
@@ -150,6 +156,7 @@ export function anchorConcentration(ctx: ConnCtx, room: Room, caster: Token, map
     sourceId: caster.id,
     concentration: true,
     anchor: true,
+    ...(def.concentrationAdvantage ? { concentrationAdvantage: true } : {}),
     duration: { type: 'concentration' },
     modifiers: [],
   });
@@ -184,9 +191,13 @@ export interface AutomationRun {
   count: number;
   /** Выбранная форма Polymorph (ключ каталога бестиария). */
   shapeForm?: string;
-  /** Единоразовый бонус к первому урону (Fueled Spellfire для многолучевых). */
-  bonusDamage?: { amount: number; damageType: string };
+  /** Единоразовые бонусы к первому урону (Fueled Spellfire, Elemental Affinity). */
+  bonusDamages?: { amount: number; damageType: string }[];
   bonusUsed?: boolean;
+  seeking?: boolean;
+  seekingUsed?: boolean;
+  carefulIds?: string[];
+  heightened?: boolean;
   /** Steel Wind Strike: точка телепорта, выполняется после резолва всех атак. */
   teleportTo?: { x: number; y: number };
   /** Зона-источник действия: цель внутри неё → преимущество (Storm Sphere). */
@@ -273,9 +284,9 @@ export function applyResult(
   const mods = run.healing ? undefined : opts.mods;
   const aliveBefore = (target.hpCurrent ?? 0) > 0;
   const parts = roll.damageParts.map((part) => ({ ...part }));
-  if (!run.healing && run.bonusDamage && !run.bonusUsed) {
+  if (!run.healing && run.bonusDamages?.length && !run.bonusUsed) {
     run.bonusUsed = true;
-    parts.push({ amount: run.bonusDamage.amount, damageType: run.bonusDamage.damageType });
+    for (const bonus of run.bonusDamages) parts.push({ amount: bonus.amount, damageType: bonus.damageType });
   }
   const bonus = (mods?.extraDamage ?? 0) - (mods?.flatReduction ?? 0);
   if (bonus && parts.length) {

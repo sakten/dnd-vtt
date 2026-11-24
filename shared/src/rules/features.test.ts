@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import type { CharacterSheet, ClassLevel } from '../domain/sheet';
+import type { FeatureChoice } from '../domain/feature';
 import { attackRidersFor } from './attackRiders';
 import { classFeatures } from './classActions';
 import { CLASSES, martialArtsDie } from './classes';
+import {
+  ELEMENTAL_AFFINITY_KEY,
+  elementalAffinityBonus,
+  elementalAffinityType,
+} from './draconic';
 import { featureActionAutomation, featureChoiceOptions, featureMechanics, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
+import { effectiveCharacterMaxHp } from './races';
 import { reactionFeatures } from './reactions';
 
 /** Ресурсы, у которых нет пары в каталоге: кастомные ветки/подопции ядра. */
@@ -381,5 +389,91 @@ describe('активные варианты голиафа', () => {
     });
     expect(storm.map((r) => r.id)).toContain('race:XPHB:Goliath:giantAncestry:storm');
     expect(storm.find((r) => r.id.endsWith(':storm'))?.kind).toBe('damageBack');
+  });
+});
+
+describe('драконье происхождение чародея', () => {  const sorc = (level: number): ClassLevel[] => [{ className: 'sorcerer', subclass: 'draconic', level }];
+  const choice = (list: string): FeatureChoice[] => [
+    { kind: 'featureOption', key: ELEMENTAL_AFFINITY_KEY, list },
+  ];
+  const sheet = (level: number, list?: string): CharacterSheet =>
+    ({
+      classes: sorc(level),
+      choices: list ? choice(list) : [],
+      abilities: { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 18 },
+      race: undefined,
+      hpMax: '',
+    }) as unknown as CharacterSheet;
+
+  it('Драконья устойчивость: AC 10+dex+cha пассивным эффектом', () => {
+    const passive = passiveFeatures(sorc(3)).find((f) => f.key === 'sorcerer.draconic:draconicResilience');
+    expect(passive?.effects[0]?.modifiers[0]).toMatchObject({ target: 'ac', mode: 'set', value: '10+dex+cha' });
+  });
+
+  it('Родство со стихией: сопротивление выбранному типу с 6 уровня', () => {
+    expect(elementalAffinityType(choice('fire'))).toBe('fire');
+    const passive = passiveFeatures(sorc(6), choice('fire')).find((f) => f.key === ELEMENTAL_AFFINITY_KEY);
+    expect(passive?.effects[0]?.modifiers[0]).toMatchObject({
+      target: 'damage',
+      mode: 'resistance',
+      filter: { damageType: 'fire' },
+    });
+    expect(passiveFeatures(sorc(5), choice('fire')).some((f) => f.key === ELEMENTAL_AFFINITY_KEY)).toBe(false);
+    expect(passiveFeatures(sorc(6)).some((f) => f.key === ELEMENTAL_AFFINITY_KEY)).toBe(false);
+  });
+
+  it('Родство: +мод. Харизмы к одному броску урона заклинания этого типа', () => {
+    expect(elementalAffinityBonus(sheet(6, 'fire'))).toEqual({ damageType: 'fire', amount: 4 });
+    expect(elementalAffinityBonus(sheet(6))).toBeUndefined();
+    expect(elementalAffinityBonus(sheet(5, 'fire'))).toBeUndefined();
+  });
+
+  it('Крылья: бонусное действие, полёт 60 фт на час, ресурс 1/долгий отдых', () => {
+    const def = featureActionAutomation('class:sorcerer.draconic:dragonWings', sorc(14));
+    const effect = def?.effects?.[0];
+    expect(effect?.conditions).toEqual(['flying']);
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 600 });
+    expect(effect?.modifiers).toContainEqual(expect.objectContaining({ target: 'speed', mode: 'set', value: 60 }));
+    const button = classFeatures(sorc(14)).find((a) => a.id === 'class:sorcerer.draconic:dragonWings');
+    expect(button?.costs).toEqual(['bonus']);
+    expect(button?.resourceKey).toBe('sorcerer.draconic:dragonWings');
+  });
+
+  it('Дракон-спутник: Summon Dragon без ячейки, ресурс 1/долгий отдых', () => {
+    const button = classFeatures(sorc(18)).find((a) => a.id === 'class:sorcerer.draconic:dragonCompanion');
+    expect(button?.spellKey).toBe('XPHB:Summon Dragon');
+    expect(button?.resourceKey).toBe('sorcerer.draconic:dragonCompanion');
+    expect(button?.costs).toEqual(['action']);
+  });
+
+  it('HP: +3 на 3 ур., +1 за каждый следующий уровень чародея', () => {
+    const plain = (level: number): CharacterSheet =>
+      ({ ...sheet(level), classes: [{ className: 'sorcerer', level }] }) as CharacterSheet;
+    expect(effectiveCharacterMaxHp(sheet(6))).toBe(effectiveCharacterMaxHp(plain(6)) + 6);
+    expect(effectiveCharacterMaxHp(sheet(3))).toBe(effectiveCharacterMaxHp(plain(3)) + 3);
+    expect(effectiveCharacterMaxHp({ ...sheet(6), hpMax: '50' })).toBe(50);
+  });
+});
+
+describe('врождённое чародейство', () => {
+  const sorcerer: ClassLevel[] = [{ className: 'sorcerer', level: 2 }];
+
+  it('бонусное действие, 2 применения на долгий отдых, СЛ +1 и преимущество на заклинательные атаки', () => {
+    const def = featureActionAutomation('class:sorcerer:innateSorcery', sorcerer);
+    const effect = def?.effects?.[0];
+    expect(effect?.duration).toEqual({ type: 'rounds', rounds: 10 });
+    expect(effect?.modifiers).toContainEqual(expect.objectContaining({ target: 'spellDc', mode: 'add', value: 1 }));
+    expect(effect?.modifiers).toContainEqual(
+      expect.objectContaining({
+        target: 'attack',
+        mode: 'advantage',
+        filter: { direction: 'self', weapon: false },
+      })
+    );
+    const button = classFeatures(sorcerer).find((a) => a.id === 'class:sorcerer:innateSorcery');
+    expect(button?.costs).toEqual(['bonus']);
+    expect(button?.resourceKey).toBe('sorcerer:innateSorcery');
+    const resource = CLASSES.sorcerer!.resources.find((r) => r.key === 'innateSorcery');
+    expect(resource?.max(1, { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, 1)).toBe(2);
   });
 });

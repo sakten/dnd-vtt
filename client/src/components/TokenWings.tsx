@@ -8,7 +8,7 @@ type WingStyle = 'feather' | 'dragon' | 'arcane';
 function wingStyleOf(token: Token): WingStyle {
   const source = token.effects.find((effect) => effect.conditions?.includes('flying'))?.sourceKey ?? '';
   if (/Aasimar|celestialRevelation/i.test(source)) return 'feather';
-  if (/Dragonborn|draconicFlight/i.test(source)) return 'dragon';
+  if (/Dragonborn|draconicFlight|dragonWings/i.test(source)) return 'dragon';
   return 'arcane';
 }
 

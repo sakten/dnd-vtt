@@ -245,13 +245,16 @@ export function rollSave(
   opts: {
     conditionsAutoFail?: boolean;
     advantage?: boolean;
+    disadvantage?: boolean;
     condition?: ConditionKey;
     magical?: boolean;
     concentration?: boolean;
   } = {}
 ): { roll: DiceRollResult; success: boolean } {
   const parts = savePartsForToken(room, token, ability, opts.condition, opts.magical, opts.concentration);
-  const mode = opts.advantage ? (parts.mode === 'd' ? undefined : 'a') : parts.mode;
+  let mode = parts.mode;
+  if (opts.advantage) mode = mode === 'd' ? undefined : 'a';
+  if (opts.disadvantage) mode = mode === 'a' ? undefined : 'd';
   const roll = rollDice(withAdvantage(withRollParts('d20', parts), mode));
   // Одноразовые штрафы к спасброску (Mind Sliver): сгорают после этого броска.
   // Сам эффект не удаляем: спасброски бросаются и в цикле `tickEffects` по effects;
@@ -763,9 +766,11 @@ export function concentrationCheck(
   const active = concentratingEffectsOf(room, token);
   if (!active.length) return null;
   const dc = concentrationDc(damage);
-  // Eldritch Mind: преимущество на спасброски концентрации.
+  // Eldritch Mind / Extended Spell: преимущество на спасброски концентрации.
   const controllerId = controllerIdOfToken(room, token);
-  const advantage = !!controllerId && hasConcentrationAdvantage(room.sheets[controllerId] ?? {});
+  const advantage =
+    (!!controllerId && hasConcentrationAdvantage(room.sheets[controllerId] ?? {})) ||
+    active.some((effect) => effect.concentrationAdvantage === true);
   const { roll, success } = rollSave(room, token, 'con', dc, { advantage, concentration: true });
   const names = [...new Set(active.map((e) => e.name))];
   const changed = success ? [] : clearConcentration(m, room, token.id);

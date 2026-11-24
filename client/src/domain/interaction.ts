@@ -1,4 +1,4 @@
-import { cellCenter, nearestPointOnSegment, pointCell, snapWallAnchor, snapWallJoint, spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type Token, type WallPushSide } from 'shared';
+import { cellCenter, nearestPointOnSegment, pointCell, snapWallAnchor, snapWallJoint, spellCastDirection, type ActionCost, type AreaSpec, type ConditionKey, type MetamagicCast, type Token, type WallPushSide } from 'shared';
 
 /** Точка в мировых координатах карты. */
 export interface Point {
@@ -14,6 +14,8 @@ export interface AimState {
   slot?: ActionCost;
   slotLevel?: number;
   advantage?: 'a' | 'd';
+  /** Выбранная метамагия при касте. */
+  metamagic?: MetamagicCast;
   spec: AreaSpec;
   originKind: 'self' | 'point';
   /** Дистанция накладывания, футы; null — без ограничения (точка не тащится дальше). */
@@ -59,6 +61,7 @@ export interface MultiTargetState {
   slot?: ActionCost;
   slotLevel?: number;
   advantage?: 'a' | 'd';
+  metamagic?: MetamagicCast;
   count: number;
   targets: string[];
   /** Существа-цели: без повторов, можно применить, выбрав меньше максимума. */
@@ -115,6 +118,7 @@ export type TargetingState =
       spellKey: string;
       slotLevel?: number;
       advantage?: 'a' | 'd';
+      metamagic?: MetamagicCast;
       label: string;
       /** Polymorph: выбранная форма-зверь (ключ каталога). */
       summonKey?: string;
@@ -139,6 +143,7 @@ export type TargetingState =
       spellKey: string;
       slotLevel?: number;
       advantage?: 'a' | 'd';
+      metamagic?: MetamagicCast;
       label: string;
       /** Точка прибытия кастера. */
       origin: Point;
@@ -153,6 +158,7 @@ export interface ConditionChoiceState {
   spellKey: string;
   slotLevel?: number;
   advantage?: 'a' | 'd';
+  metamagic?: MetamagicCast;
   /** Подходящие состояния цели (из permitted-списка заклинания). */
   options: ConditionKey[];
   label: string;
@@ -176,6 +182,7 @@ export interface SpellCastPayload {
   slotLevel?: number;
   targetIds?: string[];
   advantage?: 'a' | 'd';
+  metamagic?: MetamagicCast;
   origin?: Point;
   direction?: Point;
   /** Призыв: выбранная форма (Find Familiar). */
@@ -339,6 +346,7 @@ export function confirmArea(interaction: Interaction | null): InteractionResult 
         ...(aim.targetIds?.length ? { targetIds: aim.targetIds } : {}),
         ...(aim.summonKey ? { summonKey: aim.summonKey } : {}),
         ...(aim.variant ? { variant: aim.variant } : {}),
+        ...(aim.metamagic ? { metamagic: aim.metamagic } : {}),
       },
     },
   };
@@ -387,6 +395,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           targetIds: [targetId],
           ...(t.summonKey ? { summonKey: t.summonKey } : {}),
           ...(t.variant ? { variant: t.variant } : {}),
+          ...(t.metamagic ? { metamagic: t.metamagic } : {}),
         },
       },
     };
@@ -403,6 +412,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           advantage: t.advantage,
           origin: t.origin,
           passengerId: targetId,
+          ...(t.metamagic ? { metamagic: t.metamagic } : {}),
         },
       },
     };
@@ -432,6 +442,7 @@ export function pickCondition(interaction: Interaction | null, key: string): Int
         advantage: c.advantage,
         targetIds: [c.targetId],
         condition: key,
+        ...(c.metamagic ? { metamagic: c.metamagic } : {}),
       },
     },
   };
@@ -460,6 +471,7 @@ function multiFinish(mt: MultiTargetState, targets: string[]): InteractionResult
           slotLevel: mt.slotLevel,
           advantage: mt.advantage,
           targetIds: targets,
+          ...(mt.metamagic ? { metamagic: mt.metamagic } : {}),
           spec: { shape: 'sphere', size: 0 },
           originKind: 'point',
           rangeFeet: mt.thenAim.rangeFeet,
@@ -493,6 +505,7 @@ function multiCommand(mt: MultiTargetState, targets: string[]): InteractionComma
       slotLevel: mt.slotLevel,
       advantage: mt.advantage,
       targetIds: targets,
+      ...(mt.metamagic ? { metamagic: mt.metamagic } : {}),
     },
   };
 }

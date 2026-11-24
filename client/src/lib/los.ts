@@ -28,6 +28,8 @@ export interface VisionInput extends SightContext {
   height: number;
   /** Границы расчёта в клетках (вьюпорт ∩ карта); без значения — вся карта. */
   bounds?: { cx0: number; cy0: number; cx1: number; cy1: number } | null;
+  /** Опциональное правило: клеток видно в тяжёлой мгле по прямой (0 — только своя). */
+  fogSight?: number;
   viewers: Viewer[];
 }
 
@@ -66,6 +68,7 @@ export function enterableCell(sight: SightContext, viewers: Viewer[], center: { 
  */
 export function visibleCells(input: VisionInput): Set<string> | null {
   const { width, height, cellSize, offsetX, offsetY, walls, darkness, bounds, viewers, light } = input;
+  const fogSight = Math.max(0, Math.round(input.fogSight ?? 0));
   const areas = input.areas ?? [];
   const zones = input.zones ?? [];
   if (viewers.length === 0) return null;
@@ -121,7 +124,11 @@ export function visibleCells(input: VisionInput): Set<string> | null {
           continue;
         }
         const distance = cellChebyshev({ cx, cy }, vc);
-        if (radiiFor(kind).some((r) => r === null || distance <= r)) visible.add(key);
+        const fogBubble =
+          kind === 'obscured' &&
+          fogSight > 0 &&
+          Math.abs(cx - vc.cx) + Math.abs(cy - vc.cy) <= fogSight;
+        if (fogBubble || radiiFor(kind).some((r) => r === null || distance <= r)) visible.add(key);
       }
     }
   }

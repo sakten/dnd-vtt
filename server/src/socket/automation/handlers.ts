@@ -74,7 +74,8 @@ export function rollTargetSaveFor(
   target: Token,
   stats: SpellStats,
   ability: AbilityKey,
-  advantage?: boolean
+  advantage?: boolean,
+  disadvantage?: boolean
 ): TargetSave {
   const autoFail = autoFailSave(target.conditions, ability);
   const { roll, success } = ctx.manager.rollSave(room, target, ability, stats.dc, {
@@ -82,6 +83,7 @@ export function rollTargetSaveFor(
     condition: def.effects?.[0]?.conditions?.[0],
     magical: true,
     ...(advantage ? { advantage: true } : {}),
+    ...(disadvantage ? { disadvantage: true } : {}),
   });
   pushSaveMessage(ctx, room, { author, subject: `${def.name} · ${target.name}`, roll, success });
   return { target, roll, autoFail, success };

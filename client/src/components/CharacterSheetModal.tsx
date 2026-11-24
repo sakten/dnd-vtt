@@ -32,6 +32,7 @@ import FeatsForm from './FeatsForm';
 import RaceForm from './RaceForm';
 import InvocationsForm from './InvocationsForm';
 import ManeuversForm from './ManeuversForm';
+import MetamagicForm from './MetamagicForm';
 import WildShapeForm from './WildShapeForm';
 import Modal from './Modal';
 import SpellsPanel from './SpellsPanel';
@@ -377,6 +378,10 @@ export default function CharacterSheetModal({ open, onClose }: Props) {
               onChange={(invocations) => setDraft((d) => (d ? { ...d, invocations } : d))}
             />
             <ManeuversForm
+              sheet={draft}
+              onChange={(choices) => setDraft((d) => (d ? { ...d, choices } : d))}
+            />
+            <MetamagicForm
               sheet={draft}
               onChange={(choices) => setDraft((d) => (d ? { ...d, choices } : d))}
             />
