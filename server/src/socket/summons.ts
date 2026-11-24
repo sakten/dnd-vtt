@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   bestiaryTokenFields,
+  conditionName,
   gridDistanceFeet,
   gridOfMap,
   hasInvocation,
@@ -343,9 +344,13 @@ export function runSummon(ctx: ConnCtx, request: SummonRequest): Token[] {
       ...(pactChain && entry.pactOfChain === true ? { pact: true } : {}),
     };
     // Сенсы формы (фамильяр: «получает преимущества особых чувств»).
-    token.senses = [...entry.senses];
-    // Призыв на стороне кастера (герой → ally), иначе свои бьют по нему «по возможности».
-    token.faction = request.caster.faction;
+  token.senses = [...entry.senses];
+  // Летающая форма фамильяра: состояние «Полёт» (маршрут сквозь существ и сложную местность).
+  if (request.spellKey === 'XPHB:Find Familiar' && entry.fly) {
+    token.conditions.push({ key: 'flying', name: conditionName('flying'), rounds: null });
+  }
+  // Призыв на стороне кастера (герой → ally), иначе свои бьют по нему «по возможности».
+  token.faction = request.caster.faction;
     spawned.push(token);
   }
   if (!spawned.length) return [];

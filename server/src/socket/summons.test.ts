@@ -144,6 +144,16 @@ describe('призывы: серверный спавн', () => {
     expect(map.combat.turns['e1']?.concentrationId).toBeFalsy();
   });
 
+  it('летающий фамильяр получает «Полёт», нелетающий — нет', () => {
+    const owl = setup();
+    cast(owl.room, owl.f, 'XPHB:Find Familiar', 1, { x: 150, y: 150 }, 'XMM:Owl');
+    expect(owl.map.tokens[1]!.conditions.some((c) => c.key === 'flying')).toBe(true);
+
+    const cat = setup();
+    cast(cat.room, cat.f, 'XPHB:Find Familiar', 1, { x: 150, y: 150 }, 'XMM:Cat');
+    expect(cat.map.tokens[1]!.conditions.some((c) => c.key === 'flying')).toBe(false);
+  });
+
   it('Find Familiar: сенсы формы и обзор глазами фамильяра за бонусное действие', () => {
     const { room, map, caster, f } = setup();
     cast(room, f, 'XPHB:Find Familiar', 1, { x: 150, y: 150 }, 'XMM:Owl');
