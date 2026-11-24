@@ -9,6 +9,10 @@ import { weaponByKey, type WeaponDef } from './weapons';
  * Решение владельца: без отдельного выбора оружия на листе.
  */
 
+export const KENSEI_SHOT_ACTION = 'class:monk.kensei:kenseisShot';
+export const SHARPEN_THE_BLADE_ACTION = 'class:monk.kensei:sharpenTheBlade';
+export const AGILE_PARRY_SOURCE = 'class:monk.kensei:agileParry';
+
 /** Уровень монаха-кэнсэя (0 — не кэнсэй). */
 export function kenseiMonkLevel(classes: ClassLevel[] | undefined): number {
   const entry = classes?.find((c) => c.className === 'monk');

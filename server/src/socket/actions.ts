@@ -18,7 +18,6 @@ import {
   gripAdjustedDamage,
   handOf,
   isBanished,
-  kenseiWeaponDefOf,
   legendaryOnly,
   loadoutOf,
   masteryAccessible,
@@ -64,7 +63,9 @@ import { creatureTypeOf } from '../room/actor';
 import { checkPartsForToken } from '../room/effects';
 import { moveZone, shrinkZone } from './zones';
 import { toggleFamiliarSenses } from './summons';
-import { isManeuverAction, rollManualManeuver, specialManeuver } from './maneuvers';
+import { agileParryEligible, applyAgileParry } from './kensei';
+import { isManeuverAction, rollManualManeuver } from './maneuvers';
+import { specialAction } from './specialActions';
 import { resolveZoneSectionAttack } from './zoneAttacks';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -606,24 +607,6 @@ function useGrantedAction(
   }
 }
 
-/** Agile Parry (кэнсэй): +2 AC до начала следующего хода после безоружного удара в действии «Атака». */
-function applyAgileParry(ctx: ConnCtx, room: Scope['room'], mapId: string, token: Token): void {
-  applyEffectTo(ctx, room, {
-    sourceKey: 'class:monk.kensei:agileParry',
-    sourceId: token.id,
-    mapId,
-    effectDef: {
-      name: 'Ловкая защита',
-      duration: { type: 'endOfTurn', of: 'target' },
-      modifiers: [{ target: 'ac', mode: 'add', value: 2 }],
-    },
-    target: token,
-  });
-  ctx.emitToken(room, 'token:update', mapId, token);
-  ctx.syncCombat(room, mapId);
-  ctx.systemMessage(room, { code: 'automation.agileParry', params: { name: token.name } });
-}
-
 /** Безоружный удар: явная атака из листа переопределяет расчёт, иначе — общие правила. */
 function unarmedStrikeEntry(
   ctx: ConnCtx,
@@ -709,16 +692,6 @@ export function registerActionHandlers(ctx: ConnCtx) {
       if (action.requiresEffect && !token.effects.some((e) => e.sourceKey === action.requiresEffect)) {
         fail(ctx, 'featureInactive');
         return;
-      }
-
-      const special = specialManeuver(action.id);
-      // Манёвры с серверной логикой валидируем до траты слота/кости.
-      if (special) {
-        const issue = special.issue(ctx, room, mapId, token, requested[0]);
-        if (issue) {
-          fail(ctx, issue.code, issue.params);
-          return;
-        }
       }
 
       const combat = manager.combatOf(room, mapId);
@@ -825,14 +798,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         }
         const unarmed = action.id === 'unarmedStrike' || entry.kind === 'unarmed';
         // Agile Parry (кэнсэй): безоружный удар частью действия «Атака» с melee-кэнсэй-оружием.
-        const agileParry = (() => {
-          if (action.id !== 'unarmedStrike' || offhand || !sheet) return false;
-          const weapon = kenseiWeaponDefOf({ attacks: sheet.attacks, hands: sheet.hands, classes: sheet.classes });
-          if (!weapon || weapon.rangeType !== 'melee') return false;
-          const turnState = manager.turnStateFor(room, mapId, token);
-          // Удар из запаса действия «Атака»; бонусный (Шквал) и доп. действие Haste не считаются.
-          return !turnState || turnState.attacksRemaining > 0 || (turnState.flurryAttacks <= 0 && turnState.extraActions <= 0);
-        })();
+        const agileParry = agileParryEligible(ctx, room, mapId, token, sheet, action.id, offhand);
         const offTurn = manager.turnStateFor(room, mapId, token);
         const offRestrictions = restrictionsFor(token.conditions, token.effects);
         let attackEntry = entry;
@@ -1091,26 +1057,30 @@ export function registerActionHandlers(ctx: ConnCtx) {
         return;
       }
 
-      // Прочие действия: списываем слот, дальше эффект.
-      // Кэнсэй-фичи валидируем до траты слота/ки, чтобы отказ ничего не стоил.
-      if (action.id === 'class:monk.kensei:kenseisShot' || action.id === 'class:monk.kensei:sharpenTheBlade') {
-        const weapon = kenseiWeaponDefOf({ attacks: sheet?.attacks, hands: sheet?.hands, classes: sheet?.classes });
-        if (!weapon) {
-          fail(ctx, 'kenseiNoWeapon');
-          return;
-        }
-        if (action.id === 'class:monk.kensei:kenseisShot' && weapon.rangeType !== 'ranged') {
-          fail(ctx, 'kenseiNoRangedWeapon');
+      // Прочие действия: спецмеханики валидируем до траты слота/ки, чтобы отказ ничего не стоил.
+      const special = specialAction(action.id);
+      const specialInput = {
+        ctx,
+        room,
+        mapId,
+        token,
+        sheet,
+        action,
+        targetId: requested[0],
+        variant,
+        featureAmount,
+      };
+      if (special?.issue) {
+        const issue = special.issue(specialInput);
+        if (issue) {
+          fail(ctx, issue.code, issue.params);
           return;
         }
       }
-      // Sharpen the Blade: игрок выбирает 1–3 ки (payload), остальные — фиксированную стоимость.
+      // Sharpen the Blade: игрок выбирает 1–3 ки (payload); остальные — фиксированную стоимость.
       const resourceAmount =
-        action.id === 'class:monk.kensei:sharpenTheBlade'
-          ? Math.max(1, Math.min(3, Math.round(Number(featureAmount) || action.resourceAmount || 1)))
-          : action.resourceKey
-            ? Math.max(1, action.resourceAmount ?? 1)
-            : 0;
+        special?.resourceAmount?.(specialInput) ??
+        (action.resourceKey ? Math.max(1, action.resourceAmount ?? 1) : 0);
       // Оплата ресурса: основной, иначе запасной (Знай врага — кость превосходства).
       const resourceCost = Math.max(1, resourceAmount);
       const payKey = action.resourceKey
@@ -1152,9 +1122,9 @@ export function registerActionHandlers(ctx: ConnCtx) {
         ctx.emitResources(room, ctx.playerId);
       }
 
-      // Манёвры со своей серверной логикой (обмен, раскрытие защит).
-      if (special) {
-        special.apply(ctx, room, mapId, token, sheet, requested[0], variant);
+      // Спецдействия со своей серверной логикой (обмен, раскрытие защит, кэнсэй).
+      if (special?.apply) {
+        special.apply(specialInput);
         return;
       }
 

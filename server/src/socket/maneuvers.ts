@@ -5,7 +5,6 @@ import {
   gridDistanceFeet,
   gridOfMap,
   isIncapacitated,
-  KNOW_YOUR_ENEMY_ACTION,
   MANEUVER_ACTION_PREFIX,
   rollDice,
   superiorityDie,
@@ -18,7 +17,7 @@ import type { Room } from '../roomTypes';
 import { damageDefensesForToken } from '../room/effects';
 import type { ConnCtx } from './context';
 import { applyEffectTo } from './effectsApply';
-import { fail } from './errors';
+import { fail, type ActionIssue } from './errors';
 import { mixedSwapPlan, sameFootprint } from './maneuverSwap';
 import { pushRollMessage } from './messages';
 
@@ -27,43 +26,8 @@ import { pushRollMessage } from './messages';
  * Приманка и подмена (обмен местами + AC) и Знай врага (раскрытие защит).
  * Остальные автоматизированные манёвры описаны декларативно в shared:
  * Parry/Riposte — `reactionFeatures`, Precision Attack — `rollBonus` с `selfOnly`,
- * Distracting Strike — наездник атаки.
+ * Distracting Strike — наездник атаки. Регистрация спецдействий — `specialActions.ts`.
  */
-interface ManeuverIssue {
-  code: 'spellNoTarget' | 'outOfRange' | 'noMovement' | 'swapNoSpace';
-  params?: { feet: number };
-}
-
-export interface SpecialManeuver {
-  /** Проверка до траты бонуса/кости: цель, дистанция, стены, движение. */
-  issue(
-    ctx: ConnCtx,
-    room: Room,
-    mapId: string,
-    token: Token,
-    targetId: string | undefined
-  ): ManeuverIssue | null;
-  /** Применение после оплаты слота и ресурса. */
-  apply(
-    ctx: ConnCtx,
-    room: Room,
-    mapId: string,
-    token: Token,
-    sheet: CharacterSheet | undefined,
-    targetId: string | undefined,
-    variant: string | undefined
-  ): void;
-}
-
-const SPECIAL_MANEUVERS: Record<string, SpecialManeuver> = {
-  [BAIT_AND_SWITCH_ACTION]: { issue: baitAndSwitchIssue, apply: applyBaitAndSwitch },
-  [KNOW_YOUR_ENEMY_ACTION]: { issue: knowYourEnemyIssue, apply: applyKnowYourEnemy },
-};
-
-/** Серверная ветка манёвра по id действия; остальные обрабатываются общим движком. */
-export function specialManeuver(actionId: string): SpecialManeuver | undefined {
-  return SPECIAL_MANEUVERS[actionId];
-}
 
 export function isManeuverAction(actionId: string): boolean {
   return actionId.startsWith(MANEUVER_ACTION_PREFIX);
@@ -88,7 +52,7 @@ export function baitAndSwitchIssue(
   mapId: string,
   token: Token,
   targetId: string | undefined
-): ManeuverIssue | null {
+): ActionIssue | null {
   const map = ctx.manager.findMap(room, mapId);
   const target = targetId ? ctx.manager.findToken(room, mapId, targetId) : null;
   if (!map || !target || target.id === token.id || isIncapacitated(target.conditions)) {
@@ -118,7 +82,7 @@ export function knowYourEnemyIssue(
   mapId: string,
   token: Token,
   targetId: string | undefined
-): ManeuverIssue | null {
+): ActionIssue | null {
   const map = ctx.manager.findMap(room, mapId);
   const target = targetId ? ctx.manager.findToken(room, mapId, targetId) : null;
   if (!map || !target) return { code: 'spellNoTarget' };

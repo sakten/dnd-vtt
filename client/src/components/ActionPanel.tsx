@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, legendaryOnly, masteryAccessible, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, SHARPEN_THE_BLADE_ACTION, silencedByZones, SMITE_SPELLS, slotSpendable, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
 
@@ -403,7 +403,7 @@ export default function ActionPanel() {
   /** Запуск активной черты из панели; `variant` — выбранный эффект (Обольщающая магия). */
   const activateFeature = (f: ActionDef, variant?: string) => {
     // Sharpen the Blade: количество ки (1–3) игрок выбирает в мини-окне.
-    if (f.id === 'class:monk.kensei:sharpenTheBlade') {
+    if (f.id === SHARPEN_THE_BLADE_ACTION) {
       setSharpen(f);
       return;
     }

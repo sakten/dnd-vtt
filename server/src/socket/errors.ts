@@ -111,6 +111,12 @@ export interface ErrorParams {
   max?: number;
 }
 
+/** Отказ способности до траты слота/ресурса: код ошибки и её параметры. */
+export interface ActionIssue {
+  code: ErrorCode;
+  params?: ErrorParams;
+}
+
 /** Отправляет ошибку игроку в чат (единая точка для хендлеров). */
 export function fail(ctx: ConnCtx, code: ErrorCode, params?: ErrorParams) {
   const clean: Record<string, string | number> = {};

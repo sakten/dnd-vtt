@@ -10,7 +10,7 @@
 `featureChoiceOptions` — выбор варианта при использовании, Обольщающая магия через `action:use.variant`), кнопки `rules/classActions.ts` (в т.ч. `FeatureMechanics.spellKey` — каст заклинания без ячейки за ресурс),
 наездники при попадании `rules/attackRiders.ts` + `server/src/socket/attackRiders.ts`, скрытые эффекты-пассивки `server/src/socket/features.ts`, `CharacterSheet.choices`; **боевой мастер** — `data/maneuvers.json` (`npm
 run maneuvers`), `rules/maneuvers.ts` (лимит 3/5/7/9, RU-имена, кнопки), пикер `components/ManeuversForm.tsx`, автоматизированы Precision Attack (декларативный `rollBonus` с `selfOnly`), Parry/Riposte (реакции),
-Distracting Strike (наездник попадания; `filter.otherThanSource`/`consumeOnIncomingAttack`), Bait and Switch/Знай врага — реестр спецманёвров `server/src/socket/maneuvers*.ts` (Знай врага — ресурс с `fallbackResourceKey`, кость превосходства),
+Distracting Strike (наездник попадания; `filter.otherThanSource`/`consumeOnIncomingAttack`), Bait and Switch/Знай врага — реестр спецдействий `server/src/socket/specialActions.ts` (обмен — `maneuvers*.ts`; Знай врага — ресурс с `fallbackResourceKey`, кость превосходства), кэнсэй — `server/src/socket/kensei.ts` (проверки, Sharpen the Blade, Agile Parry),
 остальные — ручные кнопки с броском кости; фиты PHB'24 — `data/feats.json` (`npm
 run feats`), `rules/feats.ts` (`featChoiceEffects`), выборы заклинаний черт — `rules/spellChoices.ts` (Магические находки), клиент `components/FeatsForm.tsx`
 
