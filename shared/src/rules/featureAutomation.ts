@@ -40,6 +40,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     const worldTree = classes.find((c) => c.className === 'barbarian' && c.subclass === 'worldTree')?.level ?? 0;
     return {
       trait: 'active',
+      costs: ['bonus'],
       automation: {
         key: 'class:barbarian:rage',
         name: 'Ярость',
@@ -122,6 +123,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
     const level = classes.find((c) => c.className === 'fighter')?.level ?? 0;
     return {
       trait: 'active',
+      costs: ['bonus'],
       automation: {
         key: 'class:fighter.samurai:fightingSpirit',
         name: 'Боевой дух',
@@ -146,6 +148,7 @@ export const FEATURE_MECHANICS: Record<string, FeatureMechanicsSource> = {
   },
   'barbarian.zealot:zealousPresence': {
     trait: 'active',
+    costs: ['bonus'],
     automation: {
       key: 'class:barbarian.zealot:zealousPresence',
       name: 'Фанатичное присутствие',

@@ -57,11 +57,9 @@ interface FeatureMeta {
 }
 
 /** Точные стоимость/таргетинг известных черт. Ключ — полный ключ ресурса. */
-const FEATURE_META: Record<string, FeatureMeta> = {
+export const FEATURE_META: Record<string, FeatureMeta> = {
   // Варвар
-  'barbarian:rage': { costs: ['bonus'] },
   'barbarian.berserker:intimidatingPresence': { costs: ['bonus'], targeting: { kind: 'creature', range: 30 } },
-  'barbarian.zealot:zealousPresence': { costs: ['bonus'] },
   'barbarian.zealot:rageOfTheGods': { costs: ['bonus'] },
   'barbarian.ancestralGuardian:consultTheSpirits': { costs: ['action'] },
   'barbarian.beast:infectiousFury': { targeting: { kind: 'creature' } },
@@ -69,8 +67,6 @@ const FEATURE_META: Record<string, FeatureMeta> = {
   'barbarian.wildMagic:bolsteringMagic': { costs: ['action'], targeting: { kind: 'creature', range: 30 } },
 
   // Бард
-  'bard:bardicInspiration': { costs: ['bonus'], targeting: { kind: 'creature', range: 60 } },
-  'bard.glamour:beguilingMagic': { targeting: { kind: 'creature', range: 60 } },
   'bard.glamour:mantleOfMajesty': { costs: ['bonus'] },
   'bard.glamour:unbreakableMajesty': { costs: ['bonus'] },
   'bard.whispers:wordsOfTerror': { costs: ['action'], targeting: { kind: 'creature', range: 30 } },
@@ -82,9 +78,7 @@ const FEATURE_META: Record<string, FeatureMeta> = {
 
   // Жрец
   'cleric:channelDivinity': { costs: ['action'] },
-  'cleric.light:wardingFlare': { costs: ['reaction'], targeting: { kind: 'creature', range: 30 } },
   'cleric.light:coronaOfLight': { costs: ['action'] },
-  'cleric.war:warPriest': { costs: ['bonus'] },
   'cleric.forge:blessingOfTheForge': {},
   'cleric.grave:sentinelAtDeathsDoor': { costs: ['reaction'], targeting: { kind: 'creature', range: 30 } },
   'cleric.order:embodimentOfTheLaw': { costs: ['bonus'] },
@@ -121,7 +115,6 @@ const FEATURE_META: Record<string, FeatureMeta> = {
   'fighter.arcaneArcher:arcaneShot': { targeting: { kind: 'creature' } },
   'fighter.cavalier:unwaveringMark': { targeting: { kind: 'creature' } },
   'fighter.cavalier:wardingManeuver': { costs: ['reaction'], targeting: { kind: 'creature', range: 5 } },
-  'fighter.samurai:fightingSpirit': { costs: ['bonus'] },
   'fighter.samurai:strengthBeforeDeath': {},
   'fighter.runeKnight:giantsMight': { costs: ['bonus'] },
   'fighter.runeKnight:runicShield': { costs: ['reaction'], targeting: { kind: 'creature', range: 60 } },
@@ -194,7 +187,6 @@ const FEATURE_META: Record<string, FeatureMeta> = {
   'wizard.diviner:thirdEye': { costs: ['bonus'] },
   'wizard.illusionist:illusorySelf': { costs: ['reaction'] },
   'wizard.warMagic:powerSurge': { targeting: { kind: 'creature' } },
-  'wizard.bladesinging:bladesong': { costs: ['bonus'] },
   'wizard.scribes:manifestMind': { costs: ['bonus'] },
   'wizard.scribes:manifestMindConjure': { costs: ['action'] },
   'wizard.scribes:oneWithTheWord': {},
