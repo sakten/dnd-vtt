@@ -2029,7 +2029,7 @@ export const ru = {
   'domain.reaction.barbarian.ancestralGuardian:spiritShield': 'Щит духов',
   'domain.reaction.bard.lore:cuttingWords': 'Режущие слова',
   'domain.reaction.bard.lore:cuttingWords:damage': 'Режущие слова (урон)',
-  'domain.reaction.cleric.light:wardingFlare': 'Палящая вспышка',
+  'domain.reaction.cleric.light:wardingFlare': 'Ослепляющая вспышка',
   'domain.reaction.cleric.war:guidedStrike': 'Направленный удар',
   'domain.reaction.fighter.battleMaster:parry': 'Парирование',
   'domain.reaction.fighter.battleMaster:precisionAttack': 'Точный удар',

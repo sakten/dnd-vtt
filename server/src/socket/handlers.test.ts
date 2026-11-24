@@ -6661,7 +6661,7 @@ describe('реакции (R1)', () => {
     f3.invoke('reaction:respond', { id: offers[0]!.id, optionId: null });
   });
 
-  it('Палящая вспышка даёт помеху до броска и отменяет попадание', () => {
+  it('Ослепляющая вспышка даёт помеху до броска и отменяет попадание', () => {
     const room = makeRoom(
       [
         makeToken('t1', { attacks: [melee('Меч', 'd20')] }),
@@ -6684,7 +6684,7 @@ describe('реакции (R1)', () => {
         {
           id: 'r1',
           key: 'cleric.light:wardingFlare',
-          name: 'Палящая вспышка',
+          name: 'Ослепляющая вспышка',
           current: 2,
           max: 2,
           reset: 'long',

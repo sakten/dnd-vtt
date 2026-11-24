@@ -230,7 +230,7 @@ export function preRollOffers(ctx: ConnCtx, room: Room, prep: WeaponAttackPrep):
   if (!target || !targetMapId || !attacker || target.id === attacker.id) return [];
   if (!reactionSlotFree(ctx.manager, room, targetMapId, target)) return [];
   const features = availableFeatureReactions(room, target, 'attackRoll').filter(
-    // RAW (Палящая вспышка): существо в 30 футах, которое видишь.
+    // RAW (Ослепляющая вспышка): существо в 30 футах, которое видишь.
     (def) => def.kind === 'disadvantage' && reactionOfferAllowed(ctx, room, targetMapId, target, attacker, 30)
   );
   if (!features.length) return [];

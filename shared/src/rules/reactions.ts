@@ -90,7 +90,7 @@ export interface ReactionFeatureDef {
 const REACTION_FEATURES: ReactionFeatureDef[] = [
   {
     id: 'cleric.light:wardingFlare',
-    name: 'Палящая вспышка',
+    name: 'Ослепляющая вспышка',
     className: 'cleric',
     subclass: 'light',
     levelReq: 1,
