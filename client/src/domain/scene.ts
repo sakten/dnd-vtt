@@ -1,6 +1,7 @@
 import {
   snapToGrid,
   type CombatState,
+  type DeploymentSettings,
   type FogState,
   type GridSettings,
   type LightArea,
@@ -83,6 +84,10 @@ export function setLightAreas(scene: Scene, mapId: string, lightAreas: LightArea
 
 export function setLights(scene: Scene, mapId: string, lights: MapLight[]): Scene {
   return updateMap(scene, mapId, (m) => ({ ...m, lights }));
+}
+
+export function setDeployment(scene: Scene, mapId: string, deployment: DeploymentSettings): Scene {
+  return updateMap(scene, mapId, (m) => ({ ...m, deployment }));
 }
 
 export function setZones(scene: Scene, mapId: string, zones: MapInfo['zones']): Scene {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TokenFields } from 'shared';
 import { emptyAttacks, statsPaired } from 'shared';
 import { useGameStore } from '../store/useGameStore';
@@ -6,6 +6,7 @@ import { uploadImage } from '../lib/api';
 import { thumbUrl } from '../lib/imageVariants';
 import { t } from '../i18n';
 import { canAddLibraryItem, canSetAsCharacter, useCanMarkPlayerToken, useIsDm } from '../lib/control';
+import { canSeeLibraryItemWith } from '../lib/libraryVisibility';
 import { useDragSize } from '../lib/useDragSize';
 import Modal from './Modal';
 import StatblockForm from './StatblockForm';
@@ -13,7 +14,15 @@ import StatblockSpells from './StatblockSpells';
 import TokenFieldsForm from './TokenFieldsForm';
 
 export default function TokenPanel() {
-  const items = useGameStore((s) => s.library);
+  const allItems = useGameStore((s) => s.library);
+  const visibleIds = useGameStore((s) =>
+    s.library
+      .filter((item) => canSeeLibraryItemWith(s, item))
+      .map((item) => item.id)
+      .join('|')
+  );
+  const visibleSet = useMemo(() => new Set(visibleIds ? visibleIds.split('|') : []), [visibleIds]);
+  const items = useMemo(() => allItems.filter((item) => visibleSet.has(item.id)), [allItems, visibleSet]);
   const addLibraryItem = useGameStore((s) => s.addLibraryItem);
   const updateLibraryItem = useGameStore((s) => s.updateLibraryItem);
   const removeLibraryItem = useGameStore((s) => s.removeLibraryItem);

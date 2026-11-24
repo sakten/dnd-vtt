@@ -100,6 +100,8 @@ export type TargetingState =
       actionId: string;
       slot: ActionCost;
       attackIndex?: number;
+      /** Количество ресурса, выбранное до прицела (Наложение рук). */
+      featureAmount?: number;
       advantage?: 'a' | 'd';
       /** Атака второй рукой (Light/Nick). */
       offhand?: boolean;
@@ -208,6 +210,7 @@ export type InteractionCommand =
       extra: {
         targetIds: string[];
         attackIndex?: number;
+        featureAmount?: number;
         slot: ActionCost;
         origin?: Point;
         direction?: Point;
@@ -375,6 +378,7 @@ export function pickTarget(interaction: Interaction | null, targetId: string): I
           attackIndex: t.attackIndex,
           slot: t.slot,
           advantage: t.advantage,
+          ...(t.featureAmount !== undefined ? { featureAmount: t.featureAmount } : {}),
           ...(t.offhand ? { offhand: true } : {}),
           ...(t.cleave ? { cleave: true } : {}),
           ...(t.variant ? { variant: t.variant } : {}),

@@ -72,11 +72,53 @@ describe('grid:update (независимые сетки карт)', () => {
     const added = room.scene.maps[2]!;
     expect(added.grid.size).toBe(25);
     expect(added.fog.size).toBe(25);
+    expect(added.deployment.enabled).toBe(false);
     // Существующие карты не изменились.
     expect(room.scene.maps[0]!.grid.size).toBe(50);
     expect(room.scene.maps[1]!.grid.size).toBe(30);
     // Добавивший сразу переключается на новую карту.
     expect(dm.selfEvents('map:bring')).toEqual([{ to: 's:self', event: 'map:bring', payload: { activeMapId: added.id } }]);
+  });
+});
+
+describe('deployment:update (расстановка)', () => {
+  it('DM включает скрытие и задаёт зоны; сервер нормализует и рассылает', () => {
+    const room = makeTwoMapRoom();
+    const dm = makeConnCtx(room, { dm: true });
+    registerMapHandlers(dm.ctx);
+
+    dm.invoke('deployment:update', {
+      mapId: 'm1',
+      deployment: {
+        enabled: true,
+        areas: [
+          { id: 'a1', x: 0, y: 0, w: 100, h: 50 },
+          { id: '', x: 0, y: 0, w: 50, h: 50 },
+          { id: 'bad', x: 0, y: 0, w: 0, h: 50 },
+        ],
+      },
+    });
+
+    expect(room.scene.maps[0]!.deployment).toEqual({
+      enabled: true,
+      areas: [{ id: 'a1', x: 0, y: 0, w: 100, h: 50 }],
+    });
+    const sent = dm.emitted.find((e) => e.event === 'deployment:update');
+    expect(sent?.payload).toMatchObject({ mapId: 'm1', deployment: room.scene.maps[0]!.deployment });
+  });
+
+  it('игрок не может менять расстановку', () => {
+    const room = makeTwoMapRoom();
+    const player = makeConnCtx(room, { playerId: 'p1' });
+    registerMapHandlers(player.ctx);
+
+    player.invoke('deployment:update', {
+      mapId: 'm1',
+      deployment: { enabled: true, areas: [{ id: 'a1', x: 0, y: 0, w: 50, h: 50 }] },
+    });
+
+    expect(room.scene.maps[0]!.deployment).toEqual({ enabled: false, areas: [] });
+    expect(player.emitted.some((e) => e.event === 'deployment:update')).toBe(false);
   });
 });
 

@@ -40,7 +40,7 @@ beforeEach(() => {
     testMode: false,
     scene: makeScene(),
     viewMapId: 'm1',
-    library: [item('libA'), item('libB', { isPlayerToken: false })],
+    library: [item('libA', { createdBy: 'p1' }), item('libB', { isPlayerToken: false, createdBy: 'p2' })],
     currentCharacterId: null,
   });
   localStorage.clear();
@@ -73,6 +73,21 @@ describe('TokenPanel: звезда «мой персонаж»', () => {
     render(<TokenPanel />);
 
     expect(screen.queryAllByTestId('token-star')).toHaveLength(0);
+  });
+
+  it('чужие токены скрыты, свои и токены с owner видны', () => {
+    useGameStore.setState({
+      library: [
+        item('mine', { createdBy: 'p1' }),
+        item('other', { createdBy: 'p2' }),
+        item('owned', { createdBy: 'p2', owner: 'p1' }),
+      ],
+    });
+    render(<TokenPanel />);
+
+    expect(screen.getByAltText('mine')).toBeTruthy();
+    expect(screen.getByAltText('owned')).toBeTruthy();
+    expect(screen.queryByAltText('other')).toBeNull();
   });
 
   it('в окне предмета кнопка «Это мой персонаж» привязывает игрока', () => {

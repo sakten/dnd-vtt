@@ -44,6 +44,7 @@ import {
 import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
+import { t } from '../i18n';
 import type { TargetingState } from '../domain/interaction';
 import { useImage } from '../lib/useImage';
 import { thumbUrl, screenUrl } from '../lib/imageVariants';
@@ -57,6 +58,8 @@ import { usePanKeys } from '../lib/usePanKeys';
 import { useInvisibilityView, useBanishView } from '../lib/visibility';
 import { useFogBrush } from '../lib/useFogBrush';
 import { useAreaBrush } from '../lib/useAreaBrush';
+import { useDeploymentBrush } from '../lib/useDeploymentBrush';
+import { deploymentPendingOf } from '../lib/deployment';
 import { useTokenDrop } from '../lib/useTokenDrop';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
@@ -186,6 +189,7 @@ export default function TableTop() {
   const updateWalls = useGameStore((s) => s.updateWalls);
   const lightMode = useGameStore((s) => s.lightMode);
   const drawMode = useGameStore((s) => s.drawMode);
+  const deploymentMode = useGameStore((s) => s.deploymentMode);
   const updateAreas = useGameStore((s) => s.updateAreas);
   const updateLights = useGameStore((s) => s.updateLights);
   const dragGhost = useGameStore((s) => s.dragGhost);
@@ -214,7 +218,10 @@ export default function TableTop() {
 
   const fogBrush = useFogBrush(activeMap);
   const areaBrush = useAreaBrush(activeMap);
-  const rectPreview = fogBrush.rectPreview ?? areaBrush.rectPreview;
+  const deploymentBrush = useDeploymentBrush(activeMap);
+  const rectPreview = fogBrush.rectPreview ?? areaBrush.rectPreview ?? deploymentBrush.rectPreview;
+  const deploymentPending = useGameStore(deploymentPendingOf);
+  const deploymentAreas = activeMap?.deployment?.areas ?? [];
 
   // Границы расчёта вижна: вьюпорт ∩ карта, с запасом 2 клетки и квантованием по 2 клетки.
   const cellBounds = useMemo(() => {
@@ -490,7 +497,7 @@ export default function TableTop() {
   const veilWidth = activeMap?.width ?? 0;
   const veilHeight = activeMap?.height ?? 0;
   const visionView = useMemo(() => {
-    if (!veilActive || isDm) return null;
+    if (!veilActive || isDm || deploymentPending) return null;
     const cell = grid.size || 50;
     const gridSpec = { size: cell, offsetX: grid.offsetX, offsetY: grid.offsetY };
     const compute = (zones: typeof veilZones, bounds = cellBounds) =>
@@ -563,6 +570,7 @@ export default function TableTop() {
     veilWidth,
     veilHeight,
     isDm,
+    deploymentPending,
     hiddenSet,
     viewers,
     cellBounds,
@@ -689,6 +697,14 @@ export default function TableTop() {
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // В режиме рисования ввод перехватывает DrawLayer (пока не идёт прицеливание).
     if (drawMode.active && !interaction) return;
+    if (deploymentMode.draw) {
+      if (!isDm) return;
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) deploymentBrush.begin(toWorld(stage, pointer));
+      return;
+    }
     if (wallsMode.active) {
       // Запоминаем точку нажатия левой кнопкой: короткий клик ставит узел, драг — панорамирует карту.
       const pointer = e.evt.button === 0 ? e.target.getStage()?.getPointerPosition() : null;
@@ -726,6 +742,13 @@ export default function TableTop() {
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (drawMode.active && !interaction) return;
+    if (deploymentMode.draw) {
+      if (!deploymentBrush.rectPreview) return;
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (stage && pointer) deploymentBrush.move(toWorld(stage, pointer));
+      return;
+    }
     if (wallsMode.active) {
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
@@ -754,6 +777,10 @@ export default function TableTop() {
     }
     // Игрок: курсор-замочек над дверью (открытый — можно, закрытый — только DM).
     if (!isDm) {
+      if (deploymentPending) {
+        setDoorHover(null);
+        return;
+      }
       const stage = e.target.getStage();
       const pointer = stage?.getPointerPosition();
       if (!stage || !pointer) return;
@@ -774,6 +801,10 @@ export default function TableTop() {
 
   const handleMouseUp = () => {
     if (drawMode.active && !interaction) return;
+    if (deploymentMode.draw) {
+      deploymentBrush.end();
+      return;
+    }
     if (lightMode.active) {
       if (!lightMode.place) areaBrush.end();
       return;
@@ -808,6 +839,8 @@ export default function TableTop() {
 
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (drawMode.active && !interaction) return;
+    if (deploymentMode.active) return;
+    if (deploymentPending) return;
     // Правая/средняя кнопка не применяет действие (ПКМ в режиме прицела — отмена в onContextMenu).
     if (e.evt instanceof MouseEvent && e.evt.button !== 0) return;
     if (wallsMode.active) {
@@ -908,7 +941,7 @@ export default function TableTop() {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable={!fogMode.active && !lightMode.active && !aim && !multiTarget && !targeting && !scatter && !drawMode.active}
+          draggable={!fogMode.active && !lightMode.active && !deploymentMode.draw && !aim && !multiTarget && !targeting && !scatter && !drawMode.active}
           onWheel={handleWheel}
           onDragMove={handleStageDrag}
           onDragEnd={handleStageDrag}
@@ -988,7 +1021,7 @@ export default function TableTop() {
               wallCandidates={wallCandidates}
               wallStart={wallStart}
               wallCursor={wallCursor}
-              fogRects={fogRects}
+              fogRects={deploymentPending ? [] : fogRects}
               rectPreview={rectPreview}
             />
             <GridLayer grid={grid} view={view} viewport={size} />
@@ -1040,6 +1073,7 @@ export default function TableTop() {
               hidden={hiddenSet}
               invisibleHidden={invisibility.hidden}
               banishedHidden={banished}
+              allHidden={deploymentPending}
               dragGhost={dragGhost}
               dragPath={dragPath}
               viewScale={view.scale}
@@ -1056,10 +1090,21 @@ export default function TableTop() {
               attackCursor={attackCursor}
               pushGhosts={wallPushGhosts}
               viewScale={view.scale}
+              deploymentMask={
+                deploymentPending && activeMap
+                  ? { width: activeMap.width, height: activeMap.height, areas: deploymentAreas }
+                  : null
+              }
+              deploymentAreas={isDm ? deploymentAreas : []}
             />
           </Layer>
           {activeMap && <DrawLayer map={activeMap} active={drawMode.active} color={drawMode.color} />}
         </Stage>
+      )}
+      {deploymentPending && (
+        <div className="deployment-hint">
+          {deploymentAreas.length > 0 ? t('ui.deployment.zoneHint') : t('ui.deployment.hint')}
+        </div>
       )}
       <AttackPreview data={attackPreview} />
       <TokenNameHint />

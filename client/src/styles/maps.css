@@ -23,6 +23,19 @@
   letter-spacing: 1px;
 }
 
+.maps-panel.collapsed {
+  padding: 6px 8px;
+}
+
+.maps-panel.collapsed .maps-panel-header {
+  margin-bottom: 0;
+}
+
+.maps-toggle {
+  padding: 0 6px;
+  font-size: 12px;
+}
+
 .maps-uploading {
   font-size: 11px;
   text-transform: none;
@@ -60,6 +73,10 @@
   height: 36px;
   object-fit: cover;
   border-radius: 4px;
+}
+
+.map-item img.map-thumb-hidden {
+  filter: blur(10px) brightness(0.5);
 }
 
 .map-name {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, knownMetamagic, legendaryOnly, masteryAccessible, QUICKENED_SPELL_KEY, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, SHARPEN_THE_BLADE_ACTION, silencedByZones, SMITE_SPELLS, slotSpendable, SUBTLE_SPELL_KEY, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
+import { actionTargeting, BAIT_AND_SWITCH_ACTION, BASE_ACTIONS, abilityMod, automationForAction, CELESTIAL_REVELATION_ID, druidLevelOf, featureActionAutomation, featureChoiceOptions, hasMoonCircle, invocationActionCast, invocationAtWillSpells, isUnarmedAttack, knownMetamagic, LAY_ON_HANDS_ACTION, LAY_ON_HANDS_POISON_COST, legendaryOnly, masteryAccessible, QUICKENED_SPELL_KEY, raceActionAutomation, raceActionChoiceOptions, restrictionsFor, SHARPEN_THE_BLADE_ACTION, silencedByZones, SMITE_SPELLS, slotSpendable, SUBTLE_SPELL_KEY, weaponByKey, weaponHasProperty, weaponMastery, type ActionCost, type ActionDef, type AttackEntry, type Spell } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
 
@@ -23,6 +23,7 @@ import {
   featFreeCastKeys,
   longCastInCombat,
   maxCastableForSpell,
+  selfCastPlan,
   sortPanelSpells,
   spellPanelFiltered,
   spellSlotOf,
@@ -106,6 +107,7 @@ export default function ActionPanel() {
   const setSheet = useGameStore((s) => s.setSheet);
   const setSheetOpen = useGameStore((s) => s.setSheetOpen);
   const runAction = useGameStore((s) => s.runAction);
+  const castSpell = useGameStore((s) => s.castSpell);
   const startTargeting = useGameStore((s) => s.startTargeting);
   const startMultiTarget = useGameStore((s) => s.startMultiTarget);
   const startScatter = useGameStore((s) => s.startScatter);
@@ -120,6 +122,9 @@ export default function ActionPanel() {
   const [tip, setTip] = useState<IconTipState | null>(null);
   const [shapeOpen, setShapeOpen] = useState(false);
   const [sharpen, setSharpen] = useState<ActionDef | null>(null);
+  const [lay, setLay] = useState<ActionDef | null>(null);
+  const [layAmount, setLayAmount] = useState(1);
+  const [layPoison, setLayPoison] = useState(false);
   /** Черта с выбором варианта при использовании (Обольщающая магия: Очарован/Испуган). */
   const [choicePrompt, setChoicePrompt] = useState<{
     action: ActionDef;
@@ -403,7 +408,28 @@ export default function ActionPanel() {
           data-tip={tip}
           aria-label={spellDisplayName(spell)}
         disabled={spellDisabled(spell)}
-        onClick={() => setCasting({ spell })}
+        onClick={(e) => {
+          if (e.ctrlKey || e.metaKey) {
+            const plan = selfCastPlan(spell, {
+              isCharacter,
+              resources,
+              token,
+              freeCastKeys: featFreeCastKeys(sheet, resources),
+              atWillKeys: sheet ? new Set(invocationAtWillSpells(sheet)) : undefined,
+              classes: sheet?.classes ?? null,
+            });
+            if (plan) {
+              castSpell({
+                tokenId: token.id,
+                spellKey: spell.key,
+                slotLevel: plan.slotLevel,
+                ...(plan.targetSelf ? { targetIds: [token.id] } : {}),
+              });
+              return;
+            }
+          }
+          setCasting({ spell });
+        }}
       >
         <SpellIcon spell={spell} className="ap-icon" />
       </button>
@@ -415,6 +441,14 @@ export default function ActionPanel() {
     // Sharpen the Blade: количество ки (1–3) игрок выбирает в мини-окне.
     if (f.id === SHARPEN_THE_BLADE_ACTION) {
       setSharpen(f);
+      return;
+    }
+    // Наложение рук: количество HP и снятие отравления выбираются до цели.
+    if (f.id === LAY_ON_HANDS_ACTION) {
+      const left = resourceLeft(f) ?? 0;
+      setLayAmount(Math.min(left, 5));
+      setLayPoison(false);
+      setLay(f);
       return;
     }
     // «Дикий облик»: открываем выбор известной формы (принятие — сервер).
@@ -922,6 +956,66 @@ export default function ActionPanel() {
           </div>
         </div>
       )}
+      {lay &&
+        (() => {
+          const left = resourceLeft(lay) ?? 0;
+          const maxHeal = Math.max(0, left - (layPoison ? LAY_ON_HANDS_POISON_COST : 0));
+          const heal = Math.min(Math.max(0, layAmount), maxHeal);
+          const total = heal + (layPoison ? LAY_ON_HANDS_POISON_COST : 0);
+          return (
+            <div className="ap-shape-picker">
+              <div className="sharpen-picker" data-testid="lay-picker">
+                <strong>{t('ui.action.layOnHandsTitle')}</strong>
+                <span>{t('ui.action.layOnHandsPool', { left })}</span>
+                <label className="adv-check">
+                  <input
+                    type="number"
+                    min={0}
+                    max={maxHeal}
+                    value={heal}
+                    onChange={(e) =>
+                      setLayAmount(Math.max(0, Math.min(maxHeal, Math.round(Number(e.target.value) || 0))))
+                    }
+                  />
+                  {t('ui.action.layOnHandsHeal')}
+                </label>
+                <label className="adv-check">
+                  <input
+                    type="checkbox"
+                    checked={layPoison}
+                    disabled={left < LAY_ON_HANDS_POISON_COST}
+                    onChange={(e) => setLayPoison(e.target.checked)}
+                  />
+                  {t('ui.action.layOnHandsPoison')}
+                </label>
+                <span className="sharpen-amounts">
+                  <button
+                    type="button"
+                    className="sharpen-amount"
+                    disabled={total <= 0 || total > left}
+                    onClick={() => {
+                      startTargeting({
+                        kind: 'action',
+                        tokenId: token.id,
+                        actionId: lay.id,
+                        slot: featureSlot(lay, turnCtx),
+                        label: t('ui.action.layOnHandsTitle'),
+                        featureAmount: total,
+                        ...(layPoison ? { variant: 'poison' } : {}),
+                      });
+                      setLay(null);
+                    }}
+                  >
+                    {t('ui.action.layOnHandsPick')}
+                  </button>
+                </span>
+                <button type="button" className="icon" onClick={() => setLay(null)}>
+                  {t('ui.common.close')}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       {panelSpells.length > 0 && (
         <div className="ap-filters">
           <span className="ap-levels" role="group" aria-label={t('ui.action.spellLevelLabel')}>

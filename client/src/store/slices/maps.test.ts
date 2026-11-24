@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_GRID, MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from 'shared';
+import { DEFAULT_GRID, MAX_DEPLOYMENT_AREAS, MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from 'shared';
 import { fakeSocket, makeScene, type EmittedEvent } from '../../test/fixtures';
 import { clearThrottled } from '../helpers';
 import { useGameStore } from '../useGameStore';
@@ -115,5 +115,35 @@ describe('maps slice: лимиты патчей (как на сервере)', (
   it('toggleDoor шлёт door:toggle с mapId активной карты', () => {
     useGameStore.getState().toggleDoor('d1');
     expect(emitted).toEqual([{ event: 'door:toggle', payload: { mapId: 'm1', wallId: 'd1' } }]);
+  });
+
+  it('updateDeployment сохраняет зоны, обрезает лимит и шлёт событие', () => {
+    const areas = Array.from({ length: MAX_DEPLOYMENT_AREAS + 1 }, (_, i) => ({
+      id: `a${i}`,
+      x: 0,
+      y: 0,
+      w: 50,
+      h: 50,
+    }));
+    useGameStore.getState().updateDeployment('m1', { enabled: true, areas });
+
+    const s = useGameStore.getState();
+    expect(s.scene.maps[0]!.deployment.enabled).toBe(true);
+    expect(s.scene.maps[0]!.deployment.areas.length).toBe(MAX_DEPLOYMENT_AREAS);
+    const sent = emitted.find((e) => e.event === 'deployment:update');
+    expect((sent!.payload as { deployment: { areas: unknown[] } }).deployment.areas.length).toBe(
+      MAX_DEPLOYMENT_AREAS
+    );
+  });
+
+  it('onDeploymentUpdate применяет патч к нужной карте', () => {
+    useGameStore.getState().onDeploymentUpdate({
+      mapId: 'm2',
+      deployment: { enabled: true, areas: [{ id: 'a1', x: 10, y: 20, w: 50, h: 50 }] },
+    });
+    const s = useGameStore.getState();
+    expect(s.scene.maps[1]!.deployment.enabled).toBe(true);
+    expect(s.scene.maps[1]!.deployment.areas).toHaveLength(1);
+    expect(s.scene.maps[0]!.deployment.enabled).toBe(false);
   });
 });

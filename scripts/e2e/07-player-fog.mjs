@@ -95,7 +95,7 @@ await S.page2.screenshot({ path: path.join(S.OUT, '12-player.png') });
 const msgCount = await S.page2.$$eval('[data-testid="chat-msg"]', (els) => els.length);
 check(msgCount >= 2, `игрок видит историю чата (${msgCount} сообщений)`);
 const tokenCount = await S.page2.$$eval('[data-testid="token-panel-item"]', (els) => els.length);
-check(tokenCount === 2, 'библиотека токенов общая: игрок видит токены из библиотеки DM');
+check(tokenCount === 0, 'библиотека DM скрыта от игрока (видны только свои/owner)');
 const playerChips = await S.page2.$$eval('[data-testid="player-chip"]', (els) => els.map((el) => el.textContent));
 check(playerChips.some((t) => t.includes('Игрок')) && playerChips.some((t) => t.includes('DM')), 'список игроков виден');
 const p2Maps = await S.page2.$$eval('[data-testid="map-item"]', (els) => els.length);

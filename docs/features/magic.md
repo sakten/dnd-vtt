@@ -8,6 +8,8 @@
 
 клиент `SpellPopover.tsx` → `store/slices/actions.ts` (`castSpell`/`startAim`/`confirmAim`), `domain/interaction.ts` → сервер `socket/spells.ts` → `socket/spellResolve.ts` → `socket/automation.ts`
 
+Быстрый каст на себя: Ctrl/Cmd+клик по иконке заклинания в `ActionPanel` — `lib/actionRules.ts` (`selfCastPlan`: self, касание/дальность по существу; без области, мультицели и телепорта) сразу шлёт `spell:cast`; иначе открывается обычный `SpellPopover`.
+
 ## Автоматизация (что делает спелл/фит)
 
 схема `shared/src/domain/automation.ts`; каталог manual/chip `shared/src/rules/automation/catalog.ts`, спеки `shared/src/rules/automation/specs/*` (компилятор `compile.ts`, структурная JSON-Schema записей `schema.ts` +

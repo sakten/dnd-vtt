@@ -8,6 +8,7 @@ import { useMapLight } from '../lib/light';
 import { useSpellByKey } from '../lib/useSpells';
 import { useVisionViewers } from '../lib/useVision';
 import { useInvisibilityView, useBanishView } from '../lib/visibility';
+import { deploymentPendingOf } from '../lib/deployment';
 import ConditionChips from './ConditionChips';
 import EffectChips from './EffectChips';
 
@@ -22,6 +23,7 @@ export default function ConditionsOverlay() {
   const invisibility = useInvisibilityView();
   const banished = useBanishView();
   const viewers = useVisionViewers();
+  const deploymentPending = useGameStore(deploymentPendingOf);
   // Свет заклинаний (Light, Daylight) — как в вуали TableTop: иначе в «Темноте»
   // игрок видит освещённый токен, а его чипы скрывались бы.
   const lightMap = useMapLight();
@@ -39,7 +41,7 @@ export default function ConditionsOverlay() {
     !viewers || (sight !== null && viewers.some((v) => canSee({ x: v.x, y: v.y }, t, v.senses, sight)));
 
   const tokens = (map?.tokens ?? []).filter((t) => t.conditions.length > 0 || t.effects.some((e) => !e.hidden));
-  if (!tokens.length) return null;
+  if (deploymentPending || !tokens.length) return null;
 
   return (
     <div className="cond-overlay">

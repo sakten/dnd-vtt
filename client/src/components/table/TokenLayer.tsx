@@ -37,6 +37,8 @@ interface Props {
   invisibleHidden: Set<string>;
   /** Изгнанные (Banishment) для текущего зрителя: у не-DM скрыты, у DM — призрак. */
   banishedHidden: Set<string>;
+  /** Скрыть все токены (карта ещё не расставлена: игрок не должен видеть ни карту, ни чужие токены). */
+  allHidden: boolean;
   dragGhost: { id: string; x: number; y: number } | null;
   dragPath: { points: WorldPoint[]; feet: number } | null;
   viewScale: number;
@@ -50,6 +52,7 @@ export default function TokenLayer({
   hidden,
   invisibleHidden,
   banishedHidden,
+  allHidden,
   dragGhost,
   dragPath,
   viewScale,
@@ -65,7 +68,7 @@ export default function TokenLayer({
           if (!ghost) return null;
           return <TokenGhost token={ghost} x={dragGhost.x} y={dragGhost.y} />;
         })()}
-      {map?.tokens
+      {(allHidden ? [] : map?.tokens ?? [])
         .filter(
           (tok) =>
             (isDm || !isCellHidden(fog, hidden, tok.x, tok.y)) &&

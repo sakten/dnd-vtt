@@ -1,7 +1,7 @@
 import { activeMapOf } from '../selectors';
 import type { GameState, Slice } from '../types';
 
-export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setVisionModalOpen' | 'setBestiaryOpen' | 'setSheetOpen' | 'setRoomSettingsOpen' | 'setOptionalRulesOpen' | 'setFogMode' | 'setWallsMode' | 'setLightMode' | 'setWallCandidates' | 'fitView'>> = (set, get) => {
+export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 'setGridModalOpen' | 'setVisionModalOpen' | 'setBestiaryOpen' | 'setSheetOpen' | 'setRoomSettingsOpen' | 'setOptionalRulesOpen' | 'setFogMode' | 'setWallsMode' | 'setLightMode' | 'setDeploymentMode' | 'setWallCandidates' | 'fitView'>> = (set, get) => {
   return {
     setView: (view) => set({ view }),
     setViewport: (viewport) => set({ viewport }),
@@ -34,6 +34,13 @@ export const createViewSlice: Slice<Pick<GameState, 'setView' | 'setViewport' | 
         // Выключили инструмент — сбрасываем и режим размещения источников.
         if (patch.active === false) lightMode.place = null;
         return { lightMode };
+      }),
+
+    setDeploymentMode: (patch) =>
+      set((s) => {
+        const deploymentMode = { ...s.deploymentMode, ...patch };
+        if (patch.active === false) deploymentMode.draw = false;
+        return { deploymentMode };
       }),
 
     setWallCandidates: (wallCandidates) => set({ wallCandidates }),

@@ -3,6 +3,7 @@ import {
   MAX_FOG_CELLS,
   MAX_WALL_SEGMENTS,
   normalizeGrid,
+  normalizeDeployment,
   normalizeLightAreas,
   normalizeMapLights,
   snapToGrid,
@@ -129,6 +130,16 @@ export function registerMapHandlers(ctx: ConnCtx) {
       if (!map) return;
       map.vision = { los: vision.los === true, darkness: vision.darkness === true };
       broadcast('vision:update', { mapId, vision: map.vision });
+    });
+
+    ctx.on('deployment:update', ({ mapId: rawMapId, deployment }) => {
+      const room = dmRoom();
+      const mapId = asString(rawMapId);
+      if (!room || !mapId || !isRecord(deployment)) return;
+      const map = room.scene.maps.find((m) => m.id === mapId);
+      if (!map) return;
+      map.deployment = normalizeDeployment(deployment);
+      broadcast('deployment:update', { mapId, deployment: map.deployment });
     });
 
     ctx.on('areas:update', ({ mapId: rawMapId, lightAreas }) => {

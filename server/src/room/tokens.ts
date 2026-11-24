@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   controlsToken as controlsTokenRule,
   DEFAULT_SPEED,
+  defaultDeployment,
   defaultFog,
   emptyCombatState,
   normalizeTokenFields,
@@ -45,6 +46,7 @@ export function addMap(
     vision: { los: false, darkness: false },
     lightAreas: [],
     lights: [],
+    deployment: defaultDeployment(),
     fog: defaultFog(grid),
     grid,
     combat: emptyCombatState(),

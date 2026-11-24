@@ -3,6 +3,7 @@ import type { GridSettings } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { t } from '../i18n';
 import { useIsDm } from '../lib/control';
+import { deploymentPendingForMap } from '../lib/deployment';
 import { readImageSize, uploadImage } from '../lib/api';
 import { detectGridFromUrl } from '../lib/gridDetectImage';
 import { GRID_AUTO_CONFIDENCE } from '../lib/gridDetect';
@@ -22,8 +23,21 @@ export default function MapsPanel() {
   const editingRef = useRef<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('vtt-maps-panel') === 'collapsed');
+  const toggleCollapsed = () =>
+    setCollapsed((v) => {
+      localStorage.setItem('vtt-maps-panel', v ? 'open' : 'collapsed');
+      return !v;
+    });
 
   const isDm = useIsDm();
+  const hiddenThumbs = useGameStore((s) =>
+    s.scene.maps
+      .filter((m) => deploymentPendingForMap(s, m))
+      .map((m) => m.id)
+      .join(',')
+  );
+  const hiddenThumbSet = new Set(hiddenThumbs ? hiddenThumbs.split(',') : []);
 
   const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -78,7 +92,7 @@ export default function MapsPanel() {
   };
 
   return (
-    <div className="maps-panel">
+    <div className={`maps-panel${collapsed ? ' collapsed' : ''}`}>
       <div className="maps-panel-header">
         <span>{t('ui.maps.title')}</span>
         {uploading && <span className="maps-uploading">{t('ui.maps.uploading')}</span>}
@@ -92,8 +106,17 @@ export default function MapsPanel() {
             +
           </button>
         )}
+        <button
+          className="icon maps-toggle"
+          title={collapsed ? t('ui.maps.expand') : t('ui.maps.collapse')}
+          aria-expanded={!collapsed}
+          onClick={toggleCollapsed}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={handleFile} />
       </div>
+      {!collapsed && (
       <div className="maps-panel-list">
         {maps.length === 0 && <div className="hint">{t('ui.maps.empty')}</div>}
         {maps.map((m) => (
@@ -105,6 +128,7 @@ export default function MapsPanel() {
             onClick={() => switchMap(m.id)}
           >
             <img
+              className={hiddenThumbSet.has(m.id) ? 'map-thumb-hidden' : ''}
               src={thumbUrl(m.url)}
               alt={m.name}
               draggable={false}
@@ -175,6 +199,7 @@ export default function MapsPanel() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

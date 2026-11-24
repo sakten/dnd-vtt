@@ -90,6 +90,7 @@ describe('normalizeMapInfo', () => {
     expect(map.fog).toEqual(defaultFog(DEFAULT_GRID));
     expect(map.combat).toEqual(emptyCombatState());
     expect(map.tokens).toEqual([]);
+    expect(map.deployment).toEqual({ enabled: false, areas: [] });
   });
 });
 

@@ -2,6 +2,7 @@ import {
   BAIT_AND_SWITCH_ACTION,
   KENSEI_SHOT_ACTION,
   KNOW_YOUR_ENEMY_ACTION,
+  LAY_ON_HANDS_ACTION,
   SHARPEN_THE_BLADE_ACTION,
   type ActionDef,
   type CharacterSheet,
@@ -12,6 +13,7 @@ import type { ConnCtx } from './context';
 import type { ActionIssue } from './errors';
 import { kenseiActionIssue, sharpenTheBladeAmount } from './kensei';
 import { applyBaitAndSwitch, applyKnowYourEnemy, baitAndSwitchIssue, knowYourEnemyIssue } from './maneuvers';
+import { applyLayOnHands, layOnHandsAmount, layOnHandsIssue } from './paladin';
 
 /**
  * Спецдействия: механики, которым нужен серверный код сверх `AutomationDef`.
@@ -57,6 +59,13 @@ const SPECIAL_ACTIONS: Record<string, SpecialAction> = {
   [SHARPEN_THE_BLADE_ACTION]: {
     issue: ({ action, sheet }) => kenseiActionIssue(action, sheet),
     resourceAmount: ({ action, featureAmount }) => sharpenTheBladeAmount(action, featureAmount),
+  },
+  [LAY_ON_HANDS_ACTION]: {
+    issue: ({ ctx, room, mapId, token, targetId, featureAmount, variant }) =>
+      layOnHandsIssue(ctx, room, mapId, token, targetId, featureAmount, variant),
+    resourceAmount: ({ action, featureAmount }) => layOnHandsAmount(action, featureAmount),
+    apply: ({ ctx, room, mapId, token, sheet, targetId, variant, featureAmount }) =>
+      applyLayOnHands(ctx, room, mapId, token, sheet, targetId, variant, featureAmount),
   },
 };
 

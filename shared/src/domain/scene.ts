@@ -27,6 +27,27 @@ export interface VisionSettings {
 
 export const DEFAULT_VISION: VisionSettings = { los: false, darkness: false };
 
+/** Прямоугольная зона расстановки в мировых координатах. */
+export interface DeploymentArea {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Настройки расстановки карты: скрывать карту до первого токена игрока и зоны, где токен можно ставить. */
+export interface DeploymentSettings {
+  enabled: boolean;
+  areas: DeploymentArea[];
+}
+
+export const DEFAULT_DEPLOYMENT: DeploymentSettings = { enabled: false, areas: [] };
+
+export function defaultDeployment(): DeploymentSettings {
+  return { enabled: false, areas: [] };
+}
+
 export type WallKind = 'wall' | 'door' | 'window';
 
 export type LightAreaKind = 'darkness' | 'magical' | 'obscured' | 'opaque';
@@ -96,6 +117,7 @@ export const MAX_FOG_CELLS = 50_000;
 export const MAX_WALL_SEGMENTS = 2000;
 export const MAX_LIGHT_AREAS = 200;
 export const MAX_MAP_LIGHTS = 200;
+export const MAX_DEPLOYMENT_AREAS = 20;
 
 export function defaultFog(grid: GridSettings): FogState {
   return { size: grid.size, offsetX: grid.offsetX, offsetY: grid.offsetY, hidden: [] };
@@ -138,6 +160,8 @@ export interface MapInfo {
   lightAreas: LightArea[];
   /** Размещённые DM источники света (факелы, фонари, костры). */
   lights: MapLight[];
+  /** Расстановка: скрытие карты до токена игрока и необязательные зоны. */
+  deployment: DeploymentSettings;
   fog: FogState;
   /** Сетка карты: у каждой карты своя (размер/сдвиг/цвет/снэп). */
   grid: GridSettings;

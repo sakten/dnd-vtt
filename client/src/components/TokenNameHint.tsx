@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { activeMapOf } from '../store/selectors';
+import { deploymentPendingOf } from '../lib/deployment';
 
 /**
  * Подсказка с именем токена у курсора при наведении. Показывается, только
@@ -18,6 +19,7 @@ export default function TokenNameHint() {
       s.lightMode.active ||
       s.drawMode.active
   );
+  const deploymentPending = useGameStore(deploymentPendingOf);
   const name = useGameStore((s) => {
     if (!s.hoverTokenId) return null;
     return activeMapOf(s)?.tokens.find((t) => t.id === s.hoverTokenId)?.name ?? null;
@@ -35,7 +37,7 @@ export default function TokenNameHint() {
     return () => window.removeEventListener('mousemove', move);
   }, []);
 
-  const visible = !!hoverId && !busy && !!name;
+  const visible = !!hoverId && !busy && !deploymentPending && !!name;
   useLayoutEffect(() => {
     const el = ref.current;
     if (el) el.style.transform = `translate(${posRef.current.x + 14}px, ${posRef.current.y + 16}px)`;

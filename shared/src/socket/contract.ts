@@ -5,7 +5,7 @@ import type { CombatState } from '../domain/combat';
 import type { Player, RollAnimPayload, RoomState, OptionalRules } from '../domain/room';
 import type { SpellDef } from '../rules/automation/materialize';
 import type { MetamagicCast } from '../rules/metamagic';
-import type { FogState, GridSettings, LightArea, MapInfo, MapLight, VisionSettings, Wall, DrawStroke } from '../domain/scene';
+import type { FogState, GridSettings, LightArea, MapInfo, MapLight, VisionSettings, Wall, DrawStroke, DeploymentSettings } from '../domain/scene';
 import type { CharacterSheet, PlayerResources } from '../domain/sheet';
 import type { LibraryItem, Token, TokenFields } from '../domain/token';
 
@@ -32,6 +32,8 @@ export interface ServerToClientEvents {
   'areas:update': (payload: { mapId: string; lightAreas: LightArea[] }) => void;
   /** Размещённые DM источники света карты. */
   'lights:update': (payload: { mapId: string; lights: MapLight[] }) => void;
+  /** Настройки расстановки карты (скрытие до токена и зоны). */
+  'deployment:update': (payload: { mapId: string; deployment: DeploymentSettings }) => void;
   /** Зоны/области заклинаний карты (без полного снапшота сцены). */
   'zones:update': (payload: { mapId: string; zones: MapInfo['zones'] }) => void;
   'library:update': (library: LibraryItem[]) => void;
@@ -84,6 +86,7 @@ export interface ClientToServerEvents {
   'vision:update': (payload: { mapId: string; vision: VisionSettings }) => void;
   'areas:update': (payload: { mapId: string; lightAreas: LightArea[] }) => void;
   'lights:update': (payload: { mapId: string; lights: MapLight[] }) => void;
+  'deployment:update': (payload: { mapId: string; deployment: DeploymentSettings }) => void;
   'library:add': (payload: TokenFields) => void;
   'library:update': (payload: { id: string; patch: Partial<LibraryItem> }) => void;
   'library:remove': (id: string) => void;

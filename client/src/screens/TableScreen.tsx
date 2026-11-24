@@ -17,6 +17,7 @@ import DoorMenu from '../components/DoorMenu';
 import FogPanel from '../components/FogPanel';
 import WallsPanel from '../components/WallsPanel';
 import LightPanel from '../components/LightPanel';
+import DeploymentPanel from '../components/DeploymentPanel';
 import DrawPanel from '../components/DrawPanel';
 import InitiativeBar from '../components/InitiativeBar';
 import ResourcesPanel from '../components/ResourcesPanel';
@@ -43,6 +44,8 @@ export default function TableScreen() {
   const setWallsMode = useGameStore((s) => s.setWallsMode);
   const lightActive = useGameStore((s) => s.lightMode.active);
   const setLightMode = useGameStore((s) => s.setLightMode);
+  const deploymentActive = useGameStore((s) => s.deploymentMode.active);
+  const setDeploymentMode = useGameStore((s) => s.setDeploymentMode);
   const drawActive = useGameStore((s) => s.drawMode.active);
   const setDrawMode = useGameStore((s) => s.setDrawMode);
 
@@ -69,12 +72,13 @@ export default function TableScreen() {
         if (st.fogMode.active) setFogMode({ active: false });
         if (st.wallsMode.active) setWallsMode({ active: false });
         if (st.lightMode.active) setLightMode({ active: false });
+        if (st.deploymentMode.active) setDeploymentMode({ active: false });
         if (st.drawMode.active) setDrawMode({ active: false });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, removeToken, setSelected, setFogMode, setWallsMode, setLightMode, setDrawMode]);
+  }, [selected, removeToken, setSelected, setFogMode, setWallsMode, setLightMode, setDeploymentMode, setDrawMode]);
 
   return (
     <div className="table-screen" data-testid="table-screen">
@@ -83,6 +87,7 @@ export default function TableScreen() {
       {fogActive && <FogPanel />}
       {wallsActive && <WallsPanel />}
       {lightActive && <LightPanel />}
+      {deploymentActive && <DeploymentPanel />}
       {drawActive && <DrawPanel />}
       <MapsPanel />
       <TokenPanel />

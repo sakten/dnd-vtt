@@ -39,6 +39,10 @@ run feats`), `rules/feats.ts` (`featChoiceEffects`), выборы заклина
 - Dragon Companion: действие кастует Summon Dragon без ячейки (`spellKey`), ресурс 1/долгий отдых; вариант без концентрации (1 минута) — вручную.
 - Проверки: `shared/src/rules/features.test.ts`, `server/src/socket/draconic.test.ts`.
 
+## Паладин — ядро (XPHB)
+
+- Наложение рук: бонусное действие, пул 5×уровень; мини-окно «лечение + снять отравление (−5)», касание 5 фт или себя; константы `rules/paladin.ts`, спецдействие `server/src/socket/paladin.ts` (`class:paladin:layOnHands`), проверки `server/src/socket/paladin.test.ts`.
+
 ## Чародей — ядро (XPHB)
 
 - Врождённое чародейство: ресурс `sorcerer:innateSorcery` (2/долгий отдых), кнопка на бонусное действие; эффект `class:sorcerer:innateSorcery` на 10 раундов — `spellDc +1` и преимущество на заклинательные атаки; ограничение «только заклинания чародея» — `server/src/socket/spellStats.ts` и `automation/execute.ts`.

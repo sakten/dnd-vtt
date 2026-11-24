@@ -1,6 +1,6 @@
 import type { ZoneInstance } from '../domain/automation';
-import { DEFAULT_GRID, DEFAULT_VISION, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from '../domain/scene';
-import type { FogState, GridSettings, LightArea, LightAreaKind, MapInfo, MapLight, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
+import { DEFAULT_GRID, DEFAULT_VISION, MAX_DEPLOYMENT_AREAS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from '../domain/scene';
+import type { DeploymentArea, DeploymentSettings, FogState, GridSettings, LightArea, LightAreaKind, MapInfo, MapLight, Scene, VisionSettings, Wall, WallKind } from '../domain/scene';
 import { normalizeCombatState } from './combat';
 import { isRecord } from './guards';
 import { normalizeToken } from './token';
@@ -103,6 +103,25 @@ export function normalizeMapLights(raw: unknown): MapLight[] {
   return out;
 }
 
+/** Нормализация карты расстановки: флаг и прямоугольные зоны в пределах лимита. */
+export function normalizeDeployment(raw: unknown): DeploymentSettings {
+  if (!isRecord(raw)) return { enabled: false, areas: [] };
+  const out: DeploymentArea[] = [];
+  if (Array.isArray(raw.areas)) {
+    for (const item of raw.areas.slice(0, MAX_DEPLOYMENT_AREAS)) {
+      if (!isRecord(item)) continue;
+      const id = String(item.id ?? '');
+      const x = Number(item.x);
+      const y = Number(item.y);
+      const w = Number(item.w);
+      const h = Number(item.h);
+      if (!id || ![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) continue;
+      out.push({ id, x, y, w, h });
+    }
+  }
+  return { enabled: raw.enabled === true, areas: out };
+}
+
 /** Нормализация стены: числовые координаты, известный вид, лимит сегментов. */
 export function normalizeWalls(raw: unknown): Wall[] {
   if (!Array.isArray(raw)) return [];
@@ -157,6 +176,7 @@ export function normalizeMapInfo(
     vision: normalizeVision(source.vision),
     lightAreas: normalizeLightAreas(source.lightAreas),
     lights: normalizeMapLights(source.lights),
+    deployment: normalizeDeployment(source.deployment),
     fog,
     grid,
     combat: normalizeCombatState(source.combat),

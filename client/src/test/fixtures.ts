@@ -1,6 +1,7 @@
 import {
   DEFAULT_GRID,
   DEFAULT_SPEED,
+  defaultDeployment,
   defaultFog,
   emptyCombatState,
   type GridSettings,
@@ -61,6 +62,7 @@ export function makeMap(id: string, tokens: Token[] = [], grid: GridSettings = D
     vision: { los: false, darkness: false },
     lightAreas: [],
     lights: [],
+    deployment: defaultDeployment(),
     fog: defaultFog(grid),
     grid,
     combat: emptyCombatState(),

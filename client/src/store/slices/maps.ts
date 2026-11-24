@@ -1,12 +1,12 @@
-import { MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from 'shared';
+import { MAX_DEPLOYMENT_AREAS, MAX_FOG_CELLS, MAX_LIGHT_AREAS, MAX_MAP_LIGHTS, MAX_WALL_SEGMENTS } from 'shared';
 import { t } from '../../i18n';
-import { applyMapGrid, setFog, setLightAreas, setLights, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
+import { applyMapGrid, setDeployment, setFog, setLightAreas, setLights, setVision, setWalls, setZones, withMaps } from '../../domain/scene';
 import { activeMapOf } from '../selectors';
 import { emit, emitInMap, emitThrottled, flushThrottled } from '../helpers';
 import { UI_RESET } from '../uiReset';
 import type { GameState, Slice } from '../types';
 
-export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onLightsUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateDoor' | 'setDoorMenu' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas' | 'updateLights'>> = (set, get) => {
+export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring' | 'onFogUpdate' | 'onWallsUpdate' | 'onVisionUpdate' | 'onAreasUpdate' | 'onLightsUpdate' | 'onDeploymentUpdate' | 'onZonesUpdate' | 'onGridUpdate' | 'addMap' | 'removeMap' | 'renameMap' | 'switchMap' | 'bringMap' | 'updateGrid' | 'toggleDoor' | 'updateDoor' | 'setDoorMenu' | 'updateFog' | 'updateWalls' | 'updateVision' | 'updateAreas' | 'updateLights' | 'updateDeployment'>> = (set, get) => {
   // Клиент режет payload теми же лимитами, что и сервер: локальная и серверная версии не расходятся.
   const limitError = (what: string, max: number) =>
     get().onChatError(t('ui.store.limit', { what, max }));
@@ -35,6 +35,8 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
     onVisionUpdate: ({ mapId, vision }) => set((s) => ({ scene: setVision(s.scene, mapId, vision) })),
     onAreasUpdate: ({ mapId, lightAreas }) => set((s) => ({ scene: setLightAreas(s.scene, mapId, lightAreas) })),
     onLightsUpdate: ({ mapId, lights }) => set((s) => ({ scene: setLights(s.scene, mapId, lights) })),
+    onDeploymentUpdate: ({ mapId, deployment }) =>
+      set((s) => ({ scene: setDeployment(s.scene, mapId, deployment) })),
     onZonesUpdate: ({ mapId, zones }) => set((s) => ({ scene: setZones(s.scene, mapId, zones) })),
     onGridUpdate: ({ mapId, grid }) =>
       set((s) => ({ scene: applyMapGrid({ ...s.scene, grid }, mapId, grid) })),
@@ -151,6 +153,13 @@ export const createMapSlice: Slice<Pick<GameState, 'onMapsUpdate' | 'onMapBring'
         const latest = get().scene.maps.find((m) => m.id === mapId)?.lights;
         return latest ? { mapId, lights: latest } : undefined;
       });
+    },
+
+    updateDeployment: (mapId, deployment) => {
+      if (!get().socket) return;
+      const next = { ...deployment, areas: deployment.areas.slice(0, MAX_DEPLOYMENT_AREAS) };
+      set((s) => ({ scene: setDeployment(s.scene, mapId, next) }));
+      emit(get, 'deployment:update', { mapId, deployment: next });
     },
   };
 };

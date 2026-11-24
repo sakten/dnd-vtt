@@ -11,6 +11,7 @@ import {
   spellPanelFiltered,
   spellSlotOf,
   spellCastInfo,
+  selfCastPlan,
   type TurnContext,
 } from './actionRules';
 
@@ -357,5 +358,30 @@ describe('sortPanelSpells', () => {
       'Detect Magic',
     ]);
     expect(sortPanelSpells([])).toEqual([]);
+  });
+});
+
+describe('selfCastPlan', () => {
+  const resources = {
+    ...emptyResources(),
+    spellSlots: [1, 2, 3].map((level) => ({ level, current: 1, max: 1 })),
+  };
+  const caster = { isCharacter: true, resources, token: undefined, classes: [] };
+  const spell = (key: string): Spell => spellsData.spells.find((s) => s.key === key) as Spell;
+
+  it('self-спелл кастуется без targetIds', () => {
+    expect(selfCastPlan(spell('XPHB:Shield'), caster)).toEqual({ slotLevel: 1, targetSelf: false });
+  });
+
+  it('касание/дальность по существу — на себя через targetIds', () => {
+    expect(selfCastPlan(spell('XPHB:Cure Wounds'), caster)).toEqual({ slotLevel: 1, targetSelf: true });
+    expect(selfCastPlan(spell('XPHB:Healing Word'), caster)).toEqual({ slotLevel: 1, targetSelf: true });
+    expect(selfCastPlan(spell('XPHB:Invisibility'), caster)).toEqual({ slotLevel: 2, targetSelf: true });
+  });
+
+  it('область, мультицель и телепорт не кастуются на себя', () => {
+    expect(selfCastPlan(spell('XPHB:Fireball'), caster)).toBeNull();
+    expect(selfCastPlan(spell('XPHB:Mass Healing Word'), caster)).toBeNull();
+    expect(selfCastPlan(spell('XPHB:Misty Step'), caster)).toBeNull();
   });
 });

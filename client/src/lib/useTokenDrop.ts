@@ -2,7 +2,9 @@ import type { DragEvent, RefObject } from 'react';
 import { snapToGrid } from 'shared';
 import { useGameStore } from '../store/useGameStore';
 import { activeGridOf } from '../store/selectors';
+import { t } from '../i18n';
 import { canAddLibraryItem } from './control';
+import { deploymentPendingOf, inDeploymentArea } from './deployment';
 
 /** Перетаскивание предмета библиотеки на стол (drop из панели) с привязкой к сетке. */
 export function useTokenDrop(containerRef: RefObject<HTMLDivElement | null>) {
@@ -44,6 +46,13 @@ export function useTokenDrop(containerRef: RefObject<HTMLDivElement | null>) {
       const cells = item.cells ?? 1;
       wx = snapToGrid(wx, grid.offsetX, grid.size, cells);
       wy = snapToGrid(wy, grid.offsetY, grid.size, cells);
+    }
+    if (deploymentPendingOf(st)) {
+      const areas = st.scene.maps.find((m) => m.id === st.viewMapId)?.deployment?.areas ?? [];
+      if (areas.length > 0 && !inDeploymentArea(wx, wy, areas)) {
+        st.onChatError(t('ui.deployment.outsideZone'));
+        return;
+      }
     }
     st.addTokenAt(item.id, wx, wy);
   };

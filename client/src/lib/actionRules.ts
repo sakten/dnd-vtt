@@ -213,8 +213,7 @@ export function spellCastInfo(
   spell: Spell,
   level: number,
   caster: CasterInfo & { classes: CharacterSheet['classes'] | null }
-): SpellCastInfo {
-  const isCantrip = spell.level === 0;
+): SpellCastInfo {  const isCantrip = spell.level === 0;
   const maxLevel = maxCastableForSpell(spell, caster);
   const canCast = isCantrip || maxLevel >= spell.level;
   const area = spellHasArea(spell);
@@ -272,4 +271,36 @@ export function spellCastInfo(
     damageText,
     slotLevel: isCantrip ? undefined : level,
   };
+}
+
+/** План быстрого каста «на себя» (Ctrl+клик): круг и нужен ли targetIds. */
+export interface SelfCastPlan {
+  slotLevel: number | undefined;
+  targetSelf: boolean;
+}
+
+export function selfCastPlan(
+  spell: Spell,
+  caster: CasterInfo & { classes: CharacterSheet['classes'] | null }
+): SelfCastPlan | null {
+  const level = castLevelsForSpell(spell, caster)[0] ?? spell.level;
+  const info = spellCastInfo(spell, level, caster);
+  if (!info.canCast || info.area || info.multi || info.autoTargets) return null;
+  const def = automationForSpell(spell, {
+    castLevel: info.slotLevel ?? level,
+    characterLevel: caster.classes ? characterLevel(caster.classes) : 1,
+  });
+  if (def.utility?.kind === 'teleport' || def.utility?.kind === 'scatter' || def.utility?.kind === 'telekinesis') {
+    return null;
+  }
+  if (def.zone || def.summon || def.shape) return null;
+  if (info.self) {
+    if (def.targeting?.kind === 'creature') return null;
+    return { slotLevel: info.slotLevel, targetSelf: false };
+  }
+  const distance = spell.range.distance?.type;
+  if (distance === 'touch' || distance === 'feet') {
+    return { slotLevel: info.slotLevel, targetSelf: true };
+  }
+  return null;
 }

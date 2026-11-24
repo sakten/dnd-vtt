@@ -3,6 +3,7 @@ import type {
   CharacterSheet,
   ChatMessage,
   DrawStroke,
+  DeploymentSettings,
   ErrorPayload,
   FogState,
   FoundPath,
@@ -69,6 +70,12 @@ export interface LightMode {
 export interface DrawMode {
   active: boolean;
   color: string;
+}
+
+export interface DeploymentMode {
+  active: boolean;
+  /** Идёт рисование одной зоны: после отпускания кисть выключается. */
+  draw: boolean;
 }
 
 /** Штрих рисования в сторе: когда исчезнет (performance.now). */
@@ -155,6 +162,7 @@ export interface GameState {
   wallsMode: WallsMode;
   lightMode: LightMode;
   drawMode: DrawMode;
+  deploymentMode: DeploymentMode;
   /** Эфемерные штрихи рисования (видит вся комната, гаснут через 10 с). */
   strokes: MapStroke[];
   critHit: CritHit | null;
@@ -269,6 +277,8 @@ export interface GameState {
   updateAreas: (mapId: string, areas: LightArea[]) => void;
   /** Размещённые источники света карты (DM; свет и тени считаются как у заклинаний). */
   updateLights: (mapId: string, lights: MapLight[]) => void;
+  setDeploymentMode: (patch: Partial<DeploymentMode>) => void;
+  updateDeployment: (mapId: string, deployment: DeploymentSettings) => void;
   setDrawMode: (patch: Partial<DrawMode>) => void;
   /** Добавить свой штрих: сразу локально и на сервер (остальным). */
   commitStroke: (points: { x: number; y: number }[]) => void;
@@ -342,6 +352,7 @@ export interface GameState {
   onVisionUpdate: (payload: Parameters<ServerToClientEvents['vision:update']>[0]) => void;
   onAreasUpdate: (payload: Parameters<ServerToClientEvents['areas:update']>[0]) => void;
   onLightsUpdate: (payload: Parameters<ServerToClientEvents['lights:update']>[0]) => void;
+  onDeploymentUpdate: (payload: Parameters<ServerToClientEvents['deployment:update']>[0]) => void;
   onZonesUpdate: (payload: Parameters<ServerToClientEvents['zones:update']>[0]) => void;
   onGridUpdate: (payload: { mapId: string; grid: GridSettings }) => void;
   onLibraryUpdate: (library: LibraryItem[]) => void;

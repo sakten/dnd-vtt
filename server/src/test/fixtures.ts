@@ -1,6 +1,7 @@
 import {
   DEFAULT_GRID,
   DEFAULT_SPEED,
+  defaultDeployment,
   defaultFog,
   emptyCombatState,
   emptyTurnState,
@@ -66,6 +67,7 @@ function baseRoom(tokens: Token[], controllers: Record<string, string>, combat =
           vision: { los: false, darkness: false },
           lightAreas: [],
           lights: [],
+          deployment: defaultDeployment(),
           fog: defaultFog(DEFAULT_GRID),
           grid: { ...DEFAULT_GRID },
           combat,

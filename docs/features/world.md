@@ -6,7 +6,7 @@
 
 ## Карты, туман, библиотека, сетка, стены, двери
 
-`socket/map.ts` (`fog:update`/`grid:update {mapId,grid}`/`walls:update`/`vision:update`/`areas:update`/`zones:update` — видимость DM: обзор + «Темнота» + области)/`doors.ts` (`door:toggle`: DM всегда; игрок —
+`socket/map.ts` (`fog:update`/`grid:update {mapId,grid}`/`walls:update`/`vision:update`/`areas:update`/`zones:update`/`deployment:update` — видимость DM: обзор + «Темнота» + области + расстановка)/`doors.ts` (`door:toggle`: DM всегда; игрок —
 контролируемый токен `isPlayerToken`/`canInteract` в 5 фт от края подошвы, `dmOnly` запрет, `pickDc>0` в бою запрет, вне боя чек Ловкости рук, успех снимает замок; `door:update` — настройки DM)/`library.ts`,
 `shared/src/normalize/scene.ts` (**сетка у каждой карты своя**: `MapInfo.grid`, `scene.grid` — дефолт комнаты; `Wall.dmOnly`/`pickDc` — только у дверей), `shared/src/rules/walls.ts` (LOS/проход + `segmentRectDistance`),
 `rules/vision.ts` (`canSee`/`visionKindAt`/`sightContextOf`), `rules/areas.ts` (`areaContainsPoint`), `rules/sheet.ts` (`bonusPart` — владение/экспертиза числом или костью: `d4` + экспертиза → `2d4`;
@@ -14,6 +14,13 @@
 `flushThrottled`, `updateDoor`, `doorMenuId`)/`library.ts`, `TableTop.tsx` (двери видны игрокам, курсор-замочек и клик по двери; стены — DM; вуаль обзора), `DoorMenu`/`ObjectMenu` (мини-UI двери: открыть/закрыть, DM —
 «только для ведущего», Сл взлома, удаление), `DoorView.tsx` (деревянная створка с петлёй и ручкой, косяки-рама; длиннее клетки — двустворчатая; анимация 200 мс) + `lib/doorRender.ts` (геометрия створок/петель:
 `doorGeometry`/`doorLeaves`, чистая), `GridLayer`, `WallsPanel.tsx`, `LightPanel.tsx` («Тьма»), `VisionSettingsModal.tsx` (окно «Обзор»), `lib/{grid,walls}Detect*.ts`, `lib/los.ts`
+
+Расстановка: `MapInfo.deployment` (`enabled` + прямоугольные зоны, лимит 20) нормализуется в `normalize/scene.ts`; `deployment:update` — только DM.
+`DeploymentPanel` включает галку «скрывать карту до расстановки» и рисует зоны (`lib/useDeploymentBrush.ts`).
+`lib/deployment.ts` скрывает карту игроку, у которого нет своего токена на карте, но есть доступный токен в библиотеке;
+`VeilLayer` рисует серую маску с прорезями зон, токены под ней скрыты, `useTokenDrop` не даёт бросить токен вне зоны. DM и игроки без персонажей видят карту как обычно.
+
+Библиотека: `client/src/lib/libraryVisibility.ts` оставляет игроку созданные им предметы, его персонажа (`currentCharacterId`) и предметы с совпадающим `owner`; автор — скрытое поле `LibraryItem.createdBy`, DM и режим тестов видят всё. Сервер по-прежнему отдаёт библиотеку целиком (модель доверия), фильтр — в `TokenPanel`.
 
 ## Восприятие (зрение) и тьма
 

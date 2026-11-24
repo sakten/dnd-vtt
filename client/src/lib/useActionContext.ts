@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   attackIsActive,
   attacksPerAction,
+  casterClasses,
   choiceSpellGrants,
   classFeatures,
   druidLevelOf,
@@ -226,7 +227,14 @@ export function useActionContext(): ActionContext | null {
     if (sheetSpells) {
       if (sheet) {
         const keys = new Set<string>();
-        for (const s of sheet.spells ?? []) keys.add(s.key);
+        // Выбранные заклинания старых классов после смены класса не показываем.
+        const spellClasses = new Set([
+          ...casterClasses(sheet.classes).map((c) => c.className),
+          ...raceSpellGrants(sheet.race).map((g) => g.className),
+        ]);
+        for (const s of sheet.spells ?? []) {
+          if (spellClasses.has(s.className)) keys.add(s.key);
+        }
         for (const g of grantedSpells(sheet.classes)) keys.add(g.key);
         for (const g of featSpellGrants(sheet.choices)) keys.add(g.key);
         for (const g of choiceSpellGrants(sheet.choices)) keys.add(g.key);

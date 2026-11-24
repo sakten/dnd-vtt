@@ -17,6 +17,8 @@ export default function Toolbar() {
   const setWallsMode = useGameStore((s) => s.setWallsMode);
   const lightActive = useGameStore((s) => s.lightMode.active);
   const setLightMode = useGameStore((s) => s.setLightMode);
+  const deploymentActive = useGameStore((s) => s.deploymentMode.active);
+  const setDeploymentMode = useGameStore((s) => s.setDeploymentMode);
   const drawActive = useGameStore((s) => s.drawMode.active);
   const setDrawMode = useGameStore((s) => s.setDrawMode);
   const setVisionModalOpen = useGameStore((s) => s.setVisionModalOpen);
@@ -44,6 +46,7 @@ export default function Toolbar() {
             setFogMode({ active: false });
             setWallsMode({ active: false });
             setLightMode({ active: false });
+            setDeploymentMode({ active: false });
           }
         }}
       >
@@ -70,6 +73,7 @@ export default function Toolbar() {
             if (!fogActive) {
               setWallsMode({ active: false });
               setLightMode({ active: false });
+              setDeploymentMode({ active: false });
               setDrawMode({ active: false });
             }
           }}
@@ -86,6 +90,7 @@ export default function Toolbar() {
             if (!wallsActive) {
               setFogMode({ active: false });
               setLightMode({ active: false });
+              setDeploymentMode({ active: false });
               setDrawMode({ active: false });
             }
           }}
@@ -102,6 +107,7 @@ export default function Toolbar() {
             if (!lightActive) {
               setFogMode({ active: false });
               setWallsMode({ active: false });
+              setDeploymentMode({ active: false });
               setDrawMode({ active: false });
             }
           }}
@@ -112,6 +118,23 @@ export default function Toolbar() {
       {isDm && (
         <button title={t('ui.toolbar.visionTitle')} onClick={() => setVisionModalOpen(true)}>
           {t('ui.toolbar.vision')}
+        </button>
+      )}
+      {isDm && (
+        <button
+          className={deploymentActive ? 'active' : ''}
+          title={t('ui.toolbar.deploymentTitle')}
+          onClick={() => {
+            setDeploymentMode({ active: !deploymentActive });
+            if (!deploymentActive) {
+              setFogMode({ active: false });
+              setWallsMode({ active: false });
+              setLightMode({ active: false });
+              setDrawMode({ active: false });
+            }
+          }}
+        >
+          {t('ui.toolbar.deployment')}
         </button>
       )}
       {isRealDm && (

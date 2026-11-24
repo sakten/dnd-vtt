@@ -125,7 +125,7 @@ export const FEATURE_META: Record<string, FeatureMeta> = {
   'monk.mercy:handOfUltimateMercy': { costs: ['action'], targeting: { kind: 'creature' } },
 
   // Паладин
-  'paladin:layOnHands': { costs: ['action'], targeting: { kind: 'creature' } },
+  'paladin:layOnHands': { costs: ['bonus'], targeting: { kind: 'creature', range: 5 } },
   'paladin:channelDivinity': { costs: ['action'] },
   'paladin.devotion:holyNimbus': { costs: ['action'] },
   'paladin.glory:gloriousDefense': { costs: ['reaction'] },
