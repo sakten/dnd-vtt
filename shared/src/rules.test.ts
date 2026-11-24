@@ -427,6 +427,22 @@ describe('applyRest', () => {
     expect(s.spellSlots[0]!.current).toBe(0);
   });
 
+  it('Second Wind: короткий отдых возвращает 1 использование, долгий — все', () => {
+    const res = emptyResources();
+    res.resources = [
+      {
+        id: 'sw',
+        key: 'fighter:secondWind',
+        name: 'Второе дыхание',
+        current: 0,
+        max: 2,
+        reset: 'short',
+      },
+    ];
+    expect(applyRest(res, 'short').resources[0]!.current).toBe(1);
+    expect(applyRest(res, 'long').resources[0]!.current).toBe(2);
+  });
+
   it('долгий отдых: всё по max и HP', () => {
     const res = emptyResources();
     res.hp = { current: 3, max: 20, temp: 5, deathSuccesses: 2, deathFailures: 1 };

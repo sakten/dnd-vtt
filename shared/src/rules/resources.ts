@@ -228,9 +228,9 @@ export function arcaneRecoveryBudget(wizardLevel: number): number {
 /** Восстанавливает ресурсы по отдыху: короткий — 'short' + pact, долгий — всё, HP до max. */
 export function applyRest(res: PlayerResources, type: 'short' | 'long'): PlayerResources {
   const restore = (r: ResourceItem) => (type === 'long' ? r.reset !== 'never' : r.reset === 'short');
-  // Wild Shape (2024): на коротком отдыхе возвращается одно использование, не все.
+  // Wild Shape и Second Wind (2024): на коротком отдыхе возвращается одно использование, не все.
   const rested = (r: ResourceItem) => {
-    if (type === 'short' && r.key?.endsWith(':wildShape')) {
+    if (type === 'short' && (r.key?.endsWith(':wildShape') || r.key?.endsWith(':secondWind'))) {
       return { ...r, current: Math.min(r.max, r.current + 1) };
     }
     return restore(r) ? { ...r, current: r.max } : r;
