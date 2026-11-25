@@ -8,14 +8,14 @@ Konva-стол, zustand, socket-транспорт, панели и окна. К
 
 - `net/socket.ts` — создание socket.io; `net/bridge.ts` — транспорт: подписка на события → экшены стора, heartbeat, реконнект, автовход по `?room=`, URL-гигиена; `attachSocketBridge` возвращает `dispose()` (снятие
 слушателей/таймера), стор хранит его в `socketDispose` и умеет `disposeSocket()` (HMR/тесты/выход).
-- `i18n/` — локализация: `index.ts` (язык по `?lang=`/localStorage/`navigator`, `t()` с фолбэком на EN, `plural`), словари `ru.ts`/`en.ts` (ключ — источник `ru`, паритет 978), `names.ts` (`useNames` — грузит имена
+- `i18n/` — локализация: `index.ts` (язык по `?lang=`/localStorage/`navigator`, `t()` с фолбэком на EN, `plural`), словари `ru.ts`/`en.ts` (ключ — источник `ru`, паритет 2073), `names.ts` (`useNames` — грузит имена
 текущего языка до рендера), `useLocalizedText.ts` (ленивая догрузка описаний заклинаний/фитов/черт), `domain.ts`/`rolls.ts`/`system.ts`/`errors.ts`.
 - `domain/scene.ts` — чистые переходы сцены (`patchToken`, `replaceToken`, `upsertToken`, `removeTokenById`, `setCombat`, `setFog`, `setGrid`, `resizeGrid`, `withMaps`).
 - `store/` — zustand: `types.ts` (GameState и `Slice`), `helpers.ts` (`throttled`, `emitInMap`/`emit`/`emitThrottled*` — socket-эмиты с mapId и троттлингом), `selectors.ts`/`hooks.ts`
 (`activeMapOf`/`tokenById`/`characterTokenOf`, `useActiveMap`/`useMapToken`), `uiReset.ts` (`UI_RESET`, `clearTokenUiFor`), `slices/*` (`room`, `maps`, `library`, `combat`, `actions`, `tokens`, `chat`, `sheet`, `view`,
-`reactions`), `useGameStore.ts` — композиция.
+`reactions`, `draw`, `fx`, `rollAnim`, `rollMode`, `settings`), `useGameStore.ts` — композиция.
 - `components/` — Konva-стол (`TableTop`, `TokenView`, `GridLayer`, `ZoneLayer` — заливка зон/областей), панели (карты, токены, чат, инициатива, ресурсы, игроки, `ActionPanel`), модалки (`GridSettingsModal`,
-`RoomSettingsModal` — режим тестов и кастомные заклинания комнаты: импорт/экспорт JSON 1:1), `CritOverlay`/`ThreeD20` (ленивый three.js), `SpellIcon`/`spellIcons` (420 рукописных иконок; красный кружок у
+`RoomSettingsModal` — режим тестов и кастомные заклинания комнаты: импорт/экспорт JSON 1:1), `CritOverlay`/`ThreeD20` (ленивый three.js), `SpellIcon`/`spellIcons` (424 рукописных иконок; все 420 заклинаний покрыты; красный кружок у
 неавтоматизированных заклинаний, `spellAutomated`; «+» у `CUSTOM:`), `SpellsPanel` (выбор заклинаний), `SpellPopover` (накладывание: круг/апкаст, Adv/Dis, пометка «эффект не автоматизирован»; после попапа — выбор
 цели/области на карте), `AimPanel` (режимы выбора цели: `targeting` — клик по токену для любой способности/атаки, `aim` — прицеливание области, `multiTarget` — выбор цели на каждый луч, `scatter` — до 5 целей и точка
 назначения на каждую (Scatter); курсор-прицел и подсветка в `TableTop`), `DamageDefensesForm` (сопротивления/иммунитеты/уязвимости юнита), `ConditionIcon`/`ConditionChips`/`ConditionsOverlay`/`ConditionsForm` (состояния:

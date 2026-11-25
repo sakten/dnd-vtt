@@ -26,15 +26,17 @@ Invisibility), `ward` (Primordial Ward: реакция на урон типа и
 `magicalSlashing`/`magicalPiercing`/`magicalBludgeoning` — Magic Weapon ставит флаг `magicWeapon`, `attackResolve` подменяет тип), `room/effects.ts` (`adjustTokenHp` — temp HP списываются первыми, `grantTempHp`,
 `wakeOnDamage`), `socket/context.ts` (`applyHp`); крит-диапазон — `rules/combat.ts` (`critRangeFor`) + `dice.ts` (`isCriticalHit(roll, minFace)`); составной урон заклинаний — типизированные кости в `dice` (`5d6fire +
 5d6radiant`; части карточек — `spellDamageParts` по ролям `damage.parts` данных: все `main`, либо `main` + `trigger` другого типа); всплеск вокруг цели — `AutomationDef.burst` (Ice Knife: спас 5 фт вне зависимости от
-попадания; в ветке сейва — вокруг каждой цели; `runBurst` в `socket/automation.ts`, райдеры смайтов — `socket/smites.ts`); временные хиты — утилита `tempHp` (False Life, `rules/automation.ts`) и
+попадания; в ветке сейва — вокруг каждой цели; `runBurst` в `socket/automation/execute.ts`, райдеры смайтов — `socket/smites.ts`); временные хиты — утилита `tempHp` (False Life, `rules/automation.ts`) и
 `AutomationDef.undeadTempHp` (Negative Energy Flood: нежить без спасброска получает половину броска врем. хитами); убитый Negative Energy Flood поднимается враждебным `XMM:Zombie` (`spawnZombie` в
-`socket/automation.ts`); UI — `TokenMenu.tsx`, `ResourcesPanel.tsx`
+`socket/automation/core.ts`); UI — `TokenMenu.tsx`, `ResourcesPanel.tsx`
+
+Смерть и стабилизация: `resources:deathSave` (`server/src/socket/resources.ts`), `hp.deathSuccesses`/`deathFailures`, `hp.stable`; 3 успеха — стабилен (броски не нужны до получения урона), 3 провала — смерть; урон по лежачему добавляет провал (крит — два), лечение выше 0 сбрасывает счётчики. UI — `ResourcesPanel`/`TokenMenu`.
 
 ## Бой, ход, движение, OA
 
 `server/src/socket/combat.ts` (`combat:setMovement`, `tickActiveTurn`), `room/combat.ts`, `socket/conditions.ts`; базовые действия `rules/actions.ts` + `rules/automationActions.ts` (Помощь: `wake` — будит «сонные»
 эффекты `wakeOnDamage` в 5 фт); поиск пути `rules/movement.ts` (`findPath`: 5-10-5, сложная местность ×2, зоны `movementCost` ×4 (Wall of Thorns), `steps` — стоимость шага из маршрута для списания движения, стены/двери),
-клиент `store/slices/tokens.ts` (`moveTokenAlongPath`), `TokenView.tsx` (призрак, маршрут, анимация 150 мс/клетка, `token:move` с path), `InitiativeBar`, `ActionPanel`
+клиент `store/slices/tokens.ts` (`startTokenWalk`), `TokenView.tsx` (призрак, маршрут, анимация 150 мс/клетка, `token:walk`), `InitiativeBar`, `ActionPanel`
 
 ## Реакции (Counterspell, Absorb, OA)
 

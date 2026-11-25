@@ -20,11 +20,11 @@
 
 ## Лист персонажа и ресурсы
 
-`socket/sheet.ts`/`resources.ts`, `shared/src/rules/resources.ts`, клиент `CharacterSheetModal.tsx`, `SpellsPanel.tsx`, `ResourcesPanel.tsx`
+`socket/sheet.ts`/`resources.ts`, `shared/src/rules/resources.ts`, клиент `CharacterSheetModal.tsx`, `SpellsPanel.tsx`, `ResourcesPanel.tsx`; отдых — `resources:rest` (`socket/resources.ts`) + `applyRest` (`shared/src/rules/resources.ts`), сбрасывает HP/ресурсы/слоты по типу отдыха
 
 ## Оружие, выбор из списка
 
-`shared/src/data/weapons.json` (`npm run weapons`: кость/тип/дистанция, свойства и мастерства — данные на будущее), `rules/weapons.ts` (`weaponAttackEntry` — автоподстановка формул, `findUnarmedAttack`), формулы атак
+`shared/src/data/weapons.json` (`npm run weapons`: кость/тип/дистанция, свойства и мастерства; мастерства реализованы — `server/src/socket/masteries.ts`, Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex, хуки в `server/src/socket/attackResolve.ts`), `rules/weapons.ts` (`weaponAttackEntry` — автоподстановка формул, `findUnarmedAttack`), формулы атак
 понимают характеристики (`rules/combat.ts` — `resolveAbilityMods`, `d20+str`), клиент `AttacksForm.tsx` (список + своя атака), переопределение безоружного удара — `socket/actions.ts` (`unarmedStrikeEntry`); оружие монаха
 (2024) — `isMonkWeapon`: кость боевых искусств вместо кости оружия и max(Сила/Ловкость) на попадание/урон (в `weaponAttackEntry` и `loadoutOf`/`applyMonkWeapon`; ручные формулы — `manualHit`/`manualDamage` и старые
 записи, не совпадающие с авторасчётом, не перетираются)
@@ -42,4 +42,4 @@
 UI: `client/src/i18n/*` — `index.ts` (реестр `LANGS`, `t`, `plural` через `Intl.PluralRules`, фолбэк locale→EN→ключ), `ru.ts`/`en.ts`, `names.ts` (имена контента), `useLocalizedText.ts` (ленивые чанки),
 `domain.ts`/`rolls.ts`/`system.ts`; контент: `shared/src/rules/text.ts` — оверлеи `shared/src/data/text.<lang>/` (`names.json` грузится до рендера, `spells.json`/`feats.json`/`features/<класс>.json` — по требованию);
 **канон имён фич:** с ресурсом — `CLASSES` (`shared/src/rules/classes.ts`), `names.json` зеркалит его (замок `featureRegistry.test.ts`); без ресурса — `names.json`; пояснения пулов в скобках остаются в метке ресурса (Наложение рук (запас));
-**новый язык = `<lang>.ts` + папка `text.<lang>/`**, правки кода не нужны; сводка механики — `client/src/lib/spellText.ts`
+**новый язык:** словарь `<lang>.ts` подхватывается i18n автоматически, но для контента нужна регистрация в `CONTENT_LANGS` (`shared/src/rules/text.ts`); одной папки `text.<lang>/` недостаточно; сводка механики — `client/src/lib/spellText.ts`

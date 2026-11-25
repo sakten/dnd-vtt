@@ -36,17 +36,30 @@ function checkLinks(file) {
   }
 }
 
-const rootFiles = ['ARCHITECTURE.md', 'AUTOMATION.md', 'REFACTOR.md'];
-for (const file of rootFiles) {
+const rootFiles = [
+  ['README.md', { bytes: 8000, lines: 160, line: 500 }],
+  ['ARCHITECTURE.md', { bytes: 10000, lines: 150, line: 300 }],
+  ['AUTOMATION.md', { bytes: 12000, lines: 160, line: 500 }],
+  ['REFACTOR.md', { bytes: 12000, lines: 160, line: 500 }],
+  ['ROADMAP.md', { bytes: 12000, lines: 120, line: 300 }],
+  ['TODO.md', { bytes: 8000, lines: 100, line: 300 }],
+];
+for (const [file, limits] of rootFiles) {
   const full = join(ROOT, file);
-  checkSize(full, { bytes: 12000, lines: 160, line: 500 });
+  checkSize(full, limits);
   checkLinks(full);
 }
+
+const todo = readFileSync(join(ROOT, 'TODO.md'), 'utf8');
+const activeTodos = (todo.match(/^- \[ \]/gm) ?? []).length;
+if (activeTodos > 10) failures.push(`TODO.md: ${activeTodos} active items > 10`);
+if (/^- \[x\]/im.test(todo)) failures.push('TODO.md: completed items are not allowed');
 
 const docsDir = join(ROOT, 'docs');
 const docs = existsSync(docsDir) ? walk(docsDir) : [];
 for (const file of docs) {
-  checkSize(file, { bytes: 20000, line: 500 });
+  const isBacklog = /[/\\]backlog[/\\]/.test(file);
+  checkSize(file, isBacklog ? { bytes: 30000, lines: 200, line: 2000 } : { bytes: 20000, line: 500 });
   checkLinks(file);
 }
 

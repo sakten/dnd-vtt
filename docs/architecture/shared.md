@@ -28,8 +28,8 @@ dash/disengage/hide/search/dodge/Всплеск действия/Второе д
 `AutomationEffect.escape`/`EffectInstance.escape` (Web); типы `AutomationDef`/`AutomationEffect`/`ZoneDef`/`ZoneInstance`/`SummonDef` — в `domain/automation.ts`; `escalate`/`wakeOnDamage`/`misdirect` (Mirror Image) —
 движки, призывы зарезервированы, строк без обработчика нет), `subclassSpells.ts` (выдаваемые заклинания доменов/клятв/патронов). Баррель `src/rules.ts`.
 - `src/data/spells.json` (420 заклинаний — мета из 5e.tools, генерируется `npm run spells`; поля `healing`/`saveHalf`/`areaSpec`), `src/data/catalog.json` (канонические записи: мета + спек автоматизации, генерируется
-`npm run catalog`; источник `shared/spellsData`), `src/data/spellcasting.json` (лимиты классов), `src/data/subclassSpells.json` (выдача классам/подклассам), `src/data/features.json` (829 черт классов/подклассов,
-генерируется `npm run features`; ключи совпадают с ресурсами `CLASSES`), `src/data/maneuvers.json` (20 манёвров боевого мастера XPHB, генерируется `npm run maneuvers`), `src/data/races.json` (10 видов PHB 2024,
-генерируется `npm run races`), `src/data/weapons.json` (37 единиц оружия, генерируется `npm run weapons`; свойства/мастерства — данные, механика мастерств не реализована); `src/spellsData.ts` — ленивый экспорт записей
+`npm run catalog`; источник `shared/spellsData`), `src/data/spellcasting.json` (лимиты классов), `src/data/subclassSpells.json` (выдача классам/подклассам), `src/data/features.json` (838 черт классов/подклассов,
+генерируется `npm run features`; ключи совпадают с ресурсами `CLASSES`), `src/data/maneuvers.json` (20 манёвров боевого мастера XPHB, генерируется `npm run maneuvers`), `src/data/races.json` (10 видов PHB 2024 + кобольд MPMM,
+генерируется `npm run races`), `src/data/weapons.json` (37 единиц оружия, генерируется `npm run weapons`; свойства и мастерства — данные; мастерства реализованы в `server/src/socket/masteries.ts` — Cleave/Graze/Nick/Push/Sap/Slow/Topple/Vex); `src/spellsData.ts` — ленивый экспорт записей
 (`shared/spellsData`), `src/maneuversData.ts` — ленивый каталог манёвров (`shared/maneuversData`).
 - `npm test` — vitest: shared/server/client; deploy-бакет `*.deploy.test.ts` — только `npm run test:deploy`/`verify`. Точные counts смотреть в выводе `npm test`.

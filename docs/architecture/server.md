@@ -37,6 +37,6 @@ Express/Socket.IO, `RoomManager`, права, рассылка и регистр
 `socket/zones.ts` (движок зон: `createZoneFromDef`, `tickZones`, `handleMovementZones`, `removeZonesOfSource`; аура/enter-exit/start-endOfTurn, снятие по концентрации) + `socket/effectsApply.ts`
 (`applyEffectTo`/`removeZoneEffects`) + `socket/misdirect.ts` (Mirror Image: подмена попадания образами).
 - Регистраторы по доменам: `admin`, `room` (`room:create`/`room:join`/`player:remove`/`room:settings` — режим тестов, меняет только реальный DM), `custom` (`custom:import`/`custom:remove` — кастомы комнаты, только DM),
-`map`, `library`, `combat`, `token`, `chat`, `sheet`, `resources`, `dice`, `manualRolls`, `actions`, `spells`.
+`map`, `doors`, `draw`, `library`, `combat`, `token`, `forms`, `chat`, `sheet`, `resources`, `dice`, `rollAnim`, `actions`, `spells`, `reactions`.
 - Правило: новое socket-событие = тип в shared + регистратор + `ctx.on` + проверка прав (`isDm`/`canControlToken`) + рассылка через `visibleToken`/`visibleLibrary`.
 - Туман на сервере **не фильтруется** — это клиентский UX (принятый риск, см. ниже). Статы скрываются по `showStats` и контролю владения.

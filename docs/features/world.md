@@ -13,7 +13,9 @@
 `d20Check`/`d20Expr`/`fmtMod` — единые формулы проверок и бросков d20; им строятся проверки двери и «Выпутаться»); клиент `store/slices/maps.ts` (`updateGrid`/`applyMapGrid`, `activeGridOf`, `toggleDoor` c
 `flushThrottled`, `updateDoor`, `doorMenuId`)/`library.ts`, `TableTop.tsx` (двери видны игрокам, курсор-замочек и клик по двери; стены — DM; вуаль обзора), `DoorMenu`/`ObjectMenu` (мини-UI двери: открыть/закрыть, DM —
 «только для ведущего», Сл взлома, удаление), `DoorView.tsx` (деревянная створка с петлёй и ручкой, косяки-рама; длиннее клетки — двустворчатая; анимация 200 мс) + `lib/doorRender.ts` (геометрия створок/петель:
-`doorGeometry`/`doorLeaves`, чистая), `GridLayer`, `WallsPanel.tsx`, `LightPanel.tsx` («Тьма»), `VisionSettingsModal.tsx` (окно «Обзор»), `lib/{grid,walls}Detect*.ts`, `lib/los.ts`
+`doorGeometry`/`doorLeaves`, чистая), `GridLayer`, `WallsPanel.tsx`, `LightPanel.tsx` («Тьма»), `VisionSettingsModal.tsx` (окно «Обзор»), `lib/gridDetect.ts`/`lib/wallDetect.ts`, `lib/los.ts`
+
+Источники света: `lights:update` (`server/src/socket/map.ts`), `MapLight`/`MAX_MAP_LIGHTS` (`shared/src/domain/scene.ts`), клиент `LightLayer.tsx`; `LightPanel` — готовые источники (свеча/факел/фонарь/костёр) и области тьмы/мглы. Маркеры источников видны игрокам над туманом, но под вуалью обзора.
 
 Расстановка: `MapInfo.deployment` (`enabled` + прямоугольные зоны, лимит 20) нормализуется в `normalize/scene.ts`; `deployment:update` — только DM.
 `DeploymentPanel` включает галку «скрывать карту до расстановки» и рисует зоны (`lib/useDeploymentBrush.ts`).

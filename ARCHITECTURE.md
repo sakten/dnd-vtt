@@ -4,9 +4,9 @@
 
 ## Как читать
 
-1. Начать с этого файла и `docs/README.md`.
-2. Выбрать **один** документ по задаче; для незнакомой области вначале `grep`, затем точечный `Read`.
-3. `PLAN.md`, `AUTOMATION.md` и `REFACTOR.md` читать только нужным разделом, не целиком.
+1. Статус и очередь — [ROADMAP.md](ROADMAP.md) + [TODO.md](TODO.md); детали — **один** файл `docs/backlog/<тема>.md`.
+2. Карта кода — этот файл и [docs/README.md](docs/README.md); дальше выбрать **один** документ по задаче.
+3. `PLAN.md` — локальный архив, не читать; `AUTOMATION.md` и `REFACTOR.md` — только нужным разделом.
 4. Новую деталь конкретной абилки добавлять в `docs/features/*`, а здесь — только ссылку.
 
 ## Карта по задачам
@@ -27,7 +27,7 @@
 ## Маршруты
 
 - **Каст:** `SpellPopover` → `spell:cast` → `validateSpellCast` → `resolveSpellCastWithReactions` → `resolveSpellCast` → `executeAutomation`.
-- **Движение:** `TokenView.onDragEnd` → `finalizeTokenMove` → `token:move` → `handleMovementZones`, OA → `maps:update`.
+- **Движение:** `TokenView.onDragEnd` → `finishTokenWalk`/`moveToken` → `token:move` → `handleMovementZones` + `handleWillingMoveEffects` + `syncSurrounded`; OA — `socket/reactions/opportunity.ts`.
 - **Конец хода:** `combat:endTurn` → `tickActiveTurn('end')` → `endTurn` → `tickActiveTurn('start')`.
 
 ## Слои

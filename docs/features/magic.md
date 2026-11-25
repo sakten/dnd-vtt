@@ -12,7 +12,7 @@
 
 ## Автоматизация (что делает спелл/фит)
 
-схема `shared/src/domain/automation.ts`; каталог manual/chip `shared/src/rules/automation/catalog.ts`, спеки `shared/src/rules/automation/specs/*` (компилятор `compile.ts`, структурная JSON-Schema записей `schema.ts` +
+схема `shared/src/domain/automation.ts`; каталог manual/chip `shared/src/rules/automation/specs/catalog.ts`, спеки `shared/src/rules/automation/specs/*` (компилятор `compile.ts`, структурная JSON-Schema записей `schema.ts` +
 ajv, материализация канонической записи `SpellDef = meta + automation` — `materialize.ts`, шаг 4) + `automationActions.ts`; **кастомы комнаты** — `RoomState.customSpecs` (`custom:import`/`custom:remove` DM + рассылка
 `room:customSpecs`, импорт-резолв `server/src/customSpells.ts`, room-aware `findSpell(key, room)`), `CUSTOM_SPELL_PREFIX`/`SpellSource: 'CUSTOM'`; executor `server/src/socket/automation/{core,handlers,execute}.ts`
 (`executeAutomation`), контракт веток — `automation/dispatch.ts`; UI конструктора кастомов — `client/src/components/SpellConstructorModal.tsx` + `lib/spellConstructor.ts` (R16 шаг 5: мастер
@@ -30,7 +30,7 @@ negative-прогон) — `AGENTS.md`, «FX-эффекты»
 
 сервер `socket/zones.ts` (`createZoneFromDef`/`tickZones`/`handleMovementZones`/`removeZonesOfSource`; `enterOncePerTurn` — «раз за ход» и для endOfTurn; триггер `move` — первый за свой ход шаг, начавшийся/закончившийся в зоне (не пуш); payload с `parts`; заряды `charges` — Cordon/Healing Spirit,
 разовый `onCreate` при появлении — Storm Sphere, `excludeCreatureTypes`; аура/триггеры фильтруются `side`/`excludeSource`), `socket/effectsApply.ts` (`applyEffectTo`/`removeZoneEffects`), оси тонкой стены — независимы:
-`zone.wall.blocksMovement`/`blocksLineOfSight`/`blocksActions` (`zoneWalls.ts` → `Wall.blocksMovement`/`kind`/`blocksActions`, `rules/walls.ts blocks()`), геометрия `shared/src/rules/areas.ts`
+`zone.wall.blocksMovement`/`blocksLineOfSight`/`blocksActions` (`shared/src/rules/zoneWalls.ts` → `Wall.blocksMovement`/`kind`/`blocksActions`, `rules/walls.ts blocks()`), геометрия `shared/src/rules/areas.ts`
 (`areaCells`/`tokensInArea`/`tokenFullyInArea`; `ring` — кольцо с безопасной серединой), флаги `movementCost` (×4, Wall of Thorns) и `obscured: heavy` (мгла) — `rules/movement.ts`/`rules/vision.ts`, клиент
 `components/ZoneLayer.tsx`, действия зон — `useZoneAction` (`server/socket/actions.ts`) + `useActionContext`
 
@@ -43,7 +43,7 @@ negative-прогон) — `AGENTS.md`, «FX-эффекты»
 
 `shared/src/data/spells.json` (мета-снимок 5e.tools, `npm run spells`) + `shared/src/data/catalog.json` (канонические записи `SpellDef = meta + автоматизация`, `npm run catalog`, источник `spellsData`) +
 `shared/src/data/homebrew/spells.json` (ручные homebrew-записи `HB:*`, вливаются в `spellsData` вместе с `cbt/spells.json`) +
-`rules/spells.ts`/`spellsData.ts`; замок — `rules/data.deploy.test.ts` (`npm run test:deploy`), не перегенерировать без нужды (после `npm run spells` — `npm run catalog`)
+`shared/src/rules/spells.ts`/`shared/src/spellsData.ts`; замок — `rules/data.deploy.test.ts` (`npm run test:deploy`), не перегенерировать без нужды (после `npm run spells` — `npm run catalog`)
 
 ## Призывы (Summon-*, Find Familiar)
 
