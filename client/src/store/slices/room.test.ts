@@ -1,17 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_GRID, type RoomState } from 'shared';
-import { fakeSocket } from '../../test/fixtures';
+import { fakeSocket, type EmittedEvent } from '../../test/fixtures';
 import type { AppSocket } from '../../net/socket';
 import { useGameStore } from '../useGameStore';
 
+let emitted: EmittedEvent[] = [];
+
 beforeEach(() => {
+  const { socket, emitted: out } = fakeSocket();
+  emitted = out;
   useGameStore.setState({
-    socket: fakeSocket().socket,
+    socket,
     socketDispose: null,
     connected: false,
     connectError: false,
+    roomCode: null,
+    roomName: null,
+    draggingTokenId: null,
+    hoverTokenId: null,
   });
 });
+
+const last = (event: string) => emitted.filter((e) => e.event === event).at(-1)?.payload;
 
 describe('room slice: подключение и режим тестов', () => {
   it('onConnectError выставляет ошибку, onConnected сбрасывает', () => {
@@ -61,5 +71,48 @@ describe('room slice: подключение и режим тестов', () => 
     expect(state.socket).toBeNull();
     expect(state.socketDispose).toBeNull();
     expect(state.connected).toBe(false);
+  });
+
+  it('onDisconnected сбрасывает подключение и hover/drag', () => {
+    useGameStore.setState({ connected: true, draggingTokenId: 't1', hoverTokenId: 't2' });
+    useGameStore.getState().onDisconnected();
+    const state = useGameStore.getState();
+    expect(state.connected).toBe(false);
+    expect(state.draggingTokenId).toBeNull();
+    expect(state.hoverTokenId).toBeNull();
+  });
+
+  it('onRoomSettings обновляет режим тестов и правила', () => {
+    useGameStore.getState().onRoomSettings({ testMode: true, optionalRules: { surrounded: true, fogSight: 3 } });
+    const state = useGameStore.getState();
+    expect(state.testMode).toBe(true);
+    expect(state.optionalRules).toEqual({ surrounded: true, fogSight: 3 });
+  });
+
+  it('onRoomClosed очищает комнату и крит', () => {
+    useGameStore.setState({ roomCode: 'ABCD', roomName: 'Игра', critHit: { id: 'm1', author: 'A', label: 'X', total: 20 } });
+    useGameStore.getState().onRoomClosed('Комната удалена');
+    const state = useGameStore.getState();
+    expect(state.roomCode).toBeNull();
+    expect(state.roomName).toBeNull();
+    expect(state.joinError).toBe('Комната удалена');
+    expect(state.critHit).toBeNull();
+  });
+
+  it('команды комнаты шлют ожидаемые события', () => {
+    useGameStore.getState().setRoomSettings(true);
+    expect(last('room:settings')).toEqual({ testMode: true });
+
+    useGameStore.getState().setOptionalRules({ surrounded: true, fogSight: 0 });
+    expect(last('room:settings')).toEqual({ optionalRules: { surrounded: true, fogSight: 0 } });
+
+    useGameStore.getState().removePlayer('p1');
+    expect(last('player:remove')).toEqual({ id: 'p1' });
+
+    useGameStore.getState().importCustomSpell('{"key":"CUSTOM:X"}');
+    expect(last('custom:import')).toEqual({ json: '{"key":"CUSTOM:X"}' });
+
+    useGameStore.getState().removeCustomSpell('CUSTOM:X');
+    expect(last('custom:remove')).toBe('CUSTOM:X');
   });
 });

@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check } from '../lib/check.mjs';
-import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
+import { findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 // Инструмент «Свет»: ставим факел кликом по столу, проверяем данные карты и очистку.
@@ -17,6 +17,7 @@ await S.page.waitForSelector('[data-testid="light-panel"]');
 const torch = await findButton(S.page, '[data-testid="light-panel"] button', 'Факел');
 check(!!torch, 'в панели есть пресет «Факел»');
 await torch.click();
+await nextFrame(S.page);
 
 const mapId = await S.page.evaluate(() => window.__vtt.getState().viewMapId);
 const box = await S.page.$eval('[data-testid="table-top"]', (el) => {

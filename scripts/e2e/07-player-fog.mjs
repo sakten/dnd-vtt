@@ -107,15 +107,25 @@ const fogBtn = await findButton(S.page, '[data-testid="toolbar"] button', 'Ту�
 await fogBtn.click();
 await S.page.waitForSelector('[data-testid="fog-panel"]');
 await (await findButton(S.page, '[data-testid="fog-panel"] button', 'Прямоугольник')).click();
-await S.page.mouse.move(300, 150);
-await S.page.mouse.down();
-await S.page.mouse.move(620, 400, { steps: 8 });
-await S.page.mouse.up();
-await waitFor(S.page, () => {
-  const s = window.__vtt.getState();
-  const m = s.scene.maps.find((x) => x.id === s.viewMapId);
-  return !!m && m.fog.hidden.length > 20;
-}, 5000);
+await nextFrame(S.page);
+let fogDrawn = false;
+for (let attempt = 0; attempt < 3 && !fogDrawn; attempt++) {
+  await S.page.mouse.move(450, 220);
+  await S.page.mouse.down();
+  await S.page.mouse.move(780, 440, { steps: 8 });
+  await S.page.mouse.up();
+  try {
+    await waitFor(S.page, () => {
+      const s = window.__vtt.getState();
+      const m = s.scene.maps.find((x) => x.id === s.viewMapId);
+      return !!m && m.fog.hidden.length > 20;
+    }, 2500);
+    fogDrawn = true;
+  } catch {
+    await new Promise((r) => setTimeout(r, 200));
+  }
+}
+if (!fogDrawn) throw new Error('07-player-fog: не удалось нарисовать прямоугольник тумана');
 await waitFor(S.page2, () => {
   const s = window.__vtt.getState();
   const m = s.scene.maps.find((x) => x.id === s.viewMapId);

@@ -102,12 +102,26 @@ check(setup.ok, 'друид создан и назначен, токен на с
 
 // Меню токена → «Принять форму» → Wolf (реальные клики: выделить → второй клик открывает меню).
 const openMenu = async (id) => {
-  const pos = await tokenScreen(id);
-  await S.page.mouse.click(pos.sx, pos.sy);
-  await waitFor(S.page, (tid) => window.__vtt.getState().selectedTokenId === tid, 5000, id);
-  await new Promise((r) => setTimeout(r, 120));
-  await S.page.mouse.click(pos.sx, pos.sy);
-  await S.page.waitForSelector('[data-testid="modal"]', { timeout: 8000 });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const pos = await tokenScreen(id);
+    if (!pos) throw new Error(`10-shapes: токен ${id} не найден`);
+    await S.page.mouse.click(pos.sx, pos.sy);
+    try {
+      await waitFor(S.page, (tid) => window.__vtt.getState().selectedTokenId === tid, 2500, id);
+    } catch {
+      await new Promise((r) => setTimeout(r, 200));
+      continue;
+    }
+    await new Promise((r) => setTimeout(r, 120));
+    await S.page.mouse.click(pos.sx, pos.sy);
+    try {
+      await S.page.waitForSelector('[data-testid="modal"]', { timeout: 3000 });
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+  throw new Error(`10-shapes: не удалось открыть меню токена ${id}`);
 };
 await openMenu(setup.tokenId);
 const take = await findButton(S.page, '[data-testid="modal"] button', 'Принять форму');

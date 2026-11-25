@@ -23,6 +23,7 @@ await S.page.keyboard.type('Гоблин', { delay: 40 });
 const menuDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await menuDone.click();
 await waitFor(S.page, () => !document.querySelector('[data-testid="modal"]'));
+await nextFrame(S.page);
 const afterEdit = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];

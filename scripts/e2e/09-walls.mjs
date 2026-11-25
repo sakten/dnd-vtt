@@ -1,6 +1,6 @@
 import { S } from './state.mjs';
 import { check } from '../lib/check.mjs';
-import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
+import { findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 // Режим «Стены»: ПКМ по пустому месту завершает цепочку и позволяет начать новую
@@ -14,6 +14,7 @@ check(!!wallsBtn, 'у ведущего есть кнопка «Стены»');
 await wallsBtn.click();
 await waitFor(S.page, () => window.__vtt.getState().wallsMode.active, 3000);
 await S.page.waitForSelector('[data-testid="walls-panel"]');
+await nextFrame(S.page);
 
 const pts = await S.page.evaluate(() => {
   const s = window.__vtt.getState();
@@ -112,6 +113,7 @@ await S.page.mouse.click(pts.empty.sx, pts.empty.sy, { button: 'right' });
 await waitFor(S.page, () => window.__vtt.getState().wallsMode.start === null, 3000);
 const doorTool = await findButton(S.page, '[data-testid="walls-panel"] button', 'Дверь');
 await doorTool.click();
+await nextFrame(S.page);
 await S.page.mouse.click(pts.doorA.sx, pts.doorA.sy);
 await S.page.mouse.move(pts.doorB.sx, pts.doorB.sy, { steps: 4 });
 await S.page.mouse.click(pts.doorB.sx, pts.doorB.sy);
