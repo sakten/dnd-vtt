@@ -28,6 +28,7 @@ import { useMapLight } from '../lib/light';
 import { startWalkSession, walkAlreadyDone, walkFrame, walkedPoints } from '../lib/walk';
 import { useImage } from '../lib/useImage';
 import { useCanControl, useIsDm } from '../lib/control';
+import { canDragToken, screenToWorld, tokenClickMode } from '../lib/tokenInteraction';
 import TokenWings from './TokenWings';
 
 function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) {
@@ -142,7 +143,12 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
     const stage = e.target.getStage();
     const pointer = stage?.getPointerPosition();
     if (!stage || !pointer) return null;
-    return { x: (pointer.x - stage.x()) / stage.scaleX(), y: (pointer.y - stage.y()) / stage.scaleY() };
+    return screenToWorld(pointer, {
+      x: stage.x(),
+      y: stage.y(),
+      scaleX: stage.scaleX(),
+      scaleY: stage.scaleY(),
+    });
   };
 
   const onDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -264,25 +270,29 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
   /** Клик: в режиме выбора цели — применить по токену, иначе выбрать/открыть меню. */
   const activate = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const st = useGameStore.getState();
-    // В режимах «Стены»/«Свет» клик по токену не мешает инструменту: событие уходит на сцену.
-    if (st.wallsMode.active || st.lightMode.active) return;
-    const it = st.interaction;
-    if (it?.mode === 'target') {
+    const mode = tokenClickMode({
+      wallsMode: st.wallsMode,
+      lightMode: st.lightMode,
+      interaction: st.interaction,
+    });
+    if (mode === 'ignore') return;
+    if (mode === 'target') {
       e.cancelBubble = true;
       st.resolveTargeting(token.id);
       return;
     }
-    if (it?.mode === 'multi') {
+    if (mode === 'multi') {
       e.cancelBubble = true;
       st.addMultiTarget(token.id);
       return;
     }
-    if (it?.mode === 'scatter') {
+    if (mode === 'scatter') {
       e.cancelBubble = true;
-      if (it.scatter.phase === 'targets') st.toggleScatterTarget(token.id);
+      const it = st.interaction;
+      if (it?.mode === 'scatter' && it.scatter.phase === 'targets') st.toggleScatterTarget(token.id);
       return;
     }
-    if (it?.mode === 'aim') return; // клик по карте применяет область (обрабатывает Stage)
+    if (mode === 'aim') return; // клик по карте применяет область (обрабатывает Stage)
     e.cancelBubble = true;
     setSelected(token.id);
     const now = Date.now();
@@ -302,19 +312,20 @@ function TokenView({ token, ghost = false }: { token: Token; ghost?: boolean }) 
       scaleY={token.scale}
       rotation={token.rotation}
       opacity={ghost ? 0.4 : lockedByOther ? 0.5 : dead ? 0.55 : 1}
-      draggable={
-        !lockedByOther &&
-        !moving &&
-        !fogActive &&
-        !lightActive &&
-        !wallsActive &&
-        !targeting &&
-        !aim &&
-        !multiTarget &&
-        !scatter &&
-        canMove &&
-        (isDm || !movementBlocked(token.conditions))
-      }
+      draggable={canDragToken({
+        lockedByOther,
+        moving: !!moving,
+        fogActive,
+        lightActive,
+        wallsActive,
+        targeting,
+        aim,
+        multiTarget,
+        scatter,
+        canMove,
+        isDm,
+        movementBlocked: movementBlocked(token.conditions),
+      })}
       onClick={activate}
       onTap={activate}
       onDragStart={onDragStart}
