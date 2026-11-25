@@ -1,9 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage } from 'react-konva';
 import Konva from 'konva';
-import type { AttackEntry, AttackRangeType, AttackSource, CharacterSheet, MapInfo, Token, Wall, ZoneInstance } from 'shared';
+import type { AttackSource, MapInfo, Wall, ZoneInstance } from 'shared';
 import {
-  BASE_ACTIONS,
   areaCellKey,
   areaCells,
   attackRange,
@@ -16,7 +15,6 @@ import {
   isSurrounded,
   isThinWallSpell,
   lightLevelAt,
-  loadoutOf,
   metamagicRangeFeet,
   modifiedValue,
   pointCell,
@@ -35,7 +33,6 @@ import {
   unseenBetween,
   wallPushPlan,
   wallsWithZones,
-  weaponContextOf,
   weaponHasProperty,
   zoneVisionKind,
   zoneTargetId,
@@ -45,7 +42,6 @@ import { useGameStore } from '../store/useGameStore';
 import { useActiveMap } from '../store/hooks';
 import { activeGridOf, activeMapOf, tokenById } from '../store/selectors';
 import { t } from '../i18n';
-import type { TargetingState } from '../domain/interaction';
 import { useImage } from '../lib/useImage';
 import { thumbUrl, screenUrl } from '../lib/imageVariants';
 import { visibleCells } from '../lib/los';
@@ -61,6 +57,8 @@ import { useAreaBrush } from '../lib/useAreaBrush';
 import { useDeploymentBrush } from '../lib/useDeploymentBrush';
 import { deploymentPendingOf } from '../lib/deployment';
 import { useTokenDrop } from '../lib/useTokenDrop';
+import { attackEntryOf, attackRangeTypeOf } from '../lib/tableAttacks';
+import { distToSegment } from '../lib/wallGeometry';
 import GridLayer from './GridLayer';
 import ZoneLayer from './ZoneLayer';
 import LightLayer from './LightLayer';
@@ -90,59 +88,6 @@ function MapSprite({ map }: { map: MapInfo }) {
   const shown = image ?? screen ?? preview;
   if (!shown) return null;
   return <KonvaImage image={shown} width={map.width} height={map.height} listening={false} />;
-}
-
-/** Атаки актора для подписей прицеливания: лист контролёра или сам токен (производный лоадаут). */
-function attacksOf(attacker: Token, sheet: CharacterSheet | null | undefined, currentCharacterId: string | null): AttackEntry[] {
-  const fromSheet =
-    currentCharacterId !== null && attacker.libraryItemId === currentCharacterId && sheet ? sheet : undefined;
-  return loadoutOf({
-    attacks: fromSheet ? fromSheet.attacks : attacker.attacks,
-    hands: fromSheet?.hands,
-    effects: attacker.effects,
-    ...weaponContextOf(fromSheet),
-  }).attacks;
-}
-
-/** Тип дистанции выбранной атаки: оружие/безоружный удар/способность-атака; null — не атака. */
-function attackRangeTypeOf(
-  targeting: TargetingState,
-  attacker: Token,
-  sheet: CharacterSheet | null | undefined,
-  currentCharacterId: string | null
-): AttackRangeType | null {
-  const index = 'attackIndex' in targeting ? targeting.attackIndex : undefined;
-  if (index !== undefined) {
-    const attacks = attacksOf(attacker, sheet, currentCharacterId);
-    return attacks[index]?.rangeType ?? null;
-  }
-  if (targeting.kind !== 'action') return null;
-  const action =
-    attacker.statblock?.actions?.find((a) => a.id === targeting.actionId) ??
-    BASE_ACTIONS.find((a) => a.id === targeting.actionId);
-  if (action?.ability?.attack) return action.ability.attack.rangeType;
-  return action?.id === 'unarmedStrike' ? 'melee' : null;
-}
-
-/** Запись атаки выбранного оружия/способности-атаки (для свойств и дистанции); null — нет. */
-function attackEntryOf(
-  targeting: TargetingState,
-  attacker: Token,
-  sheet: CharacterSheet | null | undefined,
-  currentCharacterId: string | null
-): AttackEntry | null {
-  const index = 'attackIndex' in targeting ? targeting.attackIndex : undefined;
-  if (index === undefined) return null;
-  return attacksOf(attacker, sheet, currentCharacterId)[index] ?? null;
-}
-
-/** Расстояние от точки до отрезка стены (для удаления правым кликом). */
-function distToSegment(p: { x: number; y: number }, w: Wall): number {
-  const dx = w.x2 - w.x1;
-  const dy = w.y2 - w.y1;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 ? Math.max(0, Math.min(1, ((p.x - w.x1) * dx + (p.y - w.y1) * dy) / len2)) : 0;
-  return Math.hypot(p.x - (w.x1 + t * dx), p.y - (w.y1 + t * dy));
 }
 
 export default function TableTop() {
@@ -1033,6 +978,7 @@ export default function TableTop() {
               lights={activeMap?.lights ?? []}
               grid={grid}
               dimmed={!!visionView}
+              viewScale={view.scale}
             />
             <ZoneLayer
               zones={activeMap?.zones ?? []}
