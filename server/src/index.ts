@@ -218,6 +218,10 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(status).json({ error: 'Ошибка запроса' });
 });
 
-server.listen(PORT, () => {
-  console.log(`VTT server listening on http://localhost:${PORT}`);
-});
+export { app, manager };
+
+if (!process.env.VITEST) {
+  server.listen(PORT, () => {
+    console.log(`VTT server listening on http://localhost:${PORT}`);
+  });
+}
