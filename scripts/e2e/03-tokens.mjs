@@ -3,8 +3,18 @@ import { check } from '../lib/check.mjs';
 import { findButton, nextFrame, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
+const menuPos = await S.page.evaluate(() => {
+  const s = window.__vtt.getState();
+  const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
+  return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y } : null;
+});
+if (!menuPos) throw new Error('03-tokens: нет токена на карте — сначала выполните 01 и 02');
+await S.page.mouse.click(menuPos.sx, menuPos.sy);
+await S.page.mouse.click(menuPos.sx, menuPos.sy);
+await S.page.waitForSelector('[data-testid="modal"] input[type=text]');
 await S.page.screenshot({ path: path.join(S.OUT, '08-token-menu.png') });
 const fieldName = await S.page.$('[data-testid="modal"] input[type=text]');
+if (!fieldName) throw new Error('03-tokens: в меню токена нет input[type=text]');
 await fieldName.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
@@ -28,6 +38,8 @@ const sized = await S.page.evaluate(() => {
   const t = s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0];
   return t ? { sx: t.x * s.view.scale + s.view.x, sy: t.y * s.view.scale + s.view.y, x: t.x, y: t.y } : null;
 });
+if (!sized) throw new Error('03-tokens: токен исчез перед перетаскиванием');
+await S.page.waitForSelector('canvas[data-vtt-layer="tokens"]');
 await S.page.mouse.move(sized.sx, sized.sy);
 await S.page.mouse.down();
 await S.page.mouse.move(sized.sx + 140, sized.sy + 110, { steps: 10 });
@@ -100,6 +112,7 @@ const hasPlayerTokenCheck = await S.page.evaluate(() =>
 );
 check(hasPlayerTokenCheck, 'в свойствах предмета есть галка «Это токен игрока»');
 const roundCheck = await S.page.$('[data-testid="modal"] input[type=checkbox]');
+if (!roundCheck) throw new Error('03-tokens: в редакторе предмета нет чекбокса');
 await roundCheck.click();
 const libRoundDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await libRoundDone.click();
@@ -152,6 +165,7 @@ await S.page.mouse.click(roundPos.sx, roundPos.sy);
 await S.page.mouse.click(roundPos.sx, roundPos.sy);
 await S.page.waitForSelector('[data-testid="modal"]');
 const roundToggle = await S.page.$('[data-testid="modal"] input[type=checkbox]');
+if (!roundToggle) throw new Error('03-tokens: в меню токена нет чекбокса');
 await roundToggle.click();
 const roundMenuDone = await findButton(S.page, '[data-testid="modal"] button', 'Готово');
 await roundMenuDone.click();

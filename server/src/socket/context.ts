@@ -82,6 +82,8 @@ export interface ConnCtx {
     handler: (...args: Parameters<ClientToServerEvents[E]>) => void
   ) => void;
   onDisconnect: (handler: () => void) => void;
+  /** Тестовый перехватчик ошибок хендлеров; в проде undefined → console.error. */
+  onError?: (error: unknown, event: string) => void;
   broadcast: <E extends keyof ServerToClientEvents>(
     event: E,
     ...args: Parameters<ServerToClientEvents[E]>
@@ -155,7 +157,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         try {
           (handler as unknown as (...a: unknown[]) => void)(...args);
         } catch (err) {
-          console.error(`socket ${String(event)} error:`, err);
+          if (ctx.onError) ctx.onError(err, String(event));
+          else console.error(`socket ${String(event)} error:`, err);
         } finally {
           persist();
         }
@@ -166,7 +169,8 @@ export function createCtx(io: AppServer, socket: AppSocket, manager: RoomManager
         try {
           handler();
         } catch (err) {
-          console.error('socket disconnect error:', err);
+          if (ctx.onError) ctx.onError(err, 'disconnect');
+          else console.error('socket disconnect error:', err);
         } finally {
           persist();
         }

@@ -46,10 +46,20 @@ const selected = only.length
   : SCENARIOS;
 if (only.length) console.log(`SMOKE_ONLY: ${selected.map(([code]) => code).join(', ')}`);
 
+const startedAt = Date.now();
+let fatal;
 try {
-  for (const [, file] of selected) {
-    await import(file);
+  for (const [code, file] of selected) {
+    try {
+      await import(file);
+    } catch (err) {
+      console.error(`SMOKE ${code} fatal`);
+      throw err;
+    }
   }
+} catch (err) {
+  fatal = err;
+  console.error(err instanceof Error ? (err.stack ?? err.message) : err);
 } finally {
   clearTimeout(S.watchdog);
   await S.browser?.close();
@@ -57,5 +67,8 @@ try {
 }
 
 const { ok, passed, failed } = summarize();
-console.log(`${ok ? 'SMOKE OK' : 'SMOKE FAILED'} (проверок: ${passed + failed}, провалов: ${failed})`);
-process.exit(ok ? 0 : 1);
+const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+console.log(
+  `${ok && !fatal ? 'SMOKE OK' : 'SMOKE FAILED'} (проверок: ${passed + failed}, провалов: ${failed}, ${seconds}s)`
+);
+process.exit(ok && !fatal ? 0 : 1);

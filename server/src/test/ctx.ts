@@ -18,6 +18,18 @@ export interface RecordedEvent {
   payload: unknown;
 }
 
+export interface HandlerError {
+  event: string;
+  error: unknown;
+}
+
+const handlerErrors: HandlerError[] = [];
+
+/** Забрать ошибки, пойманные обёрткой `ctx.on`/`onDisconnect`, и очистить буфер. */
+export function takeHandlerErrors(): HandlerError[] {
+  return handlerErrors.splice(0);
+}
+
 interface FakeSocket {
   id: string;
   emit(event: string, ...args: unknown[]): void;
@@ -118,6 +130,7 @@ export function makeConnCtx(room: Room, opts: TestCtxInit = {}): TestCtx {
   }
 
   const ctx = createCtx(io, self.socket as unknown as AppSocket, manager);
+  ctx.onError = (error, event) => handlerErrors.push({ event, error });
   ctx.roomCode = room.code;
   ctx.playerId = playerId;
 

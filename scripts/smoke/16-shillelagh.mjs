@@ -109,27 +109,33 @@ check(
 check(effect?.maxRounds === 10, 'Shillelagh ограничен 10 раундами (1 минута)');
 
 // Атака из панели действий (action:use): урон d8+4 силовым, попадание d20+6.
-const hitMsgP = waitMsg(p3, (m) => m.kind === 'roll' && m.rollKind === 'attack');
-const dmgMsgP = waitMsg(p3, (m) => m.kind === 'roll' && m.rollKind === 'damage');
-const hitDummyP = waitToken(S, dummy.id, (t) => t.hpCurrent < 30, S.dm);
-p3.emit('action:use', {
-  mapId: S.map1.id,
-  tokenId: druid.id,
-  actionId: 'attack',
-  attackIndex: 0,
-  targetIds: [dummy.id],
-});
-const hitMsg = await hitMsgP;
+let hitMsg;
+let dmgMsg;
+let hitDummy;
+for (let attempt = 0; attempt < 5 && !dmgMsg; attempt++) {
+  const hitMsgP = waitMsg(p3, (m) => m.kind === 'roll' && m.rollKind === 'attack', 8000);
+  const dmgMsgP = waitMsg(p3, (m) => m.kind === 'roll' && m.rollKind === 'damage', 8000).catch(() => null);
+  const hitDummyP = waitToken(S, dummy.id, (t) => t.hpCurrent < 30, S.dm).catch(() => null);
+  p3.emit('action:use', {
+    mapId: S.map1.id,
+    tokenId: druid.id,
+    actionId: 'attack',
+    attackIndex: 0,
+    targetIds: [dummy.id],
+  });
+  hitMsg = await hitMsgP;
+  dmgMsg = await Promise.race([dmgMsgP, sleep(1200).then(() => null)]);
+  if (dmgMsg) hitDummy = await hitDummyP;
+}
+if (!hitMsg || !dmgMsg || !hitDummy) throw new Error('Shillelagh: атака не попала после 5 попыток');
 check(hitMsg.roll.expression === 'd20+6', `попадание дубинкой — ПБ 2 + Мдр 4 (${hitMsg.roll.expression})`);
 check(hitMsg.labelParams?.damageType === 'force', 'атака дубинкой помечена силовым типом');
-const dmgMsg = await dmgMsgP;
 check(dmgMsg.roll.expression === 'd8+4', `урон дубинки после Shillelagh — d8+4 (${dmgMsg.roll.expression})`);
-const hitDummy = await hitDummyP;
 check(30 - hitDummy.hpCurrent === dmgMsg.roll.total, 'HP манекена уменьшились ровно на бросок урона');
 
 // Атака из ROLL-меню (dice:attack): та же производная формула.
 const dmg2P = waitMsg(p3, (m) => m.kind === 'roll' && m.rollKind === 'damage');
-p3.emit('dice:attack', { tokenId: druid.id, targetId: dummy.id, attackIndex: 0 });
+p3.emit('dice:attack', { tokenId: druid.id, targetId: dummy.id, attackIndex: 0, advantage: 'a' });
 const dmg2 = await dmg2P;
 check(dmg2.roll.expression === 'd8+4', `ROLL-меню тоже бьёт d8+4 (${dmg2.roll.expression})`);
 

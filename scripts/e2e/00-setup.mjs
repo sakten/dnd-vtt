@@ -18,7 +18,15 @@ S.watchdog = setTimeout(async () => {
 S.watchdog.unref();
 
 
-const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const CHROME_CANDIDATES = [
+  process.env.CHROME_PATH,
+  process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : null,
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+].filter(Boolean);
+const CHROME = CHROME_CANDIDATES.find((candidate) => fs.existsSync(candidate));
+if (!CHROME) throw new Error(`Chrome не найден; задайте CHROME_PATH (проверено: ${CHROME_CANDIDATES.join(', ')})`);
 S.BASE = 'http://localhost:3001';
 S.OUT = path.resolve('artifacts/e2e');
 fs.mkdirSync(S.OUT, { recursive: true });

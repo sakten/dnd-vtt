@@ -1,7 +1,6 @@
 import { S } from './state.mjs';
 import { check } from '../lib/check.mjs';
 import { waitFor } from '../lib/e2e-helpers.mjs';
-import path from 'node:path';
 
 const chatInput = await S.page.$('[data-testid="chat-input"] input[type=text]');
 await chatInput.type('d20+3');
@@ -44,12 +43,3 @@ check(
   mixedLabels.some((t) => t.includes('d20 + d4 + 2')),
   'кубы в формуле сортируются по убыванию сторон'
 );
-
-await S.page.click('[data-testid="sheet-button"]');
-await S.page.waitForSelector('[data-testid="sheet-modal"]');
-await S.page.screenshot({ path: path.join(S.OUT, '10b-sheet.png') });
-  S.sheetInputs = await S.page.$$('[data-testid="sheet-modal"] input[type=text]');
-  await S.sheetInputs[0].click();
-  await S.page.keyboard.down('Control');
-  await S.page.keyboard.press('KeyA');
-  await S.page.keyboard.up('Control');

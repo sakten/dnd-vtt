@@ -8,7 +8,6 @@
     "start": "tsx src/index.ts",
     "test": "vitest run",
     "test:quiet": "node ../scripts/vitest-quiet.mjs",
-    "test:deploy": "vitest run --config vitest.deploy.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

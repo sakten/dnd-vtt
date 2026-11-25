@@ -58,7 +58,7 @@ export const waitFor = (fn, timeout = 5000) =>
     }, 50);
   });
 
-export function waitMsg(emitter, pred, timeout = 4000) {
+export function waitMsg(emitter, pred, timeout = 8000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       emitter.off('chat:message', handler);

@@ -81,7 +81,9 @@ check(
 );
 await S.page.screenshot({ path: path.join(S.OUT, '06-library-editor.png') });
 
+await S.page.waitForSelector('[data-testid="modal"] input[type=text]');
 const escName = await S.page.$('[data-testid="modal"] input[type=text]');
+if (!escName) throw new Error('02-map-grid: в редакторе библиотеки нет input[type=text]');
 await escName.click();
 await S.page.keyboard.type('Чужой', { delay: 40 });
 const escNameBox = await escName.boundingBox();
@@ -99,8 +101,9 @@ check(libAfterEsc === 'test-token', `Escape не применяет измене
 
 await S.page.click('[data-testid="token-panel-item"] img');
 await S.page.click('[data-testid="token-panel-item"] img');
-await S.page.waitForSelector('[data-testid="modal"]');
+await S.page.waitForSelector('[data-testid="modal"] input[type=text]');
 const itemName = await S.page.$('[data-testid="modal"] input[type=text]');
+if (!itemName) throw new Error('02-map-grid: в редакторе предмета нет input[type=text]');
 await itemName.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
@@ -187,8 +190,9 @@ const selectCheck = await S.page.evaluate(() => {
 });
 check(selectCheck.selected === selectCheck.id, 'клик по токену выделяет его');
 await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
-await S.page.waitForSelector('[data-testid="modal"]');
+await S.page.waitForSelector('[data-testid="modal"] input[type=text]');
 const fieldNameEsc = await S.page.$('[data-testid="modal"] input[type=text]');
+if (!fieldNameEsc) throw new Error('02-map-grid: в меню токена нет input[type=text]');
 await fieldNameEsc.click();
 await S.page.keyboard.down('Control');
 await S.page.keyboard.press('KeyA');
@@ -202,7 +206,3 @@ const fieldAfterEsc = await S.page.evaluate(() => {
   return s.scene.maps.find((m) => m.id === s.viewMapId)?.tokens[0]?.name;
 });
 check(fieldAfterEsc === 'Дракон', `Escape не применяет правки токена на поле (имя: ${fieldAfterEsc})`);
-
-await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
-await S.page.mouse.click(tokenPos.sx, tokenPos.sy);
-await S.page.waitForSelector('[data-testid="modal"]');
