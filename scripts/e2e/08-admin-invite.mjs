@@ -12,12 +12,12 @@ const page3Role = await S.page3.evaluate(() => window.__vtt.getState().role);
 check(page3Role === 'dm', 'создание из страницы ведущего даёт роль DM');
 await S.ctx3.close();
 
-await S.page2.goto(`${S.BASE}?room=${codeY}`, { waitUntil: 'networkidle0' });
+await S.page2.goto(`${S.BASE}?room=${codeY}`, { waitUntil: 'domcontentloaded' });
 await S.page2.waitForSelector('[data-testid="table-screen"]');
 const joinedCode = await S.page2.evaluate(() => window.__vtt.getState().roomCode);
 check(joinedCode === codeY, `инвайт-ссылка приоритетнее сохранённой комнаты (перешёл в ${joinedCode})`);
 
-await S.page2.goto(S.BASE, { waitUntil: 'networkidle0' });
+await S.page2.goto(S.BASE, { waitUntil: 'domcontentloaded' });
 await S.page2.waitForSelector('[data-testid="join-card"]');
 
 const deadImageUrl = await S.page.evaluate(() => {
@@ -74,7 +74,7 @@ await page5.evaluateOnNewDocument(
   },
   { id: dmPlayerId, name: dmName }
 );
-await page5.goto(`${S.BASE}?room=${S.code}`, { waitUntil: 'networkidle0' });
+await page5.goto(`${S.BASE}?room=${S.code}`, { waitUntil: 'domcontentloaded' });
 await page5.waitForSelector('[data-testid="table-screen"]');
 await waitFor(page5, () => window.__vtt && window.__vtt.getState().role === 'dm' && document.querySelectorAll('canvas').length > 0, 8000);
 const inviteState = await page5.evaluate(() => ({
@@ -89,7 +89,7 @@ await ctx5.close();
 const ctx4 = await S.browser.createBrowserContext();
 const page4 = await ctx4.newPage();
 await page4.setViewport({ width: 1200, height: 800 });
-await page4.goto(`${S.BASE}?admin=1`, { waitUntil: 'networkidle0' });
+await page4.goto(`${S.BASE}?admin=1`, { waitUntil: 'domcontentloaded' });
 await page4.waitForSelector('[data-testid="admin-room"]');
 const roomsBefore = await page4.$$eval('[data-testid="admin-room"]', (els) => els.length);
 let targetRow = null;

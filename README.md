@@ -28,6 +28,7 @@ npm start        # :3001, клиент из client/dist
 ## Проверки
 
 - `npm run check:quiet` — тесты, typecheck, lint и `docs:check`.
+- `npm run test:coverage` — покрытие v8 по workspace (отчёт в `shared|server|client/coverage`).
 - `npm run verify` — deploy-тесты, server, build, e2e и скриншоты (нужен запущенный `npm start` и Chrome).
 - `npm test` — все юнит-тесты.
 

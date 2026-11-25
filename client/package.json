@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:quiet": "node ../scripts/vitest-quiet.mjs",
+    "test:coverage": "vitest run --coverage",
     "test:deploy": "vitest run --config vitest.deploy.config.ts",
     "typecheck": "tsc --noEmit"
   },

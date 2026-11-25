@@ -9,11 +9,11 @@ import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
 // запуск по требованию: `$env:E2E_ONLY='11'; npm run e2e`.
 
 // 1. Комната (как 01-join).
-await S.page.goto(S.BASE, { waitUntil: 'networkidle0' });
+await S.page.goto(S.BASE, { waitUntil: 'domcontentloaded' });
 await S.page.waitForSelector('[data-testid="join-card"]');
 const nameInputs = await S.page.$$('[data-testid="join-card"] input');
 await nameInputs[0].type('Мастер');
-await S.page.goto(`${S.BASE}?admin=1`, { waitUntil: 'networkidle0' });
+await S.page.goto(`${S.BASE}?admin=1`, { waitUntil: 'domcontentloaded' });
 await S.page.waitForSelector('[data-testid="admin-card"]');
 const createBtn = await findButton(S.page, '[data-testid="join-actions"] button', 'Создать новую игру');
 await createBtn.click();

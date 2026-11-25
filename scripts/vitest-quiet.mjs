@@ -1,12 +1,19 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const cwd = process.cwd();
 const dir = mkdtempSync(join(tmpdir(), 'vtt-vitest-'));
 const report = join(dir, 'report.json');
-const vitest = join(cwd, 'node_modules', 'vitest', 'vitest.mjs');
+const vitest = [
+  join(cwd, 'node_modules', 'vitest', 'vitest.mjs'),
+  join(cwd, '..', 'node_modules', 'vitest', 'vitest.mjs'),
+].find(existsSync);
+if (!vitest) {
+  console.error('vitest не найден ни в workspace, ни в корневом node_modules');
+  process.exit(1);
+}
 const result = spawnSync(
   process.execPath,
   [vitest, 'run', '--reporter=json', `--outputFile=${report}`, '--bail=1', ...process.argv.slice(2)],

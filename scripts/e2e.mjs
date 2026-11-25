@@ -22,8 +22,8 @@ const SCENARIOS = [
 const OPTIONAL = [['11', './e2e/11-action-economy.mjs']];
 const ALL = [...SCENARIOS, ...OPTIONAL];
 
-// E2E_ONLY=02,09 — дебаг-прогон: 00-setup + выбранные сценарии. Зависимости от
-// предыдущих сценариев не подтягиваются (выбирайте пары вида «подготовка+цель»).
+// E2E_ONLY=03,09 — дебаг-прогон: 00-setup + базовые 01/02 + выбранные сценарии.
+// 08 дополнительно подтягивает 07 (там создаётся page3); полный порядок — SCENARIOS.
 const only = (process.env.E2E_ONLY ?? '')
   .split(/[\s,]+/)
   .filter(Boolean);
@@ -33,7 +33,19 @@ if (unknown.length) {
   console.error(`E2E_ONLY: неизвестный сценарий «${unknown.join(', ')}». Доступно: ${known}`);
   process.exit(1);
 }
-const selected = only.length ? ALL.filter(([code]) => only.includes(code)) : SCENARIOS;
+const requested = new Set(only);
+if (requested.has('08')) requested.add('07');
+if (requested.has('07')) {
+  requested.add('06');
+  requested.add('05');
+  requested.add('04');
+}
+if (requested.has('06')) requested.add('05');
+if (requested.has('05')) requested.add('03');
+const base = new Set(['01', '02']);
+const selected = only.length
+  ? ALL.filter(([code]) => base.has(code) || requested.has(code))
+  : SCENARIOS;
 if (only.length) console.log(`E2E_ONLY: 00, ${selected.map(([code]) => code).join(', ')}`);
 
 const startedAt = Date.now();

@@ -4,7 +4,7 @@ import { findButton, waitFor } from '../lib/e2e-helpers.mjs';
 import path from 'node:path';
 
 
-await S.page.goto(S.BASE, { waitUntil: 'networkidle0' });
+await S.page.goto(S.BASE, { waitUntil: 'domcontentloaded' });
 await S.page.waitForSelector('[data-testid="join-card"]');
 await S.page.screenshot({ path: path.join(S.OUT, '01-join.png') });
 
@@ -18,7 +18,7 @@ check(iconHref.includes('ffb454'), 'локальная версия исполь
 const nameInputs = await S.page.$$('[data-testid="join-card"] input');
 await nameInputs[0].type('Мастер');
 
-await S.page.goto(`${S.BASE}?admin=1&test=1`, { waitUntil: 'networkidle0' });
+await S.page.goto(`${S.BASE}?admin=1&test=1`, { waitUntil: 'domcontentloaded' });
 await S.page.waitForSelector('[data-testid="admin-card"]');
 const createBtn = await findButton(S.page, '[data-testid="join-actions"] button', 'Создать новую игру');
 await createBtn.click();
