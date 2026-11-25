@@ -314,6 +314,8 @@ export interface EffectInstance {
   bonusDieUses?: ('damage' | 'ac')[];
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
+  /** Изменение размера токена; `previous` восстанавливается при снятии эффекта. */
+  size?: { cells: number; previous: number };
   /** Восприятие, выдаваемое эффектом (Darkvision и подобные). */
   senses?: Sense[];
   /** Действия, выдаваемые эффектом (Expeditious Retreat: Рывок бонусным действием). */

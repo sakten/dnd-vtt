@@ -2,6 +2,7 @@ import {
   actionSlotAvailable,
   automationForSpell,
   characterLevel,
+  grantedSpells,
   maxCastableLevel,
   SMITE_ON_MISS,
   SMITE_RANGE,
@@ -9,6 +10,7 @@ import {
   type AttackEntry,
   type AutomationDef,
   type AutomationEffect,
+  type CharacterSheet,
   type Spell,
   type Token,
 } from 'shared';
@@ -22,6 +24,11 @@ import { applyEffectTo } from './effectsApply';
 import { applyForcedMovement } from './force';
 import { pushSaveMessage } from './messages';
 import { casterStatsFor } from './spellStats';
+
+function knowsSmite(sheet: Pick<CharacterSheet, 'spells' | 'classes'>, key: string): boolean {
+  if ((sheet.spells ?? []).some((s) => s.key === key)) return true;
+  return grantedSpells(sheet.classes).some((g) => g.key === key);
+}
 
 export interface SmiteOption {
   /** `smite:<ключ>@<круг ячейки>` — базовый круг; выше — по `levels`. */
@@ -88,7 +95,7 @@ export function availableSmites(
     if (SMITE_RANGE[key] !== wanted) continue;
     // После промаха доступны только смайты «после попадания или промаха» (Lightning Arrow).
     if (opts.onMiss && !SMITE_ON_MISS.has(key)) continue;
-    if (!sheet.spells.some((s) => s.key === key)) continue;
+    if (!knowsSmite(sheet, key)) continue;
     const spell = findSpell(key, room);
     if (!spell) continue;
     const max = maxCastableLevel(spell, resources, undefined);
@@ -130,7 +137,7 @@ export function applySmiteChoice(
   const { spellKey, level } = parsed;
   const cid = controllerIdOfToken(room, attacker);
   const sheet = cid ? room.sheets[cid] : undefined;
-  if (!cid || !sheet || !sheet.spells.some((s) => s.key === spellKey)) return undefined;
+  if (!cid || !sheet || !knowsSmite(sheet, spellKey)) return undefined;
   const spell = findSpell(spellKey, room);
   if (!spell) return undefined;
 

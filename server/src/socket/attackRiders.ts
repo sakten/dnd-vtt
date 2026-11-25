@@ -149,6 +149,7 @@ function applyRiderTargetEffect(
     duration: def.duration,
     modifiers: def.modifiers.map((m, i) => ({ ...m, id: `${id}:m${i}` })),
     ...(def.conditions?.length ? { conditions: def.conditions } : {}),
+    ...(def.endsOnConditions?.length ? { endsOnConditions: def.endsOnConditions } : {}),
     ...(def.consumeOnIncomingAttack ? { consumeOnIncomingAttack: true } : {}),
   });
   ctx.emitToken(room, 'token:update', mapId, target);

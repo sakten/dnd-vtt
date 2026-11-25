@@ -12,6 +12,7 @@ import {
 import { featureActionAutomation, featureChoiceOptions, featureMechanics, passiveFeatures } from './featureAutomation';
 import { FEATURES, featureByKey, featuresFor } from './features';
 import { effectiveCharacterMaxHp } from './races';
+import { raceActionAutomation } from './races';
 import { reactionFeatures } from './reactions';
 
 /** Ресурсы, у которых нет пары в каталоге: кастомные ветки/подопции ядра. */
@@ -373,6 +374,7 @@ describe('активные варианты голиафа', () => {
       choices: { giant: 'fire' },
     });
     expect(fire.map((r) => r.id)).toContain('race:XPHB:Goliath:giantAncestry:fire');
+    expect(fire.find((r) => r.id.endsWith(':fire'))?.noTurnLimit).toBe(true);
     const cloud = attackRidersFor([{ className: 'fighter', level: 5 }], {
       key: 'XPHB:Goliath',
       choices: { giant: 'cloud' },
@@ -389,6 +391,15 @@ describe('активные варианты голиафа', () => {
     });
     expect(storm.map((r) => r.id)).toContain('race:XPHB:Goliath:giantAncestry:storm');
     expect(storm.find((r) => r.id.endsWith(':storm'))?.kind).toBe('damageBack');
+  });
+
+  it('Large Form увеличивает токен до Large', () => {
+    const def = raceActionAutomation(
+      'race:XPHB:Goliath:largeForm',
+      { key: 'XPHB:Goliath', choices: { giant: 'fire' } },
+      [{ level: 5 }]
+    );
+    expect(def?.effects?.[0]?.sizeCells).toBe(2);
   });
 });
 

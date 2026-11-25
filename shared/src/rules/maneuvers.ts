@@ -156,7 +156,12 @@ export function maneuverActions(classes: readonly ClassLevel[], choices?: readon
     // Оконные триггеры дают кнопку только если механика не автоматизирована.
     if (meta.kind === 'miss' || meta.kind === 'reaction') continue;
     if (meta.kind === 'hit' && meta.automated) continue;
-    const costs: ActionCost[] = meta.kind === 'bonus' ? ['bonus'] : ['special'];
+    const costs: ActionCost[] =
+      meta.key === MANEUVER_KEYS.baitAndSwitch
+        ? ['free']
+        : meta.kind === 'bonus'
+          ? ['bonus']
+          : ['special'];
     const targeting: ActionTargeting | undefined =
       meta.kind === 'bonus' && meta.rangeFeet
         ? { kind: 'creature', range: meta.rangeFeet }

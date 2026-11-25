@@ -1,4 +1,4 @@
-﻿import {
+import {
   abilityMod,
   autoFailSave,
   checkRollParts,
@@ -18,6 +18,7 @@
   rectCrossesWalls,
   rollDice,
   saveRollParts,
+  snapToGrid,
   sheetProficiencyBonus,
   statNumber,
   tokenCells,
@@ -374,6 +375,17 @@ export function finalizeRemovedEffects(
   for (const effect of effects) {
     changeMaxHp(m, room, token, effect, -1);
     releaseDomination(token, effect);
+    if (effect.size) {
+      const map = room.scene.maps.find((candidate) => candidate.tokens.includes(token));
+      const grid = gridOfMap(map, room.scene.grid);
+      token.cells = effect.size.previous;
+      token.w = token.cells * grid.size;
+      token.h = token.cells * grid.size;
+      if (grid.snap) {
+        token.x = snapToGrid(token.x, grid.offsetX, grid.size, token.cells);
+        token.y = snapToGrid(token.y, grid.offsetY, grid.size, token.cells);
+      }
+    }
     if (effect.banish) {
       const forever = opts.natural
         ? releaseBanishEffect(room, token, effect, { vanished: opts.vanished, natural: true })
@@ -488,6 +500,8 @@ export function tickEffects(
   /** Провал повторного спаса `untilSave.damage` (Immolation): броски для применения на сокете. */
   saveDamage: { token: Token; name: string; roll: DiceRollResult; damageType?: string }[];
   /** Токены с снятой концентрацией (последняя цель каста ушла). */
+  /** Токены других существ, у которых снялись эффекты (нужно разослать обновление). */
+  changedTokens: { mapId: string; token: Token }[];
   pruned: { mapId: string; token: Token }[];
   /** Изгнанные навсегда (Banishment истёк: экстрапланетные не возвращаются). */
   vanished: { mapId: string; token: Token }[];
@@ -597,6 +611,7 @@ export function tickEffects(
   }
   removed.push(...finalizeRemovedEffects(m, room, token, ending, { natural: true, vanished }));
 
+  const changedTokens = new Map<string, { mapId: string; token: Token }>();
   for (const map of room.scene.maps) {
     for (const other of map.tokens) {
       if (other === token) continue;
@@ -614,6 +629,7 @@ export function tickEffects(
             removedConcentration.push({ sourceId: effect.sourceId, sourceKey: effect.sourceKey });
           }
           changed = true;
+          changedTokens.set(other.id, { mapId: map.id, token: other });
           return false;
         }
         return true;
@@ -633,7 +649,7 @@ export function tickEffects(
   }
 
   if (changed) m.saveSoon(room);
-  return { changed, saves, removed, escalated, forced, saveDamage, pruned: [...pruned.values()], vanished };
+  return { changed, changedTokens: [...changedTokens.values()], saves, removed, escalated, forced, saveDamage, pruned: [...pruned.values()], vanished };
 }
 
 /** Принудительное Уклонение от Bestow Curse: помеха атак против, преимущество Лов, запрет действий. */
@@ -786,6 +802,28 @@ function applyDownState(m: EffectsDeps, room: Room, token: Token, downed: boolea
   if (downed || dead) endEffectsOnConditions(m, room, token);
 }
 
+/** Снимает эффекты, привязанные к цели (Vex/метки): цель умерла — держать их больше не на чем. */
+function clearEffectsTargeting(
+  m: EffectsDeps,
+  room: Room,
+  targetId: string
+): { mapId: string; token: Token }[] {
+  const changed: { mapId: string; token: Token }[] = [];
+  for (const map of room.scene.maps) {
+    for (const token of map.tokens) {
+      const ids = token.effects
+        .filter((effect) => effect.modifiers.some((mod) => mod.filter?.targetId === targetId))
+        .map((effect) => effect.id);
+      for (const id of ids) {
+        if (removeEffect(m, room, token, id) && !changed.some((c) => c.token === token)) {
+          changed.push({ mapId: map.id, token });
+        }
+      }
+    }
+  }
+  return changed;
+}
+
 /** Помечает все токены персонажа мёртвыми/живыми (по итогу death-сейвов). */
 export function markControlledTokensDead(
   m: EffectsDeps,
@@ -889,10 +927,12 @@ export function adjustTokenHp(
     }
     m.saveSoon(room);
     const changed = m.characterTokens(room, controllerId);
+    const dead = res.hp.deathFailures >= 3;
     for (const c of changed) {
-      applyDownState(m, room, c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, res.hp.deathFailures >= 3);
+      applyDownState(m, room, c.token, res.hp.current <= 0 && res.hp.deathFailures < 3, dead);
     }
-    return mergeChanges(changed, woken);
+    const cleared = dead ? clearEffectsTargeting(m, room, token.id) : [];
+    return mergeChanges(mergeChanges(changed, woken), cleared);
   }
   const max = statNumber(token.hpMax);
   if (delta < 0 && token.hpTemp > 0) {
@@ -906,9 +946,11 @@ export function adjustTokenHp(
   const wasDead = token.conditions.some((c) => c.key === 'dead');
   token.hpCurrent = next;
   // Монстр мёртв при HP ≤ 0; лечение не оживляет (оживляет Revivify или снятие «Мёртв» ДМом).
-  applyDownState(m, room, token, !wasDead && next <= 0, wasDead || next <= 0);
+  const dead = wasDead || next <= 0;
+  applyDownState(m, room, token, !wasDead && next <= 0, dead);
+  const cleared = dead ? clearEffectsTargeting(m, room, token.id) : [];
   m.saveSoon(room);
-  return mergeChanges([{ mapId, token }], woken);
+  return mergeChanges(mergeChanges([{ mapId, token }], woken), cleared);
 }
 
 /** Оживляет мёртвого (Revivify): HP = 1, death-сейвы и стабильность сброшены. */

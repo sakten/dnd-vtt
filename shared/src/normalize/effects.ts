@@ -372,6 +372,12 @@ export function normalizeEffects(raw: unknown): EffectInstance[] {
       effect.maxRounds = clampInt(e.maxRounds, 1, 9999, 10);
     }
     if (e.hidden === true) effect.hidden = true;
+    if (e.size && typeof e.size === 'object') {
+      const s = e.size as { cells?: unknown; previous?: unknown };
+      const cells = clampInt(s.cells, 1, 8, 0);
+      const previous = clampInt(s.previous, 1, 8, 0);
+      if (cells > 0 && previous > 0) effect.size = { cells, previous };
+    }
     if (e.consumeOnAttackRoll === true) effect.consumeOnAttackRoll = true;
     if (e.consumeOnIncomingAttack === true) effect.consumeOnIncomingAttack = true;
     if (e.consumeOnSourceAttack === true) effect.consumeOnSourceAttack = true;

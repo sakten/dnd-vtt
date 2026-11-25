@@ -212,6 +212,15 @@ export function raceResourceDefs(
   return out;
 }
 
+export const LARGE_FORM_ACTION = 'race:XPHB:Goliath:largeForm';
+export const LARGE_FORM_END_ACTION = 'race:XPHB:Goliath:largeFormEnd';
+export const LARGE_FORM_END_DEF: ActionDef = {
+  id: LARGE_FORM_END_ACTION,
+  name: 'Вернуться к обычному размеру',
+  source: 'race',
+  costs: ['free'],
+};
+
 /** Итоговая скорость вида с учётом лесного эльфа (35 фт). */
 export function raceSpeed(race: RaceSelection | undefined): number | undefined {
   const def = raceByKey(race?.key);
@@ -472,7 +481,7 @@ export function raceActions(race: RaceSelection | undefined, classes: { level: n
         costs: ['bonus'],
         targeting: { kind: 'self' },
         resourceKey: resource('largeForm'),
-        description: 'На 10 минут: преимущество на проверки Силы и +10 фт скорости.',
+        description: 'На 10 минут: размер Large, преимущество на проверки Силы и +10 фт скорости.',
       });
     }
   }
@@ -677,6 +686,7 @@ export function raceActionAutomation(
           name: 'Большая форма',
           duration: { type: 'rounds', rounds: 100 },
           to: 'self',
+          sizeCells: 2,
           modifiers: [
             { target: 'speed', mode: 'add', value: 10 },
             { target: 'check', mode: 'advantage', filter: { ability: 'str' } },

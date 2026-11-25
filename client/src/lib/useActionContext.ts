@@ -13,6 +13,8 @@ import {
   isBanished,
   isIncapacitated,
   isTriggeredAbility,
+  LARGE_FORM_ACTION,
+  LARGE_FORM_END_ACTION,
   loadoutOf,
   raceActions,
   raceSpellGrants,
@@ -213,6 +215,16 @@ export function useActionContext(): ActionContext | null {
       ...(isCharacter && sheet ? raceActions(sheet.race, sheet.classes) : []),
       ...escapeActions,
       ...grantedActions,
+      ...(token.effects.some((e) => e.sourceKey === LARGE_FORM_ACTION)
+        ? [
+            {
+              id: LARGE_FORM_END_ACTION,
+              name: t('ui.race.largeFormEnd'),
+              source: 'race' as const,
+              costs: ['free'] as ActionCost[],
+            },
+          ]
+        : []),
       ...zoneActions,
       ...familiarActions,
     ];

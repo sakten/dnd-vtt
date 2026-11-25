@@ -18,6 +18,8 @@ import {
   gripAdjustedDamage,
   handOf,
   isBanished,
+  LARGE_FORM_END_ACTION,
+  LARGE_FORM_END_DEF,
   legendaryOnly,
   loadoutOf,
   masteryAccessible,
@@ -66,6 +68,7 @@ import { toggleFamiliarSenses } from './summons';
 import { agileParryEligible, applyAgileParry } from './kensei';
 import { isManeuverAction, rollManualManeuver } from './maneuvers';
 import { specialAction } from './specialActions';
+import { applyTacticalShift } from './fighter';
 import { resolveZoneSectionAttack } from './zoneAttacks';
 import { markShadowBladeThrown, shadowBladeAttackAllowed } from './shadowBlade';
 import { pushRollMessage, pushSaveMessage } from './messages';
@@ -686,7 +689,8 @@ export function registerActionHandlers(ctx: ConnCtx) {
         shapeStatblock(token)?.actions?.find((a) => a.id === actionId) ??
         findBaseAction(actionId) ??
         classAction ??
-        raceAction;
+        raceAction ??
+        (actionId === LARGE_FORM_END_ACTION ? LARGE_FORM_END_DEF : undefined);
       if (!action) return;
 
       if (action.requiresEffect && !token.effects.some((e) => e.sourceKey === action.requiresEffect)) {
@@ -1164,6 +1168,7 @@ export function registerActionHandlers(ctx: ConnCtx) {
         manual: { description: action.description ? [action.description] : undefined },
         amount: resourceAmount || undefined,
       });
+      if (actionId === 'class:fighter:secondWind') applyTacticalShift(ctx, room, mapId, token, sheet);
         return;
       }
 

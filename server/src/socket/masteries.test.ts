@@ -117,6 +117,17 @@ describe('мастерства оружия: Sap/Vex/Slow', () => {
     expect(attacker.effects.some((e) => e.sourceKey === 'mastery:Vex')).toBe(false);
   });
 
+  it('Vex снимается с атакующего, когда цель умерла', () => {
+    const { attacker, target, strike, f } = setup('vex');
+    withRandom(0.99, () => strike());
+    expect(attacker.effects.some((e) => e.sourceKey === 'mastery:Vex')).toBe(true);
+
+    f.ctx.manager.adjustTokenHp(f.room, 'm1', target, -100, { damageEvent: true });
+
+    expect(target.conditions.some((c) => c.key === 'dead')).toBe(true);
+    expect(attacker.effects.some((e) => e.sourceKey === 'mastery:Vex')).toBe(false);
+  });
+
   it('Slow: урон снижает скорость цели на 10 до начала следующего хода', () => {
     const { target, strike } = setup('slow');
     withRandom(0.99, () => strike());

@@ -1,7 +1,9 @@
 import {
   BAIT_AND_SWITCH_ACTION,
+  GIANTS_MIGHT_ACTION,
   KENSEI_SHOT_ACTION,
   KNOW_YOUR_ENEMY_ACTION,
+  LARGE_FORM_END_ACTION,
   LAY_ON_HANDS_ACTION,
   SHARPEN_THE_BLADE_ACTION,
   type ActionDef,
@@ -14,6 +16,8 @@ import type { ActionIssue } from './errors';
 import { kenseiActionIssue, sharpenTheBladeAmount } from './kensei';
 import { applyBaitAndSwitch, applyKnowYourEnemy, baitAndSwitchIssue, knowYourEnemyIssue } from './maneuvers';
 import { applyLayOnHands, layOnHandsAmount, layOnHandsIssue } from './paladin';
+import { applyGiantsMight } from './runeKnight';
+import { endLargeForm } from './goliath';
 
 /**
  * Спецдействия: механики, которым нужен серверный код сверх `AutomationDef`.
@@ -66,6 +70,13 @@ const SPECIAL_ACTIONS: Record<string, SpecialAction> = {
     resourceAmount: ({ action, featureAmount }) => layOnHandsAmount(action, featureAmount),
     apply: ({ ctx, room, mapId, token, sheet, targetId, variant, featureAmount }) =>
       applyLayOnHands(ctx, room, mapId, token, sheet, targetId, variant, featureAmount),
+  },
+  [GIANTS_MIGHT_ACTION]: {
+    apply: ({ ctx, room, mapId, token, sheet, action }) =>
+      applyGiantsMight(ctx, room, mapId, token, sheet, action),
+  },
+  [LARGE_FORM_END_ACTION]: {
+    apply: ({ ctx, room, mapId, token, action }) => endLargeForm(ctx, room, mapId, token, action),
   },
 };
 

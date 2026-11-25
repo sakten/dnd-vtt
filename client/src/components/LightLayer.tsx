@@ -18,19 +18,34 @@ export default function LightLayer({
   lights = [],
   grid,
   dimmed = false,
+  viewScale = 1,
 }: {
   tokens: Token[];
   zones: ZoneInstance[];
   /** Размещённые DM источники света. */
   lights?: MapLight[];
   grid: GridSettings;
-  /** Режим обзора: свет приглушается, чтобы не спорить с вуалью. */
+  /** Игрок с обзором: ореол приглушается, чтобы не перекрывать туман. */
   dimmed?: boolean;
+  viewScale?: number;
 }) {
   const px = (grid.size || 50) / 5;
   const alpha = dimmed ? 0.55 : 1;
   return (
     <>
+      {lights.map((l) => (
+        <Circle
+          key={`light-source-${l.id}`}
+          x={l.x}
+          y={l.y}
+          radius={5 / viewScale}
+          fill={l.color ?? '#ffd166'}
+          stroke="#07090d"
+          strokeWidth={1.5 / viewScale}
+          opacity={0.95}
+          listening={false}
+        />
+      ))}
       {mapLights(tokens, zones, grid.size || 50, lights).map((l) => {
         const brightR = l.light.bright * px;
         const outerR = (l.light.bright + l.light.dim) * px;

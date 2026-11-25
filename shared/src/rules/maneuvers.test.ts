@@ -58,7 +58,7 @@ describe('манёвры боевого мастера (XPHB)', () => {
     const action = classFeatures(battleMaster(3), pick('XPHB:Bait and Switch')).find(
       (a) => a.id === BAIT_AND_SWITCH_ACTION
     );
-    expect(action?.costs).toEqual(['bonus']);
+    expect(action?.costs).toEqual(['free']);
     expect(action?.targeting).toEqual({ kind: 'creature', range: 5 });
     expect(featureChoiceOptions(BAIT_AND_SWITCH_ACTION)).toEqual(['self', 'ally']);
   });

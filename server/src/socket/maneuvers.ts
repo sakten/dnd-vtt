@@ -46,7 +46,7 @@ export function rollManualManeuver(
   pushRollMessage(ctx, room, { author: token.name, roll, kind: 'plain', params: { subject: actionName } });
 }
 
-/** Проверка Приманки и подмены до траты бонуса/кости: цель, дистанция, размеры, стены, движение. */
+/** Проверка Приманки и подмены до траты кости и движения: цель, дистанция, размеры, стены, движение. */
 export function baitAndSwitchIssue(
   ctx: ConnCtx,
   room: Room,
@@ -95,7 +95,7 @@ export function knowYourEnemyIssue(
   return null;
 }
 
-/** Приманка и подмена: бонусное действие, обмен местами, 5 фт движения, кость в AC. */
+/** Приманка и подмена: обмен местами, 5 фт движения, кость в AC. */
 export function applyBaitAndSwitch(
   ctx: ConnCtx,
   room: Room,

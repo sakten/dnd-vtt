@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import {
   effectFieldsFromDef,
+  gridOfMap,
   isIncapacitated,
   rollDice,
   sheetProficiencyBonus,
+  snapToGrid,
   triggerOn,
   triggersOn,
   type AutomationEffect,
@@ -115,6 +117,20 @@ export function applyEffectTo(ctx: ConnCtx, room: Room, args: ApplyEffectArgs): 
   // Sanctuary: СЛ спасброска атакующего — СЛ каста (передаётся как untilSaveDc).
   const sanctuary = triggerOn(effect, 'targetedByAttack');
   if (sanctuary) sanctuary.save = { ability: 'wis', dc: untilSaveDc ?? 10 };
+  const sizeCells = Math.round(Number(effectDef.sizeCells) || 0);
+  if (sizeCells > target.cells) {
+    const map = ctx.manager.findMap(room, mapId);
+    const grid = gridOfMap(map, room.scene.grid);
+    const previous = target.cells;
+    target.cells = sizeCells;
+    target.w = sizeCells * grid.size;
+    target.h = sizeCells * grid.size;
+    if (grid.snap) {
+      target.x = snapToGrid(target.x, grid.offsetX, grid.size, sizeCells);
+      target.y = snapToGrid(target.y, grid.offsetY, grid.size, sizeCells);
+    }
+    effect.size = { cells: sizeCells, previous };
+  }
   ctx.manager.applyEffect(room, target, effect);
   // Бонус к максимуму HP: у персонажа он в ресурсах — обновляем панель сразу.
   if (controllerId && (effectDef.maxHpBonus || effectDef.modifiers.some((m) => m.target === 'maxHp'))) {

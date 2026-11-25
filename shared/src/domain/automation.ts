@@ -118,6 +118,8 @@ export interface AutomationEffect {
   consumeOnSave?: boolean;
   /** Служебный эффект (пассивная черта класса): не показывается в чипах. */
   hidden?: boolean;
+  /** Размер токена в клетках, пока эффект активен (Large Form). */
+  sizeCells?: number;
   /** Модификаторы без id — id присваивает сервер при наложении. */
   modifiers: Omit<Modifier, 'id'>[];
   conditions?: ConditionKey[];

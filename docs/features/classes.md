@@ -6,7 +6,7 @@
 
 ## Способности классов/подклассов
 
-каталог `shared/src/data/features.json` (`npm run features`, 829 черт ≤20 ур., ключи как у ресурсов), `rules/features.ts` (уровни/поиск), ручные механики `rules/featureAutomation.ts` (`passive`/`active`/`choice`;
+каталог `shared/src/data/features.json` (`npm run features`, 838 черт ≤20 ур., ключи как у ресурсов), `rules/features.ts` (уровни/поиск), ручные механики `rules/featureAutomation.ts` (`passive`/`active`/`choice`;
 `featureChoiceOptions` — выбор варианта при использовании, Обольщающая магия через `action:use.variant`), кнопки `rules/classActions.ts` (в т.ч. `FeatureMechanics.spellKey` — каст заклинания без ячейки за ресурс),
 наездники при попадании `rules/attackRiders.ts` + `server/src/socket/attackRiders.ts`, скрытые эффекты-пассивки `server/src/socket/features.ts`, `CharacterSheet.choices`; **боевой мастер** — `data/maneuvers.json` (`npm
 run maneuvers`), `rules/maneuvers.ts` (лимит 3/5/7/9, RU-имена, кнопки), пикер `components/ManeuversForm.tsx`, автоматизированы Precision Attack (декларативный `rollBonus` с `selfOnly`), Parry/Riposte (реакции),
@@ -49,3 +49,16 @@ run feats`), `rules/feats.ts` (`featChoiceEffects`), выборы заклина
 - Очки чародейства — пул `sorcerer:sorceryPoints`; метамагия — выбор 2/4/6 опций в «Талантах» (`components/MetamagicForm.tsx`, `rules/metamagic.ts`), при касте — селектор в `SpellPopover` и оплата ОЧ (`socket/spells.ts`).
 - Автоматизированы: Subtle, Distant, Quickened, Transmuted, Seeking (переброс промаха за 1 ОЧ), Heightened (помеха спасброскам первой цели), Careful (защита союзников), Extended (длительность ×2 и преимущество на концентрацию) и Twinned 2024 (эффективный уровень +1 и доп. цель). Empowered — вручную (`system.metamagic.manual`).
 - Проверки: `server/src/socket/innateSorcery.test.ts`, `server/src/socket/metamagic.test.ts`.
+
+## Воин — Rune Knight (TCE)
+
+- Giant's Might: бонусное действие и ресурс `fighter.runeKnight:giantsMight`; размер токена растёт до Large (2 клетки), на 18 уровне — до Huge (3 клетки), эффект на 10 раундов. При снятии эффекта размер возвращается (`EffectInstance.size`), эффект и сообщение — `server/src/socket/runeKnight.ts`; проверки `server/src/socket/runeKnight.test.ts`.
+
+## Голиаф (XPHB)
+
+- Large Form (5 ур.): эффект `race:XPHB:Goliath:largeForm` даёт `sizeCells: 2` и увеличивает токен до Large; пока эффект активен, в панели есть свободное действие «Вернуться к обычному размеру» (`race:XPHB:Goliath:largeFormEnd`), снятие эффекта возвращает размер.
+- Fire's Burn / Frost / Hill — наездники при попадании с ресурсом `race:XPHB:Goliath:giantAncestry`; лимита «раз за ход» нет (`noTurnLimit`), ограничение — только запас ресурса (PB/long rest).
+
+## Покрытие классов
+
+Полный каталог — `features.json` (838 черт, 13 классов, включая артифишера EFA 2024). Здесь описаны только механики, требующие отдельных правил/ручного выбора; остальные черты идут через `classActions`, `featureAutomation` и данные `features.json`.

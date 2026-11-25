@@ -556,6 +556,7 @@ export const en: Partial<Record<MessageKey, string>> = {
   'ui.race.revelation.radiance': 'Inner Radiance',
   'ui.race.revelation.shroud': 'Necrotic Shroud',
   'ui.race.chooseRevelation': 'Choose a revelation',
+  'ui.race.largeFormEnd': 'Return to normal size',
   'ui.sheet.namePlaceholder': 'Optional',
   'ui.sheet.classes': 'Classes (up to {max})',
   'ui.sheet.class': 'Class',

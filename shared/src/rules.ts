@@ -25,6 +25,7 @@ export * from './rules/optional';
 export * from './rules/paladin';
 export * from './rules/races';
 export * from './rules/reactions';
+export * from './rules/runeKnight';
 export * from './rules/hands';
 export * from './rules/kensei';
 export * from './rules/loadout';

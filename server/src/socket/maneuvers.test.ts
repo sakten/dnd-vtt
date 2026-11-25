@@ -228,6 +228,7 @@ describe('Приманка и подмена', () => {
     expect(fighter.x).toBe(100);
     expect(ally.x).toBe(50);
     expect(room.scene.maps[0]!.combat.turns.e1!.movementUsed).toBe(5);
+    expect(room.scene.maps[0]!.combat.turns.e1!.bonusActionUsed).toBe(false);
     expect(room.resources.p1!.resources[0]!.current).toBe(3);
     const effect = ally.effects.find((e) => e.sourceKey === BAIT_AND_SWITCH_ACTION);
     expect(effect?.modifiers[0]).toMatchObject({ target: 'ac', mode: 'add', value: 8 });

@@ -61,6 +61,8 @@ export interface AttackRiderDef {
     duration: EffectDuration;
     modifiers: Omit<Modifier, 'id'>[];
     conditions?: ConditionKey[];
+    /** Снимается при получении носителем состояний (смерть/без сознания). */
+    endsOnConditions?: ConditionKey[];
     /** Одноразовый эффект: сгорает после броска атаки другого существа по носителю. */
     consumeOnIncomingAttack?: boolean;
   };
@@ -126,6 +128,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
       name: 'Отвлекающий удар',
       duration: { type: 'endOfTurn', of: 'source' },
       modifiers: [{ target: 'attack', mode: 'advantage', filter: { direction: 'against', otherThanSource: true } }],
+      endsOnConditions: ['dead', 'unconscious'],
       consumeOnIncomingAttack: true,
     },
   },
@@ -160,6 +163,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     raceChoice: { id: 'giant', key: 'fire' },
     levelReq: 1,
     choiceOnHit: true,
+    noTurnLimit: true,
     resourceKey: 'race:XPHB:Goliath:giantAncestry',
     resourceAmount: 1,
     dice: '1d10',
@@ -172,6 +176,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     raceChoice: { id: 'giant', key: 'frost' },
     levelReq: 1,
     choiceOnHit: true,
+    noTurnLimit: true,
     resourceKey: 'race:XPHB:Goliath:giantAncestry',
     resourceAmount: 1,
     dice: '1d6',
@@ -189,6 +194,7 @@ export const ATTACK_RIDERS: AttackRiderDef[] = [
     raceChoice: { id: 'giant', key: 'hill' },
     levelReq: 1,
     choiceOnHit: true,
+    noTurnLimit: true,
     resourceKey: 'race:XPHB:Goliath:giantAncestry',
     resourceAmount: 1,
     conditionOnHit: { condition: 'prone', duration: { type: 'endOfTurn', of: 'target' } },
